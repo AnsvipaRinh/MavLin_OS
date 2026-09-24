@@ -1,0 +1,23 @@
+# PROGRESS — MacBook 12 Mavericks Linux
+
+## Phase 0 — База и идентификация железа
+- [x] Определить точную модель/ревизию: MacBook9,1 (conservative assumption, see HARDWARE.md)
+- [x] Зафиксировать в docs/HARDWARE.md
+- [ ] Pacstrap минимальной базовой системы, загружаемость через rEFInd/systemd-boot
+- [ ] Acceptance: система грузится до консоли на реальном железе
+
+### Фаза 1 — Аппаратная поддержка
+- Wi-Fi
+- Аудио
+- Bluetooth
+- Внешний ввод через USB-C
+- Встроенные клавиатура/трекпад (best effort, лимит 3 стратегии)
+- Управление питанием: TLP, thermald
+
+### Фаза 2 — Сверхоптимизация
+- zram/zswap
+- ananicy-cpp
+- Урезание systemd unit'ов
+- Минимизация фонового I/O
+
+### Фаза 3 — Визуальный слой 
