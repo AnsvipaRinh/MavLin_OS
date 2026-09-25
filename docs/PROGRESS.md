@@ -88,3 +88,9 @@
       mv-newfolder добавлен в Makefile install (DESTDIR-установка проверена)
 - [x] Зафиксированные accepted Finder-deltas (не баги, backend-пределы Thunar):
       column view невозможен; рекурсивный search-toolbar отсутствует (deferred, без нового dep)
+### Фаза 0.10 — Spotlight index wiring (2026-09-25, без железа)
+- [x] Найден разрыв: plocate+rofi в ISO есть, но индекс ничто не строило/обновляло —
+      файловый поиск Spotlight был бы пуст на установленной системе
+- [x] `systemctl enable plocate-updatedb.timer` в firstboot (исходник + зеркало, sync OK,
+      bash -n OK); unit-имя сверено с файлами пакета Arch (plocate-updatedb.service/.timer);
+      daily oneshot, не daemon — в рамках energy-бюджета

@@ -78,6 +78,9 @@ if [[ -n "$TARGET_USER" && "$TARGET_USER" != "root" ]]; then
 fi
 systemctl enable lightdm.service
 systemctl enable bluetooth.service
+# Spotlight file index: without the plocate DB, Super+Space file search is
+# empty. Cheap daily oneshot (not a resident daemon).
+systemctl enable plocate-updatedb.timer
 # journald: persistent on installed system (ISO uses volatile)
 rm -f /etc/systemd/journald.conf.d/volatile-storage.conf 2>/dev/null || true
 
