@@ -4,6 +4,6 @@ Name=TextEdit
 Comment=Text Editor (Mavericks)
 Exec=mousepad %U
 Icon=text-editor
-Categories=TextEditor;
+Categories=Utility;TextEditor;
 StartupNotify=true
 X-Mavericks-Alias-For=mousepad

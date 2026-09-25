@@ -290,7 +290,7 @@ radiobutton {
     indicator {
         background-color: $entry_bg_color;
         border: 1px solid shade($entry_bg_color, 0.6);
-        border-radius: 3px; /* checkbox */ / 8px; /* radio */
+        border-radius: 3px; /* checkbox; radio overridden below */
         min-width: $check_indicator_size;
         min-height: $check_indicator_size;
         @include inset-shadow();
@@ -318,6 +318,10 @@ radiobutton {
         color: $fg_color;
         padding-left: 8px;
     }
+}
+
+radiobutton indicator {
+    border-radius: 8px;
 }
 
 /* ============================================================

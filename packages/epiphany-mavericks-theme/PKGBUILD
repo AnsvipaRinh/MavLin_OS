@@ -4,23 +4,16 @@ pkgver=1.0.0
 pkgrel=1
 pkgdesc="Safari 7 (OS X 10.9) style theme for Epiphany/GNOME Web - unified toolbar, compass icon, Top Sites"
 arch=('any')
-url="https://github.com/mavericks-linux/epiphany-mavericks-theme"
-license=('GPL3')
+url="https://github.com/mavericks-linux/macbook12-macos-linux"
+license=('GPL-3.0-or-later')
 depends=('epiphany' 'mavericks-theme')
-makedepends=('git' 'sassc')
+makedepends=('sassc')
 install=epiphany-mavericks-theme.install
-source=(
-    "epiphany-mavericks-theme::git+https://github.com/mavericks-linux/epiphany-mavericks-theme.git#commit=HEAD"
-)
-sha256sums=('SKIP')
-
-pkgver() {
-    cd epiphany-mavericks-theme
-    git describe --long --tags 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' || echo "1.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
-}
-
+# NOTE: sources live in ./src/epiphany-mavericks-theme/ (repo-local).
+# Status: DEFERRED — system browser is Firefox ESR; Epiphany is not in the ISO.
+# Package is kept buildable offline for future evaluation, not built by default.
 build() {
-    cd epiphany-mavericks-theme
+    cd "$startdir/src/epiphany-mavericks-theme"
     # Compile SCSS to CSS for Epiphany's GTK theme
     if [ -f "epiphany.scss" ]; then
         sassc -t compressed epiphany.scss epiphany.css
@@ -28,7 +21,7 @@ build() {
 }
 
 package() {
-    cd epiphany-mavericks-theme
+    cd "$startdir/src/epiphany-mavericks-theme"
 
     # Install Epiphany-specific CSS overrides
     install -dm755 "${pkgdir}/usr/share/epiphany/mavericks"
@@ -348,3 +341,4 @@ EphyPrintPreview {
     background-color: @safari_toolbar_bg;
 }
 EOF
+}

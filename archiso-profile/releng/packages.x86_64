@@ -11,7 +11,6 @@ dhcpcd
 diffutils
 dmidecode
 dosfstools
-dunst
 e2fsprogs
 efibootmgr
 ethtool
@@ -31,8 +30,9 @@ geary
 gnome-disk-utility
 gnome-font-viewer
 gptfdisk
-grub
 gthumb
+gtk-engine-murrine
+gvfs
 hdparm
 intel-gpu-tools
 intel-ucode
@@ -40,6 +40,7 @@ iw
 iwd
 jfsutils
 less
+libnotify
 lightdm
 lightdm-gtk-greeter
 linux
@@ -53,6 +54,7 @@ lvm2
 man-db
 man-pages
 mavericks-apps
+mavericks-theme
 mc
 mdadm
 mesa-utils

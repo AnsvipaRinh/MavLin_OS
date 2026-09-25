@@ -5,7 +5,11 @@
 set -euo pipefail
 OUT="${1:-/tmp/mavericks-repo}"
 mkdir -p "$OUT"
-for pkg in mavericks-apps mavericks-theme epiphany-mavericks-theme macbook12-audio-driver; do
+# Default set: packages consumed by the ISO / installed system.
+# epiphany-mavericks-theme is DEFERRED (Firefox ESR is the browser) — build only with --all.
+PKGS="mavericks-apps mavericks-theme macbook12-audio-driver"
+[[ "${2:-}" == "--all" ]] && PKGS="$PKGS epiphany-mavericks-theme"
+for pkg in $PKGS; do
   dir="packages/$pkg"
   [[ -f "$dir/PKGBUILD" ]] || { echo "skip $pkg (no PKGBUILD)"; continue; }
   echo "=== building $pkg ==="

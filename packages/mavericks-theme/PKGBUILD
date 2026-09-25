@@ -4,39 +4,28 @@ pkgver=1.0.0
 pkgrel=1
 pkgdesc="OS X 10.9 Mavericks skeuomorphic theme for Xfce/GTK3 - textures, shadows, glass, leather/paper"
 arch=('any')
-url="https://github.com/mavericks-linux/mavericks-theme"
-license=('GPL3')
+url="https://github.com/mavericks-linux/macbook12-macos-linux"
+license=('GPL-3.0-or-later')
 depends=('gtk3' 'gtk-engine-murrine' 'plank' 'xfce4-panel' 'thunar' 'xfce4-settings' 'hicolor-icon-theme')
-makedepends=('git' 'sassc' 'inkscape' 'optipng')
-optdepends=('epiphany: for Safari 7 styled browser')
+makedepends=('sassc' 'optipng')
 install=mavericks-theme.install
-source=(
-    "mavericks-theme::git+https://github.com/mavericks-linux/mavericks-theme.git#commit=HEAD"
-    "mavericks-theme.install"
-)
-sha256sums=('SKIP'
-            'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456')
-
-pkgver() {
-    cd mavericks-theme
-    git describe --long --tags 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' || echo "1.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
-}
-
+# NOTE: sources live in ./src/mavericks-theme/ (repo-local, reproducible).
+# Build with: makepkg -s (from this directory). No network fetch required.
 build() {
-    cd mavericks-theme
+    cd "$startdir/src/mavericks-theme"
     # Build GTK3 theme (compile SCSS to CSS)
-    if [ -d "gtk-3.0" ] && [ -f "gtk-3.0/gtk.scss" ]; then
+    if [ -f "gtk-3.0/gtk.scss" ]; then
         sassc -t compressed gtk-3.0/gtk.scss gtk-3.0/gtk.css
     fi
-    if [ -d "gtk-3.20" ] && [ -f "gtk-3.20/gtk.scss" ]; then
-        sassc -t compressed gtk-3.30/gtk.scss gtk-3.20/gtk.css
+    if [ -f "gtk-3.20/gtk.scss" ]; then
+        sassc -t compressed gtk-3.20/gtk.scss gtk-3.20/gtk.css
     fi
     # Optimize PNG assets
     find . -name "*.png" -exec optipng -o2 -quiet {} \; 2>/dev/null || true
 }
 
 package() {
-    cd mavericks-theme
+    cd "$startdir/src/mavericks-theme"
 
     # GTK3 theme
     install -dm755 "${pkgdir}/usr/share/themes/Mavericks"

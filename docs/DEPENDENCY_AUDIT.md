@@ -32,3 +32,17 @@
 - browser: Firefox ONLY in ISO (no Epiphany/WebKitGTK runtime).
 - power: TLP ONLY (no thermald/ananicy/power-profiles-daemon).
 - audio: PipeWire ONLY (no PulseAudio daemon).
+
+## Phase 0.6 corrections (2026-09-25, pre-hardware)
+- REMOVED `dunst` from packages.x86_64 (was still listed; contradicted the
+  xfce4-notifyd-only rule above and risked a second daemon via autostart).
+- REMOVED `grub` (ISO bootmodes = `uefi.systemd-boot` only; A1534 is UEFI-only).
+- ADDED `mavericks-theme` (local repo package; skel already references it —
+  without this the live session had no Mavericks theme at all).
+- ADDED `gvfs` (Thunar Trash + volume management; required for Finder/Trash
+  claims in APPS.md — was only an optional dep, i.e. effectively absent).
+- ADDED `gtk-engine-murrine` (hard dep of mavericks-theme) and `libnotify`
+  (notify-send backend for mv-reminders/mv-control).
+- Local packages (`mavericks-apps`, `mavericks-theme`) are repo-local builds
+  via `scripts/build-local-pkgs.sh` → `[mavericks]` pacman repo;
+  `epiphany-mavericks-theme` excluded from default build (DEFERRED).

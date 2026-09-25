@@ -4,6 +4,6 @@ Name=Finder
 Comment=File Manager (Mavericks)
 Exec=thunar %U
 Icon=folder
-Categories=System;FileManager;
+Categories=System;FileTools;
 StartupNotify=true
 X-Mavericks-Alias-For=thunar

@@ -97,6 +97,37 @@
 
 ---
 
+## Phase 0.6 pre-hardware coherence fixes (no hardware)
+
+**Date:** 2026-09-25
+**Decisions:**
+1. `mavericks-theme` added to `packages.x86_64`. skel/xsettings referenced
+   `gtk-theme-name=Mavericks` but the package was never installed in the ISO —
+   live session would fall back to stock Adwaita/Raleigh (P0 coherence break).
+2. `mavericks-theme` + `epiphany-mavericks-theme` PKGBUILDs rewritten to
+   repo-local sources (same pattern as `mavericks-apps`: no network fetch).
+   Both previously cloned nonexistent `github.com/mavericks-linux/*.git`
+   repos, so `scripts/build-local-pkgs.sh` could never build them.
+3. `epiphany-mavericks-theme` → DEFERRED (system browser is Firefox ESR;
+   Epiphany not in ISO). Kept buildable offline; built only with `--all`.
+4. `packages.x86_64`: removed `dunst` (second notification daemon —
+   contradicts xfce4-notifyd-only decision; risk of autostart conflict),
+   removed `grub` (ISO bootmodes = `uefi.systemd-boot` only; A1534 has no
+   BIOS/CSM), added `gvfs` (Thunar Trash/volumes — required for the
+   Finder=IMPLEMENTED and Trash=IMPLEMENTED claims in APPS.md),
+   `gtk-engine-murrine` (hard dep of mavericks-theme), `libnotify`
+   (notify-send backend for mv-reminders/mv-control).
+5. Theme SCSS fixed and verified by actual `sassc 3.6.2` compilation
+   (gtk-3.0 ~26KB, gtk-3.20 ~27KB, epiphany ~4KB CSS): dropped 14
+   nonexistent `@import`s, fixed malformed `border-radius ... / 8px`,
+   converted GTK `@var` syntax to SCSS `$var` in compiled files,
+   fixed `gtk-3.30` typo, fixed unterminated heredoc in epiphany PKGBUILD.
+6. Empty `archiso-profile/.../etc/ananicy.d/` removed (leftover of the
+   removed ananicy-cpp); `powertop` package KEPT (used read-only via
+   `powertop --time=20 --csv` in mv-collect; only `--auto-tune` is banned).
+
+---
+
 ## Visual target: Mavericks (OS X 10.9) skeuomorphic aesthetic on Xfce
 
 **Date:** 2026-09-25

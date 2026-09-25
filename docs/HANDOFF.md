@@ -1,7 +1,11 @@
 # HANDOFF.md — Сводка состояния (для чтения за 1 минуту)
 
-**Дата:** 2026-09-25
+**Дата:** 2026-09-25 (обновлено: Phase 0.5 baseline + P0 coherence fixes)
 **Готовность к железу:** Phase 0 — DONE (smoke-test в QEMU пройден)
+
+> Phase 0.5 — действующий baseline (source of truth: раздел 7 AGENTS.md,
+> `docs/DECISIONS.md` «Phase 0.3 baseline»). Всё ниже, что противоречит
+> старым записям про thermald/ananicy/Epiphany — считать устаревшим.
 
 ---
 
@@ -22,7 +26,10 @@
 - **Аудио:** PKGBUILD macbook12-audio-driver (github.com/leifliddy/macbook12-audio-driver) готов в `packages/macbook12-audio-driver/`
 - **Bluetooth:** macbook12-bluetooth-driver (AUR) + in-kernel btusb fallback
 - **applespi (клавиатура/трекпад):** 3 стратегии документированы в HARDWARE_DECISION_TREE.md с лимитом попыток
-- **Питание:** TLP (powersave, boost=0), thermald, ananicy-cpp — включены и настроены
+- **Питание:** TLP ONLY (powersave governor, ASPM powersave, USB autosuspend,
+  RUNTIME_PM auto). thermald и ananicy-cpp УДАЛЕНЫ (см. DECISIONS.md).
+- **Kernel cmdline:** `quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0`
+  (Turbo ON, APST/FBC/GuC/THP/VM — defaults; `powertop --auto-tune` BANNED).
 
 ### Phase 2 — Оптимизация (ПОДГОТОВЛЕНО, НЕ ПРОВЕРЕНО)
 - zram, ananicy-cpp, урезанные systemd units, journald volatile — всё в ISO
@@ -32,9 +39,12 @@
 - Иконки pre-flat стиль
 - Dock: plank с рефлексией/зумом
 - Панель: xfce4-panel как menu bar
-- Thunar как Finder (боковая панель, Mavericks-иконки папок)
-- xfce4-settings как System Preferences (сетка иконок)
-- Браузер: Epiphany/GNOME Web + тема Safari 7 (Top Sites, компас, unified toolbar)
+- Thunar как Finder (боковая панель, Mavericks-иконки папок, GVfs trash,
+  uca.xml: Quick Look / Put Back / Compress)
+- xfce4-settings как System Preferences (mv-settings launcher)
+- Уведомления: xfce4-notifyd ONLY (dunst удалён из ISO)
+- Браузер: Firefox ESR + uBlock Origin (Epiphany НЕ в ISO;
+  epiphany-mavericks-theme — DEFERRED, собирается только с `--all`)
 
 ---
 
@@ -53,12 +63,12 @@
 ## 🔑 КЛЮЧЕВЫЕ РЕШЕНИЯ (без пользователя, зафиксированы в DECISIONS.md)
 1. **Модель:** MacBook10,1 (Mid 2017) — явно, не предположение
 2. **Ядро:** linux-zen (интерактивность на fanless Core M)
-3. **Загрузка:** UEFI-only systemd-boot (нет BIOS/CSM на A1534)
+3. **Загрузка:** UEFI-only systemd-boot (нет BIOS/CSM на A1534; grub удалён из ISO)
 4. **ФС:** btrfs + субволюмы + zstd (снапшоты, экономия SSD)
 5. **Swap:** zram (нет диск swap — SSD распаян)
-6. **Питание:** TLP + thermald + ananicy-cpp (fanless = термика критична)
+6. **Питание:** TLP ONLY (thermald/ananicy удалены; powertop только read-only)
 7. **Визуал:** Mavericks (OS X 10.9) скеоморфизм на Xfce/GTK3 (минимум оверхеда)
-8. **Браузер:** Epiphany (WebKit) + Safari 7 тема (ближе к нативному рендерингу, легче Firefox)
+8. **Браузер:** Firefox ESR + uBlock (Epiphany исключён из ISO)
 
 ---
 
@@ -66,18 +76,24 @@
 ```
 macbook12-macos-linux/
 ├── archiso-profile/releng/     # Профиль archiso (ISO собирается отсюда)
-├── packages/                   # PKGBUILD для нестандартных пакетов
-│   ├── macbook12-audio-driver/
-│   ├── linux-macbook/          # кастомное ядро для Стратегии 2 applespi
-│   └── mavericks-theme/        # GTK3/иконки/планк тема
-├── theme/                      # Исходники темы (SVG, CSS, assets)
-├── scripts/                    # Утилиты (apply-hardware-selection.sh и др.)
+│   └── packages.x86_64         # Полный desktop; local pkgs: mavericks-apps + mavericks-theme
+│                               # (собрать scripts/build-local-pkgs.sh → подключить [mavericks] repo)
+├── packages/                   # Локальные PKGBUILD (все repo-local, без network fetch)
+│   ├── mavericks-apps/         # Кастомные apps (mv-settings/about/activity/...)
+│   ├── mavericks-theme/        # GTK3/иконки/plank/курсоры (SCSS → sassc, проверено)
+│   ├── epiphany-mavericks-theme/ # DEFERRED (Firefox ESR — браузер системы)
+│   └── macbook12-audio-driver/ # Cirrus audio (апстрим leifliddy, HW validation)
+├── scripts/                    # build-local-pkgs.sh, apply-hardware-selection.sh, install/
+├── tools/diagnostics/          # mv-collect/mv-power/mv-suspend-test/mv-thermal (read-only)
+├── tools/experiments/          # mv-experiment runner (E1-E12, E-MC skippy-xd)
+├── configs/                    # desktop/firefox/profiles (baseline + experiments)
 ├── docs/
 │   ├── HARDWARE.md             # Железо + конфиг базовой системы
 │   ├── DECISIONS.md            # Архитектурные решения
 │   ├── PROGRESS.md             # Чеклист фаз
 │   ├── NEEDS_HARDWARE_TEST.md  # Что проверить на железе
 │   ├── HARDWARE_DECISION_TREE.md # Алгоритм выбора драйверов
+│   ├── APPS.md                 # App surface inventory + статусы
 │   └── HANDOFF.md              # Этот файл
 └── out/                        # Собранные ISO (в .gitignore)
 ```
@@ -85,11 +101,13 @@ macbook12-macos-linux/
 ---
 
 ## 🚀 СЛЕДУЮЩИЕ ШАГИ (агент продолжает без пауз)
-1. Собрать PKGBUILD для `macbook12-audio-driver` в `packages/`
-2. Собрать PKGBUILD для `mavericks-theme` (GTK3, icons, plank, cursors)
-3. Собрать PKGBUILD для `epiphany-mavericks-theme` (Safari 7 стиль)
-4. Создать `scripts/apply-hardware-selection.sh` для автоматизации пост-установки
-5. Добавить все пакеты в `packages.x86_64` и пересобрать ISO
-6. Обновить HANDOFF.md по итогам недели
+1. Пересобрать ISO (`scripts/build-local-pkgs.sh` → mkarchiso) и прогнать
+   QEMU+OVMF smoke-test с обновлённым пакетлистом (gvfs/murrine/libnotify,
+   без dunst/grub, с mavericks-theme).
+2. На железе: проверить применение темы Mavericks на живой сессии
+   (gtk-theme-name=Mavericks; gtk.css скомпилирован sassc pre-hardware).
+3. P0 coherence: Finder-поведение поверх Thunar/GVfs (sidebar, Quick Look
+   Space-интеграция), Spotlight UX, Mission Control overview (E-MC skippy-xd).
+4. Обновить HANDOFF.md по итогам следующей итерации.
 
 **Никаких пауз "до железа".** Всё доводится до "ПОДГОТОВЛЕНО, НЕ ПРОВЕРЕНО".
