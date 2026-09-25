@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- xsettings — theme/fonts/HiDPI -->
+<channel name="xsettings" version="1.0">
+  <property name="Net" type="empty">
+    <property name="ThemeName" type="string" value="Mavericks"/>
+    <property name="IconThemeName" type="string" value="Mavericks"/>
+    <property name="CursorThemeName" type="string" value="Mavericks-Cursors"/>
+    <property name="CursorThemeSize" type="int" value="24"/>
+    <property name="DoubleClickTime" type="int" value="400"/>
+    <property name="DoubleClickDistance" type="int" value="5"/>
+    <property name="DndDragThreshold" type="int" value="8"/>
+    <property name="EnableEventSounds" type="bool" value="false"/>
+    <property name="EnableInputFeedbackSounds" type="bool" value="false"/>
+  </property>
+  <property name="Xft" type="empty">
+    <property name="Antialias" type="int" value="1"/>
+    <property name="Hinting" type="int" value="1"/>
+    <property name="HintStyle" type="string" value="hintslight"/>
+    <property name="RGBA" type="string" value="rgb"/>
+    <property name="DPI" type="int" value="192"/>
+  </property>
+  <property name="Gtk" type="empty">
+    <property name="FontName" type="string" value="San Francisco 11"/>
+    <property name="MonospaceFontName" type="string" value="Menlo 11"/>
+    <property name="CanChangeAccels" type="bool" value="false"/>
+    <property name="ColorPalette" type="string" value=""/>
+    <property name="ToolbarStyle" type="string" value="both"/>
+    <property name="ToolbarIconSize" type="int" value="3"/>
+    <property name="MenuImages" type="bool" value="true"/>
+    <property name="ButtonImages" type="bool" value="true"/>
+  </property>
+</channel>

@@ -21,4 +21,11 @@ file_permissions=(
   ["/usr/local/bin/choose-mirror"]="0:0:755"
   ["/usr/local/bin/Installation_guide"]="0:0:755"
   ["/usr/local/bin/livecd-sound"]="0:0:755"
+  ["/usr/local/bin/mavericks/mavericks-firstboot.sh"]="0:0:755"
+  ["/usr/local/bin/mavericks/extract-brcmfmac-nvram.sh"]="0:0:755"
+  ["/usr/local/bin/mavericks/mv-collect.sh"]="0:0:755"
+  ["/usr/local/bin/mavericks/mv-power.sh"]="0:0:755"
+  ["/usr/local/bin/mavericks/mv-suspend-test.sh"]="0:0:755"
+  ["/usr/local/bin/mavericks/mv-thermal.sh"]="0:0:755"
+  ["/usr/local/bin/mavericks/mv-experiment.sh"]="0:0:755"
 )

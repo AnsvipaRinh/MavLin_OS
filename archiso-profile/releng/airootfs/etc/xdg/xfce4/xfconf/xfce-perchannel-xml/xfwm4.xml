@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- xfwm4 — Mavericks window decorations: shadows on, heavy effects off (fanless) -->
+<channel name="xfwm4" version="1.0">
+  <property name="general" type="empty">
+    <property name="theme" type="string" value="Mavericks"/>
+    <property name="title_font" type="string" value="San Francisco 11"/>
+    <property name="show_dock_shadow" type="bool" value="true"/>
+    <property name="show_popup_shadow" type="bool" value="true"/>
+    <property name="shadow_delta_height" type="int" value="8"/>
+    <property name="shadow_delta_width" type="int" value="8"/>
+    <property name="shadow_delta_x" type="int" value="0"/>
+    <property name="shadow_delta_y" type="int" value="4"/>
+    <property name="shadow_opacity" type="int" value="50"/>
+    <property name="use_compositing" type="bool" value="true"/>
+    <property name="frame_opacity" type="int" value="100"/>
+    <property name="inactive_opacity" type="int" value="100"/>
+    <property name="move_opacity" type="int" value="100"/>
+    <property name="resize_opacity" type="int" value="100"/>
+    <property name="zoom_desktop" type="bool" value="false"/>
+    <property name="zoom_pointer" type="bool" value="true"/>
+    <!-- effects OFF for fanless -->
+    <property name="vblank_mode" type="string" value="off"/>
+    <property name="unredirect_overlays" type="bool" value="true"/>
+    <property name="placement_mode" type="string" value="center"/>
+    <property name="wrap_windows" type="bool" value="false"/>
+    <property name="wrap_workspaces" type="bool" value="false"/>
+    <property name="scroll_workspaces" type="bool" value="true"/>
+    <property name="focus_delay" type="int" value="0"/>
+    <property name="focus_hint" type="bool" value="true"/>
+    <property name="click_to_focus" type="bool" value="true"/>
+    <property name="raise_on_click" type="bool" value="true"/>
+    <property name="raise_on_focus" type="bool" value="false"/>
+    <property name="raise_with_any_button" type="bool" value="true"/>
+  </property>
+</channel>

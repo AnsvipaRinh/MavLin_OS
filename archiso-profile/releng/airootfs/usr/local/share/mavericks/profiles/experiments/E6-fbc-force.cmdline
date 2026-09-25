@@ -1,0 +1,2 @@
+# E6 — FBC forced. Baseline: auto.
+i915.enable_fbc=1

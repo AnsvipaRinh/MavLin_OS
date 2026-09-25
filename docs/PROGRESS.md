@@ -32,3 +32,13 @@
 - [x] Аналог Finder (thunar с боковой панелью и Mavericks-иконками)
 - [x] Аналог System Preferences (xfce4-settings с сеткой иконок)
 - [x] Браузер: Epiphany/GNOME Web с темой Safari 7 (Top Sites, компас, unified toolbar)
+### Фаза 0.5 — Pre-hardware feature-complete (2026-09-25)
+- [x] Baseline reconciled to Phase 0.3: cmdline `quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0`
+- [x] Removed: thermald, ananicy-cpp, broadcom-wl blacklist, i915 guc/fbc/psr2 force, nvme APST-off, turbo-off, all sysctl overrides
+- [x] Profiles: bootstrap/baseline/production/diagnostic/recovery + E1-E12 experiments
+- [x] Diagnostics: mv-collect/mv-power/mv-suspend-test/mv-thermal (read-only) + mv-experiment runner
+- [x] Desktop: Xfce/xfwm4/panel/plank/LightDM/terminal configs in skel + system xdg
+- [x] Firefox ESR user.js + policies.json (uBlock, sessionstore 60s, no version pin)
+- [x] Audits: SERVICE_AUDIT, RUNTIME_AUDIT, DEPENDENCY_AUDIT, CPU_COMPILATION, MEMORY_BUDGET
+- [x] Scripts: mavericks-firstboot.sh, extract-brcmfmac-nvram.sh; apply-hardware-selection.sh reconciled
+- [x] ISO package list: full desktop (Xorg/LightDM/Xfce/PipeWire/NM/Firefox), no thermald/ananicy/epiphany

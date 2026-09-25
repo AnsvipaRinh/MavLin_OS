@@ -1,0 +1,23 @@
+# xfce4-terminal — Mavericks Terminal.app look (dark linen, green text off by default)
+[Configuration]
+MiscMenubarDefault=false
+MiscToolbarDefault=false
+MiscBordersDefault=false
+MiscCursorBlinks=false
+MiscCursorShape=TERMINAL_CURSOR_SHAPE_BLOCK
+MiscDefaultGeometry=80x24
+MiscInheritGeometry=false
+MiscMenubarAccel=false
+MiscBell=false
+MiscBellUrgent=false
+MiscBorders=false
+MiscDoubleClickWordChars=--@:~-_
+BackgroundMode=TERMINAL_BACKGROUND_TRANSPARENT
+BackgroundDarkness=0.95
+ColorForeground=#ffffffffffff
+ColorBackground=#1a1a1a1a1a1a1
+ColorCursor=#ffffffffffff
+FontName=Menlo 11
+ScrollingLines=1000
+ScrollingOnOutput=false
+ScrollingOnKeystroke=true

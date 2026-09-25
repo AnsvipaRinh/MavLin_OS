@@ -1,0 +1,2 @@
+# E1 — Turbo OFF variant. Baseline: turbo ON. Append to baseline CMDLINE.
+intel_pstate.no_turbo=1

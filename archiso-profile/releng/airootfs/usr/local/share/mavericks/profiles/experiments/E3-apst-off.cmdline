@@ -1,0 +1,2 @@
+# E3 — APST disabled. Baseline: kernel default (25000). Use ONLY if APST problem observed.
+nvme_core.default_ps_max_latency_us=0

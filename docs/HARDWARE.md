@@ -23,7 +23,9 @@
 **Bootloader:** systemd-boot (UEFI only)
 - MacBook 12" is UEFI-only, no BIOS/CSM
 - Loader entries: mavericks-linux-zen.conf, mavericks-linux-zen-fallback.conf
-- Kernel command line includes: intel_idle.max_cstate=4 i915.enable_guc=3 i915.enable_fbc=1 i915.enable_psr=2 nvme.noacpi=1 acpi_backlight=vendor applespi.debug=0
+- Kernel command line (Phase 0.3 baseline, source of truth):
+  `quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0`
+  (pcie_port_pm=off = Apple S3X resume workaround; psr=0 = diagnostic-safe)
 
 **Initramfs:** mkinitcpio with hooks: base udev autodetect microcode modconf kms keyboard keymap block filesystems fsck
 - MODULES: applespi spi_pxa2xx_platform intel_lpss_pci intel_lpss_acpi
@@ -39,27 +41,26 @@
 - systemd-zram-setup@zram0.service enabled
 
 **Power Management:**
-- TLP: CPU governor powersave, boost disabled, PCIe ASPM powersupersave, USB autosuspend
-- thermald: Intel DPTF thermal management (if profile available)
-- ananicy-cpp: Process priority optimization for interactivity
+- TLP only: CPU governor powersave, PCIe ASPM powersave, USB autosuspend, runtime PM auto
+- thermald/ananicy-cpp REMOVED (Phase 0.2/0.3)
+- zram + kernel defaults; no sysctl overrides in baseline
 
 **Network:**
 - systemd-networkd + systemd-resolved + iwd
 - Wi-Fi: broadcom-wl-dkms (AUR) prioritized for BCM43602 on MacBook10,1
 - Ethernet: DHCP via systemd-networkd
 
-**Services enabled by default:**
-- systemd-networkd, systemd-resolved, iwd
-- tlp, thermald, ananicy-cpp
-- systemd-zram-setup@zram0
-- fstrim.timer, reflector.service
-- sshd (for remote access during bring-up)
+**Services enabled (installed system):**
+- NetworkManager, systemd-resolved
+- tlp, systemd-zram-setup@zram0
+- lightdm, bluetooth
+- fstrim.timer
+- (ISO additionally: systemd-networkd, iwd, sshd, reflector for install)
 
 **Modprobe configuration (/etc/modprobe.d/99-mavericks.conf):**
-- Blacklist: brcmfmac, brcmsmac, b43, b43legacy, ssb, bcma
-- applespi debug=0
-- i915 enable_guc=3 enable_fbc=1 enable_psr=2
-- nvme_core default_ps_max_latency_us=0
+- Phase 0.3 baseline: kernel defaults, no active options.
+- brcmfmac used for BCM43602 (NVRAM provisioned at first boot).
+- i915/nvme/applespi experiments via configs/profiles/experiments/.
 
 **Live ISO packages:** ~75 packages (base, linux-zen, network tools, storage tools, installation tools)
 - ISO size: ~1.6 GB

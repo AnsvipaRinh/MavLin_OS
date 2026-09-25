@@ -23,12 +23,15 @@
 
 ## Base system: linux-zen + systemd-boot (UEFI only)
 
-**Date:** 2026-09-25
+**Date:** 2026-09-25 (corrected Phase 0.5)
 **Decision:** Use linux-zen kernel and systemd-boot for UEFI-only boot on MacBook 12".
 
 **Reasoning:**
-- linux-zen provides better interactive responsiveness on fanless Core M hardware (MuQSS scheduler, optimized for desktop interactivity)
-- MacBook 12" (A1534) is UEFI-only — no BIOS/CSM support needed, so syslinux/GRUB BIOS boot removed
+- linux-zen provides better interactive responsiveness on fanless Core M hardware
+  (HZ=1000, PREEMPT=y, CFS scheduler with desktop-tuned latencies).
+- CORRECTION: Arch linux-zen does NOT use MuQSS (earlier text was wrong).
+  MuQSS is used by Liquorix; Arch zen uses CFS. No custom scheduler.
+- MacBook 12" (A1534) is UEFI-only — no BIOS/CSM support needed
 - systemd-boot is simpler, faster, and integrates well with UKI/EFI stub approach
 - rEFInd kept as fallback in package list but systemd-boot is primary
 
@@ -62,22 +65,35 @@
 - zstd compression is fast on Core M
 - zram-generator integrates with systemd, no manual setup needed
 
-**Configuration:** /etc/systemd/zram-generator.conf.d/99-mavericks.conf sets zram-size = ram / 2
+**Configuration:** /etc/systemd/zram-generator.conf.d/99-mavericks.conf sets zram-size = ram / 2, zstd. No sysctl overrides in baseline (kernel defaults). Firefox sessionstore.interval=60s to reduce SSD writes.
 
 ---
 
-## Power management: TLP + thermald + ananicy-cpp
+## Phase 0.3 baseline (source of truth)
 
-**Date:** 2026-09-25
-**Decision:** Enable TLP, thermald, and ananicy-cpp by default for power management and responsiveness.
+**Date:** Phase 0.5 implementation
+**Kernel cmdline:** `quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0`
+- `pcie_port_pm=off` = sole MacBook10,1 provisional workaround (Sep 2026 LKML: Apple S3X resume).
+- `i915.enable_psr=0` = diagnostic-safe baseline (generic flicker risk).
+- Turbo ON, APST default, FBC auto, GuC default, THP default, VM defaults.
+**Browser:** Firefox ESR (current, not version-pinned) + uBlock Origin. Epiphany removed from ISO.
+**Notifications:** xfce4-notifyd (native), not dunst.
+**Measurement:** read-only tools only; `powertop --auto-tune` BANNED from baseline.
+
+---
+
+## Power management: TLP only (thermald + ananicy-cpp REMOVED)
+
+**Date:** 2026-09-25 (corrected Phase 0.5)
+**Decision:** TLP only. thermald and ananicy-cpp removed.
 
 **Reasoning:**
-- Fanless design makes thermal management critical — TLP configures CPU governors, PCIe ASPM, USB autosuspend
-- thermald uses Intel DPTF (if profile available) for proactive thermal control
-- ananicy-cpp prioritizes interactive processes (DE, browser) over background tasks
-- All three are lightweight and work well together
-
-**Configuration files:** /etc/tlp.d/99-mavericks.conf, /etc/ananicy.d/ (default rules), thermald uses auto-detection
+- TLP docs: thermald "does not conflict with TLP" but is also redundant on
+  HWP systems where kernel + TLP govern power; no DPTF-profile need demonstrated.
+- ananicy-cpp: nice-level tweaks with no measurable battery/perf benefit.
+- Minimum policy engines: TLP + kernel thermal management.
+- TLP baseline: governor=powersave, ASPM=powersave, USB_AUTOSUSPEND=1,
+  RUNTIME_PM=auto. CPU_BOOST/PLATFORM_PROFILE/EPP unset (experiments).
 
 ---
 

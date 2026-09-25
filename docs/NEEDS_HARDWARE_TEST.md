@@ -36,11 +36,10 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] If all 3 fail → mark as "not supported on this revision"
 
 ### Power management
-- [ ] TLP configuration effectiveness (powertop --auto-tune comparison)
-- [ ] thermald with DPTF profile (if available for MacBook10,1)
-- [ ] Intel P-state / HWP behavior
-- [ ] Battery life estimation under idle load
-- [ ] Thermal throttling thresholds
+- [ ] TLP baseline effectiveness (read-only measurement: tools/diagnostics/mv-power.sh; NEVER powertop --auto-tune on baseline)
+- [ ] Intel P-state / HWP behavior (turbostat + energy_performance_preference)
+- [ ] Battery discharge rate under idle load (10-min samples)
+- [ ] Thermal throttling thresholds (tools/diagnostics/mv-thermal.sh)
 
 ## Phase 2 — Optimization
 - [ ] zram/zswap actual memory savings measurement

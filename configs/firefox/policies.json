@@ -1,0 +1,22 @@
+{
+  "policies": {
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DontCheckDefaultBrowser": true,
+    "Homepage": {
+      "URL": "about:home",
+      "Locked": false
+    },
+    "Extensions": {
+      "Install": [
+        "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi"
+      ]
+    },
+    "Preferences": {
+      "browser.sessionstore.interval": {
+        "Value": 60000,
+        "Status": "default"
+      }
+    }
+  }
+}

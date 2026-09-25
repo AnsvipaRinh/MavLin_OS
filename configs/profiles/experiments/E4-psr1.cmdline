@@ -1,0 +1,2 @@
+# E4 — PSR1 enabled. Baseline: i915.enable_psr=0.
+i915.enable_psr=1
