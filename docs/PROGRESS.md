@@ -107,3 +107,7 @@
       и живут (timeout-kill 124 = alive); Poppler на хосте отсутствует (ожидаемо,
       PDF-путь валидируется на железе/ISO)
 - [x] mv-settings: missing-backend fallback уже есть (INFO-диалог, напр. blueman) — правок нет
+### Фаза 0.13 — rofi themes re-validated (2026-09-25, без железа)
+- [x] rofi-mavericks.rasi + rofi-launchpad.rasi: `rofi -dump-theme` exit 0, stderr пуст
+      (real rofi 2.0.0); ВАЖНО: без LANG=C.UTF-8 dump падает с exit 1 и пустым stdout
+      даже на дефолтной теме — это env-проблема хоста, не баг тем
