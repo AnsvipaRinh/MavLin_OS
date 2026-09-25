@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# mv-newfolder — Finder-like "New Folder" with auto-increment + error feedback.
+# Usage: mv-newfolder <directory>
+# Creates "<dir>/New Folder", or "New Folder 2..N" if taken (like Finder).
+# Prints the created path on stdout. On failure: desktop notification
+# (best-effort) + nonzero exit. No daemon, no new dependencies
+# (notify-send ships with libnotify, already in the ISO).
+# License: GPL-2.0-or-later.
+set -uo pipefail
+fail() {
+  # Best-effort, never block: no session bus headless must not hang us.
+  if command -v notify-send >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
+    timeout 3 notify-send "Finder" "Could not create folder: $1" 2>/dev/null || true
+  fi
+  echo "mv-newfolder: error: $1" >&2
+  exit 1
+}
+[[ $# -eq 1 ]] || fail "usage: mv-newfolder <directory>"
+[[ -d "$1" ]] || fail "not a directory: $1"
+[[ -w "$1" ]] || fail "directory not writable: $1"
+base="$1/New Folder"
+target="$base"
+n=2
+while [[ -e "$target" ]]; do target="$1/New Folder $n"; n=$((n + 1)); done
+mkdir -- "$target" || fail "mkdir failed: $target"
+printf '%s\n' "$target"

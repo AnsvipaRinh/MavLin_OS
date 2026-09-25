@@ -6,7 +6,7 @@
 
 | Name | State | Backend reused (license) | UI | Deps added | Runtime | HW dep | Next action |
 |---|---|---|---|---|---|---|---|
-| Finder | IMPLEMENTED | Thunar 4.x (GPL-2.0+) + GVfs/GIO + trash-cli (GPL-2.0) | themed + uca.xml (Quick Look, Put Back, Compress, Terminal) + bookmarks | trash-cli | on-demand | none | validate HiDPI on panel |
+| Finder | IMPLEMENTED | Thunar 4.x (GPL-2.0+) + GVfs/GIO + trash-cli (GPL-2.0) | themed + uca.xml (Quick Look, Put Back, mv-newfolder auto-numbered, Compress, Terminal) + bookmarks | trash-cli | on-demand | none | validate HiDPI on panel; accepted deltas: no column view on Thunar backend, no recursive search toolbar (deferred) |
 | System Settings | IMPLEMENTED | xfce4-settings, nm-connection-editor, pavucontrol, blueman*, gnome-disks (their licenses) | custom mv-settings launcher (Python/GTK3, exits on close) | — (backend pkgs) | on-demand | BT manager pkg | install blueman on HW test |
 | About / System Report | IMPLEMENTED | /proc /sys / DMI + lspci/lsusb/nmcli (cached) | custom mv-about | — | on-demand | values real on HW | validate fields |
 | Spotlight | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | rofi 2.0 (MIT) drun/run + plocate (GPL-2.0) | rofi-mavericks.rasi | rofi, plocate | on-demand | keybinding feel | test Super+Space |

@@ -80,3 +80,11 @@
       xfconf Super+Tab rebind с backup, отказ от --start-daemon) + диспетчер E-MC в mv-experiment.sh (оба зеркала)
 - [x] Gate расширен: `find ... configs -name *.sh` (E10 тоже покрыт); решение зафиксировано в DECISIONS.md;
       APPS.md/NEEDS_HARDWARE_TEST.md обновлены (чеклист E-MC); baseline по умолчанию НЕ изменён (rofi)
+### Фаза 0.9 — Finder New Folder hardening (2026-09-25, без железа)
+- [x] `mv-newfolder <dir>`: Finder-нумерация (New Folder, New Folder 2..N), проверка
+      writable, ошибка → notify-send (best-effort под `timeout 3`, без зависаний headless) + exit 1;
+      функц. тесты в /tmp: создание/инкремент/usage/readonly — все exit-коды корректны
+- [x] uca.xml New Folder → `mv-newfolder "%d"` (источник + skel-зеркало, sync OK);
+      mv-newfolder добавлен в Makefile install (DESTDIR-установка проверена)
+- [x] Зафиксированные accepted Finder-deltas (не баги, backend-пределы Thunar):
+      column view невозможен; рекурсивный search-toolbar отсутствует (deferred, без нового dep)
