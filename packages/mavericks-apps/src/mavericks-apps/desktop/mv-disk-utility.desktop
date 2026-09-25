@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Disk Utility
+Comment=Disk Utility (Mavericks)
+Exec=gnome-disks %U
+Icon=drive-harddisk
+Categories=System;
+StartupNotify=true
+X-Mavericks-Alias-For=gnome-disks

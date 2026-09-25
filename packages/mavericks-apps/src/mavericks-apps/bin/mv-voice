@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""mv-voice — Voice Memos (minimal). Record via pw-record (PipeWire) or
+parec fallback; playback via default app. Single-shot; no daemon.
+License: GPL-2.0-or-later."""
+import os, signal, subprocess, time
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+
+MEMO_DIR = os.path.expanduser("~/Music/Voice Memos")
+
+class Voice(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Voice Memos")
+        self.set_default_size(380, 300)
+        hb = Gtk.HeaderBar(title="Voice Memos", show_close_button=True)
+        self.set_titlebar(hb)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        v.set_border_width(12)
+        self.add(v)
+        self.status = Gtk.Label(label="Ready.")
+        v.pack_start(self.status, False, False, 0)
+        h = Gtk.Box(spacing=8, homogeneous=True)
+        self.rec_b = Gtk.Button(label="● Record")
+        self.rec_b.connect("clicked", self.toggle)
+        h.pack_start(self.rec_b, True, True, 0)
+        v.pack_start(h, False, False, 0)
+        self.store = Gtk.ListStore(str)
+        tv = Gtk.TreeView(model=self.store, headers_visible=False)
+        tv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
+        tv.connect("row-activated", self.play)
+        sw = Gtk.ScrolledWindow()
+        sw.add(tv)
+        v.pack_start(sw, True, True, 0)
+        self.proc = None
+        self.path = None
+        self.refresh()
+
+    def backend(self):
+        for exe, args in (("pw-record", []), ("parec", [])):
+            try:
+                subprocess.run([exe, "--help"], capture_output=True,
+                               timeout=3)
+                return [exe] + args
+            except (OSError, subprocess.SubprocessError):
+                continue
+        return None
+
+    def toggle(self, _b):
+        if self.proc:
+            self.proc.send_signal(signal.SIGINT)
+            self.proc.wait(timeout=10)
+            self.proc = None
+            self.status.set_text("Saved: %s" % os.path.basename(self.path))
+            self.rec_b.set_label("● Record")
+            self.refresh()
+            return
+        be = self.backend()
+        if not be:
+            self.status.set_text("No recorder found (pw-record/parec).")
+            return
+        os.makedirs(MEMO_DIR, exist_ok=True)
+        self.path = os.path.join(MEMO_DIR, "memo-%s.wav"
+                                 % time.strftime("%Y%m%d-%H%M%S"))
+        self.proc = subprocess.Popen(be + [self.path])
+        self.status.set_text("Recording… (click again to stop)")
+        self.rec_b.set_label("■ Stop")
+
+    def refresh(self):
+        self.store.clear()
+        if os.path.isdir(MEMO_DIR):
+            for f in sorted(os.listdir(MEMO_DIR), reverse=True):
+                self.store.append([f])
+
+    def play(self, _tv, path, _col):
+        subprocess.Popen(["xdg-open",
+                          os.path.join(MEMO_DIR, self.store[path][0])])
+
+if __name__ == "__main__":
+    w = Voice()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()

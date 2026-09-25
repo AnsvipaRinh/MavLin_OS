@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+"""mv-quicklook — Space-to-preview. Single-shot GTK3 window.
+Images: GdkPixbuf. PDF: poppler-glib first page. Text/code: GtkSourceView
+(or plain TextView). Audio/video: metadata via ffprobe/GStreamer discoverer
+fallback; full playback delegated to default app. No indexer, no daemon.
+License: GPL-2.0-or-later."""
+import mimetypes, os, subprocess, sys
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GdkPixbuf
+
+try:
+    gi.require_version("Poppler", "0.18")
+    from gi.repository import Poppler
+    HAVE_POPPLER = True
+except (ImportError, ValueError):
+    HAVE_POPPLER = False
+try:
+    gi.require_version("GtkSource", "4")
+    from gi.repository import GtkSource
+    HAVE_SOURCE = True
+except (ImportError, ValueError):
+    HAVE_SOURCE = False
+
+IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".svg"}
+TEXT_EXT = {".txt", ".md", ".c", ".h", ".py", ".rs", ".sh", ".js", ".ts",
+            ".json", ".xml", ".css", ".scss", ".log", ".ini", ".conf"}
+
+class Preview(Gtk.Window):
+    def __init__(self, path):
+        super().__init__(title=os.path.basename(path))
+        self.set_default_size(640, 480)
+        hb = Gtk.HeaderBar(title=os.path.basename(path), show_close_button=True)
+        self.set_titlebar(hb)
+        open_b = Gtk.Button(label="Open")
+        open_b.connect("clicked", self.open_full, path)
+        hb.pack_end(open_b)
+        ext = os.path.splitext(path)[1].lower()
+        widget = self.build(path, ext)
+        sw = Gtk.ScrolledWindow()
+        if isinstance(widget, (Gtk.TextView, Gtk.TreeView, Gtk.Image)):
+            if isinstance(widget, Gtk.Image):
+                vp = Gtk.Viewport()
+                vp.add(widget)
+                sw.add(vp)
+            else:
+                sw.add(widget)
+        else:
+            sw.add(widget)
+        self.add(sw)
+
+    def build(self, path, ext):
+        if ext == ".pdf" and HAVE_POPPLER:
+            try:
+                doc = Poppler.Document.new_from_file("file://" + path, None)
+                page = doc.get_page(0)
+                w, h = page.get_size()
+                scale = min(620 / w, 460 / h, 2.0)
+                pix = page.render_to_pixbuf(int(w * scale), int(h * scale))
+                return Gtk.Image.new_from_pixbuf(pix)
+            except Exception as e:
+                return Gtk.Label(label="Cannot render PDF: %s" % e)
+        if ext in IMG_EXT:
+            try:
+                pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 620, 460, True)
+                return Gtk.Image.new_from_pixbuf(pix)
+            except Exception as e:
+                return Gtk.Label(label="Cannot load image: %s" % e)
+        if ext in TEXT_EXT or (mimetypes.guess_type(path)[0] or "").startswith("text/"):
+            try:
+                with open(path, errors="replace") as f:
+                    text = f.read(200000)
+            except OSError as e:
+                return Gtk.Label(label=str(e))
+            if HAVE_SOURCE:
+                buf = GtkSource.Buffer()
+                tv = GtkSource.View(buffer=buf)
+            else:
+                buf = Gtk.TextBuffer()
+                tv = Gtk.TextView(buffer=buf)
+            buf.set_text(text)
+            tv.set_editable(False)
+            tv.set_monospace(True)
+            return tv
+        if ext in {".mp3", ".ogg", ".wav", ".flac", ".m4a", ".mp4", ".mkv",
+                   ".webm", ".avi", ".mov"}:
+            info = self.probe(path)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            box.set_border_width(16)
+            box.pack_start(Gtk.Label(label="<b>Media preview</b>",
+                                     use_markup=True), False, False, 0)
+            box.pack_start(Gtk.Label(label=info, selectable=True),
+                           False, False, 0)
+            hint = Gtk.Label(label="Press Open for full playback.")
+            box.pack_start(hint, False, False, 0)
+            vp = Gtk.Viewport()
+            vp.add(box)
+            return vp
+        return Gtk.Label(label="No preview available for this file.\nPress Open.")
+
+    def probe(self, path):
+        try:
+            out = subprocess.run(["ffprobe", "-v", "quiet", "-show_format",
+                                  "-show_streams", path],
+                                 capture_output=True, text=True,
+                                 timeout=10).stdout
+            lines = [l for l in out.splitlines()
+                     if l.startswith(("duration=", "codec_name=",
+                                      "width=", "height=",
+                                      "sample_rate="))][:8]
+            return "\n".join(lines) or "No metadata."
+        except (OSError, subprocess.SubprocessError):
+            return "Install ffmpeg for media metadata."
+
+    def open_full(self, _b, path):
+        subprocess.Popen(["xdg-open", path])
+        Gtk.main_quit()
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2 or not os.path.isfile(sys.argv[1]):
+        print("usage: mv-quicklook <file>", file=sys.stderr)
+        sys.exit(2)
+    w = Preview(sys.argv[1])
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Calculator
+Comment=Calculator (Mavericks)
+Exec=galculator %U
+Icon=accessories-calculator
+Categories=Utility;Calculator;
+StartupNotify=true
+X-Mavericks-Alias-For=galculator

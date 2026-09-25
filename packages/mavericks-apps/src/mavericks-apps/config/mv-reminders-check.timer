@@ -1,0 +1,10 @@
+[Unit]
+Description=Check due reminders (Mavericks Reminders nudge)
+# Hourly oneshot notify; no persistent daemon.
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

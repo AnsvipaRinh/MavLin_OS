@@ -1,0 +1,20 @@
+/* Mavericks Launchpad (rofi drun fullscreen grid) */
+* { font: "San Francisco 11"; }
+window {
+    fullscreen: true;
+    background: rgba(30, 30, 30, 0.92);
+    padding: 60px;
+}
+mainbox { children: [ inputbar, listview ]; spacing: 24px; }
+inputbar {
+    children: [ prompt, entry ];
+    background: rgba(255,255,255,0.15);
+    border-radius: 16px; padding: 8px;
+    width: 300px;
+}
+entry { placeholder: "Search"; foreground: white; }
+listview { lines: 5; columns: 7; fixed-height: false; spacing: 16px; }
+element { orientation: vertical; padding: 10px; border-radius: 8px; }
+element icon { size: 64px; }
+element text { foreground: white; horizontal-align: 0.5; }
+element selected { background: rgba(255,255,255,0.2); }

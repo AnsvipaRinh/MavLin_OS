@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Notes
+Comment=Notes (Mavericks)
+Exec=mv-notes %U
+Icon=text-editor
+Categories=Office;
+StartupNotify=true
+X-Mavericks-Native=true

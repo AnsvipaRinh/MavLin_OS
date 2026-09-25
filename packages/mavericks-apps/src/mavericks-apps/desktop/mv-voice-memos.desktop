@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Voice Memos
+Comment=Voice Memos (Mavericks)
+Exec=mv-voice %U
+Icon=audio-recorder
+Categories=AudioVideo;
+StartupNotify=true
+X-Mavericks-Native=true

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=System Settings
+Comment=System Settings (Mavericks)
+Exec=mv-settings %U
+Icon=preferences-system
+Categories=System;
+StartupNotify=true
+X-Mavericks-Native=true

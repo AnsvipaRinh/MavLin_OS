@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Console
+Comment=Console (Mavericks)
+Exec=mv-console %U
+Icon=utilities-log-viewer
+Categories=System;
+StartupNotify=true
+X-Mavericks-Native=true

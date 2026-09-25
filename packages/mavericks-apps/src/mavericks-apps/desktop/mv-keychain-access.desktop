@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Keychain Access
+Comment=Passwords and Keys (Mavericks)
+Exec=seahorse %U
+Icon=dialog-password
+Categories=System;
+StartupNotify=true
+X-Mavericks-Alias-For=seahorse

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Thunar custom actions — Finder-like surface (installed to ~/.config/Thunar/uca.xml).
+     Backend: GIO/GVfs via Thunar + trash-cli + system tools. -->
+<actions>
+  <action>
+    <icon>preview</icon>
+    <name>Quick Look</name>
+    <submenu></submenu>
+    <unique-id>mv-quicklook</unique-id>
+    <command>mv-quicklook %f</command>
+    <description>Press Space equivalent — preview file</description>
+    <patterns>*</patterns>
+    <startup-notify/>
+    <directories/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+  <action>
+    <icon>edit-undo</icon>
+    <name>Put Back</name>
+    <submenu></submenu>
+    <unique-id>mv-putback</unique-id>
+    <command>trash-restore</command>
+    <description>Restore trashed item (trash-cli)</description>
+    <patterns>*</patterns>
+    <other-files/>
+  </action>
+  <action>
+    <icon>document-new</icon>
+    <name>New Folder</name>
+    <submenu></submenu>
+    <unique-id>mv-newfolder</unique-id>
+    <command>mkdir %d/New%20Folder</command>
+    <description>Create new folder here</description>
+    <patterns>*</patterns>
+    <directories/>
+  </action>
+  <action>
+    <icon>package-x-generic</icon>
+    <name>Compress</name>
+    <submenu></submenu>
+    <unique-id>mv-compress</unique-id>
+    <command>xarchiver -a %d/%n.zip %F</command>
+    <description>Compress selection to zip</description>
+    <patterns>*</patterns>
+    <directories/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+  <action>
+    <icon>utilities-terminal</icon>
+    <name>Open in Terminal</name>
+    <submenu></submenu>
+    <unique-id>mv-terminal</unique-id>
+    <command>exo-open --working-directory %f --launch TerminalEmulator</command>
+    <description>Open this folder in Terminal</description>
+    <patterns>*</patterns>
+    <directories/>
+  </action>
+</actions>

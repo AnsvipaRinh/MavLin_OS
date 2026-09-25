@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""mv-activity — Activity Monitor (Mavericks-like). Backend: /proc only.
+Single 2s GLib timeout while OPEN; zero cost when closed. No daemon.
+Tabs: CPU / Memory / Energy / Disk / Network. Search + quit + details.
+License: GPL-2.0-or-later."""
+import os, time
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GLib
+
+def meminfo():
+    d = {}
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, rest = line.split(":", 1)
+                d[k] = int(rest.split()[0])  # kB
+    except OSError:
+        pass
+    return d
+
+def cpu_times():
+    out = {}
+    try:
+        with open("/proc/stat") as f:
+            for line in f:
+                if not line.startswith("cpu"):
+                    break
+                p = line.split()
+                if p[0] == "cpu":
+                    continue
+                vals = list(map(int, p[1:8]))
+                out[p[0]] = vals
+    except OSError:
+        pass
+    return out
+
+def procs():
+    rows = []
+    for pid in filter(str.isdigit, os.listdir("/proc")):
+        try:
+            with open("/proc/%s/stat" % pid) as f:
+                st = f.read().rsplit(")", 1)[1].split()
+            with open("/proc/%s/status" % pid) as f:
+                status = dict(l.split(":", 1) for l in f if ":" in l)
+            name = status.get("Name", "?").strip()
+            rss = int(status.get("VmRSS", "0 kB").split()[0])  # kB
+            ut, stt = int(st[11]), int(st[12])
+            state = st[0]
+            rows.append({"pid": int(pid), "name": name, "rss": rss,
+                         "cpu_ticks": ut + stt, "state": state})
+        except (OSError, IndexError, ValueError):
+            continue
+    return rows
+
+class Activity(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Activity Monitor")
+        self.set_default_size(760, 500)
+        hb = Gtk.HeaderBar(title="Activity Monitor", show_close_button=True)
+        self.set_titlebar(hb)
+        self.search = Gtk.SearchEntry(placeholder_text="Search processes")
+        self.search.connect("search-changed", lambda e: self.refresh())
+        hb.pack_start(self.search)
+        quit_b = Gtk.Button(label="Quit Process")
+        quit_b.connect("clicked", self.on_quit)
+        hb.pack_end(quit_b)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(v)
+        self.tabs = Gtk.Notebook()
+        v.pack_start(self.tabs, True, True, 0)
+        self.status = Gtk.Label()
+        v.pack_start(self.status, False, False, 4)
+        # CPU tab
+        self.cpu_store = Gtk.ListStore(int, str, float, str)
+        self.cpu_view = self.make_view(self.cpu_store,
+            [("PID", 0), ("Process", 1), ("% CPU", 2), ("State", 3)])
+        self.tabs.append_page(self.wrap(self.cpu_view), Gtk.Label(label="CPU"))
+        # Memory tab
+        self.mem_store = Gtk.ListStore(int, str, float)
+        self.mem_view = self.make_view(self.mem_store,
+            [("PID", 0), ("Process", 1), ("Memory MB", 2)])
+        self.tabs.append_page(self.wrap(self.mem_view), Gtk.Label(label="Memory"))
+        # Energy tab (package power if RAPL readable, else N/A)
+        self.energy_label = Gtk.Label()
+        self.tabs.append_page(self.wrap(self.energy_label), Gtk.Label(label="Energy"))
+        # Disk tab
+        self.disk_label = Gtk.Label()
+        self.tabs.append_page(self.wrap(self.disk_label), Gtk.Label(label="Disk"))
+        # Network tab
+        self.net_label = Gtk.Label()
+        self.tabs.append_page(self.wrap(self.net_label), Gtk.Label(label="Network"))
+        self.prev_cpu = cpu_times()
+        self.prev_procs = {p["pid"]: p["cpu_ticks"] for p in procs()}
+        self.prev_t = time.time()
+        GLib.timeout_add_seconds(2, self.refresh)
+        self.refresh()
+
+    def wrap(self, w):
+        sw = Gtk.ScrolledWindow()
+        sw.add(w)
+        return sw
+
+    def make_view(self, store, cols):
+        tv = Gtk.TreeView(model=store)
+        for title, idx in cols:
+            tv.append_column(Gtk.TreeViewColumn(title,
+                             Gtk.CellRendererText(), text=idx))
+        return tv
+
+    def selected_pid(self):
+        view = self.cpu_view if self.tabs.get_current_page() == 0 else self.mem_view
+        _m, it = view.get_selection().get_selected()
+        return view.get_model()[it][0] if it else None
+
+    def on_quit(self, _b):
+        pid = self.selected_pid()
+        if pid is None:
+            return
+        d = Gtk.MessageDialog(transient_for=self, modal=True,
+            message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.OK_CANCEL,
+            text="Quit process %d?" % pid)
+        if d.run() == Gtk.ResponseType.OK:
+            try:
+                os.kill(pid, 15)
+            except OSError as e:
+                ed = Gtk.MessageDialog(transient_for=self, modal=True,
+                    message_type=Gtk.MessageType.ERROR,
+                    buttons=Gtk.ButtonsType.OK, text=str(e))
+                ed.run()
+                ed.destroy()
+        d.destroy()
+        self.refresh()
+
+    def refresh(self):
+        q = self.search.get_text().lower()
+        cur_cpu = cpu_times()
+        now = time.time()
+        dt = max(now - self.prev_t, 0.01)
+        plist = procs()
+        # %CPU from tick deltas (2s window)
+        clk = os.sysconf("SC_CLK_TCK")
+        cpu_rows = []
+        for p in plist:
+            prev = self.prev_procs.get(p["pid"], p["cpu_ticks"])
+            pct = (p["cpu_ticks"] - prev) / clk / dt * 100.0
+            cpu_rows.append((p["pid"], p["name"], max(pct, 0.0), p["state"]))
+        self.prev_procs = {p["pid"]: p["cpu_ticks"] for p in plist}
+        self.prev_t = now
+        self.prev_cpu = cur_cpu
+        self.cpu_store.clear()
+        for pid, name, pct, st in sorted(cpu_rows, key=lambda r: -r[2])[:200]:
+            if q in name.lower() or q in str(pid):
+                self.cpu_store.append([pid, name, round(pct, 1), st])
+        self.mem_store.clear()
+        for p in sorted(plist, key=lambda r: -r["rss"])[:200]:
+            if q in p["name"].lower() or q in str(p["pid"]):
+                self.mem_store.append([p["pid"], p["name"],
+                                       round(p["rss"] / 1024.0, 1)])
+        mi = meminfo()
+        tot = mi.get("MemTotal", 0) / 1024.0
+        av = mi.get("MemAvailable", 0) / 1024.0
+        self.status.set_text("Memory: %.0f / %.0f MB used   Processes: %d" %
+                             (tot - av, tot, len(plist)))
+        self.energy_label.set_text(self.energy_text())
+        self.disk_label.set_text(self.disk_text())
+        self.net_label.set_text(self.net_text())
+        return True
+
+    def energy_text(self):
+        try:
+            with open("/sys/class/powercap/intel-rapl:0/energy_uj") as f:
+                uj = int(f.read())
+            return "Package energy counter: %.2f kJ since boot\n(per-interval watts shown in Energy HUD)" % (uj / 1e9)
+        except OSError:
+            return "RAPL energy counters unavailable on this machine."
+
+    def disk_text(self):
+        try:
+            with open("/proc/diskstats") as f:
+                lines = [l.split() for l in f if l[2].startswith(("nvme", "sda", "mmcblk"))]
+            return "\n".join("%s: %s reads / %s writes (sectors)" % (l[2], l[5], l[9])
+                             for l in lines[:8]) or "No disks found."
+        except OSError:
+            return "Unavailable."
+
+    def net_text(self):
+        try:
+            with open("/proc/net/dev") as f:
+                rows = [l.split() for l in f.readlines()[2:] if ":" in l]
+            return "\n".join("%s  RX %s B  TX %s B" % (r[0], r[1], r[9])
+                             for r in rows if int(r[1]) or int(r[9]))
+        except OSError:
+            return "Unavailable."
+
+if __name__ == "__main__":
+    w = Activity()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()

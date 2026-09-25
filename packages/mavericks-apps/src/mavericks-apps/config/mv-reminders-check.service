@@ -1,0 +1,6 @@
+[Unit]
+Description=Check due reminders (oneshot)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/mv-reminders --check-due

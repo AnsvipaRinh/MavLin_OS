@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Central hotkey layer (Mavericks-inspired defaults).
+     Applied to: ~/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml
+     Users can remap via Settings > Keyboard. Super = Command key. -->
+<channel name="xfce4-keyboard-shortcuts" version="1.0">
+  <property name="commands" type="empty">
+    <property name="default" type="empty">
+      <!-- Spotlight -->
+      <property name="&lt;Super&gt;space" type="string" value="rofi -show drun -theme /usr/share/mavericks-apps/rofi-mavericks.rasi"/>
+      <!-- Launchpad -->
+      <property name="&lt;Super&gt;l" type="string" value="rofi -show drun -theme /usr/share/mavericks-apps/rofi-launchpad.rasi"/>
+      <!-- Mission Control (window switcher; skippy-xd overview = E-MC experiment) -->
+      <property name="&lt;Super&gt;Tab" type="string" value="rofi -show window -theme /usr/share/mavericks-apps/rofi-mavericks.rasi"/>
+      <!-- Screenshot: region / window / fullscreen / record -->
+      <property name="&lt;Super&gt;&lt;Shift&gt;4" type="string" value="mv-shot -i -c"/>
+      <property name="&lt;Super&gt;&lt;Shift&gt;3" type="string" value="mv-shot -m"/>
+      <property name="&lt;Super&gt;&lt;Shift&gt;5" type="string" value="mv-shot -i"/>
+      <!-- Finder / Settings / Control Center / Power -->
+      <property name="&lt;Super&gt;f" type="string" value="thunar"/>
+      <property name="&lt;Super&gt;comma" type="string" value="mv-settings"/>
+      <property name="&lt;Super&gt;c" type="string" value="mv-control"/>
+      <property name="&lt;Primary&gt;&lt;Alt&gt;Escape" type="string" value="mv-power-ui"/>
+      <!-- Media keys (also mapped by Xfce power manager; duplicates harmless) -->
+      <property name="XF86AudioRaiseVolume" type="string" value="pactl set-sink-volume @DEFAULT_SINK@ +5%"/>
+      <property name="XF86AudioLowerVolume" type="string" value="pactl set-sink-volume @DEFAULT_SINK@ -5%"/>
+      <property name="XF86AudioMute" type="string" value="pactl set-sink-mute @DEFAULT_SINK@ toggle"/>
+    </property>
+  </property>
+  <property name="xfwm4" type="empty">
+    <property name="default" type="empty">
+      <property name="&lt;Super&gt;Up" type="string" value="tile_up_key"/>
+      <property name="&lt;Super&gt;Down" type="string" value="tile_down_key"/>
+      <property name="&lt;Super&gt;Left" type="string" value="tile_left_key"/>
+      <property name="&lt;Super&gt;Right" type="string" value="tile_right_key"/>
+      <property name="&lt;Super&gt;&lt;Alt&gt;Right" type="string" value="right_workspace_key"/>
+      <property name="&lt;Super&gt;&lt;Alt&gt;Left" type="string" value="left_workspace_key"/>
+    </property>
+  </property>
+</channel>

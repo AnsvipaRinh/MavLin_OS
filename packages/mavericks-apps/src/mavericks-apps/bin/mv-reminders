@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""mv-reminders — Reminders (Mavericks-like). Lists + tasks + due dates +
+priorities + notifications. Local JSON. Due-date nudges via user systemd
+TIMER (hourly, oneshot notify-send, exits) — no persistent daemon.
+License: GPL-2.0-or-later."""
+import json, os, sys, time, uuid
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+
+STORE = os.path.expanduser("~/.local/share/mv-reminders/tasks.json")
+
+def load():
+    try:
+        with open(STORE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {"lists": {"Reminders": []}}
+
+def save(data):
+    os.makedirs(os.path.dirname(STORE), exist_ok=True)
+    tmp = STORE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, STORE)
+
+def check_due():
+    """Called by systemd timer: notify once per overdue task per day."""
+    import subprocess
+    data = load()
+    today = time.strftime("%Y-%m-%d")
+    changed = False
+    for lname, tasks in data["lists"].items():
+        for t in tasks:
+            if (not t.get("done") and t.get("due") and t["due"] <= today
+                    and t.get("notified") != today):
+                subprocess.run(["notify-send", "Reminder — %s" % lname,
+                                t["title"]])
+                t["notified"] = today
+                changed = True
+    if changed:
+        save(data)
+
+class Reminders(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Reminders")
+        self.set_default_size(700, 460)
+        hb = Gtk.HeaderBar(title="Reminders", show_close_button=True)
+        self.set_titlebar(hb)
+        for label, cb in [("+ List", self.add_list), ("+ Task", self.add_task)]:
+            b = Gtk.Button(label=label)
+            b.connect("clicked", cb)
+            hb.pack_end(b)
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(paned)
+        self.lstore = Gtk.ListStore(str)
+        ltv = Gtk.TreeView(model=self.lstore, headers_visible=False)
+        ltv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
+        ltv.get_selection().connect("changed", self.on_list)
+        sw1 = Gtk.ScrolledWindow()
+        sw1.set_size_request(160, -1)
+        sw1.add(ltv)
+        paned.add1(sw1)
+        self.ltv = ltv
+        # tasks: done-toggle, title, due, priority
+        self.tstore = Gtk.ListStore(bool, str, str, str, str)  # done,title,due,prio,id
+        ttv = Gtk.TreeView(model=self.tstore)
+        tog = Gtk.CellRendererToggle()
+        tog.connect("toggled", self.on_toggle)
+        ttv.append_column(Gtk.TreeViewColumn("Done", tog, active=0))
+        for i, h in [(1, "Task"), (2, "Due"), (3, "Priority")]:
+            ttv.append_column(Gtk.TreeViewColumn(h, Gtk.CellRendererText(), text=i))
+        ttv.connect("row-activated", self.on_edit_title)
+        sw2 = Gtk.ScrolledWindow()
+        sw2.add(ttv)
+        paned.add2(sw2)
+        self.data = load()
+        self.cur = "Reminders"
+        self.refresh()
+
+    def refresh(self):
+        self.lstore.clear()
+        for name in self.data["lists"]:
+            self.lstore.append([name])
+        self.tstore.clear()
+        for t in self.data["lists"].get(self.cur, []):
+            self.tstore.append([t.get("done", False), t["title"],
+                                t.get("due", ""), t.get("prio", ""), t["id"]])
+
+    def on_list(self, sel):
+        _m, it = sel.get_selected()
+        if it:
+            self.cur = self.lstore[it][0]
+            self.refresh()
+
+    def on_toggle(self, _r, path):
+        tid = self.tstore[path][4]
+        for t in self.data["lists"][self.cur]:
+            if t["id"] == tid:
+                t["done"] = not t.get("done", False)
+        save(self.data)
+        self.refresh()
+
+    def on_edit_title(self, _tv, path, _col):
+        tid = self.tstore[path][4]
+        d = Gtk.Dialog(title="Edit task", transient_for=self, modal=True)
+        d.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "OK", Gtk.ResponseType.OK)
+        grid = Gtk.Grid(column_spacing=8, row_spacing=8, margin=12)
+        title_e = Gtk.Entry()
+        due_e = Gtk.Entry(placeholder_text="Due YYYY-MM-DD (optional)")
+        prio = Gtk.ComboBoxText()
+        for p in ["", "Low", "Medium", "High"]:
+            prio.append_text(p)
+        for t in self.data["lists"][self.cur]:
+            if t["id"] == tid:
+                title_e.set_text(t["title"])
+                due_e.set_text(t.get("due", ""))
+                prio.set_active(["", "Low", "Medium", "High"].index(
+                    t.get("prio", "")))
+        for i, (lab, w) in enumerate([("Title", title_e), ("Due", due_e),
+                                      ("Priority", prio)]):
+            grid.attach(Gtk.Label(label=lab, xalign=0), 0, i, 1, 1)
+            grid.attach(w, 1, i, 1, 1)
+        d.get_content_area().pack_start(grid, True, True, 0)
+        d.show_all()
+        if d.run() == Gtk.ResponseType.OK:
+            for t in self.data["lists"][self.cur]:
+                if t["id"] == tid:
+                    t["title"] = title_e.get_text()
+                    t["due"] = due_e.get_text().strip()
+                    t["prio"] = prio.get_active_text() or ""
+        d.destroy()
+        save(self.data)
+        self.refresh()
+
+    def add_list(self, _b):
+        name = "List %d" % (len(self.data["lists"]) + 1)
+        self.data["lists"][name] = []
+        save(self.data)
+        self.refresh()
+
+    def add_task(self, _b):
+        self.data["lists"].setdefault(self.cur, []).append(
+            {"id": uuid.uuid4().hex[:8], "title": "New task",
+             "done": False, "due": "", "prio": ""})
+        save(self.data)
+        self.refresh()
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--check-due":
+        check_due()
+    else:
+        w = Reminders()
+        w.connect("destroy", Gtk.main_quit)
+        w.show_all()
+        Gtk.main()

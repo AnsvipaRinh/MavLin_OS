@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Calendar
+Comment=Calendar (Mavericks)
+Exec=orage %U
+Icon=office-calendar
+Categories=Office;
+StartupNotify=true
+X-Mavericks-Alias-For=orage

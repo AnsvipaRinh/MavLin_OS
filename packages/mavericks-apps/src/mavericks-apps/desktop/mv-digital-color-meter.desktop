@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Digital Color Meter
+Comment=Color Picker (Mavericks)
+Exec=gcolor3 %U
+Icon=color-picker
+Categories=Graphics;
+StartupNotify=true
+X-Mavericks-Alias-For=gcolor3

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Photos
+Comment=Photo Manager (Mavericks)
+Exec=gthumb %U
+Icon=image-x-generic
+Categories=Graphics;
+StartupNotify=true
+X-Mavericks-Alias-For=gthumb

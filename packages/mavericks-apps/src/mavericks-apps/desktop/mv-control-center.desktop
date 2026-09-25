@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Control Center
+Comment=Control Center (Mavericks)
+Exec=mv-control %U
+Icon=preferences-system
+Categories=System;
+StartupNotify=true
+X-Mavericks-Native=true

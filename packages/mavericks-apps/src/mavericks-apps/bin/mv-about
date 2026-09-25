@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""mv-about — About This Mac + System Report (on-demand; reads /proc /sys / DMI).
+No subprocess spam: sysfs reads + single lspci/lsusb invocations, cached.
+License: GPL-2.0-or-later."""
+import os, re, subprocess
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+
+def rd(path, default="Unknown"):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return default
+
+def run(cmd):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "Unavailable"
+
+def mem_total():
+    for line in rd("/proc/meminfo", "").splitlines():
+        if line.startswith("MemTotal:"):
+            kb = int(line.split()[1])
+            return "%.1f GB" % (kb / 1048576.0)
+    return "Unknown"
+
+def cpu_model():
+    m = re.search(r"model name\s*:\s*(.+)",
+                  rd("/proc/cpuinfo", ""), re.M)
+    return m.group(1).strip() if m else "Unknown"
+
+def gpu_model():
+    out = run(["lspci", "-nn"])
+    for line in out.splitlines():
+        if "VGA" in line or "Display" in line or "3D" in line:
+            return line.split(": ", 1)[-1]
+    return "Unknown"
+
+CATEGORIES = [
+    ("Overview", lambda: [
+        ("Model", rd("/sys/devices/virtual/dmi/id/product_name")),
+        ("OS", "Mavericks Linux (Arch-based)"),
+        ("Kernel", run(["uname", "-r"])),
+        ("CPU", cpu_model()),
+        ("Memory", mem_total()),
+        ("Graphics", gpu_model()),
+        ("Serial", rd("/sys/devices/virtual/dmi/id/product_uuid")[:18] + "…"),
+    ]),
+    ("Hardware", lambda: [
+        ("Vendor", rd("/sys/devices/virtual/dmi/id/sys_vendor")),
+        ("Product", rd("/sys/devices/virtual/dmi/id/product_name")),
+        ("BIOS", rd("/sys/devices/virtual/dmi/id/bios_version")),
+        ("Board", rd("/sys/devices/virtual/dmi/id/board_name")),
+    ]),
+    ("CPU", lambda: [
+        ("Model", cpu_model()),
+        ("Cores", str(os.cpu_count())),
+        ("MHz", rd("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq",
+                    "?") + " kHz max"),
+        ("Driver", rd("/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver")),
+        ("Governor", rd("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")),
+    ]),
+    ("Memory", lambda: [("Total", mem_total()),
+                        ("Swap", run(["sh", "-c", "free -h | awk '/Swap/{print $2}'"]) or "none")]),
+    ("Graphics/Displays", lambda: [
+        ("GPU", gpu_model()),
+        ("Modes", rd("/sys/class/drm/card0-eDP-1/modes", "?").split("\n")[0]),
+        ("PSR", rd("/sys/module/i915/parameters/enable_psr", "?")),
+        ("FBC", rd("/sys/module/i915/parameters/enable_fbc", "?")),
+    ]),
+    ("Storage", lambda: [("NVMe", run(["sh", "-c",
+        "nvme list 2>/dev/null | tail -n +3 || lsblk -dno NAME,MODEL,SIZE | head"]) or "none"),
+                         ("zram", run(["sh", "-c",
+        "zramctl --raw --output DISKSIZE 2>/dev/null | head -1"]) or "none")]),
+    ("USB", lambda: [("Devices", run(["lsusb"]) or "none")]),
+    ("Network/Wi-Fi", lambda: [
+        ("PCI", run(["sh", "-c", "lspci -nn | grep -i -E 'network|ethernet'"]) or "none"),
+        ("State", run(["sh", "-c",
+         "nmcli -t -f STATE general 2>/dev/null || echo unknown"])),
+    ]),
+    ("Audio", lambda: [("Cards", run(["sh", "-c",
+        "aplay -l 2>/dev/null | grep '^card' || echo none"])),
+                       ("Server", run(["sh", "-c",
+        "pactl info 2>/dev/null | grep 'Server Name' || echo none"])),
+    ]),
+    ("Power", lambda: [("Battery", run(["sh", "-c",
+        "upower -i /org/freedesktop/UPower/devices/battery_BAT0 2>/dev/null"
+        " | grep -E 'percentage|state|time to' || echo unknown"])),
+                       ("Profile", "TLP (minimal baseline)")]),
+    ("Software", lambda: [("Kernel", run(["uname", "-r"])),
+                          ("DE", "Xfce 4 (Mavericks theme)"),
+                          ("Display server", "X11"),
+                          ("Init", "systemd")]),
+]
+
+class About(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="About This Mac")
+        self.set_default_size(620, 460)
+        hb = Gtk.HeaderBar(title="About This Mac", show_close_button=True)
+        self.set_titlebar(hb)
+        rep = Gtk.Button(label="System Report…")
+        rep.connect("clicked", self.show_report)
+        hb.pack_end(rep)
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(paned)
+        store = Gtk.ListStore(str, int)
+        for i, (name, _fn) in enumerate(CATEGORIES):
+            store.append([name, i])
+        tv = Gtk.TreeView(model=store, headers_visible=False)
+        tv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
+        tv.get_selection().connect("changed", self.on_select)
+        sw1 = Gtk.ScrolledWindow()
+        sw1.set_size_request(170, -1)
+        sw1.add(tv)
+        paned.add1(sw1)
+        self.grid_store = Gtk.ListStore(str, str)
+        gv = Gtk.TreeView(model=self.grid_store)
+        gv.append_column(Gtk.TreeViewColumn("Property",
+                         Gtk.CellRendererText(), text=0))
+        gv.append_column(Gtk.TreeViewColumn("Value",
+                         Gtk.CellRendererText(), text=1))
+        sw2 = Gtk.ScrolledWindow()
+        sw2.add(gv)
+        paned.add2(sw2)
+        self.fns = [fn for _, fn in CATEGORIES]
+        tv.get_selection().select_path(Gtk.TreePath.new_from_indices([0]))
+        self.tv = tv
+
+    def on_select(self, sel):
+        _m, it = sel.get_selected()
+        if it is None:
+            return
+        idx = self.tv.get_model()[it][1]
+        self.grid_store.clear()
+        for k, v in self.fns[idx]():
+            self.grid_store.append([k, v])
+
+    def show_report(self, _b):
+        self.on_select(self.tv.get_selection())
+        d = Gtk.Dialog(title="System Report", transient_for=self, modal=True)
+        d.set_default_size(640, 420)
+        buf = Gtk.TextBuffer()
+        t = "\n".join("== %s ==\n%s" % (name, "\n".join(
+            "%s: %s" % (k, v) for k, v in fn()))
+            for (name, _), fn in zip(CATEGORIES, self.fns))
+        buf.set_text(t)
+        tv = Gtk.TextView(buffer=buf)
+        tv.set_editable(False)
+        tv.set_monospace(True)
+        sw = Gtk.ScrolledWindow()
+        sw.add(tv)
+        d.get_content_area().pack_start(sw, True, True, 0)
+        d.add_button("Close", Gtk.ResponseType.CLOSE)
+        d.show_all()
+        d.run()
+        d.destroy()
+
+if __name__ == "__main__":
+    w = About()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()

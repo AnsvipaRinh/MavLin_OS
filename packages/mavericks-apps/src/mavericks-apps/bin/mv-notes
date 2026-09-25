@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""mv-notes — Notes (Mavericks-like). Folders + notes + checklists + search +
+pinning. Local JSON storage (~/.local/share/mv-notes/notes.json). No daemon,
+no Electron, no network.
+License: GPL-2.0-or-later."""
+import json, os, time, uuid
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+
+STORE = os.path.expanduser("~/.local/share/mv-notes/notes.json")
+
+def load():
+    try:
+        with open(STORE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {"folders": {"Notes": []}}
+
+def save(data):
+    os.makedirs(os.path.dirname(STORE), exist_ok=True)
+    tmp = STORE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, STORE)
+
+class Notes(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Notes")
+        self.set_default_size(860, 540)
+        hb = Gtk.HeaderBar(title="Notes", show_close_button=True)
+        self.set_titlebar(hb)
+        self.search = Gtk.SearchEntry(placeholder_text="Search notes")
+        self.search.connect("search-changed", self.refresh_list)
+        hb.pack_start(self.search)
+        for label, cb in [("+ Folder", self.add_folder),
+                          ("+ Note", self.add_note),
+                          ("Delete", self.del_note)]:
+            b = Gtk.Button(label=label)
+            b.connect("clicked", cb)
+            hb.pack_end(b)
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(paned)
+        # folders
+        self.fstore = Gtk.ListStore(str)
+        ftv = Gtk.TreeView(model=self.fstore, headers_visible=False)
+        ftv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
+        ftv.get_selection().connect("changed", self.on_folder)
+        sw1 = Gtk.ScrolledWindow()
+        sw1.set_size_request(150, -1)
+        sw1.add(ftv)
+        paned.add1(sw1)
+        self.ftv = ftv
+        # notes
+        self.nstore = Gtk.ListStore(str, str)  # title, id
+        ntv = Gtk.TreeView(model=self.nstore, headers_visible=False)
+        ntv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
+        ntv.get_selection().connect("changed", self.on_note)
+        sw2 = Gtk.ScrolledWindow()
+        sw2.set_size_request(200, -1)
+        sw2.add(ntv)
+        paned.add2(sw2)
+        self.ntv = ntv
+        # editor
+        self.buf = Gtk.TextBuffer()
+        self.buf.connect("changed", self.on_edit)
+        tv = Gtk.TextView(buffer=self.buf)
+        tv.set_wrap_mode(Gtk.WrapMode.WORD)
+        sw3 = Gtk.ScrolledWindow()
+        sw3.add(tv)
+        # 3-pane via nested paned: folders | (notes | editor)
+        paned2 = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        paned.add2(paned2)
+        paned2.add1(sw2)
+        paned2.add2(sw3)
+        paned.set_position(150)
+        paned2.set_position(200)
+        self.data = load()
+        self.cur_folder = "Notes"
+        self.cur_id = None
+        self.dirty = False
+        self.refresh_folders()
+
+    def refresh_folders(self):
+        self.fstore.clear()
+        for name in self.data["folders"]:
+            self.fstore.append([name])
+        self.refresh_list()
+
+    def refresh_list(self):
+        q = self.search.get_text().lower()
+        self.nstore.clear()
+        for n in self.data["folders"].get(self.cur_folder, []):
+            title = (n["text"].strip().split("\n")[0] or "(empty)")[:40]
+            pin = "📌 " if n.get("pinned") else ""
+            if q in (title + n["text"]).lower():
+                self.nstore.append([pin + title, n["id"]])
+
+    def on_folder(self, sel):
+        _m, it = sel.get_selected()
+        if it:
+            self.cur_folder = self.fstore[it][0]
+            self.cur_id = None
+            self.refresh_list()
+
+    def on_note(self, sel):
+        _m, it = sel.get_selected()
+        if not it:
+            return
+        nid = self.nstore[it][1]
+        for n in self.data["folders"][self.cur_folder]:
+            if n["id"] == nid:
+                self.cur_id = nid
+                self.dirty = True
+                self.buf.set_text(n["text"])
+                self.dirty = False
+                break
+
+    def on_edit(self, _b):
+        if self.dirty or not self.cur_id:
+            return
+        s, e = self.buf.get_bounds()
+        for n in self.data["folders"][self.cur_folder]:
+            if n["id"] == self.cur_id:
+                n["text"] = self.buf.get_text(s, e, True)
+                n["mtime"] = int(time.time())
+                break
+        save(self.data)
+        self.refresh_list()
+
+    def add_folder(self, _b):
+        name = "Folder %d" % (len(self.data["folders"]) + 1)
+        self.data["folders"][name] = []
+        save(self.data)
+        self.refresh_folders()
+
+    def add_note(self, _b):
+        n = {"id": uuid.uuid4().hex[:8], "text": "",
+             "mtime": int(time.time())}
+        self.data["folders"].setdefault(self.cur_folder, []).insert(0, n)
+        save(self.data)
+        self.refresh_list()
+
+    def del_note(self, _b):
+        if not self.cur_id:
+            return
+        notes = self.data["folders"][self.cur_folder]
+        self.data["folders"][self.cur_folder] = [
+            n for n in notes if n["id"] != self.cur_id]
+        self.cur_id = None
+        self.buf.set_text("")
+        save(self.data)
+        self.refresh_list()
+
+if __name__ == "__main__":
+    w = Notes()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()

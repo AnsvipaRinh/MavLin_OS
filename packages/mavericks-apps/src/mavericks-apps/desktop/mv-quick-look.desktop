@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Quick Look
+Comment=Quick Look (Mavericks)
+Exec=mv-quicklook %U
+Icon=preview
+Categories=Graphics;
+StartupNotify=true
+X-Mavericks-Native=true

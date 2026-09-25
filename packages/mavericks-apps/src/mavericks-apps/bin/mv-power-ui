@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""mv-power-ui — Sleep / Restart / Shut Down dialog (Mavericks wording).
+Backend: systemd/logind only. Single-shot.
+License: GPL-2.0-or-later."""
+import subprocess, sys
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+
+ACTIONS = {
+    "sleep": ("Sleep", ["systemctl", "suspend"]),
+    "restart": ("Restart", ["systemctl", "reboot"]),
+    "shutdown": ("Shut Down", ["systemctl", "poweroff"]),
+}
+
+class PowerUI(Gtk.Window):
+    def __init__(self, preset=None):
+        super().__init__(title="")
+        self.set_default_size(420, 140)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        hb = Gtk.HeaderBar(title="Are you sure?", show_close_button=True)
+        self.set_titlebar(hb)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        v.set_border_width(14)
+        self.add(v)
+        msg = {"sleep": "The system will go to sleep.",
+               "restart": "The system will restart.",
+               "shutdown": "The system will shut down."}.get(
+                   preset, "Choose a power action.")
+        v.pack_start(Gtk.Label(label=msg), False, False, 0)
+        h = Gtk.Box(spacing=8, homogeneous=True)
+        for key, (label, cmd) in ACTIONS.items():
+            b = Gtk.Button(label=label)
+            b.connect("clicked", self.do, cmd)
+            h.pack_start(b, True, True, 0)
+            if key == preset:
+                b.grab_focus()
+        v.pack_start(h, False, False, 0)
+        c = Gtk.Button(label="Cancel")
+        c.connect("clicked", lambda *_: Gtk.main_quit())
+        v.pack_start(c, False, False, 0)
+
+    def do(self, _b, cmd):
+        subprocess.Popen(cmd)
+        Gtk.main_quit()
+
+if __name__ == "__main__":
+    preset = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] in ACTIONS else None
+    w = PowerUI(preset)
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Archive Utility
+Comment=Archive Manager (Mavericks)
+Exec=xarchiver %U
+Icon=package-x-generic
+Categories=Utility;Archiving;
+StartupNotify=true
+X-Mavericks-Alias-For=xarchiver

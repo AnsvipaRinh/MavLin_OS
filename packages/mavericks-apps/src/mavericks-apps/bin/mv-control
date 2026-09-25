@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""mv-control — Control Center popup (on-demand; exits on focus loss).
+Backends: NetworkManager/UPower/BlueZ via Gio.DBus (event reads on open only),
+PipeWire volume via pactl (single invocation), brightness via sysfs + xbacklight
+fallback. No polling loop, no daemon.
+License: GPL-2.0-or-later."""
+import os, subprocess
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gio
+
+def sh(cmd):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=5).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+def nm_wifi():
+    return sh(["sh", "-c",
+        "nmcli -t -f WIFI general 2>/dev/null || echo unknown"])
+
+def bt_powered():
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        m = Gio.DBusMessage.new_method_call("org.bluez", "/",
+            "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")
+        r = bus.send_message_with_reply_sync(m, 0, 500, None)
+        return "yes" if r and "org.bluez.Adapter1" in r.print_(0) else "no"
+    except Exception:
+        return "?"
+
+def battery():
+    return sh(["sh", "-c",
+        "upower -i /org/freedesktop/UPower/devices/battery_BAT0 2>/dev/null"
+        " | grep -E 'percentage|state' | tr '\\n' ' ' || echo 'no battery'"])
+
+def volume():
+    return sh(["sh", "-c",
+        "pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | head -1 || echo ?"])
+
+def brightness():
+    for base in ("/sys/class/backlight/%s" % d
+                 for d in (os.listdir("/sys/class/backlight")
+                           if os.path.isdir("/sys/class/backlight") else [])):
+        try:
+            with open(base + "/brightness") as f:
+                cur = int(f.read())
+            with open(base + "/max_brightness") as f:
+                mx = int(f.read())
+            return "%d%%" % (cur * 100 // max(mx, 1)), base
+        except OSError:
+            continue
+    return "?", None
+
+class Control(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Control Center", type=Gtk.WindowType.POPUP)
+        self.set_default_size(300, 420)
+        self.set_position(Gtk.WindowPosition.MOUSE)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.set_border_width(12)
+        self.add(box)
+        box.pack_start(self.row("Wi-Fi", nm_wifi(),
+            [("Turn On", ["nmcli", "radio", "wifi", "on"]),
+             ("Turn Off", ["nmcli", "radio", "wifi", "off"])]), False, False, 0)
+        box.pack_start(self.row("Bluetooth", bt_powered(),
+            [("Settings", ["blueman-manager"])]), False, False, 0)
+        box.pack_start(self.row("Sound", volume(),
+            [("Sound Settings", ["pavucontrol"])]), False, False, 0)
+        bv, self.bpath = brightness()
+        box.pack_start(self.row("Display", bv,
+            [("Display Settings", ["xfce4-display-settings"])]), False, False, 0)
+        box.pack_start(self.row("Battery", battery(),
+            [("Energy Settings", ["xfce4-power-manager-settings"])]), False, False, 0)
+        dnd = Gtk.CheckButton(label="Do Not Disturb")
+        dnd.connect("toggled", self.on_dnd)
+        box.pack_start(dnd, False, False, 0)
+        self.connect("focus-out-event", lambda *_: Gtk.main_quit())
+
+    def row(self, title, value, actions):
+        f = Gtk.Frame(label=None)
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        v.set_border_width(8)
+        v.pack_start(Gtk.Label(label="<b>%s</b>" % title, use_markup=True,
+                               xalign=0), False, False, 0)
+        v.pack_start(Gtk.Label(label=value or "—", xalign=0,
+                               selectable=True), False, False, 0)
+        h = Gtk.Box(spacing=6)
+        for label, cmd in actions:
+            b = Gtk.Button(label=label)
+            b.connect("clicked", self.run, cmd)
+            h.pack_start(b, True, True, 0)
+        v.pack_start(h, False, False, 0)
+        f.add(v)
+        return f
+
+    def run(self, _b, cmd):
+        try:
+            subprocess.Popen(cmd)
+        except FileNotFoundError:
+            pass
+
+    def on_dnd(self, btn):
+        subprocess.run(["sh", "-c",
+            "xfconf-query -c xfce4-notifyd -p /do-not-disturb -s %s 2>/dev/null || true"
+            % ("true" if btn.get_active() else "false")])
+
+if __name__ == "__main__":
+    w = Control()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()

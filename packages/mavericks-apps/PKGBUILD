@@ -1,0 +1,30 @@
+# Maintainer: Mavericks Linux <agent@mavericks-linux.local>
+pkgname=mavericks-apps
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Mavericks-like system apps for Xfce (settings, activity, console, control, notes, HUD)"
+arch=('x86_64')
+url="https://github.com/mavericks-linux/macbook12-macos-linux"
+license=('GPL2')
+depends=('gtk3' 'python-gobject' 'python-cairo' 'gtksourceview4'
+         'thunar' 'rofi' 'xfce4-screenshooter' 'trash-cli' 'xarchiver'
+         'networkmanager' 'pavucontrol' 'upower' 'bluez-utils'
+         'gnome-disk-utility' 'xfce4-notifyd' 'libnotify')
+optdepends=('poppler-glib: PDF preview in Quick Look'
+            'ffmpeg: media metadata in Quick Look, screen recording'
+            'ffmpegthumbnailer: video thumbnails'
+            'evince: full PDF reading'
+            'xfce4-genmon-plugin: Energy HUD panel host'
+            'plocate: fast file search for Spotlight file mode')
+makedepends=()
+# NOTE: sources live in ./src/mavericks-apps/ (repo-local, reproducible).
+# Build with: makepkg -si (from this directory). No network fetch required.
+build() {
+    cd "$startdir/src/mavericks-apps"
+    make
+}
+
+package() {
+    cd "$startdir/src/mavericks-apps"
+    make DESTDIR="$pkgdir" PREFIX=/usr install
+}

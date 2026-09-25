@@ -48,6 +48,21 @@ cp -r "$REPO_DIR/archiso-profile/releng/airootfs/etc/skel/." /etc/skel/
 install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/lightdm/lightdm.conf" /etc/lightdm/lightdm.conf
 install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/lightdm/lightdm-gtk-greeter.conf" /etc/lightdm/lightdm-gtk-greeter.conf
 install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/usr/lib/firefox/distribution/policies.json" /usr/lib/firefox/distribution/policies.json
+# Thunar Finder surface for the invoking (live) user + bookmarks with real $HOME
+TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || true)}"
+if [[ -n "$TARGET_USER" && "$TARGET_USER" != "root" ]]; then
+  UH=$(eval echo "~$TARGET_USER")
+  mkdir -p "$UH/.config/Thunar"
+  cp /etc/skel/.config/Thunar/thunarrc "$UH/.config/Thunar/thunarrc" 2>/dev/null || true
+  cp /etc/skel/.config/Thunar/uca.xml "$UH/.config/Thunar/uca.xml" 2>/dev/null || true
+  sed "s|USER_PLACEHOLDER|$TARGET_USER|g" /etc/skel/.gtk-bookmarks.template > "$UH/.gtk-bookmarks" 2>/dev/null || true
+  mkdir -p "$UH/.config/xfce4/xfconf/xfce-perchannel-xml"
+  cp /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml \
+     "$UH/.config/xfce4/xfconf/xfce-perchannel-xml/" 2>/dev/null || true
+  chown -R "$TARGET_USER:$(id -gn "$TARGET_USER")" "$UH/.config/Thunar" "$UH/.gtk-bookmarks" 2>/dev/null || true
+  # Reminders hourly nudge (user timer, oneshot notify only)
+  sudo -u "$TARGET_USER" systemctl --user enable mv-reminders-check.timer 2>/dev/null || true
+fi
 systemctl enable lightdm.service
 systemctl enable bluetooth.service
 # journald: persistent on installed system (ISO uses volatile)

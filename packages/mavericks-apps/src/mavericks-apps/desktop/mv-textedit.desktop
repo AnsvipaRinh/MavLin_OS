@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=TextEdit
+Comment=Text Editor (Mavericks)
+Exec=mousepad %U
+Icon=text-editor
+Categories=TextEditor;
+StartupNotify=true
+X-Mavericks-Alias-For=mousepad

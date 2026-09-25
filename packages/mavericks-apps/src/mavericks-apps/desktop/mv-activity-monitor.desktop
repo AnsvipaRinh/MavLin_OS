@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Activity Monitor
+Comment=Activity Monitor (Mavericks)
+Exec=mv-activity %U
+Icon=utilities-system-monitor
+Categories=System;
+StartupNotify=true
+X-Mavericks-Native=true

@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""mv-shot — Mavericks-like screenshot frontend.
+Backend: xfce4-screenshooter (stills) + ffmpeg x11grab (recording architecture).
+macOS-compatible subset: -i (interactive region), -w (window), -m (fullscreen),
+-T seconds (delay), -c (clipboard), -o file. No daemon.
+License: GPL-2.0-or-later."""
+import os, subprocess, sys, time
+
+SAVE_DIR = os.path.expanduser("~/Pictures/Screenshots")
+APP = "xfce4-screenshooter"
+
+def run(cmd):
+    return subprocess.run(cmd)
+
+def main(argv):
+    mode, delay, clip, out, record = "region", 0, False, None, False
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "-i":
+            mode = "region"
+        elif a == "-w":
+            mode = "window"
+        elif a == "-m":
+            mode = "fullscreen"
+        elif a == "-T" and i + 1 < len(argv):
+            i += 1
+            delay = int(argv[i])
+        elif a == "-c":
+            clip = True
+        elif a == "-o" and i + 1 < len(argv):
+            i += 1
+            out = argv[i]
+        elif a == "--record":
+            record = True
+        elif a in ("-h", "--help"):
+            print(__doc__)
+            return 0
+        i += 1
+    if delay:
+        time.sleep(delay)
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    if record:
+        # Screen-recording architecture: ffmpeg x11grab → ~/Movies.
+        # EXPERIMENT: validate CPU/power on m3-7Y32 before default use.
+        mov = os.path.expanduser("~/Movies/recording-%s.mkv"
+                                 % time.strftime("%Y%m%d-%H%M%S"))
+        os.makedirs(os.path.dirname(mov), exist_ok=True)
+        print("Recording to %s (Ctrl+C to stop)…" % mov)
+        return subprocess.run(["ffmpeg", "-f", "x11grab", "-i", ":0.0",
+                               "-c:v", "libx264", "-preset", "ultrafast",
+                               mov]).returncode
+    flag = {"region": "-r", "window": "-w", "fullscreen": "-f"}[mode]
+    cmd = [APP, flag]
+    if clip:
+        cmd.append("-c")
+    else:
+        cmd += ["-s", out or os.path.join(
+            SAVE_DIR, "shot-%s.png" % time.strftime("%Y%m%d-%H%M%S"))]
+    return run(cmd).returncode
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

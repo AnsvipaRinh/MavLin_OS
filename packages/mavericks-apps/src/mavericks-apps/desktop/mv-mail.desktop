@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Mail
+Comment=Mail Client (Mavericks)
+Exec=geary %U
+Icon=mail-client
+Categories=Network;
+StartupNotify=true
+X-Mavericks-Alias-For=geary

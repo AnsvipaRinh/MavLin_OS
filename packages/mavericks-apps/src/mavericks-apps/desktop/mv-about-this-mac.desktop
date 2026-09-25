@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=About This Mac
+Comment=About This Mac (Mavericks)
+Exec=mv-about %U
+Icon=help-about
+Categories=System;
+StartupNotify=true
+X-Mavericks-Native=true

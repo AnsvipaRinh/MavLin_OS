@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Reminders
+Comment=Reminders (Mavericks)
+Exec=mv-reminders %U
+Icon=appointment
+Categories=Office;
+StartupNotify=true
+X-Mavericks-Native=true

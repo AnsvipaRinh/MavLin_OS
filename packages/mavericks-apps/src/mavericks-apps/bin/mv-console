@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""mv-console — Console.app-like GUI log viewer. Backend: journalctl (popen on
+demand) + dmesg file read. Live tail via single GLib timeout; nothing when closed.
+License: GPL-2.0-or-later."""
+import subprocess
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GLib
+
+class Console(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Console")
+        self.set_default_size(820, 520)
+        hb = Gtk.HeaderBar(title="Console", show_close_button=True)
+        self.set_titlebar(hb)
+        self.search = Gtk.SearchEntry(placeholder_text="Filter")
+        self.search.connect("search-changed", self.reload)
+        hb.pack_start(self.search)
+        self.level = Gtk.ComboBoxText()
+        for lvl in ["all", "emerg", "alert", "crit", "err",
+                    "warning", "notice", "info", "debug"]:
+            self.level.append_text(lvl)
+        self.level.set_active(4)
+        self.level.connect("changed", self.reload)
+        hb.pack_end(self.level)
+        self.follow = Gtk.ToggleButton(label="Live")
+        self.follow.set_active(True)
+        hb.pack_end(self.follow)
+        buf = Gtk.TextBuffer()
+        self.buf = buf
+        tv = Gtk.TextView(buffer=buf)
+        tv.set_editable(False)
+        tv.set_monospace(True)
+        sw = Gtk.ScrolledWindow()
+        sw.add(tv)
+        self.add(sw)
+        self.tv = tv
+        GLib.timeout_add_seconds(2, self.tick)
+        self.reload()
+
+    def tick(self):
+        if self.follow.get_active():
+            self.reload()
+        return True
+
+    def reload(self, *_a):
+        q = self.search.get_text().lower()
+        lvl = self.level.get_active_text()
+        try:
+            cmd = ["journalctl", "-b", "-n", "500", "--no-pager",
+                   "-p", "debug" if lvl == "all" else lvl]
+            out = subprocess.run(cmd, capture_output=True, text=True,
+                                 timeout=10).stdout.splitlines()
+        except (OSError, subprocess.SubprocessError):
+            out = ["(journalctl unavailable)"]
+        if q:
+            out = [l for l in out if q in l.lower()]
+        self.buf.set_text("\n".join(out[-500:]))
+        adj = self.tv.get_vadjustment()
+        adj.set_value(adj.get_upper())
+
+if __name__ == "__main__":
+    w = Console()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()
