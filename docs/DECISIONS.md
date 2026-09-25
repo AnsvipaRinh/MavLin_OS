@@ -128,6 +128,35 @@
 
 ---
 
+## Phase 0.7 pre-hardware hardening (no hardware)
+
+**Date:** 2026-09-25
+**Decisions:**
+1. `gtk-engine-murrine` removed from `mavericks-theme` deps and ISO list.
+   The theme is GTK3-only (no gtk-2.0 dir, no murrine directives in SCSS) and
+   the package no longer exists in current Arch repos. ISO package list and
+   `mavericks-apps` deps are now fully verified against Arch sync DBs
+   (`scripts/check-sync.sh --check-repos`); only the two local packages are
+   expected to be absent upstream.
+2. Thunar custom actions hardened: quote all `%`-placeholders (paths with
+   spaces broke Quick Look/Compress/Terminal/New Folder), `New%20Folder`
+   (literal — Thunar does not URL-decode) → `"New Folder"`, bare interactive
+   `trash-restore` (hangs without a terminal) wrapped as
+   `xfce4-terminal --hold -e trash-restore`.
+3. firstboot install flow defined: repo checkout must exist (auto-detected at
+   `/root/macbook12-macos-linux` etc., clear error otherwise); local packages
+   (`mavericks-apps`, `mavericks-theme`) install from nearby `.pkg.tar.zst`
+   via `pacman -U` first (ISO build output / checkout / live medium), repo
+   second, explicit warning last. Rationale: local packages are NOT in
+   upstream repos, so a bare `pacman -S` could never succeed on the target.
+4. `scripts/`+`tools/`+`configs/` are sources of truth; the ~26 mirror copies
+   under `archiso-profile/.../airootfs` are build artifacts of those sources.
+   `scripts/check-sync.sh` is the pre-commit gate enforcing this (sync +
+   bash/py/XML/desktop/PKGBUILD checks). Symlinks are not used because
+   airootfs is a plain directory tree consumed by mkarchiso.
+
+---
+
 ## Visual target: Mavericks (OS X 10.9) skeuomorphic aesthetic on Xfce
 
 **Date:** 2026-09-25

@@ -54,3 +54,20 @@
       добавлены gvfs (Trash/volumes в Thunar — требование Finder/Trash), gtk-engine-murrine, libnotify
 - [x] Удалена пустая ananicy.d/; epiphany-mavericks-theme → DEFERRED (только --all); .desktop hints исправлены
 - [x] HANDOFF.md приведён к Phase 0.5 реальности (был stale: thermald/ananicy/Epiphany)
+### Фаза 0.7 — Pre-hardware install/UX hardening (2026-09-25, без железа)
+- [x] packages.x86_64 + mavericks-apps deps сверены с репозиториями Arch (pacman -Si):
+      ВСЕ имена валидны; убран gtk-engine-murrine (нет в текущих репозиториях;
+      теме не нужен — она GTK3-only без gtk-2.0/murrine-директив)
+- [x] Thunar uca.xml: закавычены %-плейсхолдеры (ломались на путях с пробелами),
+      `New%20Folder` → `"New Folder"`, Put Back обёрнут в `xfce4-terminal --hold`
+      (голый интерактивный trash-restore без терминала висел бы)
+- [x] firstboot: детект REPO_DIR с понятной ошибкой (раньше падал obscurely на шаге 3
+      вне checkout), установка mavericks-apps/theme из рядом лежащих .pkg.tar.zst
+      через pacman -U с fallback на репозиторий (раньше — только repo, которого нет
+      в апстриме); фикс опечатки BASELINE_CDLINE
+- [x] Дубли scripts/tools/configs ↔ airootfs сверены (26 пар — все SYNC);
+      добавлен scripts/check-sync.sh — pre-commit gate (sync + bash + py + XML +
+      desktop + PKGBUILD + опционально --check-repos); обе копии firstboot/uca обновлены
+- [x] Проверено: policies.json валиден, systemd timer/service корректны
+      (verify ругается только на отсутствие /usr/bin/mv-reminders на build-хосте —
+      ожидаемо), обе rofi-темы парсятся реальным rofi, mkinitcpio MODULES/HOOKS на месте

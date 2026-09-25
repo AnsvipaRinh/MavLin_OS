@@ -7,7 +7,7 @@
     <name>Quick Look</name>
     <submenu></submenu>
     <unique-id>mv-quicklook</unique-id>
-    <command>mv-quicklook %f</command>
+    <command>mv-quicklook "%f"</command>
     <description>Press Space equivalent — preview file</description>
     <patterns>*</patterns>
     <startup-notify/>
@@ -23,8 +23,8 @@
     <name>Put Back</name>
     <submenu></submenu>
     <unique-id>mv-putback</unique-id>
-    <command>trash-restore</command>
-    <description>Restore trashed item (trash-cli)</description>
+    <command>xfce4-terminal --hold -e trash-restore</command>
+    <description>Restore trashed item (trash-cli, interactive picker)</description>
     <patterns>*</patterns>
     <other-files/>
   </action>
@@ -33,7 +33,7 @@
     <name>New Folder</name>
     <submenu></submenu>
     <unique-id>mv-newfolder</unique-id>
-    <command>mkdir %d/New%20Folder</command>
+    <command>mkdir "%d/New Folder"</command>
     <description>Create new folder here</description>
     <patterns>*</patterns>
     <directories/>
@@ -43,7 +43,7 @@
     <name>Compress</name>
     <submenu></submenu>
     <unique-id>mv-compress</unique-id>
-    <command>xarchiver -a %d/%n.zip %F</command>
+    <command>xarchiver -a "%d/%n.zip" %F</command>
     <description>Compress selection to zip</description>
     <patterns>*</patterns>
     <directories/>
@@ -58,7 +58,7 @@
     <name>Open in Terminal</name>
     <submenu></submenu>
     <unique-id>mv-terminal</unique-id>
-    <command>exo-open --working-directory %f --launch TerminalEmulator</command>
+    <command>exo-open --working-directory "%f" --launch TerminalEmulator</command>
     <description>Open this folder in Terminal</description>
     <patterns>*</patterns>
     <directories/>

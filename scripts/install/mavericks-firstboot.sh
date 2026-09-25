@@ -4,6 +4,19 @@
 # Idempotent. Reboot after.
 set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+# firstboot runs from a repo checkout (cloned to the installed system or the
+# live ISO build host). Fall back to well-known checkout locations; fail fast
+# with a clear message instead of dying obscurely mid-script.
+if [[ ! -d "$REPO_DIR/archiso-profile" ]]; then
+  for cand in /root/macbook12-macos-linux /usr/local/src/macbook12-macos-linux; do
+    if [[ -d "$cand/archiso-profile" ]]; then REPO_DIR="$cand"; break; fi
+  done
+fi
+if [[ ! -d "$REPO_DIR/archiso-profile" ]]; then
+  echo "[firstboot] ERROR: repo checkout not found."
+  echo "[firstboot] Clone the repo (e.g. to /root/macbook12-macos-linux) and re-run."
+  exit 1
+fi
 log() { echo "[firstboot] $*"; }
 
 log "1/7 hostname/locale/time"
@@ -12,12 +25,12 @@ ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime 2>/dev/null || true
 hwclock --systohc 2>/dev/null || true
 
 log "2/7 bootloader entries = baseline CMDLINE"
-BASELINE_CDLINE="quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0"
+BASELINE_CMDLINE="quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0"
 for f in /boot/loader/entries/*.conf; do
   [[ -f "$f" ]] || continue
   if grep -q "^options" "$f"; then
     # preserve root= PARTUUID lines, replace trailing options after 'rw '
-    sed -i -E "s/^(options +.*rootflags=[^ ]+ *) .*/\1 $BASELINE_CDLINE/" "$f" || true
+    sed -i -E "s/^(options +.*rootflags=[^ ]+ *) .*/\1 $BASELINE_CMDLINE/" "$f" || true
   fi
 done
 grep -H "^options" /boot/loader/entries/*.conf || true
@@ -68,7 +81,24 @@ systemctl enable bluetooth.service
 # journald: persistent on installed system (ISO uses volatile)
 rm -f /etc/systemd/journald.conf.d/volatile-storage.conf 2>/dev/null || true
 
-log "7/7 NVRAM placeholder check + theme packages"
+log "7/7 NVRAM placeholder check + local app/theme packages"
 "$REPO_DIR/scripts/install/extract-brcmfmac-nvram.sh" || true
-pacman -Sy --needed --noconfirm mavericks-theme 2>/dev/null || log "(mavericks-theme: install from local repo/ISO)"
+# mavericks-apps/theme are NOT in upstream repos. Prefer nearby built package
+# files (ISO build output, checkout dir, live medium), then configured repo.
+LOCAL_PKGS=(mavericks-apps mavericks-theme)
+PKG_FILES=()
+for d in "$REPO_DIR/out" "$REPO_DIR" /run/archiso/bootmnt/mavericks /root; do
+  for p in "${LOCAL_PKGS[@]}"; do
+    for f in "$d"/"$p"-*.pkg.tar.zst; do
+      [[ -f "$f" ]] && PKG_FILES+=("$f")
+    done
+  done
+done
+if (( ${#PKG_FILES[@]} )); then
+  log "(installing local packages: ${PKG_FILES[*]})"
+  pacman -U --needed --noconfirm "${PKG_FILES[@]}" || log "(local pkg install reported errors)"
+else
+  pacman -Sy --needed --noconfirm "${LOCAL_PKGS[@]}" 2>/dev/null \
+    || log "(mavericks-apps/theme NOT installed: no .pkg.tar.zst found and no [mavericks] repo; build with scripts/build-local-pkgs.sh)"
+fi
 log "Done. REBOOT, then run tools/diagnostics/mv-collect.sh as root."
