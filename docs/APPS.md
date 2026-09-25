@@ -50,7 +50,7 @@
 | Name | State | Notes |
 |---|---|---|
 | AirDrop | DEFERRED | No mature+legal Linux backend identified; revisit after P0/P1 |
-| Time Machine | DEFERRED | Candidates: Borg/Restic/Btrfs snapshots; UI after P1 |
+| Time Machine | DEFERRED | Candidates evaluated 2026-09-25 (docs/RESEARCH_TIMEMACHINE.md): Borg 1.4.5 primary + btrfs snapshots local layer; restic deferred | UI after P1 |
 | Automator/Shortcuts | DEFERRED | Architecture research only |
 | Grapher | DEFERRED | Candidates: matplotlib/labplot; not prioritized |
 

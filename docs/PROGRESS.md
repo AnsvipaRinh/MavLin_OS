@@ -131,3 +131,8 @@
       без железа и без root, не осталось (Finder/Spotlight/MC/Launchpad/CC/NC/QL/
       Settings/Power/Preview/Console/Notes/Activity/HUD/dialogs/launchers покрыты
       выше); P2-research разблокирован для следующей итерации по правилу приоритетов
+### Фаза 0.17 — P2 Time Machine backend research (2026-09-25, без железа)
+- [x] Сверено: borg 1.4.5 + restic 0.19.1 в extra, оба активны; fuse3/rclone/btrfs-progs в репозиториях
+- [x] docs/RESEARCH_TIMEMACHINE.md: Borg primary (dedup+zstd+FUSE+шифрование на USB-C),
+      btrfs-снапшоты как instant local layer (ФС уже btrfs), restic deferred до cloud-требований;
+      всё oneshot-by-timer, без daemon — в рамках power-модели; в ISO пока НЕ добавлять
