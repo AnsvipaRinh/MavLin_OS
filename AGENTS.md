@@ -39,6 +39,160 @@
 
 Не останавливайся после нескольких пунктов только потому, что они были
 перечислены в одном чате. Не начинай новый чат с вопроса «Что мне делать?».
+См. обязательный раздел 0.1: commit — это checkpoint, а не остановка;
+остановка — только при genuine blocker.
+
+## 0.1. Continuous autonomous execution (обязательно)
+
+Ключевой принцип: **COMMIT IS A CHECKPOINT, NOT A STOP CONDITION.**
+
+- Создание commit НЕ означает завершение работы.
+- Чистое git tree НЕ означает завершение работы.
+- Написание отчёта НЕ означает завершение работы.
+- Завершение одной подзадачи НЕ означает завершение работы.
+- Если после текущего commit существует следующий технически выполнимый шаг,
+  агент должен автоматически продолжить работу. Не ждать нового
+  пользовательского сообщения. Не просить пользователя выбрать между
+  очевидными следующими техническими действиями, если выбор делается
+  самостоятельно по приоритетам (разделы 3, 10).
+
+### Рабочий цикл
+
+1. Read persistent instructions.
+2. Inspect current repository state.
+3. Identify current high-level objective.
+4. Inspect its Definition of Done.
+5. Implement.
+6. Test.
+7. Integrate.
+8. Audit.
+9. Commit checkpoint.
+10. Update project state.
+11. Immediately select the next unfinished executable task.
+12. Continue.
+
+После шага 10 НЕ переходить в ожидание пользователя. После каждого
+checkpoint повторять цикл. Формально:
+
+```
+WHILE project has unfinished executable work:
+  select highest-priority executable objective
+  work on it
+  validate it
+  checkpoint/commit
+  continue
+```
+
+STOP — только при genuine blocker (см. ниже).
+
+### Что считается genuine blocker
+
+Остановка допустима только если дальнейшая работа объективно невозможна
+без внешнего действия:
+
+- физическое hardware действительно необходимо;
+- отсутствует необходимый secret/credential;
+- execution environment объективно не предоставляет нужный privilege
+  (например root), И нет другой полезной работы вокруг этого blocker;
+- destructive operation требует explicit user confirmation;
+- отсутствует обязательный внешний ресурс;
+- техническое противоречие невозможно разрешить без архитектурного
+  решения пользователя;
+- tool/runtime execution budget реально исчерпан.
+
+ВАЖНО: заблокированный один путь — НЕ остановка проекта. Нужно:
+зафиксировать blocker → выполнить всё достижимое без заблокированного
+ресурса → перейти к следующему high-priority pre-hardware objective →
+вернуться к blocked task позже.
+
+Например: `mkarchiso` требует root — это НЕ «работа закончена».
+Без root остаются выполнимыми: Finder, Spotlight, Mission Control,
+Launchpad, themes, applications, desktop integration, tests, packaging,
+documentation, source-level validation. Невозможность QEMU без root
+не блокирует этот список.
+
+### Не останавливаться после «следующего шага»
+
+Фраза «Следующий логический шаг: X» — НЕ причина остановки.
+Если X выполним — НАЧАТЬ X, а не писать отчёт и ждать пользователя.
+«Можно сделать A или B» — самостоятельно выбрать приоритетное по roadmap.
+Не спрашивать «Что делать дальше?», если AGENTS.md уже даёт достаточно
+информации для решения.
+
+### High-level objective model
+
+Работа организуется вокруг high-level objectives (Finder, Spotlight,
+Launchpad, Mission Control, Control Center, Notification Center,
+Quick Look, Activity Monitor, System Information, Disk Utility,
+System Settings, global menu bar, Dock, common dialogs, application
+integration, Mavericks theme и т.д.), а не вокруг мелких действий.
+«Изменил CSS» — не отдельный завершённый objective. «Починил package» —
+не завершение project iteration, если после этого остаются очевидные
+executable tasks.
+
+### Definition of Done для high-level objective
+
+Objective НЕ считается завершённым только потому, что binary существует,
+приложение запускается, package собирается, `.desktop` существует,
+backend существует, UI существует, одна функция работает или syntax
+checks зелёные.
+
+Для application-level objective DoD по возможности включает: backend;
+user-facing UI; Mavericks visual integration; behavior; keyboard
+interaction; global integration; MIME/file integration где уместно;
+dialogs; context menus; error handling; no-hardware fallback behavior;
+performance/energy review; packaging; installation; tests; documentation;
+known limitations; hardware-validation classification. Только после этого —
+IMPLEMENTED или IMPLEMENTED — HARDWARE VALIDATION REQUIRED; иначе —
+PARTIALLY IMPLEMENTED. Не использовать IMPLEMENTED как удобную отметку
+для остановки.
+
+Примеры:
+
+- Finder НЕ завершён после «Thunar configured with Mavericks theme».
+  Продолжать, пока технически возможно закрыть: sidebar, navigation, views,
+  toolbar, search, context menu, Get Info, Open With, Trash, Eject,
+  Quick Look, keyboard navigation, drag-and-drop, MIME integration, dialogs,
+  theme, icons, menu integration, removable media, error handling, packaging,
+  testing, documentation. Hardware-specific limitations помечать отдельно.
+- Spotlight НЕ завершён после «plocate backend works». По возможности
+  закрыть: global shortcut, overlay, search input, keyboard navigation,
+  results, ranking, applications, files, open action, visual integration,
+  performance, indexing strategy, error handling, packaging, tests.
+- Mission Control НЕ завершён после «rofi window mode works». Исследовать
+  и реализовать полноценный доступный в текущем environment overview
+  workflow. Если backend/compositor объективно ограничен — задокументировать
+  ограничение и реализовать максимально полный вариант без hardware.
+
+### Checkpoints vs completion
+
+Правильно: implement → test → commit → continue.
+НЕПРАВИЛЬНО: implement → test → commit → report → stop.
+Отчёты — для telemetry/traceability, а не для получения разрешения продолжить.
+
+### Session continuation и reporting
+
+Использовать доступное execution time для реального прогресса проекта.
+Не оптимизировать сессию под минимальное число commits. Не оптимизировать
+работу под короткий user-facing report. Если objective закрыт — переходить
+к следующему. Если objective частично заблокирован — делать доступную часть
+и переходить к следующему доступному objective. Если найдена
+инфраструктурная проблема — исправить её, затем продолжить roadmap.
+
+Промежуточный report — это progress checkpoint; после него продолжать
+автоматически. Финальный report — только когда: (A) genuine blocker требует
+внешнего действия; или (B) execution environment действительно исчерпан;
+или (C) достигнута project-level completion. Фраза «следующий шаг X»
+означает «я сейчас начинаю X», а не «пользователь должен решить, делать ли X».
+
+### Project completion
+
+Полная остановка autonomous execution — только когда: все возможные
+pre-hardware P0 objectives завершены; все возможные pre-hardware P1
+objectives завершены; остаток — действительно hardware-dependent или
+P2/deferred; documentation отражает реальное состояние; tests пройдены;
+repository clean; известные blockers перечислены. До этого момента
+отсутствие нового user prompt — НЕ причина останавливаться.
 
 ## 1. Главная цель проекта
 
