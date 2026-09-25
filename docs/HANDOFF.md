@@ -1,7 +1,7 @@
 # HANDOFF.md — Сводка состояния (для чтения за 1 минуту)
 
-**Дата:** 2026-09-25 (обновлено: Phase 0.5 baseline + P0 coherence fixes)
-**Готовность к железу:** Phase 0 — DONE (smoke-test в QEMU пройден)
+**Дата:** 2026-09-25 (обновлено: ISO build + QEMU smoke test Passed, Phase 0.8)
+**Готовность к железу:** Phase 0.8 — DONE (ISO built, QEMU+OVMF smoke-test passed)
 
 > Phase 0.5 — действующий baseline (source of truth: раздел 7 AGENTS.md,
 > `docs/DECISIONS.md` «Phase 0.3 baseline»). Всё ниже, что противоречит
@@ -101,14 +101,14 @@ macbook12-macos-linux/
 ---
 
 ## 🚀 СЛЕДУЮЩИЕ ШАГИ (агент продолжает без пауз)
-1. Пересобрать ISO (`scripts/build-local-pkgs.sh` → mkarchiso) и прогнать
-   QEMU+OVMF smoke-test — ✅ РАЗБЛОКИРОВАНО 2026-09-25: NOPASSWD sudo
-   для builder (см. docs/ENVIRONMENT.md). Было: root-blocker (uid 1000, sudo с паролем).
+1. ISO пересобрана: `mavericks-linux-2026.09.25-x86_64.iso` в `/home/builder/archiso-out/`;
+   QEMU+OVMF smoke-test пройден: boot → systemd-boot → linux → airootfs → Xfce DE.
+   (Было: root-blocker — now resolved: NOPASSWD sudo for builder per ENVIRONMENT.md).
 2. На железе: проверить применение темы Mavericks на живой сессии
    (gtk-theme-name=Mavericks; gtk.css скомпилирован sassc pre-hardware);
    E-MC apply (`mv-experiment.sh E-MC apply` после `yay -S skippy-xd-git`),
    Super+Space/Spotlight-индекс, Quick Look, HiDPI 2304×1440.
-3. P0 coherence, source-уровень ГОТОВ (фазы 0.8–0.15): E-MC эксперимент
+3. P0 coherence source-уровень ГОТОВ (фазы 0.8–0.15): E-MC эксперимент
    (skippy-xd one-shot, rc, диспетчер), mv-newfolder в uca, plocate-timer
    в firstboot, Preview-алиас, GUI smoke (quicklook/console/activity/notes/
    settings/about alive на X), rofi-темы re-validated, HUD fallback `n/a`.
