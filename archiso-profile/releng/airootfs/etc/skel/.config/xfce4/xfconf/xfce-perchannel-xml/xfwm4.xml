@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- xfwm4 — Mavericks window decorations: shadows on, heavy effects off (fanless) -->
+<!-- xfwm4 — Mavericks window decorations.
+     PROVISIONAL UI/GPU CONFIG (requires hardware validation, NOT a proven optimization):
+     vblank_mode=off + unredirect_overlays=true reduce compositor work on fanless,
+     but may cause tearing on the real panel. Validate on hardware; see E-GPU notes. -->
 <channel name="xfwm4" version="1.0">
   <property name="general" type="empty">
     <property name="theme" type="string" value="Mavericks"/>
@@ -18,7 +21,7 @@
     <property name="resize_opacity" type="int" value="100"/>
     <property name="zoom_desktop" type="bool" value="false"/>
     <property name="zoom_pointer" type="bool" value="true"/>
-    <!-- effects OFF for fanless -->
+    <!-- effects minimal for fanless (PROVISIONAL — validate tearing vs power on panel) -->
     <property name="vblank_mode" type="string" value="off"/>
     <property name="unredirect_overlays" type="bool" value="true"/>
     <property name="placement_mode" type="string" value="center"/>

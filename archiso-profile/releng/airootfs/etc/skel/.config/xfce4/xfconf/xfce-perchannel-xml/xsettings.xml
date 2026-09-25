@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- xsettings — theme/fonts/HiDPI -->
+<!-- xsettings — theme/fonts/HiDPI.
+     DPI=192 is a PROVISIONAL target for the 2304x1440 12" panel
+     (2304/12.9in ≈ 207 DPI physical; 192 = 2x logical with Xfce scaling).
+     Final value set on hardware via Settings > Appearance > Fonts. -->
 <channel name="xsettings" version="1.0">
   <property name="Net" type="empty">
     <property name="ThemeName" type="string" value="Mavericks"/>

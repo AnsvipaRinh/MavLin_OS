@@ -8,6 +8,7 @@ OUT="${1:-/var/log/mavericks-bringup}/$(date +%F_%H%M%S)"
 mkdir -p "$OUT"
 say() { echo "== $*"; }
 run() { echo "\$ $*" >> "$OUT/commands.log"; "$@" >> "$OUT/commands.log" 2>&1 || echo "(exit $?)"; }
+runsh() { echo "\$ $*" >> "$OUT/commands.log"; bash -c "$*" >> "$OUT/commands.log" 2>&1 || echo "(exit $?)"; }
 
 say "Writing to $OUT"
 {
@@ -38,22 +39,22 @@ run cat /sys/module/i915/parameters/enable_guc 2>/dev/null || true
 
 # 4 Input
 run libinput list-devices 2>/dev/null || true
-run dmesg -T | grep -iE "applespi|spi|input" | head -50
+runsh "dmesg -T | grep -iE 'applespi|spi|input' | head -50"
 run ls /sys/bus/spi/devices/ 2>/dev/null || true
-run cat /proc/interrupts | grep -i spi || true
+runsh "cat /proc/interrupts | grep -i spi || echo '(no spi irq)'"
 
 # 5 Wi-Fi / BT
 run lspci -nn -d 14e4:
-run dmesg -T | grep -iE "brcm|wl|firmware" | head -40
+runsh "dmesg -T | grep -iE 'brcm|wl|firmware' | head -40"
 run iw dev
 run nmcli general status 2>/dev/null || true
 run nmcli device status 2>/dev/null || true
 run bluetoothctl show 2>/dev/null || true
-run dmesg -T | grep -iE "bluetooth|btusb|hci" | head -20
+runsh "dmesg -T | grep -iE 'bluetooth|btusb|hci' | head -20"
 
 # 6 Audio
 run lspci -nn | grep -i audio
-run dmesg -T | grep -iE "snd|hda|cirrus|cs42" | head -40
+runsh "dmesg -T | grep -iE 'snd|hda|cirrus|cs42' | head -40"
 run aplay -l
 run arecord -l
 run wpctl status 2>/dev/null || true

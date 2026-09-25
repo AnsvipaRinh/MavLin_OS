@@ -35,8 +35,11 @@ rm -f /etc/sysctl.d/99-mavericks.conf
 
 log "5/7 network: NetworkManager owns Wi-Fi on installed system"
 systemctl disable --now iwd.service 2>/dev/null || true
-systemctl disable --now systemd-networkd.service systemd-resolved.service 2>/dev/null || true
+systemctl disable --now systemd-networkd.service 2>/dev/null || true
+# NOTE: keep systemd-resolved enabled — /etc/resolv.conf points at its stub;
+# disabling it would break DNS. NetworkManager cooperates with resolved.
 systemctl enable NetworkManager.service
+systemctl enable systemd-resolved.service 2>/dev/null || true
 systemctl mask ModemManager.service 2>/dev/null || true
 systemctl disable sshd.service reflector.service 2>/dev/null || true
 
