@@ -102,12 +102,17 @@ macbook12-macos-linux/
 
 ## 🚀 СЛЕДУЮЩИЕ ШАГИ (агент продолжает без пауз)
 1. Пересобрать ISO (`scripts/build-local-pkgs.sh` → mkarchiso) и прогнать
-   QEMU+OVMF smoke-test с обновлённым пакетлистом (gvfs/murrine/libnotify,
-   без dunst/grub, с mavericks-theme).
+   QEMU+OVMF smoke-test — ⛔ BLOCKED: нужен root (uid 1000 в текущем окружении),
+   без root осталось всё остальное (см. 0.1 AGENTS.md). Разблокируется на хосте с root.
 2. На железе: проверить применение темы Mavericks на живой сессии
-   (gtk-theme-name=Mavericks; gtk.css скомпилирован sassc pre-hardware).
-3. P0 coherence: Finder-поведение поверх Thunar/GVfs (sidebar, Quick Look
-   Space-интеграция), Spotlight UX, Mission Control overview (E-MC skippy-xd).
+   (gtk-theme-name=Mavericks; gtk.css скомпилирован sassc pre-hardware);
+   E-MC apply (`mv-experiment.sh E-MC apply` после `yay -S skippy-xd-git`),
+   Super+Space/Spotlight-индекс, Quick Look, HiDPI 2304×1440.
+3. P0 coherence, source-уровень ГОТОВ (фазы 0.8–0.15): E-MC эксперимент
+   (skippy-xd one-shot, rc, диспетчер), mv-newfolder в uca, plocate-timer
+   в firstboot, Preview-алиас, GUI smoke (quicklook/console/activity/notes/
+   settings/about alive на X), rofi-темы re-validated, HUD fallback `n/a`.
+   Остаток P0/P1 — только HW-валидация (NEEDS_HARDWARE_TEST.md).
 4. Обновить HANDOFF.md по итогам следующей итерации.
 
 **Никаких пауз "до железа".** Всё доводится до "ПОДГОТОВЛЕНО, НЕ ПРОВЕРЕНО".

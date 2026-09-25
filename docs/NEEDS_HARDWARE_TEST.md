@@ -65,3 +65,10 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Perf feel: animation 150ms snappy on HD 615, no stutter with 6+ windows
 - [ ] Revert check: `... E-MC revert` restores rofi binding; `... E-MC status` reports clean state
 - [ ] Record verdict in docs/APPS.md (promote to IMPLEMENTED — HARDWARE VALIDATION REQUIRED, or keep EXPERIMENT READY with findings)
+
+## Phase 3+ — app validation (source-уровень готов в 0.8–0.15)
+- [ ] Preview: открыть PDF в evince через mv-preview alias на панели 2304x1440
+- [ ] Spotlight: после первой загрузки дождаться plocate-updatedb.timer, Super+Space находит файлы
+- [ ] Quick Look: mv-quicklook на image/PDF/text/audio (Poppler-путь не покрыт хостом)
+- [ ] GUI: notes/settings/about/activity/console на живой Xfce-сессии (на хосте — alive)
+- [ ] HUD: mv-hud в genmon показывает ватты RAPL m3-7Y32 (на хосте — graceful `n/a`)
