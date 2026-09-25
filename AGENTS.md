@@ -412,6 +412,7 @@ Persistent state живёт в репозитории. Минимум: `docs/APP
 `docs/DECISIONS.md` (любое неочевидное решение + «почему»),
 `docs/HARDWARE.md` (MacBook10,1 + ревизионные отличия),
 `docs/NEEDS_HARDWARE_TEST.md` (всё hardware-dependent),
+`docs/ENVIRONMENT.md` (доступ/root в build-контейнере — читать при sudo-проблемах),
 `docs/MEMORY_BUDGET.md` (+ `docs/BENCHMARKS.md`). Если есть более подходящие
 документы — использовать существующие. Документировать: что реально работает,
 а что mocked/wrapped; hardware-dependent и deferred; почему принято решение;

@@ -102,8 +102,8 @@ macbook12-macos-linux/
 
 ## 🚀 СЛЕДУЮЩИЕ ШАГИ (агент продолжает без пауз)
 1. Пересобрать ISO (`scripts/build-local-pkgs.sh` → mkarchiso) и прогнать
-   QEMU+OVMF smoke-test — ⛔ BLOCKED: нужен root (uid 1000 в текущем окружении),
-   без root осталось всё остальное (см. 0.1 AGENTS.md). Разблокируется на хосте с root.
+   QEMU+OVMF smoke-test — ✅ РАЗБЛОКИРОВАНО 2026-09-25: NOPASSWD sudo
+   для builder (см. docs/ENVIRONMENT.md). Было: root-blocker (uid 1000, sudo с паролем).
 2. На железе: проверить применение темы Mavericks на живой сессии
    (gtk-theme-name=Mavericks; gtk.css скомпилирован sassc pre-hardware);
    E-MC apply (`mv-experiment.sh E-MC apply` после `yay -S skippy-xd-git`),
