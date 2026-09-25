@@ -94,3 +94,10 @@
 - [x] `systemctl enable plocate-updatedb.timer` в firstboot (исходник + зеркало, sync OK,
       bash -n OK); unit-имя сверено с файлами пакета Arch (plocate-updatedb.service/.timer);
       daily oneshot, не daemon — в рамках energy-бюджета
+### Фаза 0.11 — Launcher/dependency audit (2026-09-25, без железа)
+- [x] Все 22 .desktop Exec сверены с packages.x86_64: mv-* — из mavericks-apps,
+      бэкенды (xarchiver/galculator/orage/gcolor3/thunar/gnome-font-viewer/seahorse/
+      geary/lollypop/gthumb/mousepad/trash-cli/rofi/plocate/gvfs/...) — в ISO;
+      gnome-disks поставляется пакетом gnome-disk-utility (строка 30) — разрывов нет
+- [x] mv-control: fallback-поведение без железа уже есть (try/except вокруг pactl/sysfs,
+      isdir-guard backlight, FileNotFoundError) — правок не потребовалось
