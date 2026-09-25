@@ -1,7 +1,7 @@
 # Maintainer: Mavericks Linux Agent <agent@mavericks-linux.local>
 pkgname=mavericks-theme
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="OS X 10.9 Mavericks skeuomorphic theme for Xfce/GTK3 - textures, shadows, glass, leather/paper"
 arch=('any')
 url="https://github.com/mavericks-linux/macbook12-macos-linux"
@@ -88,63 +88,8 @@ gtk-xft-hinting=1
 gtk-xft-hintstyle=hintslight
 gtk-xft-rgba=rgb
 EOF
-
-    # Xfce default panel layout (menu bar style)
-    install -Dm644 /dev/stdin "${pkgdir}/etc/xdg/xfce4/panel/default.xml" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<channel version="1.0" name="xfce4-panel">
-  <property name="panels" type="array">
-    <value type="int" value="1"/>
-    <property name="panel-1" type="empty">
-      <property name="position" type="string" value="p=6;x=0;y=0"/>
-      <property name="length" type="uint" value="100"/>
-      <property name="length-adjust" type="bool" value="true"/>
-      <property name="size" type="uint" value="24"/>
-      <property name="autohide-behavior" type="uint" value="0"/>
-      <property name="background-style" type="uint" value="1"/>
-      <property name="background-image" type="string" value="/usr/share/themes/Mavericks/xfce4-panel/panel-bg.png"/>
-      <property name="enter-opacity" type="uint" value="99"/>
-      <property name="leave-opacity" type="uint" value="99"/>
-      <property name="plugin-ids" type="array">
-        <value type="int" value="1"/>
-        <value type="int" value="2"/>
-        <value type="int" value="3"/>
-        <value type="int" value="4"/>
-        <value type="int" value="5"/>
-        <value type="int" value="6"/>
-      </property>
-    </property>
-  </property>
-  <property name="plugins" type="array">
-    <value type="int" value="1"/>
-    <value type="int" value="2"/>
-    <value type="int" value="3"/>
-    <value type="int" value="4"/>
-    <value type="int" value="5"/>
-    <value type="int" value="6"/>
-    <property name="plugin-1" type="empty">
-      <property name="name" type="string" value="applicationsmenu"/>
-      <property name="label" type="string" value="Applications Menu"/>
-    </property>
-    <property name="plugin-2" type="empty">
-      <property name="name" type="string" value="separator"/>
-      <property name="expand" type="bool" value="true"/>
-    </property>
-    <property name="plugin-3" type="empty">
-      <property name="name" type="string" value="tasklist"/>
-    </property>
-    <property name="plugin-4" type="empty">
-      <property name="name" type="string" value="separator"/>
-      <property name="expand" type="bool" value="true"/>
-    </property>
-    <property name="plugin-5" type="empty">
-      <property name="name" type="string" value="systray"/>
-    </property>
-    <property name="plugin-6" type="empty">
-      <property name="name" type="string" value="clock"/>
-      <property name="format" type="string" value="%a %b %d  %H:%M"/>
-    </property>
-  </property>
-</channel>
-EOF
+    # NOTE: NO /etc/xdg/xfce4/panel/default.xml here — that path is owned by
+    # the xfce4-panel package (pacman file conflict at ISO build). Panel
+    # layout ships via skel: configs/desktop/xfce/xfce4-panel.xml
+    # (sync-gated, covers live + new users).
 }
