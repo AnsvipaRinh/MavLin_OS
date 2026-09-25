@@ -111,3 +111,8 @@
 - [x] rofi-mavericks.rasi + rofi-launchpad.rasi: `rofi -dump-theme` exit 0, stderr пуст
       (real rofi 2.0.0); ВАЖНО: без LANG=C.UTF-8 dump падает с exit 1 и пустым stdout
       даже на дефолтной теме — это env-проблема хоста, не баг тем
+### Фаза 0.14 — Preview alias + more GUI smoke (2026-09-25, без железа)
+- [x] Разрыв: P1 Preview был в roadmap, evince в ISO есть, но .desktop-алиаса и строки
+      в APPS.md не было → создан mv-preview.desktop (Exec=evince %U,
+      Icon=document-viewer), desktop-file-validate чист
+- [x] GUI smoke alive на :0: mv-notes, mv-settings, mv-about (в дополнение к 0.12)

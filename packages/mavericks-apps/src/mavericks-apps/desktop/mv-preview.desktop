@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Preview
+Comment=Preview (Mavericks)
+Exec=evince %U
+Icon=document-viewer
+Categories=Graphics;Viewer;
+StartupNotify=true
+X-Mavericks-Alias-For=evince

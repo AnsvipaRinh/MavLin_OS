@@ -43,6 +43,7 @@
 | Font Book | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | gnome-font-viewer 50 (GTK4/libadwaita) + alias |
 | Digital Color Meter | IMPLEMENTED | gcolor3 2.4 (GPL-2.0) + alias |
 | Stickies | IMPLEMENTED | xfce4-notes-plugin 1.12 (panel plugin; NOT added to panel by default) |
+| Preview | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | evince (GPL, poppler backend) + alias mv-preview.desktop | stock + alias | evince (in ISO) | on-demand | PDF render on panel | validate open/pdf flow |
 
 ## P2 — research only
 
