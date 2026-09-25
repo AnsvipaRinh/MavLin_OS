@@ -1,6 +1,6 @@
 # Maintainer: Mavericks Linux Agent <agent@mavericks-linux.local>
 pkgname=macbook12-audio-driver
-pkgver=1.0.0
+pkgver=1.0.0.r108.g4cdfcdb
 pkgrel=1
 pkgdesc="Cirrus Logic CS42L83 audio driver patch for MacBook 12\" (2015-2017) - enables built-in speakers"
 arch=('x86_64')
@@ -15,12 +15,20 @@ source=(
     "99-macbook12-audio.conf"
 )
 sha256sums=('SKIP'
-            'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456'
-            'b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567')
+            'ec8af1f14e8df0aa1f8888084fe47cee4a6df9212bbc2c2d210fc70d119897b2'
+            '7ca275b4ed04d70a107f9bf8789173cc13ce2d64a3b3ff088612513ca61e8bec')
 
 pkgver() {
     cd macbook12-audio-driver
-    git describe --long --tags 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' || echo "1.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
+    # NOTE: do NOT use `git describe ... | sed ... || fallback` — without
+    # pipefail the fallback never triggers when describe fails (upstream has
+    # no tags) but sed succeeds on empty input, yielding an empty pkgver.
+    local desc
+    if desc=$(git describe --long --tags 2>/dev/null); then
+        printf '%s\n' "$desc" | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+    else
+        echo "1.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
+    fi
 }
 
 prepare() {

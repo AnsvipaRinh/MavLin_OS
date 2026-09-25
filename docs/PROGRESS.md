@@ -136,3 +136,13 @@
 - [x] docs/RESEARCH_TIMEMACHINE.md: Borg primary (dedup+zstd+FUSE+шифрование на USB-C),
       btrfs-снапшоты как instant local layer (ФС уже btrfs), restic deferred до cloud-требований;
       всё oneshot-by-timer, без daemon — в рамках power-модели; в ISO пока НЕ добавлять
+### Фаза 0.18 — Local package repo BUILT (2026-09-25, с root)
+- [x] /tmp/mavericks-repo: mavericks-apps, mavericks-theme, macbook12-audio-driver
+      (1.0.0.r108.g4cdfcdb) + mavericks.db — `build-local-pkgs.sh` exit 0
+- [x] Исправлены три бага сборки: placeholder-sha256 в audio-PKGBUILD (реальные суммы),
+      pkgver-pipe-ловушка (`describe|sed||fallback` давал пустую версию — тегов нет
+      в апстриме; переписан на if/desc), неидемпотентность скрипта (добавлен -f) + exec-bit
+- [x] ИНЦИДЕНТ и урок: ручной `rm -rf packages/*/src` удалил TRACKED-исходники
+      (src/ у этих пакетов — не residue, а общие с makepkg $srcdir имена);
+      восстановлено `git checkout`, потерь нет; в скрипт вписан WARNING, residue
+      покрыт .gitignore (pkg/, audio-clone, audio-src/)

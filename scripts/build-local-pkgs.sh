@@ -13,7 +13,10 @@ for pkg in $PKGS; do
   dir="packages/$pkg"
   [[ -f "$dir/PKGBUILD" ]] || { echo "skip $pkg (no PKGBUILD)"; continue; }
   echo "=== building $pkg ==="
-  (cd "$dir" && makepkg -s --noconfirm --skipchecksums 2>/dev/null || makepkg -s --noconfirm)
+  # -f: rebuilds are idempotent (re-run safe). WARNING: never rm -rf
+  # packages/*/src — for these packages it holds TRACKED sources that
+  # share makepkg's default $srcdir name, not just build residue.
+  (cd "$dir" && makepkg -sf --noconfirm --skipchecksums 2>/dev/null || makepkg -sf --noconfirm)
   cp "$dir"/*.pkg.tar.zst "$OUT/" 2>/dev/null || true
 done
 (cd "$OUT" && repo-add mavericks.db.tar.gz *.pkg.tar.zst)
