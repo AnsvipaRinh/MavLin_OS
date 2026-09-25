@@ -1,0 +1,10 @@
+[Match]
+Name=en*
+
+[Network]
+DHCP=yes
+IPv6PrivacyExtensions=yes
+
+[DHCP]
+UseDomains=true
+RouteMetric=5

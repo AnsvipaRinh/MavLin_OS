@@ -1,0 +1,10 @@
+[Match]
+Name=wl*
+
+[Network]
+DHCP=yes
+IPv6PrivacyExtensions=yes
+
+[DHCP]
+UseDomains=true
+RouteMetric=10
