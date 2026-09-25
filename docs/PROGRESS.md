@@ -116,3 +116,6 @@
       в APPS.md не было → создан mv-preview.desktop (Exec=evince %U,
       Icon=document-viewer), desktop-file-validate чист
 - [x] GUI smoke alive на :0: mv-notes, mv-settings, mv-about (в дополнение к 0.12)
+### Фаза 0.15 — HUD no-hardware fallback validated (2026-09-25, без железа)
+- [x] mv-hud one-shot на нецелевом хосте (без RAPL m3-7Y32): `CPU n/a | n/a`,
+      exit 0 — graceful degradation подтверждён; бинарь в .gitignore (3200d9a), tree чист
