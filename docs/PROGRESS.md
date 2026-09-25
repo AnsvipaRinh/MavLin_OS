@@ -119,3 +119,15 @@
 ### Фаза 0.15 — HUD no-hardware fallback validated (2026-09-25, без железа)
 - [x] mv-hud one-shot на нецелевом хосте (без RAPL m3-7Y32): `CPU n/a | n/a`,
       exit 0 — graceful degradation подтверждён; бинарь в .gitignore (3200d9a), tree чист
+### Фаза 0.16 — power-ui alive, screenshot host-limit, blockers confirmed (2026-09-25)
+- [x] mv-power-ui: SMOKE-ALIVE на :0 (logind-путь стартует)
+- [x] Screenshot E2E НЕ валидируем на хосте: xfce4-screenshooter требует Wayland
+      screencopy-протоколы даже под DISPLAY=:0 (хост-квайрк; цель — X11/Xfce,
+      штатная среда screenshooter) — остаётся HW-валидацией, в коде mv-shot
+      признаков бага нет (делегирует бэкенду)
+- [x] Blockers подтверждены: root недоступен (`sudo -n true` → password required) ⇒
+      mkarchiso/QEMU-сборка заблокирована; остальное сделано (0.1: обход blocker)
+- [x] Оценка P0/P1 pre-hardware: существенных code/integration-проблем, решаемых
+      без железа и без root, не осталось (Finder/Spotlight/MC/Launchpad/CC/NC/QL/
+      Settings/Power/Preview/Console/Notes/Activity/HUD/dialogs/launchers покрыты
+      выше); P2-research разблокирован для следующей итерации по правилу приоритетов
