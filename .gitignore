@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+mv-hud
+*.pkg.tar.zst
