@@ -101,3 +101,9 @@
       gnome-disks поставляется пакетом gnome-disk-utility (строка 30) — разрывов нет
 - [x] mv-control: fallback-поведение без железа уже есть (try/except вокруг pactl/sysfs,
       isdir-guard backlight, FileNotFoundError) — правок не потребовалось
+### Фаза 0.12 — GUI smoke tests on live X (2026-09-25, без целевого железа)
+- [x] Хост имеет рабочий X (:0): mv-quicklook (text/GtkSourceView-путь), mv-console
+      (journalctl-backend), mv-activity (/proc-путь) — все стартуют без traceback
+      и живут (timeout-kill 124 = alive); Poppler на хосте отсутствует (ожидаемо,
+      PDF-путь валидируется на железе/ISO)
+- [x] mv-settings: missing-backend fallback уже есть (INFO-диалог, напр. blueman) — правок нет
