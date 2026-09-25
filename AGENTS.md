@@ -1,26 +1,90 @@
-# AGENTS.md — сборка "Mavericks Linux" для MacBook 12" (A1534)
+# AGENTS.md — сборка "Mavericks Linux" для MacBook 12" (A1534, MacBook10,1)
 
-## Кто ты и что делаешь
+> Persistent environment / project instructions. Этот файл — единственный
+> постоянный источник инструкций для coding-агента. Будущие независимые
+> чаты/сессии продолжают работу только по нему + репозиторий + git history +
+> `docs/*`. Не полагайся на память текущего чата. Не создавай второй
+> параллельный механизм инструкций.
+
+## 0. Кто ты и правило автономной работы
+
 Ты — автономный агент, работающий неделями без диалога с пользователем.
 Пользователь не программист и не будет отвечать на технические вопросы —
 он либо не поймёт вопрос, либо ответит невнятно. **Никогда не жди ответа.**
-Если решение неоднозначно — выбери вариант по правилам приоритета ниже,
-запиши его и причину в `docs/DECISIONS.md`, и продолжай работу.
+Если решение неоднозначно — выбери вариант по правилам приоритета ниже
+(раздел 3 + раздел 10), запиши его и причину в `docs/DECISIONS.md`,
+и продолжай работу.
 
 Единственный канал обратной связи от пользователя — это когда он вручную
 прошивает сборку на реальное железо и присылает тебе сырой вывод
 (`dmesg`, `journalctl -b`, фото экрана). Проектируй процесс с расчётом на это.
+Если данных объективно не хватает для диагностики — не спрашивай,
+а инструктируй одной строкой, ЧТО именно прислать в следующий раз
+(это техническая инструкция, а не вопрос о решении).
 
-## Целевое железо
-MacBook (Retina, 12-inch) — модель A1534, одна из: MacBook8,1 (Early 2015),
-MacBook9,1 (Early 2016), MacBook10,1 (Mid 2017). Fanless Core M,
-LPDDR3, распаянный SSD, один порт USB-C (данные+питание+видео),
-Force Touch трекпад, экран 2304×1440.
+Команды «продолжай / приступай / делай дальше» означают — ПРОДОЛЖАЙ
+АВТОНОМНО ПО ЭТОМУ ROADMAP, без уточняющих вопросов:
 
-**Фаза 0 обязана** определить точную ревизию по данным живой материнки
-(через `dmidecode`/`ioreg`-эквивалент при первой загрузке любого live-образа
-на реальном железе) и зафиксировать в `docs/HARDWARE.md`, т.к. аудио-кодек,
-SPI-контроллер и Wi-Fi чип отличаются между ревизиями.
+1. прочитай этот файл;
+2. проверь `git status` и текущий commit;
+3. прочитай актуальный project state (`docs/PROGRESS.md`, `docs/APPS.md`,
+   `docs/DECISIONS.md`, `docs/NEEDS_HARDWARE_TEST.md`);
+4. определи ближайшие незавершённые высокоприоритетные задачи (раздел 10);
+5. проверь фактическое состояние кода (не верь snapshot/status-таблицам вслепую);
+6. продолжи реализацию;
+7. протестируй максимально возможным pre-hardware способом (раздел 8);
+8. обнови документацию;
+9. сделай commit;
+10. продолжи следующую логическую часть, если это безопасно и не требует железа.
+
+Не останавливайся после нескольких пунктов только потому, что они были
+перечислены в одном чате. Не начинай новый чат с вопроса «Что мне делать?».
+
+## 1. Главная цель проекта
+
+Создать полноценную Linux desktop environment для Apple MacBook10,1, которая:
+
+- работает на Linux/Arch;
+- использует Linux-native backend там, где это эффективнее;
+- с точки зрения пользователя максимально выглядит и ведёт себя
+  как macOS Mavericks (10.9, скеоморфизм — не современный плоский macOS);
+- сохраняет производительность, низкое энергопотребление и отсутствие
+  ненужных фоновых процессов;
+- не требует Electron там, где можно обойтись GTK/X11/native tooling;
+- не переписывает зрелые Linux backend-компоненты без необходимости;
+- переиспользует существующие open-source компоненты там, где это разумно;
+- поверх зрелого Linux backend строит Mavericks-подобный UI;
+- интегрирует приложения так, чтобы они воспринимались как одна система,
+  а не как набор случайно переименованных Linux-программ.
+
+Ключевой принцип слоёв (сверху вниз):
+
+```
+Mavericks-like UI / UX
+→ существующий зрелый Linux backend
+→ Linux userspace APIs
+→ kernel / hardware
+```
+
+Linux internals НЕ должны быть похожи на macOS. macOS-подобным должен быть
+именно пользовательский опыт — первые несколько уровней обычного desktop
+interaction. Тот, кто полезет в package manager / terminal / `/proc` /
+systemd / kernel — конечно, обнаружит Linux. Это нормально.
+
+Это НЕ одноразовый checklist сверху вниз, а постоянный roadmap (раздел 10).
+После каждой сессии: сохраняй реальное состояние, обновляй документацию,
+отмечай статусы IMPLEMENTED / PARTIALLY IMPLEMENTED / DEFERRED /
+HARDWARE VALIDATION REQUIRED / EXPERIMENT READY / EXCLUDED, фиксируй
+ограничения, найденные готовые решения и нерешённые проблемы.
+
+## 2. Целевое железо
+
+MacBook (Retina, 12-inch, A1534) — **явная цель: MacBook10,1 (Mid 2017)**,
+зафиксировано в `docs/HARDWARE.md` и `docs/DECISIONS.md`
+(старое консервативное предположение «MacBook9,1 как средний случай»
+больше не действует). Fanless Core M, LPDDR3, распаянный SSD,
+один порт USB-C (данные+питание+видео), Force Touch трекпад, экран 2304×1440.
+Аудио-кодек, SPI-контроллер и Wi-Fi чип (BCM43602) — ревизионно-зависимы.
 
 **Известный риск (зафиксируй как есть, не пытайся замалчивать):**
 встроенные клавиатура и трекпад работают через нестандартный протокол
@@ -31,116 +95,381 @@ SPI-контроллер и Wi-Fi чип отличаются между рев�
 - Внешняя USB-C клавиатура/мышь (через хаб) — не "план Б", а обязательная
   часть bring-up процесса с первого дня.
 - Родной ввод (клавиатура/трекпад) — отдельная, явно помеченная как
-  best-effort задача со своим планом отката, если не заведётся ни на одном
-  разумном наборе ядер/патчей за разумное число попыток (лимит ниже).
+  best-effort задача со своим планом отката: не более 3 существенно разных
+  стратегий (разные версии ядра/патчей), после чего зафиксировать как
+  «не поддерживается на этой ревизии» и идти дальше.
 
-## Правила приоритета при неоднозначности (без вопросов пользователю)
+### 2.1. Важнейшее ограничение: железа физически ЕЩЁ НЕТ
+
+Целевой MacBook10,1 физически ещё не доступен. Поэтому:
+
+ВСЁ, что можно реализовать, интегрировать, скомпилировать, протестировать
+и проверить статически без hardware — ДЕЛАТЬ СЕЙЧАС. Не откладывать
+разработку только потому, что hardware ещё не подключено.
+
+Разделяй PRE-HARDWARE IMPLEMENTATION и HARDWARE VALIDATION.
+
+До появления hardware максимально закончить: UI, desktop integration,
+applications, backend integration, X11 integration, GTK theme, icons,
+dialogs, menu bar, Dock, file manager, search, launching, hotkeys,
+settings, notifications, Quick Look, window management, power UI, system
+information/monitoring, media/utility applications, packaging, installation,
+firstboot integration, documentation, tests, performance architecture.
+
+После появления hardware остаются: реальные display measurements, HiDPI
+calibration, Apple keyboard/trackpad, Wi-Fi, audio, NVMe (Apple S3X),
+power/suspend-resume/thermal/brightness/battery telemetry, реальные
+hardware-баги, финальная калибровка.
+
+Отсутствие hardware — НЕ причина прекращать pre-hardware implementation.
+Любой шаг, который нельзя протестировать без реального железа — помечай
+в `docs/NEEDS_HARDWARE_TEST.md` и продолжай следующий шаг, не блокируйся.
+
+## 3. Правила приоритета при неоднозначности (без вопросов пользователю)
+
 1. Стабильность и загружаемость системы важнее любой оптимизации.
 2. Из двух рабочих вариантов — выбирай тот, что даёт меньшее
    энергопотребление/меньше нагрева (железо fanless, троттлинг — главный враг).
 3. Из визуальных решений — выбирай то, что ближе всего к реальному
    Mac OS X 10.9 Mavericks (скеоморфизм: текстуры, тени, "стекло" в Dock,
-   прошитый Finder-подобный файл-менеджер, кожаные/бумажные текстуры в
-   аналогах Calendar/Notes), а не к более поздним плоским macOS.
-4. Предпочитай пакеты и патчи, специфично поддерживающие именно эту модель
-   (см. `drivers/README.md`), а не общие "заводится на большинстве Маков".
+   Finder-подобный файл-менеджер, кожаные/бумажные текстуры в аналогах
+   Calendar/Notes), а не к более поздним плоским macOS. Референсы стиля
+   вроде исторических «MacBuntu Mavericks transformation pack» — только как
+   референс эстетики, не как код для копирования; переосмысли под Xfce/GTK3.
+4. Предпочитай пакеты и патчи, специфично поддерживающие именно
+   MacBook10,1 (см. `drivers/README.md`), а не общие «заводится на большинстве Маков».
 5. Любой шаг, который нельзя протестировать без реального железа —
-   помечай в `docs/NEEDS_HARDWARE_TEST.md` и продолжай следующий шаг,
-   не блокируйся на нём.
+   помечай в `docs/NEEDS_HARDWARE_TEST.md` и продолжай следующий шаг.
+6. Приоритет работ — раздел 10 (P0 раньше P1, P1 раньше P2; не переходить
+   к P2, пока существенные P0/P1 integration problems решаемы без hardware).
+7. Reuse-first (раздел 5): существующий зрелый backend важнее собственного кода.
+8. Не ломать существующий power baseline ради UI (раздел 7).
 
-## Технологический стек (по умолчанию, менять только с записью причины)
-- Базовая система: Arch Linux (максимум контроля над составом пакетов и
-  сжатостью системы, лучшая AUR-поддержка именно этого железа).
-- Ядро: `linux-zen` как основа (лучший интерактивный отклик на слабом
-  железе) либо кастомно собранное урезанное ядро на поздней стадии
-  оптимизации — с этим сравнением определиться в Фазе 3, задокументировать.
+## 4. Технологический стек (по умолчанию, менять только с записью причины)
+
+- Базовая система: Arch Linux (контроль состава пакетов, сжатость, AUR).
+- Ядро: `linux-zen` как основа (интерактивный отклик на слабом железе)
+  либо кастомное урезанное ядро на поздней стадии — сравнение задокументировать.
+  Custom kernel — ТОЛЬКО после стабильной работы стандартного (есть с чем
+  сравнивать регрессии).
 - DE: **Xfce** (не GNOME/KDE) — минимальный оверхед на fanless Core M,
-  при этом достаточно гибкий GTK-стек для полного визуального ретема.
-  Альтернатива только если Xfce объективно не тянет тему — MATE.
-- Композитор: xfwm4 встроенный, с отключёнными тяжёлыми эффектами и
-  включёнными только теми, что нужны для вида Mavericks (тени окон).
-- Init/lite systemd services: отключать всё не относящееся к минимальному
-  десктопу (bluetooth service, cups, avahi и т.п. — по умолчанию off,
-  включаются юзером вручную при необходимости).
+  гибкий GTK-стек для ретема. Альтернатива — только MATE, если Xfce
+  объективно не потянет тему.
+- Композитор: xfwm4 встроенный, тяжёлые эффекты off, только нужные для вида
+  Mavericks (тени окон). Не добавлять тяжёлый compositor только ради эффекта.
+- Init/lite systemd services: всё не относящееся к минимальному десктопу —
+  по умолчанию off (bluetooth service, cups, avahi и т.п. включаются вручную).
+- Браузер: Firefox ESR (current, не пиннить версию) + uBlock Origin;
+  sessionstore.interval=60s (беречь SSD).
+- Уведомления: xfce4-notifyd (native), без второго daemon.
 
-## Фазы работы (веди как чек-лист в `docs/PROGRESS.md`, коммить после каждого шага)
+## 5. Reuse-first + legal
+
+Перед написанием нового backend или большого объёма собственного кода всегда
+исследуй: существующие Linux-приложения, GTK-библиотеки, X11 APIs, Xfce
+components, GVfs, UDisks2, NetworkManager, BlueZ, PipeWire/PulseAudio-APIs,
+UPower, systemd/logind, journald, libnotify, GStreamer, Poppler, image libs,
+существующие launchers, window-overview, search/indexing, thumbnailers,
+archive managers, password stores, font viewers, media players, screenshot
+и notification systems. Проверяй Arch/AUR/open source на подходящий компонент.
+
+Если есть хороший backend — переиспользуй. Если есть хороший Linux UI,
+который можно обернуть Mavericks-like frontend — используй его.
+Не переписывай зрелый backend только ради эстетики.
+
+Но простое переименование через `.desktop` НЕ считается Mavericks-интеграцией,
+если user-facing поведение заметно отличается (см. раздел 9 «НЕ fake completion»).
+
+Legal: open-source переиспользовать активно, но проверять лицензию,
+не копировать Apple proprietary code/assets/resources, документировать
+происхождение компонентов, сохранять attribution/license notices
+(сводка — в `docs/APPS.md`). Цель — функциональная и визуальная имитация
+собственными/совместимыми ресурсами, а не копирование proprietary implementation.
+
+## 6. Mavericks UX target (что унифицировать)
+
+Ориентир — именно Mavericks-era UX: визуальная иерархия, toolbar, sidebar,
+Finder behavior, menu bar, Dock, application menus, window buttons/chrome,
+dialogs, sheets, alerts, context menus, file chooser, save/open dialogs,
+search, Quick Look, icons, typography, spacing, gradients/textures,
+terminology, shortcuts, selection, double-click, drag-and-drop, launch
+behavior, fullscreen/minimize, desktop/Trash/notification behavior.
+
+Глобальная coherence (P0, одна из важнейших задач): нельзя, чтобы Finder
+был похож на Mavericks, а Settings — на Linux, file chooser — на GTK default,
+context menu — на Xfce, dialog — на другой toolkit. Унифицировать постепенно:
+GTK theme, window borders, title bars, toolbar, icons, fonts, spacing, menu,
+context menus, dialogs, file chooser, notification style, launchers, Dock,
+menu bar, wallpaper, cursor, selection/hover/disabled/focus states, error и
+confirmation dialogs. Каждая новая GUI-компонента оценивается как часть
+общей visual system.
+
+Menu bar / Dock / window management: top menu bar, application menu,
+Apple-like имя приложения слева, стандартные меню, Dock с индикаторами
+запущенных, minimize/maximize/fullscreen где уместно, переключение окон,
+Mission Control, workspaces, application quit behavior. Не ломать Xfce backend.
+
+Keyboard shortcut architecture: единый глобальный слой (централизованно
+меняемый), Mavericks-like conceptual mapping (Command-like modifier где
+практично; Spotlight, Launchpad, Mission Control, Screenshot, Quick Look,
+переключение приложений/окон, операции Finder). Не ломать обычные Linux
+shortcuts. Пользователь позже сможет переназначить конкретные hotkeys.
+
+## 7. Performance / energy + замороженный power baseline
+
+Любая новая компонента должна иметь обоснование runtime cost. Предпочитать:
+event-driven, on-demand, one-shot, cached data, low-frequency polling,
+существующий системный daemon, kernel counters, D-Bus events. Избегать:
+постоянных Python daemons, Electron, Java, heavy web UI, дублирующих daemons,
+частого сканирования ФС, частого спавна subprocess, лишних таймеров,
+постоянных CPU wakeups. Но НЕ жертвовать существенным UX ради идеологической
+минимизации — сначала определить реальную cost; если polling необходим,
+оценить frequency и expected cost.
+
+Текущий power baseline — отдельный стабильный слой, НЕ ломать его ради UI.
+GUI/application work отделён от power baseline. Если GUI требует изменения
+baseline: документировать → отдельный experiment → не смешивать незаметно.
+
+Замороженный baseline (Phase 0.3/0.5, source of truth):
+
+- kernel cmdline: `quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0`
+  (`pcie_port_pm=off` — provisional Apple S3X resume workaround;
+  `i915.enable_psr=0` — diagnostic-safe; оба — hardware-validation items,
+  а не вечные догмы). Turbo ON, APST/FBC/GuC/THP/VM — defaults.
+- TLP only: `CPU_SCALING_GOVERNOR_ON_AC/BAT=powersave`,
+  `PCIE_ASPM_ON_AC/BAT=powersave`, `USB_AUTOSUSPEND=1`,
+  `RUNTIME_PM_ON_AC/BAT=auto`. CPU_BOOST/PLATFORM_PROFILE/EPP — unset.
+- zram: zram-generator, zram-size = RAM/2, zstd. Без disk swap.
+- НЕ добавлять без доказательств: thermald, ananicy-cpp,
+  `powertop --auto-tune` (BANNED из baseline), random sysctl tuning,
+  arbitrary Turbo forcing, APST/GuC/PSR-FBC forcing.
+- Замеры каждого «оптимизирующего» изменения до/после (boot time, idle RAM,
+  idle power если снимется с железа) — в `docs/BENCHMARKS.md`;
+  memory budget — `docs/MEMORY_BUDGET.md`.
+- RAPL/package energy НЕ считать автоматически потреблением всего ноутбука;
+  документировать различие package energy / CPU-GPU estimate /
+  battery discharge rate / whole-system power; корреляцию проверить на железе.
+
+## 8. Документация, тестирование, git-дисциплина
+
+Persistent state живёт в репозитории. Минимум: `docs/APPS.md`
+(инвентарь surface + статусы + backend/лицензии), `docs/PROGRESS.md`
+(что сделано/дальше/заблокировано — обновлять в конце каждой сессии),
+`docs/DECISIONS.md` (любое неочевидное решение + «почему»),
+`docs/HARDWARE.md` (MacBook10,1 + ревизионные отличия),
+`docs/NEEDS_HARDWARE_TEST.md` (всё hardware-dependent),
+`docs/MEMORY_BUDGET.md` (+ `docs/BENCHMARKS.md`). Если есть более подходящие
+документы — использовать существующие. Документировать: что реально работает,
+а что mocked/wrapped; hardware-dependent и deferred; почему принято решение;
+какие компоненты reused (+лицензии); runtime cost; known limitations.
+
+Каждое существенное изменение — максимально возможный pre-hardware test:
+syntax, compile, package build, install into DESTDIR, desktop-file validation,
+XML validation, `bash -n`/shellcheck где применимо, py_compile, startup tests,
+базовые X11/D-Bus tests где доступны, dependency checks. «Works» только по
+компиляции не выдавать.
+
+Git: небольшие логически цельные commits (`feat:`, `fix:`, `perf:`,
+`theme:`, `docs:`), но НЕ останавливать всю работу после каждого микрошага
+ради отчёта. Перед изменением — `git status`; после — tests, `git diff`,
+проверка отсутствия случайных baseline-изменений, commit. Tree после
+завершённой итерации — чистый, если нет сознательного WIP.
+
+Остановиться и запросить пользователя ТОЛЬКО если действительно требуется:
+физическое hardware, непредоставленный секрет, destructive operation,
+технически неразрешимое решение, конфликтующие требования, риск уничтожения
+данных, выбор между архитектурами с необратимыми последствиями. Отсутствие
+hardware — не повод спрашивать, а повод делать pre-hardware работу.
+
+## 9. НЕ «fake completion» + статусы + app surface audit
+
+Не объявлять IMPLEMENTED только потому, что создан `.desktop`, изменено имя
+окна, добавлена иконка, приложение запускается или backend существует.
+Примеры НЕ-завершённости: Thunar + иконка ≠ Finder; rofi + поиск ≠ Spotlight;
+rofi window mode ≠ Mission Control; galculator + `.desktop` ≠ Mavericks
+Calculator; stock GTK dialog ≠ Mavericks dialog. Оценивать user-facing behavior.
+
+Статусы последовательно: RESEARCH REQUIRED → EXISTING SOLUTION FOUND →
+BACKEND REUSABLE / UI REUSABLE → PARTIALLY IMPLEMENTED → IMPLEMENTED →
+IMPLEMENTED — HARDWARE VALIDATION REQUIRED → VALIDATED; либо DEFERRED / EXCLUDED.
+
+App surface audit для каждой важной программы (вести структурированную
+таблицу в `docs/APPS.md`, не переисследовывать закрытое): launch, window
+chrome, toolbar, sidebar, content view, navigation, search, context menu,
+dialogs, file chooser, keyboard, drag-and-drop, icons, notifications,
+интеграция с Finder / Quick Look / Trash, MIME associations, settings,
+theme, application menu.
+
+Известный audit-snapshot (НЕ доверять вслепую, перепроверять по репозиторию):
+Finder пока скорее Thunar surface, чем настоящий Finder UX; Spotlight
+infrastructure есть, но полноценный UX не завершён; Mission Control не является
+полноценным overview; часть приложений — пока Mavericks alias поверх stock
+Linux UI; Quick Look Space integration неполна. Это известные work items.
+
+## 10. Application / desktop roadmap (постоянная целевая карта)
+
+Не реализовывать всё одним commit — постепенно доводить каждый пункт до части
+единой DE. Terminal остаётся нормальным Linux Terminal (замены нет; Console =
+Mavericks-like log viewer, НЕ Terminal). Lock: визуальный lock-screen/curtain
+допустим, но БЕЗ обязательной account/password infrastructure на этом этапе;
+Users/Accounts как реальный account-management — не реализовывать сейчас.
+
+P0 — global desktop coherence; Finder; Spotlight; Mission Control; Launchpad;
+Control Center; Notification Center; Quick Look; menu bar / Dock / window
+behavior; common dialogs / file chooser / context menus; Settings integration.
+
+P1 — Activity Monitor; System Information; Disk Utility; Screenshot; Preview;
+TextEdit; Calculator; Notes; Reminders; Calendar; Music; Photos; Voice Memos;
+Console; Keychain Access; Font Book; Digital Color Meter; Stickies;
+Dictionary (низкий приоритет); Contacts — НЕ делать на этом этапе.
+
+P2 (research/future, только после P0/P1): AirDrop; Time Machine UI;
+Automator/Shortcuts; Grapher; Migration Assistant; App Store; Software Update polish.
+
+EXPLICITLY EXCLUDED: Contacts (текущий этап), TV, Podcasts, Siri, AirPlay,
+Chess, Game Center, Printer Discovery как dedicated clone, Image Capture,
+Migration Assistant (текущий приоритет), Terminal replacement.
+Не делать: TV, Podcasts (раздел Media).
+
+Settings: Mavericks-like интерфейсы для General, Desktop/Screensaver, Dock,
+Mission Control, Language/Region, Security/Privacy (где применимо),
+Notifications, Displays, Energy/Power, Keyboard, Mouse, Trackpad,
+Sound, Network, Bluetooth, Sharing (где полезно). Printers/Scanners — не
+приоритет. Особенно важно: Display / Keyboard / Trackpad / Mouse / Sound /
+Network / Bluetooth выглядят и ведут себя как единая Settings environment.
+
+### 10.1. Finder (особый приоритет)
+
+Thunar + тема ≠ готовый Finder. Постепенно приближать поведение поверх
+зрелого backend (Thunar/GVfs, без переписывания file manager backend;
+если upstream-интеграция невозможна — clean external integration, не хаки):
+sidebar (Favorites/Devices/locations), folders, selection, icon/list/column-like
+views, navigation history (back/forward), path, search, context menus
+(New Folder, Get Info, Rename, Move to Trash, Empty Trash, Eject, Open With),
+Quick Look (Space где технически возможно), drag-and-drop, previews, hidden
+files, bookmarks, removable/network devices, toolbar, status bar, metadata,
+keyboard navigation, Command-like shortcuts через глобальный слой.
+
+### 10.2. Spotlight / Launchpad / Mission Control
+
+Spotlight ≠ plocate/rofi автоматически. Нужен coherent experience: global
+shortcut, центрированный overlay, search field, fast response, files/apps/
+system objects, keyboard navigation, открытие выбранного, sensible ranking,
+без лишнего daemon и без Electron. Backend: plocate/индекс/desktop DB/custom
+лёгкий индекс; если daemon необходим — сначала оценить energy cost.
+
+Launchpad ≠ просто rofi menu: application discovery, icon grid, pages,
+keyboard navigation, search, launch behavior, дешёвые анимации, consistent
+icon sizing, Dock integration, global shortcut. Без тяжёлого compositor/
+electron только ради эффекта.
+
+Mission Control ≠ «rofi window mode». Отдельный window-overview experience:
+global shortcut, все окна одновременно, workspaces, группировка приложений
+где практично, click/select, escape закрывает. Исследовать X11/Xfce/AUR
+solutions (текущий эксперимент: skippy-xd как E-MC); лёгкий собственный
+frontend поверх X11 enumeration — если готового нет. Без постоянно
+работающего тяжёлого daemon. Ограничения compositor/hardware документировать.
+
+### 10.3. Control Center / Notification Center
+
+Control Center coherent с системой: Wi-Fi, Bluetooth, sound, brightness,
+battery, power, display controls, network state, вход в notifications/settings.
+Backend: D-Bus / NetworkManager / BlueZ / PipeWire / UPower / sysfs / xfconf.
+Events/signals вместо polling.
+
+Notification Center: единая архитектура (libnotify, xfce4-notifyd — не плодить
+второй daemon), app + system notifications, history, правая панель в стиле
+Mavericks, close/dismiss, keyboard behavior.
+
+### 10.4. Quick Look / Preview
+
+Лёгкий preview pipeline: images, PDF, text, common documents, audio/video
+metadata. Backend: thumbnailer / pixbuf / Poppler / GStreamer / media libs.
+Настоящая Space-интеграция, если архитектура позволяет; иначе clean external
+integration (текущее: custom `mv-quicklook` single-shot + Thunar actions).
+
+### 10.5. Activity Monitor (+ HUD) / System Info / Disk Utility
+
+Activity Monitor: coherent Mavericks UI минимум CPU/Memory/Energy/Disk/Network
+на дешёвых источниках (`/proc`, `/sys`, kernel counters). Refresh только пока
+окно открыто. Верхний Energy/Thermal HUD: минимальный footprint, лучше no
+resident process — короткие one-shot reads, event-driven или редкий polling,
+никаких Python daemons/тяжёлых GUI (текущий `mv-hud` — C one-shot — держать/
+улучшать только при измеримом преимуществе).
+
+About / System Report: `/proc`, `/sys`, DMI, PCI, USB, X11 display info,
+network, kernel, storage; статику кэшировать, polling loops не держать.
+
+Disk Utility: frontend Mavericks-like поверх UDisks2 / gnome-disk-utility
+(disks, partitions, FS, mount/unmount/eject, SMART где возможно, formatting,
+permissions, removable). Особое внимание — Apple S3X NVMe: до hardware
+подготовить UI/backend/errors/integration, на hardware — validate.
+
+### 10.6. Остальные приложения (интеграционный минимум)
+
+Каждое — через общую систему: icons, desktop entries, naming, MIME, launch,
+settings, notifications, menus, dialogs, file chooser, theme, keyboard
+(раздел 9). Текущий инвентарь и переиспользованные backend'ы — `docs/APPS.md`
+(Thunar/GVfs, rofi, plocate, UDisks2, xarchiver, mousepad, galculator,
+orage/libical, gthumb, geary, lollypop/GStreamer, seahorse/libsecret, gcolor3,
+xfce4-notes-plugin, trash-cli, genmon, flameshot, ffmpeg/thumbnailer,
+evince/poppler, gnome-font-viewer, xfce4-screenshooter, xfce4-screensaver,
+xfce4-notifyd, NM/BlueZ/PipeWire/UPower/logind/journald; custom `mavericks-apps`:
+mv-settings/about/activity/console/control/power-ui/shot/quicklook/notes/
+reminders/voice/hud + 23 .desktop + rofi themes + Thunar actions + hotkey layer
++ reminders timer + firstboot wiring).
+
+## 11. Фазы работы (hardware-bring-up трек; вести как чек-лист в `docs/PROGRESS.md`)
 
 ### Фаза 0 — База и идентификация железа
-- Определить точную модель/ревизию.
-- pacstrap минимальной базовой системы, загружаемость через rEFInd/systemd-boot,
-  dual UEFI, без Mac-специфичных модулей — просто должно грузиться.
-- Acceptance: система грузится до консоли на реальном железе (или сообщает
-  чётко, что не может — с логами в NEEDS_HARDWARE_TEST.md).
+- Точная ревизия зафиксирована: MacBook10,1 (проверить `dmidecode` при первой
+  загрузке live-образа на реальном железе).
+- pacstrap минимальной базовой системы, загружаемость через systemd-boot
+  (UEFI; rEFInd — fallback), без Mac-специфичных модулей — просто грузится.
+- Acceptance: грузится до консоли на реальном железе (или чёткий отчёт
+  с логами в NEEDS_HARDWARE_TEST.md). QEMU+OVMF smoke-test — пройден.
 
-### Фаза 1 — Аппаратная поддержка
-- Wi-Fi (brcmfmac/broadcom-wl — определить по lspci).
-- Аудио (patch кодека Cirrus).
+### Фаза 1 — Аппаратная поддержка (подготовлено, НЕ проверено)
+- Wi-Fi (broadcom-wl-dkms + brcmfmac fallback — оба профиля готовы).
+- Аудио (Cirrus patch).
 - Bluetooth.
-- Внешний ввод через USB-C гарантированно работает (это стандартный USB HID,
-  риска нет) — использовать как основной интерфейс на этой фазе.
-- Встроенные клавиатура/трекпад (applespi) — best effort, лимит: не более
-  3 существенно разных стратегий (разные версии ядра/патчей), после чего
-  зафиксировать как "не поддерживается на этой ревизии" и идти дальше.
-- Управление питанием: TLP, ограничение турбобуста при перегреве,
-  thermald при наличии актуального DPTF-профиля для этой модели.
+- Внешний ввод через USB-C — основной интерфейс этой фазы (стандартный HID).
+- Встроенный ввод (applespi) — best effort, лимит 3 стратегии (раздел 2).
+- Питание: TLP baseline из раздела 7 (thermald/ananicy — удалены, см. DECISIONS).
 
-### Фаза 2 — Сверхоптимизация
-- zram/zswap вместо диска под swap (SSD небольшой и распаян — беречь).
-- ananicy-cpp или аналог для приоритезации процессов.
-- Урезание systemd unit'ов, парализация загрузки (systemd-analyze blame —
-  цель < 10 сек до DM на этом железе).
-- Минимизация фонового I/O (journald в volatile-режиме или мягкий rate-limit,
-  отключение лишних таймеров/cron).
-- По возможности — кастомная сборка ядра с CONFIG, урезанным под точный
-  набор устройств этой модели (меньше модулей = меньше памяти/меньше
-  поверхности энергопотребления). Делать это ПОСЛЕ того как стандартное
-  ядро стабильно работает — чтобы было с чем сравнивать регрессии.
-- Каждое "оптимизирующее" изменение — с замером до/после
-  (boot time, idle RAM, idle power draw если получится снять с реального
-  железа) в `docs/BENCHMARKS.md`.
+### Фаза 2 — Сверхоптимизация (подготовлено, НЕ проверено)
+- zram вместо disk swap (беречь распаянный SSD).
+- Урезание systemd unit'ов, цель < 10 сек до DM (`systemd-analyze blame`).
+- journald volatile / мягкий rate-limit, отключение лишних таймеров.
+- Custom kernel — только после стабильного стандартного.
+- Каждое изменение — с замером до/после в `docs/BENCHMARKS.md`.
 
-### Фаза 3 — Визуальный слой "Mavericks"
-- GTK3-тема с явным скеоморфизмом (текстуры, градиенты, тени, "стекло") —
-  собрать/адаптировать существующие темы под Mavericks/Yosemite-transition
-  эстетику (ищи прецеденты в духе исторических проектов "MacBuntu Mavericks
-  transformation pack" как референс стиля, не как код для копирования
-  один в один — переосмысли под Xfce/GTK3, а не GTK2).
-- Иконки в стиле Mavericks/pre-flat эры.
-- Dock: plank или docky с рефлексией/увеличением при наведении.
-- Курсор в стиле macOS.
-- Верхняя панель в стиле menu bar (глобальное меню опционально, если
-  Xfce-плагин потянет производительно — иначе просто визуально похожая
-  панель без функционального глобального меню).
-- Обои и системные иконки — в духе Mavericks (без использования реальных
-  файлов Apple с ограничениями лицензии — только переосмысленные аналоги).
-- Acceptance: скриншот системы визуально узнаваем как "почти Mavericks"
-  человеком, который не разбирается в Linux.
+### Фаза 3 — Визуальный слой "Mavericks" (подготовлено, НЕ проверено)
+- GTK3 скеоморфизм, иконки pre-flat эры, Dock (plank, рефлексия/зум),
+  курсор macOS, верхняя панель-менюбар (функциональное глобальное меню —
+  только если Xfce-плагин потянет производительно), обои/иконки в духе
+  Mavericks без Apple-файлов (только переосмысленные аналоги).
+- Acceptance: скриншот узнаваем как «почти Mavericks» неспециалистом.
 
 ### Фаза 4 — Сборка ISO и smoke-test
-- `mkarchiso` собирает загрузочный ISO из готового профиля.
-- Smoke-test в QEMU+OVMF (UEFI) — проверка что ISO вообще грузится,
-  DE стартует, тема применяется. ВНИМАНИЕ: QEMU НЕ протестирует
-  applespi/Broadcom Wi-Fi/Cirrus-аудио — это чисто софтовый smoke-test.
-- Только после успешного QEMU-теста — финальный ISO готов к тому, чтобы
-  пользователь записал его на реальное железо.
+- `mkarchiso` из готового профиля.
+- Smoke-test в QEMU+OVMF (UEFI): ISO грузится, DE стартует, тема применяется.
+  ВНИМАНИЕ: QEMU НЕ тестирует applespi/Broadcom/Cirrus — чисто софтовый тест.
+- Только после успешного QEMU-теста — ISO готов к записи на реальное железо.
 
 ### Фаза 5 — Итерации по реальному железу
-- Пользователь пришлёт: грузится/не грузится, скриншот, `journalctl -b`
-  (снятый как угодно — фото экрана достаточно).
-- Твоя задача — диагностировать по этим данным без уточняющих вопросов;
-  если данных объективно не хватает для диагностики — не спрашивай,
-  а инструктируй одной строкой, ЧТО именно прислать в следующий раз
-  (это не вопрос пользователю о решении, это техническая инструкция).
+- Пользователь пришлёт: грузится/не грузится, скриншот, `journalctl -b`.
+- Диагностировать по этим данным без уточняющих вопросов (правило раздела 0).
 
-## Дисциплина работы
-- Коммить в git после каждого логически законченного шага, осмысленные
-  сообщения (`feat:`, `fix:`, `perf:`, `theme:`, `docs:`).
-- `docs/PROGRESS.md` — обновлять в конце каждой рабочей сессии: что сделано,
-  что дальше, что заблокировано на реальное железо.
-- `docs/DECISIONS.md` — любое неочевидное решение, принятое без пользователя,
-  с кратким "почему".
-- Не спрашивать пользователя ничего. Если совсем нет данных для продолжения
-  (например, неизвестна точная ревизия железа) — сделать максимально
-  консервативное предположение (MacBook9,1 как средний случай), явно
-  пометить как предположение в HARDWARE.md, и быть готовым перекатить при
-  первых реальных данных.
+## 12. Final condition (когда цель достигнута)
+
+Не тогда, когда есть набор Mavericks-themed applications, а когда:
+desktop выглядит как coherent Mavericks environment; Finder ощущается как
+Finder; Spotlight — как Spotlight; Mission Control — как Mission Control;
+Launchpad — как Launchpad; Settings — как System Preferences; Control Center /
+Notification Center integrated; Quick Look integrated; приложения в coherent
+visual language; dialogs/file chooser/context menus не выдают stock Linux UI
+без нужды; keyboard behavior coherent; Dock/menu bar coherent; system utilities
+integrated; backend Linux-native; runtime/energy overhead разумен; power
+baseline сохранён; всё возможное сделано до hardware; hardware-dependent items
+явно перечислены в NEEDS_HARDWARE_TEST.md.
