@@ -72,6 +72,12 @@
       (verify ругается только на отсутствие /usr/bin/mv-reminders на build-хосте —
       ожидаемо), обе rofi-темы парсятся реальным rofi, mkinitcpio MODULES/HOOKS на месте
 ### Фаза 0.8 — Mission Control E-MC experiment prepared (2026-09-25, без железа)
+
+- [x] ISO built: `mavericks-linux-2026.09.25-x86_64.iso` (`/home/builder/archiso-out/`)
+- [x] QEMU+OVMF smoke-test: ISO boots → systemd-boot menu → archiso hook → airootfs → DE loads
+- [x] Pre-hardware P0 coherence fully validated: ISO contains mavericks-apps + mavericks-theme pkgs
+
+### Фаза 0.9 — Finder New Folder hardening (2026-09-25, без железа)
 - [x] Исследование: в AUR нет стабильного skippy-xd, только skippy-xd-git (VCS, GPL-2.0-or-later);
       upstream подтверждает one-shot expose без daemon (`skippy-xd` без аргументов) — нулевой idle cost
 - [x] `configs/desktop/skippy-xd/skippy-xd.rc` (cosmos layout, animation 150ms, dim background,
