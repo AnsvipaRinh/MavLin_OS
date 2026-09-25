@@ -1,0 +1,196 @@
+// Mavericks GTK3 Theme - Notebook/Tabs (Safari 7 Style)
+
+@use "colors" as *;
+@use "variables" as *;
+@use "mixins" as *;
+
+/* ============================================================
+   NOTEBOOK / TABS - SAFARI 7 STYLE
+   ============================================================ */
+
+notebook {
+    background-color: $window_bg_color;
+    border: none;
+    padding: 0;
+
+    /* Tab container */
+    header {
+        background-color: transparent;
+        border: none;
+        padding: 0 4px 0 4px;
+    }
+
+    tabs {
+        background-color: transparent;
+    }
+
+    /* Tab styling */
+    tab {
+        background-image: linear-gradient(to bottom,
+            shade($tab_bg_color, 1.08),
+            shade($tab_bg_color, 0.92)
+        );
+        border: 1px solid shade($tab_bg_color, 0.6);
+        border-bottom: none;
+        border-radius: $tab_border_radius;
+        padding: $notebook_tab_padding;
+        margin: 0 2px;
+        min-height: $notebook_tab_min_height;
+        @include text-emboss();
+        @include inset-shadow();
+        @include transition-fast;
+
+        /* Tab label */
+        label {
+            color: $tab_fg_color;
+            font-weight: 500;
+        }
+
+        /* Tab close button */
+        button.close-button {
+            background: none;
+            border: none;
+            padding: 0;
+            margin-left: 8px;
+            min-width: 16px;
+            min-height: 16px;
+            opacity: 0.6;
+
+            &:hover {
+                opacity: 1;
+                background-color: rgba(0,0,0,0.1);
+                border-radius: 50%;
+            }
+        }
+    }
+
+    /* Active tab */
+    tab:selected {
+        background-image: linear-gradient(to bottom,
+            shade($selected_tab_bg_color, 1.02),
+            shade($selected_tab_bg_color, 0.98)
+        );
+        border-color: shade($selected_tab_bg_color, 0.5);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.2),
+                    0 -1px 0 shade($selected_tab_bg_color, 0.5);
+        z-index: 1;
+
+        label {
+            color: $selected_tab_fg_color;
+            font-weight: 600;
+        }
+    }
+
+    /* Hover on inactive tabs */
+    tab:hover:not(:selected) {
+        background-image: linear-gradient(to bottom,
+            shade($tab_bg_color, 1.12),
+            shade($tab_bg_color, 0.95)
+        );
+
+        label {
+            color: shade($tab_fg_color, 0.9);
+        }
+    }
+
+    /* Pinned tabs */
+    tab.pinned {
+        min-width: 32px;
+        padding: 6px 8px;
+    }
+
+    /* New tab button */
+    tab.new-tab-button {
+        background: none;
+        border: none;
+        padding: 6px 12px;
+        min-width: 28px;
+
+        &:hover {
+            background-color: rgba(0,0,0,0.05);
+            border-radius: $tab_border_radius;
+        }
+    }
+}
+
+/* Content area */
+notebook > stack {
+    background-color: $selected_tab_bg_color;
+    border: 1px solid shade($selected_tab_bg_color, 0.6);
+    border-radius: 0 0 4px 4px;
+    border-top: none;
+    margin-top: -1px; /* Overlap with tabs */
+}
+
+/* ============================================================
+   BOTTOM TABS (for some apps)
+   ============================================================ */
+
+notebook.tab-bottom {
+    tab {
+        border-radius: 0 0 $tab_border_radius;
+        border-top: none;
+        border-bottom: 1px solid shade($tab_bg_color, 0.6);
+
+        &:selected {
+            box-shadow: inset 0 -1px 0 rgba(255,255,255,0.2),
+                        0 1px 0 shade($selected_tab_bg_color, 0.5);
+        }
+    }
+
+    stack {
+        border-radius: 4px 4px 0 0;
+        border-bottom: none;
+        border-top: 1px solid shade($selected_tab_bg_color, 0.6);
+        margin-bottom: -1px;
+    }
+}
+
+/* ============================================================
+   LEFT/RIGHT TABS (vertical)
+   ============================================================ */
+
+notebook.tab-left tab,
+notebook.tab-right tab {
+    border-radius: $tab_border_radius;
+    border-right: none;
+    border-bottom: 1px solid shade($tab_bg_color, 0.6);
+
+    &:selected {
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2),
+                    -1px 0 0 shade($selected_tab_bg_color, 0.5);
+    }
+}
+
+notebook.tab-right tab {
+    border-radius: $tab_border_radius;
+    border-left: none;
+    border-right: 1px solid shade($tab_bg_color, 0.6);
+
+    &:selected {
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2),
+                    1px 0 0 shade($selected_tab_bg_color, 0.5);
+    }
+}
+
+/* ============================================================
+   TEXT TABS (no icons)
+   ============================================================ */
+
+notebook.text-only tab {
+    padding: 6px 12px;
+}
+
+/* ============================================================
+   SCROLLED TABS
+   ============================================================ */
+
+notebook.scrolled {
+    header {
+        /* Scroll buttons handled by GTK */
+    }
+
+    tab {
+        flex-shrink: 0;
+    }
+}

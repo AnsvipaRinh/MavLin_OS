@@ -1,0 +1,101 @@
+// Mavericks Color Palette - OS X 10.9 Skeuomorphic Colors
+
+/* Base neutrals - warm grays like Mavericks */
+$mavericks-white: #ffffff;
+$mavericks-off-white: #f5f5f0;        // Paper texture base
+$mavericks-light-gray: #e8e8e0;       // Brushed metal light
+$mavericks-medium-gray: #d0d0c8;      // Brushed metal
+$mavericks-dark-gray: #a8a8a0;        // Brushed metal dark
+$mavericks-charcoal: #333333;         // Text primary
+$mavericks-black: #1a1a1a;            // Text on light
+
+/* Window/background colors */
+$window_bg_color: #f0f0eb;            // Main window background - warm paper
+$view_bg_color: #ffffff;              // List/tree views
+$entry_bg_color: #ffffff;             // Input fields
+$entry_fg_color: #333333;             // Input text
+$tooltip_bg_color: rgba(0, 0, 0, 0.85);
+$tooltip_fg_color: #ffffff;
+
+/* Titlebar / Headerbar */
+$titlebar_bg_color: #e8e8e0;          // Brushed metal
+$titlebar_fg_color: #333333;
+$titlebar_backdrop_bg_color: #d8d8d0; // Inactive
+$titlebar_backdrop_fg_color: #666666;
+
+/* Toolbar */
+$toolbar_bg_color: #e8e8e0;
+$toolbar_fg_color: #333333;
+
+/* Sidebar (Finder) */
+$sidebar_bg_color: #f5f5f0;
+$sidebar_fg_color: #333333;
+$sidebar_selected_bg_color: #007aff;
+$sidebar_selected_fg_color: #ffffff;
+
+/* Buttons */
+$button_bg_color: #e0e0d8;            // Default button
+$button_fg_color: #333333;
+$accent_bg_color: #007aff;            // Blue accent (suggested action)
+$accent_fg_color: #ffffff;
+$destructive_bg_color: #ff3b30;       // Red destructive
+$destructive_fg_color: #ffffff;
+
+/* Tabs */
+$tab_bg_color: #d8d8d0;               // Inactive tab
+$tab_fg_color: #333333;
+$selected_tab_bg_color: #f0f0eb;      // Active tab (matches window)
+$selected_tab_fg_color: #333333;
+
+/* Selection */
+$theme_selected_bg_color: #007aff;    // System blue
+$theme_selected_fg_color: #ffffff;
+$theme_unfocused_selected_bg_color: #d0d0d0;
+$theme_unfocused_selected_fg_color: #333333;
+
+/* Focus */
+$focus_color: #007aff;                // Focus ring blue
+
+/* Borders */
+$border_color: #c0c0b8;
+$border_focus_color: #007aff;
+
+/* Scrollbar */
+$scrollbar_bg_color: rgba(0, 0, 0, 0.3);
+$scrollbar_hover_bg_color: rgba(0, 0, 0, 0.5);
+$scrollbar_active_bg_color: rgba(0, 0, 0, 0.6);
+
+/* Info/Warning/Error */
+$info_bg_color: #e8f4fd;
+$info_fg_color: #007aff;
+$warning_bg_color: #fff8e1;
+$warning_fg_color: #f5a623;
+$error_bg_color: #ffe8e8;
+$error_fg_color: #ff3b30;
+$success_bg_color: #e8f8f0;
+$success_fg_color: #34c759;
+
+/* Statusbar */
+$statusbar_bg_color: #e8e8e0;
+$statusbar_fg_color: #666666;
+
+/* Menu */
+$menu_bg_color: rgba(255, 255, 255, 0.97);
+$menu_fg_color: #333333;
+$menu_selected_bg_color: #e8f0fe;
+$menu_selected_fg_color: #007aff;
+
+/* Popover */
+$popover_bg_color: rgba(255, 255, 255, 0.97);
+$popover_border_color: rgba(0, 0, 0, 0.1);
+
+/* Shadows */
+$shadow_color: rgba(0, 0, 0, 0.3);
+$shadow_highlight_color: rgba(255, 255, 255, 0.2);
+$window_shadow: 0 2px 8px rgba(0,0,0,0.2);
+$control_shadow: 0 1px 3px rgba(0,0,0,0.15);
+$inset_shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+
+/* Glass/Frosted effect opacity */
+$glass_opacity: 0.95;
+$frost_opacity: 0.9;

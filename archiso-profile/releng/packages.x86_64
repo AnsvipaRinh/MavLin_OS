@@ -12,6 +12,7 @@ dmidecode
 dosfstools
 e2fsprogs
 efibootmgr
+epiphany
 ethtool
 exfatprogs
 f2fs-tools
@@ -27,6 +28,7 @@ jfsutils
 less
 linux-firmware
 linux-firmware-marvell
+linux
 linux-zen
 linux-zen-headers
 lsscsi
@@ -46,6 +48,7 @@ openssh
 partclone
 parted
 pv
+plank
 refind
 reflector
 rsync
@@ -60,14 +63,21 @@ tcpdump
 terminus-font
 testdisk
 thermald
-tmux
+thunar
 tlp
+tmux
 udftools
 usbutils
 vim
 wireless-regdb
 wireless_tools
 wpa_supplicant
+xfce4-panel
+xfce4-session
+xfce4-settings
+xfce4-terminal
+xfdesktop
+xfwm4
 xdg-utils
 xfsprogs
 zram-generator

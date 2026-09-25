@@ -1,0 +1,57 @@
+[PlankTheme]
+# Mavericks Plank Theme - OS X 10.9 Dock Style
+# Glassy reflection, zoom effect, subtle shadows
+
+# Dock background
+BackgroundColor=rgba(255,255,255,0.3)
+BackgroundPadding=4
+
+# Item styling
+ItemColor=rgba(255,255,255,0.2)
+ItemHoverColor=rgba(255,255,255,0.4)
+ItemPressedColor=rgba(255,255,255,0.5)
+ItemShadowColor=rgba(0,0,0,0.3)
+ItemShadowSize=8
+ItemShadowOffset=0,2
+
+# Icon styling
+IconSize=48
+IconZoom=true
+ZoomPercent=150
+ZoomDuration=200
+
+# Reflection
+ReflectionHeight=32
+ReflectionOpacity=0.2
+ReflectionFade=true
+
+# Dock shape
+Roundness=8
+BorderSize=0
+BorderColor=rgba(0,0,0,0.1)
+
+# Indicators
+IndicatorColor=rgba(0,122,255,0.8)
+IndicatorSize=6
+IndicatorShape=circle
+
+# Urgency
+UrgentColor=rgba(255,59,48,0.8)
+UrgentHueShift=0.5
+
+# Hide mode
+HideMode=0
+ShowDockItem=false
+PressureReveal=false
+PressureRevealTime=0.5
+
+# Alignment
+Alignment=0
+Position=0
+Offset=0
+Monitor=-1
+
+# Animation
+FadeTime=200
+SlideTime=200
+ZoomTime=200

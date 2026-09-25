@@ -1,0 +1,56 @@
+post_install() {
+    # Update icon cache
+    gtk-update-icon-cache -q -t -f /usr/share/icons/Mavericks 2>/dev/null || true
+    gtk-update-icon-cache -q -t -f /usr/share/icons/Mavericks-Cursors 2>/dev/null || true
+
+    # Update desktop database
+    update-desktop-database -q 2>/dev/null || true
+
+    # Set default theme for new users
+    mkdir -p /etc/skel/.config/gtk-3.0
+    cat > /etc/skel/.config/gtk-3.0/settings.ini <<'EOF'
+[Settings]
+gtk-theme-name=Mavericks
+gtk-icon-theme-name=Mavericks
+gtk-cursor-theme-name=Mavericks-Cursors
+gtk-cursor-theme-size=24
+gtk-font-name=San Francisco 11
+gtk-enable-animations=1
+gtk-enable-event-sounds=1
+gtk-enable-input-feedback-sounds=1
+gtk-xft-antialias=1
+gtk-xft-hinting=1
+gtk-xft-hintstyle=hintslight
+gtk-xft-rgba=rgb
+EOF
+
+    # Set default plank theme
+    mkdir -p /etc/skel/.config/plank/dock1
+    cat > /etc/skel/.config/plank/dock1/settings <<'EOF'
+[PlankDockPreferences]
+Theme=Mavericks
+ZoomEnabled=true
+ZoomPercent=150
+IconSize=48
+HideMode=0
+ShowDockItem=false
+PressureReveal=false
+PressureRevealTime=0.5
+Alignment=0
+Position=0
+Offset=0
+Monitor=-1
+IconZoom=true
+UrgentHueShift=0.5
+EOF
+}
+
+post_upgrade() {
+    post_install
+}
+
+post_remove() {
+    # Clean up icon cache
+    gtk-update-icon-cache -q -t -f /usr/share/icons/Mavericks 2>/dev/null || true
+    gtk-update-icon-cache -q -t -f /usr/share/icons/Mavericks-Cursors 2>/dev/null || true
+}

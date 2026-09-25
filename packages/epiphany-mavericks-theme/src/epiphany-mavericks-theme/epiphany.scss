@@ -1,0 +1,290 @@
+// Epiphany Mavericks Theme - Safari 7 Style
+// Compile with: sassc -t compressed epiphany.scss epiphany.css
+
+@import "variables";
+@import "mixins";
+
+/* ============================================================
+   EPHIPHANY MAVERICKS THEME - SAFARI 7 STYLE
+   ============================================================ */
+
+@define-color safari_toolbar_bg #e8e8e0;
+@define-color safari_toolbar_border #c0c0b8;
+@define-color safari_tab_bg #d8d8d0;
+@define-color safari_tab_selected_bg #f0f0eb;
+@define-color safari_accent #007aff;
+@define-color safari_text #333333;
+
+/* ============================================================
+   MAIN WINDOW
+   ============================================================ */
+
+EphyWindow {
+    background-color: @safari_toolbar_bg;
+}
+
+/* ============================================================
+   UNIFIED TOOLBAR / HEADERBAR
+   ============================================================ */
+
+EphyWindow headerbar,
+EphyWindow .unified-toolbar {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_toolbar_bg, 1.05),
+        shade(@safari_toolbar_bg, 0.95)
+    );
+    border-bottom: 1px solid @safari_toolbar_border;
+    min-height: 40px;
+    padding: 4px 8px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2),
+                0 1px 2px rgba(0,0,0,0.15);
+}
+
+/* Traffic light buttons */
+EphyWindow .titlebutton {
+    min-width: 14px;
+    min-height: 14px;
+    border-radius: 7px;
+    border: 1px solid rgba(0,0,0,0.15);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+
+    &:hover {
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 0 4px rgba(0,0,0,0.3);
+    }
+}
+
+EphyWindow .titlebutton.close {
+    background-image: linear-gradient(to bottom, #ff5c5c, #e04040);
+}
+
+EphyWindow .titlebutton.maximize {
+    background-image: linear-gradient(to bottom, #ffbd4c, #e0a030);
+}
+
+EphyWindow .titlebutton.minimize {
+    background-image: linear-gradient(to bottom, #4cd964, #30c040);
+}
+
+/* ============================================================
+   TAB BAR - SAFARI 7 STYLE
+   ============================================================ */
+
+EphyTabBar {
+    background-color: transparent;
+    padding: 0 4px;
+}
+
+EphyTabBar tab {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_tab_bg, 1.08),
+        shade(@safari_tab_bg, 0.92)
+    );
+    border: 1px solid shade(@safari_tab_bg, 0.6);
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    padding: 6px 16px;
+    margin: 0 2px;
+    min-height: 28px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+EphyTabBar tab:selected {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_tab_selected_bg, 1.02),
+        shade(@safari_tab_selected_bg, 0.98)
+    );
+    border-color: shade(@safari_tab_selected_bg, 0.5);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2),
+                0 -1px 0 shade(@safari_tab_selected_bg, 0.5);
+}
+
+EphyTabBar tab:hover:not(:selected) {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_tab_bg, 1.12),
+        shade(@safari_tab_bg, 0.95)
+    );
+}
+
+/* ============================================================
+   ADDRESS BAR / LOCATION ENTRY
+   ============================================================ */
+
+EphyLocationEntry {
+    background-color: rgba(255,255,255,0.9);
+    border: 1px solid @safari_toolbar_border;
+    border-radius: 20px;
+    padding: 6px 16px 6px 40px;
+    min-width: 300px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    font-family: "San Francisco", "SF Pro Text", system-ui, sans-serif;
+    font-size: 13px;
+
+    &:focus {
+        background-color: white;
+        border-color: @safari_accent;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1),
+                    0 0 0 2px rgba(0, 122, 255, 0.2);
+    }
+}
+
+/* ============================================================
+   TOOLBAR BUTTONS
+   ============================================================ */
+
+EphyWindow toolbar button {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_toolbar_bg, 1.15),
+        shade(@safari_toolbar_bg, 0.85)
+    );
+    border: 1px solid @safari_toolbar_border;
+    border-radius: 4px;
+    padding: 4px 12px;
+    min-height: 28px;
+    color: @safari_text;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2),
+                0 1px 2px rgba(0,0,0,0.15);
+
+    &:hover {
+        background-image: linear-gradient(to bottom,
+            shade(@safari_toolbar_bg, 1.2),
+            shade(@safari_toolbar_bg, 0.9)
+        );
+    }
+
+    &:active {
+        background-image: linear-gradient(to bottom,
+            shade(@safari_toolbar_bg, 0.95),
+            shade(@safari_toolbar_bg, 0.8)
+        );
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+    }
+}
+
+EphyWindow toolbar button.back-button,
+EphyWindow toolbar button.forward-button {
+    min-width: 36px;
+    min-height: 28px;
+    padding: 4px 8px;
+}
+
+/* ============================================================
+   BOOKMARKS BAR
+   ============================================================ */
+
+EphyBookmarksBar {
+    background-color: transparent;
+    border: none;
+    padding: 2px 8px;
+}
+
+EphyBookmarksBar button {
+    background: none;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    color: @safari_text;
+
+    &:hover {
+        background-color: rgba(0,0,0,0.05);
+    }
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+EphySidebar {
+    background-color: #f5f5f0;
+    border-right: 1px solid @safari_toolbar_border;
+}
+
+EphySidebar row {
+    padding: 4px 12px;
+    border-radius: 4px;
+    margin: 2px 4px;
+
+    &:hover {
+        background-color: shade(#f5f5f0, 1.05);
+    }
+
+    &:selected {
+        background-color: @safari_accent;
+        color: white;
+        font-weight: 500;
+    }
+}
+
+/* ============================================================
+   TOP SITES / NEW TAB PAGE
+   ============================================================ */
+
+EphyNewTabPage {
+    background-color: #f0f0eb;
+}
+
+/* ============================================================
+   WEB VIEW
+   ============================================================ */
+
+EphyWebView {
+    background-color: white;
+}
+
+/* ============================================================
+   FIND BAR
+   ============================================================ */
+
+EphyFindBar {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_toolbar_bg, 1.02),
+        shade(@safari_toolbar_bg, 0.98)
+    );
+    border-top: 1px solid @safari_toolbar_border;
+    padding: 8px 16px;
+}
+
+/* ============================================================
+   DOWNLOADS
+   ============================================================ */
+
+EphyDownloadItem {
+    background-color: @safari_tab_selected_bg;
+    border: 1px solid @safari_toolbar_border;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 4px 0;
+}
+
+/* ============================================================
+   MENUS
+   ============================================================ */
+
+EphyWindow menu,
+EphyWindow .context-menu {
+    background-color: rgba(255,255,255,0.97);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+EphyWindow menuitem {
+    padding: 6px 24px;
+    margin: 2px 8px;
+    border-radius: 4px;
+
+    &:hover,
+    &:selected {
+        background-color: #e8f0fe;
+        color: @safari_accent;
+    }
+}
+
+/* ============================================================
+   PRINT PREVIEW
+   ============================================================ */
+
+EphyPrintPreview {
+    background-color: @safari_toolbar_bg;
+}

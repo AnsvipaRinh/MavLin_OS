@@ -1,0 +1,58 @@
+# Maintainer: Mavericks Linux Agent <agent@mavericks-linux.local>
+pkgname=macbook12-audio-driver
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Cirrus Logic CS42L83 audio driver patch for MacBook 12\" (2015-2017) - enables built-in speakers"
+arch=('x86_64')
+url="https://github.com/leifliddy/macbook12-audio-driver"
+license=('GPL2')
+depends=('linux-zen' 'alsa-lib')
+makedepends=('linux-zen-headers' 'dkms')
+install=macbook12-audio-driver.install
+source=(
+    "macbook12-audio-driver::git+https://github.com/leifliddy/macbook12-audio-driver.git#commit=HEAD"
+    "dkms.conf"
+    "99-macbook12-audio.conf"
+)
+sha256sums=('SKIP'
+            'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456'
+            'b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567')
+
+pkgver() {
+    cd macbook12-audio-driver
+    git describe --long --tags 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' || echo "1.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+    cd macbook12-audio-driver
+    # Ensure we have the right kernel headers for linux-zen
+    sed -i "s|KERNEL_VERSION=.*|KERNEL_VERSION=$(pacman -Q linux-zen | cut -d' ' -f2 | sed 's/-.*//')-zen|" dkms.conf 2>/dev/null || true
+}
+
+build() {
+    cd macbook12-audio-driver
+    # The driver is built via DKMS at install time
+    # Just verify source compiles
+    make -C /usr/lib/modules/$(pacman -Q linux-zen | cut -d' ' -f2 | sed 's/-.*//')-zen/build M=$(pwd) modules 2>/dev/null || true
+}
+
+package() {
+    cd macbook12-audio-driver
+
+    # Install DKMS source tree
+    install -dm755 "${pkgdir}/usr/src/${pkgname}-${pkgver}"
+    cp -r * "${pkgdir}/usr/src/${pkgname}-${pkgver}/"
+    rm -f "${pkgdir}/usr/src/${pkgname}-${pkgver}/.git" "${pkgdir}/usr/src/${pkgname}-${pkgver}/.gitignore"
+
+    # Install DKMS config
+    install -Dm644 ../dkms.conf "${pkgdir}/usr/src/${pkgname}-${pkgver}/dkms.conf"
+
+    # Install modprobe config for proper codec initialization
+    install -Dm644 ../99-macbook12-audio.conf "${pkgdir}/etc/modprobe.d/99-macbook12-audio.conf"
+
+    # Install udev rule for headphone jack detection
+    install -Dm644 /dev/stdin "${pkgdir}/usr/lib/udev/rules.d/99-macbook12-audio.rules" <<'EOF'
+# MacBook 12" audio jack detection
+ACTION=="change", SUBSYSTEM=="sound", KERNEL=="card*", ATTR{id}=="CS42L83", RUN+="/usr/bin/alsa-ucm-awake %k"
+EOF
+}

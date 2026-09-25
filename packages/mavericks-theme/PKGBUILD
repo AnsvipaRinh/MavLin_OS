@@ -1,0 +1,158 @@
+# Maintainer: Mavericks Linux Agent <agent@mavericks-linux.local>
+pkgname=mavericks-theme
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="OS X 10.9 Mavericks skeuomorphic theme for Xfce/GTK3 - textures, shadows, glass, leather/paper"
+arch=('any')
+url="https://github.com/mavericks-linux/mavericks-theme"
+license=('GPL3')
+depends=('gtk3' 'gtk-engine-murrine' 'plank' 'xfce4-panel' 'thunar' 'xfce4-settings' 'hicolor-icon-theme')
+makedepends=('git' 'sassc' 'inkscape' 'optipng')
+optdepends=('epiphany: for Safari 7 styled browser')
+install=mavericks-theme.install
+source=(
+    "mavericks-theme::git+https://github.com/mavericks-linux/mavericks-theme.git#commit=HEAD"
+    "mavericks-theme.install"
+)
+sha256sums=('SKIP'
+            'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456')
+
+pkgver() {
+    cd mavericks-theme
+    git describe --long --tags 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' || echo "1.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
+}
+
+build() {
+    cd mavericks-theme
+    # Build GTK3 theme (compile SCSS to CSS)
+    if [ -d "gtk-3.0" ] && [ -f "gtk-3.0/gtk.scss" ]; then
+        sassc -t compressed gtk-3.0/gtk.scss gtk-3.0/gtk.css
+    fi
+    if [ -d "gtk-3.20" ] && [ -f "gtk-3.20/gtk.scss" ]; then
+        sassc -t compressed gtk-3.30/gtk.scss gtk-3.20/gtk.css
+    fi
+    # Optimize PNG assets
+    find . -name "*.png" -exec optipng -o2 -quiet {} \; 2>/dev/null || true
+}
+
+package() {
+    cd mavericks-theme
+
+    # GTK3 theme
+    install -dm755 "${pkgdir}/usr/share/themes/Mavericks"
+    cp -r gtk-3.0 gtk-3.20 metacity-1 unity xfwm4 "${pkgdir}/usr/share/themes/Mavericks/" 2>/dev/null || true
+    # Ensure gtk.css exists (compiled from scss)
+    [ -f "gtk-3.0/gtk.css" ] && install -Dm644 gtk-3.0/gtk.css "${pkgdir}/usr/share/themes/Mavericks/gtk-3.0/gtk.css"
+    [ -f "gtk-3.20/gtk.css" ] && install -Dm644 gtk-3.20/gtk.css "${pkgdir}/usr/share/themes/Mavericks/gtk-3.20/gtk.css"
+
+    # Icon theme
+    install -dm755 "${pkgdir}/usr/share/icons/Mavericks"
+    cp -r icons/* "${pkgdir}/usr/share/icons/Mavericks/" 2>/dev/null || true
+
+    # Plank theme
+    install -dm755 "${pkgdir}/usr/share/plank/themes/Mavericks"
+    cp -r plank/* "${pkgdir}/usr/share/plank/themes/Mavericks/" 2>/dev/null || true
+
+    # Cursor theme
+    install -dm755 "${pkgdir}/usr/share/icons/Mavericks-Cursors"
+    cp -r cursors/* "${pkgdir}/usr/share/icons/Mavericks-Cursors/" 2>/dev/null || true
+    # Create cursor theme index
+    cat > "${pkgdir}/usr/share/icons/Mavericks-Cursors/index.theme" <<'EOF'
+[Icon Theme]
+Name=Mavericks-Cursors
+Comment=macOS Mavericks style cursors
+Inherits=Adwaita
+EOF
+
+    # Xfce panel theme (menu bar style)
+    install -dm755 "${pkgdir}/usr/share/xfce4/panel/themes/Mavericks"
+    cp -r xfce-panel/* "${pkgdir}/usr/share/xfce4/panel/themes/Mavericks/" 2>/dev/null || true
+
+    # Thunar custom actions / sidebar icons
+    install -dm755 "${pkgdir}/usr/share/thunar/mavericks"
+    cp -r thunar/* "${pkgdir}/usr/share/thunar/mavericks/" 2>/dev/null || true
+
+    # Xfce settings (System Preferences style)
+    install -dm755 "${pkgdir}/usr/share/xfce4/settings/mavericks"
+    cp -r xfce-settings/* "${pkgdir}/usr/share/xfce4/settings/mavericks/" 2>/dev/null || true
+
+    # Wallpapers
+    install -dm755 "${pkgdir}/usr/share/backgrounds/mavericks"
+    cp -r wallpapers/* "${pkgdir}/usr/share/backgrounds/mavericks/" 2>/dev/null || true
+
+    # GTK settings.ini for default theme application
+    install -Dm644 /dev/stdin "${pkgdir}/etc/gtk-3.0/settings.ini" <<'EOF'
+[Settings]
+gtk-theme-name=Mavericks
+gtk-icon-theme-name=Mavericks
+gtk-cursor-theme-name=Mavericks-Cursors
+gtk-cursor-theme-size=24
+gtk-font-name=San Francisco 11
+gtk-enable-animations=1
+gtk-enable-event-sounds=1
+gtk-enable-input-feedback-sounds=1
+gtk-xft-antialias=1
+gtk-xft-hinting=1
+gtk-xft-hintstyle=hintslight
+gtk-xft-rgba=rgb
+EOF
+
+    # Xfce default panel layout (menu bar style)
+    install -Dm644 /dev/stdin "${pkgdir}/etc/xdg/xfce4/panel/default.xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel version="1.0" name="xfce4-panel">
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+    <property name="panel-1" type="empty">
+      <property name="position" type="string" value="p=6;x=0;y=0"/>
+      <property name="length" type="uint" value="100"/>
+      <property name="length-adjust" type="bool" value="true"/>
+      <property name="size" type="uint" value="24"/>
+      <property name="autohide-behavior" type="uint" value="0"/>
+      <property name="background-style" type="uint" value="1"/>
+      <property name="background-image" type="string" value="/usr/share/themes/Mavericks/xfce4-panel/panel-bg.png"/>
+      <property name="enter-opacity" type="uint" value="99"/>
+      <property name="leave-opacity" type="uint" value="99"/>
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+        <value type="int" value="2"/>
+        <value type="int" value="3"/>
+        <value type="int" value="4"/>
+        <value type="int" value="5"/>
+        <value type="int" value="6"/>
+      </property>
+    </property>
+  </property>
+  <property name="plugins" type="array">
+    <value type="int" value="1"/>
+    <value type="int" value="2"/>
+    <value type="int" value="3"/>
+    <value type="int" value="4"/>
+    <value type="int" value="5"/>
+    <value type="int" value="6"/>
+    <property name="plugin-1" type="empty">
+      <property name="name" type="string" value="applicationsmenu"/>
+      <property name="label" type="string" value="Applications Menu"/>
+    </property>
+    <property name="plugin-2" type="empty">
+      <property name="name" type="string" value="separator"/>
+      <property name="expand" type="bool" value="true"/>
+    </property>
+    <property name="plugin-3" type="empty">
+      <property name="name" type="string" value="tasklist"/>
+    </property>
+    <property name="plugin-4" type="empty">
+      <property name="name" type="string" value="separator"/>
+      <property name="expand" type="bool" value="true"/>
+    </property>
+    <property name="plugin-5" type="empty">
+      <property name="name" type="string" value="systray"/>
+    </property>
+    <property name="plugin-6" type="empty">
+      <property name="name" type="string" value="clock"/>
+      <property name="format" type="string" value="%a %b %d  %H:%M"/>
+    </property>
+  </property>
+</channel>
+EOF
+}

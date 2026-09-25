@@ -1,0 +1,49 @@
+// Epiphany Mavericks Theme - Mixins
+
+@mixin gradient-vertical($start, $end) {
+    background-image: linear-gradient(to bottom, $start, $end);
+}
+
+@mixin button-gradient($base-color, $hover: false, $active: false) {
+    @if $hover {
+        @include gradient-vertical(shade($base-color, 1.2), shade($base-color, 0.9));
+    } @else if $active {
+        @include gradient-vertical(shade($base-color, 0.95), shade($base-color, 0.8));
+    } @else {
+        @include gradient-vertical(shade($base-color, 1.15), shade($base-color, 0.85));
+    }
+}
+
+@mixin control-shadow($hover: false) {
+    @if $hover {
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    } @else {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+}
+
+@mixin inset-shadow {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+@mixin pressed-shadow {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+@mixin text-emboss($color: white, $opacity: 0.3) {
+    text-shadow: 0 1px 0 rgba($color, $opacity);
+}
+
+@mixin text-deboss($color: black, $opacity: 0.3) {
+    text-shadow: 0 -1px 0 rgba($color, $opacity);
+}
+
+@mixin transition-fast {
+    transition: all 0.15s ease-out;
+}
+
+@mixin transition-normal {
+    transition: all 0.2s ease-out;
+}

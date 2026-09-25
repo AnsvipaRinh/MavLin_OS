@@ -1,0 +1,10 @@
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = linux
+
+[Action]
+Description = Fix linux.preset for archiso live boot
+When = PostTransaction
+Exec = /usr/local/bin/fix-linux-preset.sh

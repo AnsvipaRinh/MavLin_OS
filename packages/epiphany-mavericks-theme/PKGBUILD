@@ -1,0 +1,350 @@
+# Maintainer: Mavericks Linux Agent <agent@mavericks-linux.local>
+pkgname=epiphany-mavericks-theme
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Safari 7 (OS X 10.9) style theme for Epiphany/GNOME Web - unified toolbar, compass icon, Top Sites"
+arch=('any')
+url="https://github.com/mavericks-linux/epiphany-mavericks-theme"
+license=('GPL3')
+depends=('epiphany' 'mavericks-theme')
+makedepends=('git' 'sassc')
+install=epiphany-mavericks-theme.install
+source=(
+    "epiphany-mavericks-theme::git+https://github.com/mavericks-linux/epiphany-mavericks-theme.git#commit=HEAD"
+)
+sha256sums=('SKIP')
+
+pkgver() {
+    cd epiphany-mavericks-theme
+    git describe --long --tags 2>/dev/null | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' || echo "1.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
+}
+
+build() {
+    cd epiphany-mavericks-theme
+    # Compile SCSS to CSS for Epiphany's GTK theme
+    if [ -f "epiphany.scss" ]; then
+        sassc -t compressed epiphany.scss epiphany.css
+    fi
+}
+
+package() {
+    cd epiphany-mavericks-theme
+
+    # Install Epiphany-specific CSS overrides
+    install -dm755 "${pkgdir}/usr/share/epiphany/mavericks"
+    cp -r *.css *.js assets/ "${pkgdir}/usr/share/epiphany/mavericks/" 2>/dev/null || true
+
+    # Install as GTK theme variant for Epiphany
+    install -dm755 "${pkgdir}/usr/share/themes/Mavericks-Epiphany/gtk-3.0"
+    install -Dm644 epiphany.css "${pkgdir}/usr/share/themes/Mavericks-Epiphany/gtk-3.0/epiphany.css"
+
+    # Install userChrome-like overrides for Epiphany's WebKit
+    install -dm755 "${pkgdir}/usr/share/epiphany/mavericks/user-stylesheets"
+    cp -r user-stylesheets/* "${pkgdir}/usr/share/epiphany/mavericks/user-stylesheets/" 2>/dev/null || true
+
+    # Install Top Sites page
+    install -dm755 "${pkgdir}/usr/share/epiphany/mavericks/top-sites"
+    cp -r top-sites/* "${pkgdir}/usr/share/epiphany/mavericks/top-sites/" 2>/dev/null || true
+
+    # Install Safari 7 style compass icon
+    install -Dm644 assets/compass-icon.svg "${pkgdir}/usr/share/icons/hicolor/scalable/apps/epiphany-mavericks.svg"
+
+    # Install desktop file with custom icon
+    install -Dm644 /dev/stdin "${pkgdir}/usr/share/applications/epiphany-mavericks.desktop" <<'EOF'
+[Desktop Entry]
+Name=Web (Mavericks)
+Comment=Browse the World Wide Web - Safari 7 Style
+Exec=epiphany --profile=mavericks %U
+Terminal=false
+Type=Application
+Icon=epiphany-mavericks
+Categories=GNOME;GTK;Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;x-scheme-handler/chrome;video/webm;application/x-xpinstall;
+StartupNotify=true
+Keywords=Web;Browser;Internet;Safari;Mavericks;
+EOF
+
+    # Install profile migration script
+    install -Dm755 /dev/stdin "${pkgdir}/usr/bin/epiphany-mavericks-setup" <<'EOF'
+#!/bin/bash
+# Epiphany Mavericks Theme Setup
+# Creates a separate Epiphany profile with Mavericks styling
+
+PROFILE_DIR="$HOME/.config/epiphany-mavericks"
+THEME_DIR="/usr/share/epiphany/mavericks"
+
+mkdir -p "$PROFILE_DIR"
+
+# Copy custom CSS to profile
+mkdir -p "$PROFILE_DIR/user-stylesheets"
+cp -r "$THEME_DIR/user-stylesheets/"* "$PROFILE_DIR/user-stylesheets/" 2>/dev/null || true
+
+# Create Top Sites page as homepage
+mkdir -p "$PROFILE_DIR/top-sites"
+cp -r "$THEME_DIR/top-sites/"* "$PROFILE_DIR/top-sites/" 2>/dev/null || true
+
+# Set Epiphany preferences for Mavericks profile
+cat > "$PROFILE_DIR/preferences.json" <<'PREFS'
+{
+  "homepage": "file:///usr/share/epiphany/mavericks/top-sites/index.html",
+  "toolbar-style": "unified",
+  "show-toolbar": true,
+  "show-statusbar": false,
+  "enable-spell-checking": true,
+  "enable-developer-tools": true
+}
+PREFS
+
+echo "Epiphany Mavericks profile created at $PROFILE_DIR"
+echo "Run: epiphany --profile=mavericks"
+EOF
+
+    # Install GTK CSS override for Epiphany
+    install -Dm644 /dev/stdin "${pkgdir}/etc/gtk-3.0/epiphany-mavericks.css" <<'EOF'
+/* Epiphany Mavericks Theme - Safari 7 Style Overrides */
+/* Apply via: GTK_CSS_PROVIDER=/etc/gtk-3.0/epiphany-mavericks.css epiphany */
+
+/* ============================================================
+   UNIFIED TOOLBAR - SAFARI 7 STYLE
+   ============================================================ */
+
+@define-color safari_toolbar_bg #e8e8e0;
+@define-color safari_toolbar_border #c0c0b8;
+@define-color safari_tab_bg #d8d8d0;
+@define-color safari_tab_selected_bg #f0f0eb;
+@define-color safari_accent #007aff;
+@define-color safari_text #333333;
+
+/* Main window */
+EphyWindow {
+    background-color: @safari_toolbar_bg;
+}
+
+/* Headerbar/Toolbar - unified */
+EphyWindow headerbar,
+EphyWindow .unified-toolbar {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_toolbar_bg, 1.05),
+        shade(@safari_toolbar_bg, 0.95)
+    );
+    border-bottom: 1px solid @safari_toolbar_border;
+    min-height: 40px;
+    padding: 4px 8px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2),
+                0 1px 2px rgba(0,0,0,0.15);
+}
+
+/* Traffic light buttons */
+EphyWindow .titlebutton {
+    min-width: 14px;
+    min-height: 14px;
+    border-radius: 7px;
+    border: 1px solid rgba(0,0,0,0.15);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+
+    &:hover {
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 0 4px rgba(0,0,0,0.3);
+    }
+}
+
+EphyWindow .titlebutton.close { background-image: linear-gradient(to bottom, #ff5c5c, #e04040); }
+EphyWindow .titlebutton.maximize { background-image: linear-gradient(to bottom, #ffbd4c, #e0a030); }
+EphyWindow .titlebutton.minimize { background-image: linear-gradient(to bottom, #4cd964, #30c040); }
+
+/* Tab bar - Safari 7 style */
+EphyTabBar {
+    background-color: transparent;
+    padding: 0 4px;
+}
+
+EphyTabBar tab {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_tab_bg, 1.08),
+        shade(@safari_tab_bg, 0.92)
+    );
+    border: 1px solid shade(@safari_tab_bg, 0.6);
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    padding: 6px 16px;
+    margin: 0 2px;
+    min-height: 28px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+EphyTabBar tab:selected {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_tab_selected_bg, 1.02),
+        shade(@safari_tab_selected_bg, 0.98)
+    );
+    border-color: shade(@safari_tab_selected_bg, 0.5);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2),
+                0 -1px 0 shade(@safari_tab_selected_bg, 0.5);
+}
+
+EphyTabBar tab:hover:not(:selected) {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_tab_bg, 1.12),
+        shade(@safari_tab_bg, 0.95)
+    );
+}
+
+/* Address bar / Location entry */
+EphyLocationEntry {
+    background-color: rgba(255,255,255,0.9);
+    border: 1px solid @safari_toolbar_border;
+    border-radius: 20px;
+    padding: 6px 16px 6px 40px;
+    min-width: 300px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    font-family: "San Francisco", "SF Pro Text", system-ui, sans-serif;
+    font-size: 13px;
+
+    &:focus {
+        background-color: white;
+        border-color: @safari_accent;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1),
+                    0 0 0 2px rgba(0, 122, 255, 0.2);
+    }
+}
+
+/* Toolbar buttons */
+EphyWindow toolbar button {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_toolbar_bg, 1.15),
+        shade(@safari_toolbar_bg, 0.85)
+    );
+    border: 1px solid @safari_toolbar_border;
+    border-radius: 4px;
+    padding: 4px 12px;
+    min-height: 28px;
+    color: @safari_text;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2),
+                0 1px 2px rgba(0,0,0,0.15);
+
+    &:hover {
+        background-image: linear-gradient(to bottom,
+            shade(@safari_toolbar_bg, 1.2),
+            shade(@safari_toolbar_bg, 0.9)
+        );
+    }
+
+    &:active {
+        background-image: linear-gradient(to bottom,
+            shade(@safari_toolbar_bg, 0.95),
+            shade(@safari_toolbar_bg, 0.8)
+        );
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+    }
+}
+
+/* Back/Forward buttons - larger hit area */
+EphyWindow toolbar button.back-button,
+EphyWindow toolbar button.forward-button {
+    min-width: 36px;
+    min-height: 28px;
+    padding: 4px 8px;
+}
+
+/* Bookmarks bar */
+EphyBookmarksBar {
+    background-color: transparent;
+    border: none;
+    padding: 2px 8px;
+}
+
+EphyBookmarksBar button {
+    background: none;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    color: @safari_text;
+
+    &:hover {
+        background-color: rgba(0,0,0,0.05);
+    }
+}
+
+/* Sidebar (Bookmarks/History) */
+EphySidebar {
+    background-color: #f5f5f0;
+    border-right: 1px solid @safari_toolbar_border;
+}
+
+EphySidebar row {
+    padding: 4px 12px;
+    border-radius: 4px;
+    margin: 2px 4px;
+
+    &:hover {
+        background-color: shade(#f5f5f0, 1.05);
+    }
+
+    &:selected {
+        background-color: @safari_accent;
+        color: white;
+        font-weight: 500;
+    }
+}
+
+/* Top Sites / New Tab Page */
+EphyNewTabPage {
+    background-color: #f0f0eb;
+}
+
+/* Web view */
+EphyWebView {
+    background-color: white;
+}
+
+/* Find bar */
+EphyFindBar {
+    background-image: linear-gradient(to bottom,
+        shade(@safari_toolbar_bg, 1.02),
+        shade(@safari_toolbar_bg, 0.98)
+    );
+    border-top: 1px solid @safari_toolbar_border;
+    padding: 8px 16px;
+}
+
+/* Downloads */
+EphyDownloadItem {
+    background-color: @safari_tab_selected_bg;
+    border: 1px solid @safari_toolbar_border;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 4px 0;
+}
+
+/* Menu */
+EphyWindow menu,
+EphyWindow .context-menu {
+    background-color: rgba(255,255,255,0.97);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+EphyWindow menuitem {
+    padding: 6px 24px;
+    margin: 2px 8px;
+    border-radius: 4px;
+
+    &:hover,
+    &:selected {
+        background-color: #e8f0fe;
+        color: @safari_accent;
+    }
+}
+
+/* Compass icon for window icon */
+EphyWindow {
+    -gtk-icon-source: url("assets/compass-icon.svg");
+}
+
+/* Print preview */
+EphyPrintPreview {
+    background-color: @safari_toolbar_bg;
+}
+EOF

@@ -1,0 +1,197 @@
+// Mavericks GTK3 Theme - GTK 3.20+ Compatibility Layer
+// Imports the 3.0 theme and adds any 3.20+ specific overrides
+
+@import "../gtk-3.0/colors";
+@import "../gtk-3.0/variables";
+@import "../gtk-3.0/mixins";
+@import "../gtk-3.0/base";
+@import "../gtk-3.0/widgets";
+@import "../gtk-3.0/windows";
+@import "../gtk-3.0/notebook";
+@import "../gtk-3.0/menus";
+@import "../gtk-3.0/other";
+
+/* ============================================================
+   GTK 3.20+ SPECIFIC OVERRIDES
+   ============================================================ */
+
+/* Headerbar improvements in 3.20+ */
+headerbar {
+    /* 3.20+ has better headerbar support */
+    margin: 0;
+    padding: $headerbar_padding;
+}
+
+/* Better popover support */
+popover {
+    /* 3.20+ native popover */
+}
+
+/* Improved file chooser */
+filechooser {
+    /* 3.20+ native file chooser */
+}
+
+/* Better color chooser */
+colorchooser {
+    /* 3.20+ native color chooser */
+}
+
+/* Font chooser */
+fontchooser {
+    /* 3.20+ native font chooser */
+}
+
+/* Emoji chooser */
+emojichooser {
+    background-color: $window_bg_color;
+    border: 1px solid $border_color;
+    border-radius: $border_radius;
+}
+
+/* Search entry in headerbar */
+headerbar entry,
+headerbar searchentry {
+    background-color: rgba(255,255,255,0.9);
+    border-radius: 20px;
+    padding: 4px 16px 4px 40px;
+    min-width: 200px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+
+    &:focus {
+        background-color: $entry_bg_color;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1),
+                    0 0 0 2px rgba(0, 122, 255, 0.2);
+    }
+}
+
+/* Model button (for view switchers) */
+modelbutton {
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+
+    &:checked {
+        background-color: $theme_selected_bg_color;
+        color: $theme_selected_fg_color;
+    }
+
+    &:hover:not(:checked) {
+        background-color: shade($bg_color, 0.9);
+    }
+}
+
+/* View switcher (segmented control) */
+viewswitcher {
+    background-color: shade($bg_color, 0.95);
+    border: 1px solid $border_color;
+    border-radius: $button_border_radius;
+    padding: 2px;
+
+    modelbutton:first-child {
+        border-radius: $button_border_radius 0 0 $button_border_radius;
+    }
+
+    modelbutton:last-child {
+        border-radius: 0 $button_border_radius $button_border_radius 0;
+    }
+}
+
+/* Shortcut labels */
+.shortcut-label {
+    background-color: rgba(0,0,0,0.7);
+    color: white;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 0.75em;
+    font-family: monospace;
+}
+
+/* Flow box (for grids) */
+flowbox {
+    background-color: transparent;
+
+    child {
+        background-color: transparent;
+    }
+}
+
+/* List box improvements */
+listbox {
+    background-color: transparent;
+
+    row {
+        background-color: transparent;
+        border-radius: 4px;
+
+        &:selected {
+            background-color: $theme_selected_bg_color;
+            color: $theme_selected_fg_color;
+        }
+
+        &:hover:not(:selected) {
+            background-color: shade($bg_color, 0.95);
+        }
+    }
+}
+
+/* Stack switcher */
+stackswitcher {
+    background-color: transparent;
+    border: none;
+    padding: 4px 0;
+}
+
+stackswitcher > button {
+    background: none;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    color: $fg_color;
+
+    &:checked {
+        background-color: $theme_selected_bg_color;
+        color: $theme_selected_fg_color;
+    }
+
+    &:hover:not(:checked) {
+        background-color: shade($bg_color, 0.9);
+    }
+}
+
+/* Level bar (battery, volume, etc.) */
+levelbar {
+    background-color: shade($bg_color, 0.85);
+    border: 1px solid shade($bg_color, 0.7);
+    border-radius: 6px;
+    min-height: 12px;
+    overflow: hidden;
+
+    trough {
+        background-color: transparent;
+    }
+
+    block {
+        background-image: linear-gradient(to bottom,
+            shade($accent_bg_color, 1.1),
+            shade($accent_bg_color, 0.9)
+        );
+        border-radius: 5px;
+        @include inset-shadow();
+    }
+
+    block.filled {
+        background-image: linear-gradient(to bottom,
+            shade($success_bg_color, 1.1),
+            shade($success_bg_color, 0.9)
+        );
+    }
+
+    block.empty {
+        background-image: linear-gradient(to bottom,
+            shade($destructive_bg_color, 1.1),
+            shade($destructive_bg_color, 0.9)
+        );
+    }
+}

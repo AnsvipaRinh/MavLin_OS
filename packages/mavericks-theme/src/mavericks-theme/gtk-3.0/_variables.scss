@@ -1,0 +1,61 @@
+// Mavericks GTK3 Theme Variables
+// Maps semantic names to color palette
+
+@use "colors" as *;
+
+/* Base colors - mapped from palette */
+$fg_color: $mavericks-charcoal;
+$bg_color: $window_bg_color;
+$base_color: $mavericks-white;
+
+$text_color: $fg_color;
+$selected_bg_color: $theme_selected_bg_color;
+$selected_fg_color: $theme_selected_fg_color;
+
+$insensitive_bg_color: shade($bg_color, 0.9);
+$insensitive_fg_color: shade($fg_color, 0.5);
+
+$border_radius: 4px;
+$button_border_radius: 4px;
+$entry_border_radius: 4px;
+$tab_border_radius: 6px 6px 0 0;
+$menu_border_radius: 6px;
+$popover_border_radius: 8px;
+
+$padding_small: 4px;
+$padding_medium: 8px;
+$padding_large: 12px;
+
+$button_min_height: 28px;
+$button_min_width: 72px;
+$entry_min_height: 28px;
+
+$toolbar_button_padding: 4px 8px;
+$menuitem_padding: 6px 24px;
+$menuitem_margin: 2px 8px;
+
+$headerbar_padding: 4px 8px;
+$headerbar_min_height: 32px;
+$titlebutton_size: 14px;
+
+$notebook_tab_padding: 6px 16px;
+$notebook_tab_min_height: 24px;
+
+$scrollbar_width: 8px;
+$scrollbar_min_slider_length: 30px;
+
+$scale_slider_size: 16px;
+$scale_trough_height: 6px;
+
+$switch_trough_width: 52px;
+$switch_trough_height: 32px;
+$switch_slider_size: 24px;
+
+$check_indicator_size: 16px;
+$radio_indicator_size: 16px;
+
+$tooltip_padding: 8px 12px;
+$tooltip_border_radius: 6px;
+
+$separator_width: 1px;
+$separator_margin: 4px 8px;

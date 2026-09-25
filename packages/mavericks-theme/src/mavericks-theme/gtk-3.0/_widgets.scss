@@ -1,0 +1,595 @@
+// Mavericks GTK3 Theme - Widget Styles
+
+@use "colors" as *;
+@use "variables" as *;
+@use "mixins" as *;
+
+/* ============================================================
+   BUTTON WIDGETS
+   ============================================================ */
+
+button,
+button.flat,
+button.image-button,
+button.text-button {
+    @include button-gradient($button_bg_color);
+    color: $button_fg_color;
+    border: 1px solid shade($button_bg_color, 0.5);
+    border-radius: $button_border_radius;
+    padding: 6px 16px;
+    min-height: $button_min_height;
+    min-width: $button_min_width;
+    @include text-emboss();
+    @include control-shadow();
+    @include transition-normal;
+
+    &:hover {
+        @include button-gradient($button_bg_color, $hover: true);
+        @include control-shadow($hover: true);
+    }
+
+    &:active,
+    &:checked {
+        @include button-gradient($button_bg_color, $active: true);
+        @include pressed-shadow();
+    }
+
+    &:focus {
+        box-shadow: inset 0 0 0 2px $focus_color,
+                    0 1px 2px rgba(0,0,0,0.15);
+    }
+
+    &:insensitive {
+        background-image: none;
+        background-color: $insensitive_bg_color;
+        color: $insensitive_fg_color;
+        border-color: shade($insensitive_bg_color, 0.8);
+        box-shadow: none;
+        text-shadow: none;
+    }
+}
+
+/* Flat buttons */
+button.flat {
+    background-image: none;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 6px 12px;
+
+    &:hover {
+        background-color: shade($bg_color, 0.9);
+        border-radius: $button_border_radius;
+    }
+
+    &:active {
+        background-color: shade($bg_color, 0.85);
+    }
+}
+
+/* Suggested action (primary) */
+button.suggested-action,
+button.suggested-action.flat {
+    @include button-gradient($accent_bg_color);
+    color: $accent_fg_color;
+    border-color: shade($accent_bg_color, 0.5);
+    @include text-deboss();
+
+    &:hover {
+        @include button-gradient($accent_bg_color, $hover: true);
+    }
+
+    &:active {
+        @include button-gradient($accent_bg_color, $active: true);
+    }
+
+    &.flat {
+        background-image: none;
+        background-color: transparent;
+        color: $accent_bg_color;
+        text-shadow: none;
+
+        &:hover {
+            background-color: rgba($accent_bg_color, 0.1);
+            border-radius: $button_border_radius;
+        }
+    }
+}
+
+/* Destructive action */
+button.destructive-action {
+    @include button-gradient($destructive_bg_color);
+    color: $destructive_fg_color;
+    border-color: shade($destructive_bg_color, 0.5);
+    @include text-deboss();
+
+    &:hover {
+        @include button-gradient($destructive_bg_color, $hover: true);
+    }
+
+    &:active {
+        @include button-gradient($destructive_bg_color, $active: true);
+    }
+}
+
+/* Linked buttons (toolbar style) */
+.linked > button,
+.linked > button.flat {
+    border-radius: 0;
+    border-right-width: 0;
+
+    &:first-child {
+        border-radius: $button_border_radius 0 0 $button_border_radius;
+    }
+
+    &:last-child {
+        border-radius: 0 $button_border_radius $button_border_radius 0;
+        border-right-width: 1px;
+    }
+
+    &:only-child {
+        border-radius: $button_border_radius;
+    }
+}
+
+/* ============================================================
+   ENTRY / SPINBUTTON / TEXTVIEW
+   ============================================================ */
+
+entry,
+spinbutton,
+textview {
+    background-color: $entry_bg_color;
+    color: $entry_fg_color;
+    border: 1px solid $border_color;
+    border-radius: $entry_border_radius;
+    padding: 6px 10px;
+    min-height: $entry_min_height;
+    @include inset-shadow();
+    @include transition-fast;
+
+    &:focus,
+    &:hover {
+        border-color: $focus_color;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1),
+                    0 0 0 2px rgba(0, 122, 255, 0.2);
+    }
+
+    &:insensitive {
+        background-color: $insensitive_bg_color;
+        color: $insensitive_fg_color;
+        border-color: shade($insensitive_bg_color, 0.8);
+    }
+
+    /* Placeholder text */
+    &::placeholder {
+        color: shade($entry_fg_color, 0.5);
+    }
+}
+
+/* Spinbutton buttons */
+spinbutton > button {
+    min-width: 24px;
+    min-height: 14px;
+    padding: 0;
+    border-radius: 0 $entry_border_radius $entry_border_radius 0;
+    border-left: 1px solid $border_color;
+    background-image: linear-gradient(to bottom,
+        shade($button_bg_color, 1.1),
+        shade($button_bg_color, 0.9)
+    );
+
+    &:hover {
+        background-image: linear-gradient(to bottom,
+            shade($button_bg_color, 1.15),
+            shade($button_bg_color, 0.95)
+        );
+    }
+}
+
+/* ============================================================
+   COMBBOX
+   ============================================================ */
+
+combobox {
+    background-image: linear-gradient(to bottom,
+        shade($button_bg_color, 1.1),
+        shade($button_bg_color, 0.9)
+    );
+    border: 1px solid $border_color;
+    border-radius: $entry_border_radius;
+    padding: 6px 30px 6px 12px;
+    min-height: $entry_min_height;
+    @include control-shadow();
+
+    &:hover {
+        background-image: linear-gradient(to bottom,
+            shade($button_bg_color, 1.15),
+            shade($button_bg_color, 0.95)
+        );
+    }
+
+    &:focus {
+        border-color: $focus_color;
+        box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2),
+                    0 1px 2px rgba(0,0,0,0.15);
+    }
+}
+
+combobox > button {
+    background: none;
+    border: none;
+    box-shadow: none;
+    padding: 0 8px;
+    min-width: 24px;
+}
+
+/* ============================================================
+   SCALE / SLIDER
+   ============================================================ */
+
+scale {
+    trough {
+        background-color: shade($bg_color, 0.85);
+        border: 1px solid shade($bg_color, 0.7);
+        border-radius: 3px;
+        min-height: $scale_trough_height;
+        margin: 4px 0;
+    }
+
+    highlight {
+        background-image: linear-gradient(to bottom,
+            shade($accent_bg_color, 1.1),
+            shade($accent_bg_color, 0.9)
+        );
+        border-radius: 3px;
+        border: none;
+    }
+
+    slider {
+        background-color: $mavericks-white;
+        border: 1px solid shade($accent_bg_color, 0.5);
+        border-radius: 50%;
+        width: $scale_slider_size;
+        height: $scale_slider_size;
+        margin-top: -5px;
+        @include control-shadow();
+
+        &:hover {
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        &:active {
+            transform: scale(1.1);
+        }
+    }
+
+    marks {
+        color: shade($fg_color, 0.6);
+        font-size: 0.8em;
+    }
+}
+
+/* Vertical scale */
+scale.vertical {
+    trough {
+        min-width: $scale_trough_height;
+        min-height: 100px;
+    }
+
+    slider {
+        margin-left: -5px;
+    }
+}
+
+/* ============================================================
+   PROGRESSBAR
+   ============================================================ */
+
+progressbar {
+    background-color: shade($bg_color, 0.85);
+    border: 1px solid shade($bg_color, 0.7);
+    border-radius: 6px;
+    min-height: 12px;
+    overflow: hidden;
+
+    trough {
+        background-color: transparent;
+    }
+
+    progress {
+        background-image: linear-gradient(to bottom,
+            shade($accent_bg_color, 1.1),
+            shade($accent_bg_color, 0.9)
+        );
+        border-radius: 5px;
+        @include inset-shadow();
+        transition: width 0.3s ease-out;
+    }
+
+    /* Pulse animation for indeterminate */
+    &.pulse progress {
+        animation: progress-pulse 1.5s ease-in-out infinite;
+    }
+}
+
+@keyframes progress-pulse {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* ============================================================
+   LEVELBAR
+   ============================================================ */
+
+levelbar {
+    background-color: shade($bg_color, 0.85);
+    border: 1px solid shade($bg_color, 0.7);
+    border-radius: 6px;
+    min-height: 12px;
+    overflow: hidden;
+
+    trough {
+        background-color: transparent;
+    }
+
+    block {
+        background-image: linear-gradient(to bottom,
+            shade($accent_bg_color, 1.1),
+            shade($accent_bg_color, 0.9)
+        );
+        border-radius: 5px;
+        @include inset-shadow();
+    }
+
+    block.filled {
+        background-image: linear-gradient(to bottom,
+            shade($success_bg_color, 1.1),
+            shade($success_bg_color, 0.9)
+        );
+    }
+
+    block.empty {
+        background-image: linear-gradient(to bottom,
+            shade($destructive_bg_color, 1.1),
+            shade($destructive_bg_color, 0.9)
+        );
+    }
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+scrollbar {
+    background-color: transparent;
+
+    slider {
+        background-color: $scrollbar_bg_color;
+        border-radius: 4px;
+        min-width: $scrollbar_width;
+        min-height: $scrollbar_width;
+        margin: 2px;
+        border: none;
+        @include transition-fast;
+
+        &:hover {
+            background-color: $scrollbar_hover_bg_color;
+        }
+
+        &:active {
+            background-color: $scrollbar_active_bg_color;
+        }
+    }
+
+    trough {
+        background-color: transparent;
+        border-radius: 4px;
+    }
+
+    button {
+        display: none; /* Hide scroll arrows */
+    }
+
+    &.horizontal slider {
+        min-width: $scrollbar_min_slider_length;
+    }
+
+    &.vertical slider {
+        min-height: $scrollbar_min_slider_length;
+    }
+
+    &.overlay-indicator {
+        slider {
+            background-color: transparent;
+
+            &:hover {
+                background-color: $scrollbar_bg_color;
+            }
+        }
+    }
+}
+
+/* ============================================================
+   PANED
+   ============================================================ */
+
+paned > separator {
+    background-color: transparent;
+    min-width: 6px;
+    min-height: 6px;
+    @include transition-fast;
+
+    &:hover {
+        background-image: linear-gradient(to right,
+            transparent,
+            rgba(0,0,0,0.1),
+            transparent
+        );
+    }
+
+    &:horizontal {
+        min-height: 6px;
+    }
+
+    &:vertical {
+        min-width: 6px;
+    }
+}
+
+/* ============================================================
+   SEPARATOR
+   ============================================================ */
+
+separator {
+    background-color: $border_color;
+    margin: $separator_margin;
+    min-width: $separator_width;
+    min-height: $separator_width;
+
+    &.horizontal {
+        min-height: $separator_width;
+    }
+
+    &.vertical {
+        min-width: $separator_width;
+    }
+}
+
+/* ============================================================
+   FRAME / LABEL FRAME
+   ============================================================ */
+
+frame,
+labelframe {
+    border: 1px solid $border_color;
+    border-radius: $border_radius;
+    padding: $padding_medium;
+    margin: $padding_small 0;
+
+    label {
+        font-weight: bold;
+        color: shade($fg_color, 0.8);
+        padding: 0 $padding_small;
+    }
+}
+
+/* ============================================================
+   EXPANDER
+   ============================================================ */
+
+expander {
+    arrow {
+        background-color: transparent;
+        color: $fg_color;
+        min-width: 16px;
+        min-height: 16px;
+        @include transition-fast;
+
+        &:hover {
+            color: $focus_color;
+        }
+    }
+
+    &:checked > arrow {
+        -gtk-icon-transform: rotate(90deg);
+    }
+}
+
+/* ============================================================
+   SPINNER
+   ============================================================ */
+
+spinner {
+    animation: spinner-rotate 1s linear infinite;
+}
+
+@keyframes spinner-rotate {
+    from { -gtk-icon-transform: rotate(0deg); }
+    to { -gtk-icon-transform: rotate(360deg); }
+}
+
+/* ============================================================
+   IMAGE
+   ============================================================ */
+
+image {
+    background-color: transparent;
+}
+
+/* ============================================================
+   CALENDAR
+   ============================================================ */
+
+calendar {
+    background-color: $window_bg_color;
+    border: 1px solid $border_color;
+    border-radius: $border_radius;
+    padding: $padding_medium;
+
+    header {
+        background-color: transparent;
+        border-bottom: 1px solid $border_color;
+        padding-bottom: $padding_small;
+        margin-bottom: $padding_small;
+    }
+
+    day {
+        border-radius: 50%;
+        min-width: 32px;
+        min-height: 32px;
+
+        &:selected {
+            background-color: $theme_selected_bg_color;
+            color: $theme_selected_fg_color;
+        }
+
+        &:hover:not(:selected) {
+            background-color: shade($bg_color, 0.9);
+        }
+
+        &:insensitive {
+            color: $insensitive_fg_color;
+        }
+    }
+
+    week {
+        color: shade($fg_color, 0.6);
+        font-size: 0.85em;
+        font-weight: bold;
+    }
+}
+
+/* ============================================================
+   COLORCHOOSER
+   ============================================================ */
+
+colorchooser {
+    background-color: $window_bg_color;
+    border: 1px solid $border_color;
+    border-radius: $border_radius;
+}
+
+/* ============================================================
+   FONTCHOOSER
+   ============================================================ */
+
+fontchooser {
+    background-color: $window_bg_color;
+}
+
+/* ============================================================
+   FILECHOOSER
+   ============================================================ */
+
+filechooser {
+    background-color: $window_bg_color;
+}
+
+/* ============================================================
+   APPOVERVIEW (for dash/overview)
+   ============================================================ */
+
+appoverview {
+    background-color: rgba($mavericks-off-white, 0.95);
+}
