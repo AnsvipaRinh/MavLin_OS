@@ -1,0 +1,88 @@
+# skippy-xd.rc — Mavericks Mission Control tuning (E-MC experiment).
+# Source of truth: configs/desktop/skippy-xd/skippy-xd.rc
+# Installed to: /etc/skel/.config/skippy-xd/skippy-xd.rc (per-user, so it never
+# conflicts with the AUR skippy-xd-git package, which owns /etc/xdg/skippy-xd.rc).
+# Upstream schema: https://github.com/felixfung/skippy-xd/blob/master/skippy-xd.rc
+# Only options that differ from upstream defaults (or lock behavior) are set
+# below; everything else falls back to upstream defaults.
+#
+# Energy model: NO daemon. The Super+Tab hotkey (when E-MC is applied) runs
+# `skippy-xd` with no arguments = one-shot expose, process exits on
+# select/Escape. Daemon mode (--start-daemon) is deliberately NOT used:
+# it would be a permanent wakeup source for previews of minimized windows.
+
+[system]
+# xfwm4 is EWMH-compliant, _NET_CLIENT_LIST works (same as upstream default).
+clientList = _NET_CLIENT_LIST
+# xfwm4 compositing is on (window shadows), so no pseudo-transparency needed.
+pseudoTrans = false
+
+[layout]
+# cosmos = position-preserving expose layout, closest to Mission Control.
+exposeLayout = cosmos
+# Keep rows compact on 2304x1440 without tiny thumbnails.
+distance = 50
+
+[appearance]
+# Slightly faster than upstream 200ms: snappier on HD 615, still animated.
+animationDuration = 150
+animationRefresh = 60
+# Mission Control dims the desktop behind the overview.
+background = #00000066
+includeFrame = true
+
+[livepreview]
+opacity = 255
+icon = true
+iconPlace = top left
+iconSize = 48
+
+[highlight]
+tint = #FFFFFF
+tintOpacity = 128
+tintWindow = true
+tintBorder = 10
+
+[multiselect]
+tint = #66B6F6
+tintOpacity = 196
+
+[panel]
+# Keep xfce4-panel (menu bar) visible above the overview, like the macOS menu bar.
+show = true
+backgroundTinting = true
+reserveSpace = true
+
+[desktop]
+show = true
+backgroundTinting = true
+
+[label]
+show = true
+option = windowClass
+offsetX = 0
+offsetY = -5
+width = 0.8
+border = #0e0e0e
+background = #111111
+backgroundHighlight = #999999
+opacity = 196
+text = white
+textOutline = #0e0e0e
+font = fixed-11:weight=bold
+
+[bindings]
+enforceFocus = true
+pivotLockingTime = 0
+moveMouse = false
+keysUp = Up
+keysDown = Down
+keysLeft = Left
+keysRight = Right
+keysSelect = Return space
+keysCancel = Escape
+keysNext = n
+keysPrev = p
+miwMouse1 = focus
+miwMouse2 = close-ewmh
+miwMouse3 = iconify

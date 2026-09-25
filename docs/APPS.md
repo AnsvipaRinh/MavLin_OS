@@ -11,7 +11,7 @@
 | About / System Report | IMPLEMENTED | /proc /sys / DMI + lspci/lsusb/nmcli (cached) | custom mv-about | — | on-demand | values real on HW | validate fields |
 | Spotlight | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | rofi 2.0 (MIT) drun/run + plocate (GPL-2.0) | rofi-mavericks.rasi | rofi, plocate | on-demand | keybinding feel | test Super+Space |
 | Launchpad | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | rofi drun (MIT) + XDG .desktop | rofi-launchpad.rasi fullscreen grid | (rofi) | on-demand | keybinding feel | test Super+L |
-| Mission Control | EXPERIMENT READY | rofi window mode NOW; skippy-xd (GPL-2.0, AUR) overview as experiment E-MC | rofi theme | — | on-demand | live overview | evaluate skippy-xd on HW |
+| Mission Control | EXPERIMENT READY | rofi window mode (baseline); skippy-xd-git (GPL-2.0-or-later, AUR VCS) expose as experiment E-MC | rofi theme + configs/desktop/skippy-xd/skippy-xd.rc (cosmos, one-shot) + E-MC-skippy-xd.sh apply/revert/status | skippy-xd-git (E-MC only, NOT in ISO) | 0 idle (no daemon by design) | live expose on xfwm4 | run E-MC apply on HW, validate expose/select/Escape |
 | Control Center | IMPLEMENTED | NM/UPower/BlueZ via Gio.DBus + pactl + sysfs + xfconf | custom mv-control popup (exits on focus loss) | — | on-demand | brightness path | verify backlight sysfs |
 | Notification Center | IMPLEMENTED | xfce4-notifyd 0.9 (GPL-2.0, log included) + libnotify | themed + DND toggle in mv-control | — | event-driven | banner look | validate on HW |
 | Quick Look | IMPLEMENTED | GdkPixbuf + poppler-glib (GPL) + GtkSourceView4 + ffprobe | custom mv-quicklook single-shot | poppler-glib, ffmpeg (opt) | on-demand | Space binding* | *Thunar has no Space hook; use uca + Super+Space-file? document |

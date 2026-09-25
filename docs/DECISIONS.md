@@ -175,3 +175,39 @@
 - Top panel: Xfce panel styled as menu bar
 - Cursor: macOS-style
 - Wallpapers: Mavericks-inspired (no Apple assets)
+---
+
+## Mission Control: skippy-xd as gated E-MC experiment, one-shot (no daemon)
+
+**Date:** 2026-09-25
+**Decision:** Mission Control baseline stays rofi window mode (zero new
+dependencies). The real overview is experiment E-MC: skippy-xd expose,
+invoked one-shot (`skippy-xd`, no arguments), gated behind
+`configs/profiles/experiments/E-MC-skippy-xd.sh` (apply/revert/status),
+NOT enabled by default in the ISO.
+
+**Reasoning (verified pre-hardware via AUR RPC + upstream source):**
+- AUR has no stable `skippy-xd` package — only `skippy-xd-git` (VCS,
+  maintainer xiota, GPL-2.0-or-later, updated 2026-09-13). A -git dependency
+  in the default ISO would be fragile (build-at-install, git+codeberg
+  sources); experiment-gating avoids that risk while keeping the path ready.
+- Upstream man page: bare `skippy-xd` = one-shot expose with no daemon.
+  Daemon mode (`--start-daemon`) exists only for previews of
+  minimized/unmapped windows — a permanent resident process, rejected for
+  the fanless power budget. One-shot = zero idle cost.
+- Runtime deps are light X libs only (giflib, libjpeg-turbo, libxcomposite,
+  libxdamage, libxext, libxft, libxinerama); no compositor required
+  (pseudoTrans=false since xfwm4 compositing is on).
+- Upstream owns `/etc/xdg/skippy-xd.rc`, so our tuning ships per-user at
+  `/etc/skel/.config/skippy-xd/skippy-xd.rc` (source:
+  `configs/desktop/skippy-xd/skippy-xd.rc`, sync-gated) — no package conflict.
+- `exposeLayout = cosmos` (position-preserving) is the closest to Mission
+  Control; `animationDuration` 200→150ms for HD 615 snappiness.
+
+**Alternatives considered:** promoting skippy-xd-git to default ISO now —
+rejected (VCS fragility + unvalidated xfwm4 interplay); bespoke X11 overview
+frontend — rejected for now (reuse-first; revisit only if E-MC fails on HW).
+
+**HW validation (E-MC apply on target):** expose shows all windows
+non-overlapping; arrows+Return select; Escape cancels; Super+Tab rebind works
+via xfconf-query; minimized windows show filler (accepted: daemon stays off).

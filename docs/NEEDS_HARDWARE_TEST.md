@@ -55,3 +55,13 @@ Strategy 3: Try linux-lts or different kernel version
 ## Phase 5 — Iteration
 - [ ] Collect user feedback: dmesg, journalctl -b, photos of boot/DE
 - [ ] Document all regressions and fixes needed
+## E-MC — Mission Control overview (skippy-xd, on HW only)
+- [ ] Install: `yay -S skippy-xd-git` (AUR VCS; pulls giflib, libjpeg-turbo, libxcomposite, libxdamage, libxext, libxft, libxinerama + meson/cmake/git)
+- [ ] Baseline check first: Super+Tab = rofi window mode works in live session
+- [ ] Apply: `sudo tools/experiments/mv-experiment.sh E-MC apply` (or configs/profiles/experiments/E-MC-skippy-xd.sh apply)
+- [ ] Validate expose: Super+Tab shows ALL open windows non-overlapping; arrows move highlight; Return/space selects; Escape cancels; click selects
+- [ ] Validate minimized windows show filler (accepted — daemon stays OFF by design; do NOT --start-daemon)
+- [ ] Validate xfce4-panel (menu bar) stays visible above overview; labels readable on 2304x1440
+- [ ] Perf feel: animation 150ms snappy on HD 615, no stutter with 6+ windows
+- [ ] Revert check: `... E-MC revert` restores rofi binding; `... E-MC status` reports clean state
+- [ ] Record verdict in docs/APPS.md (promote to IMPLEMENTED — HARDWARE VALIDATION REQUIRED, or keep EXPERIMENT READY with findings)

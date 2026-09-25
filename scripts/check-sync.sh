@@ -39,6 +39,7 @@ PAIRS=(
   "configs/desktop/plank/dock1-settings:archiso-profile/releng/airootfs/etc/skel/.config/plank/dock1/settings"
   "packages/mavericks-apps/src/mavericks-apps/config/thunar-uca.xml:archiso-profile/releng/airootfs/etc/skel/.config/Thunar/uca.xml"
   "packages/mavericks-apps/src/mavericks-apps/config/xfce4-keyboard-shortcuts.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml"
+  "configs/desktop/skippy-xd/skippy-xd.rc:archiso-profile/releng/airootfs/etc/skel/.config/skippy-xd/skippy-xd.rc"
 )
 for pair in "${PAIRS[@]}"; do
   a="${pair%%:*}"; b="${pair##*:}"
@@ -50,7 +51,7 @@ done
 echo "--- shell syntax ---"
 while IFS= read -r -d '' f; do
   bash -n "$f" 2>/dev/null && ok "bash $f" || bad "bash syntax $f"
-done < <(find scripts tools packages archiso-profile -name "*.sh" -print0 2>/dev/null)
+done < <(find scripts tools packages archiso-profile configs -name "*.sh" -print0 2>/dev/null)
 for f in scripts/apply-hardware-selection.sh scripts/build-local-pkgs.sh scripts/check-sync.sh \
          packages/mavericks-theme/PKGBUILD packages/epiphany-mavericks-theme/PKGBUILD \
          packages/mavericks-theme/mavericks-theme.install packages/epiphany-mavericks-theme/epiphany-mavericks-theme.install; do

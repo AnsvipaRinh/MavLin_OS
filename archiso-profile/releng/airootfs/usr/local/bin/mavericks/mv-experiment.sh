@@ -7,12 +7,14 @@ set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 EXP_DIR="$REPO/configs/profiles/experiments"
 BACKUP_DIR="/var/lib/mavericks-experiments"
-mkdir -p "$BACKUP_DIR"
+# NOTE: no mkdir here — read-only commands (list/status) must work without
+# root; functions that write backups create it themselves.
 
 list() { ls "$EXP_DIR"; }
 
 apply() {
   local id="$1"
+  mkdir -p "$BACKUP_DIR"
   case "$id" in
     E1) echo "E1 needs reboot: append 'intel_pstate.no_turbo=1' to bootloader options, reboot, then run tools/diagnostics/mv-power.sh + mv-thermal.sh";;
     E2) echo "E2 needs reboot: REMOVE 'pcie_port_pm=off' from bootloader options, reboot, then run tools/diagnostics/mv-suspend-test.sh 10";;
@@ -32,6 +34,7 @@ apply() {
 
 revert() {
   local id="$1"
+  mkdir -p "$BACKUP_DIR"
   case "$id" in
     E8|E9) rm -f /etc/tlp.d/10-experiment.conf; tlp start; echo "reverted $id (tlp)";;
     E11) sysctl -w vm.swappiness=60; echo "reverted E11";;
@@ -43,6 +46,10 @@ revert() {
 
 case "${1:-list}" in
   list) list;;
+  E-MC) case "${2:-status}" in
+    apply|revert|status) exec "$EXP_DIR/E-MC-skippy-xd.sh" "$2";;
+    *) echo "Usage: $0 E-MC [apply|revert|status]"; exit 1;;
+  esac;;
   E*) case "${2:-apply}" in apply) apply "$1";; revert) revert "$1";; status) cat /proc/cmdline; tlp-stat -s -c -p 2>/dev/null | head -30;; esac;;
-  *) echo "Usage: $0 <E1..E12|list> [apply|revert|status]"; exit 1;;
+  *) echo "Usage: $0 <E1..E12|E-MC|list> [apply|revert|status]"; exit 1;;
 esac
