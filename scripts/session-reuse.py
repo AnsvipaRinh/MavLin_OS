@@ -13,14 +13,29 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
   status                    live status of all sessions (idle/busy/retry)
   children <id>             list child (sub-agent) sessions
   list                      registry contents
+  models [--exclude M,...] [--format text|json]
+                            ordered fallback candidates: user chain
+                            (.opencode/model-fallback.json) matched live
+                            against GET /provider, then config pins, registry
+                            last-good, remaining live models. No hardcoding.
+  classify-error [TEXT...]  QUOTA_EXHAUSTED(10)/CONTEXT_EXHAUSTED(12) vs
+                            ORDINARY_ERROR(20)/UNKNOWN(30). Only 10/12 trigger
+                            model fallback (reads stdin when no args).
 
 Reuse rule: same agent role (`build`) + same objective + coherent + >50% context remaining.
 Objective boundary: Calendar -> Calendar refinement = SAME session;
 Calendar -> Disk Utility = NEW session. Never resume on context pressure,
 error state, or role/objective change.
+
+Model fallback (2026-09-26): a QUOTA/CONTEXT Task failure is never a project
+blocker. Resolve next model via `models --exclude <dead,...>`, ping it with a
+trivial Task, continue the SAME objective there (RESUME if `decide` allows,
+else NEW session carrying prior result + remaining gaps). Chain order lives in
+.opencode/model-fallback.json, never in this script.
 """
 import json
 import os
+import re
 import sys
 import urllib.request
 import urllib.error
@@ -28,6 +43,7 @@ from datetime import datetime, timezone
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 REG = os.path.join(BASE, "..", ".opencode", "sessions", "registry.json")
+CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 
 HOST = os.environ.get("OPENCODE_SERVER_HOST", "localhost")
 PORT = os.environ.get("OPENCODE_SERVER_PORT", "4096")
@@ -215,9 +231,272 @@ def cmd_list(args):
     print(json.dumps(reg["sessions"], indent=1, ensure_ascii=False))
 
 
+# ---- Model fallback helpers (2026-09-26; chain lives in CHAIN file) ----
+
+QUOTA_PATTERNS = [
+    r"429", r"rate.?limit", r"quota", r"usage.?limit", r"limit.?exceeded",
+    r"too many requests", r"resource.?exhausted", r"capacity",
+    r"over.?loaded", r"try again later", r"retry later",
+    r"payment required", r"\b402\b", r"billing",
+    r"insufficient.+(quota|credit|balance)", r"credit.+(exhausted|expired|depleted)",
+    r"throttl", r"throughput",
+]
+CONTEXT_PATTERNS = [
+    r"context.+(length|limit|exceed|too.?long|full|exhausted|window)",
+    r"token.+(limit|exceed|too many|maximum)",
+    r"max(imum)?.+tokens",
+]
+
+
+def classify_text(text):
+    low = text or ""
+    low = low.lower()
+    for pat in CONTEXT_PATTERNS:
+        if re.search(pat, low):
+            return "CONTEXT_EXHAUSTED", pat
+    for pat in QUOTA_PATTERNS:
+        if re.search(pat, low):
+            return "QUOTA_EXHAUSTED", pat
+    if not (text or "").strip():
+        return "UNKNOWN", "empty error text"
+    return "ORDINARY_ERROR", "no quota/rate-limit signal"
+
+
+def cmd_classify_error(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Classify a Task/agent error: quota/rate-limit (fallback) "
+                    "vs ordinary project error (no fallback).")
+    p.add_argument("text", nargs="*", help="Error text (else read stdin)")
+    a = p.parse_args(args)
+    text = " ".join(a.text) if a.text else sys.stdin.read()
+    verdict, matched = classify_text(text)
+    print(f"{verdict} (matched: {matched})")
+    raise SystemExit({"QUOTA_EXHAUSTED": 10, "CONTEXT_EXHAUSTED": 12,
+                      "UNKNOWN": 30}.get(verdict, 20))
+
+
+def strip_jsonc(s):
+    out, i, n = [], 0, len(s)
+    in_str, esc = False, False
+    while i < n:
+        c = s[i]
+        if in_str:
+            out.append(c)
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+            i += 1
+            continue
+        if c == '"':
+            in_str = True
+            out.append(c)
+            i += 1
+            continue
+        if c == "/" and i + 1 < n and s[i + 1] == "/":
+            while i < n and s[i] != "\n":
+                i += 1
+            continue
+        if c == "/" and i + 1 < n and s[i + 1] == "*":
+            i += 2
+            while i + 1 < n and not (s[i] == "*" and s[i + 1] == "/"):
+                i += 1
+            i += 2
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def load_jsonc(path):
+    try:
+        with open(path) as f:
+            raw = f.read()
+    except OSError:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        try:
+            return json.loads(strip_jsonc(raw))
+        except ValueError:
+            return None
+
+
+def load_chain():
+    cfg = load_jsonc(CHAIN)
+    if isinstance(cfg, dict) and isinstance(cfg.get("chain"), list):
+        return [e for e in cfg["chain"]
+                if isinstance(e, dict) and e.get("match")]
+    return []
+
+
+def config_models():
+    """Model pins from live config files (never hardcoded). [(model, source)]."""
+    root = os.path.dirname(BASE)
+    found = []
+    for path, tag in [
+            (os.path.join(root, "opencode.jsonc"), "project:opencode.jsonc"),
+            (os.path.join(root, "opencode.json"), "project:opencode.json"),
+            (os.path.expanduser("~/.config/opencode/opencode.jsonc"),
+             "global:opencode.jsonc"),
+            (os.path.expanduser("~/.config/opencode/opencode.json"),
+             "global:opencode.json")]:
+        cfg = load_jsonc(path)
+        if not isinstance(cfg, dict):
+            continue
+        for key in ("model", "small_model"):
+            m = cfg.get(key)
+            if isinstance(m, str) and "/" in m \
+                    and m not in [x[0] for x in found]:
+                found.append((m, f"{tag}:{key}"))
+        agents = cfg.get("agent") or {}
+        if isinstance(agents, dict):
+            for role, spec in agents.items():
+                if isinstance(spec, dict):
+                    m = spec.get("model")
+                    if isinstance(m, str) and "/" in m \
+                            and m not in [x[0] for x in found]:
+                        found.append((m, f"{tag}:agent.{role}"))
+    orch = os.path.join(root, ".opencode", "agents", "orchestrator.md")
+    try:
+        with open(orch) as f:
+            head = f.read(2000)
+    except OSError:
+        head = ""
+    m = re.search(r"^model:\s*(\S+)", head, re.M)
+    if m and "/" in m.group(1) and m.group(1) not in [x[0] for x in found]:
+        found.append((m.group(1), "orchestrator.md frontmatter"))
+    return found
+
+
+def live_provider_models():
+    """[(provider, model)] from live GET /provider; None when unreachable."""
+    import base64
+    req = urllib.request.Request(
+        f"http://{HOST}:{PORT}/provider",
+        headers={"Authorization": "Basic " + base64.b64encode(
+            f"{USER}:{PASS}".encode()).decode()})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            provs = json.loads(r.read().decode() or "null")
+    except Exception:
+        return None
+    out = []
+    items = provs.get("all", []) if isinstance(provs, dict) else []
+    for p in items:
+        pid = p.get("id", "")
+        models = p.get("models", {})
+        if isinstance(models, dict):
+            for mid in models:
+                out.append((pid, mid))
+        elif isinstance(models, list):
+            for m in models:
+                mid = m.get("id") if isinstance(m, dict) else m
+                if mid:
+                    out.append((pid, mid))
+    return out
+
+
+def registry_models():
+    try:
+        reg = load_reg()
+    except (OSError, ValueError):
+        return []
+    ms = []
+    for _sid, meta in reg.get("sessions", {}).items():
+        m = (meta or {}).get("model", "")
+        if m and "/" in m and m not in ms:
+            ms.append(m)
+    return ms
+
+
+def cmd_models(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Resolve model fallback candidates: user chain "
+                    "(.opencode/model-fallback.json) matched live against "
+                    "GET /provider, then config pins, registry last-good, "
+                    "remaining live models.")
+    p.add_argument("--exclude", default="",
+                   help="Comma-separated exhausted models to skip "
+                        "(full provider/model or bare id)")
+    p.add_argument("--format", choices=("text", "json"), default="text")
+    a = p.parse_args(args)
+    excluded = {e.strip().lower() for e in a.exclude.split(",") if e.strip()}
+
+    def is_excluded(full):
+        low = full.lower()
+        return low in excluded or low.split("/", 1)[-1] in excluded
+
+    ordered, seen = [], set()
+
+    def add(full, source):
+        if full not in seen:
+            seen.add(full)
+            ordered.append((full, source, is_excluded(full)))
+
+    live = live_provider_models()
+    if live is None:
+        print("warning: server /provider unreachable, "
+              "using chain want-ids + config + registry only",
+              file=sys.stderr)
+        live_index = {}
+    else:
+        live_index = {}
+        for pid, mid in live:
+            live_index.setdefault((pid, mid.lower()), f"{pid}/{mid}")
+
+    for entry in sorted(load_chain(), key=lambda e: e.get("order", 99)):
+        prov = (entry.get("provider") or "").lower()
+        match = (entry.get("match") or "").lower()
+        want = entry.get("want") or ""
+        resolved = ""
+        if live is not None:
+            for (pid, mid_low), full in sorted(live_index.items()):
+                if prov and pid.lower() != prov:
+                    continue
+                if match and match in mid_low:
+                    resolved = full
+                    if want and full.lower() == want.lower():
+                        break
+            if not resolved and want:
+                wl = want.lower()
+                for (_pid, _mid), full in sorted(live_index.items()):
+                    if full.lower() == wl:
+                        resolved = full
+                        break
+        add(resolved or want,
+            f"fallback-chain:{entry.get('order', '?')}"
+            f"{' (unverified, server unreachable)' if not resolved else ''}")
+    for m, src in config_models():
+        add(m, src)
+    for m in registry_models():
+        add(m, "registry:last-good")
+    if live is not None:
+        for _key, full in sorted(live_index.items()):
+            add(full, "live:/provider")
+    if a.format == "json":
+        print(json.dumps(
+            [{"model": m, "source": s, "excluded": e}
+             for m, s, e in ordered], indent=1))
+    else:
+        for m, s, e in ordered:
+            print(f"{m}  source={s}" + ("  [EXHAUSTED-skip]" if e else ""))
+        avail = [m for m, _s, e in ordered if not e]
+        if avail:
+            print(f"next-available: {avail[0]}")
+        else:
+            print("next-available: NONE (all candidates exhausted)")
+
+
 CMDS = {"register": cmd_register, "context": cmd_context, "decide": cmd_decide,
         "retire": cmd_retire, "delete": cmd_delete, "status": cmd_status,
-        "children": cmd_children, "list": cmd_list}
+        "children": cmd_children, "list": cmd_list,
+        "models": cmd_models, "classify-error": cmd_classify_error}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in CMDS:

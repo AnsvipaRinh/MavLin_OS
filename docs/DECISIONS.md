@@ -545,3 +545,55 @@ Validations: py_compile, check-sync ALL PASSED, headless import test passed, fal
 
 **Implementation:** mv-quicklook (enhanced), mv-quicklook-thunar (new), mv-quicklook-thunar.desktop, xfce4-keyboard-shortcuts.xml, Makefile.
 **Validations:** py_compile, xmllint, desktop-file-validate, check-sync ALL PASSED.
+
+---
+
+## 2026-09-26 — Orchestrator model fallback (single pinned model = single point of failure)
+
+**Symptom (user report + live repro in-session):** `nemotron-3-ultra` exhausted
+its quota; Orchestrator `Task → build` was cancelled and the loop stopped —
+while `muse-spark-3.5-lightning` / LongCat answered the same ping.
+
+**Root cause (verified, not assumed):**
+1. `.opencode/agents/orchestrator.md` frontmatter AND `opencode.jsonc`
+   `agent.build.model` BOTH pinned `opencode/nemotron-3-ultra-free`. Per OpenCode
+   model rules a pinned build model never inherits the invoker's model — one
+   dead model kills orchestrator + build together.
+2. No fallback procedure existed anywhere: `git log -S fallback/quota/rate`
+   over `.opencode/` shows only unrelated hits; `bda113c`/`d7764c3` rewired
+   roles (builder/scout/planner → build) but never added fallback. So there was
+   nothing to "restore" — the canonical mechanism was created, not resurrected.
+
+**Fix (minimal, no parallel system):**
+1. `.opencode/model-fallback.json` (NEW, single source of user-ordered chain):
+   OpenRouter North Mini Code (`openrouter/cohere/north-mini-code:free`)
+   → OpenRouter Free Router (`openrouter/openrouter/free`)
+   → Zen LongCat 2.5 Preview (`opencode/longcat-2.5-preview-free`)
+   → Zen Nemotron 3 Ultra (`opencode/nemotron-3-ultra-free`)
+   → Zen Nemotron 3.5 Lightning (`opencode/nemotron-3.5-lightning-free`,
+   last resort). Entries use substring `match` so renames still resolve live.
+2. `scripts/session-reuse.py`: `models --exclude ...` (chain order matched live
+   vs `GET /provider`, then config pins, registry last-good, rest of live;
+   offline-degrades to chain+config+registry) and `classify-error`
+   (QUOTA=10 / CONTEXT=12 → fallback; ORDINARY=20 / UNKNOWN=30 → no auto-fallback).
+   Existing reuse/retire commands untouched.
+3. `.opencode/agents/orchestrator.md`: MODEL FALLBACK section (classify →
+   resolve → ping-probe → RESUME-or-NEW with carried context → loop; blocker
+   ONLY on `next-available: NONE` or ORDINARY error). Bare "Task cancelled"
+   = UNKNOWN: re-ping current + ping candidate, switch only on split result.
+4. `opencode.jsonc`: `agent.build.model` pin REMOVED — build inherits the
+   orchestrator's live model, so one `/models` switch unblocks the whole loop.
+   NEVER re-pin build to a single model. AGENTS.md 14.3 points at the fallback.
+
+**Verification:** `py_compile` OK; classifier matrix (5 quota → 10, context →
+12, 4 ordinary + bare-cancel → 20/30) all correct; `models --exclude
+...ultra-free` offline prints user chain order with ultra skipped and
+`next-available: openrouter/cohere/north-mini-code:free`. Live proof: this very
+objective started as a Task on ultra (cancelled) and continued here on
+muse-spark with full task context — an actual cross-model continuation.
+
+**Caveats:** LongCat Zen id NOT verified live (no auth from build env) —
+substring resolution + `opencode models` check pending; lightning stays last
+resort per the 2026-09-26 TEMP instability note; OpenRouter entries need a
+connected provider (else skipped live); after agent-file changes restart
+`opencode serve` / desktop app (no hot-reload).

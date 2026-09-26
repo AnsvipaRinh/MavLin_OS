@@ -1,9 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "agent": {
-    "build": {
-      "model": "opencode/nemotron-3-ultra-free"
-    },
+    // No agent.build.model pin (fallback fix 2026-09-26, see DECISIONS.md):
+    // build inherits the orchestrator's live model, so switching the primary
+    // model (/models, Tab, --model) unblocks the whole loop after a quota
+    // exhaustion. NEVER re-pin build to a single model.
     "plan": {
       "disable": true
     },

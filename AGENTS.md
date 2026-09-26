@@ -1010,6 +1010,9 @@ resource/credential; required user choice; fundamental environment
 limitation. Code/test/build failure, unclear detail, unknown backend,
 research or architecture need = delegate to `build` (as a research,
 decomposition, or implementation Task), NOT stop.
+Single-model quota/rate-limit exhaustion is NOT a blocker — follow
+MODEL FALLBACK in `.opencode/agents/orchestrator.md` (chain:
+`.opencode/model-fallback.json`, resolver: `scripts/session-reuse.py models`).
 
 ### 14.4 Manual role use (preserved)
 

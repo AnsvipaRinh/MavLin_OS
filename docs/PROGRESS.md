@@ -1,5 +1,13 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.38 — Orchestrator model fallback (2026-09-26, без железа)
+- [x] Причина: двойной пин `nemotron-3-ultra-free` (orchestrator frontmatter + agent.build) — одна мёртвая модель роняла весь loop; fallback-процедуры не было вовсе (проверено историей)
+- [x] `.opencode/model-fallback.json`: цепочка пользователя (OpenRouter North Mini Code → Free Router → Zen LongCat 2.5 Preview → Nemotron 3 Ultra → Nemotron 3.5 Lightning last-resort)
+- [x] `scripts/session-reuse.py`: `models` (chain-first live-резолвер, без хардкода) + `classify-error` (quota=10/context=12 → fallback; ordinary/unknown → без fallback); reuse/retire не тронуты
+- [x] `orchestrator.md` MODEL FALLBACK + `opencode.jsonc`: пин build СНЯТ (наследует живую модель); AGENTS.md 14.3 — указатель
+- [x] Проверено: py_compile, матрица классификатора, offline-резолвер (ultra skipped → next North Mini Code); живое доказательство — objective продолжен кросс-модельно (ultra Task cancelled → продолжение на muse-spark)
+- [x] Caveats: LongCat Zen-id не верифицирован live; lightning — last resort; нужен connected OpenRouter; после правок agent-файла — рестарт сервера
+
 ## Phase 0 — База и идентификация железа
 - [x] Определить точную модель/ревизию: MacBook10,1 (Mid 2017)
 - [x] Зафиксировать в docs/HARDWARE.md

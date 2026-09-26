@@ -35,6 +35,36 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 
 BLOCKER POLICY: code/test/build failures, unclear details, unknown backends, research or architecture needs are NOT stop conditions — delegate them to `build` (as research/decomposition/implementation tasks) first.
 
+MODEL FALLBACK (one dead model is NEVER a project blocker):
+
+- Chain of record: `.opencode/model-fallback.json` — user-ordered: OpenRouter
+  North Mini Code → OpenRouter Free Model Router → Zen LongCat 2.5 Preview →
+  Zen Nemotron 3 Ultra → Zen Nemotron 3.5 Lightning (last resort, known
+  mid-generation instability). Edit the order THERE, never hardcode models here.
+- On ANY Task failure, classify the error text first:
+  `scripts/session-reuse.py classify-error "<error>"`.
+  QUOTA_EXHAUSTED (exit 10) / CONTEXT_EXHAUSTED (exit 12) → fallback, NOT a blocker.
+  ORDINARY_ERROR (exit 20) → normal build error, no fallback.
+  UNKNOWN (exit 30, e.g. bare "Task cancelled") → probe, do not assume.
+- Fallback loop: mark the failed model exhausted → resolve next with
+  `scripts/session-reuse.py models --exclude <dead,...>` (chain order matched
+  live against server `/provider`, then config pins, registry last-good —
+  entries whose provider is not connected are skipped automatically) →
+  ping the candidate with a trivial Task ("reply with one word");
+  ping OK → continue the SAME objective there; ping quota-fails → mark
+  exhausted, repeat. For UNKNOWN: ping the candidate AND re-ping the current
+  model — switch only if current still fails while the candidate answers.
+- Session continuity: `decide <id> --objective <O> --agent build` as usual.
+  RESUME on REUSABLE; a foreign transcript that will not resume → NEW session
+  with the SAME objective carrying full context (prior result + remaining gaps,
+  never repeat finished work), then register it. Retire/delete rules unchanged.
+- STOP with a blocker report ONLY when `models` prints `next-available: NONE`
+  or the error is ORDINARY. The report must list every tried model + its error.
+- Why this works: project `opencode.jsonc` pins NO `agent.build.model`
+  (deliberate) — build inherits the orchestrator's live model, so switching the
+  primary (`/models`, Tab, `--model`) unblocks the whole loop. NEVER re-pin
+  `agent.build` to one model; that recreates this exact outage.
+
 SESSION REUSE (registry: `.opencode/sessions/registry.json`, helper: `scripts/session-reuse.py`):
 
 - After every Task result: register/update the session (id, agent role=`build`, objective, task, model), then run `decide <id> --objective <O> --agent build`.

@@ -1,0 +1,47 @@
+{
+  "$schema": "mavericks model-fallback-chain v1",
+  "note": "User-defined ordered fallback chain (2026-09-26). Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. Edit the order HERE — never hardcode model names in scripts or prompts.",
+  "chain": [
+    {
+      "order": 1,
+      "role": "primary",
+      "provider": "openrouter",
+      "match": "cohere/north-mini-code",
+      "want": "openrouter/cohere/north-mini-code:free",
+      "label": "North Mini Code (OpenRouter, free; Cohere agentic coding, 256K context)"
+    },
+    {
+      "order": 2,
+      "role": "fallback",
+      "provider": "openrouter",
+      "match": "openrouter/free",
+      "want": "openrouter/openrouter/free",
+      "label": "Free Model Router (OpenRouter; random free model with tool-calling filter)"
+    },
+    {
+      "order": 3,
+      "role": "sub-agent",
+      "provider": "opencode",
+      "match": "longcat",
+      "want": "opencode/longcat-2.5-preview-free",
+      "label": "LongCat 2.5 Preview Free (Zen; exact id NOT verified live — confirm via `opencode models`, resolution is substring-based so renames still match)"
+    },
+    {
+      "order": 4,
+      "role": "sub-agent",
+      "provider": "opencode",
+      "match": "nemotron-3-ultra",
+      "want": "opencode/nemotron-3-ultra-free",
+      "label": "Nemotron 3 Ultra Free (Zen; previous primary, quota-exhausted 2026-09-26)"
+    },
+    {
+      "order": 5,
+      "role": "sub-agent-last-resort",
+      "provider": "opencode",
+      "match": "nemotron-3.5-lightning",
+      "want": "opencode/nemotron-3.5-lightning-free",
+      "label": "Nemotron 3.5 Lightning (Zen; LAST RESORT — known 2026-09-26 instability: stops generation mid-output, see DECISIONS.md TEMP entry)"
+    }
+  ],
+  "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 1-2; Zen login for 3-5. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry."
+}
