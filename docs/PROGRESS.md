@@ -335,3 +335,16 @@
 - [x] All validations pass: py_compile, desktop-file-validate, check-sync ALL PASSED
 - [x] APPS.md Preview row updated with implemented features
 - [x] Remaining gaps: annotation persistence (requires poppler annotation API), form filling, export, signature management; PDF render validation needs hardware (2304×1440 panel)
+
+### Фаза 0.37 — Screenshot post-capture preview + config + annotation handoff (2026-09-26, без железа)
+- [x] mv-shot: rewritten with config file support (~/.config/mv-shot/config.ini) — save_dir, show_preview, preview_timeout, copy_to_clipboard
+- [x] mv-shot: post-capture preview dialog (GTK3, Mavericks-style) with actions: Open in Preview, Show in Finder (Thunar), Move to Trash, Dismiss
+- [x] mv-shot: auto-close timer for preview dialog (configurable timeout)
+- [x] mv-shot: clipboard copy wiring — config option copy_to_clipboard copies saved file to clipboard after capture
+- [x] mv-shot: error handling for missing backends (xfce4-screenshooter, ffmpeg) with user-friendly dialogs
+- [x] mv-shot: annotation handoff — "Open in Preview" launches mv-preview with annotation toolbar UI (Select/Text/Shape/Sign stubs)
+- [x] mv-shot: --config flag to show config file path
+- [x] mv-screenshot.desktop: added MimeType, Keywords for better integration
+- [x] All validations pass: py_compile, desktop-file-validate, check-sync ALL PASSED
+- [x] APPS.md Screenshot row updated with implemented features
+- [x] Remaining gaps: actual annotation persistence (requires poppler annotation API in Preview); recording validation on HW (ffmpeg x11grab CPU/power); keybinding feel test on real hardware; preview dialog visual validation on 2304×1440 panel

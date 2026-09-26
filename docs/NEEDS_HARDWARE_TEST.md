@@ -111,3 +111,17 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Urgency colors (low/normal/critical) render correctly on 2304x1440
 - [ ] Keyboard navigation (arrows, Escape) works
 - [ ] Focus-out auto-close works
+
+## Screenshot — hardware validation
+- [ ] Super+Shift+3 captures fullscreen to ~/Pictures/Screenshots
+- [ ] Super+Shift+4 captures region to clipboard
+- [ ] Super+Shift+5 captures region to file
+- [ ] Post-capture preview dialog appears with thumbnail and actions
+- [ ] "Open in Preview" launches mv-preview with annotation toolbar
+- [ ] "Show in Finder" opens Thunar with file selected
+- [ ] "Move to Trash" moves file to GVfs trash
+- [ ] Preview dialog auto-closes after configurable timeout
+- [ ] Config file (~/.config/mv-shot/config.ini) controls save_dir, show_preview, preview_timeout, copy_to_clipboard
+- [ ] Recording (--record) works via ffmpeg x11grab, CPU/power acceptable on m3-7Y32
+- [ ] Error handling: graceful degradation if xfce4-screenshooter/ffmpeg missing
+- [ ] Visual validation: preview dialog renders correctly on 2304×1440 panel
