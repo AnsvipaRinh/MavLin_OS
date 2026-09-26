@@ -120,4 +120,14 @@
     <patterns>*</patterns>
     <directories/>
   </action>
+  <action>
+    <icon>user-trash-full</icon>
+    <name>Empty Trash</name>
+    <submenu></submenu>
+    <unique-id>mv-empty-trash</unique-id>
+    <command>trash-empty</command>
+    <description>Permanently delete all items in Trash</description>
+    <patterns>*</patterns>
+    <directories/>
+  </action>
 </actions>

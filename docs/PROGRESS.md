@@ -240,3 +240,14 @@
 - [x] .desktop file updated to X-Mavericks-Native=true
 - [x] APPS.md status updated to PARTIALLY IMPLEMENTED (custom frontend)
 - [x] Package rebuilt, check-sync ALL PASSED
+
+### Фаза 0.29 — Finder keyboard shortcuts, Empty Trash, thunarrc enhancements (2026-09-26, без железа)
+- [x] thunar-uca.xml: added "Empty Trash" action (trash-empty) with user-trash-full icon
+- [x] xfce4-keyboard-shortcuts.xml: added Finder-like global shortcuts:
+  - Super+N → mv-newfolder $HOME/Desktop (New Folder on Desktop)
+  - Super+Shift+N → mv-newfolder $HOME (New Folder in Home)
+  - Super+I → mv-getinfo $HOME (Get Info)
+  - Super+O → mv-openwith $HOME (Open With)
+- [x] thunarrc: enhanced with Finder-like defaults (ShowToolbar, ShowStatusbar, ShowLocationSelector, TreePaneWidth, window geometry, case-insensitive sort)
+- [x] All XML validated (xmllint), sync check passed, packages rebuilt
+- [x] APPS.md updated: Finder UCA now includes Empty Trash; keyboard shortcuts documented

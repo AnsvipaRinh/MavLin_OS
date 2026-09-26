@@ -27,3 +27,15 @@ MiscTabCloseButtons=TRUE
 MiscTabNewButton=TRUE
 MiscTextBesideIcons=FALSE
 MiscSingleClickTimeoutMiddle=FALSE
+# Finder-like additions
+MiscCaseSensitive=FALSE
+MiscFullscreenNewTabs=FALSE
+ShortcutsPaneVisibility=TRUE
+TreePaneWidth=200
+LastWindowWidth=1024
+LastWindowHeight=768
+LastWindowMaximized=FALSE
+LastPane=ThunarTreePane
+ShowToolbar=TRUE
+ShowStatusbar=TRUE
+ShowLocationSelector=TRUE

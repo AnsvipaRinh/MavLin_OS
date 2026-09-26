@@ -349,3 +349,44 @@ so the same disables were mirrored to global
 to global `agents/` (symlink WSL-side, copy Windows-side). Verified cold:
 fresh server with cwd=`~` lists only build/orchestrator (+hidden system
 compaction/summary/title). Running servers need restart (no hot-reload).
+
+---
+
+## 2026-09-26 — Finder UCA: Empty Trash action + global keyboard shortcuts
+
+**Problem:** Finder UCA had Get Info, Open With, Rename, Eject, New Folder, Put Back,
+Quick Look, Compress, Terminal but no "Empty Trash" action. No global keyboard
+shortcuts for Finder operations (New Folder, Get Info, Open With).
+
+**Decision:** 
+1. Added "Empty Trash" UCA action using `trash-empty` (from trash-cli, already
+   in ISO) with `user-trash-full` icon, available in all contexts.
+2. Added global keyboard shortcuts via xfce4-keyboard-shortcuts.xml:
+   - Super+N → New Folder on Desktop (`mv-newfolder $HOME/Desktop`)
+   - Super+Shift+N → New Folder in Home (`mv-newfolder $HOME`)
+   - Super+I → Get Info (`mv-getinfo $HOME`)
+   - Super+O → Open With (`mv-openwith $HOME`)
+   These are global (not Thunar-specific) because Thunar UCA doesn't support
+   keyboard accelerators; global shortcuts provide discoverable Finder-like
+   keybindings. The `$HOME` fallback paths work when Thunar isn't focused.
+3. Enhanced thunarrc with Finder-like defaults: ShowToolbar, ShowStatusbar,
+   ShowLocationSelector, TreePaneWidth=200, window geometry, case-insensitive
+   sort, MiscShowAboutTimestamps=FALSE.
+
+**Reasoning:** 
+- Empty Trash completes the Trash workflow (Put Back + Empty Trash = full cycle).
+- Global shortcuts are the only feasible way to provide keyboard access to
+  custom actions in Thunar (UCA has no accelerator support). Using `$HOME` as
+  fallback path is a pragmatic compromise — when Thunar is focused, user can
+  use context menu; global shortcuts provide quick access from anywhere.
+- thunarrc enhancements make the default Thunar behavior closer to Finder
+  (toolbar, statusbar, location selector always visible).
+
+**Alternatives considered:**
+- Thunar plugin for Space key / accelerators — rejected (adds dependency,
+  maintenance burden, not in Arch repos).
+- Per-application shortcuts via xfce4-keyboard-shortcuts.xml with
+  `xfce4-terminal -e` wrappers — rejected (complexity, fragile).
+
+**Implementation:** thunar-uca.xml, xfce4-keyboard-shortcuts.xml, thunarrc.
+All XML validated (xmllint), sync check passed, packages rebuilt.

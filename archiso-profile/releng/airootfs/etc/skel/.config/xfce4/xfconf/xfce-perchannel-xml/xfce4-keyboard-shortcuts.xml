@@ -17,9 +17,14 @@
       <property name="&lt;Super&gt;&lt;Shift&gt;5" type="string" value="mv-shot -i"/>
       <!-- Finder / Settings / Control Center / Power -->
       <property name="&lt;Super&gt;f" type="string" value="thunar"/>
+      <property name="&lt;Super&gt;n" type="string" value="mv-newfolder $HOME\/Desktop"/>
+      <property name="&lt;Super&gt;&lt;Shift&gt;n" type="string" value="mv-newfolder $HOME"/>
       <property name="&lt;Super&gt;comma" type="string" value="mv-settings"/>
       <property name="&lt;Super&gt;c" type="string" value="mv-control"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;Escape" type="string" value="mv-power-ui"/>
+      <!-- Finder-like: Get Info (Super+I), Open With (Super+O) -->
+      <property name="&lt;Super&gt;i" type="string" value="mv-getinfo $HOME"/>
+      <property name="&lt;Super&gt;o" type="string" value="mv-openwith $HOME"/>
       <!-- Media keys (also mapped by Xfce power manager; duplicates harmless) -->
       <property name="XF86AudioRaiseVolume" type="string" value="pactl set-sink-volume @DEFAULT_SINK@ +5%"/>
       <property name="XF86AudioLowerVolume" type="string" value="pactl set-sink-volume @DEFAULT_SINK@ -5%"/>
