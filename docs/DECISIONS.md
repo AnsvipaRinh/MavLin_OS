@@ -837,3 +837,38 @@ orchestrator.md step 3 ("do not invoke subagents…") + AGENTS.md 14.7.
 **Reasoning:** implementing birthdays without a Contacts backend would mean inventing an address-book store — outside the Calendar objective and the excluded-app boundary. A FREQ-only subset covers the vast majority of real calendar repeats, keeps expansion a pure headless-testable function, and round-trips through standard RRULE so interoperability with real calendars (Google/Apple) is preserved. Full RRULE can be layered on later behind the same `repeat`/`RRULE` export path.
 
 **Testability:** repeat clamping (Feb 28 anchor, leap-year Feb 29 recovery), horizon cap, and ICS RRULE round-trip are covered by headless tests.
+
+---
+
+## Music: lollypop stays the playback backend via MPRIS D-Bus; native tag parsing for the library
+
+**Date:** 2026-09-26 (Phase 0.49)
+**Decision:** mv-music keeps lollypop as the playback backend, controlled over MPRIS2 D-Bus (`org.mpris.MediaPlayer2.lollypop`: PlayPause/Next/Previous/Stop, Metadata/PlaybackStatus/Position reads, NameOwnerChanged watch + PropertiesChanged subscription for event-driven now-playing updates). The library layer (scanning, ID3v2.3/FLAC/Ogg-Vorbis/MP4-M4A tag parsing, album grouping, cover cache, play log) is implemented natively in the app because it is pure computation over files — no mature Linux component does this inside a Mavericks-style frontend, and doing it natively keeps the headless-testable core free of GUI/D-Bus dependencies. GStreamer-direct playback was rejected: it would reimplement queue/artwork/library UX that lollypop already provides, against reuse-first, with no quality gain at this stage.
+
+**Reasoning:** reuse-first applies to the playback engine (lollypop: mature GTK3 player with MPRIS, gapless, gapless library management), not to tag parsing which lollypop does behind its own DB with no export API. MPRIS2 is the standard Linux media-control interface, so the frontend also works with any other MPRIS player the user prefers. Event-driven only: one-shot refresh at start, then NameOwnerChanged/PropertiesChanged callbacks — no polling loop, power baseline untouched.
+
+**Rollback path:** if lollypop proves problematic on hardware, only `_launch_backend` and the MPRIS name constant need changing; the whole library/UI layer is backend-agnostic (MprisController degrades cleanly when the name has no owner — covered by tests).
+
+**Testability:** MPRIS paths covered with mocked Gio proxies (method mapping, no-owner, bus-failure); controller degradation without a backend asserted directly.
+
+---
+
+## Music: cover flow deferred (documented); album grid with artwork fallback ships instead; lyrics panel deferred
+
+**Date:** 2026-09-26 (Phase 0.49)
+**Decision:** The old APPS.md gap list named cover flow, mini player, lyrics panel, and smart playlists. Status after Phase 0.49: mini player implemented (compact window, Ctrl+M, geometry-persisted, cover from library or MPRIS artUrl); smart-playlist subset implemented (Recently Played, Top Played from the persistent play log, sidebar counters); lyrics panel DEFERRED; cover flow DEFERRED. Cover flow is replaced by the album grid (FlowBox with real cover art, letter-tile fallback, hover/selection states) as the closest cheap Mavericks-like alternative.
+
+**Reasoning:** a true Cover Flow needs per-cover 3D perspective transforms, reflections, and a continuous animation loop — real runtime cost (redraw machinery, GLib frame callbacks) on fanless hardware for pure aesthetics. The same judgment was applied to the Calendar page-flip animation in Phase 0.8 (DECISIONS precedent): stock GTK3 has no cover-flow widget, and Cairo manual painting would add a permanent animation surface. The album grid delivers the "browse albums by art" UX at zero idle cost. Lyrics need an online lyrics service (network dependency, licensing questions, no offline value) — out of scope for a local-first library player.
+
+**Testability:** album grid rendering, artwork fallback tiles, and smart-list correctness are covered by headless + GUI-smoke tests; the deferred items carry no code to test.
+
+---
+
+## Music: play queue is display-side only (MPRIS2 has no queue-order API)
+
+**Date:** 2026-09-26 (Phase 0.49)
+**Decision:** the Queue view is a persistent, reorder-on-activation list stored in the app state (play queue = "up next" paths, capped at 5000). Activating a queue row plays from that track onward in stored queue order. The queue is NOT pushed into lollypop.
+
+**Reasoning:** MPRIS2 exposes no playlist/queue manipulation (TrackList is optional and lollypop's implementation is read-mostly); faking queue control by repeatedly calling Next would fight the backend's own queue and break on track changes. A display-side queue keeps the feature honest: it reflects user intent and works with any backend. Documented as a known limitation rather than pretending backend queue control.
+
+**Testability:** queue persistence, cap, and activate-from-row behavior covered by state-store and GUI tests.

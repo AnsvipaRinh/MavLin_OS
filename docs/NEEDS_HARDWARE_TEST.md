@@ -24,6 +24,13 @@
 - [ ] Verify Bluetooth controller enumeration
 - [ ] Test pairing with devices
 
+### Music (audio stack + backend)
+- [ ] Validate lollypop playback on MacBook10,1 audio (Cirrus codec, macbook12-audio-driver)
+- [ ] Verify MPRIS D-Bus interface exposed by lollypop on this PipeWire/PulseAudio stack
+- [ ] Test XF86AudioPlay/Next/Prev/Stop media keys (internal applespi keyboard and external USB keyboard)
+- [ ] Verify HiDPI (2304×1440) rendering of album art grid, leather sidebar, now-playing bar
+- [ ] Check energy cost of PropertiesChanged-driven refresh during playback
+
 ### External USB-C input (mandatory for bring-up)
 - [ ] Verify USB-C hub + keyboard/mouse works out of box
 - [ ] Test USB-C power delivery while using hub
