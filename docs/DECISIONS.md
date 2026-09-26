@@ -636,3 +636,33 @@ server until the user runs `/connect` → OpenCode Zen there. Nothing to copy
 into the repo (keys must never be committed); OpenRouter key already present
 on both sides. Optional hard block: Zen workspace admin can disable
 muse-spark for the workspace (console) — requests then error instead of running.
+
+---
+
+## 2026-09-26 — Two-plane topology: worker pin = LongCat, inherit-collapse reverted
+
+**Evidence (opencode.db, table `session`, columns agent+model):** the live
+`MavLinOS` orchestrator session itself runs on `muse-spark-1.3-contributor-free`
+(resumed sessions keep their model; frontmatter pins apply to NEW sessions
+only). Its `@build` children ran on `nemotron-3-ultra-free` while the build pin
+existed, and on `muse-spark-...` AFTER the unpin (commit 4e6e9ef) — build DOES
+inherit the invoker's session model (empirically confirmed). So the "fix didn't
+work" because the stale spark session never changed, and every unpinned worker
+faithfully followed it. Additionally the unpin collapsed the user's intended
+topology (orchestrator-plane = OpenRouter, worker-plane = Zen) into one model.
+
+**Fix:** `agent.build.model` = `opencode/longcat-2.5-preview-free` (user's
+worker-plane #1). Workers are now independent of ANY session state (fresh,
+resumed, manually switched): spark workers are impossible by construction, not
+by discipline. Orchestrator-plane stays on chain head (frontmatter).
+
+**Honest limitation (platform, not a bug):** agents cannot switch models at
+runtime (no Task model param in 1.18.x). Therefore quota-death of the worker
+pin is the ONE genuine stop-and-wait: the resolver prints a ready `rotate:`
+sed one-liner (next chain entry, never-list enforced, no rotation suggested
+while the pin is alive); apply + server restart + retry same Task. Documented
+in orchestrator.md as the single exception.
+
+**Also:** classifier gained `AUTH_ERROR` (exit 40, 401/403/key//connect
+patterns) — e.g. Zen entries on a server without `/connect` Zen; resolver
+`--all` stays diagnostics-only.

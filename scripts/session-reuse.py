@@ -20,6 +20,7 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
                             remaining live models. Chain 'never' list is
                             always excluded. No hardcoding.
   classify-error [TEXT...]  QUOTA_EXHAUSTED(10)/CONTEXT_EXHAUSTED(12) vs
+                            AUTH_ERROR(40, connect provider) vs
                             ORDINARY_ERROR(20)/UNKNOWN(30). Only 10/12 trigger
                             model fallback (reads stdin when no args).
 
@@ -247,6 +248,11 @@ CONTEXT_PATTERNS = [
     r"token.+(limit|exceed|too many|maximum)",
     r"max(imum)?.+tokens",
 ]
+AUTH_PATTERNS = [
+    r"\b401\b", r"\b403\b", r"unauthorized", r"unauthenticated",
+    r"invalid.+(api.?key|credential|token)", r"missing.+(api.?key|credential)",
+    r"forbidden", r"/connect", r"sign.?in",
+]
 
 
 def classify_text(text):
@@ -255,6 +261,9 @@ def classify_text(text):
     for pat in CONTEXT_PATTERNS:
         if re.search(pat, low):
             return "CONTEXT_EXHAUSTED", pat
+    for pat in AUTH_PATTERNS:
+        if re.search(pat, low):
+            return "AUTH_ERROR", pat
     for pat in QUOTA_PATTERNS:
         if re.search(pat, low):
             return "QUOTA_EXHAUSTED", pat
@@ -274,6 +283,7 @@ def cmd_classify_error(args):
     verdict, matched = classify_text(text)
     print(f"{verdict} (matched: {matched})")
     raise SystemExit({"QUOTA_EXHAUSTED": 10, "CONTEXT_EXHAUSTED": 12,
+                      "AUTH_ERROR": 40,
                       "UNKNOWN": 30}.get(verdict, 20))
 
 
@@ -514,8 +524,19 @@ def cmd_models(args):
                        else "  [EXHAUSTED-skip]")
             print(f"{m}  source={s}" + tag)
         avail = [m for m, _s, e in ordered if not e]
+        pins = [m for m, s in config_models()
+                if s.startswith("project:") and s.endswith("agent.build")]
         if avail:
-            print(f"next-available: {avail[0]}")
+            if pins and not is_excluded(pins[0]) \
+                    and pins[0].lower() in [m.lower() for m in avail]:
+                print(f"next-available: {pins[0]} "
+                      "(current build pin, alive — no rotation)")
+            else:
+                print(f"next-available: {avail[0]}")
+                if pins and pins[0].lower() != avail[0].lower():
+                    print(f"rotate: sed -i 's#\"model\": \"{pins[0]}\""
+                          f"#\"model\": \"{avail[0]}\"#' opencode.jsonc"
+                          "  # then restart server (no hot-reload)")
         else:
             print("next-available: NONE (all candidates exhausted)")
 

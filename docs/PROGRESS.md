@@ -15,6 +15,13 @@
 - [x] Auth-инвентарь (без секретов): контейнер — openrouter+opencode; Windows-профиль — openrouter+google+groq, БЕЗ opencode → Zen-пункты на Windows-сервере только после `/connect` Zen
 - [x] Проверено: py_compile, резолвер chain-only/--all, never-enforcement; опциональный hard-block — disable muse-spark в Zen-консоли
 
+### Фаза 0.40 — Two-plane topology (2026-09-26, без железа)
+- [x] Доказательство из opencode.db: живой `MavLinOS` сидит на spark (stale session), дети build наследовали её после unpin — механизм работал как настроен
+- [x] `agent.build.model` = `opencode/longcat-2.5-preview-free` (worker-plane); orchestrator-plane = north-mini; spark невозможен конструктивно
+- [x] Классификатор: `AUTH_ERROR` (40); резолвер: `rotate:`-строка + «no rotation» пока пин жив
+- [x] Честное ограничение: смерть пина = единственная stop-and-wait (one-paste sed + рестарт); зафиксировано в orchestrator.md
+- [x] Проверено: py_compile, оба сценария резолвера, jsonc-пин
+
 ## Phase 0 — База и идентификация железа
 - [x] Определить точную модель/ревизию: MacBook10,1 (Mid 2017)
 - [x] Зафиксировать в docs/HARDWARE.md

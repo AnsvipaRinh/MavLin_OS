@@ -35,46 +35,57 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 
 BLOCKER POLICY: code/test/build failures, unclear details, unknown backends, research or architecture needs are NOT stop conditions — delegate them to `build` (as research/decomposition/implementation tasks) first.
 
-MODEL FALLBACK (one dead model is NEVER a project blocker):
+MODEL FALLBACK (one dead model is NEVER a silent stop):
 
-- Chain of record: `.opencode/model-fallback.json` — user-ordered: OpenRouter
-  North Mini Code → OpenRouter Free Model Router → Zen LongCat 2.5 Preview →
-  Zen Nemotron 3 Ultra → Zen Nemotron 3.5 Lightning (last resort, known
-  mid-generation instability). Edit the order THERE, never hardcode models here.
-- EXECUTION IS CHAIN-ONLY. Task workers run ONLY on chain models. The chain
-  `never` list (Muse Spark family and anything added there) must NEVER run as
-  a sub-agent: the resolver excludes it even with `--all`. If you find yourself
-  on a non-chain model, switch to the chain head (`/models`, Tab, `--model`)
-  BEFORE doing work — never settle autonomous execution on it.
+- Two planes, both in-chain. Orchestrator-plane = this agent's session model
+  (default: chain head, OpenRouter North Mini Code). Worker-plane =
+  `agent.build.model` pin in project `opencode.jsonc` (default: chain #3, Zen
+  LongCat). Build does NOT inherit the session model, so a stale/off-list
+  session model can NEVER leak into workers. Chain of record:
+  `.opencode/model-fallback.json` — edit the order THERE, never hardcode here.
+- The chain `never` list (Muse Spark family and anything added there) must
+  NEVER run as a sub-agent: the resolver excludes it even with `--all`.
+  Your own session MAY run on any model you choose — workers stay on the pin.
 - NEVER invoke `orchestrator` (yourself) as a sub-agent — not via Task, not via
   @-mention. The ONLY worker is `build` via the Task tool. If a sub-agent
   starts acting as an orchestrator (re-delegating instead of implementing),
   abort that path and re-issue the work as a plain implementation Task.
 - On ANY Task failure, classify the error text first:
   `scripts/session-reuse.py classify-error "<error>"`.
-  QUOTA_EXHAUSTED (exit 10) / CONTEXT_EXHAUSTED (exit 12) → fallback, NOT a blocker.
+  QUOTA_EXHAUSTED (exit 10) / CONTEXT_EXHAUSTED (exit 12) → worker pin is dead:
+  resolve rotation with `scripts/session-reuse.py models --exclude <dead,...>`
+  and report its `rotate:` one-liner EXACTLY (single paste recovery: apply it
+  to `opencode.jsonc`, restart server, retry the same Task). This is the ONLY
+  genuine stop-and-wait in the fallback path — agents cannot switch models at
+  runtime on this platform, so pin rotation needs one external paste.
+  AUTH_ERROR (exit 40) → provider not connected (`/connect` it), not a blocker.
   ORDINARY_ERROR (exit 20) → normal build error, no fallback.
-  UNKNOWN (exit 30, e.g. bare "Task cancelled") → probe, do not assume.
+  UNKNOWN (exit 30, e.g. bare "Task cancelled") → re-ping the same Task once
+  before concluding anything; do not assume.
 - Fallback loop: mark the failed model exhausted → resolve next with
   `scripts/session-reuse.py models --exclude <dead,...>` (chain-only: chain
   order matched live against server `/provider`; entries whose provider is
   not connected are skipped automatically; `--all` adds ambient sources for
-  diagnostics only, never for execution) →
-  ping the candidate with a trivial Task ("reply with one word");
-  ping OK → continue the SAME objective there; ping quota-fails → mark
-  exhausted, repeat. For UNKNOWN: ping the candidate AND re-ping the current
-  model — switch only if current still fails while the candidate answers.
+  diagnostics only, never for execution) → the `rotate:` line IS the recovery:
+  report it verbatim and wait for the pin rotation (one paste + server restart),
+  then retry the SAME Task unchanged. Repeat per quota event. For UNKNOWN:
+  re-issue the identical Task once; switch to rotation only if it fails twice
+  with quota evidence.
 - Session continuity: `decide <id> --objective <O> --agent build` as usual.
   RESUME on REUSABLE; a foreign transcript that will not resume → NEW session
   with the SAME objective carrying full context (prior result + remaining gaps,
   never repeat finished work), then register it. Retire/delete rules unchanged.
-- STOP with a blocker report ONLY when `models` prints `next-available: NONE`
-  or the error is ORDINARY. The report must list every tried model + its error.
-- Why this works: project `opencode.jsonc` pins NO `agent.build.model`
-  (deliberate) — build inherits the orchestrator's live model, and the
-  orchestrator itself starts on the chain head — so the whole loop stays inside
-  the user chain unless a human switches it. NEVER re-pin `agent.build`
-  to one model; that recreates the original outage.
+  NOTE: a worker session's model is ALWAYS the build pin, never the session you
+  resumed — "same model as me" no longer means "me", and spark workers are
+  impossible by construction, not by discipline.
+- STOP with a blocker report ONLY when `models` prints `next-available: NONE`,
+  the error is ORDINARY, or a pin rotation is pending (report = the exact
+  `rotate:` line + tried models + their errors, nothing else to decide).
+- Why this works: the worker-plane pin fixes the worker model independently of
+  any session state (fresh, resumed, or manually switched). NEVER move a
+  non-chain model into `agent.build.model`; rotate ONLY along the chain.
+  The orchestrator-plane pin (frontmatter) is a default for NEW sessions only —
+  resumed sessions keep their model, which is fine now: it cannot leak.
 
 SESSION REUSE (registry: `.opencode/sessions/registry.json`, helper: `scripts/session-reuse.py`):
 
