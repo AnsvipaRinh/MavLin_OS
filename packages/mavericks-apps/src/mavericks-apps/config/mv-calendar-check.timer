@@ -1,0 +1,10 @@
+[Unit]
+Description=Check upcoming calendar events (Mavericks Calendar nudge)
+# Every 5 min oneshot notify; no persistent daemon.
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,6 @@
+[Unit]
+Description=Check upcoming calendar events (oneshot)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/mv-calendar --check-upcoming

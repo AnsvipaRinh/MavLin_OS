@@ -5,5 +5,6 @@ Comment=Calendar (Mavericks)
 Exec=mv-calendar %U
 Icon=office-calendar
 Categories=Office;
+Keywords=calendar;event;appointment;ics;schedule;
 StartupNotify=true
 X-Mavericks-Native=true

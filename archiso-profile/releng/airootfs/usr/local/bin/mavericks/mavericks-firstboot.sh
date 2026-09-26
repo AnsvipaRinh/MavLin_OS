@@ -75,6 +75,8 @@ if [[ -n "$TARGET_USER" && "$TARGET_USER" != "root" ]]; then
   chown -R "$TARGET_USER:$(id -gn "$TARGET_USER")" "$UH/.config/Thunar" "$UH/.gtk-bookmarks" 2>/dev/null || true
   # Reminders hourly nudge (user timer, oneshot notify only)
   sudo -u "$TARGET_USER" systemctl --user enable mv-reminders-check.timer 2>/dev/null || true
+  # Calendar upcoming-event nudge (user timer, oneshot notify only)
+  sudo -u "$TARGET_USER" systemctl --user enable mv-calendar-check.timer 2>/dev/null || true
 fi
 systemctl enable lightdm.service
 systemctl enable bluetooth.service

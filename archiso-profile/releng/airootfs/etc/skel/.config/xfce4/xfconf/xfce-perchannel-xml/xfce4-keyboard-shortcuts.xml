@@ -15,6 +15,7 @@
       <property name="&lt;Super&gt;c" type="string" value="mv-control"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;Escape" type="string" value="mv-power-ui"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;Delete" type="string" value="mv-power-ui logout"/>
+      <property name="&lt;Primary&gt;&lt;Alt&gt;c" type="string" value="mv-calendar"/>
       <property name="&lt;Super&gt;i" type="string" value="mv-getinfo $HOME"/>
       <property name="&lt;Super&gt;o" type="string" value="mv-openwith $HOME"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;v" type="string" value="mv-notification-center"/>

@@ -33,5 +33,9 @@ install: all
 		"$(DESTDIR)/usr/lib/systemd/user/mv-reminders-check.timer"
 	install -Dm644 config/mv-reminders-check.service \
 		"$(DESTDIR)/usr/lib/systemd/user/mv-reminders-check.service"
+	install -Dm644 config/mv-calendar-check.timer \
+		"$(DESTDIR)/usr/lib/systemd/user/mv-calendar-check.timer"
+	install -Dm644 config/mv-calendar-check.service \
+		"$(DESTDIR)/usr/lib/systemd/user/mv-calendar-check.service"
 
 .PHONY: all clean install
