@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Quick Look (Thunar)
+GenericName=File Preview
+Comment=Preview selected files in Thunar (Space equivalent)
+Exec=mv-quicklook-thunar
+Icon=preview
+Terminal=false
+Categories=Utility;Core;X-Mavericks;
+X-Mavericks-Native=true
+StartupNotify=false

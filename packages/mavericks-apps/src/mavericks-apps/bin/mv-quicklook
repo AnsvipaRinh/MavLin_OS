@@ -2,12 +2,12 @@
 """mv-quicklook — Space-to-preview. Single-shot GTK3 window.
 Images: GdkPixbuf. PDF: poppler-glib first page. Text/code: GtkSourceView
 (or plain TextView). Audio/video: metadata via ffprobe/GStreamer discoverer
-fallback; full playback delegated to default app. No indexer, no daemon.
-License: GPL-2.0-or-later."""
+fallback; full playback delegated to default app. Multi-file navigation.
+No indexer, no daemon. License: GPL-2.0-or-later."""
 import mimetypes, os, subprocess, sys
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GdkPixbuf
+from gi.repository import Gtk, GdkPixbuf, Gdk
 
 try:
     gi.require_version("Poppler", "0.18")
@@ -25,29 +25,76 @@ except (ImportError, ValueError):
 IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".svg"}
 TEXT_EXT = {".txt", ".md", ".c", ".h", ".py", ".rs", ".sh", ".js", ".ts",
             ".json", ".xml", ".css", ".scss", ".log", ".ini", ".conf"}
+MEDIA_EXT = {".mp3", ".ogg", ".wav", ".flac", ".m4a", ".mp4", ".mkv",
+             ".webm", ".avi", ".mov"}
+
 
 class Preview(Gtk.Window):
-    def __init__(self, path):
-        super().__init__(title=os.path.basename(path))
-        self.set_default_size(640, 480)
-        hb = Gtk.HeaderBar(title=os.path.basename(path), show_close_button=True)
+    def __init__(self, paths, start_index=0):
+        super().__init__()
+        self.paths = [p for p in paths if os.path.isfile(p)]
+        if not self.paths:
+            self.paths = [paths[0]] if paths else []
+        self.index = max(0, min(start_index, len(self.paths) - 1))
+        self.fullscreen = False
+        self.prev_size = (640, 480)
+
+        self.connect("key-press-event", self.on_key_press)
+        self.connect("destroy", Gtk.main_quit)
+        self.update_ui()
+
+    def update_ui(self):
+        for child in self.get_children():
+            self.remove(child)
+
+        path = self.paths[self.index]
+        ext = os.path.splitext(path)[1].lower()
+        title = os.path.basename(path)
+        if len(self.paths) > 1:
+            title += "  (%d of %d)" % (self.index + 1, len(self.paths))
+
+        hb = Gtk.HeaderBar(title=title, show_close_button=True)
+        hb.set_subtitle("")
         self.set_titlebar(hb)
+
         open_b = Gtk.Button(label="Open")
         open_b.connect("clicked", self.open_full, path)
         hb.pack_end(open_b)
-        ext = os.path.splitext(path)[1].lower()
+
+        if len(self.paths) > 1:
+            prev_b = Gtk.Button.new_from_icon_name("go-previous", Gtk.IconSize.BUTTON)
+            prev_b.set_tooltip_text("Previous (Left arrow)")
+            prev_b.connect("clicked", lambda *_: self.navigate(-1))
+            hb.pack_start(prev_b)
+
+            next_b = Gtk.Button.new_from_icon_name("go-next", Gtk.IconSize.BUTTON)
+            next_b.set_tooltip_text("Next (Right arrow)")
+            next_b.connect("clicked", lambda *_: self.navigate(1))
+            hb.pack_start(next_b)
+
+        fs_b = Gtk.Button.new_from_icon_name("view-fullscreen", Gtk.IconSize.BUTTON)
+        fs_b.set_tooltip_text("Fullscreen (F)")
+        fs_b.connect("clicked", lambda *_: self.toggle_fullscreen())
+        hb.pack_end(fs_b)
+
         widget = self.build(path, ext)
         sw = Gtk.ScrolledWindow()
-        if isinstance(widget, (Gtk.TextView, Gtk.TreeView, Gtk.Image)):
-            if isinstance(widget, Gtk.Image):
-                vp = Gtk.Viewport()
-                vp.add(widget)
-                sw.add(vp)
-            else:
-                sw.add(widget)
+        if isinstance(widget, Gtk.Image):
+            vp = Gtk.Viewport()
+            vp.add(widget)
+            sw.add(vp)
+        elif isinstance(widget, (Gtk.TextView, Gtk.TreeView)):
+            sw.add(widget)
         else:
             sw.add(widget)
+
         self.add(sw)
+        self.show_all()
+
+        if not self.fullscreen:
+            self.set_default_size(640, 480)
+        else:
+            self.fullscreen()
 
     def build(self, path, ext):
         if ext == ".pdf" and HAVE_POPPLER:
@@ -60,12 +107,14 @@ class Preview(Gtk.Window):
                 return Gtk.Image.new_from_pixbuf(pix)
             except Exception as e:
                 return Gtk.Label(label="Cannot render PDF: %s" % e)
+
         if ext in IMG_EXT:
             try:
                 pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 620, 460, True)
                 return Gtk.Image.new_from_pixbuf(pix)
             except Exception as e:
                 return Gtk.Label(label="Cannot load image: %s" % e)
+
         if ext in TEXT_EXT or (mimetypes.guess_type(path)[0] or "").startswith("text/"):
             try:
                 with open(path, errors="replace") as f:
@@ -82,45 +131,88 @@ class Preview(Gtk.Window):
             tv.set_editable(False)
             tv.set_monospace(True)
             return tv
-        if ext in {".mp3", ".ogg", ".wav", ".flac", ".m4a", ".mp4", ".mkv",
-                   ".webm", ".avi", ".mov"}:
+
+        if ext in MEDIA_EXT:
             info = self.probe(path)
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
             box.set_border_width(16)
-            box.pack_start(Gtk.Label(label="<b>Media preview</b>",
-                                     use_markup=True), False, False, 0)
-            box.pack_start(Gtk.Label(label=info, selectable=True),
-                           False, False, 0)
+            box.pack_start(Gtk.Label(label="<b>Media preview</b>", use_markup=True), False, False, 0)
+            box.pack_start(Gtk.Label(label=info, selectable=True), False, False, 0)
             hint = Gtk.Label(label="Press Open for full playback.")
             box.pack_start(hint, False, False, 0)
             vp = Gtk.Viewport()
             vp.add(box)
             return vp
+
         return Gtk.Label(label="No preview available for this file.\nPress Open.")
 
     def probe(self, path):
         try:
             out = subprocess.run(["ffprobe", "-v", "quiet", "-show_format",
                                   "-show_streams", path],
-                                 capture_output=True, text=True,
-                                 timeout=10).stdout
+                                 capture_output=True, text=True, timeout=10).stdout
             lines = [l for l in out.splitlines()
                      if l.startswith(("duration=", "codec_name=",
-                                      "width=", "height=",
-                                      "sample_rate="))][:8]
+                                      "width=", "height=", "sample_rate="))][:8]
             return "\n".join(lines) or "No metadata."
         except (OSError, subprocess.SubprocessError):
             return "Install ffmpeg for media metadata."
+
+    def navigate(self, delta):
+        if len(self.paths) <= 1:
+            return
+        self.index = (self.index + delta) % len(self.paths)
+        self.update_ui()
+
+    def toggle_fullscreen(self):
+        self.fullscreen = not self.fullscreen
+        if self.fullscreen:
+            self.prev_size = self.get_size()
+            self.fullscreen()
+        else:
+            self.unfullscreen()
+            self.resize(*self.prev_size)
+
+    def on_key_press(self, _widget, event):
+        key = Gdk.keyval_name(event.keyval)
+        if key in ("Escape", "q", "Q"):
+            Gtk.main_quit()
+            return True
+        if key in ("Return", "KP_Enter", "o", "O"):
+            self.open_full(None, self.paths[self.index])
+            return True
+        if key in ("Left", "KP_Left", "p", "P", "Up", "KP_Up"):
+            self.navigate(-1)
+            return True
+        if key in ("Right", "KP_Right", "n", "N", "Down", "KP_Down", "space"):
+            self.navigate(1)
+            return True
+        if key in ("f", "F", "F11"):
+            self.toggle_fullscreen()
+            return True
+        return False
 
     def open_full(self, _b, path):
         subprocess.Popen(["xdg-open", path])
         Gtk.main_quit()
 
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2 or not os.path.isfile(sys.argv[1]):
-        print("usage: mv-quicklook <file>", file=sys.stderr)
+    if len(sys.argv) < 2:
+        print("usage: mv-quicklook <file> [file...]", file=sys.stderr)
         sys.exit(2)
-    w = Preview(sys.argv[1])
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
+
+    files = sys.argv[1:]
+    if len(files) == 1 and os.path.isdir(files[0]):
+        try:
+            files = sorted(os.path.join(files[0], f) for f in os.listdir(files[0])
+                           if os.path.isfile(os.path.join(files[0], f)))
+        except OSError:
+            pass
+
+    if not files:
+        print("No valid files to preview", file=sys.stderr)
+        sys.exit(1)
+
+    w = Preview(files)
     Gtk.main()
