@@ -68,6 +68,10 @@ EOF
     install -dm755 "${pkgdir}/usr/share/xfce4/settings/mavericks"
     cp -r xfce-settings/* "${pkgdir}/usr/share/xfce4/settings/mavericks/" 2>/dev/null || true
 
+    # xfce4-notifyd theme
+    install -dm755 "${pkgdir}/usr/share/themes/Mavericks/xfce4-notifyd"
+    cp -r xfce4-notifyd/* "${pkgdir}/usr/share/themes/Mavericks/xfce4-notifyd/" 2>/dev/null || true
+
     # Wallpapers
     install -dm755 "${pkgdir}/usr/share/backgrounds/mavericks"
     cp -r wallpapers/* "${pkgdir}/usr/share/backgrounds/mavericks/" 2>/dev/null || true
