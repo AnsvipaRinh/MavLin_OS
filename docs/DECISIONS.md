@@ -420,3 +420,40 @@ All XML validated (xmllint), sync check passed, packages rebuilt.
 
 **Implementation:** mv-spotlight (Python), rofi-mavericks.rasi.
 Validations: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED.
+
+---
+
+## 2026-09-26 — Launchpad gap fixes: desktop entry, folder navigation, empty states, icon validation, visual polish
+
+**Problem:** Launchpad (mv-launchpad + rofi) had pagination, folders, search, and custom positions working, but missing: mv-launchpad.desktop for app menu integration, default folders on first run, folder open/back navigation, empty state handling (no apps, no search results, empty folder), robust .desktop parsing with icon validation, and visual polish of the grid theme.
+
+**Decision:**
+1. **Desktop entry:** Added `mv-launchpad.desktop` with `X-Mavericks-Native=true` for app menu/Dock integration. Exec uses `sh -c` wrapper to handle single quotes in rofi modi argument.
+2. **Default folders (auto-population):** On first run, `folders.json` is created with "Utilities" and "Other" folders. Apps are auto-categorized by keyword matching (e.g., "calculator", "terminal", "disk", "settings" → Utilities).
+3. **Folder navigation:** New `open_folder` parameter allows showing folder contents with a "← Back" item to return to main grid. Implemented via rofi script mode argument passing.
+4. **Empty states:** Three empty states handled with user-visible feedback:
+   - No .desktop files found: "No applications found" with dialog-information icon.
+   - Search with zero matches: "No results for 'query'" with suggestion.
+   - Empty folder: "Folder 'X' is empty" with instruction to edit folders.json.
+5. **Robust .desktop parsing:** 
+   - Duplicate handling: user `~/.local/share/applications` overrides system dirs (seen_ids set).
+   - Icon validation: `_icon_exists()` checks Gtk.IconTheme before using icon; falls back to `application-x-executable`.
+   - Malformed .desktop files silently skipped (try/except per file).
+6. **Visual polish (rofi-launchpad.rasi):** Mavericks-style skeuomorphic grid: rgba backgrounds, 18px border-radius, subtle borders, box-shadow on selection, custom scrollbar, transitions (120ms), element states (normal/selected/urgent), larger search bar (360px), increased spacing (18px).
+
+**Reasoning:**
+- Desktop entry completes the integration — Launchpad now appears in app menus and can be pinned to Dock.
+- Auto-populated folders provide immediate value on first run without manual config.
+- Folder navigation via "Back" button is the only feasible approach in rofi script mode (no persistent state between invocations).
+- Empty states critical for first-run UX and edge cases.
+- Icon validation prevents broken icon placeholders in the grid.
+- Visual polish aligns with Mavericks coherence goal and matches Spotlight theme evolution.
+- No new dependencies, no daemons, on-demand only — fits power budget.
+
+**Alternatives considered:**
+- Jiggle/edit mode (drag-to-rearrange) — rejected: rofi script mode has no drag-and-drop support; would require a persistent GUI daemon (Electron/Python/GTK) violating power budget and reuse-first. Documented as accepted delta.
+- App Store integration — rejected: no Linux equivalent; Mac App Store is proprietary.
+- Nested folders — rejected: rofi script mode doesn't support hierarchical navigation cleanly; single-level folders match Mavericks Launchpad behavior.
+
+**Implementation:** mv-launchpad (Python), rofi-launchpad.rasi, mv-launchpad.desktop.
+Validations: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED.

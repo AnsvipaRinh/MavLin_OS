@@ -260,3 +260,14 @@
 - [x] rofi-mavericks.rasi: visual polish (Mavericks-style skeuomorphic accents, better spacing, scrollbar, rounded corners, softer colors)
 - [x] All validations pass: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED
 - [x] APPS.md Spotlight row updated with implemented features
+
+### Фаза 0.31 — Launchpad gap fixes (2026-09-26, без железа)
+- [x] mv-launchpad: mv-launchpad.desktop entry added for app menu integration
+- [x] mv-launchpad: default folders.json auto-population (Utilities/Other) on first run
+- [x] mv-launchpad: folder navigation with "Back" button (open folder → view apps → back to main)
+- [x] mv-launchpad: empty state handling (no apps found, no search results, empty folder)
+- [x] mv-launchpad: robust .desktop parsing with icon existence validation and fallback
+- [x] mv-launchpad: duplicate .desktop handling (user overrides system)
+- [x] rofi-launchpad.rasi: Mavericks-style visual polish (skeuomorphic accents, rounded corners, scrollbar, softer colors, shadows, transitions)
+- [x] All validations pass: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED
+- [x] APPS.md Launchpad row updated with implemented features
