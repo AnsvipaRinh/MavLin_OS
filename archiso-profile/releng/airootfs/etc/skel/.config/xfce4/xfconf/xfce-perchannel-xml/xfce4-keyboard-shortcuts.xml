@@ -23,6 +23,10 @@
       <property name="XF86AudioRaiseVolume" type="string" value="pactl set-sink-volume @DEFAULT_SINK@ +5%"/>
       <property name="XF86AudioLowerVolume" type="string" value="pactl set-sink-volume @DEFAULT_SINK@ -5%"/>
       <property name="XF86AudioMute" type="string" value="pactl set-sink-mute @DEFAULT_SINK@ toggle"/>
+      <property name="XF86AudioPlay" type="string" value="mv-music --media-key playpause"/>
+      <property name="XF86AudioNext" type="string" value="mv-music --media-key next"/>
+      <property name="XF86AudioPrev" type="string" value="mv-music --media-key prev"/>
+      <property name="XF86AudioStop" type="string" value="mv-music --media-key stop"/>
     </property>
   </property>
   <property name="xfwm4" type="empty">
