@@ -1,71 +1,621 @@
 #!/usr/bin/env python3
-"""mv-photos — Mavericks-like Photos wrapper for gthumb.
-Adds Mavericks visual theme and integration.
-"""
+"""mv-photos — Mavericks-like Photos frontend.
+Library engine (pure, headless-testable): native EXIF date parsing,
+image dimension header reading, Moments grouping, favorites, albums,
+import tracking, search. GUI: GTK3 Mavericks-styled grid with sidebar,
+search, slideshow, and gthumb handoff for editing. No daemon, no polling.
+License: GPL-2.0-or-later."""
+import json
 import os
+import shutil
+import struct
+import subprocess
 import sys
+import time
+
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk
 
-class PhotosWrapper(Gtk.Window):
-    def __init__(self):
+SUPPORTED_EXTS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif",
+                  ".webp", ".heic")
+IMAGE_MIMES = ("image/jpeg", "image/png", "image/gif", "image/bmp",
+               "image/tiff", "image/webp", "image/heic")
+
+STATE_ENV = "MV_PHOTOS_STATE"
+LIBRARY_ENV = "MV_PHOTOS_LIBRARY"
+DEFAULT_LIBRARY = "~/Pictures"
+THUMB_SIZE = 150
+SLIDE_INTERVAL = 3000
+
+
+def now_iso():
+    return time.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def fmt_date(iso):
+    if not iso:
+        return ""
+    return iso[:10]
+
+
+def fmt_size(n):
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        return "?"
+    if n < 1024:
+        return "%d B" % n
+    if n < 1024 * 1024:
+        return "%.1f KB" % (n / 1024)
+    return "%.1f MB" % (n / (1024 * 1024))
+
+
+# ---------------------------------------------------------------- image info
+
+
+def read_image_dimensions(path):
+    """Read image dimensions from file header. Never raises."""
+    try:
+        ext = os.path.splitext(path)[1].lower()
+        with open(path, "rb") as f:
+            blob = f.read(64)
+        if not blob:
+            return None, None
+        if ext in (".jpg", ".jpeg"):
+            return _jpeg_dimensions(path)
+        if ext == ".png":
+            if blob[:8] != b"\x89PNG\r\n\x1a\n" or len(blob) < 24:
+                return None, None
+            if blob[12:16] != b"IHDR":
+                return None, None
+            w, h = struct.unpack(">II", blob[16:24])
+            if w == 0 or h == 0 or w > 100000 or h > 100000:
+                return None, None
+            return w, h
+        if ext == ".gif":
+            if blob[:3] not in (b"GIF",) or len(blob) < 10:
+                return None, None
+            w, h = struct.unpack("<HH", blob[6:10])
+            return w, h
+        if ext == ".bmp":
+            if blob[:2] != b"BM" or len(blob) < 26:
+                return None, None
+            w, h = struct.unpack("<ii", blob[18:26])
+            return abs(w), abs(h)
+        if ext in (".tiff", ".tif"):
+            return _tiff_dimensions(blob)
+        if ext == ".webp":
+            return _webp_dimensions(blob)
+        return None, None
+    except Exception:
+        return None, None
+
+
+def _jpeg_dimensions(path):
+    try:
+        with open(path, "rb") as f:
+            f.read(2)
+            while True:
+                marker = f.read(1)
+                if not marker or marker != b"\xff":
+                    break
+                mtype = f.read(1)
+                while mtype == b"\xff":
+                    mtype = f.read(1)
+                if not mtype:
+                    break
+                mtype = mtype[0]
+                if mtype in (0xd8, 0xd9):
+                    continue
+                if mtype == 0xda:
+                    break
+                seglen = struct.unpack(">H", f.read(2))[0]
+                if mtype in (0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7,
+                             0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf):
+                    data = f.read(5)
+                    if len(data) >= 5:
+                        h, w = struct.unpack(">HH", data[1:5])
+                        return w, h
+                f.seek(seglen - 2, 1)
+    except Exception:
+        pass
+    return None, None
+
+
+def _tiff_dimensions(blob):
+    try:
+        bo = blob[:2]
+        if bo == b"II":
+            e = "<"
+        elif bo == b"MM":
+            e = ">"
+        else:
+            return None, None
+        if struct.unpack(e + "H", blob[2:4])[0] != 42:
+            return None, None
+        ifd_off = struct.unpack(e + "I", blob[4:8])[0]
+        if ifd_off + 2 > len(blob):
+            return None, None
+        count = struct.unpack(e + "H", blob[ifd_off:ifd_off + 2])[0]
+        pos = ifd_off + 2
+        w = h = None
+        for _ in range(count):
+            if pos + 12 > len(blob):
+                break
+            tag, typ = struct.unpack(e + "HH", blob[pos:pos + 4])
+            val = struct.unpack(e + "I", blob[pos + 8:pos + 12])[0]
+            if tag == 256:
+                w = val
+            elif tag == 257:
+                h = val
+            pos += 12
+        if w and h:
+            return w, h
+    except Exception:
+        pass
+    return None, None
+
+
+def _webp_dimensions(blob):
+    try:
+        if blob[:4] != b"RIFF" or blob[8:12] != b"WEBP":
+            return None, None
+        fmt = blob[12:16]
+        if fmt == b"VP8 ":
+            w, h = struct.unpack("<HH", blob[26:30])
+            return w & 0x3fff, h & 0x3fff
+        if fmt == b"VP8L":
+            bits = struct.unpack("<I", blob[21:25])[0]
+            w = (bits & 0x3fff) + 1
+            h = ((bits >> 14) & 0x3fff) + 1
+            return w, h
+        if fmt == b"VP8X":
+            w = struct.unpack("<I", b"\x00" + blob[24:27])[0] + 1
+            h = struct.unpack("<I", b"\x00" + blob[27:30])[0] + 1
+            return w, h
+    except Exception:
+        pass
+    return None, None
+
+
+# ---------------------------------------------------------------------- EXIF
+
+
+def read_exif_date(path):
+    """Extract DateTimeOriginal from JPEG EXIF. Returns ISO string or None."""
+    try:
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in (".jpg", ".jpeg"):
+            return None
+        with open(path, "rb") as f:
+            blob = f.read(512 * 1024)
+        if len(blob) < 4 or blob[:2] != b"\xff\xd8":
+            return None
+        pos = 2
+        while pos + 4 <= len(blob):
+            if blob[pos] != 0xff:
+                pos += 1
+                continue
+            marker = blob[pos + 1]
+            if marker == 0xd9:
+                break
+            if marker == 0xda:
+                break
+            if pos + 4 > len(blob):
+                break
+            seglen = struct.unpack(">H", blob[pos + 2:pos + 4])[0]
+            if marker == 0xe1 and seglen > 14:
+                seg = blob[pos + 4:pos + 2 + seglen]
+                if seg[:6] == b"Exif\x00\x00":
+                    dt = _exif_datetime(seg[6:])
+                    if dt:
+                        return dt
+            pos += 2 + seglen
+    except Exception:
+        pass
+    return None
+
+
+def _exif_datetime(tiff_blob):
+    try:
+        bo = tiff_blob[:2]
+        if bo == b"II":
+            e = "<"
+        elif bo == b"MM":
+            e = ">"
+        else:
+            return None
+        if struct.unpack(e + "H", tiff_blob[2:4])[0] != 42:
+            return None
+        ifd_off = struct.unpack(e + "I", tiff_blob[4:8])[0]
+        if ifd_off + 2 > len(tiff_blob):
+            return None
+        count = struct.unpack(e + "H", tiff_blob[ifd_off:ifd_off + 2])[0]
+        pos = ifd_off + 2
+        tags_to_find = {0x9003: "dt", 0x0132: "dt2", 0x9004: "dt3"}
+        found = {}
+        for _ in range(count):
+            if pos + 12 > len(tiff_blob):
+                break
+            tag, typ = struct.unpack(e + "HH", tiff_blob[pos:pos + 4])
+            if tag in tags_to_find:
+                count_bytes = struct.unpack(e + "I", tiff_blob[pos + 4:pos + 8])[0]
+                if typ == 2:
+                    if count_bytes <= 4:
+                        raw = tiff_blob[pos + 8:pos + 8 + count_bytes]
+                    else:
+                        off = struct.unpack(e + "I", tiff_blob[pos + 8:pos + 12])[0]
+                        raw = tiff_blob[off:off + count_bytes]
+                    val = raw.rstrip(b"\x00").decode("ascii", "replace")
+                    found[tags_to_find[tag]] = val
+            pos += 12
+        for key in ("dt", "dt2", "dt3"):
+            if key in found:
+                v = found[key]
+                if len(v) >= 19 and v[4] == ":" and v[7] == ":":
+                    return "%s-%s-%sT%s" % (v[0:4], v[5:7], v[8:10], v[11:])
+                if len(v) >= 10 and v[4] == "-" and v[7] == "-":
+                    return v
+    except Exception:
+        pass
+    return None
+
+
+# -------------------------------------------------------------- library scan
+
+
+def scan_library(root):
+    """Scan root for image files. Returns (photos, error_count).
+    Each photo: path, filename, ext, mtime, size, date (ISO or None),
+    width, height. Sorted by mtime descending."""
+    if not root or not os.path.isdir(root):
+        return [], 0
+    photos = []
+    errors = 0
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in SUPPORTED_EXTS:
+                continue
+            try:
+                st = os.stat(path)
+                w, h = read_image_dimensions(path)
+                date = read_exif_date(path)
+                photos.append({
+                    "path": path,
+                    "filename": name,
+                    "ext": ext,
+                    "mtime": st.st_mtime,
+                    "size": st.st_size,
+                    "date": date,
+                    "width": w,
+                    "height": h,
+                })
+            except Exception:
+                errors += 1
+    photos.sort(key=lambda p: p["mtime"], reverse=True)
+    return photos, errors
+
+
+def group_by_moment(photos):
+    """Group photos by date string (YYYY-MM-DD). Returns list of
+    {date, count, photos} sorted by date descending."""
+    groups = {}
+    for p in photos:
+        d = fmt_date(p.get("date")) or "Unknown"
+        groups.setdefault(d, []).append(p)
+    out = [{"date": d, "count": len(ps), "photos": ps}
+           for d, ps in groups.items()]
+    out.sort(key=lambda g: g["date"], reverse=True)
+    return out
+
+
+def search_photos(photos, query):
+    q = (query or "").strip().lower()
+    if not q:
+        return list(photos)
+    out = []
+    for p in photos:
+        fn = p.get("filename", "").lower()
+        dt = fmt_date(p.get("date")).lower()
+        if q in fn or q in dt:
+            out.append(p)
+    return out
+
+
+# -------------------------------------------------------------- state store
+
+
+def default_state():
+    return {"favorites": [], "albums": [], "imports": [],
+            "geometry": {}, "library": None}
+
+
+def _state_path():
+    return os.environ.get(STATE_ENV) or os.path.expanduser(
+        "~/.config/mv-photos/state.json")
+
+
+def _backup_path(path):
+    return path + ".bak"
+
+
+def _quarantine_path(path):
+    return "%s.corrupt-%d" % (path, int(time.time()))
+
+
+def load_state(path=None, on_warn=None):
+    path = path or _state_path()
+
+    def warn(msg):
+        if on_warn:
+            on_warn(msg)
+
+    if not os.path.exists(path):
+        return default_state()
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        bak = _backup_path(path)
+        if os.path.exists(bak):
+            try:
+                with open(bak) as f:
+                    data = json.load(f)
+                warn("Photos state was unreadable (%s); restored from backup." % e)
+                return _normalize_state(data)
+            except (OSError, ValueError):
+                pass
+        try:
+            os.replace(path, _quarantine_path(path))
+        except OSError:
+            pass
+        warn("Photos state was unreadable (%s); the corrupt file was "
+             "quarantined and a fresh state was started." % e)
+        return default_state()
+    return _normalize_state(data)
+
+
+def save_state(path=None, data=None):
+    path = path or _state_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if os.path.exists(path):
+        try:
+            os.replace(path, _backup_path(path))
+        except OSError:
+            pass
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, path)
+
+
+def _normalize_state(data):
+    if not isinstance(data, dict):
+        return default_state()
+    st = default_state()
+    if isinstance(data.get("favorites"), list):
+        st["favorites"] = [str(p) for p in data["favorites"]]
+    if isinstance(data.get("albums"), list):
+        for a in data["albums"]:
+            if isinstance(a, dict) and isinstance(a.get("name"), str):
+                albums_item = {"name": a["name"], "paths": []}
+                if isinstance(a.get("paths"), list):
+                    albums_item["paths"] = [str(p) for p in a["paths"]]
+                st["albums"].append(albums_item)
+    if isinstance(data.get("imports"), list):
+        for imp in data["imports"]:
+            if isinstance(imp, dict) and isinstance(imp.get("path"), str):
+                imp_item = {"path": imp["path"], "at": ""}
+                if isinstance(imp.get("at"), str):
+                    imp_item["at"] = imp["at"]
+                st["imports"].append(imp_item)
+    geo = data.get("geometry")
+    if isinstance(geo, dict):
+        for k in ("w", "h"):
+            v = geo.get(k)
+            if isinstance(v, (int, float)) and v > 0:
+                st["geometry"][k] = v
+        if isinstance(geo.get("sidebar"), (int, float)):
+            st["geometry"]["sidebar"] = geo["sidebar"]
+    if isinstance(data.get("library"), str):
+        st["library"] = data["library"]
+    return st
+
+
+def toggle_favorite(state, path):
+    st = dict(state)
+    favs = list(state.get("favorites") or [])
+    if path in favs:
+        favs.remove(path)
+    else:
+        favs.append(path)
+    st["favorites"] = favs
+    return st
+
+
+def add_album(state, name):
+    st = dict(state)
+    albums = list(state.get("albums") or [])
+    if not any(a["name"] == name for a in albums):
+        albums.append({"name": name, "paths": []})
+    st["albums"] = albums
+    return st
+
+
+def remove_album(state, name):
+    st = dict(state)
+    st["albums"] = [a for a in state.get("albums") or [] if a["name"] != name]
+    return st
+
+
+def album_add_photo(state, album_name, path):
+    st = dict(state)
+    albums = list(state.get("albums") or [])
+    for a in albums:
+        if a["name"] == album_name:
+            if path not in a["paths"]:
+                a["paths"].append(path)
+            break
+    st["albums"] = albums
+    return st
+
+
+def album_remove_photo(state, album_name, path):
+    st = dict(state)
+    albums = list(state.get("albums") or [])
+    for a in albums:
+        if a["name"] == album_name:
+            a["paths"] = [p for p in a["paths"] if p != path]
+            break
+    st["albums"] = albums
+    return st
+
+
+def record_import(state, folder_path):
+    st = dict(state)
+    imports = list(state.get("imports") or [])
+    imports.append({"path": folder_path, "at": now_iso()})
+    st["imports"] = imports[-200:]
+    return st
+
+
+def photos_for_album(state, album_name, all_photos):
+    for a in state.get("albums") or []:
+        if a["name"] == album_name:
+            path_set = set(a["paths"])
+            return [p for p in all_photos if p["path"] in path_set]
+    return []
+
+
+# ------------------------------------------------------------------- thumbs
+
+
+def thumbs_dir():
+    d = os.path.expanduser("~/.cache/mv-photos/thumbs")
+    try:
+        os.makedirs(d, exist_ok=True)
+    except OSError:
+        d = None
+    return d
+
+
+def thumb_path(photo):
+    try:
+        st = os.stat(photo["path"])
+        import hashlib
+        h = hashlib.sha1()
+        h.update(photo["path"].encode("utf-8", "replace"))
+        h.update(str(st.st_size).encode())
+        h.update(str(int(st.st_mtime)).encode())
+        return os.path.join(thumbs_dir(), h.hexdigest() + ".png")
+    except Exception:
+        return None
+
+
+def ensure_thumb(photo):
+    tp = thumb_path(photo)
+    if tp and os.path.exists(tp):
+        return tp
+    try:
+        pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+            photo["path"], THUMB_SIZE, THUMB_SIZE, True)
+        if tp:
+            pix.savev(tp, "png", [], [])
+        return tp
+    except Exception:
+        return None
+
+
+# -------------------------------------------------------------- image actions
+
+
+def open_in_editor(path):
+    """Open photo in gthumb for editing."""
+    try:
+        subprocess.Popen(["gthumb", path])
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def open_in_finder(path):
+    """Open containing folder in Thunar."""
+    try:
+        subprocess.Popen(["thunar", os.path.dirname(path)])
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def rotate_image(path, direction="right"):
+    """Lossless rotation via gthumb CLI or exiftool fallback.
+    Returns True on success."""
+    try:
+        subprocess.run(["gthumb", "--rotate-right", path],
+                       capture_output=True, timeout=30)
+        return True
+    except Exception:
+        pass
+    try:
+        angle = 90 if direction == "right" else 270
+        subprocess.run(["exiftool", "-overwrite_original",
+                        "-rotation=%d" % angle, path],
+                       capture_output=True, timeout=30)
+        return True
+    except Exception:
+        return False
+
+
+# ----------------------------------------------------------------------- GUI
+
+def run_gui():
+    warnings = []
+
+    def on_warn(msg):
+        warnings.append(msg)
+
+    state = load_state(on_warn=on_warn)
+    library = (os.environ.get(LIBRARY_ENV)
+               or os.path.expanduser(
+                   (state.get("library")) or DEFAULT_LIBRARY))
+    photos, scan_errors = scan_library(library)
+
+    win = PhotosWindow(photos, state, library)
+    if scan_errors:
+        win._show_error("Some files could not be read (%d skipped)." % scan_errors)
+    for msg in warnings:
+        win._show_error(msg)
+    win.connect("key-press-event", win.on_key_press)
+    Gtk.main()
+
+
+class PhotosWindow(Gtk.Window):
+    def __init__(self, photos, state, library):
         super().__init__(title="Photos")
-        self.set_default_size(900, 600)
-        
+        geo = state.get("geometry", {})
+        w = int(geo.get("w", 1000))
+        h = int(geo.get("h", 700))
+        self.set_default_size(w, h)
+
+        self.all_photos = photos
+        self.state = state
+        self.library = library
+        self.current_view = "all"
+        self.current_album = None
+        self.search_query = ""
+        self.slideshow_active = False
+        self.slideshow_index = 0
+
         self.apply_css()
-        
-        hb = Gtk.HeaderBar(title="Photos", show_close_button=True)
-        self.set_titlebar(hb)
-        
-        search = Gtk.SearchEntry(placeholder_text="Search photos...")
-        search.set_hexpand(True)
-        hb.pack_start(search)
-        
-        import_btn = Gtk.Button(label="Import")
-        import_btn.get_style_context().add_class("mavericks-toolbar-btn")
-        import_btn.connect("clicked", self.on_import)
-        hb.pack_end(import_btn)
-        
-        # Main layout
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
-        
-        # Sidebar
-        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        sidebar.set_size_request(200, -1)
-        sidebar.get_style_context().add_class("photos-sidebar")
-        
-        sections = [
-            ("Library", ["All Photos", "Favorites", "People", "Places", "Recents"]),
-            ("Media Types", ["Videos", "Selfies", "Screenshots", "Bursts", "Live Photos"]),
-            ("Albums", ["My Albums", "Shared Albums", "Imports"]),
-        ]
-        
-        for section_title, items in sections:
-            frame = Gtk.Frame(label=section_title)
-            frame.get_style_context().add_class("photos-sidebar-frame")
-            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            vbox.set_border_width(8)
-            for item in items:
-                btn = Gtk.Button(label=item)
-                btn.get_style_context().add_class("sidebar-item")
-                btn.set_halign(Gtk.Align.START)
-                vbox.pack_start(btn, False, False, 0)
-            frame.add(vbox)
-            sidebar.pack_start(frame, False, False, 0)
-        
-        sidebar_sw = Gtk.ScrolledWindow()
-        sidebar_sw.add(sidebar)
-        paned.add1(sidebar_sw)
-        
-        # Main content
-        self.content = Gtk.Label(label="Launching gthumb...")
-        self.content.get_style_context().add_class("photos-content")
-        paned.add2(self.content)
-        paned.set_position(220)
-        
-        GLib.timeout_add(100, self.launch_gthumb)
+        self.build_ui()
+        self.refresh_content()
+        self.connect("destroy", self.on_destroy)
         self.show_all()
 
     def apply_css(self):
@@ -98,44 +648,523 @@ class PhotosWrapper(Gtk.Window):
         .sidebar-item:hover {
             background: rgba(0,122,255,0.15);
         }
+        .sidebar-item.selected {
+            background: #007aff;
+            color: white;
+        }
         .photos-content {
             background: #f5f0e8;
-            font-family: "San Francisco", sans-serif;
+        }
+        .photos-grid-item {
+            border-radius: 4px;
+            padding: 4px;
+            margin: 2px;
+        }
+        .photos-grid-item:hover {
+            background: rgba(0,122,255,0.08);
+        }
+        .photos-grid-item.selected {
+            background: rgba(0,122,255,0.2);
+            border: 2px solid #007aff;
+        }
+        .moment-header {
+            font-weight: bold;
+            color: #555;
+            font-size: 11pt;
+            padding: 8px 12px 4px;
+        }
+        .photos-empty {
+            color: #999;
             font-size: 14pt;
+        }
+        .mavericks-toolbar-btn {
+            border-radius: 4px;
+            padding: 4px 8px;
+            margin: 2px;
+        }
+        .mavericks-toolbar-btn:hover {
+            background: #d4c8b8;
+        }
+        .photo-info-label {
+            font-size: 10pt;
             color: #666;
         }
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css)
         screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-    def on_import(self, _):
-        dialog = Gtk.FileChooserDialog(
+    def build_ui(self):
+        hb = Gtk.HeaderBar(title="Photos", show_close_button=True)
+        self.set_titlebar(hb)
+
+        self.search_entry = Gtk.SearchEntry(placeholder_text="Search photos...")
+        self.search_entry.set_hexpand(True)
+        self.search_entry.connect("changed", self.on_search_changed)
+        hb.pack_start(self.search_entry)
+
+        import_btn = Gtk.Button(label="Import")
+        import_btn.get_style_context().add_class("mavericks-toolbar-btn")
+        import_btn.connect("clicked", self.on_import)
+        hb.pack_end(import_btn)
+
+        slideshow_btn = Gtk.Button.new_from_icon_name(
+            "media-playback-start", Gtk.IconSize.BUTTON)
+        slideshow_btn.set_tooltip_text("Slideshow (Space)")
+        slideshow_btn.get_style_context().add_class("mavericks-toolbar-btn")
+        slideshow_btn.connect("clicked", self.on_slideshow_toggle)
+        hb.pack_end(slideshow_btn)
+
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(paned)
+
+        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        sidebar.set_size_request(220, -1)
+        sidebar.get_style_context().add_class("photos-sidebar")
+
+        self.sidebar_items = {}
+        sections = [
+            ("Library", [
+                ("all", "All Photos"),
+                ("favorites", "Favorites"),
+                ("recent", "Recently Added"),
+            ]),
+            ("Moments", []),
+            ("Albums", []),
+        ]
+        for section_title, items in sections:
+            frame = Gtk.Frame()
+            frame.get_style_context().add_class("photos-sidebar-frame")
+            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            vbox.set_border_width(6)
+            for item_id, label in items:
+                btn = Gtk.Button(label=label)
+                btn.get_style_context().add_class("sidebar-item")
+                btn.set_halign(Gtk.Align.START)
+                btn.connect("clicked", self.on_sidebar_click, item_id)
+                self.sidebar_items[item_id] = btn
+                vbox.pack_start(btn, False, False, 0)
+            frame.add(vbox)
+            sidebar.pack_start(frame, False, False, 0)
+
+        self.albums_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        self.albums_box.set_border_width(6)
+        sidebar.add(self.albums_box)
+
+        new_album_btn = Gtk.Button(label="+ New Album")
+        new_album_btn.get_style_context().add_class("sidebar-item")
+        new_album_btn.set_halign(Gtk.Align.START)
+        new_album_btn.connect("clicked", self.on_new_album)
+        sidebar.pack_start(new_album_btn, False, False, 0)
+
+        sidebar_sw = Gtk.ScrolledWindow()
+        sidebar_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sidebar_sw.add(sidebar)
+        paned.add1(sidebar_sw)
+
+        self.content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.content_box.get_style_context().add_class("photos-content")
+
+        self.moment_label = Gtk.Label()
+        self.moment_label.set_xalign(0)
+        self.moment_label.get_style_context().add_class("moment-header")
+        self.content_box.pack_start(self.moment_label, False, False, 0)
+
+        self.grid_wrap = Gtk.ScrolledWindow()
+        self.grid_wrap.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self.content_box.pack_start(self.grid_wrap, True, True, 0)
+
+        self.photos_flow = Gtk.FlowBox()
+        self.photos_flow.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.photos_flow.set_homogeneous(True)
+        self.photos_flow.set_max_children_per_line(20)
+        self.photos_flow.connect("child-activated", self.on_photo_activate)
+        self.grid_wrap.add(self.photos_flow)
+
+        self.empty_label = Gtk.Label(label="No photos")
+        self.empty_label.get_style_context().add_class("photos-empty")
+        self.content_box.pack_start(self.empty_label, True, True, 0)
+
+        paned.add2(self.content_box)
+        sb = int(self.state.get("geometry", {}).get("sidebar", 240))
+        paned.set_position(sb)
+
+        self.refresh_sidebar()
+
+    def refresh_sidebar(self):
+        for btn in self.sidebar_items.values():
+            btn.get_style_context().remove_class("selected")
+        if self.current_view in self.sidebar_items:
+            self.sidebar_items[self.current_view].get_style_context().add_class("selected")
+
+        for child in self.albums_box.get_children():
+            self.albums_box.remove(child)
+        for album in self.state.get("albums") or []:
+            btn = Gtk.Button(label="%s (%d)" % (album["name"], len(album["paths"])))
+            btn.get_style_context().add_class("sidebar-item")
+            btn.set_halign(Gtk.Align.START)
+            btn.connect("clicked", self.on_album_click, album["name"])
+            if self.current_view == "album" and self.current_album == album["name"]:
+                btn.get_style_context().add_class("selected")
+            self.albums_box.pack_start(btn, False, False, 0)
+        self.albums_box.show_all()
+
+    def refresh_content(self):
+        for child in self.photos_flow.get_children():
+            self.photos_flow.remove(child)
+
+        if self.current_view == "all":
+            items = self.all_photos
+        elif self.current_view == "favorites":
+            fav_set = set(self.state.get("favorites") or [])
+            items = [p for p in self.all_photos if p["path"] in fav_set]
+        elif self.current_view == "recent":
+            items = self.all_photos[:50]
+        elif self.current_view == "album":
+            items = photos_for_album(self.state, self.current_album,
+                                     self.all_photos)
+        elif self.current_view == "moments":
+            self._populate_moments()
+            return
+        else:
+            items = self.all_photos
+
+        if self.search_query:
+            items = search_photos(items, self.search_query)
+
+        self.moment_label.set_text("")
+        self._populate_grid(items)
+
+    def _populate_moments(self):
+        moments = group_by_moment(self.all_photos)
+        if self.search_query:
+            moments = [m for m in moments
+                       if search_photos(m["photos"], self.search_query)]
+            for m in moments:
+                m["photos"] = search_photos(m["photos"], self.search_query)
+                m["count"] = len(m["photos"])
+        if not moments:
+            self.photos_flow.hide()
+            self.empty_label.set_text("No moments to show")
+            self.empty_label.show()
+            return
+        self.empty_label.hide()
+        self.photos_flow.show()
+        for m in moments:
+            hdr = Gtk.Label(label="%s — %d photos" % (m["date"], m["count"]))
+            hdr.set_xalign(0)
+            hdr.get_style_context().add_class("moment-header")
+            self.photos_flow.add(hdr)
+            for p in m["photos"]:
+                self._add_photo_item(p)
+
+    def _populate_grid(self, items):
+        if not items:
+            self.photos_flow.hide()
+            self.empty_label.set_text(
+                "No photos" + (" matching search" if self.search_query else ""))
+            self.empty_label.show()
+            return
+        self.empty_label.hide()
+        self.photos_flow.show()
+        for p in items:
+            self._add_photo_item(p)
+
+    def _add_photo_item(self, photo):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box.get_style_context().add_class("photos-grid-item")
+        box.set_size_request(THUMB_SIZE + 16, THUMB_SIZE + 40)
+
+        tp = ensure_thumb(photo)
+        img = Gtk.Image()
+        if tp:
+            try:
+                pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    tp, THUMB_SIZE, THUMB_SIZE, True)
+                img.set_from_pixbuf(pix)
+            except Exception:
+                img.set_from_icon_name("image-x-generic", Gtk.IconSize.DIALOG)
+        else:
+            img.set_from_icon_name("image-x-generic", Gtk.IconSize.DIALOG)
+        box.pack_start(img, False, False, 0)
+
+        lbl = Gtk.Label(label=photo["filename"][:24])
+        lbl.get_style_context().add_class("photo-info-label")
+        lbl.set_max_width_chars(20)
+        lbl.set_ellipsize(3)
+        box.pack_start(lbl, False, False, 0)
+
+        date_lbl = Gtk.Label(label=fmt_date(photo.get("date")) or "")
+        date_lbl.get_style_context().add_class("photo-info-label")
+        date_lbl.set_max_width_chars(20)
+        box.pack_start(date_lbl, False, False, 0)
+
+        fav = photo["path"] in (self.state.get("favorites") or [])
+        if fav:
+            star = Gtk.Image.new_from_icon_name("starred", Gtk.IconSize.MENU)
+            box.pack_end(star, False, False, 0)
+
+        box.photo_path = photo["path"]
+        self.photos_flow.add(box)
+
+    def on_sidebar_click(self, _btn, item_id):
+        self.current_view = item_id
+        self.current_album = None
+        self.search_entry.set_text("")
+        self.search_query = ""
+        self.refresh_sidebar()
+        self.refresh_content()
+
+    def on_album_click(self, _btn, album_name):
+        self.current_view = "album"
+        self.current_album = album_name
+        self.refresh_sidebar()
+        self.refresh_content()
+
+    def on_search_changed(self, entry):
+        self.search_query = entry.get_text().strip()
+        self.refresh_content()
+
+    def on_photo_activate(self, _flow, child):
+        box = child.get_child()
+        path = getattr(box, "photo_path", None)
+        if path:
+            self._open_photo(path)
+
+    def _open_photo(self, path):
+        tp = ensure_thumb(next((p for p in self.all_photos
+                                if p["path"] == path), None) or {"path": path})
+        self._open_full_view(path)
+
+    def _open_full_view(self, path):
+        dlg = Gtk.Dialog(title="Photo", transient_for=self,
+                         flags=Gtk.DialogFlags.MODAL)
+        dlg.set_default_size(800, 600)
+        hb = dlg.get_headerbar() if dlg.get_headerbar() else None
+
+        close_btn = Gtk.Button(label="Close")
+        close_btn.get_style_context().add_class("mavericks-toolbar-btn")
+        close_btn.connect("clicked", lambda *_: dlg.destroy())
+        if hb:
+            hb.pack_end(close_btn)
+        dlg.add_button("Close", Gtk.ResponseType.CLOSE)
+
+        img = Gtk.Image()
+        try:
+            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 780, 560, True)
+            img.set_from_pixbuf(pix)
+        except Exception:
+            img.set_from_icon_name("image-x-generic", Gtk.IconSize.DIALOG)
+
+        sw = Gtk.ScrolledWindow()
+        sw.add(img)
+        dlg.get_content_area().pack_start(sw, True, True, 0)
+
+        info = Gtk.Label()
+        info.get_style_context().add_class("photo-info-label")
+        for p in self.all_photos:
+            if p["path"] == path:
+                dims = ""
+                if p.get("width") and p.get("height"):
+                    dims = " — %dx%d" % (p["width"], p["height"])
+                sz = fmt_size(p.get("size", 0))
+                dt = fmt_date(p.get("date")) or "Unknown date"
+                info.set_text("%s%s — %s — %s" % (p["filename"], dims, sz, dt))
+                break
+        dlg.get_content_area().pack_end(info, False, False, 0)
+
+        edit_btn = Gtk.Button(label="Edit in gthumb")
+        edit_btn.get_style_context().add_class("mavericks-toolbar-btn")
+        edit_btn.connect("clicked", lambda *_: (open_in_editor(path), dlg.destroy()))
+        dlg.get_content_area().pack_end(edit_btn, False, False, 0)
+
+        fav_btn = Gtk.Button()
+        is_fav = path in (self.state.get("favorites") or [])
+        fav_btn.set_label("Unfavorite" if is_fav else "Favorite")
+        fav_btn.get_style_context().add_class("mavericks-toolbar-btn")
+        fav_btn.connect("clicked", lambda b: self._toggle_fav_ui(b, path))
+        dlg.get_content_area().pack_end(fav_btn, False, False, 0)
+
+        dlg.show_all()
+        dlg.run()
+        dlg.destroy()
+
+    def _toggle_fav_ui(self, btn, path):
+        self.state = toggle_favorite(self.state, path)
+        save_state(data=self.state)
+        is_fav = path in self.state["favorites"]
+        btn.set_label("Unfavorite" if is_fav else "Favorite")
+        self.refresh_content()
+
+    def on_import(self, _btn):
+        dlg = Gtk.FileChooserDialog(
             title="Import Photos", transient_for=self,
             action=Gtk.FileChooserAction.SELECT_FOLDER)
-        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Import", Gtk.ResponseType.OK)
-        if dialog.run() == Gtk.ResponseType.OK:
-            folder = dialog.get_filename()
-            print(f"Import from: {folder}")
-        dialog.destroy()
+        dlg.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                        "Import", Gtk.ResponseType.OK)
+        if dlg.run() == Gtk.ResponseType.OK:
+            folder = dlg.get_filename()
+            if folder:
+                self._do_import(folder)
+        dlg.destroy()
 
-    def launch_gthumb(self):
+    def _do_import(self, folder):
+        exts = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif",
+                ".webp", ".heic"}
+        count = 0
+        lib_dir = os.path.join(self.library, "Imports",
+                               time.strftime("%Y-%m-%d_%H%M%S"))
         try:
-            subprocess.Popen(["gthumb"])
-            self.content.set_markup('<span size="x-large" weight="bold">📷 Photos</span>\n\n<span color="#666">gthumb launched in background.\nUse the sidebar to navigate your library.</span>')
-        except FileNotFoundError:
-            self.content.set_markup('<span color="#ff3b30">gthumb not installed</span>\n\n<span color="#666">Install with: sudo pacman -S gthumb</span>')
+            os.makedirs(lib_dir, exist_ok=True)
+            for name in os.listdir(folder):
+                if os.path.splitext(name)[1].lower() not in exts:
+                    continue
+                src = os.path.join(folder, name)
+                dst = os.path.join(lib_dir, name)
+                shutil.copy2(src, dst)
+                count += 1
+            self.state = record_import(self.state, folder)
+            save_state(data=self.state)
+            self.all_photos, _ = scan_library(self.library)
+            self.refresh_content()
+            self._show_error("Imported %d photo(s) into %s" % (count, lib_dir))
+        except OSError as e:
+            self._show_error("Import failed: %s" % e)
+
+    def on_new_album(self, _btn):
+        dlg = Gtk.Dialog(title="New Album", transient_for=self,
+                         flags=Gtk.DialogFlags.MODAL)
+        dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dlg.add_button("Create", Gtk.ResponseType.OK)
+        entry = Gtk.Entry(placeholder_text="Album name")
+        dlg.get_content_area().pack_start(entry, True, True, 8)
+        dlg.show_all()
+        if dlg.run() == Gtk.ResponseType.OK:
+            name = entry.get_text().strip()
+            if name:
+                self.state = add_album(self.state, name)
+                save_state(data=self.state)
+                self.refresh_sidebar()
+        dlg.destroy()
+
+    def on_slideshow_toggle(self, _btn):
+        if self.slideshow_active:
+            self._stop_slideshow()
+        else:
+            self._start_slideshow()
+
+    def _start_slideshow(self):
+        items = self._current_items()
+        if not items:
+            return
+        self.slideshow_active = True
+        self.slideshow_index = 0
+        self._show_slide(items[0])
+        from gi.repository import GLib
+        GLib.timeout_add(SLIDE_INTERVAL, self._next_slide, items)
+
+    def _next_slide(self, items):
+        if not self.slideshow_active:
+            return False
+        self.slideshow_index = (self.slideshow_index + 1) % len(items)
+        self._show_slide(items[self.slideshow_index])
+        return True
+
+    def _show_slide(self, photo):
+        dlg = Gtk.Window(title="Slideshow", type_hint=1)
+        dlg.set_default_size(900, 700)
+        dlg.set_position(Gtk.WindowPosition.CENTER)
+        img = Gtk.Image()
+        try:
+            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                photo["path"], 880, 680, True)
+            img.set_from_pixbuf(pix)
+        except Exception:
+            pass
+        dlg.add(img)
+        lbl = Gtk.Label(label=photo["filename"])
+        lbl.set_markup('<span background="black" color="white">%s</span>'
+                       % photo["filename"])
+        dlg.show_all()
+
+    def _stop_slideshow(self):
+        self.slideshow_active = False
+
+    def _current_items(self):
+        if self.current_view == "all":
+            items = self.all_photos
+        elif self.current_view == "favorites":
+            fav_set = set(self.state.get("favorites") or [])
+            items = [p for p in self.all_photos if p["path"] in fav_set]
+        elif self.current_view == "recent":
+            items = self.all_photos[:50]
+        elif self.current_view == "album":
+            items = photos_for_album(self.state, self.current_album,
+                                     self.all_photos)
+        else:
+            items = self.all_photos
+        if self.search_query:
+            items = search_photos(items, self.search_query)
+        return items
+
+    def _show_error(self, msg):
+        from gi.repository import GLib
+        GLib.idle_add(self._show_error_idle, msg)
+
+    def _show_error_idle(self, msg):
+        bar = Gtk.InfoBar()
+        bar.set_message_type(Gtk.MessageType.WARNING)
+        bar.get_content_area().pack_start(
+            Gtk.Label(label=msg), False, False, 0)
+        bar.show_all()
+        self.content_box.pack_start(bar, False, False, 0)
+        self.content_box.reorder_child(bar, 0)
         return False
 
-import os
-import subprocess
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+    def on_key_press(self, _w, event):
+        if event.keyval == Gdk.KEY_Escape:
+            if self.slideshow_active:
+                self._stop_slideshow()
+                return True
+            return False
+        if event.state & Gdk.ModifierType.CONTROL_MASK:
+            if event.keyval == Gdk.KEY_f:
+                self.search_entry.grab_focus()
+                return True
+            if event.keyval == Gdk.KEY_i:
+                self.on_import(None)
+                return True
+        if event.keyval == Gdk.KEY_space and not self.slideshow_active:
+            self.on_slideshow_toggle(None)
+            return True
+        if event.keyval == Gdk.KEY_Delete or event.keyval == Gdk.KEY_BackSpace:
+            return True
+        return False
+
+    def on_destroy(self, *_):
+        geo = dict(self.state.get("geometry", {}))
+        geo["w"] = self.get_allocated_width()
+        geo["h"] = self.get_allocated_height()
+        geo["sidebar"] = 240
+        self.state["geometry"] = geo
+        save_state(data=self.state)
+        Gtk.main_quit()
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--scan":
+        lib = os.path.expanduser(sys.argv[2] if len(sys.argv) > 2
+                                else DEFAULT_LIBRARY)
+        photos, errors = scan_library(lib)
+        print("%d photos, %d errors" % (len(photos), errors))
+        for p in photos[:10]:
+            print("  %s  %s  %dx%d" % (p["filename"], fmt_date(p["date"]),
+                                       p["width"] or 0, p["height"] or 0))
+        sys.exit(0)
+    run_gui()
+
 
 if __name__ == "__main__":
-    w = PhotosWrapper()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
+    main()
