@@ -152,3 +152,14 @@
       (src/ у этих пакетов — не residue, а общие с makepkg $srcdir имена);
       восстановлено `git checkout`, потерь нет; в скрипт вписан WARNING, residue
       покрыт .gitignore (pkg/, audio-clone, audio-src/)
+
+### Фаза 0.19 — Forensic audit + P0 gap fixes (2026-09-26, без железа)
+- [x] Full source audit of all mv-* apps, Finder, Spotlight, Launchpad, Mission Control, Global Desktop coherence
+- [x] Finder status corrected: PARTIALLY IMPLEMENTED (no Space binding, no column view, no recursive search)
+- [x] Spotlight enhanced: mv-spotlight script (unified app+file search), improved rofi theme with categories
+- [x] Launchpad status corrected: PARTIALLY IMPLEMENTED (no pagination, folders, jiggle mode)
+- [x] Mission Control: EXPERIMENT READY (skippy-xd E-MC experiment, not in ISO)
+- [x] Global Desktop: filechooser theming enhanced (Mavericks-style sidebar, path-bar, file-list)
+- [x] Keyboard shortcuts: Super+Space → mv-spotlight (script mode), XML validated
+- [x] All packages rebuilt (mavericks-apps, mavericks-theme), local repo updated, check-sync ALL PASSED
+- [x] APPS.md updated with real statuses (no fake "IMPLEMENTED" claims)

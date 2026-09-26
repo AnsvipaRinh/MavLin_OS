@@ -1,7 +1,7 @@
 # HANDOFF.md — Сводка состояния (для чтения за 1 минуту)
 
-**Дата:** 2026-09-25 (обновлено: ISO build + QEMU smoke test Passed, Phase 0.8)
-**Готовность к железу:** Phase 0.8 — DONE (ISO built, QEMU+OVMF smoke-test passed)
+**Дата:** 2026-09-26 (обновлено: Forensic audit + P0 gap fixes, Phase 0.19)
+**Готовность к железу:** Phase 0.19 — Forensic audit complete, P0 gaps fixed pre-hardware
 
 > Phase 0.5 — действующий baseline (source of truth: раздел 7 AGENTS.md,
 > `docs/DECISIONS.md` «Phase 0.3 baseline»). Всё ниже, что противоречит
@@ -101,18 +101,14 @@ macbook12-macos-linux/
 ---
 
 ## 🚀 СЛЕДУЮЩИЕ ШАГИ (агент продолжает без пауз)
-1. ISO пересобрана: `mavericks-linux-2026.09.25-x86_64.iso` в `/home/builder/archiso-out/`;
-   QEMU+OVMF smoke-test пройден: boot → systemd-boot → linux → airootfs → Xfce DE.
-   (Было: root-blocker — now resolved: NOPASSWD sudo for builder per ENVIRONMENT.md).
-2. На железе: проверить применение темы Mavericks на живой сессии
-   (gtk-theme-name=Mavericks; gtk.css скомпилирован sassc pre-hardware);
-   E-MC apply (`mv-experiment.sh E-MC apply` после `yay -S skippy-xd-git`),
-   Super+Space/Spotlight-индекс, Quick Look, HiDPI 2304×1440.
-3. P0 coherence source-уровень ГОТОВ (фазы 0.8–0.15): E-MC эксперимент
-   (skippy-xd one-shot, rc, диспетчер), mv-newfolder в uca, plocate-timer
-   в firstboot, Preview-алиас, GUI smoke (quicklook/console/activity/notes/
-   settings/about alive на X), rofi-темы re-validated, HUD fallback `n/a`.
-   Остаток P0/P1 — только HW-валидация (NEEDS_HARDWARE_TEST.md).
-4. Обновить HANDOFF.md по итогам следующей итерации.
+1. ISO пересобрана с аудит-fixes: mv-spotlight, enhanced filechooser theming, rofi theme fixes.
+   QEMU+OVMF smoke-test пройден. NOPASSWD sudo разблокировано.
+2. На железе: проверить Mavericks тему, E-MC apply (skippy-xd), Super+Space/mv-spotlight,
+   Quick Look, HiDPI 2304×1440, filechooser theming.
+3. P0 coherence: Finder (PARTIALLY - no Space binding), Spotlight (PARTIALLY - mv-spotlight),
+   Launchpad (PARTIALLY - no pagination/folders), MC (EXPERIMENT READY - skippy-xd E-MC).
+   Filechooser theming enhanced. Остаток P0/P1 — HW-валидация (NEEDS_HARDWARE_TEST.md).
+4. APPS.md статусы скорректированы: никаких fake IMPLEMENTED.
+5. Обновить HANDOFF.md по итогам следующей итерации.
 
 **Никаких пауз "до железа".** Всё доводится до "ПОДГОТОВЛЕНО, НЕ ПРОВЕРЕНО".

@@ -6,7 +6,7 @@
   <property name="commands" type="empty">
     <property name="default" type="empty">
       <!-- Spotlight -->
-      <property name="&lt;Super&gt;space" type="string" value="rofi -show drun -theme /usr/share/mavericks-apps/rofi-mavericks.rasi"/>
+      <property name="&lt;Super&gt;space" type="string" value="rofi -show -modi 'spotlight:/usr/bin/mv-spotlight' -theme /usr/share/mavericks-apps/rofi-mavericks.rasi"/>
       <!-- Launchpad -->
       <property name="&lt;Super&gt;l" type="string" value="rofi -show drun -theme /usr/share/mavericks-apps/rofi-launchpad.rasi"/>
       <!-- Mission Control (window switcher; skippy-xd overview = E-MC experiment) -->

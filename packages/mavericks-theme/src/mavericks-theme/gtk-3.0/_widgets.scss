@@ -584,6 +584,74 @@ fontchooser {
 
 filechooser {
     background-color: $window_bg_color;
+    border: 1px solid $border_color;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+filechooser .sidebar {
+    background-color: $sidebar_bg_color;
+    border-right: 1px solid shade($sidebar_bg_color, 0.7);
+    min-width: 180px;
+}
+
+filechooser .sidebar row {
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: all 0.15s ease-out;
+}
+
+filechooser .sidebar row:hover {
+    background-color: shade($sidebar_bg_color, 1.05);
+}
+
+filechooser .sidebar row:selected {
+    background-color: $accent_bg_color;
+    color: $accent_fg_color;
+    font-weight: 600;
+}
+
+filechooser .view {
+    background-color: $window_bg_color;
+}
+
+filechooser .path-bar {
+    background-color: $titlebar_bg_color;
+    border-bottom: 1px solid $border_color;
+    padding: 8px 12px;
+    border-radius: 8px 8px 0 0;
+}
+
+filechooser .file-list {
+    background-color: $view_bg_color;
+}
+
+filechooser .file-list row:hover {
+    background-color: shade($view_bg_color, 1.02);
+}
+
+filechooser .file-list row:selected {
+    background-color: $theme_selected_bg_color;
+    color: $theme_selected_fg_color;
+}
+
+filechooser .file-name {
+    color: $text_color;
+}
+
+filechooser .file-size {
+    color: shade($text_color, 0.7);
+}
+
+filechooser .file-date {
+    color: shade($text_color, 0.6);
+}
+
+filechooser .button-box {
+    background-color: $titlebar_bg_color;
+    border-top: 1px solid $border_color;
+    padding: 8px 12px;
+    border-radius: 0 0 8px 8px;
 }
 
 /* ============================================================

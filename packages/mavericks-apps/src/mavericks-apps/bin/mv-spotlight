@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""mv-spotlight — Unified Spotlight search (apps + files) for rofi script mode.
+Outputs rofi-compatible formatted results with categories.
+"""
+import os
+import sys
+import subprocess
+import json
+from pathlib import Path
+
+DESKTOP_DIRS = [
+    "/usr/share/applications",
+    "/usr/local/share/applications",
+    os.path.expanduser("~/.local/share/applications"),
+]
+
+CACHE_FILE = Path.home() / ".cache" / "mv-spotlight-apps.json"
+
+def load_desktop_apps():
+    apps = []
+    for d in DESKTOP_DIRS:
+        if not os.path.isdir(d):
+            continue
+        for f in Path(d).glob("*.desktop"):
+            try:
+                with open(f, "r") as fp:
+                    content = fp.read()
+                if "NoDisplay=true" in content or "Hidden=true" in content:
+                    continue
+                name = ""
+                exec_cmd = ""
+                icon = ""
+                categories = ""
+                for line in content.splitlines():
+                    if line.startswith("Name="):
+                        name = line[5:].strip()
+                    elif line.startswith("Exec="):
+                        exec_cmd = line[5:].strip().split("%")[0]
+                    elif line.startswith("Icon="):
+                        icon = line[5:].strip()
+                    elif line.startswith("Categories="):
+                        categories = line[11:].strip()
+                if name and exec_cmd:
+                    apps.append({
+                        "name": name,
+                        "exec": exec_cmd,
+                        "icon": icon or "application-x-executable",
+                        "categories": categories,
+                        "source": "app"
+                    })
+            except Exception:
+                pass
+    return apps
+
+def search_apps(query, apps):
+    query = query.lower()
+    results = []
+    for app in apps:
+        if query in app["name"].lower() or query in app["exec"].lower():
+            results.append(app)
+    return results
+
+def search_files(query):
+    try:
+        result = subprocess.run(
+            ["plocate", "-i", "-l", "50", query],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+        files = result.stdout.strip().split("\n") if result.stdout.strip() else []
+        return [{"path": f, "name": os.path.basename(f), "source": "file"} for f in files if f]
+    except Exception:
+        return []
+
+def format_result(item, index):
+    if item["source"] == "app":
+        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fApplication"
+    else:
+        icon = "text-x-generic"
+        if item["name"].endswith((".pdf", ".PDF")):
+            icon = "application-pdf"
+        elif item["name"].endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg")):
+            icon = "image-x-generic"
+        elif item["name"].endswith((".mp3", ".wav", ".flac", ".m4a")):
+            icon = "audio-x-generic"
+        elif item["name"].endswith((".mp4", ".mov", ".avi", ".mkv")):
+            icon = "video-x-generic"
+        elif item["name"].endswith((".zip", ".tar", ".gz", ".bz2", ".xz", ".7z")):
+            icon = "package-x-generic"
+        return f"{item['name']}\0icon\x1f{icon}\0info\x1fFile: {os.path.dirname(item['path'])}"
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mv-spotlight <query>", file=sys.stderr)
+        return 1
+
+    query = sys.argv[1].strip()
+    if not query:
+        return 0
+
+    apps = load_desktop_apps()
+    app_results = search_apps(query, apps)
+    file_results = search_files(query)
+
+    print("Applications")
+    for app in app_results[:8]:
+        print(format_result(app, 0))
+
+    if file_results:
+        print("Files")
+        for f in file_results[:12]:
+            print(format_result(f, 0))
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
