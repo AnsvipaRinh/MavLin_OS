@@ -172,3 +172,29 @@
 - [x] Thunar UCA updated with all 4 new actions (Get Info, Open With, Rename, Eject)
 - [x] All scripts added to Makefile, packages rebuilt, check-sync ALL PASSED
 - [x] APPS.md updated: Finder UCA now includes Get Info, Open With, Rename, Eject
+
+### Фаза 0.21 — Spotlight enhancements (2026-09-26, без железа)
+- [x] mv-spotlight: calculator (math eval), unit conversion (length/weight/temp)
+- [x] File results categorized: Folders, Documents, Images, Audio, Video, Archives, Code, Spreadsheets, Presentations, Other
+- [x] Improved app ranking: exact > prefix > word-prefix > substring > exec-substring
+- [x] Recent items shown on empty query (from GTK recently-used.xbel)
+- [x] Separator between calculator and main results
+- [x] APPS.md: Spotlight status updated with implemented features
+
+### Фаза 0.22 — Launchpad pagination, folders, search (2026-09-26, без железа)
+- [x] mv-launchpad: paginated script-mode Launchpad for rofi
+- [x] Pagination: Left/Right arrows, PgUp/PgDn, 35 items/page (7x5 grid)
+- [x] Folders: configurable via ~/.config/mv-launchpad/folders.json
+- [x] Custom positions: ~/.config/mv-launchpad/positions.json
+- [x] Search filtering within Launchpad
+- [x] Keyboard navigation (arrows, Enter, Escape)
+- [x] Super+L → mv-launchpad script mode (XML validated)
+- [x] APPS.md: Launchpad status updated with implemented features
+
+### Фаза 0.23 — Mission Control window overview (2026-09-26, без железа)
+- [x] mv-mission-control: wmctrl-based window overview for rofi script mode
+- [x] Groups windows by workspace, shows active workspace first
+- [x] rofi-mission-control.rasi theme for window overview
+- [x] Super+Tab → mv-mission-control script mode (XML validated)
+- [x] E-MC experiment preserved: skippy-xd one-shot expose as advanced option
+- [x] APPS.md: Mission Control status updated
