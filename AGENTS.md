@@ -628,3 +628,325 @@ visual language; dialogs/file chooser/context menus не выдают stock Linu
 integrated; backend Linux-native; runtime/energy overhead разумен; power
 baseline сохранён; всё возможное сделано до hardware; hardware-dependent items
 явно перечислены в NEEDS_HARDWARE_TEST.md.
+
+---
+
+## 13. ARCHITECTURAL MODEL: APPLICATION-BASED COMPLETION (MANDATORY)
+
+> This section is binding. It overrides any prior "ready for hardware" language.
+> Hardware bring-up is a validation phase, NOT a development stop condition.
+
+### 13.1 PROJECT COMPLETION MUST BE APPLICATION-BASED
+
+The project status is NEVER "ready for hardware bring-up" if any application or desktop surface has status:
+
+* PARTIALLY IMPLEMENTED
+* EXPERIMENT READY
+* NOT STARTED
+* IN PROGRESS
+* AUDIT REQUIRED
+* DEFERRED WITHOUT EXPLICIT REASON
+
+Hardware bring-up is a separate validation phase. Hardware availability does NOT terminate pre-hardware implementation.
+
+### 13.2 CANONICAL APPLICATION INVENTORY (46 objectives)
+
+This list is the mandatory project scope. It does not change between sessions.
+
+**P0 — CORE MACOS/MAVERICKS DESKTOP (25)**
+
+1. Finder
+2. Spotlight
+3. System Settings
+4. Control Center
+5. Notification Center
+6. Quick Look
+7. Preview
+8. Screenshot
+9. Activity Monitor
+10. System Information
+11. Disk Utility
+12. Launchpad
+13. Mission Control
+14. Power / Shutdown / Restart UI
+15. Trash
+16. Archive Utility
+17. Menu Bar
+18. Dock
+19. Application Menu
+20. Global Dialogs
+21. File Chooser
+22. Context Menus
+23. Keyboard Shortcut Layer
+24. Desktop / Wallpaper / Session Behavior
+25. Window Management
+
+**P1 — APPLICATIONS (14)**
+
+26. TextEdit
+27. Notes
+28. Reminders
+29. Calendar
+30. Music
+31. Photos
+32. Voice Memos
+33. Console
+34. Keychain Access
+35. Font Book
+36. Digital Color Meter
+37. Stickies
+38. Calculator
+39. Dictionary
+
+**P2 — FUTURE / ADVANCED (7)**
+
+40. AirDrop
+41. Time Machine UI
+42. Automator / Shortcuts
+43. Grapher
+44. Migration Assistant
+45. App Store
+46. Software Update polish
+
+**EXPLICITLY EXCLUDED**
+
+Contacts, TV, Podcasts, Siri, AirPlay, Chess, Game Center, Dedicated Printer Discovery clone, Image Capture, Terminal replacement, Account-management infrastructure, Mandatory account/password infrastructure for the visual lock-screen curtain.
+
+Do not silently add excluded applications back into scope.
+
+### 13.3 UNIVERSAL MAVERICKS APPLICATION DEFINITION OF DONE
+
+Every application in the canonical inventory must be evaluated against the same Definition of Done.
+
+An application is NOT COMPLETE merely because:
+
+* a binary exists;
+* a Python script exists;
+* a `.desktop` file exists;
+* a package builds;
+* an application launches;
+* a stock Linux application is renamed;
+* a wrapper launches a stock application;
+* QEMU boots;
+* the ISO builds;
+* documentation says IMPLEMENTED.
+
+For each application, verify:
+
+**A. FUNCTIONAL BACKEND** — The application must actually perform its intended operation.
+
+**B. USER-FACING UI** — It must have an intentional Mavericks-like user interface rather than exposing generic Linux UI wherever avoidable.
+
+**C. VISUAL DESIGN** — Use the common project visual language:
+* Mavericks-era macOS visual hierarchy;
+* restrained grey/translucent surfaces where appropriate;
+* consistent toolbar proportions;
+* consistent typography;
+* consistent spacing;
+* consistent icons;
+* consistent controls;
+* consistent selection states;
+* consistent dialogs;
+* consistent hover/focus/pressed states;
+* consistent window geometry;
+* consistent light/dark assumptions appropriate to Mavericks;
+* consistent menu structure.
+
+Do not create each application as an unrelated Linux GUI.
+
+**D. BEHAVIOR** — Check:
+* keyboard navigation;
+* keyboard shortcuts;
+* focus;
+* Escape behavior;
+* Enter/default actions;
+* cancellation;
+* selection;
+* double-click;
+* context menus;
+* drag-and-drop where applicable;
+* error handling;
+* empty states;
+* unavailable-resource states.
+
+**E. DESKTOP INTEGRATION** — Check:
+* Dock;
+* application menu;
+* menu bar;
+* global shortcuts;
+* notifications;
+* MIME associations;
+* file associations;
+* dialogs;
+* file chooser;
+* context menus;
+* desktop/session behavior.
+
+**F. MAVERICKS COHERENCE** — Opening several applications must make them look like parts of one operating system.
+Do not accept: "backend works, but the UI is generic Linux" as COMPLETE.
+
+**G. RESOURCE BEHAVIOR** — Review:
+* startup cost;
+* idle processes;
+* persistent services;
+* memory;
+* CPU;
+* wakeups;
+* battery implications.
+
+Avoid Electron/Java/heavy persistent daemons unless technically justified.
+
+**H. PACKAGING** — Verify:
+* package;
+* dependencies;
+* install;
+* `.desktop`;
+* icons;
+* configuration;
+* ISO inclusion where appropriate;
+* reproducibility.
+
+**I. TESTING** — Provide automated or deterministic tests wherever possible.
+
+**J. HARDWARE CLASSIFICATION** — Every unresolved item must be explicitly classified:
+`PRE-HARDWARE IMPLEMENTABLE` or `HARDWARE VALIDATION REQUIRED` or `HARDWARE BLOCKED`
+Never use "hardware required" to hide unfinished software work.
+
+### 13.4 APPLICATION STATUS MACHINE
+
+For every application maintain one canonical status:
+
+* NOT_STARTED
+* AUDIT_REQUIRED
+* IN_PROGRESS
+* PARTIALLY_IMPLEMENTED
+* IMPLEMENTED_HARDWARE_VALIDATION_REQUIRED
+* VERIFIED
+* HARDWARE_BLOCKED
+* DEFERRED
+* EXCLUDED
+
+`COMPLETE` must NOT be used as a vague global label.
+
+An application may be considered fully complete only when:
+`VERIFIED` or `IMPLEMENTED_HARDWARE_VALIDATION_REQUIRED` when every pre-hardware requirement is actually implemented and only physical validation remains.
+
+`PARTIALLY_IMPLEMENTED` means WORK REMAINS.
+`EXPERIMENT READY` means WORK REMAINS.
+
+### 13.5 APPLICATION CHECKLIST (MACHINE-READABLE MATRIX)
+
+Maintain a structured application matrix in the repository.
+
+Minimum fields:
+Application, Priority, Status, Backend, Frontend, Visual Integration, Keyboard Integration, Desktop Integration, File/MIME Integration, Dialogs, Error Handling, Performance Review, Automated Tests, Hardware Dependency, Known Gaps, Next Executable Action.
+
+Every time an application is touched, update this matrix. The matrix is authoritative for project progress. Documentation must reflect actual implementation, not intentions.
+
+### 13.6 SPECIFIC HIGH-LEVEL COMPLETION REQUIREMENTS
+
+**FINDER** — Do not consider Finder complete until all feasible pre-hardware items have been addressed:
+sidebar, favorites, devices, navigation, toolbar, view modes, icon/list/column behavior where feasible, search, context menus, Get Info, Open With, Rename, Move to Trash, Empty Trash, Eject, Quick Look, keyboard navigation, drag-and-drop, MIME associations, dialogs, file chooser integration, removable media behavior, bookmarks, status information, Mavericks visual integration.
+If Thunar has an architectural limitation, investigate feasible surrounding implementation before accepting the limitation. "Thunar limitation" is not automatically a completion criterion.
+
+**SPOTLIGHT** — Require: global shortcut, dedicated search UI, application search, file search, result categories, ranking, keyboard navigation, launch/open, visual integration, indexing lifecycle, reasonable performance.
+rofi + plocate is a backend strategy, not automatically a completed Spotlight experience.
+
+**LAUNCHPAD** — Require: application discovery, icon grid, keyboard navigation, launch, search, pages where feasible, grouping/folders where feasible, close behavior, Dock/global shortcut integration, Mavericks visual behavior.
+A generic `rofi -show drun` is not automatically Launchpad.
+
+**MISSION CONTROL** — Require actual window overview behavior. A rofi window list is not automatically Mission Control. Investigate and implement the best lightweight X11/Xfce-compatible approach available. If `skippy-xd` is suitable, integrate it rather than merely documenting an experiment.
+
+**CONTROL CENTER** — Require actual user-facing controls: network, audio, Bluetooth, display/brightness, power, relevant system toggles. Do not count backend availability as UI completion.
+
+**NOTIFICATION CENTER** — Require: notification surface, notification history where feasible, consistent visual style, interaction, keyboard/global integration.
+
+**QUICK LOOK** — Require: Space behavior where feasible, preview selection, image/document/text/media preview, correct window lifecycle, integration with Finder, keyboard behavior. If X11/Thunar lacks a native hook, investigate alternate implementation rather than simply documenting the limitation.
+
+**SYSTEM SETTINGS** — Require a coherent settings application rather than a collection of unrelated stock dialogs.
+
+**ACTIVITY MONITOR** — Require: process list, CPU, memory, relevant system metrics, refresh, process interaction where safe, Mavericks-like presentation.
+
+**SYSTEM INFORMATION** — Require a coherent system-information surface rather than raw command output.
+
+**DISK UTILITY** — Require a usable storage/device interface over Linux storage backends.
+
+**CONSOLE** — This means the macOS-style log viewer. It does NOT mean Terminal.
+
+**PREVIEW** — Require actual document/image viewing and appropriate file integration.
+
+**TEXTEDIT / NOTES / REMINDERS / CALENDAR / MUSIC / PHOTOS / VOICE MEMOS** — Each must be independently audited. Do not treat "a Linux application with a suitable name" as sufficient. A mature Linux backend may be reused, but the user-facing integration must belong to the Mavericks-like desktop.
+
+**KEYCHAIN ACCESS** — Use mature Linux secret-storage backend where appropriate, but provide an appropriate user-facing keychain management surface.
+
+**FONT BOOK** — Provide actual font browsing/preview/management functionality.
+
+**DIGITAL COLOR METER** — Provide actual screen color sampling behavior where technically feasible under X11.
+
+**STICKIES** — Provide actual sticky-note behavior and desktop integration.
+
+**CALCULATOR** — Provide calculator behavior with appropriate Mavericks-like presentation.
+
+### 13.7 REUSE-FIRST DOES NOT MEAN WRAPPER-FIRST
+
+Continue using mature Linux backends. However: "Reuse backend" does NOT mean "rename an existing Linux application and declare the Mavericks application complete."
+Correct architecture: Mavericks-like frontend → mature Linux backend where appropriate. Do not rewrite mature backend functionality unnecessarily.
+
+### 13.8 AUTONOMOUS EXECUTION
+
+After auditing the application matrix: DO NOT STOP.
+Select the highest-priority application with unfinished executable work.
+Implement it. Test it. Update the matrix. Commit. Continue with the next unfinished application.
+A commit is a checkpoint, NOT a stopping condition. An audit is a checkpoint, NOT a stopping condition. A clean tree is NOT a stopping condition. A documentation update is NOT a stopping condition. A "next logical step" is NOT a stopping condition. "Ready for hardware" is NOT a stopping condition if pre-hardware work remains.
+
+### 13.9 CURRENT PROJECT MUST BE RE-AUDITED
+
+Immediately audit all applications in the canonical inventory. Do not trust current `APPS.md`, `PROGRESS.md`, `HANDOFF.md`, or previous agent claims without inspecting the implementation.
+
+The latest audit already proves that at least:
+Finder = PARTIALLY IMPLEMENTED
+Spotlight = PARTIALLY IMPLEMENTED
+Launchpad = PARTIALLY IMPLEMENTED
+Mission Control = EXPERIMENT READY
+
+Therefore the project is NOT complete. These four objectives alone require further autonomous work. Do not merely document their gaps again. Implement the feasible gaps. Then continue through the remaining applications.
+
+### 13.10 HARDWARE IS A VALIDATION PHASE, NOT A DEVELOPMENT STOP
+
+The eventual MacBook10,1 will be used for: applespi, BCM43602 Wi-Fi, Bluetooth, Cirrus audio, S3X NVMe behavior, USB-C/DP, brightness, thermal behavior, power measurements, actual 2304×1440 display behavior.
+Until hardware exists, continue implementing every software/UI/integration component that can be developed without it.
+
+The final pre-hardware state should therefore be:
+ALL SOFTWARE OBJECTIVES IMPLEMENTED + ALL KNOWN HARDWARE-DEPENDENT ITEMS CLEARLY MARKED + AUTOMATED TESTS PASSING + ISO/QEMU REGRESSION PASSING.
+
+### 13.11 FINAL PROJECT COMPLETION CONDITION
+
+Do NOT declare the project ready for final hardware validation until:
+* every in-scope application has been audited;
+* every feasible pre-hardware gap has been implemented;
+* every application has reached the appropriate terminal status;
+* no `PARTIALLY_IMPLEMENTED` application remains where work is executable;
+* no `EXPERIMENT READY` item remains where integration is feasible;
+* the common Mavericks visual system is coherent;
+* automated tests pass;
+* ISO builds;
+* QEMU smoke/regression tests pass;
+* documentation matches reality.
+
+Only then move to hardware validation.
+
+### 13.12 IMMEDIATE ACTION
+
+After installing this specification:
+1. update `AGENTS.md`;
+2. create/update the canonical application matrix;
+3. audit all 46 in-scope objectives;
+4. classify every objective;
+5. select the highest-priority unfinished objective;
+6. IMPLEMENT IT;
+7. TEST IT;
+8. UPDATE STATE;
+9. COMMIT;
+10. CONTINUE.
+
+Do not return a "final summary" merely because the audit is complete. The audit is the beginning of the implementation pass, not the end.
