@@ -1,25 +1,104 @@
-/* Mavericks Spotlight (rofi drun + custom file search) — centered, categorized */
+/* Mavericks Spotlight — centered, categorized, skeuomorphic accent */
 * {
     font: "San Francisco 11";
-    background: rgba(240, 240, 240, 0.96);
-    foreground: #333333;
-    border: 0;
+    background: rgba(245, 245, 245, 0.98);
+    foreground: #2d2d2d;
+    accent: #007aff;
+    accent-text: #ffffff;
+    border-color: #d1d1d1;
+    category-bg: rgba(0, 0, 0, 0.03);
+    category-fg: #888888;
+    placeholder: #aaaaaa;
+    input-border: #cccccc;
+    input-bg: #ffffff;
+    separator: #e0e0e0;
 }
 window {
-    width: 640px;
+    width: 680px;
     location: center;
     anchor: center;
     border: 1px;
-    border-color: #999999;
-    border-radius: 8px;
-    padding: 12px;
+    border-color: #bababa;
+    border-radius: 10px;
+    padding: 16px;
+    background-color: @background;
 }
-mainbox { children: [ inputbar, listview ]; spacing: 8px; }
-inputbar { children: [ prompt, entry ]; border: 1px; border-color: #cccccc; border-radius: 4px; padding: 6px; }
-entry { placeholder: "Spotlight Search"; }
-listview { lines: 12; columns: 1; fixed-height: true; }
-element { padding: 8px 10px; border-radius: 4px; }
-element selected { background: #2f7cf6; foreground: white; }
-element-icon { size: 24px; }
-element-text { vertical-align: 0.5; }
-category { padding: 6px 10px; background: rgba(0,0,0,0.04); font-weight: 600; color: #666; border-radius: 4px; margin: 4px 0 2px; }
+mainbox {
+    children: [ inputbar, listview ];
+    spacing: 10px;
+}
+inputbar {
+    children: [ prompt, entry ];
+    border: 1px;
+    border-color: @input-border;
+    border-radius: 6px;
+    padding: 8px 12px;
+    background-color: @input-bg;
+}
+prompt {
+    enabled: false;
+    spacing: 0;
+}
+entry {
+    placeholder: "Spotlight Search";
+    placeholder-color: @placeholder;
+    text-color: @foreground;
+    cursor: text;
+    spacing: 0;
+}
+listview {
+    lines: 14;
+    columns: 1;
+    fixed-height: true;
+    dynamic: true;
+    scrollbar: true;
+    padding: 4px 0;
+    border: 1px;
+    border-color: @separator;
+    border-radius: 6px;
+}
+element {
+    padding: 10px 14px;
+    border-radius: 5px;
+    spacing: 12px;
+}
+element normal.normal {
+    background-color: transparent;
+    text-color: @foreground;
+}
+element selected.normal {
+    background-color: @accent;
+    text-color: @accent-text;
+}
+element-icon {
+    size: 28px;
+    background-color: transparent;
+}
+element-text {
+    vertical-align: 0.5;
+}
+category {
+    padding: 8px 14px;
+    background: @category-bg;
+    font-weight: 600;
+    color: @category-fg;
+    border-radius: 5px;
+    margin: 6px 4px 2px;
+}
+scrollbar {
+    width: 6px;
+    handle-color: #bbbbbb;
+    handle-width: 8px;
+    border: 0;
+    padding: 4px;
+}
+scrollbar handle {
+    border-radius: 3px;
+}
+num-filtered-rows, num-rows, textbox-num-sep {
+    text-color: @category-fg;
+    expand: false;
+}
+case-indicator {
+    text-color: @category-fg;
+}

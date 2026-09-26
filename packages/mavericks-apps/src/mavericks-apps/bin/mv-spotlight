@@ -6,12 +6,14 @@ Features:
 - File search via plocate with categorization
 - Calculator/conversion (simple math, unit conversion)
 - Recent items (from GTK recently-used)
+- System actions (Settings, Control Center, etc.)
 """
 import os
 import sys
 import subprocess
 import re
 import math
+import shutil
 from pathlib import Path
 
 DESKTOP_DIRS = [
@@ -21,6 +23,16 @@ DESKTOP_DIRS = [
 ]
 
 RECENT_FILE = Path.home() / ".local" / "share" / "recently-used.xbel"
+
+PLOCATE_PATH = shutil.which("plocate")
+
+SYSTEM_ACTIONS = [
+    ("System Settings", "mv-settings", "preferences-system", "Open System Settings"),
+    ("Control Center", "mv-control", "preferences-desktop", "Open Control Center"),
+    ("Activity Monitor", "mv-activity", "utilities-system-monitor", "Open Activity Monitor"),
+    ("Disk Utility", "mv-disk-utility", "drive-harddisk", "Open Disk Utility"),
+    ("Terminal", "xfce4-terminal", "utilities-terminal", "Open Terminal"),
+]
 
 # Category definitions for files
 FILE_CATEGORIES = [
@@ -145,17 +157,21 @@ def search_apps(query, apps):
 
 def search_files(query):
     """Search files via plocate."""
+    if not PLOCATE_PATH:
+        return [], "plocate not installed — file search unavailable. Install 'plocate' package and run 'sudo updatedb'."
     try:
         result = subprocess.run(
-            ["plocate", "-i", "-l", "100", query],
+            [PLOCATE_PATH, "-i", "-l", "100", query],
             capture_output=True,
             text=True,
             timeout=3
         )
         files = result.stdout.strip().split("\n") if result.stdout.strip() else []
-        return [f for f in files if f]
-    except Exception:
-        return []
+        return [f for f in files if f], None
+    except subprocess.TimeoutExpired:
+        return [], "File search timed out (3s)."
+    except Exception as e:
+        return [], f"File search error: {e}"
 
 
 def get_recent_items(limit=5):
@@ -269,13 +285,16 @@ def convert_units(value, from_unit, to_unit, ctype):
 def format_result(item):
     """Format item for rofi script mode output."""
     if item["source"] == "app":
-        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fApplication"
+        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fApplication\0action\x1f{item['exec']}"
     elif item["source"] == "calculator":
-        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1f{item['info']}"
+        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1f{item['info']}\0action\x1f{item['action']}"
+    elif item["source"] == "system":
+        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1f{item['info']}\0action\x1f{item['exec']}"
     else:
         icon = item.get("icon", "text-x-generic")
         info = item.get("info", f"File: {os.path.dirname(item['path'])}")
-        return f"{item['name']}\0icon\x1f{icon}\0info\x1f{info}"
+        action = f"xdg-open '{item['path']}'"
+        return f"{item['name']}\0icon\x1f{icon}\0info\x1f{info}\0action\x1f{action}"
 
 
 def main():
@@ -293,8 +312,12 @@ def main():
                 name = os.path.basename(path)
                 cat = categorize_file(path, name)
                 icon = get_icon_for_file(name, path)
-                print(f"{name}\0icon\x1f{icon}\0info\x1f{cat}: {os.path.dirname(path)}")
+                print(f"{name}\0icon\x1f{icon}\0info\x1f{cat}: {os.path.dirname(path)}\0action\x1fxdg-open '{path}'")
+        else:
+            print("No recent items\0icon\x1fdialog-information\0info\x1fNo recently used files found")
         return 0
+
+    any_results = False
 
     # Calculator/conversion
     calc_results = evaluate_calculator(query)
@@ -302,6 +325,7 @@ def main():
         for r in calc_results:
             print(format_result(r))
         print("---")  # separator
+        any_results = True
 
     # Applications
     apps = load_desktop_apps()
@@ -311,10 +335,33 @@ def main():
         print("Applications")
         for app in app_results[:8]:
             print(format_result(app))
+        any_results = True
+
+    # System actions (match query against name/description)
+    sys_results = []
+    q = query.lower()
+    for name, exec_cmd, icon, desc in SYSTEM_ACTIONS:
+        if q in name.lower() or q in desc.lower():
+            sys_results.append({
+                "name": name,
+                "exec": exec_cmd,
+                "icon": icon,
+                "info": desc,
+                "source": "system"
+            })
+    if sys_results:
+        print("System")
+        for item in sys_results[:5]:
+            print(format_result(item))
+        any_results = True
 
     # Files (categorized)
-    file_paths = search_files(query)
-    if file_paths:
+    file_paths, file_error = search_files(query)
+    if file_error and not any_results:
+        # Show plocate missing/error as a result so user sees it
+        print(f"{file_error}\0icon\x1fdialog-warning\0info\x1fFile search unavailable")
+        any_results = True
+    elif file_paths:
         # Group by category
         categorized = {}
         for path in file_paths[:50]:
@@ -336,6 +383,10 @@ def main():
                 print(cat)
                 for item in categorized[cat][:8]:
                     print(format_result(item))
+        any_results = True
+
+    if not any_results:
+        print(f"No results for \"{query}\"\0icon\x1fdialog-information\0info\x1fTry a different search term")
 
     return 0
 
