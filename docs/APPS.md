@@ -45,8 +45,8 @@
 
 | Name | State | Backend | UI Type | Deps | Runtime | HW dep | Known Gaps / Next Action |
 |---|---|---|---|---|---|---|---|
-| TextEdit | PARTIALLY IMPLEMENTED | mousepad 0.7 (GPL-2.0+, gtksourceview4) | alias/wrapper (Category D) | mousepad | on-demand | — | no Mavericks UI; stock mousepad only; .desktop alias only |
-| Calculator | PARTIALLY IMPLEMENTED | galculator 2.1 (GPL-2.0+) | alias/wrapper (Category D) | galculator | on-demand | — | no Mavericks UI; stock galculator only; .desktop alias only |
+| TextEdit | PARTIALLY IMPLEMENTED | custom mv-textedit (GtkSourceView4) | custom frontend (Category B) | gtksourceview4 | on-demand | — | custom app implemented; missing Mavericks visual integration (ruler, document inspector, leather texture, rich text/RTF support, spelling) |
+| Calculator | PARTIALLY IMPLEMENTED | custom mv-calculator (Python/GTK3, math backend) | custom frontend (Category B) | — | on-demand | — | custom app implemented (Basic/Scientific/Programmer modes, paper tape); missing Mavericks visual integration (metal buttons, LED display, history drawer, RPN mode) |
 | Notes | PARTIALLY IMPLEMENTED | custom mv-notes (local JSON + GTK3) | custom frontend (Category B) | — | on-demand | — | custom app exists; missing Mavericks visual integration (leather texture, pin UI, folder sidebar styling) |
 | Reminders | PARTIALLY IMPLEMENTED | custom mv-reminders (local JSON + systemd timer) | custom frontend (Category B) | libnotify | timer 1/h | — | custom app exists; missing Mavericks visual integration (paper texture, list styling, notification styling) |
 | Calendar | PARTIALLY IMPLEMENTED | orage 4.20 (GPL-2.0+, libical) | alias/wrapper (Category D) | orage | on-demand | — | no Mavericks UI; stock orage only; .desktop alias only |

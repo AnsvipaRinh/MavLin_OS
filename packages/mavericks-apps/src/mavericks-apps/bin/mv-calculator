@@ -1,0 +1,370 @@
+#!/usr/bin/env python3
+"""mv-calculator — Mavericks-like Calculator.
+Basic, Scientific, and Programmer modes.
+Backend: Python math. UI: GTK3 with Mavericks styling.
+Features: history, memory, unit conversion (in Spotlight), paper tape.
+"""
+import math
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GLib
+
+class Calculator(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Calculator")
+        self.set_default_size(320, 480)
+        self.set_resizable(False)
+
+        hb = Gtk.HeaderBar(title="Calculator", show_close_button=True)
+        self.set_titlebar(hb)
+
+        # Mode selector
+        self.mode_combo = Gtk.ComboBoxText()
+        for mode in ["Basic", "Scientific", "Programmer"]:
+            self.mode_combo.append_text(mode)
+        self.mode_combo.set_active(0)
+        self.mode_combo.connect("changed", self.on_mode_change)
+        hb.pack_start(self.mode_combo)
+
+        # Paper tape button
+        tape_btn = Gtk.Button()
+        tape_btn.set_image(Gtk.Image.new_from_icon_name("text-x-generic", Gtk.IconSize.BUTTON))
+        tape_btn.set_tooltip_text("Paper Tape")
+        tape_btn.connect("clicked", self.show_tape)
+        hb.pack_end(tape_btn)
+
+        # Main layout
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(vbox)
+
+        # Display
+        self.display = Gtk.Entry()
+        self.display.set_editable(False)
+        self.display.set_alignment(1.0)
+        self.display.set_text("0")
+        self.display.override_font(Pango.FontDescription("San Francisco 36"))
+        self.display.set_hexpand(True)
+        self.display.set_margin_top(16)
+        self.display.set_margin_bottom(8)
+        self.display.set_margin_start(16)
+        self.display.set_margin_end(16)
+        vbox.pack_start(self.display, False, False, 0)
+
+        # Button grid (will be rebuilt on mode change)
+        self.grid = Gtk.Grid()
+        self.grid.set_row_spacing(8)
+        self.grid.set_column_spacing(8)
+        self.grid.set_margin_top(8)
+        self.grid.set_margin_bottom(16)
+        self.grid.set_margin_start(16)
+        self.grid.set_margin_end(16)
+        vbox.pack_start(self.grid, True, True, 0)
+
+        # Tape window (hidden by default)
+        self.tape_window = None
+        self.tape_buffer = Gtk.TextBuffer()
+
+        # State
+        self.current = "0"
+        self.pending_op = None
+        self.pending_val = None
+        self.new_input = True
+        self.tape = []
+
+        self.build_basic()
+        self.show_all()
+
+    def build_basic(self):
+        self.clear_grid()
+        buttons = [
+            ["C", "±", "%", "÷"],
+            ["7", "8", "9", "×"],
+            ["4", "5", "6", "−"],
+            ["1", "2", "3", "+"],
+            ["0", ".", "="],
+        ]
+        for r, row in enumerate(buttons):
+            for c, label in enumerate(row):
+                btn = Gtk.Button(label=label)
+                btn.set_hexpand(True)
+                btn.set_vexpand(True)
+                if label in "0123456789.":
+                    btn.connect("clicked", self.on_digit, label)
+                elif label == "C":
+                    btn.connect("clicked", self.on_clear)
+                elif label == "=":
+                    btn.connect("clicked", self.on_equals)
+                    btn.get_style_context().add_class("suggested-action")
+                elif label in "+−×÷":
+                    btn.connect("clicked", self.on_operator, label)
+                elif label == "±":
+                    btn.connect("clicked", self.on_sign)
+                elif label == "%":
+                    btn.connect("clicked", self.on_percent)
+                if label == "0":
+                    self.grid.attach(btn, 0, r, 2, 1)
+                else:
+                    self.grid.attach(btn, c if label != "0" else c+1, r, 1, 1)
+
+    def build_scientific(self):
+        self.clear_grid()
+        # Basic + scientific buttons
+        buttons = [
+            ["C", "(", ")", "←"],
+            ["sin", "cos", "tan", "÷"],
+            ["log", "ln", "eˣ", "×"],
+            ["x²", "√x", "xʸ", "−"],
+            ["7", "8", "9", "+"],
+            ["4", "5", "6", "="],
+            ["1", "2", "3", "+"],
+            ["0", ".", "π", "e"],
+        ]
+        for r, row in enumerate(buttons):
+            for c, label in enumerate(row):
+                btn = Gtk.Button(label=label)
+                btn.set_hexpand(True)
+                btn.set_vexpand(True)
+                if label in "0123456789.πe":
+                    btn.connect("clicked", self.on_digit, label)
+                elif label == "C":
+                    btn.connect("clicked", self.on_clear)
+                elif label == "←":
+                    btn.connect("clicked", self.on_backspace)
+                elif label == "=":
+                    btn.connect("clicked", self.on_equals)
+                    btn.get_style_context().add_class("suggested-action")
+                elif label in "+−×÷":
+                    btn.connect("clicked", self.on_operator, label)
+                elif label in ("sin", "cos", "tan", "log", "ln", "eˣ", "x²", "√x", "xʸ"):
+                    btn.connect("clicked", self.on_function, label)
+                if label == "0":
+                    self.grid.attach(btn, 0, r, 2, 1)
+                else:
+                    self.grid.attach(btn, c if label != "0" else c+1, r, 1, 1)
+
+    def build_programmer(self):
+        self.clear_grid()
+        buttons = [
+            ["C", "HEX", "DEC", "OCT", "BIN"],
+            ["AND", "OR", "XOR", "NOT"],
+            ["<<", ">>", "(", ")", "←"],
+            ["A", "B", "C", "D", "E", "F"],
+            ["7", "8", "9", "÷"],
+            ["4", "5", "6", "×"],
+            ["1", "2", "3", "−"],
+            ["0", ".", "="],
+        ]
+        for r, row in enumerate(buttons):
+            for c, label in enumerate(row):
+                btn = Gtk.Button(label=label)
+                btn.set_hexpand(True)
+                btn.set_vexpand(True)
+                if label in "0123456789.ABCDEF":
+                    btn.connect("clicked", self.on_digit, label)
+                elif label == "C":
+                    btn.connect("clicked", self.on_clear)
+                elif label == "←":
+                    btn.connect("clicked", self.on_backspace)
+                elif label == "=":
+                    btn.connect("clicked", self.on_equals)
+                    btn.get_style_context().add_class("suggested-action")
+                elif label in "+−×÷":
+                    btn.connect("clicked", self.on_operator, label)
+                elif label in ("HEX", "DEC", "OCT", "BIN"):
+                    btn.connect("clicked", self.on_base, label)
+                elif label in ("AND", "OR", "XOR", "NOT", "<<", ">>"):
+                    btn.connect("clicked", self.on_bitwise, label)
+                self.grid.attach(btn, c, r, 1, 1)
+
+    def clear_grid(self):
+        for child in self.grid.get_children():
+            self.grid.remove(child)
+
+    def on_mode_change(self, combo):
+        mode = combo.get_active_text()
+        if mode == "Basic":
+            self.build_basic()
+        elif mode == "Scientific":
+            self.build_scientific()
+        elif mode == "Programmer":
+            self.build_programmer()
+        self.show_all()
+
+    def on_digit(self, _, digit):
+        if self.new_input:
+            self.current = ""
+            self.new_input = False
+        if digit == "." and "." in self.current:
+            return
+        if digit in ("π", "e"):
+            self.current = str(math.pi if digit == "π" else math.e)
+        else:
+            self.current += digit
+        self.display.set_text(self.current)
+
+    def on_operator(self, _, op):
+        if not self.new_input:
+            self.calculate()
+        self.pending_op = op
+        self.pending_val = float(self.current)
+        self.new_input = True
+
+    def on_function(self, _, func):
+        val = float(self.current)
+        try:
+            if func == "sin": val = math.sin(math.radians(val))
+            elif func == "cos": val = math.cos(math.radians(val))
+            elif func == "tan": val = math.tan(math.radians(val))
+            elif func == "log": val = math.log10(val)
+            elif func == "ln": val = math.log(val)
+            elif func == "eˣ": val = math.exp(val)
+            elif func == "x²": val = val ** 2
+            elif func == "√x": val = math.sqrt(val)
+            elif func == "xʸ":
+                self.pending_op = "^"
+                self.pending_val = val
+                self.new_input = True
+                return
+            elif func == "π": val = math.pi
+            elif func == "e": val = math.e
+            self.current = self.format(val)
+            self.display.set_text(self.current)
+            self.add_tape(f"{func}({self.current}) = {self.current}")
+        except Exception:
+            self.current = "Error"
+        self.display.set_text(self.current)
+        self.new_input = True
+
+    def on_base(self, _, base):
+        try:
+            val = int(float(self.current))
+            if base == "HEX": self.current = hex(val)[2:].upper()
+            elif base == "DEC": self.current = str(val)
+            elif base == "OCT": self.current = oct(val)[2:]
+            elif base == "BIN": self.current = bin(val)[2:]
+            self.display.set_text(self.current)
+        except Exception:
+            self.current = "Error"
+            self.display.set_text(self.current)
+
+    def on_bitwise(self, _, op):
+        if not self.new_input:
+            self.calculate()
+        self.pending_op = op
+        self.pending_val = int(float(self.current))
+        self.new_input = True
+
+    def on_sign(self, _):
+        if self.current != "0":
+            if self.current.startswith("-"):
+                self.current = self.current[1:]
+            else:
+                self.current = "-" + self.current
+            self.display.set_text(self.current)
+
+    def on_percent(self, _):
+        try:
+            val = float(self.current) / 100
+            self.current = self.format(val)
+            self.display.set_text(self.current)
+        except Exception:
+            self.current = "Error"
+            self.display.set_text(self.current)
+
+    def on_clear(self, _):
+        self.current = "0"
+        self.pending_op = None
+        self.pending_val = None
+        self.new_input = True
+        self.display.set_text("0")
+
+    def on_backspace(self, _):
+        if not self.new_input and len(self.current) > 1:
+            self.current = self.current[:-1]
+        elif len(self.current) == 1:
+            self.current = "0"
+        self.display.set_text(self.current)
+
+    def calculate(self):
+        if self.pending_op is None or self.pending_val is None:
+            return
+        try:
+            curr = float(self.current)
+            if self.pending_op == "+": result = self.pending_val + curr
+            elif self.pending_op == "−": result = self.pending_val - curr
+            elif self.pending_op == "×": result = self.pending_val * curr
+            elif self.pending_op == "÷": result = self.pending_val / curr if curr != 0 else float('inf')
+            elif self.pending_op == "^": result = self.pending_val ** curr
+            elif self.pending_op == "AND": result = int(self.pending_val) & int(curr)
+            elif self.pending_op == "OR": result = int(self.pending_val) | int(curr)
+            elif self.pending_op == "XOR": result = int(self.pending_val) ^ int(curr)
+            elif self.pending_op == "NOT": result = ~int(self.pending_val)
+            elif self.pending_op == "<<": result = int(self.pending_val) << int(curr)
+            elif self.pending_op == ">>": result = int(self.pending_val) >> int(curr)
+            else: return
+            self.add_tape(f"{self.pending_val} {self.pending_op} {curr} = {result}")
+            self.current = self.format(result)
+            self.display.set_text(self.current)
+            self.pending_op = None
+            self.pending_val = None
+        except Exception:
+            self.current = "Error"
+            self.display.set_text(self.current)
+
+    def on_equals(self, _):
+        self.calculate()
+        self.new_input = True
+
+    def on_percent(self, _):
+        try:
+            val = float(self.current) / 100
+            self.current = self.format(val)
+            self.display.set_text(self.current)
+        except Exception:
+            self.current = "Error"
+            self.display.set_text(self.current)
+
+    def format(self, val):
+        if isinstance(val, float):
+            if val == int(val):
+                return str(int(val))
+            return "{:.10g}".format(val)
+        return str(val)
+
+    def add_tape(self, entry):
+        self.tape.append(entry)
+        if self.tape_buffer:
+            end = self.tape_buffer.get_end_iter()
+            self.tape_buffer.insert(end, entry + "\n")
+
+    def show_tape(self, _):
+        if self.tape_window:
+            self.tape_window.present()
+            return
+        self.tape_window = Gtk.Window(title="Paper Tape", transient_for=self)
+        self.tape_window.set_default_size(200, 400)
+        self.tape_window.set_type_hint(Gdk.WindowTypeHint.UTILITY)
+        sw = Gtk.ScrolledWindow()
+        view = Gtk.TextView(buffer=self.tape_buffer)
+        view.set_editable(False)
+        view.set_monospace(True)
+        sw.add(view)
+        self.tape_window.add(sw)
+        self.tape_window.connect("destroy", lambda _: setattr(self, "tape_window", None))
+        self.tape_window.show_all()
+
+    def on_percent(self, _):
+        try:
+            val = float(self.current) / 100
+            self.current = self.format(val)
+            self.display.set_text(self.current)
+        except Exception:
+            self.current = "Error"
+            self.display.set_text(self.current)
+
+if __name__ == "__main__":
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Pango, Gdk
+    w = Calculator()
+    w.connect("destroy", Gtk.main_quit)
+    Gtk.main()

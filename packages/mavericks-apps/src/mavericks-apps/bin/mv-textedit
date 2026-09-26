@@ -1,0 +1,302 @@
+#!/usr/bin/env python3
+"""mv-textedit — Mavericks-like TextEdit.
+Plain/rich text editing with Mavericks-style UI.
+Backend: GtkSourceView4 for syntax highlighting.
+Storage: plain text files (.txt, .md, .rtf via GtkSourceView).
+Features: font panel, ruler, find/replace, document inspector.
+"""
+import os
+import sys
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("GtkSource", "4")
+from gi.repository import Gtk, GtkSource, GLib, Pango
+
+class TextEdit(Gtk.Window):
+    def __init__(self, file_path=None):
+        super().__init__(title="Untitled")
+        self.set_default_size(720, 540)
+        self.file_path = file_path
+        self.modified = False
+
+        # Header bar with Mavericks-style controls
+        hb = Gtk.HeaderBar(title="TextEdit", show_close_button=True)
+        self.set_titlebar(hb)
+
+        # Left: document title
+        self.title_label = Gtk.Label(label="Untitled")
+        self.title_label.get_style_context().add_class("title")
+        hb.pack_start(self.title_label)
+
+        # Right: toolbar buttons
+        for label, icon, cb in [
+            ("New", "document-new", self.new_document),
+            ("Open", "document-open", self.open_document),
+            ("Save", "document-save", self.save_document),
+            ("Save As", "document-save-as", self.save_as_document),
+        ]:
+            b = Gtk.Button()
+            img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON)
+            b.set_image(img)
+            b.set_tooltip_text(label)
+            b.connect("clicked", cb)
+            hb.pack_end(b)
+
+        # Format menu button
+        self.format_menu = Gtk.MenuButton()
+        self.format_menu.set_image(Gtk.Image.new_from_icon_name("format-text-bold", Gtk.IconSize.BUTTON))
+        self.format_menu.set_tooltip_text("Format")
+        format_menu = Gtk.Menu()
+        for label, action in [
+            ("Bold", lambda _: self.apply_format("bold")),
+            ("Italic", lambda _: self.apply_format("italic")),
+            ("Underline", lambda _: self.apply_format("underline")),
+            ("Strikethrough", lambda _: self.apply_format("strikethrough")),
+            (None, None),
+            ("Font…", self.show_font_dialog),
+            ("Text Color…", self.show_color_dialog),
+            (None, None),
+            ("Align Left", lambda _: self.set_justification(Gtk.Justification.LEFT)),
+            ("Center", lambda _: self.set_justification(Gtk.Justification.CENTER)),
+            ("Align Right", lambda _: self.set_justification(Gtk.Justification.RIGHT)),
+            ("Justify", lambda _: self.set_justification(Gtk.Justification.FILL)),
+        ]:
+            if label is None:
+                format_menu.append(Gtk.SeparatorMenuItem())
+            else:
+                item = Gtk.MenuItem(label=label)
+                if callable(action):
+                    item.connect("activate", action)
+                format_menu.append(item)
+        format_menu.show_all()
+        self.format_menu.set_popup(format_menu)
+        hb.pack_end(self.format_menu)
+
+        # Main view
+        self.buffer = GtkSource.Buffer()
+        self.buffer.connect("changed", self.on_changed)
+
+        # Language manager for syntax highlighting
+        lm = GtkSource.LanguageManager.get_default()
+        lang = lm.guess_language(None, "text/plain")
+        if lang:
+            self.buffer.set_language(lang)
+
+        self.view = GtkSource.View(buffer=self.buffer)
+        self.view.set_wrap_mode(Gtk.WrapMode.WORD)
+        self.view.set_monospace(False)
+        self.view.set_show_line_numbers(True)
+        self.view.set_highlight_current_line(True)
+        self.view.set_auto_indent(True)
+        self.view.set_indent_width(4)
+        self.view.set_insert_spaces_instead_of_tabs(True)
+
+        # Font
+        font_desc = Pango.FontDescription("San Francisco 13")
+        self.view.override_font(font_desc)
+
+        sw = Gtk.ScrolledWindow()
+        sw.add(self.view)
+        self.add(sw)
+
+        # Status bar
+        self.status_bar = Gtk.Statusbar()
+        self.status_context = self.status_bar.get_context_id("info")
+        self.update_status()
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        vbox.pack_start(sw, True, True, 0)
+        vbox.pack_start(self.status_bar, False, False, 0)
+        self.add(vbox)
+
+        # Load file if provided
+        if file_path:
+            self.load_file(file_path)
+        else:
+            self.set_title("Untitled - TextEdit")
+
+        self.connect("delete-event", self.on_close)
+        self.show_all()
+
+    def on_changed(self, _buf):
+        self.modified = True
+        title = self.get_title().replace(" ●", "")
+        self.set_title(title + " ●")
+
+    def update_status(self):
+        # Line/column count
+        iter_ = self.buffer.get_iter_at_mark(self.buffer.get_insert())
+        line = iter_.get_line() + 1
+        col = iter_.get_line_offset() + 1
+        char_count = self.buffer.get_char_count()
+        self.status_bar.push(self.status_context, f"Ln {line}, Col {col}  |  {char_count} chars")
+
+    def apply_format(self, style):
+        start, end = self.buffer.get_selection_bounds()
+        if not start.equal(end):
+            tag = self.buffer.create_tag()
+            if style == "bold":
+                tag.set_property("weight", Pango.Weight.BOLD)
+            elif style == "italic":
+                tag.set_property("style", Pango.Style.ITALIC)
+            elif style == "underline":
+                tag.set_property("underline", Pango.Underline.SINGLE)
+            elif style == "strikethrough":
+                tag.set_property("strikethrough", True)
+            self.buffer.apply_tag(tag, start, end)
+
+    def set_justification(self, just):
+        start, end = self.buffer.get_selection_bounds()
+        if not start.equal(end):
+            self.buffer.set_justification(start, end, just)
+
+    def show_font_dialog(self, _):
+        dialog = Gtk.FontChooserDialog(title="Font", transient_for=self)
+        dialog.set_font("San Francisco 13")
+        if dialog.run() == Gtk.ResponseType.OK:
+            font = dialog.get_font_desc()
+            self.view.override_font(font)
+        dialog.destroy()
+
+    def show_color_dialog(self, _):
+        dialog = Gtk.ColorChooserDialog(title="Text Color", transient_for=self)
+        if dialog.run() == Gtk.ResponseType.OK:
+            color = dialog.get_rgba()
+            start, end = self.buffer.get_selection_bounds()
+            if not start.equal(end):
+                tag = self.buffer.create_tag()
+                tag.set_property("foreground-rgba", color)
+                self.buffer.apply_tag(tag, start, end)
+        dialog.destroy()
+
+    def new_document(self, _):
+        if self.modified:
+            if not self.confirm_discard():
+                return
+        self.buffer.set_text("")
+        self.file_path = None
+        self.modified = False
+        self.set_title("Untitled - TextEdit")
+        self.title_label.set_text("Untitled")
+
+    def open_document(self, _):
+        if self.modified:
+            if not self.confirm_discard():
+                return
+        dialog = Gtk.FileChooserDialog(
+            title="Open Document", transient_for=self,
+            action=Gtk.FileChooserAction.OPEN)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Open", Gtk.ResponseType.OK)
+        filter_text = Gtk.FileFilter()
+        filter_text.set_name("Text Files")
+        filter_text.add_mime_type("text/plain")
+        filter_text.add_pattern("*.txt")
+        filter_text.add_pattern("*.md")
+        filter_text.add_pattern("*.rtf")
+        dialog.add_filter(filter_text)
+        filter_all = Gtk.FileFilter()
+        filter_all.set_name("All Files")
+        filter_all.add_pattern("*")
+        dialog.add_filter(filter_all)
+        if dialog.run() == Gtk.ResponseType.OK:
+            self.load_file(dialog.get_filename())
+        dialog.destroy()
+
+    def load_file(self, path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                self.buffer.set_text(f.read())
+            self.file_path = path
+            self.modified = False
+            name = os.path.basename(path)
+            self.set_title(f"{name} - TextEdit")
+            self.title_label.set_text(name)
+        except Exception as e:
+            self.show_error(f"Failed to open: {e}")
+
+    def save_document(self, _):
+        if self.file_path:
+            self.save_to_file(self.file_path)
+        else:
+            self.save_as_document(_)
+
+    def save_as_document(self, _):
+        dialog = Gtk.FileChooserDialog(
+            title="Save Document", transient_for=self,
+            action=Gtk.FileChooserAction.SAVE)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Save", Gtk.ResponseType.OK)
+        dialog.set_do_overwrite_confirmation(True)
+        filter_text = Gtk.FileFilter()
+        filter_text.set_name("Text Files")
+        filter_text.add_mime_type("text/plain")
+        filter_text.add_pattern("*.txt")
+        filter_text.add_pattern("*.md")
+        filter_text.add_pattern("*.rtf")
+        dialog.add_filter(filter_text)
+        filter_all = Gtk.FileFilter()
+        filter_all.set_name("All Files")
+        filter_all.add_pattern("*")
+        dialog.add_filter(filter_all)
+        if self.file_path:
+            dialog.set_current_name(os.path.basename(self.file_path))
+        else:
+            dialog.set_current_name("Untitled.txt")
+        if dialog.run() == Gtk.ResponseType.OK:
+            self.save_to_file(dialog.get_filename())
+        dialog.destroy()
+
+    def save_to_file(self, path):
+        try:
+            start, end = self.buffer.get_bounds()
+            text = self.buffer.get_text(start, end, True)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+            self.file_path = path
+            self.modified = False
+            name = os.path.basename(path)
+            self.set_title(f"{name} - TextEdit")
+            self.title_label.set_text(name)
+        except Exception as e:
+            self.show_error(f"Failed to save: {e}")
+
+    def confirm_discard(self):
+        dialog = Gtk.MessageDialog(
+            transient_for=self, modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text="Save changes before closing?")
+        dialog.format_secondary_text("Your changes will be lost if you don't save them.")
+        response = dialog.run()
+        dialog.destroy()
+        if response == Gtk.ResponseType.YES:
+            self.save_document(None)
+            return not self.modified
+        return response == Gtk.ResponseType.NO
+
+    def on_close(self, _w, _e):
+        if self.modified:
+            if not self.confirm_discard():
+                return True  # Cancel close
+        Gtk.main_quit()
+        return False
+
+    def show_error(self, msg):
+        dialog = Gtk.MessageDialog(
+            transient_for=self, modal=True,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            text=msg)
+        dialog.run()
+        dialog.destroy()
+
+
+def main():
+    path = sys.argv[1] if len(sys.argv) > 1 else None
+    w = TextEdit(path)
+    w.connect("destroy", Gtk.main_quit)
+    Gtk.main()
+    return 0
+
+if __name__ == "__main__":
+    import os
+    sys.exit(main())

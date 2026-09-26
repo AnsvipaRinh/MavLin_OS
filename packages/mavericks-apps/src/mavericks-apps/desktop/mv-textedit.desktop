@@ -2,8 +2,8 @@
 Type=Application
 Name=TextEdit
 Comment=Text Editor (Mavericks)
-Exec=mousepad %U
+Exec=mv-textedit %U
 Icon=text-editor
 Categories=Utility;TextEditor;
 StartupNotify=true
-X-Mavericks-Alias-For=mousepad
+X-Mavericks-Native=true

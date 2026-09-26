@@ -2,8 +2,8 @@
 Type=Application
 Name=Calculator
 Comment=Calculator (Mavericks)
-Exec=galculator %U
+Exec=mv-calculator %U
 Icon=accessories-calculator
 Categories=Utility;Calculator;
 StartupNotify=true
-X-Mavericks-Alias-For=galculator
+X-Mavericks-Native=true
