@@ -1,5 +1,24 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.50 — Photos: Mavericks integration (library engine, Moments, albums) (2026-09-27, без железа)
+- [x] Аудит: существующий mv-photos был 141-строчным stub (запускал gthumb, показывал label) — нет library engine, нет EXIF, нет Moments, нет избранного, нет альбомов, нет state store, нет реального UI
+- [x] Library engine (pure, headless-testable): нативный парсинг JPEG EXIF DateTimeOriginal (APP1 → TIFF IFD → tag 0x9003), парсинг размеров изображений из заголовков PNG/JPEG/GIF/BMP/TIFF/WebP (без внешних зависимостей); scan_library с детерминированным сортировкой по mtime desc
+- [x] Moments: группировка по дате (YYYY-MM-DD) из EXIF или fallback "Unknown"; сортировка по дате desc; поддержка search filter внутри Moments
+- [x] Favorites: toggle по path, persistence в state store, звезда в grid UI
+- [x] Albums: пользовательские альбомы (New Album dialog), add/remove photo, sidebar со счётчиками, удаление альбома
+- [x] Import: выбор папки → копирование в ~/Pictures/Imports/YYYY-MM-DD_HHMMSS → обновление библиотеки → запись в imports log (cap 200)
+- [x] Search: по filename и date (YYYY-MM-DD), Ctrl+F focus, real-time фильтрация
+- [x] State store: backup-on-save (.bak), restore-from-backup, quarantine при повреждении, normalize, geometry persistence — тот же паттерн что mv-music/mv-notes
+- [x] GUI: Mavericks CSS (leather sidebar #f5f0e8, selected #007aff), FlowBox grid с thumbnails (GdkPixbuf cache в ~/.cache/mv-photos/thumbs), sidebar (Library: All/Favorites/Recently Added | Moments | Albums), full-view dialog (dims/size/date/Edit in gthumb/Favorite), slideshow (Space, 3s interval, Escape stop), empty states, error bar
+- [x] Keyboard: Ctrl+F search, Ctrl+I import, Space slideshow toggle, Escape stop/close
+- [x] Thumbnails: GdkPixbuf scaled cache (sha1 key = path+size+mtime), placeholder icon при ошибке
+- [x] Edit handoff: gthumb launcher (graceful degradation если не установлен), rotate handoff (gthumb CLI → exiftool fallback)
+- [x] Mime types: .desktop обновлён (image/jpeg;png;gif;bmp;tiff;webp;heic), Categories=Graphics;Photography
+- [x] --scan CLI mode: `mv-photos --scan [path]` — выводит количество фото + первые 10 с датами и размерами
+- [x] Deferred (documented в DECISIONS.md): People/faces (нет лёгкой mature face-recognition библиотеки в scope), Memories (ML-based curation), Shared Albums (нет cloud backend)
+- [x] Validation: py_compile OK, 84 headless-тест (scripts/test-mv-photos.py: dims PNG/JPEG/GIF/BMP/TIFF/WebP, EXIF DateTimeOriginal, failure modes, scan, moments, search, state store roundtrip/backup/quarantine/restore/normalize, favorites, albums, imports, thumb paths, rotate/editor graceful degradation, fmt helpers), desktop-file-validate OK, check-sync ALL CHECKS PASSED
+- [ ] HW: gthumb availability + Edit handoff, exiftool rotate fallback, thumbnail cache на реальной библиотеке, HiDPI rendering grid/sidebar на 2304×1440, import flow с USB-C card reader, slideshow performance на Intel HD 615, geometry restore на реальной сессии
+
 ### Фаза 0.49 — Music: Mavericks integration (library engine, MPRIS backend, views) (2026-09-26, без железа)
 - [x] Аудит WIP предыдущей попытки (1584 строки, не закоммичен): архитектура валидная (pure library engine + MPRIS-контроллер + GTK3 UI), но содержала 7 реальных дефектов — все найдены и исправлены:
 - [x] Баги парсинга тегов (найдены synthetic-fixture тестами): (1) `_vorbis_comments` читал vendor_len со смещением +4 вместо +0 — FLAC/Ogg теги молча парсились в мусор; (2) `_parse_ogg` искал идентификационный заголовок `\x01vorbis`, где vendor_len не существует — переписан на page-scan заголовка комментариев `\x03vorbis`; (3) MP4 track-number atom — это `trkn` без `\xa9` префикса, сравнение с `\xa9trkn` никогда бы не совпало; (4) APIC с пустым description (`mime\0\0data`) не находился — поиск второго разделителя сдвинут с p+1 на p

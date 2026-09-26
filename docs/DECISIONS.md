@@ -1,5 +1,24 @@
 # DECISIONS
 
+## Photos: faces/memories/shared-albums disposition (Phase 0.50)
+
+**Date:** 2026-09-27
+**Decision:**
+1. People/faces DEFERRED. No lightweight mature face-recognition library in project scope. OpenCV/dlib/ML dependencies violate power budget and fanless constraints. gthumb has no face API. Revisit only if a mature lightweight option appears.
+2. Memories DEFERRED. ML-based curation same reasoning. Date-based Moments implemented as the cheap alternative.
+3. Shared Albums DEFERRED. No cloud backend in scope (local-first architecture). Could revisit with Nextcloud/syncthed integration later.
+4. Rotate handoff: gthumb CLI preferred, exiftool fallback — both graceful-degradation, no hard dep.
+5. Moments implemented as date-based grouping from EXIF DateTimeOriginal (native parse, no deps).
+
+**Reasoning:**
+- Reuse-first is satisfied: gthumb remains the edit backend; mv-photos adds library management (Moments, favorites, albums, import) that gthumb lacks.
+- EXIF parsing is native (no PIL/piexif deps), keeping the dependency footprint at zero new packages.
+- Date-based Moments gives the core Mavericks "photos grouped by day" experience without ML.
+
+**Status:** Photos implemented pre-hardware (84 headless tests). People/Memories/Shared Albums documented as deferred with reasons.
+
+---
+
 ## Reminders: 89b6649 regression cause + guard (Phase 0.47)
 
 **Date:** 2026-09-26

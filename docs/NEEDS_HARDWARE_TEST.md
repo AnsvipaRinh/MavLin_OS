@@ -48,6 +48,15 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Battery discharge rate under idle load (10-min samples)
 - [ ] Thermal throttling thresholds (tools/diagnostics/mv-thermal.sh)
 
+### Photos
+- [ ] gthumb availability and Edit-in-gthumb handoff on real install
+- [ ] exiftool availability for rotate fallback
+- [ ] Thumbnail cache behavior on real library (~/.cache/mv-photos/thumbs)
+- [ ] HiDPI rendering of grid/sidebar on 2304×1440 panel
+- [ ] Import flow from USB-C card reader / camera
+- [ ] Slideshow performance on Intel HD 615
+- [ ] Geometry restore on real session
+
 ## Phase 2 — Optimization
 - [ ] zram/zswap actual memory savings measurement
 - [ ] Boot time (systemd-analyze blame) target <10s to DM
