@@ -490,3 +490,32 @@ Validations: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED.
 
 **Implementation:** mv-control (Python).
 Validations: py_compile, check-sync ALL PASSED, headless import test passed, fallback paths verified.
+
+---
+
+## 2026-09-26 — Notification Center: history viewer + logging wrapper (no daemon)
+
+**Problem:** Notification Center was PARTIALLY IMPLEMENTED with only the banner UI (xfce4-notifyd Mavericks theme + DND toggle). Missing: history UI, grouping, action buttons, keyboard shortcut.
+
+**Decision:**
+1. **mv-notify-send** — notify-send wrapper that logs every notification to `~/.local/share/mavericks/notifications.json` (max 500 entries, FIFO). No persistent daemon; logging is synchronous and fast.
+2. **mv-notification-center** — GTK3 history viewer with: app-grouped list (newest first), per-app "Clear" + global "Clear All", DND toggle in header bar (syncs with xfce4-notifyd via xfconf), relative timestamps, urgency colors, keyboard navigation (arrows, Escape), focus-out auto-close.
+3. **Keyboard shortcut:** Super+Shift+V → mv-notification-center (added to xfce4-keyboard-shortcuts.xml).
+4. **Desktop entry:** mv-notification-center.desktop for app menu/Dock integration.
+5. **No action buttons on banners** — xfce4-notifyd does not support action buttons without a persistent daemon; this is an accepted limitation. The history viewer provides the actionable surface instead.
+6. **On-demand only** — both scripts exit immediately after use; zero idle cost. History log persists across sessions.
+
+**Reasoning:**
+- xfce4-notifyd is the single notification daemon (dunst removed per Phase 0.6 decision). It provides banners but no history.
+- A wrapper logging to JSON is the lightest way to add history without a second daemon or D-Bus monitor.
+- The history viewer is a proper Mavericks-style UI (app grouping, clear actions, DND toggle) rather than a raw log dump.
+- Super+Shift+V mirrors macOS gesture-to-keyboard mapping (V = View).
+- Action buttons on banners would require either: (a) patching xfce4-notifyd, (b) a second daemon, or (c) a custom notification server — all violate power budget or reuse-first. Documented as accepted delta.
+
+**Alternatives considered:**
+- D-Bus monitor daemon (e.g., `gdbus monitor`) — rejected: persistent process, adds complexity, fragile.
+- Patching xfce4-notifyd to write history — rejected: upstream divergence, maintenance burden.
+- rofi-based history viewer — rejected: rofi script mode doesn't support rich list with headers/actions cleanly; GTK3 gives better Mavericks visual integration.
+
+**Implementation:** mv-notify-send (Python), mv-notification-center (Python/GTK3), xfce4-keyboard-shortcuts.xml, mv-notification-center.desktop, Makefile.
+**Validations:** py_compile, xmllint, desktop-file-validate, check-sync ALL PASSED.

@@ -294,3 +294,13 @@
 - [x] mv-control: Error/empty states for all sections (NetworkManager, BlueZ, PulseAudio, backlight, UPower, xfce4-notifyd)
 - [x] All validations pass: py_compile, check-sync ALL PASSED
 - [x] APPS.md Control Center row updated with implemented features
+
+### Фаза 0.34 — Notification Center history + keyboard shortcut (2026-09-26, без железа)
+- [x] mv-notify-send: notify-send wrapper that logs notifications to ~/.local/share/mavericks/notifications.json (max 500 entries, no daemon)
+- [x] mv-notification-center: Mavericks-style history viewer (GTK3, app-grouped list, Clear/Clear All buttons, DND toggle in header, keyboard navigation)
+- [x] Keyboard shortcut: Super+Shift+V → mv-notification-center (added to xfce4-keyboard-shortcuts.xml)
+- [x] Desktop entry: mv-notification-center.desktop with X-Mavericks-Native=true
+- [x] Makefile updated to install both scripts
+- [x] All validations pass: py_compile, xmllint, desktop-file-validate, check-sync ALL PASSED
+- [x] APPS.md Notification Center row updated with implemented features
+- [x] Remaining gap: action buttons on banners (xfce4-notifyd limitation, not feasible without daemon); banner visual validation needs hardware

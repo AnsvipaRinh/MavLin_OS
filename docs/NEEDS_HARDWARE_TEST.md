@@ -94,3 +94,13 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Display: brightness slider controls actual panel backlight, Night Shift toggle (if redshift installed)
 - [ ] Battery: charge/state/time read from UPower, power mode reflects TLP state
 - [ ] DND: toggle syncs with xfce4-notifyd do-not-disturb setting
+
+## Notification Center — hardware validation
+- [ ] Super+Shift+V opens mv-notification-center
+- [ ] Notification history shows grouped by app with timestamps
+- [ ] Clear/Clear All buttons work
+- [ ] DND toggle in header syncs with xfce4-notifyd
+- [ ] Banner notifications appear top-right with Mavericks theme (rounded, translucent)
+- [ ] Urgency colors (low/normal/critical) render correctly on 2304x1440
+- [ ] Keyboard navigation (arrows, Escape) works
+- [ ] Focus-out auto-close works
