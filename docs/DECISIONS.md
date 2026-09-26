@@ -912,3 +912,25 @@ orchestrator.md step 3 ("do not invoke subagents…") + AGENTS.md 14.7.
 **Reasoning:** MPRIS2 exposes no playlist/queue manipulation (TrackList is optional and lollypop's implementation is read-mostly); faking queue control by repeatedly calling Next would fight the backend's own queue and break on track changes. A display-side queue keeps the feature honest: it reflects user intent and works with any backend. Documented as a known limitation rather than pretending backend queue control.
 
 **Testability:** queue persistence, cap, and activate-from-row behavior covered by state-store and GUI tests.
+
+---
+
+## Console: journalctl JSON backend (structured PRIORITY) with text-scan fallback
+
+**Date:** 2026-09-27 (Phase 0.52)
+**Decision:** mv-console queries `journalctl -o json` and maps the structured PRIORITY field (0-7) to severities; dmesg -T and any non-JSON line falls back to a token-based severity scan of the message text. The old substring scan (`"err" in line`) produced false positives and could not see priority at all.
+
+**Reasoning:** journalctl JSON is available on any systemd ≥ 209-ish system (target runs Arch, so always). Structured priority is authoritative; the text fallback keeps dmesg usable (dmesg -T has no priority field in text mode). Token scan uses exact word tokens (emerg/alert/crit/error/failed/warn/notice/info/debug) instead of substrings to avoid matches inside unrelated words. Binary MESSAGE arrays (journalctl emits byte arrays for non-UTF8 messages) are decoded as bytes with replace.
+
+**Testability:** parser coverage in scripts/test-mv-console.py — all severity keywords, priority map incl. junk/None, JSON fields/timestamp/binary-message/garbage, journal text and dmesg dispatch, filter, command shapes.
+
+---
+
+## Console: no preference persistence (corrupt-prefs surface eliminated by design)
+
+**Date:** 2026-09-27 (Phase 0.52)
+**Decision:** mv-console stores no preferences (no xfconf/gsettings/state file). Window state is not persisted; wrap/pause/search reset on every launch.
+
+**Reasoning:** the app is a transient diagnostic viewer; persisting geometry/wrap adds a state-store subsystem (backup/quarantine/restore machinery in sibling apps) for near-zero user value, and every persistence mechanism is a corrupt-prefs risk (the mv-voice fake-completion class of bug). No persistence = no corruption mode. Reconsidered only if HW validation shows users keep it open permanently.
+
+**Testability:** code has no prefs paths to test; future persistence, if ever added, must ship with the standard state-store test pattern (roundtrip/backup/quarantine/restore).

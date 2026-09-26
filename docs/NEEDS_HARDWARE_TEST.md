@@ -125,6 +125,8 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Quick Look: PDF превью через poppler-glib рендерит первую страницу на 2304x1440
 - [ ] Quick Look: Медиа файлы показывают метаданные через ffprobe
 - [ ] GUI: notes/settings/about/activity/console на живой Xfce-сессии (на хосте — alive)
+- [ ] Console: реальные значения journald на MacBook10,1 — JSON-поля PRIORITY/SYSLOG_IDENTIFIER/__REALTIME_TIMESTAMP парсятся, severity badges соответствуют приоритетам ядра/systemd
+- [ ] Console: dmesg permissions (root vs обычный пользователь — state «requires root» или реальные строки), наличие «Previous Boot» после реальных ребутов, рендеринг badges/sidebar на 2304×1440, energy cost 2s live-tail при открытом окне
 - [ ] HUD: mv-hud в genmon показывает ватты RAPL m3-7Y32 (на хосте — graceful `n/a`)
 - [ ] Launchpad: Super+L открывает полноэкранную сетку; поиск фильтрует; папки (Utilities/Other) открываются; Back возвращает; иконки отображаются корректно на 2304x1440
 - [ ] Launchpad: mv-launchpad.desktop доступен в меню приложений и может быть закреплен в Dock
