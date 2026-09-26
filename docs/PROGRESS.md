@@ -271,3 +271,15 @@
 - [x] rofi-launchpad.rasi: Mavericks-style visual polish (skeuomorphic accents, rounded corners, scrollbar, softer colors, shadows, transitions)
 - [x] All validations pass: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED
 - [x] APPS.md Launchpad row updated with implemented features
+
+### Фаза 0.32 — Mission Control window overview enhancements (2026-09-26, без железа)
+- [x] mv-mission-control: added active window detection (via xprop _NET_ACTIVE_WINDOW) with "▸" prefix marker
+- [x] mv-mission-control: added empty workspace display (shows "(empty)" placeholder for workspaces with no windows)
+- [x] mv-mission-control: improved error handling — graceful degradation when wmctrl missing (shows install hint)
+- [x] mv-mission-control: added window action stubs (--activate, --close, --minimize) for future rofi keybinding integration
+- [x] mv-mission-control: expanded icon mapping for common applications (Chrome, VS Code, Discord, Steam, terminals, Office, etc.)
+- [x] rofi-mission-control.rasi: Mavericks-style visual polish matching Spotlight/Launchpad theme evolution (softer palette, rounded corners, better spacing, larger icons, custom scrollbar, accent blue selection)
+- [x] E-MC experiment: updated BASELINE_CMD to use mv-mission-control script mode (was rofi window mode)
+- [x] E-MC experiment: added wmctrl presence check in status; skel rc path variable; improved apply/revert messaging
+- [x] All validations pass: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED
+- [x] APPS.md Mission Control row updated with implemented features
