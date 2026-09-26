@@ -241,3 +241,65 @@ AGENTS.md section 14 is binding; section 0 points to it.
 - Residual: task-tool `task` permission is name-glob based; users can still
   @-invoke any subagent manually regardless of orchestrator's task allow-list
   (by design, manual override preserved).
+
+## 2026-09-26 — Orchestration architecture: Orchestrator/Builder/Scout/Planner
+
+**Problem:** the primary agent combined orchestrator+builder roles: it analyzed,
+implemented, tested and committed in one body, burning its generation budget on
+implementation and stopping after each cycle while the project was far from done.
+
+**Decision:** four roles in `.opencode/agents/` (project-level, travel with repo):
+`orchestrator.md` (mode primary, edit/write DENY, bash DENY except
+`git status/log/diff`, task ONLY builder/scout/planner),
+`builder.md` (mode all, full permissions),
+`scout.md` (mode all, read-only override),
+`planner.md` (mode all, read-only).
+AGENTS.md section 14 is binding; section 0 points to it.
+
+**Inspection findings that shaped this:**
+- Built-in `scout` was documented as read-only but actually had full
+  edit/write/bash tools in this install (verified via `debug agent scout`) —
+  overridden to read-only by `scout.md`.
+- Custom agents work via `.opencode/agents/*.md` frontmatter
+  (`mode`/`permission`/`model`); verified with `agent list` + `debug agent`.
+- Permission system cannot deny `read`; orchestrator keeps read/search/skill —
+  intended (state inspection is its job). `question` stays denied for
+  orchestrator (autonomous doctrine: instruct, don't ask).
+- `mode: all` on builder/scout/planner preserves manual Tab/@ sessions.
+- `project-meta.json` already referenced a nonexistent `"agent": "orchestrator"` —
+  now valid.
+- Residual: task-tool `task` permission is name-glob based; users can still
+  @-invoke any subagent manually regardless of orchestrator's task allow-list
+  (by design, manual override preserved).
+- NOTE: a parallel session's commit e7923bf swept the first version of these
+  files via `git add -A`; re-applied deltas are committed separately here.
+
+## 2026-09-26 — TEMP: nemotron-3.5-lightning-free disabled
+
+**Symptom (user report):** 3.5-lightning stops generation mid-output for the
+last ~2 days. **Action:** `opencode.jsonc` general/explore and
+`.opencode/agents/planner.md` temporarily pinned to
+`opencode/muse-spark-1.3-contributor-free` (already used for scout,
+known-good). **Revert when:** lightning generates cleanly again for a few
+days — flip the three pins back, no other changes needed.
+
+## 2026-09-26 — Session reuse: real mechanisms only (no invented API)
+
+**Verified live on installed 1.18.32 (server + SDK types + docs):**
+`POST /session {parentID?,title?}` (child/sub-agent sessions),
+`GET /session/status` (idle/busy/retry — NO token numbers),
+`GET /session/:id/children`, `GET /session/:id/message` (per-assistant
+`tokens.input` cumulative), `POST /session/:id/message|prompt_async`
+(continuation), `POST /session/:id/fork|abort`, `DELETE /session/:id`,
+CLI `session list|delete`, `run -s/-c/--fork`, `export`,
+`Model.limit.context` (e.g. muse-spark = 1048576),
+plugin `event` bus (`session.status/idle/deleted`, `message.updated`) +
+`chat.message` + `experimental.session.compacting`.
+**No single "context remaining %" endpoint exists** — honest signal is
+last-assistant-tokens.input / model limit.context, computed live by
+`scripts/session-reuse.py` (`context`/`decide`/`register`/`retire`/`delete`/
+`status`/`children`/`list`). Registry `.opencode/sessions/registry.json`
+stores metadata only. Policy: RESUME same role+objective while >50%
+remaining; RETIRE+delete at <=50%, on objective/role change, error state,
+or unverifiable context. Proven: probe parent+child create/list/delete
+round-trip, RESUME/NEW verdicts incl. objective boundary.

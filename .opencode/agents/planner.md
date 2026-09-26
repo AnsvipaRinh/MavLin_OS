@@ -1,7 +1,7 @@
 ---
 description: Decomposes large objectives into ordered implementation tasks with dependencies, reuse notes, and risks. Plans only, never implements.
 mode: all
-model: opencode/nemotron-3.5-lightning-free
+model: opencode/muse-spark-1.3-contributor-free
 permission:
   edit: deny
   bash:

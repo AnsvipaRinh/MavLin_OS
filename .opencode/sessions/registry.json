@@ -1,0 +1,8 @@
+{
+  "$schema": "session-registry v1",
+  "threshold": {
+    "reusableAboveRemaining": 0.5,
+    "note": "Session with >50% context remaining = REUSABLE, else RETIRE. Context = last assistant tokens.input / model limit.context (both from live server API; never store transcripts here)."
+  },
+  "sessions": {}
+}

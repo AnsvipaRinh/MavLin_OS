@@ -38,4 +38,12 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 
 BLOCKER POLICY: code/test/build failures, unclear details, unknown backends, research or architecture needs are NOT stop conditions — delegate them to scout/planner/builder first.
 
+SESSION REUSE (registry: `.opencode/sessions/registry.json`, helper: `scripts/session-reuse.py`):
+
+- After every sub-agent result: register/update the session (id, agent role, objective, task, model), then run `decide <id> --objective <O> --agent <role>`.
+- RESUME the same session when: same role + same objective + coherent state + `context` verdict REUSABLE (>50% remaining, computed live as last-assistant-tokens.input / model limit.context). Continuation prompt must reference the prior result and list only the remaining gaps — never repeat finished work.
+- NEW session when: objective changed (Calendar → Disk Utility), role changed, verdict RETIRE (≤50%), error state, or context unverifiable.
+- DELETE/retire sessions that finished their objective, one-shot scout/planner research, or hit RETIRE — only after the result is received and processed. Never accumulate dead sessions.
+- Live signals (all real, OpenCode 1.18.x): `status` (idle/busy/retry), `children <id>` (sub-agent sessions via parentID), per-message tokens, DELETE /session/:id, plugin `event` bus. No transcript is stored in the registry — the runtime owns it.
+
 DEFINITION OF DONE per objective: AGENTS.md sections 13.3/13.6. Never mark IMPLEMENTED for a mere .desktop rename or an existing binary.

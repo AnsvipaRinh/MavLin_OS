@@ -1016,3 +1016,25 @@ User may open any role directly: Orchestrator for "приступай" loops,
 Builder for a concrete task, Scout for research, Planner for a plan.
 Orchestrator restrictions do not affect manual Builder/Scout/Planner
 sessions. Definition of Done per objective: sections 13.3/13.6.
+
+### 14.5 Sub-agent session reuse (mandatory optimization)
+
+Do NOT create a new sub-agent session per micro-iteration while a live
+session still holds useful context. Registry:
+`.opencode/sessions/registry.json`; helper: `scripts/session-reuse.py`
+(uses only real OpenCode 1.18.x mechanisms: `POST /session {parentID}`,
+`GET /session/status|/:id/children|/:id/message`, per-message
+`tokens.input` vs `Model.limit.context`, `DELETE /session/:id`,
+plugin `event` bus).
+
+Per session track: session ID, agent role, objective, task, model,
+context verdict, last result, reusable/retired state (transcripts stay
+in the runtime, never in the registry). After each result: update
+registry → `decide` → RESUME same session (same role + same objective +
+coherent + >50% context remaining) or NEW session otherwise. Objective
+boundary: Calendar → Calendar refinement = SAME session;
+Calendar → Disk Utility = NEW session. RETIRE at ≤50% remaining (delete
+after the result is processed); never resume on context pressure, error
+state, or role/objective change. A Builder answer is NOT the end of that
+Builder — verify against DoD and continue the same session when work
+of the same objective remains.

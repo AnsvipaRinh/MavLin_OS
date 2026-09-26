@@ -5,10 +5,10 @@
       "model": "opencode/nemotron-3-ultra-free"
     },
     "general": {
-      "model": "opencode/nemotron-3.5-lightning-free"
+      "model": "opencode/muse-spark-1.3-contributor-free"
     },
     "explore": {
-      "model": "opencode/nemotron-3.5-lightning-free"
+      "model": "opencode/muse-spark-1.3-contributor-free"
     },
     "scout": {
       "model": "opencode/muse-spark-1.3-contributor-free"
