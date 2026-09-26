@@ -1,20 +1,113 @@
 /* Mavericks Launchpad (rofi script mode — paginated grid with folders) */
-* { font: "San Francisco 11"; }
+* {
+    font: "San Francisco 11";
+    foreground: #ffffff;
+    background: rgba(30, 30, 30, 0.92);
+    selected-foreground: #ffffff;
+    selected-background: rgba(255, 255, 255, 0.2);
+    normal-foreground: #ffffff;
+    normal-background: transparent;
+    urgent-foreground: #ffffff;
+    urgent-background: rgba(255, 80, 80, 0.3);
+}
+
 window {
     fullscreen: true;
     background: rgba(30, 30, 30, 0.92);
     padding: 60px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0;
 }
-mainbox { children: [ inputbar, listview ]; spacing: 24px; }
+
+mainbox {
+    children: [ inputbar, listview ];
+    spacing: 24px;
+}
+
 inputbar {
     children: [ prompt, entry ];
-    background: rgba(255,255,255,0.15);
-    border-radius: 16px; padding: 8px;
-    width: 300px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
+    padding: 10px 16px;
+    width: 360px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
 }
-entry { placeholder: "Search apps..."; foreground: white; }
-listview { lines: 5; columns: 7; fixed-height: false; spacing: 16px; }
-element { orientation: vertical; padding: 10px; border-radius: 8px; }
-element icon { size: 64px; }
-element text { foreground: white; horizontal-align: 0.5; }
-element selected { background: rgba(255,255,255,0.2); }
+
+prompt {
+    enabled: false;
+    padding: 0;
+}
+
+entry {
+    placeholder: "Search apps...";
+    foreground: #ffffff;
+    placeholder-foreground: rgba(255, 255, 255, 0.5);
+    padding: 4px 8px;
+    background: transparent;
+    border-radius: 12px;
+}
+
+listview {
+    lines: 5;
+    columns: 7;
+    fixed-height: false;
+    spacing: 18px;
+    padding: 8px;
+    dynamic: true;
+    scrollbar: true;
+    scrollbar-width: 8px;
+}
+
+element {
+    orientation: vertical;
+    padding: 12px 8px;
+    border-radius: 12px;
+    background: transparent;
+    transition-duration: 120ms;
+}
+
+element normal {
+    background: transparent;
+}
+
+element selected {
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+element alternate {
+    background: transparent;
+}
+
+element urgent {
+    background: rgba(255, 80, 80, 0.25);
+    border: 1px solid rgba(255, 80, 80, 0.4);
+}
+
+element-text {
+    horizontal-align: 0.5;
+    vertical-align: 1.0;
+    foreground: #ffffff;
+    font: "San Francisco 10";
+    text-overflow: ellipsis;
+    max-width: 96px;
+}
+
+element-icon {
+    size: 64px;
+    horizontal-align: 0.5;
+    padding-bottom: 6px;
+}
+
+scrollbar {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    handle-color: rgba(255, 255, 255, 0.3);
+    handle-width: 8px;
+    handle-border-radius: 4px;
+}
+
+sidebar {
+    enabled: false;
+}

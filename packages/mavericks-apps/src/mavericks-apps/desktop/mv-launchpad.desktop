@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Launchpad
+Comment=Application Launcher (Mavericks)
+Exec=sh -c "rofi -show -modi 'launchpad:/usr/bin/mv-launchpad' -theme /usr/share/mavericks-apps/rofi-launchpad.rasi"
+Icon=view-app-grid-symbolic
+Categories=System;X-ApplicationLauncher;
+StartupNotify=false
+X-Mavericks-Native=true
