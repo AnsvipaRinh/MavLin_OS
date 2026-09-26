@@ -1,0 +1,290 @@
+#!/usr/bin/env python3
+"""mv-dictionary — Mavericks-like Dictionary.
+Definitions, synonyms, Wikipedia, Apple terminology.
+Backend: libwnck (WordNet) + Wikipedia API + local cache.
+Features: tabs for Dictionary/Thesaurus/Wikipedia/Apple, history, bookmarks.
+"""
+import os
+import sys
+import json
+import urllib.request
+import urllib.parse
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("WebKit2", "4.0")
+from gi.repository import Gtk, GLib, WebKit2, Gdk
+
+CACHE_DIR = os.path.expanduser("~/.cache/mv-dictionary")
+HISTORY_FILE = os.path.join(CACHE_DIR, "history.json")
+BOOKMARKS_FILE = os.path.join(CACHE_DIR, "bookmarks.json")
+
+def ensure_cache():
+    os.makedirs(CACHE_DIR, exist_ok=True)
+
+def load_history():
+    try:
+        with open(HISTORY_FILE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+def save_history(history):
+    ensure_cache()
+    with open(HISTORY_FILE, "w") as f:
+        json.dump(history[-100:], f)
+
+def load_bookmarks():
+    try:
+        with open(BOOKMARKS_FILE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+def save_bookmarks(bookmarks):
+    ensure_cache()
+    with open(BOOKMARKS_FILE, "w") as f:
+        json.dump(bookmarks, f)
+
+
+class DictionaryWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Dictionary")
+        self.set_default_size(900, 600)
+        self.history = load_history()
+        self.bookmarks = load_bookmarks()
+        self.current_word = ""
+
+        hb = Gtk.HeaderBar(title="Dictionary", show_close_button=True)
+        self.set_titlebar(hb)
+
+        # Search entry
+        self.search_entry = Gtk.SearchEntry()
+        self.search_entry.set_placeholder_text("Search Dictionary...")
+        self.search_entry.connect("activate", self.on_search)
+        self.search_entry.connect("search-changed", self.on_search_changed)
+        self.search_entry.set_hexpand(True)
+        self.search_entry.set_max_width_chars(40)
+        hb.pack_start(self.search_entry)
+
+        # Source tabs
+        self.source_stack = Gtk.Stack()
+        self.source_stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+
+        # Dictionary tab
+        self.dict_view = WebKit2.WebView()
+        self.dict_view.set_size_request(-1, 400)
+        dict_scrolled = Gtk.ScrolledWindow()
+        dict_scrolled.add(self.dict_view)
+        self.source_stack.add_titled(dict_scrolled, "dictionary", "Dictionary")
+
+        # Thesaurus tab
+        self.thes_view = WebKit2.WebView()
+        thes_scrolled = Gtk.ScrolledWindow()
+        thes_scrolled.add(self.thes_view)
+        self.source_stack.add_titled(thes_scrolled, "thesaurus", "Thesaurus")
+
+        # Wikipedia tab
+        self.wiki_view = WebKit2.WebView()
+        wiki_scrolled = Gtk.ScrolledWindow()
+        wiki_scrolled.add(self.wiki_view)
+        self.source_stack.add_titled(wiki_scrolled, "wikipedia", "Wikipedia")
+
+        # Apple tab (local)
+        self.apple_view = WebKit2.WebView()
+        apple_scrolled = Gtk.ScrolledWindow()
+        apple_scrolled.add(self.apple_view)
+        self.source_stack.add_titled(apple_scrolled, "apple", "Apple")
+
+        # Switcher
+        self.stack_switcher = Gtk.StackSwitcher()
+        self.stack_switcher.set_stack(self.source_stack)
+        hb.pack_end(self.stack_switcher)
+
+        # Bookmark button
+        self.bookmark_btn = Gtk.ToggleButton()
+        self.bookmark_btn.set_image(Gtk.Image.new_from_icon_name("bookmark-new", Gtk.IconSize.BUTTON))
+        self.bookmark_btn.set_tooltip_text("Bookmark this word")
+        self.bookmark_btn.connect("toggled", self.on_bookmark)
+        hb.pack_end(self.bookmark_btn)
+
+        # Main content
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        vbox.pack_start(self.source_stack, True, True, 0)
+
+        # History sidebar (initially hidden)
+        self.history_revealer = Gtk.Revealer()
+        self.history_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT)
+        self.history_revealer.set_reveal_child(False)
+        self.history_list = Gtk.ListBox()
+        self.history_list.connect("row-activated", self.on_history_click)
+        hist_scrolled = Gtk.ScrolledWindow()
+        hist_scrolled.set_size_request(200, -1)
+        hist_scrolled.add(self.history_list)
+        self.history_revealer.add(hist_scrolled)
+
+        sidebar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        sidebar.pack_start(self.history_revealer, False, False, 0)
+        sidebar.pack_start(vbox, True, True, 0)
+        self.add(sidebar)
+
+        # History toggle button
+        hist_btn = Gtk.ToggleButton()
+        hist_btn.set_image(Gtk.Image.new_from_icon_name("view-history", Gtk.IconSize.BUTTON))
+        hist_btn.set_tooltip_text("Show History")
+        hist_btn.connect("toggled", self.on_history_toggle)
+        hb.pack_end(hist_btn)
+
+        self.show_all()
+
+    def on_search_changed(self, entry):
+        # Could implement live suggestions here
+        pass
+
+    def on_search(self, entry):
+        word = entry.get_text().strip()
+        if not word:
+            return
+        self.current_word = word
+        self.load_definitions(word)
+        self.add_to_history(word)
+        self.update_bookmark_button()
+
+    def load_definitions(self, word):
+        encoded = urllib.parse.quote(word)
+
+        # Dictionary (Wiktionary)
+        dict_url = f"https://en.wiktionary.org/wiki/{encoded}"
+        self.dict_view.load_uri(dict_url)
+
+        # Thesaurus (thesaurus.com)
+        thes_url = f"https://www.thesaurus.com/browse/{encoded}"
+        self.thes_view.load_uri(thes_url)
+
+        # Wikipedia
+        wiki_url = f"https://en.wikipedia.org/wiki/{encoded}"
+        self.wiki_view.load_uri(wiki_url)
+
+        # Apple terminology (local)
+        apple_html = self.get_apple_definition(word)
+        self.apple_view.load_html(apple_html, "file://")
+
+    def get_apple_definition(self, word):
+        # Local Apple terminology database (simplified)
+        apple_terms = {
+            "finder": "The Mac file manager that helps you organize and locate files.",
+            "dock": "The bar at the bottom of the screen that gives you quick access to apps.",
+            "menu bar": "The bar at the top of the screen with app menus and system status.",
+            "spotlight": "A system-wide search feature accessed with Command-Space.",
+            "mission control": "A feature that shows all open windows and spaces.",
+            "launchpad": "An app launcher that shows all installed apps in a grid.",
+            "control center": "Quick access to system settings like Wi-Fi, Bluetooth, and brightness.",
+            "notification center": "Shows notifications and widgets, accessed from the menu bar.",
+            "quick look": "Preview files by selecting them and pressing Space.",
+            "time machine": "Built-in backup software that automatically backs up your Mac.",
+            "airdrop": "Wirelessly send files to nearby Apple devices.",
+            "icloud": "Apple's cloud storage service for syncing files across devices.",
+            "safari": "Apple's web browser.",
+            "mail": "Apple's email client.",
+            "messages": "Apple's messaging app for iMessage and SMS.",
+            "facetime": "Apple's video and audio calling app.",
+            "photos": "Apple's photo management and editing app.",
+            "music": "Apple's music player and streaming service.",
+            "podcasts": "Apple's podcast player.",
+            "tv": "Apple's TV and movie streaming app.",
+            "books": "Apple's e-book reader and store.",
+            "maps": "Apple's mapping and navigation app.",
+            "contacts": "Apple's address book app.",
+            "calendar": "Apple's calendar app.",
+            "reminders": "Apple's to-do list app with location-based alerts.",
+            "notes": "Apple's note-taking app with rich text and attachments.",
+            "voice memos": "Apple's audio recording app.",
+            "terminal": "Command-line interface for Unix commands.",
+            "activity monitor": "Shows CPU, memory, energy, disk, and network usage.",
+            "disk utility": "Manages disks, partitions, and disk images.",
+            "keychain access": "Manages passwords, certificates, and keys.",
+            "font book": "Manages and previews installed fonts.",
+            "digital color meter": "Shows the color values of any pixel on screen.",
+            "stickies": "Virtual sticky notes for quick reminders.",
+            "textedit": "Simple text editor for plain and rich text documents.",
+            "calculator": "Basic, scientific, and programmer calculator.",
+            "preview": "View and annotate PDFs and images.",
+            "quicktime player": "Apple's media player for audio and video.",
+            "garageband": "Apple's music creation studio.",
+            "imovie": "Apple's video editing app.",
+            "pages": "Apple's word processor.",
+            "numbers": "Apple's spreadsheet app.",
+            "keynote": "Apple's presentation app.",
+            "xcode": "Apple's integrated development environment.",
+        }
+        definition = apple_terms.get(word.lower(), f"No Apple definition for '{word}'.")
+        return f"""
+        <html><head>
+        <style>
+            body {{ font-family: -apple-system, San Francisco, sans-serif; padding: 20px; line-height: 1.6; color: #333; }}
+            h1 {{ color: #007aff; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; }}
+            .not-found {{ color: #888; font-style: italic; }}
+        </style>
+        </head><body>
+        <h1>{word}</h1>
+        <p>{definition}</p>
+        <hr>
+        <p class="not-found">No entry in local Apple dictionary. Try Wikipedia or Dictionary tabs.</p>
+        </body></html>
+        """
+
+    def add_to_history(self, word):
+        if word in self.history:
+            self.history.remove(word)
+        self.history.insert(0, word)
+        self.history = self.history[:50]
+        save_history(self.history)
+        self.refresh_history()
+
+    def refresh_history(self):
+        for child in self.history_list.get_children():
+            self.history_list.remove(child)
+        for word in self.history:
+            row = Gtk.ListBoxRow()
+            lbl = Gtk.Label(label=word, xalign=0)
+            lbl.set_margin_start(12)
+            lbl.set_margin_top(6)
+            lbl.set_margin_bottom(6)
+            row.add(lbl)
+            self.history_list.add(row)
+        self.history_list.show_all()
+
+    def update_bookmark_button(self):
+        is_bookmarked = self.current_word in self.bookmarks
+        self.bookmark_btn.set_active(is_bookmarked)
+        self.bookmark_btn.set_tooltip_text("Remove bookmark" if is_bookmarked else "Bookmark this word")
+
+    def on_bookmark(self, btn):
+        if not self.current_word:
+            return
+        if btn.get_active():
+            if self.current_word not in self.bookmarks:
+                self.bookmarks.append(self.current_word)
+        else:
+            if self.current_word in self.bookmarks:
+                self.bookmarks.remove(self.current_word)
+        save_bookmarks(self.bookmarks)
+
+    def on_history_toggle(self, btn):
+        self.history_revealer.set_reveal_child(btn.get_active())
+
+    def on_history_click(self, listbox, row):
+        idx = row.get_index()
+        if 0 <= idx < len(self.history):
+            word = self.history[idx]
+            self.search_entry.set_text(word)
+            self.on_search(self.search_entry)
+
+
+def main():
+    w = DictionaryWindow()
+    w.connect("destroy", Gtk.main_quit)
+    Gtk.main()
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

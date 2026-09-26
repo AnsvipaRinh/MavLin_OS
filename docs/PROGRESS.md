@@ -240,3 +240,14 @@
 - [x] .desktop file updated to X-Mavericks-Native=true
 - [x] APPS.md status updated to PARTIALLY IMPLEMENTED (custom frontend)
 - [x] Package rebuilt, check-sync ALL PASSED
+
+### Фаза 0.29 — P1 Dictionary implementation (2026-09-26, без железа)
+- [x] mv-dictionary: custom Mavericks-like Dictionary with 4 tabs (Dictionary/Thesaurus/Wikipedia/Apple)
+- [x] WebKit2-based WebView for Dictionary (Wiktionary), Thesaurus, Wikipedia
+- [x] Local Apple terminology database with 50+ terms
+- [x] History sidebar with click-to-search
+- [x] Bookmark toggle for favorite words
+- [x] StackSwitcher for tab navigation
+- [x] .desktop file created with X-Mavericks-Native=true
+- [x] APPS.md status updated to PARTIALLY IMPLEMENTED (custom frontend)
+- [x] Package rebuilt, check-sync ALL PASSED

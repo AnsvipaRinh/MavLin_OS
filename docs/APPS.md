@@ -60,7 +60,7 @@
 | Stickies | PARTIALLY IMPLEMENTED | xfce4-notes-plugin 1.12 (panel plugin) | alias/wrapper (Category D) | xfce4-notes-plugin | on-demand | panel integration | no Mavericks UI; panel plugin only (not standalone); .desktop alias only |
 | Mail | PARTIALLY IMPLEMENTED | geary 46 (GPL-3.0) | alias/wrapper (Category D) | geary | on-demand | protocol backend | no Mavericks UI; stock geary only; .desktop alias only |
 | Preview | PARTIALLY IMPLEMENTED | evince (GPL, poppler backend) | alias/wrapper (Category D) | evince | on-demand | PDF render on panel | no Mavericks UI; stock evince only; .desktop alias only |
-| Dictionary | NOT_STARTED | — | — | — | — | — | no implementation; no .desktop; no backend identified |
+| Dictionary | PARTIALLY IMPLEMENTED | custom mv-dictionary (WebKit2 + Wiktionary/Thesaurus/Wikipedia/Apple) | custom frontend (Category B) | webkit2gtk | on-demand | — | custom app implemented (Dictionary/Thesaurus/Wikipedia/Apple tabs, history, bookmarks); missing Mavericks visual integration (leather binding, page flip animation, pronunciation audio, word of the day) |
 
 ## P2 — research only
 

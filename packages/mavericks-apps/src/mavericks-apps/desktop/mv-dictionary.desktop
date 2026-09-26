@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Dictionary
+Comment=Dictionary (Mavericks)
+Exec=mv-dictionary %U
+Icon=accessories-dictionary
+Categories=Office;Dictionary;
+StartupNotify=true
+X-Mavericks-Native=true
