@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Notification Center
+GenericName=Notifications
+Comment=View notification history
+Exec=mv-notification-center
+Icon=preferences-system-notifications
+Terminal=false
+Categories=Utility;
+StartupNotify=true
+X-Mavericks-Native=true
