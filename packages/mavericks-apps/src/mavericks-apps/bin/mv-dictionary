@@ -72,25 +72,28 @@ class DictionaryWindow(Gtk.Window):
 
         # Dictionary tab
         self.dict_view = WebKit2.WebView()
-        self.dict_view.set_size_request(-1, 400)
+        self.dict_view.connect("load-failed", self.on_load_failed)
         dict_scrolled = Gtk.ScrolledWindow()
         dict_scrolled.add(self.dict_view)
         self.source_stack.add_titled(dict_scrolled, "dictionary", "Dictionary")
 
         # Thesaurus tab
         self.thes_view = WebKit2.WebView()
+        self.thes_view.connect("load-failed", self.on_load_failed)
         thes_scrolled = Gtk.ScrolledWindow()
         thes_scrolled.add(self.thes_view)
         self.source_stack.add_titled(thes_scrolled, "thesaurus", "Thesaurus")
 
         # Wikipedia tab
         self.wiki_view = WebKit2.WebView()
+        self.wiki_view.connect("load-failed", self.on_load_failed)
         wiki_scrolled = Gtk.ScrolledWindow()
         wiki_scrolled.add(self.wiki_view)
         self.source_stack.add_titled(wiki_scrolled, "wikipedia", "Wikipedia")
 
         # Apple tab (local)
         self.apple_view = WebKit2.WebView()
+        self.apple_view.connect("load-failed", self.on_load_failed)
         apple_scrolled = Gtk.ScrolledWindow()
         apple_scrolled.add(self.apple_view)
         self.source_stack.add_titled(apple_scrolled, "apple", "Apple")
@@ -216,19 +219,26 @@ class DictionaryWindow(Gtk.Window):
             "keynote": "Apple's presentation app.",
             "xcode": "Apple's integrated development environment.",
         }
-        definition = apple_terms.get(word.lower(), f"No Apple definition for '{word}'.")
+        found = apple_terms.get(word.lower())
+        if found:
+            definition = found
+            footer = ""
+        else:
+            definition = f"No Apple definition for '{word}'."
+            footer = '<p class="not-found">No entry in local Apple dictionary. Try Wikipedia or Dictionary tabs.</p>'
+        html_footer = ""
+        if footer:
+            html_footer = footer
         return f"""
         <html><head>
         <style>
             body {{ font-family: -apple-system, San Francisco, sans-serif; padding: 20px; line-height: 1.6; color: #333; }}
             h1 {{ color: #007aff; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; }}
-            .not-found {{ color: #888; font-style: italic; }}
         </style>
         </head><body>
         <h1>{word}</h1>
         <p>{definition}</p>
-        <hr>
-        <p class="not-found">No entry in local Apple dictionary. Try Wikipedia or Dictionary tabs.</p>
+        {html_footer}
         </body></html>
         """
 
@@ -279,9 +289,27 @@ class DictionaryWindow(Gtk.Window):
             self.search_entry.set_text(word)
             self.on_search(self.search_entry)
 
+    def on_load_failed(self, widget, error):
+        friendly = """
+        <html><head>
+        <style>
+            body { font-family: -apple-system, sans-serif; padding: 40px; text-align: center; }
+            h1 { color: #888; }
+        </style>
+        </head><body>
+        <h1>Offline</h1>
+        <p>Unable to load remote content. <a href="file:///usr/share/mavericks-apps/offline.html">Try offline mode</a>.</p>
+        </body></html>
+        """
+        widget.load_html(friendly, "about:blank")
+
 
 def main():
+    word = sys.argv[1] if len(sys.argv) > 1 else ""
     w = DictionaryWindow()
+    if word:
+        w.search_entry.set_text(word)
+        w.on_search(w.search_entry)
     w.connect("destroy", Gtk.main_quit)
     Gtk.main()
     return 0
