@@ -204,3 +204,22 @@
 - [x] xfce4-notifyd: Mavericks theme (top-right, rounded, translucent) + notifyd config
 - [x] APPS.md: Control Center & Notification Center statuses updated to PARTIALLY IMPLEMENTED
 - [x] Packages rebuilt, check-sync ALL PASSED
+
+### Фаза 0.25 — Quick Look, Preview, Screenshot, Disk Utility status corrections (2026-09-26)
+- [x] Quick Look: PARTIALLY IMPLEMENTED (Space binding not feasible without Thunar plugin; UCA workaround)
+- [x] Preview: PARTIALLY IMPLEMENTED (evince alias, no Mavericks UI)
+- [x] Screenshot: PARTIALLY IMPLEMENTED (xfce4-screenshooter backend, no annotation)
+- [x] Disk Utility: PARTIALLY IMPLEMENTED (gnome-disks alias, no Mavericks UI)
+- [x] APPS.md statuses corrected
+
+### Фаза 0.26 — P0 infrastructure items added (2026-09-26)
+- [x] Menu Bar: PARTIALLY IMPLEMENTED (xfce4-panel Mavericks theme)
+- [x] Dock: PARTIALLY IMPLEMENTED (plank Mavericks theme)
+- [x] Application Menu: PARTIALLY IMPLEMENTED (applicationsmenu plugin)
+- [x] Global Dialogs: PARTIALLY IMPLEMENTED (GTK3 Mavericks theme)
+- [x] File Chooser: PARTIALLY IMPLEMENTED (GTK3 Mavericks theme)
+- [x] Context Menus: PARTIALLY IMPLEMENTED (GTK3 theme + Thunar UCA)
+- [x] Keyboard Shortcut Layer: IMPLEMENTED (centralized xfconf)
+- [x] Desktop/Wallpaper: PARTIALLY IMPLEMENTED (xfdesktop + Mavericks wallpapers)
+- [x] Window Management: PARTIALLY IMPLEMENTED (xfwm4 Mavericks theme + tiling)
+- [x] APPS.md updated with all P0 infrastructure items

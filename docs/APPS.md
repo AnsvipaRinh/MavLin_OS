@@ -14,9 +14,9 @@
 | Mission Control | PARTIALLY IMPLEMENTED | rofi 2.0 (MIT) + mv-mission-control script (wmctrl backend) + skippy-xd-git (GPL-2.0-or-later, AUR VCS) as E-MC experiment | rofi-mission-control.rasi (window overview) + E-MC-skippy-xd.sh apply/revert/status | rofi, wmctrl, skippy-xd-git (E-MC only, NOT in ISO) | on-demand | live expose on xfwm4 | mv-mission-control: wmctrl-based window overview (rofi script mode); E-MC: skippy-xd one-shot expose; test Super+Tab on HW |
 | Control Center | PARTIALLY IMPLEMENTED | NM/UPower/BlueZ via Gio.DBus + pactl + sysfs + xfconf | custom mv-control with sliders (Wi-Fi, BT, Sound, Display, Battery, DND) | — | on-demand | brightness path | no network connect UI; no BT device pairing; no output device switching; verify on HW |
 | Notification Center | PARTIALLY IMPLEMENTED | xfce4-notifyd 0.9 (GPL-2.0) + libnotify | Mavericks theme (top-right, rounded, translucent) + DND toggle in mv-control + notifyd config | — | event-driven | no history UI; no grouping; no action buttons; banner look needs HW validate |
-| Quick Look | IMPLEMENTED | GdkPixbuf + poppler-glib (GPL) + GtkSourceView4 + ffprobe | custom mv-quicklook single-shot | poppler-glib, ffmpeg (opt) | on-demand | Space binding* | *Thunar has no Space hook; use uca + Super+Space-file? document |
-| Screenshot | IMPLEMENTED | xfce4-screenshooter (GPL-2.0) + ffmpeg x11grab (record arch) | mv-shot CLI (macOS flag subset) + keybindings | flameshot (alt backend), ffmpeg | on-demand | shortcuts | test Super+Shift+3/4/5 |
-| Disk Utility | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | gnome-disk-utility 46 (GPL-2.0+) + UDisks2 | stock UI + Mavericks alias .desktop | gnome-disk-utility | on-demand | S3X display | validate NVMe shown |
+| Quick Look | PARTIALLY IMPLEMENTED | GdkPixbuf + poppler-glib (GPL) + GtkSourceView4 + ffprobe | custom mv-quicklook single-shot (images, PDF, text, media metadata) | poppler-glib, ffmpeg (opt) | on-demand | Space binding* | *Thunar has no Space hook; UCA workaround via right-click menu; Space binding not feasible without Thunar plugin; test Super+Space-file on HW |
+| Screenshot | PARTIALLY IMPLEMENTED | xfce4-screenshooter (GPL-2.0) + ffmpeg x11grab (record arch) | mv-shot CLI (macOS flag subset) + keybindings | flameshot (alt backend), ffmpeg | on-demand | shortcuts | no annotation tools; no preview after capture; recording experimental; test Super+Shift+3/4/5 |
+| Disk Utility | PARTIALLY IMPLEMENTED | gnome-disk-utility 46 (GPL-2.0+) + UDisks2 | stock gnome-disks UI (no Mavericks theming) | gnome-disk-utility | on-demand | S3X display | no Mavericks UI; validate NVMe shown on HW |
 | Activity Monitor | IMPLEMENTED | /proc (no new deps) | custom mv-activity (2s refresh only while open) | — | 0 when closed | values real on HW | validate tabs |
 | Energy HUD | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | /sys powercap RAPL + thermal zones (no deps) | custom mv-hud (C, 14KB, one-shot) in xfce4-genmon-plugin (GPL-2.0) | xfce4-genmon-plugin | 1 exec/5s | RAPL on m3-7Y32 | verify watts appear |
 | Trash | IMPLEMENTED | GVfs trash + trash-cli restore | Thunar + Put Back action | trash-cli | on-demand | — | validate restore |
@@ -31,6 +31,16 @@
 | Power UI | IMPLEMENTED | systemd/logind | custom mv-power-ui dialog | — | on-demand | suspend backend | test on HW |
 | Settings pages (KB/mouse/display/sound/net/BT) | IMPLEMENTED | libinput/X11/xrandr/NM/BlueZ/PipeWire/UPower/dbus | via mv-settings → real tools (no fake toggles) | blueman* | on-demand | applespi/BCM43602 | *blueman NOT in ISO yet — add on HW validation |
 
+| Menu Bar | PARTIALLY IMPLEMENTED | xfce4-panel (GPL-2.0) | Mavericks-style top panel (applicationsmenu, tasklist, separator, systray, clock, actions) + panel theme | xfce4-panel | on-demand | panel position/size | no global app menu integration; no app name in panel; test on HW |
+| Dock | PARTIALLY IMPLEMENTED | plank (GPL-3.0) | Mavericks theme (reflection, zoom, intellihide) + config | plank | on-demand | — | no running app indicators from Xfce tasklist sync; test on HW |
+| Application Menu | PARTIALLY IMPLEMENTED | xfce4-panel applicationsmenu plugin | Mavericks-style app menu (Apple logo, About, Preferences, Services, Hide, Quit) | xfce4-panel | on-demand | — | no dynamic app name; no recent items; test on HW |
+| Global Dialogs | PARTIALLY IMPLEMENTED | GTK3 (built-in) | Mavericks theme (filechooser, message dialogs, color/font choosers) | gtk3 | on-demand | — | theming via GTK theme; test on HW |
+| File Chooser | PARTIALLY IMPLEMENTED | GTK3 (built-in) | Mavericks theme (sidebar, path-bar, file-list, button-box) | gtk3 | on-demand | — | theming via GTK theme; test on HW |
+| Context Menus | PARTIALLY IMPLEMENTED | GTK3 (built-in) + Thunar UCA | Mavericks theme (menu, context-menu, popup-menu) + Thunar custom actions | gtk3 | on-demand | — | theming via GTK theme; Thunar UCA for Finder actions; test on HW |
+| Keyboard Shortcut Layer | IMPLEMENTED | xfce4-keyboard-shortcuts (xfconf) | Centralized Mavericks-like shortcuts (Super=Command) | xfconf | on-demand | — | Super+Space/Spotlight, Super+L/Launchpad, Super+Tab/MC, Super+F/Finder; test on HW |
+| Desktop / Wallpaper / Session Behavior | PARTIALLY IMPLEMENTED | xfdesktop (GPL-2.0) | Mavericks wallpapers + desktop icons config | xfdesktop | on-demand | — | wallpapers in ISO; no stacked desktop icons; test on HW |
+| Window Management | PARTIALLY IMPLEMENTED | xfwm4 (GPL-2.0) | Mavericks theme (titlebar, buttons, shadows) + tiling shortcuts | xfwm4 | on-demand | — | titlebar buttons (close/min/max); shadows; tiling via Super+arrows; test on HW |
+
 ## P1 — after P0 core
 
 | Name | State | Decision |
@@ -43,7 +53,7 @@
 | Font Book | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | gnome-font-viewer 50 (GTK4/libadwaita) + alias |
 | Digital Color Meter | IMPLEMENTED | gcolor3 2.4 (GPL-2.0) + alias |
 | Stickies | IMPLEMENTED | xfce4-notes-plugin 1.12 (panel plugin; NOT added to panel by default) |
-| Preview | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | evince (GPL, poppler backend) + alias mv-preview.desktop | stock + alias | evince (in ISO) | on-demand | PDF render on panel | validate open/pdf flow |
+| Preview | PARTIALLY IMPLEMENTED | evince (GPL, poppler backend) + alias mv-preview.desktop | stock evince UI (no Mavericks theming) | evince (in ISO) | on-demand | PDF render on panel | no Mavericks UI; no annotation; no sidebar; validate open/pdf flow on HW |
 
 ## P2 — research only
 
