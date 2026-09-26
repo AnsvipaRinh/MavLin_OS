@@ -3,16 +3,327 @@
 Backend: xfce4-screenshooter (stills) + ffmpeg x11grab (recording architecture).
 macOS-compatible subset: -i (interactive region), -w (window), -m (fullscreen),
 -T seconds (delay), -c (clipboard), -o file. No daemon.
+Config: ~/.config/mv-shot/config.ini (save_dir, show_preview, preview_timeout).
+Post-capture preview with actions: Open in Preview, Show in Finder, Move to Trash.
+Annotation handoff: Open in Preview → use annotation toolbar.
 License: GPL-2.0-or-later."""
-import os, subprocess, sys, time
+import os
+import sys
+import time
+import subprocess
+import configparser
+from pathlib import Path
 
-SAVE_DIR = os.path.expanduser("~/Pictures/Screenshots")
+try:
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
+    HAVE_GTK = True
+except (ImportError, ValueError):
+    HAVE_GTK = False
+
+SAVE_DIR_DEFAULT = os.path.expanduser("~/Pictures/Screenshots")
+CONFIG_PATH = os.path.expanduser("~/.config/mv-shot/config.ini")
 APP = "xfce4-screenshooter"
+PREVIEW_APP = "mv-preview"
+
+
+def load_config():
+    """Load configuration from file."""
+    config = configparser.ConfigParser()
+    config["defaults"] = {
+        "save_dir": SAVE_DIR_DEFAULT,
+        "show_preview": "true",
+        "preview_timeout": "5",
+        "copy_to_clipboard": "false",
+    }
+    if os.path.isfile(CONFIG_PATH):
+        try:
+            config.read(CONFIG_PATH)
+        except Exception:
+            pass
+    return config
+
+
+def ensure_save_dir(path):
+    """Create save directory if it doesn't exist."""
+    try:
+        os.makedirs(path, exist_ok=True)
+        return True
+    except Exception:
+        return False
+
 
 def run(cmd):
+    """Run command and return CompletedProcess."""
     return subprocess.run(cmd)
 
+
+def check_backend_available():
+    """Check if xfce4-screenshooter is available."""
+    try:
+        subprocess.run([APP, "--help"], capture_output=True, timeout=2)
+        return True
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def check_preview_available():
+    """Check if mv-preview is available."""
+    try:
+        subprocess.run([PREVIEW_APP, "--help"], capture_output=True, timeout=2)
+        return True
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def take_screenshot(mode, delay, clip, out_path):
+    """Take screenshot using xfce4-screenshooter."""
+    if not check_backend_available():
+        return False, "Backend 'xfce4-screenshooter' not found. Install xfce4-screenshooter."
+
+    if delay:
+        time.sleep(delay)
+
+    flag_map = {"region": "-r", "window": "-w", "fullscreen": "-f"}
+    flag = flag_map.get(mode, "-r")
+
+    cmd = [APP, flag]
+
+    if clip:
+        cmd.append("-c")
+    else:
+        cmd += ["-s", out_path]
+
+    result = run(cmd)
+    if result.returncode != 0:
+        return False, f"Screenshot failed (exit code {result.returncode})"
+
+    if clip:
+        return True, None
+    return True, out_path
+
+
+def record_screen(output_path):
+    """Record screen using ffmpeg x11grab."""
+    try:
+        subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=2)
+    except FileNotFoundError:
+        return False, "Backend 'ffmpeg' not found. Install ffmpeg for recording."
+
+    cmd = [
+        "ffmpeg", "-f", "x11grab", "-i", ":0.0",
+        "-c:v", "libx264", "-preset", "ultrafast",
+        output_path
+    ]
+    print(f"Recording to {output_path} (Ctrl+C to stop)…")
+    result = subprocess.run(cmd)
+    if result.returncode != 0:
+        return False, f"Recording failed (exit code {result.returncode})"
+    return True, output_path
+
+
+class PreviewDialog(Gtk.Dialog):
+    """Post-capture preview dialog with actions."""
+
+    def __init__(self, parent, image_path, timeout_sec=5):
+        super().__init__(
+            title="Screenshot Captured",
+            transient_for=parent,
+            flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT
+        )
+        self.set_default_size(400, 200)
+        self.set_resizable(False)
+        self.image_path = image_path
+        self.result_action = None
+
+        # Apply Mavericks-style CSS
+        self.apply_css()
+
+        # Build UI
+        self.build_ui()
+
+        # Auto-close timer
+        if timeout_sec > 0:
+            GLib.timeout_add_seconds(timeout_sec, self.on_timeout)
+
+    def apply_css(self):
+        css = b"""
+        .preview-dialog {
+            background: #f5f0e8;
+            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+        }
+        .preview-image {
+            border: 1px solid #d4c8b8;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .action-button {
+            border-radius: 4px;
+            padding: 8px 16px;
+            margin: 4px;
+            font-weight: 500;
+        }
+        .action-button:hover {
+            background: #007aff;
+            color: white;
+        }
+        .action-button.primary {
+            background: #007aff;
+            color: white;
+        }
+        .action-button.primary:hover {
+            background: #0056cc;
+        }
+        .info-label {
+            color: #666;
+            font-size: 10pt;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.get_style_context().add_class("preview-dialog")
+
+    def build_ui(self):
+        content = self.get_content_area()
+        content.set_spacing(12)
+        content.set_border_width(16)
+
+        # Thumbnail
+        try:
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                self.image_path, 320, 180, True)
+            img = Gtk.Image.new_from_pixbuf(pixbuf)
+            img.get_style_context().add_class("preview-image")
+            content.pack_start(img, False, False, 0)
+        except Exception:
+            pass
+
+        # Info label
+        filename = os.path.basename(self.image_path)
+        size = os.path.getsize(self.image_path)
+        size_str = f"{size / 1024:.1f} KB" if size < 1024*1024 else f"{size / (1024*1024):.1f} MB"
+        info = Gtk.Label(label=f"{filename}  •  {size_str}")
+        info.get_style_context().add_class("info-label")
+        info.set_xalign(0)
+        content.pack_start(info, False, False, 0)
+
+        # Action buttons
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        btn_box.set_halign(Gtk.Align.CENTER)
+        content.pack_start(btn_box, False, False, 0)
+
+        actions = [
+            ("Open in Preview", "document-open", "preview", True),
+            ("Show in Finder", "folder-open", "finder", False),
+            ("Move to Trash", "user-trash", "trash", False),
+            ("Dismiss", "window-close", "dismiss", False),
+        ]
+
+        for label, icon, action, primary in actions:
+            btn = Gtk.Button()
+            btn.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+            btn.set_label(f"  {label}")
+            btn.set_always_show_image(True)
+            btn.get_style_context().add_class("action-button")
+            if primary:
+                btn.get_style_context().add_class("primary")
+            btn.connect("clicked", lambda _, a=action: self.on_action(a))
+            btn_box.pack_start(btn, False, False, 0)
+
+        self.show_all()
+
+    def on_action(self, action):
+        self.result_action = action
+        self.response(Gtk.ResponseType.OK)
+
+    def on_timeout(self):
+        self.response(Gtk.ResponseType.CLOSE)
+        return False
+
+
+def show_preview_dialog(image_path, timeout_sec=5):
+    """Show post-capture preview dialog. Returns action or None."""
+    if not HAVE_GTK:
+        return None
+
+    # Create a minimal hidden parent window
+    parent = Gtk.Window()
+    parent.set_opacity(0)
+    parent.show()
+
+    dialog = PreviewDialog(parent, image_path, timeout_sec)
+    response = dialog.run()
+    action = dialog.result_action
+    dialog.destroy()
+    parent.destroy()
+
+    # Process pending events
+    while Gtk.events_pending():
+        Gtk.main_iteration()
+
+    return action
+
+
+def handle_post_capture_actions(image_path, action):
+    """Execute post-capture action."""
+    if action == "preview":
+        # Open in Preview with annotation handoff
+        try:
+            subprocess.Popen([PREVIEW_APP, image_path])
+            return True
+        except Exception:
+            pass
+    elif action == "finder":
+        # Show in Thunar (Finder equivalent)
+        try:
+            subprocess.Popen(["thunar", "--select", image_path])
+            return True
+        except Exception:
+            pass
+    elif action == "trash":
+        # Move to Trash
+        try:
+            subprocess.run(["trash-put", image_path], check=True)
+            return True
+        except Exception:
+            pass
+    return False
+
+
+def show_error_dialog(message):
+    """Show error dialog if GTK available, else print to stderr."""
+    if HAVE_GTK:
+        parent = Gtk.Window()
+        parent.set_opacity(0)
+        parent.show()
+
+        dialog = Gtk.MessageDialog(
+            transient_for=parent,
+            flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            text="Screenshot Error"
+        )
+        dialog.format_secondary_text(message)
+        dialog.run()
+        dialog.destroy()
+        parent.destroy()
+        while Gtk.events_pending():
+            Gtk.main_iteration()
+    else:
+        print(f"ERROR: {message}", file=sys.stderr)
+
+
 def main(argv):
+    config = load_config()
+    save_dir = config["defaults"].get("save_dir", SAVE_DIR_DEFAULT)
+    show_preview = config["defaults"].getboolean("show_preview", True)
+    preview_timeout = config["defaults"].getint("preview_timeout", 5)
+
     mode, delay, clip, out, record = "region", 0, False, None, False
     i = 0
     while i < len(argv):
@@ -25,7 +336,11 @@ def main(argv):
             mode = "fullscreen"
         elif a == "-T" and i + 1 < len(argv):
             i += 1
-            delay = int(argv[i])
+            try:
+                delay = int(argv[i])
+            except ValueError:
+                show_error_dialog("Invalid delay value")
+                return 1
         elif a == "-c":
             clip = True
         elif a == "-o" and i + 1 < len(argv):
@@ -36,28 +351,54 @@ def main(argv):
         elif a in ("-h", "--help"):
             print(__doc__)
             return 0
+        elif a == "--config":
+            # Show config path
+            print(f"Config: {CONFIG_PATH}")
+            return 0
         i += 1
-    if delay:
-        time.sleep(delay)
-    os.makedirs(SAVE_DIR, exist_ok=True)
+
     if record:
         # Screen-recording architecture: ffmpeg x11grab → ~/Movies.
         # EXPERIMENT: validate CPU/power on m3-7Y32 before default use.
-        mov = os.path.expanduser("~/Movies/recording-%s.mkv"
-                                 % time.strftime("%Y%m%d-%H%M%S"))
-        os.makedirs(os.path.dirname(mov), exist_ok=True)
-        print("Recording to %s (Ctrl+C to stop)…" % mov)
-        return subprocess.run(["ffmpeg", "-f", "x11grab", "-i", ":0.0",
-                               "-c:v", "libx264", "-preset", "ultrafast",
-                               mov]).returncode
-    flag = {"region": "-r", "window": "-w", "fullscreen": "-f"}[mode]
-    cmd = [APP, flag]
-    if clip:
-        cmd.append("-c")
-    else:
-        cmd += ["-s", out or os.path.join(
-            SAVE_DIR, "shot-%s.png" % time.strftime("%Y%m%d-%H%M%S"))]
-    return run(cmd).returncode
+        mov_dir = os.path.expanduser("~/Movies")
+        os.makedirs(mov_dir, exist_ok=True)
+        mov = os.path.join(mov_dir, f"recording-{time.strftime('%Y%m%d-%H%M%S')}.mkv")
+        success, error = record_screen(mov)
+        if not success:
+            show_error_dialog(error)
+            return 1
+        return 0
+
+    if not ensure_save_dir(save_dir):
+        show_error_dialog(f"Cannot create save directory: {save_dir}")
+        return 1
+
+    out_path = out or os.path.join(save_dir, f"shot-{time.strftime('%Y%m%d-%H%M%S')}.png")
+
+    success, result = take_screenshot(mode, delay, clip, out_path)
+    if not success:
+        show_error_dialog(result)
+        return 1
+
+    # Clipboard copy: if -c flag was used, xfce4-screenshooter handles it
+    # If not using -c but config says copy_to_clipboard, do it after save
+    if not clip and config["defaults"].getboolean("copy_to_clipboard", False) and HAVE_GTK:
+        try:
+            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file(out_path)
+            clipboard.set_image(pixbuf)
+            clipboard.store()
+        except Exception:
+            pass
+
+    # Post-capture preview (only for saved files, not clipboard-only)
+    if not clip and show_preview and os.path.isfile(out_path):
+        action = show_preview_dialog(out_path, preview_timeout)
+        if action and action != "dismiss":
+            handle_post_capture_actions(out_path, action)
+
+    return 0
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

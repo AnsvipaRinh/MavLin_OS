@@ -7,3 +7,5 @@ Icon=applets-screenshooter
 Categories=Graphics;
 StartupNotify=true
 X-Mavericks-Native=true
+MimeType=image/png;image/jpeg;image/tiff;image/bmp;
+Keywords=screenshot;capture;screen;shot;printscreen;
