@@ -1,69 +1,50 @@
 #!/usr/bin/env python3
-"""mv-preview — Mavericks-like Preview wrapper for evince.
-Adds Mavericks visual theme and annotation toolbar.
-"""
+"""mv-preview — Mavericks-like Preview.
+PDF/images viewer with thumbnail sidebar and annotation toolbar.
+Backend: poppler-glib (same as evince) for PDF; GdkPixbuf for images.
+No daemon, no Electron. License: GPL-2.0-or-later."""
+import mimetypes
 import os
 import sys
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
 
-class PreviewWrapper(Gtk.Window):
-    def __init__(self, file_path=None):
+try:
+    gi.require_version("Poppler", "0.18")
+    from gi.repository import Poppler
+    HAVE_POPPLER = True
+except (ImportError, ValueError):
+    HAVE_POPPLER = False
+
+IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".svg"}
+PDF_EXT = {".pdf"}
+
+
+class Preview(Gtk.Window):
+    def __init__(self, paths):
         super().__init__(title="Preview")
-        self.set_default_size(900, 600)
-        
+        self.set_default_size(1000, 700)
+
+        self.paths = [p for p in paths if os.path.isfile(p)]
+        if not self.paths:
+            self.show_error("No valid files to open")
+            GLib.timeout_add(100, Gtk.main_quit)
+            return
+
+        self.index = 0
+        self.doc = None
+        self.n_pages = 0
+        self.page = 0
+        self.scale = 1.0
+        self.thumb_pixbufs = []
+
         self.apply_css()
-        
-        hb = Gtk.HeaderBar(title="Preview", show_close_button=True)
-        self.set_titlebar(hb)
-        
-        for label, icon, cb in [
-            ("Select", "mouse", self.tool_select),
-            ("Text", "text-x-generic", self.tool_text),
-            ("Shape", "draw-freehand", self.tool_shape),
-            ("Sign", "signature", self.tool_sign),
-        ]:
-            b = Gtk.Button()
-            b.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
-            b.set_tooltip_text(label)
-            b.get_style_context().add_class("mavericks-toolbar-btn")
-            b.connect("clicked", cb)
-            hb.pack_end(b)
-        
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
-        
-        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        sidebar.set_size_request(180, -1)
-        sidebar.get_style_context().add_class("preview-sidebar")
-        
-        lbl = Gtk.Label(label="Thumbnails")
-        lbl.set_xalign(0)
-        lbl.get_style_context().add_class("sidebar-header")
-        sidebar.pack_start(lbl, False, False, 0)
-        
-        self.thumb_store = Gtk.ListStore(str, str)
-        thumb_view = Gtk.TreeView(model=self.thumb_store, headers_visible=False)
-        thumb_view.set_headers_visible(False)
-        renderer = Gtk.CellRendererPixbuf()
-        thumb_col = Gtk.TreeViewColumn("", renderer, pixbuf=0)
-        thumb_view.append_column(thumb_col)
-        thumb_sw = Gtk.ScrolledWindow()
-        thumb_sw.add(thumb_view)
-        sidebar.pack_start(thumb_sw, True, True, 0)
-        
-        sidebar_sw = Gtk.ScrolledWindow()
-        sidebar_sw.add(sidebar)
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        paned.add1(sidebar_sw)
-        
-        self.content = Gtk.Label(label="Launching Preview...")
-        self.content.get_style_context().add_class("preview-content")
-        paned.add2(self.content)
-        paned.set_position(200)
-        
-        GLib.timeout_add(100, self.launch_evince)
+        self.build_ui()
+        self.load_file(self.paths[self.index])
+
+        self.connect("key-press-event", self.on_key_press)
+        self.connect("destroy", Gtk.main_quit)
         self.show_all()
 
     def apply_css(self):
@@ -83,37 +64,385 @@ class PreviewWrapper(Gtk.Window):
         }
         .preview-content {
             background: #f5f0e8;
-            font-family: "San Francisco", sans-serif;
-            font-size: 14pt;
-            color: #666;
+        }
+        .mavericks-toolbar-btn {
+            border-radius: 4px;
+            padding: 4px 8px;
+            margin: 2px;
+        }
+        .mavericks-toolbar-btn:hover {
+            background: #d4c8b8;
+        }
+        .annotation-btn {
+            border-radius: 4px;
+            padding: 6px 10px;
+            margin: 2px;
+        }
+        .annotation-btn:hover {
+            background: #007aff;
+            color: white;
+        }
+        .page-label {
+            font-family: "San Francisco", monospace;
+            font-size: 11pt;
+            color: #333;
         }
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css)
         screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-    def tool_select(self, _): pass
-    def tool_text(self, _): pass
-    def tool_shape(self, _): pass
-    def tool_sign(self, _): pass
+    def build_ui(self):
+        hb = Gtk.HeaderBar(title="Preview", show_close_button=True)
+        hb.set_subtitle("")
+        self.set_titlebar(hb)
 
-    def launch_evince(self):
+        # Left: navigation
+        if len(self.paths) > 1:
+            prev_b = Gtk.Button.new_from_icon_name("go-previous", Gtk.IconSize.BUTTON)
+            prev_b.set_tooltip_text("Previous file (Cmd+Left)")
+            prev_b.connect("clicked", lambda *_: self.navigate_file(-1))
+            prev_b.get_style_context().add_class("mavericks-toolbar-btn")
+            hb.pack_start(prev_b)
+
+            self.file_label = Gtk.Label()
+            self.file_label.get_style_context().add_class("page-label")
+            hb.pack_start(self.file_label)
+
+            next_b = Gtk.Button.new_from_icon_name("go-next", Gtk.IconSize.BUTTON)
+            next_b.set_tooltip_text("Next file (Cmd+Right)")
+            next_b.connect("clicked", lambda *_: self.navigate_file(1))
+            next_b.get_style_context().add_class("mavericks-toolbar-btn")
+            hb.pack_start(next_b)
+
+        # Right: annotation tools
+        for label, icon, cb in [
+            ("Select", "mouse", self.tool_select),
+            ("Text", "text-x-generic", self.tool_text),
+            ("Shape", "draw-freehand", self.tool_shape),
+            ("Sign", "signature", self.tool_sign),
+        ]:
+            b = Gtk.Button()
+            b.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+            b.set_tooltip_text(label)
+            b.get_style_context().add_class("annotation-btn")
+            b.connect("clicked", cb)
+            hb.pack_end(b)
+
+        # Open button
+        open_b = Gtk.Button(label="Open")
+        open_b.connect("clicked", self.open_external)
+        open_b.get_style_context().add_class("mavericks-toolbar-btn")
+        hb.pack_end(open_b)
+
+        # Main paned: sidebar | content
+        self.paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(self.paned)
+
+        # Sidebar: thumbnails
+        self.sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.sidebar.set_size_request(180, -1)
+        self.sidebar.get_style_context().add_class("preview-sidebar")
+
+        lbl = Gtk.Label(label="Thumbnails")
+        lbl.set_xalign(0)
+        lbl.get_style_context().add_class("sidebar-header")
+        self.sidebar.pack_start(lbl, False, False, 0)
+
+        self.thumb_store = Gtk.ListStore(GdkPixbuf.Pixbuf, int)  # pixbuf, page_num
+        self.thumb_view = Gtk.TreeView(model=self.thumb_store, headers_visible=False)
+        self.thumb_view.set_headers_visible(False)
+        renderer = Gtk.CellRendererPixbuf()
+        thumb_col = Gtk.TreeViewColumn("", renderer, pixbuf=0)
+        self.thumb_view.append_column(thumb_col)
+        self.thumb_view.get_selection().connect("changed", self.on_thumb_select)
+        thumb_sw = Gtk.ScrolledWindow()
+        thumb_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        thumb_sw.add(self.thumb_view)
+        self.sidebar.pack_start(thumb_sw, True, True, 0)
+
+        sidebar_sw = Gtk.ScrolledWindow()
+        sidebar_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sidebar_sw.add(self.sidebar)
+        self.paned.add1(sidebar_sw)
+
+        # Content area
+        self.content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.content_box.get_style_context().add_class("preview-content")
+
+        # Page navigation toolbar
+        self.page_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.page_toolbar.set_border_width(8)
+        self.page_toolbar.set_visible(False)
+
+        self.page_prev = Gtk.Button.new_from_icon_name("go-previous", Gtk.IconSize.BUTTON)
+        self.page_prev.set_tooltip_text("Previous page (Left arrow)")
+        self.page_prev.connect("clicked", lambda *_: self.navigate_page(-1))
+        self.page_toolbar.pack_start(self.page_prev, False, False, 0)
+
+        self.page_label = Gtk.Label()
+        self.page_label.get_style_context().add_class("page-label")
+        self.page_toolbar.pack_start(self.page_label, True, True, 0)
+
+        self.page_next = Gtk.Button.new_from_icon_name("go-next", Gtk.IconSize.BUTTON)
+        self.page_next.set_tooltip_text("Next page (Right arrow)")
+        self.page_next.connect("clicked", lambda *_: self.navigate_page(1))
+        self.page_toolbar.pack_end(self.page_next, False, False, 0)
+
+        self.content_box.pack_start(self.page_toolbar, False, False, 0)
+
+        # Scrolled window for page content
+        self.sw = Gtk.ScrolledWindow()
+        self.sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self.content_box.pack_start(self.sw, True, True, 0)
+
+        self.page_image = Gtk.Image()
+        self.viewport = Gtk.Viewport()
+        self.viewport.add(self.page_image)
+        self.sw.add(self.viewport)
+
+        self.paned.add2(self.content_box)
+        self.paned.set_position(200)
+
+        # Status bar
+        self.statusbar = Gtk.Statusbar()
+        self.status_ctx = self.statusbar.get_context_id("info")
+        self.content_box.pack_start(self.statusbar, False, False, 0)
+        self.update_status()
+
+    def load_file(self, path):
+        ext = os.path.splitext(path)[1].lower()
+        self.current_path = path
+        self.current_ext = ext
+
+        if ext in PDF_EXT and HAVE_POPPLER:
+            self.load_pdf(path)
+        elif ext in IMG_EXT:
+            self.load_image(path)
+        else:
+            self.show_error(f"Unsupported file type: {ext}")
+
+        self.update_file_label()
+        self.update_status()
+
+    def load_pdf(self, path):
         try:
-            subprocess.Popen(["evince"])
-            self.content.set_markup('<span size="x-large" weight="bold">📄 Preview</span>\n\n<span color="#666">Evince launched in background.\nUse annotation tools to markup documents.</span>')
-        except FileNotFoundError:
-            self.content.set_markup('<span color="#ff3b30">Evince not installed</span>\n\n<span color="#666">Install with: sudo pacman -S evince</span>')
+            self.doc = Poppler.Document.new_from_file("file://" + path, None)
+            self.n_pages = self.doc.get_n_pages()
+            self.page = 0
+            self.render_thumbnails()
+            self.render_page()
+            self.page_toolbar.set_visible(self.n_pages > 1)
+        except Exception as e:
+            self.show_error(f"Cannot open PDF: {e}")
+
+    def load_image(self, path):
+        try:
+            self.doc = None
+            self.n_pages = 1
+            self.page = 0
+            self.thumb_store.clear()
+            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 160, 160, True)
+            self.thumb_store.append([pix, 0])
+            self.render_image_page(path)
+            self.page_toolbar.set_visible(False)
+        except Exception as e:
+            self.show_error(f"Cannot load image: {e}")
+
+    def render_thumbnails(self):
+        self.thumb_store.clear()
+        if not self.doc:
+            return
+        for i in range(self.n_pages):
+            page = self.doc.get_page(i)
+            w, h = page.get_size()
+            scale = min(160 / w, 160 / h)
+            pix = page.render_to_pixbuf(int(w * scale), int(h * scale))
+            self.thumb_store.append([pix, i])
+
+    def render_page(self):
+        if not self.doc:
+            return
+        page = self.doc.get_page(self.page)
+        w, h = page.get_size()
+        scale = min(800 / w, 600 / h, 3.0)
+        pix = page.render_to_pixbuf(int(w * scale), int(h * scale))
+        self.page_image.set_from_pixbuf(pix)
+        self.update_page_label()
+
+    def render_image_page(self, path):
+        try:
+            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 800, 600, True)
+            self.page_image.set_from_pixbuf(pix)
+            self.update_page_label()
+        except Exception as e:
+            self.show_error(f"Cannot render image: {e}")
+
+    def update_page_label(self):
+        if self.n_pages > 1:
+            self.page_label.set_text(f"Page {self.page + 1} of {self.n_pages}")
+        else:
+            self.page_label.set_text(os.path.basename(self.current_path))
+
+    def update_file_label(self):
+        if hasattr(self, 'file_label') and len(self.paths) > 1:
+            self.file_label.set_text(f"{self.index + 1} of {len(self.paths)}: {os.path.basename(self.current_path)}")
+
+    def update_status(self):
+        name = os.path.basename(self.current_path)
+        if self.doc:
+            self.statusbar.push(self.status_ctx, f"{name} — {self.n_pages} page(s)")
+        else:
+            self.statusbar.push(self.status_ctx, name)
+
+    def on_thumb_select(self, selection):
+        model, it = selection.get_selected()
+        if it:
+            page_num = model[it][1]
+            if page_num != self.page:
+                self.page = page_num
+                self.render_page()
+
+    def navigate_page(self, delta):
+        if self.n_pages <= 1:
+            return
+        self.page = max(0, min(self.page + delta, self.n_pages - 1))
+        self.render_page()
+        # Select corresponding thumbnail
+        self.select_thumb(self.page)
+
+    def select_thumb(self, page_num):
+        for row in self.thumb_store:
+            if row[1] == page_num:
+                self.thumb_view.get_selection().select_path(row.path)
+                break
+
+    def navigate_file(self, delta):
+        if len(self.paths) <= 1:
+            return
+        self.index = max(0, min(self.index + delta, len(self.paths) - 1))
+        self.load_file(self.paths[self.index])
+
+    def on_key_press(self, _widget, event):
+        key = Gdk.keyval_name(event.keyval)
+        state = event.state
+
+        # Navigation
+        if key in ("Escape", "q", "Q"):
+            Gtk.main_quit()
+            return True
+        if key in ("Left", "KP_Left", "Up", "KP_Up", "p", "P"):
+            if state & Gdk.ModifierType.CONTROL_MASK:
+                self.navigate_file(-1)
+            else:
+                self.navigate_page(-1)
+            return True
+        if key in ("Right", "KP_Right", "Down", "KP_Down", "n", "N", "space"):
+            if state & Gdk.ModifierType.CONTROL_MASK:
+                self.navigate_file(1)
+            else:
+                self.navigate_page(1)
+            return True
+        if key in ("Home", "KP_Home"):
+            self.page = 0
+            self.render_page()
+            self.select_thumb(0)
+            return True
+        if key in ("End", "KP_End"):
+            self.page = self.n_pages - 1
+            self.render_page()
+            self.select_thumb(self.page)
+            return True
+
+        # File open
+        if key in ("Return", "KP_Enter", "o", "O"):
+            self.open_external(None)
+            return True
+
+        # Fullscreen
+        if key in ("f", "F", "F11"):
+            self.toggle_fullscreen()
+            return True
+
+        # Annotation tools (Cmd+1-4)
+        if state & Gdk.ModifierType.MOD1_MASK:  # Alt/Command
+            if key in ("1", "KP_1"):
+                self.tool_select(None)
+                return True
+            if key in ("2", "KP_2"):
+                self.tool_text(None)
+                return True
+            if key in ("3", "KP_3"):
+                self.tool_shape(None)
+                return True
+            if key in ("4", "KP_4"):
+                self.tool_sign(None)
+                return True
+
         return False
 
-import os
-import subprocess
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+    def toggle_fullscreen(self):
+        if self.get_window() and self.get_window().get_state() & Gdk.WindowState.FULLSCREEN:
+            self.unfullscreen()
+        else:
+            self.fullscreen()
+
+    # Annotation tool stubs (UI present, functionality requires poppler annotation API)
+    def tool_select(self, _):
+        self.statusbar.push(self.status_ctx, "Select tool — click to select text/annotations")
+    def tool_text(self, _):
+        self.statusbar.push(self.status_ctx, "Text annotation — click to add text box (stub)")
+    def tool_shape(self, _):
+        self.statusbar.push(self.status_ctx, "Shape annotation — click to draw (stub)")
+    def tool_sign(self, _):
+        self.statusbar.push(self.status_ctx, "Signature — click to add signature (stub)")
+
+    def open_external(self, _):
+        subprocess.Popen(["xdg-open", self.current_path])
+        Gtk.main_quit()
+
+    def show_error(self, msg):
+        for child in self.get_children():
+            self.remove(child)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        box.set_border_width(32)
+        box.set_halign(Gtk.Align.CENTER)
+        box.set_valign(Gtk.Align.CENTER)
+
+        icon = Gtk.Image.new_from_icon_name("dialog-error", Gtk.IconSize.DIALOG)
+        box.pack_start(icon, False, False, 0)
+
+        lbl = Gtk.Label(label=msg, use_markup=True)
+        lbl.set_selectable(True)
+        box.pack_start(lbl, False, False, 0)
+
+        btn = Gtk.Button(label="Close")
+        btn.connect("clicked", lambda *_: Gtk.main_quit())
+        box.pack_start(btn, False, False, 0)
+
+        self.add(box)
+        self.show_all()
+
 
 if __name__ == "__main__":
-    w = PreviewWrapper()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
+    import subprocess
+    if len(sys.argv) < 2:
+        print("usage: mv-preview <file> [file...]", file=sys.stderr)
+        sys.exit(2)
+
+    files = sys.argv[1:]
+    if len(files) == 1 and os.path.isdir(files[0]):
+        try:
+            files = sorted(os.path.join(files[0], f) for f in os.listdir(files[0])
+                           if os.path.isfile(os.path.join(files[0], f)))
+        except OSError:
+            pass
+
+    if not files:
+        print("No valid files to preview", file=sys.stderr)
+        sys.exit(1)
+
+    w = Preview(files)
     Gtk.main()

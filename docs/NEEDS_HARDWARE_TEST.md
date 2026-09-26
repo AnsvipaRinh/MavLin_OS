@@ -79,7 +79,10 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Error handling: if wmctrl missing, user-friendly message with install hint appears
 
 ## Phase 3+ — app validation (source-уровень готов в 0.8–0.15)
-- [ ] Preview: открыть PDF в evince через mv-preview alias на панели 2304x1440
+- [ ] Preview: открыть PDF через mv-preview на панели 2304x1440 — multi-page nav (arrows, Home/End), thumbnail sidebar click, fullscreen (F), Open button, annotation toolbar visible
+- [ ] Preview: открыть image (PNG/JPG/TIFF) через mv-preview — render, fullscreen, multi-file nav (Ctrl+arrows)
+- [ ] Preview: MIME associations — double-click PDF/image in Thunar opens mv-preview
+- [ ] Preview: annotation toolbar stubs show status feedback; no crashes on tool clicks
 - [ ] Spotlight: после первой загрузки дождаться plocate-updatedb.timer, Super+Space находит файлы
 - [ ] Quick Look: mv-quicklook на image/PDF/text/audio — multi-file nav (←/→/Space), fullscreen (F), Open button work
 - [ ] Quick Look: Super+Shift+Space в Thunar копирует выбор в буфер обмена и открывает mv-quicklook с выбранными файлами

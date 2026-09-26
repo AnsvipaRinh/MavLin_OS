@@ -6,4 +6,5 @@ Exec=mv-preview %U
 Icon=document-viewer
 Categories=Graphics;Viewer;
 StartupNotify=true
+MimeType=application/pdf;application/postscript;image/png;image/jpeg;image/gif;image/bmp;image/webp;image/tiff;image/svg+xml;
 X-Mavericks-Native=true

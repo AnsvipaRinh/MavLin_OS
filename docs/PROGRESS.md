@@ -318,3 +318,20 @@
 - [x] All validations pass: py_compile, xmllint, desktop-file-validate, check-sync ALL PASSED
 - [x] APPS.md Quick Look row updated with implemented features
 - [x] Remaining gap: native Thunar Space key binding (requires Thunar plugin, not feasible pre-hardware); clipboard-based approach has ~150ms latency and requires xdotool; test Super+Shift+Space on HW
+
+### Фаза 0.36 — Preview implementation (2026-09-26, без железа)
+- [x] mv-preview: complete rewrite using poppler-glib (mature PDF backend, same as evince) + GdkPixbuf for images
+- [x] Multi-file support: navigate between files with Ctrl+Left/Right arrows
+- [x] Multi-page PDF navigation: Left/Right arrows, Home/End, thumbnail sidebar click
+- [x] Thumbnail sidebar: renders all PDF page thumbnails, click to jump to page
+- [x] Annotation toolbar UI: Select, Text, Shape, Sign buttons (stubbed, status bar feedback)
+- [x] Keyboard shortcuts: Escape/q=close, Enter/o=open, arrows=page, Ctrl+arrows=file, Home/End=first/last page, F/F11=fullscreen, Alt+1-4=annotation tools
+- [x] Fullscreen toggle (F key, toolbar button)
+- [x] Open button: launches file in default external handler (xdg-open)
+- [x] Error states: missing file, unsupported type, missing poppler, render errors shown in UI
+- [x] Mavericks visual integration: skeuomorphic sidebar gradient, custom toolbar styling, status bar
+- [x] MIME type associations in .desktop: application/pdf, application/postscript, image/* — Preview becomes default handler
+- [x] poppler-glib dependency added to mavericks-apps optdepends (already present)
+- [x] All validations pass: py_compile, desktop-file-validate, check-sync ALL PASSED
+- [x] APPS.md Preview row updated with implemented features
+- [x] Remaining gaps: annotation persistence (requires poppler annotation API), form filling, export, signature management; PDF render validation needs hardware (2304×1440 panel)
