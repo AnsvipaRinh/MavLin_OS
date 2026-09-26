@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""mv-stickies — Mavericks-like Stickies.
+Yellow sticky notes with handwriting font, desktop integration.
+"""
+import os
+import sys
+import json
+import uuid
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib, Pango
+
+STORE = os.path.expanduser("~/.local/share/mv-stickies/stickies.json")
+
+def load():
+    try:
+        with open(STORE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {"stickies": []}
+
+def save(data):
+    os.makedirs(os.path.dirname(STORE), exist_ok=True)
+    tmp = STORE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f)
+    os.replace(tmp, STORE)
+
+class StickyNote(Gtk.Window):
+    def __init__(self, app, data=None):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.app = app
+        self.set_default_size(250, 250)
+        self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
+        self.set_keep_above(True)
+        
+        self.apply_css()
+        
+        if data:
+            self.note_id = data["id"]
+            self.x, self.y = data.get("x", 100), data.get("y", 100)
+            self.width, self.height = data.get("w", 250), data.get("h", 250)
+            self.text = data.get("text", "")
+            self.color = data.get("color", "#fff8b0")
+        else:
+            self.note_id = uuid.uuid4().hex[:8]
+            self.x, self.y = 100 + len(app.stickies) * 30, 100 + len(app.stickies) * 30
+            self.width, self.height = 250, 250
+            self.text = ""
+            self.color = "#fff8b0"
+        
+        self.move(self.x, self.y)
+        self.resize(self.width, self.height)
+        
+        self.apply_css()
+        
+        hb = Gtk.HeaderBar()
+        hb.set_show_close_button(True)
+        self.set_titlebar(hb)
+        
+        color_btn = Gtk.ColorButton()
+        color_btn.set_rgba(Gdk.RGBA().parse(self.color))
+        color_btn.connect("color-set", self.on_color_change)
+        hb.pack_start(color_btn)
+        
+        close_btn = Gtk.Button()
+        close_btn.set_image(Gtk.Image.new_from_icon_name("window-close", Gtk.IconSize.BUTTON))
+        close_btn.connect("clicked", lambda _: self.destroy())
+        hb.pack_end(close_btn)
+        
+        self.buf = Gtk.TextBuffer()
+        tv = Gtk.TextView(buffer=self.buf)
+        tv.set_wrap_mode(Gtk.WrapMode.WORD)
+        tv.set_monospace(False)
+        tv.set_left_margin(16)
+        tv.set_right_margin(16)
+        tv.set_top_margin(16)
+        tv.set_bottom_margin(16)
+        font_desc = Pango.FontDescription("Bradley Hand 14")
+        tv.override_font(font_desc)
+        tv.get_style_context().add_class("sticky-editor")
+        
+        sw = Gtk.ScrolledWindow()
+        sw.add(tv)
+        self.add(sw)
+        
+        self.buf.set_text(self.text)
+        self.buf.connect("changed", self.on_text_change)
+        
+        self.connect("configure-event", self.on_configure)
+        self.show_all()
+        
+        self.move(self.x, self.y)
+        self.resize(self.width, self.height)
+
+    def apply_css(self):
+        css = b"""
+        .sticky-note {
+            background: #fff8b0;
+            border: 1px solid #e8d8a0;
+            border-radius: 4px;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.15);
+        }
+        .sticky-editor {
+            background: transparent;
+            font-family: "Bradley Hand", "Comic Sans MS", cursive;
+            font-size: 14pt;
+            line-height: 1.5;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def on_text_change(self, _):
+        self.save()
+
+    def on_configure(self, _, event):
+        self.x, self.y = self.get_position()
+        self.width, self.height = self.get_size()
+        self.save()
+        return False
+
+    def on_color_change(self, btn):
+        rgba = btn.get_rgba()
+        self.color = f"#{int(rgba.red*255):02x}{int(rgba.green*255):02x}{int(rgba.blue*255):02x}"
+        self.override_background_color(Gtk.StateFlags.NORMAL, rgba)
+        self.save()
+
+    def save(self):
+        data = {
+            "id": self.note_id,
+            "x": self.x, "y": self.y,
+            "w": self.width, "h": self.height,
+            "text": self.buf.get_text(self.buf.get_start_iter(), self.buf.get_end_iter(), True),
+            "color": self.color,
+        }
+        self.app.update_sticky(data)
+
+    def destroy(self):
+        self.app.remove_sticky(self.note_id)
+        super().destroy()
+
+
+class StickiesApp(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id="com.mavericks.stickies")
+        self.stickies = []
+        self.data = load()
+
+    def do_activate(self):
+        for sticky_data in self.data.get("stickies", []):
+            self.create_sticky(sticky_data)
+        
+        if not self.stickies:
+            self.create_sticky()
+
+    def create_sticky(self, data=None):
+        sticky = StickyNote(self, data)
+        self.stickies.append(sticky)
+        if data is None:
+            self.data["stickies"].append({
+                "id": sticky.note_id,
+                "x": sticky.x, "y": sticky.y,
+                "w": sticky.width, "h": sticky.height,
+                "text": "", "color": "#fff8b0",
+            })
+            save(self.data)
+
+    def update_sticky(self, data):
+        for s in self.data["stickies"]:
+            if s["id"] == data["id"]:
+                s.update(data)
+                break
+        save(self.data)
+
+    def remove_sticky(self, note_id):
+        self.stickies = [s for s in self.stickies if s.note_id != note_id]
+        self.data["stickies"] = [s for s in self.data["stickies"] if s["id"] != note_id]
+        save(self.data)
+
+
+def load():
+    try:
+        with open(STORE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {"stickies": []}
+
+def save(data):
+    os.makedirs(os.path.dirname(STORE), exist_ok=True)
+    tmp = STORE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, STORE)
+
+def main():
+    app = StickiesApp()
+    app.run(sys.argv)
+
+if __name__ == "__main__":
+    import uuid
+    sys.exit(main())

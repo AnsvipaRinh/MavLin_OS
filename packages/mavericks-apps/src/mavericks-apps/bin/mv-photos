@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""mv-photos — Mavericks-like Photos wrapper for gthumb.
+Adds Mavericks visual theme and integration.
+"""
+import os
+import sys
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib
+
+class PhotosWrapper(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Photos")
+        self.set_default_size(900, 600)
+        
+        self.apply_css()
+        
+        hb = Gtk.HeaderBar(title="Photos", show_close_button=True)
+        self.set_titlebar(hb)
+        
+        search = Gtk.SearchEntry(placeholder_text="Search photos...")
+        search.set_hexpand(True)
+        hb.pack_start(search)
+        
+        import_btn = Gtk.Button(label="Import")
+        import_btn.get_style_context().add_class("mavericks-toolbar-btn")
+        import_btn.connect("clicked", self.on_import)
+        hb.pack_end(import_btn)
+        
+        # Main layout
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(paned)
+        
+        # Sidebar
+        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        sidebar.set_size_request(200, -1)
+        sidebar.get_style_context().add_class("photos-sidebar")
+        
+        sections = [
+            ("Library", ["All Photos", "Favorites", "People", "Places", "Recents"]),
+            ("Media Types", ["Videos", "Selfies", "Screenshots", "Bursts", "Live Photos"]),
+            ("Albums", ["My Albums", "Shared Albums", "Imports"]),
+        ]
+        
+        for section_title, items in sections:
+            frame = Gtk.Frame(label=section_title)
+            frame.get_style_context().add_class("photos-sidebar-frame")
+            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            vbox.set_border_width(8)
+            for item in items:
+                btn = Gtk.Button(label=item)
+                btn.get_style_context().add_class("sidebar-item")
+                btn.set_halign(Gtk.Align.START)
+                vbox.pack_start(btn, False, False, 0)
+            frame.add(vbox)
+            sidebar.pack_start(frame, False, False, 0)
+        
+        sidebar_sw = Gtk.ScrolledWindow()
+        sidebar_sw.add(sidebar)
+        paned.add1(sidebar_sw)
+        
+        # Main content
+        self.content = Gtk.Label(label="Launching gthumb...")
+        self.content.get_style_context().add_class("photos-content")
+        paned.add2(self.content)
+        paned.set_position(220)
+        
+        GLib.timeout_add(100, self.launch_gthumb)
+        self.show_all()
+
+    def apply_css(self):
+        css = b"""
+        .photos-sidebar {
+            background: #f5f0e8;
+            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+            border-right: 1px solid #d4c8b8;
+        }
+        .photos-sidebar > viewport { background: transparent; }
+        .photos-sidebar-frame {
+            border: none;
+            background: transparent;
+        }
+        .photos-sidebar-frame > label {
+            font-weight: bold;
+            color: #666;
+            font-size: 9pt;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .sidebar-item {
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            margin: 2px 8px;
+            text-align: left;
+        }
+        .sidebar-item:hover {
+            background: rgba(0,122,255,0.15);
+        }
+        .photos-content {
+            background: #f5f0e8;
+            font-family: "San Francisco", sans-serif;
+            font-size: 14pt;
+            color: #666;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def on_import(self, _):
+        dialog = Gtk.FileChooserDialog(
+            title="Import Photos", transient_for=self,
+            action=Gtk.FileChooserAction.SELECT_FOLDER)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Import", Gtk.ResponseType.OK)
+        if dialog.run() == Gtk.ResponseType.OK:
+            folder = dialog.get_filename()
+            print(f"Import from: {folder}")
+        dialog.destroy()
+
+    def launch_gthumb(self):
+        try:
+            subprocess.Popen(["gthumb"])
+            self.content.set_markup('<span size="x-large" weight="bold">📷 Photos</span>\n\n<span color="#666">gthumb launched in background.\nUse the sidebar to navigate your library.</span>')
+        except FileNotFoundError:
+            self.content.set_markup('<span color="#ff3b30">gthumb not installed</span>\n\n<span color="#666">Install with: sudo pacman -S gthumb</span>')
+        return False
+
+import os
+import subprocess
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib
+
+if __name__ == "__main__":
+    w = PhotosWrapper()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()

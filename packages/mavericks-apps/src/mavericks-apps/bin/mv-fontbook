@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""mv-fontbook — Mavericks-like Font Book wrapper for gnome-font-viewer.
+Adds Mavericks visual theme and integration.
+"""
+import os
+import sys
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib
+
+class FontBookWrapper(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Font Book")
+        self.set_default_size(900, 600)
+        
+        self.apply_css()
+        
+        hb = Gtk.HeaderBar(title="Font Book", show_close_button=True)
+        self.set_titlebar(hb)
+        
+        search = Gtk.SearchEntry(placeholder_text="Search fonts...")
+        search.set_hexpand(True)
+        hb.pack_start(search)
+        
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(paned)
+        
+        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        sidebar.set_size_request(200, -1)
+        sidebar.get_style_context().add_class("fontbook-sidebar")
+        
+        for cat in ["All Fonts", "User", "Computer", "Network", "Smart Collections"]:
+            btn = Gtk.Button(label=cat)
+            btn.get_style_context().add_class("sidebar-item")
+            btn.set_halign(Gtk.Align.START)
+            sidebar.pack_start(btn, False, False, 0)
+        
+        sidebar_sw = Gtk.ScrolledWindow()
+        sidebar_sw.add(sidebar)
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        paned.add1(sidebar_sw)
+        
+        self.content = Gtk.Label(label="Launching Font Viewer...")
+        self.content.get_style_context().add_class("fontbook-content")
+        paned.add2(self.content)
+        paned.set_position(220)
+        
+        GLib.timeout_add(100, self.launch_fontviewer)
+        self.apply_css()
+        self.show_all()
+
+    def apply_css(self):
+        css = b"""
+        .fontbook-sidebar {
+            background: #f5f0e8;
+            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+            border-right: 1px solid #d4c8b8;
+        }
+        .fontbook-sidebar > viewport { background: transparent; }
+        .sidebar-item {
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin: 2px 8px;
+            text-align: left;
+        }
+        .sidebar-item:hover {
+            background: rgba(0,122,255,0.15);
+        }
+        .fontbook-content {
+            background: #f5f0e8;
+            font-family: "San Francisco", sans-serif;
+            font-size: 14pt;
+            color: #666;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def launch_fontviewer(self):
+        try:
+            subprocess.Popen(["gnome-font-viewer"])
+            self.content.set_markup('<span size="x-large" weight="bold">📚 Font Book</span>\n\n<span color="#666">Font Viewer launched in background.\nUse the sidebar to browse font collections.</span>')
+        except FileNotFoundError:
+            self.content.set_markup('<span color="#ff3b30">Font Viewer not installed</span>\n\n<span color="#666">Install with: sudo pacman -S gnome-font-viewer</span>')
+        return False
+
+import os
+import subprocess
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib
+
+if __name__ == "__main__":
+    w = FontBookWrapper()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()

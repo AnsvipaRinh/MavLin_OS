@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- xfce4-notifyd — Mavericks-style notifications -->
+<channel name="xfce4-notifyd" version="1.0">
+  <property name="theme" type="string" value="Mavericks"/>
+  <property name="position" type="string" value="top-right"/>
+  <property name="margin" type="int" value="24"/>
+  <property name="horizontal-padding" type="int" value="16"/>
+  <property name="vertical-padding" type="int" value="12"/>
+  <property name="corner-radius" type="double" value="8.0"/>
+  <property name="opacity" type="double" value="0.95"/>
+  <property name="monitor" type="int" value="-1"/>
+  <property name="show-window-decorations" type="bool" value="false"/>
+  <property name="include-full-text" type="bool" value="true"/>
+  <property name="fade-in-timeout" type="int" value="150"/>
+  <property name="fade-out-timeout" type="int" value="200"/>
+  <property name="move-threshold" type="int" value="5"/>
+</channel>

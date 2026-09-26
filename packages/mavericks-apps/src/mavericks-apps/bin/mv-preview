@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""mv-preview — Mavericks-like Preview wrapper for evince.
+Adds Mavericks visual theme and annotation toolbar.
+"""
+import os
+import sys
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib
+
+class PreviewWrapper(Gtk.Window):
+    def __init__(self, file_path=None):
+        super().__init__(title="Preview")
+        self.set_default_size(900, 600)
+        
+        self.apply_css()
+        
+        hb = Gtk.HeaderBar(title="Preview", show_close_button=True)
+        self.set_titlebar(hb)
+        
+        for label, icon, cb in [
+            ("Select", "mouse", self.tool_select),
+            ("Text", "text-x-generic", self.tool_text),
+            ("Shape", "draw-freehand", self.tool_shape),
+            ("Sign", "signature", self.tool_sign),
+        ]:
+            b = Gtk.Button()
+            b.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+            b.set_tooltip_text(label)
+            b.get_style_context().add_class("mavericks-toolbar-btn")
+            b.connect("clicked", cb)
+            hb.pack_end(b)
+        
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(paned)
+        
+        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        sidebar.set_size_request(180, -1)
+        sidebar.get_style_context().add_class("preview-sidebar")
+        
+        lbl = Gtk.Label(label="Thumbnails")
+        lbl.set_xalign(0)
+        lbl.get_style_context().add_class("sidebar-header")
+        sidebar.pack_start(lbl, False, False, 0)
+        
+        self.thumb_store = Gtk.ListStore(str, str)
+        thumb_view = Gtk.TreeView(model=self.thumb_store, headers_visible=False)
+        thumb_view.set_headers_visible(False)
+        renderer = Gtk.CellRendererPixbuf()
+        thumb_col = Gtk.TreeViewColumn("", renderer, pixbuf=0)
+        thumb_view.append_column(thumb_col)
+        thumb_sw = Gtk.ScrolledWindow()
+        thumb_sw.add(thumb_view)
+        sidebar.pack_start(thumb_sw, True, True, 0)
+        
+        sidebar_sw = Gtk.ScrolledWindow()
+        sidebar_sw.add(sidebar)
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        paned.add1(sidebar_sw)
+        
+        self.content = Gtk.Label(label="Launching Preview...")
+        self.content.get_style_context().add_class("preview-content")
+        paned.add2(self.content)
+        paned.set_position(200)
+        
+        GLib.timeout_add(100, self.launch_evince)
+        self.show_all()
+
+    def apply_css(self):
+        css = b"""
+        .preview-sidebar {
+            background: #f5f0e8;
+            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+            border-right: 1px solid #d4c8b8;
+        }
+        .preview-sidebar > viewport { background: transparent; }
+        .sidebar-header {
+            font-weight: bold;
+            color: #666;
+            font-size: 9pt;
+            text-transform: uppercase;
+            margin: 8px 12px 4px;
+        }
+        .preview-content {
+            background: #f5f0e8;
+            font-family: "San Francisco", sans-serif;
+            font-size: 14pt;
+            color: #666;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def tool_select(self, _): pass
+    def tool_text(self, _): pass
+    def tool_shape(self, _): pass
+    def tool_sign(self, _): pass
+
+    def launch_evince(self):
+        try:
+            subprocess.Popen(["evince"])
+            self.content.set_markup('<span size="x-large" weight="bold">📄 Preview</span>\n\n<span color="#666">Evince launched in background.\nUse annotation tools to markup documents.</span>')
+        except FileNotFoundError:
+            self.content.set_markup('<span color="#ff3b30">Evince not installed</span>\n\n<span color="#666">Install with: sudo pacman -S evince</span>')
+        return False
+
+import os
+import subprocess
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib
+
+if __name__ == "__main__":
+    w = PreviewWrapper()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()

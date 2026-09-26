@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Stickies
+Comment=Sticky Notes (Mavericks)
+Exec=mv-stickies
+Icon=sticky-notes
+Categories=Utility;
+StartupNotify=true
+X-Mavericks-Native=true
