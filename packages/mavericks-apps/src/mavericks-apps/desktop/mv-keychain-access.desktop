@@ -2,7 +2,7 @@
 Type=Application
 Name=Keychain Access
 Comment=Passwords and Keys (Mavericks)
-Exec=mv-keychain %U
+Exec=mv-keychain
 Icon=dialog-password
 Categories=System;Security;
 StartupNotify=true
