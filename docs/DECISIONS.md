@@ -390,3 +390,33 @@ shortcuts for Finder operations (New Folder, Get Info, Open With).
 
 **Implementation:** thunar-uca.xml, xfce4-keyboard-shortcuts.xml, thunarrc.
 All XML validated (xmllint), sync check passed, packages rebuilt.
+
+---
+
+## 2026-09-26 — Spotlight gap fixes: file actions, system actions, error/empty states, visual polish
+
+**Problem:** Spotlight (mv-spotlight + rofi) had core search working (apps, files via plocate, calculator, recent items) but missing: file open action from results, system actions (Settings, Control Center, etc.), user-visible error handling when plocate missing/index empty, empty state feedback, and the rofi theme was visually basic.
+
+**Decision:**
+1. **File open action:** File results now include `action\x1fxdg-open '{path}'` so Enter opens the file.
+2. **System actions:** Added 5 system actions (System Settings, Control Center, Activity Monitor, Disk Utility, Terminal) that match on query substring against name/description. Appear under "System" category.
+3. **Error handling:** `search_files()` now returns `(files, error_msg)` tuple. If plocate missing, timeout, or other error, shows user-visible result with warning icon: "plocate not installed — file search unavailable. Install 'plocate' package and run 'sudo updatedb'." Only shown when no other results exist.
+4. **Empty states:** 
+   - Empty query with no recent items: "No recent items" with dialog-information icon.
+   - Query with zero matches across all sources: "No results for 'query'" with dialog-information icon.
+5. **Visual polish (rofi-mavericks.rasi):** Mavericks-style skeuomorphic accents: softer palette (rgba backgrounds), rounded corners (10px window, 6px elements), better spacing (16px window padding, 10px element padding), larger icons (28px), custom scrollbar, category styling with subtle background, accent blue (#007aff) for selection.
+6. **Performance guardrails:** plocate subprocess timeout kept at 3s (existing). All searches on-demand (no daemon).
+
+**Reasoning:**
+- File open action is essential for Spotlight parity — results must be actionable.
+- System actions provide cheap high-value entries (no new deps, on-demand).
+- Error/empty states critical for first-run UX (plocate index builds daily via timer, so initial boot has empty index).
+- Visual polish aligns with Mavericks coherence goal (section 6, 13.3).
+- No new dependencies, no daemons, on-demand only — fits power budget.
+
+**Alternatives considered:**
+- Preview pane in rofi — rejected (rofi script mode doesn't support rich preview; would need custom GUI, Electron, or daemon — all violate power budget).
+- Always show plocate status — rejected (noisy; only show when relevant i.e. no other results).
+
+**Implementation:** mv-spotlight (Python), rofi-mavericks.rasi.
+Validations: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED.

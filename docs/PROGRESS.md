@@ -251,3 +251,12 @@
 - [x] thunarrc: enhanced with Finder-like defaults (ShowToolbar, ShowStatusbar, ShowLocationSelector, TreePaneWidth, window geometry, case-insensitive sort)
 - [x] All XML validated (xmllint), sync check passed, packages rebuilt
 - [x] APPS.md updated: Finder UCA now includes Empty Trash; keyboard shortcuts documented
+
+### Фаза 0.30 — Spotlight gap fixes (2026-09-26, без железа)
+- [x] mv-spotlight: file results now include xdg-open action (files open from results)
+- [x] System actions added: Settings, Control Center, Activity Monitor, Disk Utility, Terminal (match on name/description)
+- [x] Error handling: missing plocate / empty index / timeout shown as user-visible result
+- [x] Empty state handling: "No recent items" on empty query; "No results for 'query'" when nothing matches
+- [x] rofi-mavericks.rasi: visual polish (Mavericks-style skeuomorphic accents, better spacing, scrollbar, rounded corners, softer colors)
+- [x] All validations pass: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED
+- [x] APPS.md Spotlight row updated with implemented features
