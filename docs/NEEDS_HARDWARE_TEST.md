@@ -31,6 +31,14 @@
 - [ ] Verify HiDPI (2304×1440) rendering of album art grid, leather sidebar, now-playing bar
 - [ ] Check energy cost of PropertiesChanged-driven refresh during playback
 
+### Voice Memos (recording + playback)
+- [ ] Test pw-record recording from Cirrus microphone input (macbook12-audio-driver); verify WAV file created and level meter moves
+- [ ] Test pw-play playback of recorded memo on internal speakers
+- [ ] Verify cassette reel animation and waveform strip rendering on 2304×1440 panel
+- [ ] Test trim/export/rename/delete (Trash) flows on real install
+- [ ] Verify %U open from Thunar (MimeType audio/*) plays the memo
+- [ ] Check recording energy cost (pw-record one-shot, no daemon)
+
 ### External USB-C input (mandatory for bring-up)
 - [ ] Verify USB-C hub + keyboard/mouse works out of box
 - [ ] Test USB-C power delivery while using hub

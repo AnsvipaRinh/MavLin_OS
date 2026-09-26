@@ -1,5 +1,26 @@
 # DECISIONS
 
+## Voice Memos: unlaunchable app repair + design decisions (Phase 0.51)
+
+**Date:** 2026-09-27
+**Decision:**
+1. mv-voice was completely unlaunchable: invalid CSS property `font-variant-numeric` made Gtk.CssProvider raise GLib.Error on load_from_data (whole stylesheet rejected), `CassetteWidget` was instantiated but never defined (NameError), `import sys` was missing (NameError on exit). APPS.md claimed "custom app implemented" — this was fake completion (AGENTS.md §9). Rewritten properly.
+2. Level meter derives RMS from the tail of the WAV file being recorded (seek to size−1600, struct-based RMS, 200 ms timer) — no second audio stream, no extra process, works with pw-record on PulseAudio-less PipeWire ISO.
+3. Trim is frame-aligned PCM cutting via stdlib `wave` (setpos/readframes, temp + os.replace) — no ffmpeg dependency; non-PCM wavs rejected with clear error.
+4. Delete moves memos to Trash via Gio.File.trash with os.remove fallback (family recoverability pattern without SSD-doubling .bak copies).
+5. Playback is one-shot pw-play/paplay (SIGINT to stop) — no daemon, no MPRIS, matching the power budget.
+6. iCloud sync NOT implemented (no cloud backend in scope) — documented as deferred.
+
+**Reasoning:**
+- The old app's CSS used properties GTK3 does not support (`font-variant-numeric`); one bad property rejects the whole provider block, so every custom style was silently dead.
+- A second monitor stream (parec --monitor-stream) would conflict with recording on some setups and costs a process; reading the recording file's tail is free.
+- ffmpeg re-encode for trim was rejected: frame-aligned PCM cut is lossless and dependency-free.
+- Gio trash matches the Notes/Reminders recoverability philosophy; fallback keeps delete working where GVfs Trash is unsupported.
+
+**Status:** Voice Memos implemented pre-hardware (63 headless tests + GUI smoke). Cirrus mic/speaker validation pending on MacBook10,1 (see NEEDS_HARDWARE_TEST.md → Voice Memos).
+
+---
+
 ## Photos: faces/memories/shared-albums disposition (Phase 0.50)
 
 **Date:** 2026-09-27

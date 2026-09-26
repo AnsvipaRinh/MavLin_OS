@@ -1,5 +1,22 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.51 — Voice Memos: repair unlaunchable app + Mavericks refinement (2026-09-27, без железа)
+- [x] Аудит: mv-voice (406 строк) был НЕЗАПУСКАЕМ — invalid CSS-свойство `font-variant-numeric` роняло Gtk.CssProvider (GLib.Error на load_from_data), далее `CassetteWidget` использовался, но никогда не был определён (NameError), `import sys` отсутствовал (NameError на выходе); APPS.md заявлял «custom app implemented» — fake completion (раздел 9)
+- [x] Backend auto-detect: pw-record (PipeWire) → parec (PulseAudio) fallback; playback pw-play → paplay; graceful no-backend state (кнопка record disabled + статус с инструкцией)
+- [x] Cassette UI реализованна: Gtk.DrawingArea + Cairo — корпус с градиентом, два катушки со спиницами, вращение при record/play (GLib timer 60ms), лента, плейка «VOICE MEMOS», LED (красный пульсирующий при записи, зелёный при воспроизведении)
+- [x] Waveform strip: пики PCM нативно (struct unpack, buckets=160), прогресс воспроизведения подсвечивается; вычисление при выборе строки
+- [x] Level meter без второго аудиопотока: RMS хвоста записываемого WAV (seek к size-1600, struct-based RMS, timer 200ms) — дёшево, работает с pw-record
+- [x] In-app playback:  one-shot pw-play/paplay, позиция/длительность, stop (SIGINT), cassette animation
+- [x] Trim: frame-aligned PCM cut без ffmpeg (wave module, setpos/readframes, temp+os.replace); диалог Start/End spinbuttons; clamp/empty-selection ошибки
+- [x] Export через Gtk.FileChooserNative (copyfile); Rename через sanitize_memo_name + collision check; Delete → Gio.File.trash (fallback os.remove) с confirm; Info dialog (name/date/duration/size/rate/channels/path)
+- [x] Empty state («No recordings yet…»), выбор строки загружает waveform + длительность, корректная обработка не-wav/битых wav (duration «—»), каталог-как-файл → error state
+- [x] Keyboard: Ctrl+R record, Return/Space play-stop, Delete, Ctrl+E export, Ctrl+I info; %U открывает аудиофайл (запуск воспроизведения)
+- [x] .desktop: MimeType=audio/wav;audio/x-wav;audio/mpeg;audio/ogg;audio/flac;audio/x-m4a;audio/mp4, Categories=AudioVideo;Audio
+- [x] PKGBUILD optdepends: pipewire (backend), pulseaudio (fallback backend)
+- [x] Найдено и исправлено по ходу: (1) get_selected() возвращает (model, None) при пустой выборе — `if not row` не ловит, NoneType crash в _selected_memo/rename/delete; (2) show_all() после refresh() затирал видимую страницу Gtk.Stack (empty state не показывался) — порядок исправлен; (3) refresh() внутри trim сбрасывает выбор строки (тест-бага + UX note: выбор сохраняется при ручном rename/delete)
+- [x] Validation: py_compile OK, desktop-file-validate OK, 63 headless-тест (scripts/test-mv-voice.py: backend/playback detection incl no-exe, wav_info/duration synthetic+garbage+missing, sanitize (traversal/unsafe/empty), list_memos ordering/skip, waveform peaks loud/silent/garbage, rms_level, trim frame-aligned/clamp/empty/garbage, GUI smoke на реальном GTK :0 — construct/list/empty, selection→waveform+duration, record start/stop mocked, play start/stop mocked, trim/rename/info/delete-mock, key routing, no-backend state), check-sync ALL CHECKS PASSED, sibling suites green (notes 41, reminders 31, music 108, calendar 63), real binary launch OK (в т.ч. с %U-файлом)
+- [ ] HW: запись с Cirrus микрофона через pw-record (macbook12-audio-driver), воспроизведение через pw-play на встроенных динамиках, рендеринг cassette/waveform на 2304×1440, trim/export/delete на реальной установке, %U из Thunar, energy cost однократной записи
+
 ### Фаза 0.50 — Photos: Mavericks integration (library engine, Moments, albums) (2026-09-27, без железа)
 - [x] Аудит: существующий mv-photos был 141-строчным stub (запускал gthumb, показывал label) — нет library engine, нет EXIF, нет Moments, нет избранного, нет альбомов, нет state store, нет реального UI
 - [x] Library engine (pure, headless-testable): нативный парсинг JPEG EXIF DateTimeOriginal (APP1 → TIFF IFD → tag 0x9003), парсинг размеров изображений из заголовков PNG/JPEG/GIF/BMP/TIFF/WebP (без внешних зависимостей); scan_library с детерминированным сортировкой по mtime desc
