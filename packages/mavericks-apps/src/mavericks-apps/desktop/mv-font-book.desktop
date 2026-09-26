@@ -4,6 +4,7 @@ Name=Font Book
 Comment=Font Manager (Mavericks)
 Exec=mv-fontbook %U
 Icon=font-x-generic
+MimeType=font/ttf;font/otf;font/collection;application/x-font-ttf;application/x-font-otf;
 Categories=Graphics;
 StartupNotify=true
 X-Mavericks-Native=true

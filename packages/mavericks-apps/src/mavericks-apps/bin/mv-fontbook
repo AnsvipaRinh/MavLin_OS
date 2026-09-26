@@ -1,52 +1,319 @@
 #!/usr/bin/env python3
-"""mv-fontbook — Mavericks-like Font Book wrapper for gnome-font-viewer.
-Adds Mavericks visual theme and integration.
+"""mv-fontbook — Mavericks-like Font Book. Backend: fontconfig + Pango/Cairo.
+Mavericks visual: paper sidebar with collections, family list with live
+per-row previews, preview waterfall (multiple sizes of the selected face),
+glyph grid from Pango coverage, user-font install/remove via
+~/.local/share/fonts + fc-cache, search, empty/error states.
+Optional handoff to gnome-font-viewer when installed. On-demand process
+only — no daemon, no polling.
 """
 import os
+import shutil
+import subprocess
 import sys
+
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+gi.require_version("Pango", "1.0")
+gi.require_version("PangoCairo", "1.0")
+from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo
 
-class FontBookWrapper(Gtk.Window):
+FONT_EXTS = (".ttf", ".otf", ".ttc", ".pfb", ".pfa")
+WATERFALL_SIZES = (11, 14, 18, 24, 36, 48)
+WATERFALL_SAMPLE = "The quick brown fox jumps over the lazy dog — 0123456789"
+GLYPH_RANGES = (
+    (0x20, 0x7E, "Basic Latin (U+0020–U+007E)"),
+    (0xA0, 0xFF, "Latin-1 Supplement (U+00A0–U+00FF)"),
+    (0x2010, 0x2027, "General Punctuation (U+2010–U+2027)"),
+    (0x2030, 0x2044, "Fractions & Dashes (U+2030–U+2044)"),
+)
+GLYPH_CELL = 30
+
+COLLECTIONS = (
+    "All Fonts", "User", "Computer", "Fixed Width", "Serif", "Sans Serif",
+)
+
+SERIF_HINTS = (
+    "serif", "roman", "times", "georgia", "garamond", "charter", "minion",
+    "caslon", "baskerville", "cambria", "palatino", "book", "cambria",
+)
+SANS_HINTS = (
+    "sans", "arial", "helvet", "verdana", "tahoma", "gothic", "hei", "song",
+    "kai", "mono", "courier", "menlo", "consol", "dejavu", "liberation",
+    "noto", "open", "lato", "ubuntu", "roboto", "segoe", "frutiger",
+    "futura", "gill", "optima", "trebuchet", "candara", "calibri",
+)
+
+NO_BACKEND_MSG = (
+    "No font backend is available.\n"
+    "Install fontconfig with: sudo pacman -S fontconfig")
+FONT_VIEWER_MISSING = (
+    "Font Viewer (gnome-font-viewer) is not installed.\n"
+    "Install it with: sudo pacman -S gnome-font-viewer")
+
+
+def user_fonts_dir():
+    xdg = os.environ.get("XDG_DATA_HOME")
+    if xdg:
+        return os.path.join(xdg, "fonts")
+    return os.path.join(os.path.expanduser("~"), ".local", "share", "fonts")
+
+
+def parse_fc_list(text):
+    fonts = []
+    for line in text.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        family, style, path = parts[0].strip(), parts[1].strip(), parts[2].strip()
+        spacing = parts[3].strip() if len(parts) > 3 else ""
+        if not family or not path:
+            continue
+        fonts.append({
+            "family": family, "style": style or "Regular",
+            "file": path, "spacing": spacing,
+        })
+    return fonts
+
+
+def list_fonts_fc():
+    """Fonts via fontconfig. None = fontconfig missing/failed."""
+    try:
+        proc = subprocess.run(
+            ["fc-list", "--format", "%{family[0]}\t%{style[0]}\t%{file}\t%{spacing}\n"],
+            capture_output=True, text=True, timeout=10)
+        if proc.returncode != 0:
+            return None
+        fonts = parse_fc_list(proc.stdout)
+        return fonts or None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def list_fonts_pango():
+    """Degraded fallback: family names only (no file/spacing)."""
+    try:
+        ctx = PangoCairo.FontMap.get_default().create_context()
+        return [
+            {"family": fam.get_name(), "style": "",
+             "file": None, "spacing": ""}
+            for fam in ctx.list_families() if fam.get_name()
+        ]
+    except Exception:
+        return None
+
+
+def enum_fonts():
+    """(fonts, backend) where backend is 'fontconfig' | 'pango' | 'none'."""
+    fonts = list_fonts_fc()
+    if fonts is not None:
+        return fonts, "fontconfig"
+    fonts = list_fonts_pango()
+    if fonts:
+        return fonts, "pango"
+    return [], "none"
+
+
+def is_user_font(font):
+    path = (font or {}).get("file") or ""
+    if not path:
+        return False
+    try:
+        return os.path.commonpath([
+            os.path.abspath(path), os.path.abspath(user_fonts_dir()),
+        ]) == os.path.abspath(user_fonts_dir())
+    except ValueError:
+        return False
+
+
+def is_fixed_width(font):
+    try:
+        return int((font or {}).get("spacing") or 0) >= 90
+    except ValueError:
+        return False
+
+
+def is_serif(font):
+    name = ((font or {}).get("family") or "").lower()
+    if "sans" in name or "mono" in name:
+        return False
+    return any(hint in name for hint in SERIF_HINTS)
+
+
+def in_collection(font, name):
+    if name == "All Fonts":
+        return True
+    if name == "User":
+        return is_user_font(font)
+    if name == "Computer":
+        return not is_user_font(font)
+    if name == "Fixed Width":
+        return is_fixed_width(font)
+    if name == "Serif":
+        return is_serif(font)
+    if name == "Sans Serif":
+        return not is_serif(font)
+    return True
+
+
+def filter_fonts(fonts, query):
+    query = (query or "").strip().lower()
+    if not query:
+        return list(fonts)
+    return [f for f in fonts
+            if query in f["family"].lower() or query in f["style"].lower()]
+
+
+def install_font(src, dest_dir=None):
+    """Copy a font file into the user fonts dir. (dest_path, None) or (None, err)."""
+    dest_dir = dest_dir or user_fonts_dir()
+    if not os.path.isfile(src):
+        return None, "File not found: %s" % src
+    ext = os.path.splitext(src)[1].lower()
+    if ext not in FONT_EXTS:
+        return None, "Unsupported font file type: %s" % ext
+    os.makedirs(dest_dir, exist_ok=True)
+    dest = os.path.join(dest_dir, os.path.basename(src))
+    try:
+        shutil.copy2(src, dest)
+    except OSError as exc:
+        return None, "Copy failed: %s" % exc
+    return dest, None
+
+
+def refresh_font_cache(dest_dir=None):
+    try:
+        subprocess.run(
+            ["fc-cache", "-f", dest_dir or user_fonts_dir()],
+            capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def remove_font(font):
+    """Remove a user font's file. System font dirs are never touched."""
+    path = (font or {}).get("file") or ""
+    if not path:
+        return False, "This font has no file on disk."
+    if not is_user_font(font):
+        return False, "Only user fonts can be removed."
+    try:
+        os.remove(path)
+    except OSError as exc:
+        return False, "Delete failed: %s" % exc
+    refresh_font_cache()
+    return True, None
+
+
+class FontBookWindow(Gtk.Window):
     def __init__(self):
         super().__init__(title="Font Book")
-        self.set_default_size(900, 600)
-        
+        self.set_default_size(980, 640)
+
+        self.fonts = []
+        self.backend = "none"
+        self.current_collection = "All Fonts"
+        self.selected_font = None
+
         self.apply_css()
-        
+
         hb = Gtk.HeaderBar(title="Font Book", show_close_button=True)
         self.set_titlebar(hb)
-        
-        search = Gtk.SearchEntry(placeholder_text="Search fonts...")
-        search.set_hexpand(True)
-        hb.pack_start(search)
-        
+
+        self.install_btn = Gtk.Button.new_from_icon_name(
+            "list-add", Gtk.IconSize.SMALL_TOOLBAR)
+        self.install_btn.set_tooltip_text("Install Font… (Ctrl+I)")
+        self.install_btn.connect("clicked", self.on_install)
+        hb.pack_start(self.install_btn)
+
+        self.remove_btn = Gtk.Button.new_from_icon_name(
+            "list-remove", Gtk.IconSize.SMALL_TOOLBAR)
+        self.remove_btn.set_tooltip_text("Remove Selected Font (Delete)")
+        self.remove_btn.set_sensitive(False)
+        self.remove_btn.connect("clicked", self.on_remove)
+        hb.pack_start(self.remove_btn)
+
+        self.viewer_btn = Gtk.Button.new_from_icon_name(
+            "font-x-generic", Gtk.IconSize.SMALL_TOOLBAR)
+        self.viewer_btn.set_tooltip_text("Open in Font Viewer (Ctrl+O)")
+        self.viewer_btn.connect("clicked", self.on_open_viewer)
+        hb.pack_start(self.viewer_btn)
+
+        self.search = Gtk.SearchEntry(placeholder_text="Search fonts…")
+        self.search.set_hexpand(True)
+        self.search.connect("changed", self.on_search_changed)
+        hb.pack_end(self.search)
+
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
-        
-        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        sidebar.set_size_request(200, -1)
-        sidebar.get_style_context().add_class("fontbook-sidebar")
-        
-        for cat in ["All Fonts", "User", "Computer", "Network", "Smart Collections"]:
-            btn = Gtk.Button(label=cat)
-            btn.get_style_context().add_class("sidebar-item")
-            btn.set_halign(Gtk.Align.START)
-            sidebar.pack_start(btn, False, False, 0)
-        
-        sidebar_sw = Gtk.ScrolledWindow()
-        sidebar_sw.add(sidebar)
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        paned.add1(sidebar_sw)
-        
-        self.content = Gtk.Label(label="Launching Font Viewer...")
-        self.content.get_style_context().add_class("fontbook-content")
-        paned.add2(self.content)
-        paned.set_position(220)
-        
-        GLib.timeout_add(100, self.launch_fontviewer)
-        self.apply_css()
+        self.root_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+
+        self.sidebar_store = Gtk.ListStore(str)
+        self.sidebar = Gtk.TreeView(model=self.sidebar_store)
+        self.sidebar.set_headers_visible(False)
+        self.sidebar.get_selection().connect(
+            "changed", self.on_collection_selected)
+        col = Gtk.TreeViewColumn()
+        cell_text = Gtk.CellRendererText()
+        col.pack_start(cell_text, True)
+        col.add_attribute(cell_text, "text", 0)
+        self.sidebar.append_column(col)
+        self.sidebar.set_enable_search(False)
+        self.sidebar.get_style_context().add_class("fontbook-sidebar")
+        ssw = Gtk.ScrolledWindow()
+        ssw.add(self.sidebar)
+        paned.add1(ssw)
+
+        right = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+        paned.add2(right)
+
+        self.store = Gtk.ListStore(str, str, str)
+        self.view = Gtk.TreeView(model=self.store)
+        self.view.get_selection().connect("changed", self.on_font_selected)
+        for i, title in enumerate(("Family", "Style")):
+            col = Gtk.TreeViewColumn(title, Gtk.CellRendererText(), text=i)
+            col.set_resizable(True)
+            col.set_expand(i == 0)
+            self.view.append_column(col)
+        prev_col = Gtk.TreeViewColumn("Preview", Gtk.CellRendererText(), font=2)
+        self.view.append_column(prev_col)
+        self.view.set_enable_search(False)
+        self.view.get_style_context().add_class("fontbook-list")
+        vsw = Gtk.ScrolledWindow()
+        vsw.add(self.view)
+        right.add1(vsw)
+
+        self.notebook = Gtk.Notebook()
+        self.waterfall = Gtk.DrawingArea()
+        self.waterfall.get_style_context().add_class("fontbook-waterfall")
+        self.waterfall.connect("draw", self.draw_waterfall)
+        wsw = Gtk.ScrolledWindow()
+        wsw.add(self.waterfall)
+        self.notebook.append_page(wsw, Gtk.Label(label="Preview"))
+
+        self.glyph_area = Gtk.DrawingArea()
+        self.glyph_area.get_style_context().add_class("fontbook-glyphs")
+        self.glyph_area.connect("draw", self.draw_glyphs)
+        gsw = Gtk.ScrolledWindow()
+        gsw.add(self.glyph_area)
+        self.notebook.append_page(gsw, Gtk.Label(label="Glyphs"))
+        right.add2(self.notebook)
+
+        self.error_bar = Gtk.InfoBar()
+        self.error_bar.set_message_type(Gtk.MessageType.ERROR)
+        self.error_bar.get_content_area().add(Gtk.Label(label=""))
+        self.error_bar.set_no_show_all(True)
+        self.root_box.pack_start(paned, True, True, 0)
+        self.root_box.pack_start(self.error_bar, False, False, 0)
+        self.add(self.root_box)
+
+        self.connect("key-press-event", self.on_key_press)
+
+        for name in COLLECTIONS:
+            self.sidebar_store.append([name])
+        self.sidebar.get_selection().select_path(Gtk.TreePath.new_first())
+
+        self.load_fonts()
+        self.handle_argv(sys.argv[1:])
         self.show_all()
 
     def apply_css(self):
@@ -57,45 +324,336 @@ class FontBookWrapper(Gtk.Window):
             border-right: 1px solid #d4c8b8;
         }
         .fontbook-sidebar > viewport { background: transparent; }
-        .sidebar-item {
-            background: transparent;
-            border: none;
+        .fontbook-list { background: #fffdf8; }
+        .fontbook-content { background: #f5f0e8; }
+        .fontbook-waterfall {
+            background: #fffdf8;
+            border: 1px solid #d4c8b8;
             border-radius: 4px;
-            padding: 8px 12px;
-            margin: 2px 8px;
-            text-align: left;
         }
-        .sidebar-item:hover {
-            background: rgba(0,122,255,0.15);
+        .fontbook-glyphs {
+            background: #fffdf8;
+            border: 1px solid #d4c8b8;
+            border-radius: 4px;
         }
-        .fontbook-content {
-            background: #f5f0e8;
-            font-family: "San Francisco", sans-serif;
-            font-size: 14pt;
-            color: #666;
+        .fontbook-section-label {
+            font-size: 10pt;
+            color: #77695c;
         }
         """
         provider = Gtk.CssProvider()
-        provider.load_from_data(css)
-        screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-
-    def launch_fontviewer(self):
         try:
-            subprocess.Popen(["gnome-font-viewer"])
-            self.content.set_markup('<span size="x-large" weight="bold">📚 Font Book</span>\n\n<span color="#666">Font Viewer launched in background.\nUse the sidebar to browse font collections.</span>')
-        except FileNotFoundError:
-            self.content.set_markup('<span color="#ff3b30">Font Viewer not installed</span>\n\n<span color="#666">Install with: sudo pacman -S gnome-font-viewer</span>')
+            provider.load_from_data(css)
+        except GLib.Error as exc:
+            print("mv-fontbook: CSS load failed, using default theme: %s"
+                  % exc.message, file=sys.stderr)
+            return
+        screen = Gdk.Screen.get_default()
+        if screen is not None:
+            Gtk.StyleContext.add_provider_for_screen(
+                screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def show_error(self, text):
+        self.error_bar.get_content_area().get_children()[0].set_label(text)
+        self.error_bar.show()
+
+    def on_key_press(self, widget, event):
+        state = event.state & Gtk.accelerator_get_default_mod_mask()
+        if state == Gdk.ModifierType.CONTROL_MASK:
+            if event.keyval == Gdk.KEY_f:
+                self.search.grab_focus()
+                return True
+            if event.keyval == Gdk.KEY_i:
+                self.on_install(None)
+                return True
+            if event.keyval == Gdk.KEY_o:
+                self.on_open_viewer(None)
+                return True
+        elif state == 0:
+            if event.keyval == Gdk.KEY_Delete:
+                self.on_remove(None)
+                return True
+            if event.keyval == Gdk.KEY_Escape:
+                if self.search.has_focus() and self.search.get_text():
+                    self.search.set_text("")
+                    self.search.grab_focus()
+                    return True
         return False
 
-import os
-import subprocess
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+    def load_fonts(self):
+        self.fonts, self.backend = enum_fonts()
+        self.selected_font = None
+        if self.backend == "none":
+            self.show_error(NO_BACKEND_MSG)
+        else:
+            self.error_bar.hide()
+        self.refresh_list()
 
-if __name__ == "__main__":
-    w = FontBookWrapper()
+    def handle_argv(self, args):
+        for arg in args or []:
+            if os.path.isfile(arg):
+                target = os.path.abspath(arg)
+                for font in self.fonts:
+                    if os.path.abspath(font.get("file") or "") == target:
+                        self.select_font(font)
+                        return
+            else:
+                self.search.set_text(arg)
+                self.refresh_list()
+                if len(self.store):
+                    self.view.get_selection().select_path(
+                        Gtk.TreePath.new_first())
+                return
+
+    def refresh_list(self):
+        visible = [f for f in self.fonts
+                   if in_collection(f, self.current_collection)]
+        visible = filter_fonts(visible, self.search.get_text())
+        self.store.clear()
+        for font in visible:
+            self.store.append([font["family"], font["style"], font["family"]])
+        if len(self.store):
+            self.view.get_selection().select_path(Gtk.TreePath.new_first())
+        else:
+            self.selected_font = None
+        self.render_previews()
+
+    def on_collection_selected(self, selection):
+        model, treeiter = selection.get_selected()
+        if treeiter is None:
+            return
+        self.current_collection = model[treeiter][0]
+        self.refresh_list()
+
+    def on_search_changed(self, entry):
+        self.refresh_list()
+
+    def on_font_selected(self, selection):
+        model, treeiter = selection.get_selected()
+        if treeiter is None:
+            self.selected_font = None
+        else:
+            family, style = model[treeiter][0], model[treeiter][1]
+            self.selected_font = next(
+                (f for f in self.fonts
+                 if f["family"] == family and f["style"] == style), None)
+        self.render_previews()
+
+    def select_font(self, font):
+        self.current_collection = "All Fonts"
+        self.sidebar.get_selection().select_path(Gtk.TreePath.new_first())
+        self.search.set_text("")
+        self.refresh_list()
+        for i, row in enumerate(self.store):
+            if row[0] == font["family"] and row[1] == font["style"]:
+                self.view.get_selection().select_path(Gtk.TreePath.new_from_indices([i]))
+                break
+
+    def render_previews(self):
+        font = self.selected_font
+        self.remove_btn.set_sensitive(bool(font) and is_user_font(font))
+        self.viewer_btn.set_sensitive(bool(font))
+        self.waterfall.queue_draw()
+        self.glyph_area.queue_draw()
+
+    def draw_waterfall(self, area, cr):
+        width = area.get_allocated_width()
+        cr.set_source_rgb(0.996, 0.988, 0.973)
+        cr.paint()
+        pad = 12
+        font = self.selected_font
+        if font is None:
+            self.draw_centered_text(
+                cr, area, "No fonts match this collection or search."
+                if len(self.fonts) else "No fonts are available.")
+            return
+        family = font["family"]
+        y = 12
+        label = PangoCairo.create_layout(cr)
+        label.set_font_description(Pango.FontDescription.from_string("Sans 9"))
+        for size in WATERFALL_SIZES:
+            label.set_text("%d pt — %s" % (size, family), -1)
+            cr.set_source_rgb(0.47, 0.44, 0.38)
+            cr.move_to(pad, y)
+            PangoCairo.show_layout(cr, label)
+            y += 15
+            sample = PangoCairo.create_layout(cr)
+            sample.set_font_description(
+                Pango.FontDescription.from_string("%s %d" % (family, size)))
+            sample.set_width(max(100, (width - 2 * pad)) * Pango.SCALE)
+            sample.set_text(WATERFALL_SAMPLE, -1)
+            cr.set_source_rgb(0.13, 0.13, 0.13)
+            cr.move_to(pad, y)
+            PangoCairo.show_layout(cr, sample)
+            _, th = sample.get_pixel_size()
+            y += th + 8
+            cr.set_source_rgba(0.83, 0.78, 0.72, 1)
+            cr.set_line_width(1)
+            cr.move_to(pad, y)
+            cr.line_to(max(pad + 1, width - pad), y)
+            cr.stroke()
+            y += 12
+
+    def draw_glyphs(self, area, cr):
+        width = area.get_allocated_width()
+        cr.set_source_rgb(0.996, 0.988, 0.973)
+        cr.paint()
+        pad = 12
+        font = self.selected_font
+        if font is None:
+            self.draw_centered_text(
+                cr, area, "No fonts match this collection or search."
+                if len(self.fonts) else "No fonts are available.")
+            self.glyph_area.set_size_request(-1, 120)
+            return
+        family = font["family"]
+        fontmap = PangoCairo.FontMap.get_default()
+        context = fontmap.create_context()
+        base = Pango.FontDescription.from_string("%s 14" % family)
+        face = fontmap.load_font(context, base)
+        if face is None:
+            self.draw_centered_text(cr, area, "Could not load “%s”." % family)
+            self.glyph_area.set_size_request(-1, 120)
+            return
+        cov = face.get_coverage(Pango.Language.get_default())
+        layout = PangoCairo.create_layout(cr)
+        label = PangoCairo.create_layout(cr)
+        cell = GLYPH_CELL
+        label_h = 20
+        cr.set_source_rgb(0.47, 0.44, 0.38)
+        layout.set_font_description(base)
+        y = pad + label_h
+        for lo, hi, name in GLYPH_RANGES:
+            label.set_font_description(
+                Pango.FontDescription.from_string("Sans 9"))
+            label.set_text(name, -1)
+            lw, lh = label.get_pixel_size()
+            cr.set_source_rgb(0.996, 0.988, 0.973)
+            cr.rectangle(pad - 4, y - lh - 3, lw + 10, lh + 6)
+            cr.fill()
+            cr.set_source_rgb(0.47, 0.44, 0.38)
+            cr.move_to(pad + 1, y - 3)
+            PangoCairo.show_layout(cr, label)
+            y += label_h
+            x = pad
+            for ch in range(lo, hi + 1):
+                if cov.get(ch) > 0:
+                    layout.set_text(chr(ch), -1)
+                    tw, th = layout.get_pixel_size()
+                    cr.move_to(x + (cell - tw) / 2,
+                               y + (cell + th) / 2 - 3)
+                    cr.set_source_rgb(0.13, 0.13, 0.13)
+                    PangoCairo.show_layout(cr, layout)
+                else:
+                    cr.set_source_rgb(0.88, 0.85, 0.80)
+                    cr.set_dash([2, 2])
+                    cr.rectangle(x + 5, y + 5, cell - 10, cell - 10)
+                    cr.stroke()
+                    cr.set_dash([])
+                x += cell
+                if x + cell > width - pad:
+                    x = pad
+                    y += cell
+            y += cell + 12
+        self.glyph_area.set_size_request(-1, y + pad)
+
+    def draw_centered_text(self, cr, area, text):
+        width, height = area.get_allocated_width(), area.get_allocated_height()
+        layout = PangoCairo.create_layout(cr)
+        layout.set_font_description(Pango.FontDescription.from_string("Sans 12"))
+        layout.set_text(text, -1)
+        tw, th = layout.get_pixel_size()
+        cr.set_source_rgb(0.47, 0.44, 0.38)
+        cr.move_to((width - tw) / 2, (height - th) / 2)
+        PangoCairo.show_layout(cr, layout)
+
+    def on_install(self, button):
+        dlg = Gtk.FileChooserDialog(
+            title="Choose Font Files…", parent=self,
+            action=Gtk.FileChooserAction.OPEN)
+        dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dlg.add_button("Choose", Gtk.ResponseType.OK)
+        filt = Gtk.FileFilter()
+        filt.set_name("Font files")
+        for pattern in ("*.ttf", "*.otf", "*.ttc", "*.pfb", "*.pfa"):
+            filt.add_pattern(pattern)
+        dlg.add_filter(filt)
+        any_filt = Gtk.FileFilter()
+        any_filt.set_name("All files")
+        any_filt.add_pattern("*")
+        dlg.add_filter(any_filt)
+        dlg.set_select_multiple(True)
+        response = dlg.run()
+        names = dlg.get_filenames() if response == Gtk.ResponseType.OK else []
+        dlg.destroy()
+        if not names:
+            return
+        installed = 0
+        errors = []
+        for src in names:
+            _, err = install_font(src)
+            if err:
+                errors.append(err)
+            else:
+                installed += 1
+        if installed:
+            refresh_font_cache()
+            self.load_fonts()
+        if errors:
+            self.show_error("; ".join(errors))
+
+    def on_remove(self, button):
+        font = self.selected_font
+        if font is None:
+            return
+        if not is_user_font(font):
+            self.show_error("Only user fonts can be removed.")
+            return
+        family = font["family"]
+        dlg = Gtk.MessageDialog(
+            parent=self, flags=Gtk.DialogFlags.MODAL,
+            type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.NONE,
+            message_format="Remove “%s”?" % family)
+        dlg.format_secondary_text(
+            "The font file will be deleted from %s." % user_fonts_dir())
+        dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dlg.add_button("Remove", Gtk.ResponseType.OK)
+        ok_btn = dlg.get_widget_for_response(Gtk.ResponseType.OK)
+        if ok_btn is not None:
+            ok_btn.get_style_context().add_class("destructive-action")
+        response = dlg.run()
+        dlg.destroy()
+        if response != Gtk.ResponseType.OK:
+            return
+        _, err = remove_font(font)
+        if err:
+            self.show_error(err)
+        else:
+            self.load_fonts()
+
+    def on_open_viewer(self, button):
+        font = self.selected_font
+        if font is None:
+            return
+        if not shutil.which("gnome-font-viewer"):
+            self.show_error(FONT_VIEWER_MISSING)
+            return
+        cmd = ["gnome-font-viewer"]
+        if font.get("file"):
+            cmd.append(font["file"])
+        try:
+            subprocess.Popen(cmd)
+        except OSError:
+            self.show_error(FONT_VIEWER_MISSING)
+
+
+def main():
+    w = FontBookWindow()
     w.connect("destroy", Gtk.main_quit)
     w.show_all()
     Gtk.main()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

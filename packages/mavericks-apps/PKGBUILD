@@ -10,7 +10,7 @@ depends=('gtk3' 'python-gobject' 'python-cairo' 'gtksourceview4' 'webkit2gtk'
          'thunar' 'rofi' 'xfce4-screenshooter' 'trash-cli' 'xarchiver'
          'networkmanager' 'pavucontrol' 'upower' 'bluez-utils'
          'gnome-disk-utility' 'xfce4-notifyd' 'libnotify' 'xdotool'
-         'libsecret')
+         'libsecret' 'fontconfig')
 optdepends=('poppler-glib: PDF preview in Quick Look'
             'ffmpeg: media metadata in Quick Look, screen recording'
             'ffmpegthumbnailer: video thumbnails'
@@ -20,7 +20,8 @@ optdepends=('poppler-glib: PDF preview in Quick Look'
             'pipewire: Voice Memos recording/playback backend'
             'pulseaudio: Voice Memos fallback backend (parec/paplay)'
             'seahorse: full Passwords and Keys GUI alongside mv-keychain'
-            'gnome-keyring: secret daemon used by the libsecret backend')
+            'gnome-keyring: secret daemon used by the libsecret backend'
+            'gnome-font-viewer: optional Open-in-Font-Viewer handoff in Font Book')
 makedepends=()
 # NOTE: sources live in ./src/mavericks-apps/ (repo-local, reproducible).
 # Build with: makepkg -si (from this directory). No network fetch required.
