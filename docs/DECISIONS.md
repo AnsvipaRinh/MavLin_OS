@@ -303,3 +303,29 @@ stores metadata only. Policy: RESUME same role+objective while >50%
 remaining; RETIRE+delete at <=50%, on objective/role change, error state,
 or unverifiable context. Proven: probe parent+child create/list/delete
 round-trip, RESUME/NEW verdicts incl. objective boundary.
+
+## 2026-09-26 — Orchestrator missing from agent picker: root cause + fix
+
+**Symptom:** new OpenCode session picker shows Build/Plan/Scout, no Orchestrator.
+**NOT a frontmatter bug:** file presence != registration was checked properly —
+`agent list` and server `GET /agent` with server-cwd=repo both list
+`orchestrator|primary` (native:false) with correct enforced permissions
+(edit:false, write:false, bash deny-all + git ro, task only
+builder/scout/planner). Proven with a throwaway probe server.
+**Also NOT a missing built-in:** clean-env `agent list` outside any project
+shows NO scout at all in 1.18.32 — i.e. no built-in scout exists here; the
+visible "Scout" already came from our custom file, so custom loading worked
+where the server cwd was right.
+**Root cause:** project agents resolve from the SERVER working directory, not
+per session directory (probe: cwd=`~` -> built-ins only; cwd=repo -> all
+customs). The desktop app attaches to a long-lived server (cwd=`~`), so
+project-only agents never reach its picker. No hot-reload either (verified:
+new global files invisible until server restart).
+**Fix (minimal, no arch change):** global visibility shim — symlinks
+`~/.config/opencode/agents/{orchestrator,builder,scout,planner}.md` ->
+repo `.opencode/agents/*.md` (single source of truth in repo), plus plain
+copies at `%USERPROFILE%/.config/opencode/agents/` for Windows-spawned
+servers. Verified: fresh server with cwd=`~` now lists all four roles;
+cold-start required. **User action still needed once:** restart
+`opencode serve` / the desktop app (running servers do not re-read agents).
+Machine-verified; actual desktop-picker pixels not observable from WSL.

@@ -1038,3 +1038,20 @@ after the result is processed); never resume on context pressure, error
 state, or role/objective change. A Builder answer is NOT the end of that
 Builder — verify against DoD and continue the same session when work
 of the same objective remains.
+
+### 14.6 Agent visibility (why global symlinks exist)
+
+OpenCode 1.18.x resolves project agents (`.opencode/agents/`) from the
+**server working directory**, not per session directory (proven: server
+with cwd=`~` lists only built-ins; same binary with cwd=repo lists all
+customs; no hot-reload — a (re)started server is required). The desktop
+app attaches to a long-lived server whose cwd is usually NOT the repo,
+so project-only agents never reach its picker. Therefore the four role
+files are additionally exposed globally via symlinks
+`~/.config/opencode/agents/*.md → .opencode/agents/*.md` (single source
+of truth stays in the repo; same copies exist Windows-side at
+`%USERPROFILE%/.config/opencode/agents/` for Windows-spawned servers).
+After changing any agent file: restart `opencode serve` / the desktop
+app (or start a new server) — running servers do NOT re-read agents.
+Machine equivalent of "visible in UI": fresh `GET /agent` (or
+`agent list` outside the repo) must list `orchestrator|primary`.
