@@ -86,3 +86,11 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] HUD: mv-hud в genmon показывает ватты RAPL m3-7Y32 (на хосте — graceful `n/a`)
 - [ ] Launchpad: Super+L открывает полноэкранную сетку; поиск фильтрует; папки (Utilities/Other) открываются; Back возвращает; иконки отображаются корректно на 2304x1440
 - [ ] Launchpad: mv-launchpad.desktop доступен в меню приложений и может быть закреплен в Dock
+
+## Control Center — hardware validation
+- [ ] Wi-Fi: network list populates, connect to open/secured AP, disconnect works, password prompt appears
+- [ ] Bluetooth: device list shows paired/available devices, connect/disconnect/pair works
+- [ ] Sound: output device list shows all sinks, switching changes default sink, volume/mute work
+- [ ] Display: brightness slider controls actual panel backlight, Night Shift toggle (if redshift installed)
+- [ ] Battery: charge/state/time read from UPower, power mode reflects TLP state
+- [ ] DND: toggle syncs with xfce4-notifyd do-not-disturb setting

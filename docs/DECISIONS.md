@@ -457,3 +457,36 @@ Validations: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED.
 
 **Implementation:** mv-launchpad (Python), rofi-launchpad.rasi, mv-launchpad.desktop.
 Validations: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED.
+
+---
+
+## 2026-09-26 — Control Center gap fixes: Wi-Fi connect, BT devices, audio output switching, error states
+
+**Problem:** Control Center (mv-control) had basic toggles and sliders but missing actionable controls: Wi-Fi network connect/disconnect, Bluetooth device list with pair/connect, audio output device switching, brightness unavailable state, battery power mode reading, and error/empty states for missing backends.
+
+**Decision:**
+1. **Wi-Fi connect/disconnect:** Click network row → password dialog for secured networks → nmcli connect. Active network shows disconnect on click. Empty state when NetworkManager unavailable.
+2. **Bluetooth devices:** Full BlueZ D-Bus enumeration (org.bluez.Device1) showing name, icon, connected/paired status. Buttons for Connect/Disconnect/Pair per device. "Open Bluetooth Settings" button launches blueman-manager. No pairing daemon required.
+3. **Audio output switching:** Combo box selection now calls `pactl set-default-sink`. Sink list refreshed on open, default marked.
+4. **Brightness robustness:** When no backlight path found (`/sys/class/backlight` empty), slider disabled and info row shown: "Brightness control not available on this hardware".
+5. **Battery power mode:** Reads current TLP governor state (balanced/powersave/performance). Changing mode shows info dialog with `sudo tlp set-mode` command (requires root, not automated).
+6. **Error/empty states:** Each section shows user-friendly message when backend unavailable (NetworkManager, BlueZ, PulseAudio, backlight, UPower, xfce4-notifyd).
+7. **No new dependencies:** Uses existing NM, BlueZ, pactl, upower, tlp, xfconf. On-demand only, no daemons.
+
+**Reasoning:**
+- Wi-Fi connect is essential for Control Center parity — list without connect is incomplete.
+- BlueZ D-Bus enumeration is lightweight and doesn't require blueman/daemon running.
+- Audio switching via pactl is standard and instant.
+- Brightness unavailable state is honest UX rather than silent failure.
+- TLP mode reading is read-only; changing requires root — info dialog avoids polkit complexity.
+- Error states critical for first-run UX on hardware where services may not be running.
+- All changes maintain on-demand, event-driven architecture (5s refresh only while window open).
+
+**Alternatives considered:**
+- Full NM connection editor clone — rejected (redundant, nm-connection-editor already in System Settings).
+- blueman-applet integration — rejected (adds daemon, not needed for basic device list).
+- Automated TLP mode switching via polkit — rejected (adds complexity, security surface; info dialog is sufficient pre-hardware).
+- Night Shift via redshift — rejected (not in ISO by default; placeholder with info message).
+
+**Implementation:** mv-control (Python).
+Validations: py_compile, check-sync ALL PASSED, headless import test passed, fallback paths verified.

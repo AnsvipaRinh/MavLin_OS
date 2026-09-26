@@ -283,3 +283,14 @@
 - [x] E-MC experiment: added wmctrl presence check in status; skel rc path variable; improved apply/revert messaging
 - [x] All validations pass: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED
 - [x] APPS.md Mission Control row updated with implemented features
+
+### Фаза 0.33 — Control Center gap fixes (2026-09-26, без железа)
+- [x] mv-control: Wi-Fi connect/disconnect with password prompt for secured networks via nmcli
+- [x] mv-control: Bluetooth device list with actual BlueZ D-Bus enumeration (name, connected/paired status, device icon)
+- [x] mv-control: Bluetooth connect/disconnect/pair actions via BlueZ D-Bus (no pairing daemon)
+- [x] mv-control: Audio output device switching via pactl set-default-sink (combo box now functional)
+- [x] mv-control: Brightness slider robustness — shows "Brightness control not available" when no backlight path
+- [x] mv-control: Battery power mode — reads current TLP mode (balanced/powersave/performance), shows info dialog for changes (requires root)
+- [x] mv-control: Error/empty states for all sections (NetworkManager, BlueZ, PulseAudio, backlight, UPower, xfce4-notifyd)
+- [x] All validations pass: py_compile, check-sync ALL PASSED
+- [x] APPS.md Control Center row updated with implemented features
