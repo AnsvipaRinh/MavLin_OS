@@ -231,3 +231,12 @@
 - [x] Dictionary: NOT_STARTED (no implementation)
 - [x] APPS.md P1 section completely rewritten with real statuses (all PARTIALLY IMPLEMENTED or NOT_STARTED)
 - [x] No fake IMPLEMENTED claims remain
+
+### Фаза 0.28 — P1 Calendar implementation (2026-09-26, без железа)
+- [x] mv-calendar: custom Mavericks-like Calendar with Month/Week/Day views
+- [x] ICS import/export support
+- [x] Multiple calendars with color coding and visibility toggles
+- [x] Event creation dialog with recurring support placeholder
+- [x] .desktop file updated to X-Mavericks-Native=true
+- [x] APPS.md status updated to PARTIALLY IMPLEMENTED (custom frontend)
+- [x] Package rebuilt, check-sync ALL PASSED

@@ -2,8 +2,8 @@
 Type=Application
 Name=Calendar
 Comment=Calendar (Mavericks)
-Exec=orage %U
+Exec=mv-calendar %U
 Icon=office-calendar
 Categories=Office;
 StartupNotify=true
-X-Mavericks-Alias-For=orage
+X-Mavericks-Native=true
