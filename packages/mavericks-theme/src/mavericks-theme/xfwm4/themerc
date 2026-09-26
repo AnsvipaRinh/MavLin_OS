@@ -1,0 +1,21 @@
+# Mavericks xfwm4 theme — OS X 10.9 window decorations
+# Button layout: close/minimize/maximize LEFT (traffic lights), title centered
+
+button_layout=OIM|:
+title_alignment=center
+full_width_title=true
+title_font=San Francisco 11
+title_text_color=#333333
+title_text_shadow_color=#ffffff
+title_shadow_active=true
+title_shadow_inactive=true
+active_text_color=#333333
+inactive_text_color=#666666
+active_text_shadow_color=#ffffff
+inactive_text_shadow_color=#ffffff
+active_foreground_color=#333333
+inactive_foreground_color=#666666
+active_background_color=#e8e8e0
+inactive_background_color=#d8d8d0
+active_border_color=#c0c0b8
+inactive_border_color=#c8c8c0
