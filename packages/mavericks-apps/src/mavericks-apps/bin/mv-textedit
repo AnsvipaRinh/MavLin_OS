@@ -2,38 +2,47 @@
 """mv-textedit — Mavericks-like TextEdit.
 Plain/rich text editing with Mavericks-style UI.
 Backend: GtkSourceView4 for syntax highlighting.
-Storage: plain text files (.txt, .md, .rtf via GtkSourceView).
-Features: font panel, ruler, find/replace, document inspector.
+Storage: plain text files (.txt, .md).
+Features: format bar, find/replace, print, document inspector, autosave.
 """
 import os
 import sys
+import json
+import time
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("GtkSource", "4")
 from gi.repository import Gtk, GtkSource, GLib, Pango
 
+DRAFT_DIR = os.path.expanduser("~/.local/share/mv-textedit/drafts")
+DRAFT_FILE = os.path.join(DRAFT_DIR, "autosave.json")
+AUTOSAVE_INTERVAL = 30
+
+
 class TextEdit(Gtk.Window):
     def __init__(self, file_path=None):
         super().__init__(title="Untitled")
-        self.set_default_size(720, 540)
+        self.set_default_size(780, 560)
         self.file_path = file_path
         self.modified = False
+        self.encoding = "UTF-8"
+        self.line_ending = "LF"
+        self._format_tags = {}
 
-        # Header bar with Mavericks-style controls
         hb = Gtk.HeaderBar(title="TextEdit", show_close_button=True)
         self.set_titlebar(hb)
 
-        # Left: document title
         self.title_label = Gtk.Label(label="Untitled")
         self.title_label.get_style_context().add_class("title")
         hb.pack_start(self.title_label)
 
-        # Right: toolbar buttons
         for label, icon, cb in [
             ("New", "document-new", self.new_document),
             ("Open", "document-open", self.open_document),
             ("Save", "document-save", self.save_document),
             ("Save As", "document-save-as", self.save_as_document),
+            ("Find", "edit-find", self.toggle_find_bar),
+            ("Print", "document-print", self.print_document),
         ]:
             b = Gtk.Button()
             img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON)
@@ -42,41 +51,15 @@ class TextEdit(Gtk.Window):
             b.connect("clicked", cb)
             hb.pack_end(b)
 
-        # Format menu button
-        self.format_menu = Gtk.MenuButton()
-        self.format_menu.set_image(Gtk.Image.new_from_icon_name("format-text-bold", Gtk.IconSize.BUTTON))
-        self.format_menu.set_tooltip_text("Format")
-        format_menu = Gtk.Menu()
-        for label, action in [
-            ("Bold", lambda _: self.apply_format("bold")),
-            ("Italic", lambda _: self.apply_format("italic")),
-            ("Underline", lambda _: self.apply_format("underline")),
-            ("Strikethrough", lambda _: self.apply_format("strikethrough")),
-            (None, None),
-            ("Font…", self.show_font_dialog),
-            ("Text Color…", self.show_color_dialog),
-            (None, None),
-            ("Align Left", lambda _: self.set_justification(Gtk.Justification.LEFT)),
-            ("Center", lambda _: self.set_justification(Gtk.Justification.CENTER)),
-            ("Align Right", lambda _: self.set_justification(Gtk.Justification.RIGHT)),
-            ("Justify", lambda _: self.set_justification(Gtk.Justification.FILL)),
-        ]:
-            if label is None:
-                format_menu.append(Gtk.SeparatorMenuItem())
-            else:
-                item = Gtk.MenuItem(label=label)
-                if callable(action):
-                    item.connect("activate", action)
-                format_menu.append(item)
-        format_menu.show_all()
-        self.format_menu.set_popup(format_menu)
-        hb.pack_end(self.format_menu)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(vbox)
 
-        # Main view
+        self.build_format_bar(vbox)
+        self.build_search_bar(vbox)
+
         self.buffer = GtkSource.Buffer()
         self.buffer.connect("changed", self.on_changed)
 
-        # Language manager for syntax highlighting
         lm = GtkSource.LanguageManager.get_default()
         lang = lm.guess_language(None, "text/plain")
         if lang:
@@ -91,72 +74,289 @@ class TextEdit(Gtk.Window):
         self.view.set_indent_width(4)
         self.view.set_insert_spaces_instead_of_tabs(True)
 
-        # Font
         font_desc = Pango.FontDescription("San Francisco 13")
         self.view.override_font(font_desc)
 
         sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         sw.add(self.view)
-        self.add(sw)
+        vbox.pack_start(sw, True, True, 0)
 
-        # Status bar
         self.status_bar = Gtk.Statusbar()
         self.status_context = self.status_bar.get_context_id("info")
+        vbox.pack_start(self.status_bar, False, False, 0)
+
         self.update_status()
 
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        vbox.pack_start(sw, True, True, 0)
-        vbox.pack_start(self.status_bar, False, False, 0)
-        self.add(vbox)
-
-        # Load file if provided
         if file_path:
             self.load_file(file_path)
         else:
             self.set_title("Untitled - TextEdit")
+            self.try_restore_draft()
 
         self.connect("delete-event", self.on_close)
         self.show_all()
+        self.search_bar.set_reveal_child(False)
 
-    def on_changed(self, _buf):
+        GLib.timeout_add_seconds(AUTOSAVE_INTERVAL, self.autosave)
+
+    def build_format_bar(self, parent):
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        bar.set_border_width(4)
+        bar.get_style_context().add_class("toolbar")
+
+        self.btn_bold = Gtk.ToggleButton()
+        self.btn_bold.set_image(Gtk.Image.new_from_icon_name("format-text-bold", Gtk.IconSize.SMALL_TOOLBAR))
+        self.btn_bold.set_tooltip_text("Bold (Ctrl+B)")
+        self.btn_bold.connect("toggled", self.on_bold_toggled)
+
+        self.btn_italic = Gtk.ToggleButton()
+        self.btn_italic.set_image(Gtk.Image.new_from_icon_name("format-text-italic", Gtk.IconSize.SMALL_TOOLBAR))
+        self.btn_italic.set_tooltip_text("Italic (Ctrl+I)")
+        self.btn_italic.connect("toggled", self.on_italic_toggled)
+
+        self.btn_underline = Gtk.ToggleButton()
+        self.btn_underline.set_image(Gtk.Image.new_from_icon_name("format-text-underline", Gtk.IconSize.SMALL_TOOLBAR))
+        self.btn_underline.set_tooltip_text("Underline (Ctrl+U)")
+        self.btn_underline.connect("toggled", self.on_underline_toggled)
+
+        sep1 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+
+        self.btn_align_left = Gtk.ToggleButton()
+        self.btn_align_left.set_image(Gtk.Image.new_from_icon_name("format-justify-left", Gtk.IconSize.SMALL_TOOLBAR))
+        self.btn_align_left.set_tooltip_text("Align Left")
+        self.btn_align_left.connect("toggled", lambda b: self.set_justification(Gtk.Justification.LEFT, b))
+
+        self.btn_align_center = Gtk.ToggleButton()
+        self.btn_align_center.set_image(Gtk.Image.new_from_icon_name("format-justify-center", Gtk.IconSize.SMALL_TOOLBAR))
+        self.btn_align_center.set_tooltip_text("Center")
+        self.btn_align_center.connect("toggled", lambda b: self.set_justification(Gtk.Justification.CENTER, b))
+
+        self.btn_align_right = Gtk.ToggleButton()
+        self.btn_align_right.set_image(Gtk.Image.new_from_icon_name("format-justify-right", Gtk.IconSize.SMALL_TOOLBAR))
+        self.btn_align_right.set_tooltip_text("Align Right")
+        self.btn_align_right.connect("toggled", lambda b: self.set_justification(Gtk.Justification.RIGHT, b))
+
+        self.align_group = [self.btn_align_left, self.btn_align_center, self.btn_align_right]
+
+        sep2 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+
+        self.font_combo = Gtk.ComboBoxText()
+        fonts = ["San Francisco", "Helvetica Neue", "Georgia", "Times New Roman",
+                 "Courier New", "Menlo", "Monaco", "Arial", "Verdana"]
+        for f in fonts:
+            self.font_combo.append_text(f)
+        self.font_combo.set_active(0)
+        self.font_combo.set_tooltip_text("Font Family")
+        self.font_combo.connect("changed", self.on_font_changed)
+
+        self.size_combo = Gtk.ComboBoxText()
+        sizes = ["9", "10", "11", "12", "13", "14", "16", "18", "24", "36"]
+        for s in sizes:
+            self.size_combo.append_text(s)
+        self.size_combo.set_active(4)
+        self.size_combo.set_tooltip_text("Font Size")
+        self.size_combo.connect("changed", self.on_size_changed)
+
+        sep3 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+
+        btn_color = Gtk.Button()
+        btn_color.set_image(Gtk.Image.new_from_icon_name("format-text-color", Gtk.IconSize.SMALL_TOOLBAR))
+        btn_color.set_tooltip_text("Text Color")
+        btn_color.connect("clicked", self.show_color_dialog)
+
+        btn_ruler = Gtk.ToggleButton()
+        btn_ruler.set_image(Gtk.Image.new_from_icon_name("format-text-ruler", Gtk.IconSize.SMALL_TOOLBAR))
+        btn_ruler.set_tooltip_text("Ruler")
+        btn_ruler.connect("toggled", self.toggle_ruler)
+
+        for w in [self.btn_bold, self.btn_italic, self.btn_underline,
+                  sep1,
+                  self.btn_align_left, self.btn_align_center, self.btn_align_right,
+                  sep2,
+                  self.font_combo, self.size_combo,
+                  sep3,
+                  btn_color, btn_ruler]:
+            bar.pack_start(w, False, False, 0)
+
+        parent.pack_start(bar, False, False, 0)
+        self.format_bar = bar
+
+    def build_search_bar(self, parent):
+        self.search_bar = Gtk.Revealer()
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        bar.set_border_width(4)
+
+        self.search_entry = Gtk.SearchEntry(placeholder_text="Find")
+        self.search_entry.set_width_chars(25)
+        self.search_entry.connect("search-changed", self.on_search_changed)
+        self.search_entry.connect("activate", self.on_search_next)
+
+        btn_next = Gtk.Button(label="Next")
+        btn_next.connect("clicked", self.on_search_next)
+        btn_prev = Gtk.Button(label="Previous")
+        btn_prev.connect("clicked", self.on_search_prev)
+
+        self.replace_entry = Gtk.Entry()
+        self.replace_entry.set_placeholder_text("Replace")
+        self.replace_entry.set_width_chars(20)
+
+        btn_replace = Gtk.Button(label="Replace")
+        btn_replace.connect("clicked", self.on_replace_one)
+        btn_replace_all = Gtk.Button(label="Replace All")
+        btn_replace_all.connect("clicked", self.on_replace_all)
+
+        btn_close = Gtk.Button.new_from_icon_name("window-close", Gtk.IconSize.SMALL_TOOLBAR)
+        btn_close.set_tooltip_text("Close find bar (Escape)")
+        btn_close.connect("clicked", lambda _: self.toggle_find_bar(None))
+
+        bar.pack_start(Gtk.Label(label="Find:"), False, False, 0)
+        bar.pack_start(self.search_entry, False, False, 0)
+        bar.pack_start(btn_next, False, False, 0)
+        bar.pack_start(btn_prev, False, False, 0)
+        bar.pack_start(Gtk.Label(label="Replace:"), False, False, 0)
+        bar.pack_start(self.replace_entry, False, False, 0)
+        bar.pack_start(btn_replace, False, False, 0)
+        bar.pack_start(btn_replace_all, False, False, 0)
+        bar.pack_end(btn_close, False, False, 0)
+
+        self.search_bar.add(bar)
+        self.search_bar.set_reveal_child(False)
+        parent.pack_start(self.search_bar, False, False, 0)
+
+        self.search_context = GtkSource.SearchContext.new(self.buffer)
+        self.search_context.set_highlight(True)
+
+    def toggle_find_bar(self, _):
+        revealed = self.search_bar.get_reveal_child()
+        self.search_bar.set_reveal_child(not revealed)
+        if not revealed:
+            self.search_entry.grab_focus()
+
+    def on_search_changed(self, _entry):
+        text = self.search_entry.get_text()
+        if text:
+            self.search_context.set_search_text(text)
+            self.search_context.forward(self.buffer.get_iter_at_mark(self.buffer.get_insert()))
+        else:
+            self.search_context.set_search_text("")
+            self.update_status()
+
+    def on_search_next(self, _):
+        text = self.search_entry.get_text()
+        if not text:
+            return
+        self.search_context.set_search_text(text)
+        start, end = self.buffer.get_selection_bounds()
+        if start:
+            self.buffer.move_mark(self.buffer.get_insert(), start)
+        result = self.search_context.forward(self.buffer.get_iter_at_mark(self.buffer.get_insert()))
+        if result[0]:
+            self.buffer.move_mark(self.buffer.get_insert(), result[1])
+            self.buffer.move_mark(self.buffer.get_selection_bound(), result[2])
+            self.view.scroll_to_iter(result[1], 0.2, False, 0.0, 0.0)
+
+    def on_search_prev(self, _):
+        text = self.search_entry.get_text()
+        if not text:
+            return
+        self.search_context.set_search_text(text)
+        start, end = self.buffer.get_selection_bounds()
+        if start:
+            self.buffer.move_mark(self.buffer.get_insert(), start)
+        result = self.search_context.backward(self.buffer.get_iter_at_mark(self.buffer.get_insert()))
+        if result[0]:
+            self.buffer.move_mark(self.buffer.get_insert(), result[2])
+            self.buffer.move_mark(self.buffer.get_selection_bound(), result[1])
+            self.view.scroll_to_iter(result[2], 0.2, False, 0.0, 0.0)
+
+    def on_replace_one(self, _):
+        text = self.search_entry.get_text()
+        repl = self.replace_entry.get_text()
+        if not text:
+            return
+        self.search_context.set_search_text(text)
+        start, end = self.buffer.get_selection_bounds()
+        if start and not start.equal(end):
+            self.search_context.replace(start, end, repl)
+        self.on_search_next(None)
+
+    def on_replace_all(self, _):
+        text = self.search_entry.get_text()
+        repl = self.replace_entry.get_text()
+        if not text:
+            return
+        self.search_context.set_search_text(text)
+        self.search_context.replace_all(repl)
+        self.buffer.set_modified(True)
         self.modified = True
-        title = self.get_title().replace(" ●", "")
-        self.set_title(title + " ●")
+        self.update_title()
 
-    def update_status(self):
-        # Line/column count
-        iter_ = self.buffer.get_iter_at_mark(self.buffer.get_insert())
-        line = iter_.get_line() + 1
-        col = iter_.get_line_offset() + 1
-        char_count = self.buffer.get_char_count()
-        self.status_bar.push(self.status_context, f"Ln {line}, Col {col}  |  {char_count} chars")
+    def on_bold_toggled(self, btn):
+        if btn.get_active():
+            self.apply_tag("bold", Pango.Weight.BOLD, "weight")
+        else:
+            self.remove_tag("bold")
 
-    def apply_format(self, style):
+    def on_italic_toggled(self, btn):
+        if btn.get_active():
+            self.apply_tag("italic", Pango.Style.ITALIC, "style")
+        else:
+            self.remove_tag("italic")
+
+    def on_underline_toggled(self, btn):
+        if btn.get_active():
+            self.apply_tag("underline", Pango.Underline.SINGLE, "underline")
+        else:
+            self.remove_tag("underline")
+
+    def apply_tag(self, name, value, prop):
         start, end = self.buffer.get_selection_bounds()
-        if not start.equal(end):
-            tag = self.buffer.create_tag()
-            if style == "bold":
-                tag.set_property("weight", Pango.Weight.BOLD)
-            elif style == "italic":
-                tag.set_property("style", Pango.Style.ITALIC)
-            elif style == "underline":
-                tag.set_property("underline", Pango.Underline.SINGLE)
-            elif style == "strikethrough":
-                tag.set_property("strikethrough", True)
-            self.buffer.apply_tag(tag, start, end)
+        if start.equal(end):
+            return
+        if name in self._format_tags:
+            old_tag = self._format_tags[name]
+            self.buffer.tag_table.remove(old_tag)
+        tag = self.buffer.create_tag(name)
+        tag.set_property(prop, value)
+        self.buffer.apply_tag(tag, start, end)
+        self._format_tags[name] = tag
 
-    def set_justification(self, just):
-        start, end = self.buffer.get_selection_bounds()
-        if not start.equal(end):
-            self.buffer.set_justification(start, end, just)
+    def remove_tag(self, name):
+        if name in self._format_tags:
+            tag = self._format_tags[name]
+            start, end = self.buffer.get_bounds()
+            self.buffer.remove_tag(tag, start, end)
+            del self._format_tags[name]
 
-    def show_font_dialog(self, _):
-        dialog = Gtk.FontChooserDialog(title="Font", transient_for=self)
-        dialog.set_font("San Francisco 13")
-        if dialog.run() == Gtk.ResponseType.OK:
-            font = dialog.get_font_desc()
-            self.view.override_font(font)
-        dialog.destroy()
+    def set_justification(self, just, btn):
+        if not btn.get_active():
+            btn.set_active(True)
+            return
+        for b in self.align_group:
+            if b != btn:
+                b.set_active(False)
+        start, end = self.buffer.get_bounds()
+        tag_name = f"justify_{just}"
+        if tag_name in self._format_tags:
+            old = self._format_tags[tag_name]
+            self.buffer.tag_table.remove(old)
+        tag = self.buffer.create_tag(tag_name)
+        tag.set_property("justification", just)
+        self.buffer.apply_tag(tag, start, end)
+        self._format_tags[tag_name] = tag
+
+    def on_font_changed(self, combo):
+        family = combo.get_active_text()
+        if family:
+            font_desc = Pango.FontDescription(f"{family} 13")
+            self.view.override_font(font_desc)
+
+    def on_size_changed(self, combo):
+        size = combo.get_active_text()
+        if size:
+            font_desc = Pango.FontDescription(f"San Francisco {size}")
+            self.view.override_font(font_desc)
 
     def show_color_dialog(self, _):
         dialog = Gtk.ColorChooserDialog(title="Text Color", transient_for=self)
@@ -169,6 +369,38 @@ class TextEdit(Gtk.Window):
                 self.buffer.apply_tag(tag, start, end)
         dialog.destroy()
 
+    def toggle_ruler(self, btn):
+        self.view.set_show_line_numbers(btn.get_active())
+
+    def print_document(self, _):
+        op = Gtk.PrintOperation()
+        op.set_n_pages(1)
+        res = op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self)
+        if res == Gtk.PrintOperationResult.APPLY:
+            pass
+
+    def on_changed(self, _buf):
+        self.modified = True
+        self.update_title()
+        self.update_status()
+
+    def update_title(self):
+        title = self.get_title().replace(" ●", "")
+        if self.modified:
+            self.set_title(title + " ●")
+        else:
+            self.set_title(title)
+
+    def update_status(self):
+        iter_ = self.buffer.get_iter_at_mark(self.buffer.get_insert())
+        line = iter_.get_line() + 1
+        col = iter_.get_line_offset() + 1
+        char_count = self.buffer.get_char_count()
+        text = self.buffer.get_text(self.buffer.get_start_iter(), self.buffer.get_end_iter(), False)
+        word_count = len(text.split()) if text else 0
+        self.status_bar.push(self.status_context,
+            f"Ln {line}, Col {col}  |  {word_count} words  |  {char_count} chars  |  {self.encoding}  |  {self.line_ending}")
+
     def new_document(self, _):
         if self.modified:
             if not self.confirm_discard():
@@ -178,6 +410,7 @@ class TextEdit(Gtk.Window):
         self.modified = False
         self.set_title("Untitled - TextEdit")
         self.title_label.set_text("Untitled")
+        self.update_status()
 
     def open_document(self, _):
         if self.modified:
@@ -192,7 +425,6 @@ class TextEdit(Gtk.Window):
         filter_text.add_mime_type("text/plain")
         filter_text.add_pattern("*.txt")
         filter_text.add_pattern("*.md")
-        filter_text.add_pattern("*.rtf")
         dialog.add_filter(filter_text)
         filter_all = Gtk.FileFilter()
         filter_all.set_name("All Files")
@@ -205,14 +437,27 @@ class TextEdit(Gtk.Window):
     def load_file(self, path):
         try:
             with open(path, "r", encoding="utf-8") as f:
-                self.buffer.set_text(f.read())
+                content = f.read()
+            self.buffer.begin_notifiable_actions()
+            self.buffer.set_text(content)
+            self.buffer.end_notifiable_actions()
             self.file_path = path
             self.modified = False
             name = os.path.basename(path)
             self.set_title(f"{name} - TextEdit")
             self.title_label.set_text(name)
+            self.detect_line_endings(content)
+            self.update_status()
         except Exception as e:
             self.show_error(f"Failed to open: {e}")
+
+    def detect_line_endings(self, text):
+        if "\r\n" in text:
+            self.line_ending = "CRLF"
+        elif "\r" in text:
+            self.line_ending = "CR"
+        else:
+            self.line_ending = "LF"
 
     def save_document(self, _):
         if self.file_path:
@@ -231,7 +476,6 @@ class TextEdit(Gtk.Window):
         filter_text.add_mime_type("text/plain")
         filter_text.add_pattern("*.txt")
         filter_text.add_pattern("*.md")
-        filter_text.add_pattern("*.rtf")
         dialog.add_filter(filter_text)
         filter_all = Gtk.FileFilter()
         filter_all.set_name("All Files")
@@ -256,6 +500,7 @@ class TextEdit(Gtk.Window):
             name = os.path.basename(path)
             self.set_title(f"{name} - TextEdit")
             self.title_label.set_text(name)
+            self.clear_draft()
         except Exception as e:
             self.show_error(f"Failed to save: {e}")
 
@@ -276,7 +521,8 @@ class TextEdit(Gtk.Window):
     def on_close(self, _w, _e):
         if self.modified:
             if not self.confirm_discard():
-                return True  # Cancel close
+                return True
+        self.clear_draft()
         Gtk.main_quit()
         return False
 
@@ -289,6 +535,42 @@ class TextEdit(Gtk.Window):
         dialog.run()
         dialog.destroy()
 
+    def autosave(self):
+        if self.modified and not self.file_path:
+            try:
+                os.makedirs(DRAFT_DIR, exist_ok=True)
+                start, end = self.buffer.get_bounds()
+                text = self.buffer.get_text(start, end, False)
+                draft = {"text": text, "timestamp": time.time()}
+                tmp = DRAFT_FILE + ".tmp"
+                with open(tmp, "w") as f:
+                    json.dump(draft, f)
+                os.replace(tmp, DRAFT_FILE)
+            except Exception:
+                pass
+        return True
+
+    def try_restore_draft(self):
+        try:
+            if os.path.exists(DRAFT_FILE):
+                with open(DRAFT_FILE) as f:
+                    draft = json.load(f)
+                if draft.get("text"):
+                    self.buffer.begin_notifiable_actions()
+                    self.buffer.set_text(draft["text"])
+                    self.buffer.end_notifiable_actions()
+                    self.modified = True
+                    self.set_title("Untitled (Recovered) - TextEdit")
+        except Exception:
+            pass
+
+    def clear_draft(self):
+        try:
+            if os.path.exists(DRAFT_FILE):
+                os.remove(DRAFT_FILE)
+        except Exception:
+            pass
+
 
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else None
@@ -297,6 +579,6 @@ def main():
     Gtk.main()
     return 0
 
+
 if __name__ == "__main__":
-    import os
     sys.exit(main())

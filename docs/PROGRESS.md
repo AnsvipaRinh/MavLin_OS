@@ -1,5 +1,16 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.45 — TextEdit: Mavericks visual integration (2026-09-26, без железа)
+- [x] Аудит существующего mv-textedit: GtkSourceView4, HeaderBar с New/Open/Save/SaveAs, format-меню (Bold/Italic/Underline/Strikethrough/Font/Color/Alignment), status bar (Ln/Col/chars), открытие/сохранение .txt/.md
+- [x] Format bar добавлен как отдельная панель под HeaderBar: Bold/Italic/Underline (ToggleButton), Alignment (Left/Center/Right), Font Family combo, Font Size combo, Text Color picker
+- [x] Find/Replace панель добавлена (GtkSource.SearchContext): search entry, Next/Previous, Replace/Replace All, highlight matches, Escape закрывает
+- [x] Print поддержка добавлена (Gtk.PrintOperation с PRINT_DIALOG)
+- [x] Document inspector расширен: word count, encoding (UTF-8), line endings (LF/CRLF/CR detection) в status bar
+- [x] Autosave/draft recovery для untitled документов: автосохранение каждые 30с в ~/.local/share/mv-textedit/drafts/autosave.json, восстановление при следующем открытии, очистка при save/close
+- [x] Обновлен status bar: "Ln X, Col Y | N words | M chars | ENC | EOL"
+- [x] Validation: py_compile OK, desktop-file-validate OK, scripts/check-sync.sh ALL CHECKS PASSED, headless import OK
+- [ ] HW: visual validation of format bar appearance, print dialog, autosave behavior on real session
+
 ### Фаза 0.44 — P0 Desktop Chrome: audit + gaps (2026-09-26, без железа)
 - [x] Forensic audit всех 9 поверхностей (Menu Bar, Dock, App Menu, Dialogs, File Chooser, Context Menus, Keyboard, Desktop/Wallpaper/Session, Window Management)
 - [x] Keyboard layer verified: 20+ bindings, no conflicts, no orphans; missing Super+Q/M/H/W/E/T; docs/KEYBOARD.md created
