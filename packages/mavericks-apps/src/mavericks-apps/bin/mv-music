@@ -1,137 +1,1636 @@
 #!/usr/bin/env python3
-"""mv-music — Mavericks-like Music wrapper for Lollypop.
-Adds Mavericks visual theme and integration.
-"""
+"""mv-music — Mavericks-like Music frontend.
+Library engine (pure, headless-testable): native ID3/Vorbis/MP4/Ogg tag
+parsing, album grouping, cover cache, state store. Playback backend is
+lollypop driven over MPRIS D-Bus (reuse-first); graceful error states when
+the backend or library is absent. No polling, no daemon, event-driven."""
+import hashlib
+import json
 import os
+import struct
+import subprocess
 import sys
+import time
+import uuid
+
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk
+gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk  # noqa: F401
 
-class MusicWrapper(Gtk.Window):
-    def __init__(self):
+MPRIS_NAME = "org.mpris.MediaPlayer2.lollypop"
+MPRIS_PATH = "/org/mpris/MediaPlayer2"
+MPRIS_IFACE = "org.mpris.MediaPlayer2.Player"
+
+SUPPORTED_EXTS = (".mp3", ".flac", ".ogg", ".oga", ".opus", ".m4a",
+                  ".mp4", ".wav", ".wma", ".ape")
+AUDIO_MIMES = ("audio/mpeg", "audio/flac", "audio/ogg", "audio/x-m4a",
+               "audio/mp4", "audio/wav", "audio/x-wav", "audio/opus",
+               "audio/x-vorbis+ogg", "application/ogg")
+
+STATE_ENV = "MV_MUSIC_STATE"
+LIBRARY_ENV = "MV_MUSIC_LIBRARY"
+DEFAULT_LIBRARY = "~/Music"
+PLAY_LOG_CAP = 2000
+QUEUE_CAP = 5000
+SCAN_CHUNK = 150
+COVER_SIZE = 150
+
+
+def now_iso():
+    return time.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def fmt_time(seconds):
+    try:
+        seconds = int(seconds)
+    except (TypeError, ValueError):
+        return "0:00"
+    if seconds < 0:
+        seconds = 0
+    return "%d:%02d" % (seconds // 60, seconds % 60)
+
+
+def _synchsafe(b):
+    if len(b) != 4:
+        return 0
+    return (b[0] << 21) | (b[1] << 14) | (b[2] << 7) | b[3]
+
+
+def _decode_text(raw, enc):
+    if enc == 3:
+        return raw.decode("utf-8", "replace")
+    if enc == 2:
+        return raw.decode("utf-16-be", "replace")
+    if enc == 1:
+        if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+            return raw.decode("utf-16", "replace")
+        return raw.decode("utf-16-le", "replace")
+    return raw.decode("latin-1", "replace")
+
+
+def _id3_frames(blob, ver, size, offset):
+    frames = {}
+    end = min(offset + size, len(blob))
+    while offset + 10 <= end:
+        fid = blob[offset:offset + 4]
+        if fid[:1] == b"\x00" or not fid.strip(b"\x00"):
+            break
+        try:
+            fid = fid.decode("latin-1")
+        except Exception:
+            break
+        if ver == 4:
+            fsize = _synchsafe(blob[offset + 4:offset + 8])
+        else:
+            fsize = struct.unpack(">I", blob[offset + 4:offset + 8])[0]
+        if fsize <= 0 or offset + 10 + fsize > end:
+            break
+        payload = blob[offset + 10:offset + 10 + fsize]
+        if fid not in frames:
+            frames[fid] = payload
+        offset += 10 + fsize
+    return frames
+
+
+def _parse_id3(blob):
+    if blob[:3] != b"ID3":
+        return {}
+    ver = blob[3]
+    if ver not in (3, 4):
+        return {}
+    flags = blob[5]
+    size = _synchsafe(blob[6:10])
+    offset = 10
+    if flags & 0x40:
+        if ver == 4:
+            ext = _synchsafe(blob[10:14])
+        else:
+            ext = struct.unpack(">I", blob[10:14])[0]
+        offset = 10 + max(ext, 0)
+    tags = {}
+    cover = None
+    for fid, payload in _id3_frames(blob, ver, size, offset).items():
+        if fid in ("TIT2", "TPE1", "TALB", "TCON", "TRCK"):
+            if not payload:
+                continue
+            tags[fid] = _decode_text(payload[1:].rstrip(b"\x00"), payload[0])
+        elif fid == "APIC" and payload:
+            try:
+                enc = payload[0]
+                rest = payload[1:]
+                if enc in (1, 2):
+                    z = rest.find(b"\x00\x00")
+                else:
+                    z = rest.find(b"\x00")
+                if z < 0:
+                    continue
+                mime = rest[:z].decode("latin-1", "replace")
+                p = z + (2 if enc in (1, 2) else 1)
+                if enc in (1, 2):
+                    z2 = rest.find(b"\x00\x00", p)
+                else:
+                    z2 = rest.find(b"\x00", p)
+                if z2 < 0:
+                    continue
+                cover = (rest[z2 + (2 if enc in (1, 2) else 1):], mime)
+            except Exception:
+                cover = None
+    tags["title"] = tags.get("TIT2", "")
+    tags["artist"] = tags.get("TPE1", "")
+    tags["album"] = tags.get("TALB", "")
+    tags["genre"] = tags.get("TCON", "")
+    tags["trackno"] = 0
+    trck = tags.get("TRCK", "")
+    try:
+        tags["trackno"] = int(str(trck).split("/")[0])
+    except (TypeError, ValueError):
+        pass
+    if cover:
+        tags["cover_bytes"], tags["cover_mime"] = cover
+    return tags
+
+
+def _vorbis_comments(blob, base):
+    try:
+        pos = base
+        if pos + 4 > len(blob):
+            return {}
+        vendor_len = struct.unpack("<I", blob[pos:pos + 4])[0]
+        pos += 4 + vendor_len
+        if pos + 4 > len(blob):
+            return {}
+        count = struct.unpack("<I", blob[pos:pos + 4])[0]
+        pos += 4
+        out = {}
+        for _ in range(count):
+            if pos + 4 > len(blob):
+                break
+            elen = struct.unpack("<I", blob[pos:pos + 4])[0]
+            pos += 4
+            entry = blob[pos:pos + elen].decode("utf-8", "replace")
+            pos += elen
+            if "=" in entry:
+                k, v = entry.split("=", 1)
+                out.setdefault(k.upper(), v)
+        return out
+    except Exception:
+        return {}
+
+
+def _parse_flac(blob):
+    if blob[:4] != b"fLaC":
+        return {}
+    tags = {}
+    cover = None
+    pos = 4
+    while pos + 4 <= len(blob):
+        hdr = blob[pos]
+        length = struct.unpack(">I", b"\x00" + blob[pos + 1:pos + 4])[0]
+        body = blob[pos + 4:pos + 4 + length]
+        if hdr & 0x7f == 0 and len(body) >= 34:
+            try:
+                packed = struct.unpack(">Q", body[10:18])[0]
+                sample_rate = packed >> 44
+                total_samples = packed & 0xFFFFFFFFF
+                if sample_rate > 0:
+                    tags["duration"] = total_samples / sample_rate
+            except Exception:
+                pass
+        elif hdr & 0x7f == 4:
+            comments = _vorbis_comments(body, 0)
+            for src, dst in (("TITLE", "title"), ("ARTIST", "artist"),
+                             ("ALBUM", "album"), ("GENRE", "genre"),
+                             ("TRACKNUMBER", "trackno")):
+                if comments.get(src):
+                    tags[dst] = comments[src]
+            if comments.get("METADATA_BLOCK_PICTURE"):
+                import base64
+                try:
+                    pic = base64.b64decode(comments["METADATA_BLOCK_PICTURE"])
+                    mlen = struct.unpack(">I", pic[0:4])[0]
+                    p = 4 + mlen
+                    dlen = struct.unpack(">I", pic[p:p + 4])[0]
+                    p += 4 + dlen + 16
+                    dlen2 = struct.unpack(">I", pic[p:p + 4])[0]
+                    cover = (pic[p + 4:p + 4 + dlen2], "image/jpeg")
+                except Exception:
+                    cover = None
+        elif hdr & 0x7f == 6 and len(body) >= 32:
+            try:
+                mlen = struct.unpack(">I", body[0:4])[0]
+                mime = body[4:4 + mlen].decode("latin-1", "replace")
+                p = 4 + mlen
+                dlen = struct.unpack(">I", body[p:p + 4])[0]
+                p += 4 + dlen + 16
+                dlen2 = struct.unpack(">I", body[p:p + 4])[0]
+                data = body[p + 4:p + 4 + dlen2]
+                if mime in ("image/png", "image/jpeg", "image/jpg") and data:
+                    if cover is None or True:
+                        cover = (data, "image/jpeg" if mime == "image/jpeg"
+                                 else "image/png")
+            except Exception:
+                pass
+        pos += 4 + length
+        if hdr & 0x80:
+            break
+    try:
+        tags["trackno"] = int(str(tags.get("trackno", "0")).split("/")[0])
+    except (TypeError, ValueError):
+        tags["trackno"] = 0
+    if cover:
+        tags["cover_bytes"], tags["cover_mime"] = cover
+    return tags
+
+
+def _parse_ogg(blob):
+    """Scan Ogg pages for the Vorbis comment header (packet type 3,
+    '\\x03vorbis'). The identification header ('\\x01vorbis') carries no
+    vendor/comments, so only the comment packet yields tags."""
+    tags = {}
+    cover = None
+    pos = 0
+    while pos + 27 <= len(blob):
+        pos = blob.find(b"OggS", pos)
+        if pos < 0 or pos + 27 > len(blob):
+            break
+        nseg = blob[pos + 26]
+        payload_start = pos + 27 + nseg
+        if payload_start + 7 > len(blob):
+            break
+        page_len = sum(blob[pos + 27:pos + 27 + nseg])
+        payload = blob[payload_start:payload_start + page_len]
+        if payload.startswith(b"\x03vorbis"):
+            comments = _vorbis_comments(payload, 7)
+            for src, dst in (("TITLE", "title"), ("ARTIST", "artist"),
+                             ("ALBUM", "album"), ("GENRE", "genre"),
+                             ("TRACKNUMBER", "trackno")):
+                if comments.get(src):
+                    tags[dst] = comments[src]
+            pic = comments.get("METADATA_BLOCK_PICTURE")
+            if pic:
+                import base64
+                try:
+                    data = base64.b64decode(pic)
+                    mlen = struct.unpack(">I", data[0:4])[0]
+                    p = 4 + mlen
+                    dlen = struct.unpack(">I", data[p:p + 4])[0]
+                    p += 4 + dlen + 16
+                    dlen2 = struct.unpack(">I", data[p:p + 4])[0]
+                    cover = (data[p + 4:p + 4 + dlen2], "image/jpeg")
+                except Exception:
+                    cover = None
+            break
+        pos = payload_start
+    try:
+        tags["trackno"] = int(str(tags.get("trackno", "0")).split("/")[0])
+    except (TypeError, ValueError):
+        tags["trackno"] = 0
+    if cover:
+        tags["cover_bytes"], tags["cover_mime"] = cover
+    return tags
+
+
+def _atoms(blob, start, end, depth=0):
+    pos = start
+    out = []
+    while pos + 8 <= end:
+        size = struct.unpack(">I", blob[pos:pos + 4])[0]
+        atype = blob[pos + 4:pos + 8]
+        hdr = 8
+        if size == 1:
+            size = struct.unpack(">Q", blob[pos + 8:pos + 16])[0]
+            hdr = 16
+        elif size == 0:
+            size = end - pos
+        if size < hdr or pos + size > end:
+            break
+        out.append((atype, pos + hdr, pos + size))
+        pos += size
+    return out
+
+
+def _parse_mp4(blob):
+    tags = {}
+    cover = None
+    ilst = None
+    for atype, s, e in _atoms(blob, 0, len(blob)):
+        if atype == b"moov":
+            for a2, s2, e2 in _atoms(blob, s, e):
+                if a2 == b"udta":
+                    for a3, s3, e3 in _atoms(blob, s2, e2):
+                        if a3 == b"meta":
+                            for a4, s4, e4 in _atoms(blob, s3 + 4, e3):
+                                if a4 == b"ilst":
+                                    ilst = (s4, e4)
+    if ilst:
+        for atype, s, e in _atoms(blob, ilst[0], ilst[1]):
+            names = {b"\xa9nam": "title", b"\xa9ART": "artist",
+                     b"\xa9alb": "album", b"\xa9gen": "genre",
+                     b"\xa9day": None}
+            if atype in names and names[atype]:
+                for a2, s2, e2 in _atoms(blob, s, e):
+                    if a2 == b"data" and e2 - s2 > 8:
+                        tags[names[atype]] = blob[s2 + 8:e2].decode(
+                            "utf-8", "replace").rstrip("\x00")
+            elif atype == b"trkn":
+                for a2, s2, e2 in _atoms(blob, s, e):
+                    if a2 == b"data" and e2 - s2 >= 8:
+                        tags["trackno"] = struct.unpack(
+                            ">H", blob[s2 + 10:s2 + 12])[0]
+            elif atype == b"\xa9covr":
+                for a2, s2, e2 in _atoms(blob, s, e):
+                    if a2 == b"data" and e2 - s2 > 8:
+                        cover = (blob[s2 + 8:e2], "image/png")
+    try:
+        tags["trackno"] = int(str(tags.get("trackno", "0")).split("/")[0])
+    except (TypeError, ValueError):
+        tags["trackno"] = 0
+    if cover:
+        tags["cover_bytes"], tags["cover_mime"] = cover
+    return tags
+
+
+def read_tags(path):
+    """Read tags natively (ID3/FLAC/Ogg/MP4). Never raises; {} on failure."""
+    try:
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in SUPPORTED_EXTS:
+            return {}
+        with open(path, "rb") as f:
+            blob = f.read(4 * 1024 * 1024)
+        if not blob:
+            return {}
+        if ext == ".mp3":
+            tags = _parse_id3(blob)
+        elif ext in (".flac",):
+            tags = _parse_flac(blob)
+        elif ext in (".ogg", ".oga", ".opus"):
+            tags = _parse_ogg(blob)
+        elif ext in (".m4a", ".mp4"):
+            tags = _parse_mp4(blob)
+        else:
+            tags = {}
+        for k in ("title", "artist", "album", "genre"):
+            tags.setdefault(k, "")
+        tags.setdefault("trackno", 0)
+        tags.setdefault("duration", None)
+        return tags
+    except Exception:
+        return {}
+
+
+def default_state():
+    return {"queue": [], "play_log": [], "geometry": {}, "library": None}
+
+
+def _state_path():
+    return os.environ.get(STATE_ENV) or os.path.expanduser(
+        "~/.config/mav-music/state.json")
+
+
+def _backup_path(path):
+    return path + ".bak"
+
+
+def _quarantine_path(path):
+    return "%s.corrupt-%d" % (path, int(time.time()))
+
+
+def load_state(path=None, on_warn=None):
+    """JSON state with backup-restore + quarantine (same pattern as
+    mv-calendar/mv-notes/mv-reminders). Corrupt file never silently lost."""
+    path = path or _state_path()
+
+    def warn(msg):
+        if on_warn:
+            on_warn(msg)
+
+    if not os.path.exists(path):
+        return default_state()
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        bak = _backup_path(path)
+        if os.path.exists(bak):
+            try:
+                with open(bak) as f:
+                    data = json.load(f)
+                warn("Music state was unreadable (%s); restored from backup." % e)
+                return _normalize_state(data)
+            except (OSError, ValueError):
+                pass
+        try:
+            os.replace(path, _quarantine_path(path))
+        except OSError:
+            pass
+        warn("Music state was unreadable (%s); the corrupt file was "
+             "quarantined and a fresh state was started." % e)
+        return default_state()
+    return _normalize_state(data)
+
+
+def save_state(path=None, data=None):
+    path = path or _state_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if os.path.exists(path):
+        try:
+            os.replace(path, _backup_path(path))
+        except OSError:
+            pass
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, path)
+
+
+def _normalize_state(data):
+    if not isinstance(data, dict):
+        return default_state()
+    st = default_state()
+    if isinstance(data.get("queue"), list):
+        st["queue"] = [str(p) for p in data["queue"]][:QUEUE_CAP]
+    if isinstance(data.get("play_log"), list):
+        log = [e for e in data["play_log"] if isinstance(e, dict)][:PLAY_LOG_CAP]
+        for e in log:
+            if not isinstance(e.get("path"), str):
+                e["path"] = ""
+            e.setdefault("at", "")
+        st["play_log"] = log
+    geo = data.get("geometry")
+    if isinstance(geo, dict):
+        for k in ("w", "h"):
+            v = geo.get(k)
+            if isinstance(v, (int, float)) and v > 0:
+                st["geometry"][k] = v
+        if isinstance(geo.get("mini"), bool):
+            st["geometry"]["mini"] = geo["mini"]
+    if isinstance(data.get("library"), str):
+        st["library"] = data["library"]
+    return st
+
+
+def record_play(state, path):
+    """Append a play event (pure: returns new state). Play log is the
+    single source for Recently Played / Top Played."""
+    st = dict(state)
+    log = list(state.get("play_log") or [])
+    log.append({"path": path, "at": now_iso()})
+    st["play_log"] = log[-PLAY_LOG_CAP:]
+    return st
+
+
+def recently_played(state, limit=25):
+    latest = {}
+    for e in state.get("play_log") or []:
+        p = e.get("path", "")
+        if p:
+            latest[p] = e.get("at", "")
+    ranked = sorted(latest.items(), key=lambda kv: kv[1], reverse=True)
+    return [p for p, _ in ranked[:limit]]
+
+
+def top_played(state, limit=25):
+    counts = {}
+    last = {}
+    for e in state.get("play_log") or []:
+        p = e.get("path", "")
+        if not p:
+            continue
+        counts[p] = counts.get(p, 0) + 1
+        last[p] = e.get("at", "")
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    return ranked[:limit]
+
+
+def search_tracks(tracks, query):
+    q = (query or "").strip().lower()
+    if not q:
+        return list(tracks)
+    out = []
+    for t in tracks:
+        hay = " ".join(str(t.get(k, "")) for k in
+                       ("title", "artist", "album", "genre")).lower()
+        if q in hay:
+            out.append(t)
+    return out
+
+
+def scan_library(root):
+    """Scan root for audio files. Returns (tracks, error_count).
+    Deterministic order: (artist, album, trackno, path)."""
+    if not root or not os.path.isdir(root):
+        return [], 0
+    tracks = []
+    errors = 0
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in SUPPORTED_EXTS:
+                continue
+            try:
+                tags = read_tags(path)
+                if not tags and not os.path.isfile(path):
+                    raise OSError("not a file")
+            except Exception:
+                errors += 1
+                continue
+            stem = os.path.splitext(os.path.basename(path))[0]
+            tracks.append({
+                "path": path,
+                "title": tags.get("title") or stem,
+                "artist": tags.get("artist") or "Unknown Artist",
+                "album": tags.get("album") or "Unknown Album",
+                "genre": tags.get("genre") or "",
+                "trackno": tags.get("trackno") or 0,
+                "duration": tags.get("duration"),
+                "cover_bytes": tags.get("cover_bytes"),
+                "cover_mime": tags.get("cover_mime"),
+            })
+    tracks.sort(key=lambda t: (t["artist"].lower(), t["album"].lower(),
+                               t["trackno"], t["path"]))
+    return tracks, errors
+
+
+def group_by_album(tracks):
+    groups = {}
+    for t in tracks:
+        key = (t.get("artist", "Unknown Artist").lower(),
+               t.get("album", "Unknown Album").lower())
+        g = groups.setdefault(key, {
+            "key": key,
+            "artist": t.get("artist", "Unknown Artist"),
+            "album": t.get("album", "Unknown Album"),
+            "tracks": [],
+            "cover_bytes": None,
+            "cover_mime": None,
+        })
+        if t.get("duration") is not None:
+            g.setdefault("duration", t["duration"])
+        g["tracks"].append(t)
+        if g["cover_bytes"] is None and t.get("cover_bytes"):
+            g["cover_bytes"] = t["cover_bytes"]
+            g["cover_mime"] = t.get("cover_mime")
+    out = sorted(groups.values(),
+                 key=lambda g: (g["artist"].lower(), g["album"].lower()))
+    for g in out:
+        g["tracks"].sort(key=lambda t: (t["trackno"], t["path"]))
+    return out
+
+
+def cover_cache_dir():
+    d = os.path.expanduser("~/.cache/mav-music/covers")
+    try:
+        os.makedirs(d, exist_ok=True)
+    except OSError:
+        d = None
+    return d
+
+
+def cover_cache_path(track):
+    try:
+        st = os.stat(track["path"])
+        h = hashlib.sha1()
+        h.update(track["path"].encode("utf-8", "replace"))
+        h.update(str(st.st_size).encode())
+        with open(track["path"], "rb") as f:
+            h.update(f.read(512))
+        digest = h.hexdigest()[:16]
+    except OSError:
+        digest = uuid.uuid4().hex[:16]
+    ext = ".png"
+    mime = (track.get("cover_mime") or "").lower()
+    if "jpeg" in mime or "jpg" in mime:
+        ext = ".jpg"
+    elif "png" not in mime:
+        ext = ".img"
+    d = cover_cache_dir()
+    return os.path.join(d, digest + ext) if d else None
+
+
+def write_cover(track):
+    data = track.get("cover_bytes")
+    if not data:
+        return None
+    dest = cover_cache_path(track)
+    if not dest:
+        return None
+    if os.path.exists(dest) and os.path.getsize(dest) == len(data):
+        return dest
+    try:
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        tmp = dest + ".tmp"
+        with open(tmp, "wb") as f:
+            f.write(data)
+        os.replace(tmp, dest)
+        return dest
+    except OSError:
+        return None
+
+
+# ------------------------------------------------------------------ MPRIS
+
+class MprisController:
+    """Thin MPRIS client for the lollypop playback backend. Fully optional:
+    every method degrades to None/False when the bus or player is absent.
+    Watches NameOwnerChanged instead of polling."""
+
+    def __init__(self, on_change=None):
+        self.available = False
+        self.on_change = on_change
+        self.proxy = None
+        self.props = None
+        self._watch = 0
+        try:
+            self._bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            self.proxy = Gio.DBusProxy.new_sync(
+                self._bus, Gio.DBusProxyFlags.NONE, None,
+                MPRIS_NAME, MPRIS_PATH, MPRIS_IFACE, None)
+            self.props = Gio.DBusProxy.new_sync(
+                self._bus, Gio.DBusProxyFlags.NONE, None,
+                MPRIS_NAME, MPRIS_PATH, "org.freedesktop.DBus.Properties",
+                None)
+            self.available = self.proxy.get_name_owner() is not None
+            self._watch = Gio.bus_watch_name_on_connection(
+                self._bus, MPRIS_NAME, Gio.BusNameWatcherFlags.NONE,
+                lambda b, n: self._owner_changed(True),
+                lambda b, n: self._owner_changed(False))
+            self.props.connect("g-signal", self._on_signal)
+        except Exception:
+            self.proxy = None
+            self.props = None
+
+    def _on_signal(self, _proxy, _sender, signal, _params):
+        if signal == "PropertiesChanged" and self.on_change:
+            self.on_change()
+
+    def _owner_changed(self, present):
+        self.available = present
+        if self.on_change:
+            self.on_change()
+
+    def _player_call(self, method):
+        if not self.available or self.proxy is None:
+            return False
+        try:
+            self.proxy.call_sync(method, None, Gio.DBusCallFlags.NONE,
+                                2000, None)
+            return True
+        except Exception:
+            return False
+
+    def _get_prop(self, name):
+        if not self.available or self.props is None:
+            return None
+        try:
+            v = self.props.call_sync(
+                "Get", GLib.Variant("(ss)", (MPRIS_IFACE, name)),
+                Gio.DBusCallFlags.NONE, 2000, None)
+            return v.unpack()[0] if v else None
+        except Exception:
+            return None
+
+    def play(self):
+        return self._player_call("Play")
+
+    def play_pause(self):
+        return self._player_call("PlayPause")
+
+    def next_track(self):
+        return self._player_call("Next")
+
+    def previous_track(self):
+        return self._player_call("Previous")
+
+    def metadata(self):
+        md = self._get_prop("Metadata")
+        if not isinstance(md, dict):
+            return {}
+        title = md.get("xesam:title") or ""
+        if isinstance(title, (list, tuple)):
+            title = title[0] if title else ""
+        artists = md.get("xesam:artist") or []
+        if isinstance(artists, str):
+            artists = [artists]
+        album = md.get("xesam:album") or ""
+        if isinstance(album, (list, tuple)):
+            album = album[0] if album else ""
+        length = md.get("mpris:length")
+        art_url = md.get("mpris:artUrl") or ""
+        return {"title": str(title), "artist": str(artists[0] or ""),
+                "album": str(album),
+                "length": int(length) if isinstance(length, int) else None,
+                "art_url": str(art_url)}
+
+    def playback_status(self):
+        s = self._get_prop("PlaybackStatus")
+        return s if isinstance(s, str) else None
+
+    def position(self):
+        p = self._get_prop("Position")
+        try:
+            return int(p)
+        except (TypeError, ValueError):
+            return None
+
+    def close(self):
+        if self._bus is not None and self._watch:
+            try:
+                Gio.bus_unwatch_name(self._watch)
+            except Exception:
+                pass
+            self._watch = 0
+
+
+# --------------------------------------------------------------------- CSS
+
+CSS = b"""
+.music-sidebar {
+    background: #e8dcc8;
+    background-image: linear-gradient(180deg, #e8dcc8 0%, #ddd2c0 100%);
+    border-right: 1px solid #d4c8b8;
+}
+.music-sidebar > viewport { background: transparent; }
+.music-sidebar list { background: transparent; }
+.music-sidebar row { background: transparent; padding: 8px 10px; }
+.music-sidebar row:hover { background: rgba(0,122,255,0.12); }
+.music-sidebar row:selected { background: rgba(0,122,255,0.22); }
+.music-content { background: #f5f0e8; }
+.music-content > viewport { background: transparent; }
+.music-album-tile { background: transparent; border: none; }
+.music-album-tile:hover { background: rgba(0,122,255,0.08); }
+.music-album-tile:selected { background: rgba(0,122,255,0.18); }
+.music-album-cover { border-radius: 3px; border: 1px solid #c9bda8;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+.music-album-title { font-size: 9pt; color: #333; }
+.music-album-artist { font-size: 8pt; color: #777; }
+.music-np-bar { background: #ece7dd; border-top: 1px solid #d4c8b8; }
+.music-np-title { font-weight: bold; color: #222; }
+.music-error { color: #ff3b30; }
+.music-empty-title { font-size: 14pt; font-weight: bold; color: #555; }
+.music-empty-hint { font-size: 10pt; color: #777; }
+.music-queue-row:hover { background: rgba(0,122,255,0.08); }
+.music-mini-bar { background: rgba(236,231,221,0.97);
+    border: 1px solid #c9bda8; border-radius: 6px; }
+"""
+
+
+def _apply_css():
+    provider = Gtk.CssProvider()
+    provider.load_from_data(CSS)
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(), provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+
+def _track_sort_key(t):
+    return (t.get("trackno") or 0, t.get("path") or "")
+
+
+# ------------------------------------------------------------------- MPRIS
+# media-key CLI forwarding (used by custom key bindings; the stock Xfce
+# media-keys plugin routes XF86Audio* to the MPRIS owner directly)
+
+KEY_METHODS = {
+    "play": "Play",
+    "playpause": "PlayPause",
+    "next": "Next",
+    "prev": "Previous",
+    "previous": "Previous",
+    "stop": "Stop",
+}
+
+
+def media_key_cli(key):
+    method = KEY_METHODS.get((key or "").strip().lower())
+    if not method:
+        sys.stderr.write("usage: mv-music --media-key <%s>\n"
+                         % "|".join(sorted(KEY_METHODS)))
+        return 2
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        proxy = Gio.DBusProxy.new_sync(
+            bus, Gio.DBusProxyFlags.NONE, None,
+            MPRIS_NAME, MPRIS_PATH, MPRIS_IFACE, None)
+        if proxy.get_name_owner() is None:
+            sys.stderr.write("music backend (lollypop) is not running\n")
+            return 1
+        proxy.call_sync(method, None, Gio.DBusCallFlags.NONE, 2000, None)
+        return 0
+    except Exception as e:
+        sys.stderr.write("media key failed: %s\n" % e)
+        return 1
+
+
+# --------------------------------------------------------------------- GUI
+
+def _placeholder_cover_pixbuf(size):
+    pix = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8, size, size)
+    pix.fill(0xbfb8acff)
+    return pix
+
+
+def _load_cover_pixbuf(track, size):
+    try:
+        path = write_cover(track)
+        if path:
+            return GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                path, size, size, True)
+    except Exception:
+        pass
+    return None
+
+
+class AlbumTile(Gtk.FlowBoxChild):
+    def __init__(self, group):
+        super().__init__()
+        self.group = group
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        box.set_border_width(8)
+        stack = Gtk.Stack()
+        placeholder = Gtk.Image.new_from_pixbuf(_placeholder_cover_pixbuf(
+            COVER_SIZE))
+        stack.add_named(placeholder, "none")
+        cover = Gtk.Image()
+        cover.get_style_context().add_class("music-album-cover")
+        stack.add_named(cover, "cover")
+        pix = _load_cover_pixbuf(group["tracks"][0], COVER_SIZE)
+        if pix is None:
+            letter = Gtk.Label(label=(group["album"][0:1] or "?").upper())
+            letter.set_markup('<span size="xx-large" color="#ffffff">%s</span>'
+                              % (group["album"][0:1] or "?").upper())
+            stack.add_named(letter, "letter")
+            stack.set_visible_child_name("letter")
+        else:
+            cover.set_from_pixbuf(pix)
+            stack.set_visible_child_name("cover")
+        box.pack_start(stack, False, False, 0)
+        title = Gtk.Label(label=group["album"])
+        title.get_style_context().add_class("music-album-title")
+        title.set_ellipsize(3)
+        title.set_max_width_chars(18)
+        box.pack_start(title, False, False, 0)
+        artist = Gtk.Label(label=group["artist"])
+        artist.get_style_context().add_class("music-album-artist")
+        artist.set_ellipsize(3)
+        artist.set_max_width_chars(18)
+        box.pack_start(artist, False, False, 0)
+        self.add(box)
+        self.get_style_context().add_class("music-album-tile")
+
+
+class TrackRow(Gtk.ListBoxRow):
+    def __init__(self, track, badge=""):
+        super().__init__()
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        box.set_border_width(6)
+        labels = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        title = Gtk.Label(label=track.get("title", ""),
+                           xalign=0, ellipsize=3)
+        sub = Gtk.Label(
+            label="%s — %s" % (track.get("artist", ""),
+                              track.get("album", "")), xalign=0)
+        sub.get_style_context().add_class("music-album-artist")
+        labels.pack_start(title, False, False, 0)
+        labels.pack_start(sub, False, False, 0)
+        box.pack_start(labels, True, True, 0)
+        if badge:
+            b = Gtk.Label(label=badge)
+            b.get_style_context().add_class("music-album-artist")
+            box.pack_start(b, False, False, 0)
+        self.add(box)
+        self.track = track
+
+
+class MusicWindow(Gtk.Window):
+    def __init__(self, tracks, state, controller):
         super().__init__(title="Music")
-        self.set_default_size(900, 600)
-        
-        self.apply_css()
-        
-        # Header bar with Mavericks styling
+        self.tracks = tracks
+        self.track_by_path = {t["path"]: t for t in tracks}
+        self.state = state
+        self.controller = controller
+        self.error_msg = None
+        geo = state.get("geometry") or {}
+        self.set_default_size(geo.get("w", 900), geo.get("h", 600))
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.connect("destroy", self.on_destroy)
+        self.connect("configure-event", self.on_configure)
+        self._build_ui()
+        self._rescan_library(initial=True)
+        self.controller.on_change = self.on_backend_change
+        GLib.timeout_add(300, self._refresh_backend)
+
+    # ------------------------------------------------------------- UI build
+
+    def _build_ui(self):
+        _apply_css()
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(outer)
+
         hb = Gtk.HeaderBar(title="Music", show_close_button=True)
         self.set_titlebar(hb)
-        
-        # Search
-        search = Gtk.SearchEntry(placeholder_text="Search your library...")
-        search.set_hexpand(True)
-        hb.pack_start(search)
-        
-        # Sidebar toggle
-        sidebar_btn = Gtk.ToggleButton()
-        sidebar_btn.set_image(Gtk.Image.new_from_icon_name("view-sidebar", Gtk.IconSize.BUTTON))
-        sidebar_btn.set_tooltip_text("Toggle Sidebar")
-        hb.pack_end(sidebar_btn)
-        
-        # Main layout
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
-        
-        # Sidebar
-        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        sidebar.set_size_request(200, -1)
-        sidebar.get_style_context().add_class("music-sidebar")
-        
-        # Library sections
-        sections = [
-            ("Library", "🎵", ["Songs", "Albums", "Artists", "Genres", "Downloaded"]),
-            ("Playlists", "📋", ["Recently Added", "Top 25 Most Played", "Recently Played"]),
-            ("Apple Music", "☁️", ["For You", "Browse", "Radio"]),
-        ]
-        
-        for section_title, icon, items in sections:
-            frame = Gtk.Frame(label=section_title)
-            frame.get_style_context().add_class("music-sidebar-frame")
-            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            vbox.set_border_width(8)
-            for item in items:
-                btn = Gtk.Button(label=item)
-                btn.get_style_context().add_class("sidebar-item")
-                btn.set_halign(Gtk.Align.START)
-                vbox.pack_start(btn, False, False, 0)
-            frame.add(vbox)
-            sidebar.pack_start(frame, False, False, 0)
-        
-        sidebar_sw = Gtk.ScrolledWindow()
-        sidebar_sw.add(sidebar)
-        paned.add1(sidebar_sw)
-        
-        # Main content - launch lollypop
-        self.content = Gtk.Label(label="Launching Lollypop...")
-        self.content.get_style_context().add_class("music-content")
-        paned.add2(self.content)
-        paned.set_position(220)
-        
-        # Launch lollypop in background
-        GLib.timeout_add(100, self.launch_lollypop)
-        
+        self.search = Gtk.SearchEntry(placeholder_text="Search your library")
+        self.search.set_hexpand(True)
+        self.search.connect("search-changed", self.on_search_changed)
+        hb.pack_start(self.search)
+
+        self.sidebar_btn = Gtk.ToggleButton(active=True)
+        self.sidebar_btn.set_image(Gtk.Image.new_from_icon_name(
+            "view-sidebar", Gtk.IconSize.BUTTON))
+        self.sidebar_btn.set_tooltip_text("Toggle Sidebar")
+        self.sidebar_btn.connect("toggled", self.on_sidebar_toggled)
+        hb.pack_end(self.sidebar_btn)
+
+        mini_btn = Gtk.Button(label="Mini Player")
+        mini_btn.set_tooltip_text("Open mini player (Ctrl+M)")
+        mini_btn.connect("clicked", lambda *_: self.open_mini_player())
+        hb.pack_end(mini_btn)
+
+        body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        outer.pack_start(body, True, True, 0)
+
+        self.sidebar = Gtk.ListBox()
+        self.sidebar.get_style_context().add_class("music-sidebar")
+        for label, icon_name in (
+                ("Albums", "media-optical"),
+                ("Queue", "media-playlist-repeat"),
+                ("Recently Played", "document-open-recent"),
+                ("Top Played", "emblem-favorite")):
+            row = Gtk.ListBoxRow()
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                           spacing=8)
+            box.set_border_width(2)
+            img = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
+            box.pack_start(img, False, False, 0)
+            lbl = Gtk.Label(label=label, xalign=0)
+            box.pack_start(lbl, True, True, 0)
+            row.add(box)
+            row.view_name = label
+            self.sidebar.insert(row, -1)
+        self.sidebar.connect("row-selected", self.on_view_selected)
+        sw = Gtk.ScrolledWindow()
+        sw.set_size_request(200, -1)
+        sw.get_style_context().add_class("music-sidebar")
+        sw.add(self.sidebar)
+        body.pack_start(sw, False, False, 0)
+        self.sidebar_sw = sw
+
+        self.stack = Gtk.Stack()
+        self.stack.get_style_context().add_class("music-content")
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        body.pack_start(self.stack, True, True, 0)
+
+        self.album_grid = Gtk.FlowBox()
+        self.album_grid.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.album_grid.set_activate_on_single_click(False)
+        self.album_grid.connect("child-activated", self.on_album_activated)
+        self.album_grid.connect("button-press-event",
+                                self.on_album_button_press)
+        grid_sw = Gtk.ScrolledWindow()
+        grid_sw.get_style_context().add_class("music-content")
+        grid_sw.add(self.album_grid)
+        self.stack.add_titled(grid_sw, "Albums", "Albums")
+
+        self.queue_list = Gtk.ListBox()
+        self.queue_list.connect("row-activated", self.on_queue_row_activated)
+        q_sw = Gtk.ScrolledWindow()
+        q_sw.get_style_context().add_class("music-content")
+        q_sw.add(self.queue_list)
+        self.stack.add_titled(q_sw, "Queue", "Queue")
+
+        self.song_list = Gtk.ListBox()
+        self.song_list.connect("row-activated", self.on_song_row_activated)
+        s_sw = Gtk.ScrolledWindow()
+        s_sw.get_style_context().add_class("music-content")
+        s_sw.add(self.song_list)
+        self.stack.add_titled(s_sw, "Songs", "Songs")
+
+        self.recent_list = Gtk.ListBox()
+        self.recent_list.connect("row-activated", self.on_song_row_activated)
+        r_sw = Gtk.ScrolledWindow()
+        r_sw.get_style_context().add_class("music-content")
+        r_sw.add(self.recent_list)
+        self.stack.add_titled(r_sw, "Recently Played", "Recently Played")
+
+        self.top_list = Gtk.ListBox()
+        self.top_list.connect("row-activated", self.on_song_row_activated)
+        t_sw = Gtk.ScrolledWindow()
+        t_sw.get_style_context().add_class("music-content")
+        t_sw.add(self.top_list)
+        self.stack.add_titled(t_sw, "Top Played", "Top Played")
+
+        self.empty_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
+                                 spacing=8)
+        self.empty_box.set_border_width(24)
+        self.empty_title = Gtk.Label(label="No music found")
+        self.empty_title.get_style_context().add_class("music-empty-title")
+        self.empty_hint = Gtk.Label(label="")
+        self.empty_hint.get_style_context().add_class("music-empty-hint")
+        self.empty_box.pack_start(self.empty_title, False, False, 0)
+        self.empty_box.pack_start(self.empty_hint, False, False, 0)
+        choose = Gtk.Button(label="Choose Folder...")
+        choose.connect("clicked", self.on_choose_folder)
+        self.empty_box.pack_start(choose, False, False, 0)
+        e_sw = Gtk.ScrolledWindow()
+        e_sw.get_style_context().add_class("music-content")
+        e_sw.add(self.empty_box)
+        self.stack.add_titled(e_sw, "Empty", "Empty")
+
+        self.error_bar = Gtk.Revealer()
+        self.error_label = Gtk.Label(label="", xalign=0)
+        self.error_label.get_style_context().add_class("music-error")
+        ebox = Gtk.Box()
+        ebox.set_border_width(4)
+        ebox.pack_start(self.error_label, True, True, 0)
+        dismiss = Gtk.Button(label="Dismiss")
+        dismiss.connect("clicked",
+                        lambda *_: self.error_bar.set_reveal_child(False))
+        ebox.pack_start(dismiss, False, False, 0)
+        self.error_bar.add(ebox)
+        self.error_bar.get_style_context().add_class("music-error")
+        outer.pack_start(self.error_bar, False, False, 0)
+
+        np = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        np.set_border_width(6)
+        np.get_style_context().add_class("music-np-bar")
+        self.np_cover = Gtk.Image()
+        self.np_cover.set_size_request(48, 48)
+        np.pack_start(self.np_cover, False, False, 0)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.np_title = Gtk.Label(label="Not playing", xalign=0)
+        self.np_title.get_style_context().add_class("music-np-title")
+        self.np_artist = Gtk.Label(label="", xalign=0)
+        self.np_artist.get_style_context().add_class("music-album-artist")
+        self.np_time = Gtk.Label(label="0:00", xalign=0)
+        vbox.pack_start(self.np_title, False, False, 0)
+        vbox.pack_start(self.np_artist, False, False, 0)
+        vbox.pack_start(self.np_time, False, False, 0)
+        np.pack_start(vbox, True, True, 0)
+        self.np_prev = Gtk.Button.new_from_icon_name(
+            "media-skip-backward", Gtk.IconSize.BUTTON)
+        self.np_prev.connect("clicked", lambda *_: self.controller.previous_track())
+        self.np_play = Gtk.Button.new_from_icon_name(
+            "media-playback-start", Gtk.IconSize.BUTTON)
+        self.np_play.connect("clicked", lambda *_: self.controller.play_pause())
+        self.np_next = Gtk.Button.new_from_icon_name(
+            "media-skip-forward", Gtk.IconSize.BUTTON)
+        self.np_next.connect("clicked", lambda *_: self.controller.next_track())
+        for b in (self.np_prev, self.np_play, self.np_next):
+            np.pack_start(b, False, False, 0)
+        outer.pack_start(np, False, False, 0)
+        self.np_controls = (self.np_prev, self.np_play, self.np_next)
+
         self.show_all()
+        self.error_bar.set_reveal_child(False)
 
-    def apply_css(self):
-        css = b"""
-        .music-sidebar {
-            background: #f5f0e8;
-            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
-            border-right: 1px solid #d4c8b8;
-        }
-        .music-sidebar > viewport { background: transparent; }
-        .music-sidebar-frame {
-            border: none;
-            background: transparent;
-        }
-        .music-sidebar-frame > label {
-            font-weight: bold;
-            color: #666;
-            font-size: 9pt;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-        .sidebar-item {
-            background: transparent;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 12px;
-            margin: 2px 8px;
-            text-align: left;
-        }
-        .sidebar-item:hover {
-            background: rgba(0,122,255,0.15);
-        }
-        .music-content {
-            background: #f5f0e8;
-            font-family: "San Francisco", sans-serif;
-            font-size: 14pt;
-            color: #666;
-        }
-        """
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css)
-        screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    # -------------------------------------------------------------- library
 
-    def launch_lollypop(self):
+    def _rescan_library(self, initial=False):
+        root = (self.state.get("library")
+                or os.environ.get(LIBRARY_ENV)
+                or os.path.expanduser(DEFAULT_LIBRARY))
+        self.library_root = root
+        self._scan_paths = []
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames.sort()
+            for name in sorted(filenames):
+                p = os.path.join(dirpath, name)
+                if os.path.splitext(name)[1].lower() in SUPPORTED_EXTS:
+                    self._scan_paths.append(p)
+        self._scan_errors = 0
+        self.tracks = []
+        self.albums = []
+        self.track_by_path = {}
+        self.album_grid.foreach(lambda w: w.destroy())
+        self._refresh_queue()
+        if initial and not self._scan_paths:
+            self._show_empty(
+                "No music found",
+                "Point Music at a folder with audio files, or drop files "
+                "into %s." % root)
+            self._refresh_views()
+            return
+        GLib.idle_add(self._scan_chunk)
+
+    def _scan_chunk(self):
+        batch = self._scan_paths[:SCAN_CHUNK]
+        del self._scan_paths[:SCAN_CHUNK]
+        for path in batch:
+            try:
+                tags = read_tags(path)
+            except Exception:
+                self._scan_errors += 1
+                continue
+            if not isinstance(tags, dict):
+                continue
+            stem = os.path.splitext(os.path.basename(path))[0]
+            self.tracks.append({
+                "path": path,
+                "title": tags.get("title") or stem,
+                "artist": tags.get("artist") or "Unknown Artist",
+                "album": tags.get("album") or "Unknown Album",
+                "genre": tags.get("genre") or "",
+                "trackno": tags.get("trackno") or 0,
+                "duration": tags.get("duration"),
+                "cover_bytes": tags.get("cover_bytes"),
+                "cover_mime": tags.get("cover_mime"),
+            })
+        if self._scan_paths:
+            return True
+        self.tracks.sort(key=lambda t: (t["artist"].lower(),
+                                        t["album"].lower(),
+                                        t["trackno"], t["path"]))
+        self.albums = group_by_album(self.tracks)
+        self.track_by_path = {t["path"]: t for t in self.tracks}
+        self._refresh_views()
+        return False
+
+    def _show_empty(self, title, hint):
+        self.empty_title.set_text(title)
+        self.empty_hint.set_text(hint)
+        self.stack.set_visible_child_name("Empty")
+
+    def _refresh_views(self):
+        self.album_grid.foreach(lambda w: w.destroy())
+        for g in self.albums:
+            self.album_grid.add(AlbumTile(g))
+        self.album_grid.show_all()
+        self._refresh_queue()
+        self._refresh_smart_lists()
+
+    def _refresh_queue(self):
+        self.queue_list.foreach(lambda w: w.destroy())
+        for p in self.state.get("queue") or []:
+            t = self.track_by_path.get(p)
+            if t:
+                self.queue_list.add(TrackRow(t))
+        self.queue_list.show_all()
+        for row in self.sidebar:
+            lbl = row.get_child().get_children()[1]
+            lbl.set_text("Queue (%d)" % len(self.state.get("queue") or [])
+                         if row.view_name == "Queue" else row.view_name)
+
+    def _refresh_smart_lists(self):
+        self.recent_list.foreach(lambda w: w.destroy())
+        for p in recently_played(self.state):
+            t = self.track_by_path.get(p)
+            if t:
+                self.recent_list.add(TrackRow(t))
+        self.recent_list.show_all()
+        self.top_list.foreach(lambda w: w.destroy())
+        for p, count in top_played(self.state):
+            t = self.track_by_path.get(p)
+            if t:
+                self.top_list.add(TrackRow(t, badge="×%d" % count))
+        self.top_list.show_all()
+        for row in self.sidebar:
+            lbl = row.get_child().get_children()[1]
+            if row.view_name == "Recently Played":
+                lbl.set_text("Recently Played (%d)"
+                             % len(recently_played(self.state, 1000)))
+            elif row.view_name == "Top Played":
+                lbl.set_text("Top Played (%d)" % len(top_played(self.state,
+                                                                 1000)))
+
+    def _refresh_songs(self, query):
+        self.song_list.foreach(lambda w: w.destroy())
+        for t in search_tracks(self.tracks, query):
+            self.song_list.add(TrackRow(t))
+        self.song_list.show_all()
+
+    # --------------------------------------------------------------- events
+
+    def on_destroy(self, *_):
+        self.controller.close()
+        Gtk.main_quit()
+
+    def on_configure(self, _w, _ev):
+        w, h = self.get_size()
+        self.state.setdefault("geometry", {})
+        self.state["geometry"]["w"] = w
+        self.state["geometry"]["h"] = h
         try:
-            subprocess.Popen(["lollypop"])
-            self.content.set_markup('<span size="x-large" weight="bold">🎵 Music</span>\n\n<span color="#666">Lollypop launched in background.\nUse the sidebar to navigate your library.</span>')
-        except FileNotFoundError:
-            self.content.set_markup('<span color="#ff3b30">Lollypop not installed</span>\n\n<span color="#666">Install with: sudo pacman -S lollypop</span>')
-        return False  # Don't repeat
+            save_state(data=self.state)
+        except OSError:
+            pass
+        return False
 
-import os
-import subprocess
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib, Gdk
+    def on_backend_change(self):
+        GLib.idle_add(self._refresh_backend)
+
+    def _refresh_backend(self):
+        md = self.controller.metadata() if self.controller.available else {}
+        playing = (self.controller.playback_status() or "") == "Playing"
+        if md.get("title"):
+            self.np_title.set_text(md.get("title", ""))
+            self.np_artist.set_text("%s — %s" % (md.get("artist", ""),
+                                                 md.get("album", "")))
+            length = md.get("length")
+            pos = self.controller.position()
+            self.np_time.set_text(
+                "%s / %s" % (fmt_time((pos or 0) / 1e6),
+                             fmt_time((length or 0) / 1e6)))
+            match = self._match_track(md)
+            if match:
+                self._set_np_cover(match)
+                log = self.state.get("play_log") or []
+                if not log or log[-1].get("path") != match["path"]:
+                    self.state = record_play(self.state, match["path"])
+                try:
+                    save_state(data=self.state)
+                except OSError:
+                    pass
+                GLib.idle_add(self._refresh_smart_lists)
+        else:
+            self.np_title.set_text("Not playing")
+            self.np_artist.set_text(
+                "Start playback to see what is playing." if self.controller.available
+                else "")
+            self.np_time.set_text("")
+            self.np_cover.clear()
+        self.np_play.set_image(Gtk.Image.new_from_icon_name(
+            "media-playback-pause" if playing else "media-playback-start",
+            Gtk.IconSize.BUTTON))
+        available = self.controller.available
+        for b in self.np_controls:
+            b.set_sensitive(available)
+        if not available and not self.error_msg:
+            self._show_error(
+                "Music backend not found — install it with: sudo pacman -S "
+                "lollypop (then start playback)")
+        return False
+
+    def _match_track(self, md):
+        title = (md.get("title") or "").strip().lower()
+        if not title:
+            return None
+        for t in self.tracks:
+            if t["title"].lower() == title:
+                return t
+        return None
+
+    def _set_np_cover(self, track):
+        pix = _load_cover_pixbuf(track, 48)
+        if pix is not None:
+            self.np_cover.set_from_pixbuf(pix)
+        else:
+            self.np_cover.set_from_pixbuf(_placeholder_cover_pixbuf(48))
+
+    def _show_error(self, msg):
+        self.error_msg = msg
+        self.error_label.set_text(msg)
+        self.error_bar.set_reveal_child(True)
+
+    def on_sidebar_toggled(self, btn):
+        self.sidebar_sw.set_visible(btn.get_active())
+
+    def on_view_selected(self, _lb, row):
+        if row is None:
+            return
+        name = row.view_name
+        if name == "Queue":
+            self.stack.set_visible_child_name("Queue")
+        elif name == "Recently Played":
+            self.stack.set_visible_child_name("Recently Played")
+        elif name == "Top Played":
+            self.stack.set_visible_child_name("Top Played")
+        else:
+            self.stack.set_visible_child_name("Albums")
+
+    def on_search_changed(self, entry):
+        q = entry.get_text().strip()
+        if not q:
+            if self.stack.get_visible_child_name() == "Songs":
+                self.stack.set_visible_child_name("Albums")
+            return
+        self._refresh_songs(q)
+        self.stack.set_visible_child_name("Songs")
+
+    def on_album_activated(self, _fb, child):
+        self.play_group(child.group)
+
+    def on_album_button_press(self, _fb, event):
+        if event.type != Gdk.EventType.BUTTON_PRESS or event.button != 3:
+            return False
+        child = self.album_grid.get_child_at_pos(int(event.x), int(event.y))
+        if child is None or not isinstance(child, AlbumTile):
+            return False
+        menu = Gtk.Menu()
+        for label, cb in (("Play Album", lambda m, g: self.play_group(g)),
+                          ("Enqueue Album", lambda m, g: self.enqueue_group(g)),
+                          ("Show in Finder", lambda m, g: self.reveal_group(g)),
+                          ("Get Info", lambda m, g: self.info_group(g))):
+            item = Gtk.MenuItem(label=label)
+            item.connect("activate", lambda it, c=cb, g=child.group: c(g))
+            menu.append(item)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+        return True
+
+    def on_queue_row_activated(self, _lb, row):
+        tracks = [r.track for r in self.queue_list.get_children()]
+        if row.track in tracks:
+            idx = tracks.index(row.track)
+            self.play_tracks([t["path"] for t in tracks[idx:]])
+
+    def on_song_row_activated(self, _lb, row):
+        self.play_tracks([row.track["path"]])
+
+    def on_choose_folder(self, _btn):
+        dlg = Gtk.FileChooserDialog(
+            title="Choose Music Folder", transient_for=self,
+            action=Gtk.FileChooserAction.SELECT_FOLDER)
+        dlg.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                       "Choose", Gtk.ResponseType.OK)
+        if dlg.run() == Gtk.ResponseType.OK:
+            folder = dlg.get_filename()
+            dlg.destroy()
+            self.state["library"] = folder
+            try:
+                save_state(data=self.state)
+            except OSError:
+                pass
+            self.error_bar.set_reveal_child(False)
+            self.error_msg = None
+            self._rescan_library()
+        else:
+            dlg.destroy()
+
+    # -------------------------------------------------------------- playback
+
+    def play_group(self, group):
+        paths = [t["path"] for t in group["tracks"]]
+        self.play_tracks(paths)
+
+    def enqueue_group(self, group):
+        queue = list(self.state.get("queue") or [])
+        queue.extend(t["path"] for t in group["tracks"])
+        self.state["queue"] = queue[:QUEUE_CAP]
+        try:
+            save_state(data=self.state)
+        except OSError:
+            pass
+        self._refresh_queue()
+        self._show_error("")
+        self.error_bar.set_reveal_child(False)
+
+    def reveal_group(self, group):
+        d = os.path.dirname(group["tracks"][0]["path"])
+        try:
+            subprocess.Popen(["thunar", d], stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+        except FileNotFoundError:
+            self._show_error("File manager (thunar) not installed")
+
+    def info_group(self, group):
+        dur = group.get("duration")
+        text = "Artist: %s\nAlbum: %s\nTracks: %d\nFolder: %s" % (
+            group["artist"], group["album"], len(group["tracks"]),
+            os.path.dirname(group["tracks"][0]["path"]))
+        if dur:
+            text += "\nDuration: %s" % fmt_time(dur)
+        dlg = Gtk.MessageDialog(
+            transient_for=self, message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK, text="%s — %s" % (group["album"],
+                                                           group["artist"]))
+        dlg.format_secondary_text(text)
+        dlg.run()
+        dlg.destroy()
+
+    def play_tracks(self, paths):
+        if not paths:
+            return
+        self.state["queue"] = list(paths)[:QUEUE_CAP]
+        self.state = record_play(self.state, paths[0])
+        try:
+            save_state(data=self.state)
+        except OSError:
+            pass
+        self._refresh_queue()
+        GLib.idle_add(self._refresh_smart_lists)
+        launched = self._launch_backend(paths[:1])
+        if not launched:
+            self._show_error(
+                "Music backend not found — install it with: sudo pacman -S "
+                "lollypop")
+            return
+        self.error_bar.set_reveal_child(False)
+        self.error_msg = None
+        GLib.timeout_add(900, self._kick_playback)
+
+    def _launch_backend(self, paths):
+        cmd = ["lollypop"] + list(paths)
+        try:
+            subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+            return True
+        except FileNotFoundError:
+            return False
+
+    def _kick_playback(self):
+        if self.controller.available:
+            status = self.controller.playback_status()
+            if status != "Playing":
+                self.controller.play_pause()
+            GLib.idle_add(self._refresh_backend)
+        else:
+            GLib.timeout_add(900, self._kick_playback)
+        return False
+
+    # ----------------------------------------------------------- mini player
+
+    def open_mini_player(self):
+        if getattr(self, "mini", None) is not None:
+            self.mini.present()
+            return
+        self.state.setdefault("geometry", {})
+        self.state["geometry"]["mini"] = True
+        try:
+            save_state(data=self.state)
+        except OSError:
+            pass
+        self.mini = MiniPlayerWindow(self.controller, self)
+        self.hide()
+
+    def on_mini_closed(self):
+        self.mini = None
+        self.state.setdefault("geometry", {})
+        self.state["geometry"]["mini"] = False
+        try:
+            save_state(data=self.state)
+        except OSError:
+            pass
+        self.show_all()
+        self.present()
+
+    def on_key_press(self, _w, event):
+        focus = self.get_focus()
+        if isinstance(focus, Gtk.Entry):
+            return False
+        if event.state & Gdk.ModifierType.CONTROL_MASK:
+            if event.keyval == Gdk.KEY_f:
+                self.search.grab_focus()
+                return True
+            if event.keyval == Gdk.KEY_q:
+                self._select_view("Queue")
+                return True
+            if event.keyval == Gdk.KEY_m:
+                self.open_mini_player()
+                return True
+            if event.keyval == Gdk.KEY_Right:
+                self.controller.next_track()
+                return True
+            if event.keyval == Gdk.KEY_Left:
+                self.controller.previous_track()
+                return True
+        if event.keyval == Gdk.KEY_space:
+            self.controller.play_pause()
+            return True
+        return False
+
+    def _select_view(self, name):
+        for row in self.sidebar:
+            if row.view_name == name:
+                self.sidebar.select_row(row)
+                return
+
+
+class MiniPlayerWindow(Gtk.Window):
+    def __init__(self, controller, parent):
+        super().__init__(title="Music")
+        self.controller = controller
+        self.parent = parent
+        self.set_default_size(360, 110)
+        self.set_position(Gtk.WindowPosition.MOUSE)
+        self.set_decorated(True)
+        self.connect("destroy", lambda *_: parent.on_mini_closed())
+        self.connect("key-press-event", self.on_key_press)
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        box.set_border_width(8)
+        box.get_style_context().add_class("music-mini-bar")
+        self.cover = Gtk.Image()
+        self.cover.set_size_request(56, 56)
+        box.pack_start(self.cover, False, False, 0)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.title_lbl = Gtk.Label(label="Not playing", xalign=0)
+        self.title_lbl.get_style_context().add_class("music-np-title")
+        self.artist_lbl = Gtk.Label(label="", xalign=0)
+        self.artist_lbl.get_style_context().add_class("music-album-artist")
+        vbox.pack_start(self.title_lbl, False, False, 0)
+        vbox.pack_start(self.artist_lbl, False, False, 0)
+        box.pack_start(vbox, True, True, 0)
+        expand = Gtk.Button.new_from_icon_name("go-previous",
+                                               Gtk.IconSize.BUTTON)
+        expand.set_label("Expand")
+        expand.set_tooltip_text("Back to full player")
+        expand.connect("clicked", lambda *_: self.destroy())
+        box.pack_start(expand, False, False, 0)
+        self.play_btn = None
+        self.mini_controls = []
+        for name, cb in (("media-skip-backward", self.controller.previous_track),
+                         ("media-playback-start", self.controller.play_pause),
+                         ("media-skip-forward", self.controller.next_track)):
+            b = Gtk.Button.new_from_icon_name(name, Gtk.IconSize.BUTTON)
+            b.connect("clicked", lambda *_: cb())
+            box.pack_start(b, False, False, 0)
+            self.mini_controls.append(b)
+            if name == "media-playback-start":
+                self.play_btn = b
+        self.add(box)
+        self.show_all()
+        controller.on_change = self.on_backend_change
+        GLib.timeout_add(300, self.refresh)
+
+    def on_backend_change(self):
+        GLib.idle_add(self.refresh)
+
+    def _set_cover(self, md):
+        pix = None
+        match = self.parent._match_track(md)
+        if match:
+            pix = _load_cover_pixbuf(match, 56)
+        if pix is None:
+            art = (md.get("art_url") or "").strip()
+            if art.startswith("file://"):
+                try:
+                    from urllib.parse import unquote, urlparse
+                    pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                        unquote(urlparse(art).path), 56, 56, True)
+                except Exception:
+                    pix = None
+        if pix is not None:
+            self.cover.set_from_pixbuf(pix)
+        else:
+            self.cover.set_from_pixbuf(_placeholder_cover_pixbuf(56))
+
+    def refresh(self):
+        md = self.controller.metadata() if self.controller.available else {}
+        if md.get("title"):
+            self.title_lbl.set_text(md.get("title", ""))
+            self.artist_lbl.set_text("%s — %s" % (md.get("artist", ""),
+                                                   md.get("album", "")))
+            self._set_cover(md)
+        playing = (self.controller.playback_status() or "") == "Playing"
+        self.play_btn.set_image(Gtk.Image.new_from_icon_name(
+            "media-playback-pause" if playing else "media-playback-start",
+            Gtk.IconSize.BUTTON))
+        available = self.controller.available
+        for b in self.mini_controls:
+            b.set_sensitive(available)
+        return False
+
+    def on_key_press(self, _w, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.destroy()
+            return True
+        if event.state & Gdk.ModifierType.CONTROL_MASK:
+            if event.keyval == Gdk.KEY_m:
+                self.destroy()
+                return True
+        if event.keyval == Gdk.KEY_space:
+            self.controller.play_pause()
+            return True
+        return False
+
+
+# -------------------------------------------------------------------- main
+
+def main():
+    args = [a for a in sys.argv[1:]]
+    if args and args[0] == "--media-key":
+        sys.exit(media_key_cli(args[1] if len(args) > 1 else ""))
+
+    root = (os.environ.get(LIBRARY_ENV)
+            or os.path.expanduser(
+                (load_state().get("library")) or DEFAULT_LIBRARY))
+    warnings = []
+
+    def on_warn(msg):
+        warnings.append(msg)
+
+    state = load_state(on_warn=on_warn)
+    tracks, errors = scan_library(root)
+
+    if not Gtk.init_check()[0]:
+        sys.stderr.write("no display available\n")
+        sys.exit(3)
+
+    controller = MprisController()
+    win = MusicWindow(tracks, state, controller)
+    if errors:
+        win._show_error(
+            "Some files could not be read (%d skipped)." % errors)
+    for msg in warnings:
+        win._show_error(msg)
+    win.connect("key-press-event", win.on_key_press)
+    if state.get("geometry", {}).get("mini"):
+        GLib.idle_add(win.open_mini_player)
+    Gtk.main()
+
 
 if __name__ == "__main__":
-    w = MusicWrapper()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
+    main()
