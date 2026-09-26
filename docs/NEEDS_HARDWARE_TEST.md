@@ -48,6 +48,17 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Idle power draw (if measurable via powertop/battery)
 
 ## Phase 3 — Visual layer
+
+### Desktop Chrome visual validation (2304×1440)
+- [ ] Menu bar: panel.css translucent/gradient look on real panel
+- [ ] Dock: plank Mavericks theme (zoom, reflection, indicators) on real panel
+- [ ] xfwm4: traffic-light buttons (close/minimize/maximize LEFT) visible and functional
+- [ ] Wallpaper: mavericks-desktop.png (2304×1440) displays correctly
+- [ ] File chooser: pathbar buttons + column headers visible
+- [ ] Dialogs: dialog-action-area button styling visible
+- [ ] Context menus: frosted-glass menu look
+
+## Phase 3 — Visual layer
 - [ ] GTK3 Mavericks theme renders correctly on hardware display (2304×1440)
 - [ ] HiDPI scaling works (fractional scaling if needed)
 - [ ] Dock (plank) performance acceptable

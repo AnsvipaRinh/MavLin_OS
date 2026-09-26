@@ -1,5 +1,18 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.44 — P0 Desktop Chrome: audit + gaps (2026-09-26, без железа)
+- [x] Forensic audit всех 9 поверхностей (Menu Bar, Dock, App Menu, Dialogs, File Chooser, Context Menus, Keyboard, Desktop/Wallpaper/Session, Window Management)
+- [x] Keyboard layer verified: 20+ bindings, no conflicts, no orphans; missing Super+Q/M/H/W/E/T; docs/KEYBOARD.md created
+- [x] xfwm4 theme CREATED (was referenced but missing): themerc (button_layout=OIM|:, traffic lights LEFT) + close/minimize/maximize XPMs
+- [x] Wallpaper CREATED: mavericks-desktop.png 2304×1440 (blue-green gradient, pure Python PNG)
+- [x] Autostart CREATED: plank.desktop + mv-notify-send.desktop in skel/.config/autostart/
+- [x] xfce4-panel theme CREATED: panel.css (translucent, gradient, tasklist indicators)
+- [x] File chooser polish: pathbar buttons + column headers added to _widgets.scss
+- [x] Dialog polish: dialog-action-area + button styling added to _windows.scss
+- [x] APPS.md: 9 new P0 rows added with real statuses
+- [x] Validation: sassc compile OK, xmllint OK, desktop-file-validate OK (both autostart .desktop files)
+- [ ] HW: visual validation of panel/dock/wallpaper/xfwm4 theme on 2304×1440; plank zoom/reflect; menu bar look
+
 ### Фаза 0.43 — Power UI: Mavericks-диалог питания поверх logind D-Bus (2026-09-26, без железа)
 - [x] Аудит: старая mv-power-ui была минималистичным GTK-окном (4 кнопка + systemctl напрямую, без logind/UPower/логута/состояний ошибок); строки в APPS.md P0 не было вовсе
 - [x] Развёрнут backend: logind D-Bus (CanSuspend/CanReboot/CanPowerOff → Suspend/Reboot/PowerOff с interactive=TRUE), fallback на systemctl при отсутствии logind, логут через xfce4-session-logout, только-чтение батарея через UPower D-Bus

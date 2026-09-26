@@ -1,5 +1,21 @@
 # DECISIONS
 
+## P0 Desktop Chrome: xfwm4 theme, wallpaper, autostart, panel CSS (Phase 0.44)
+
+**Date:** 2026-09-26
+**Decision:** Created missing xfwm4 theme (button_layout=OIM|:), 2304×1440 wallpaper, plank/mv-notify-send autostart, xfce4-panel CSS, file-chooser pathbar buttons, dialog action-area styling.
+
+**Reasoning:**
+- xfwm4 theme was referenced (theme=Mavericks in xfwm4.xml) but did not exist — critical gap
+- No wallpaper existed for the 2304×1440 target panel
+- No autostart entries meant plank and notification logger would not run
+- Panel had no Mavericks CSS (default Xfce panel look)
+- File chooser and dialog styling needed Mavericks polish
+
+**Status:** All implemented pre-hardware; visual validation required on real 2304×1440 panel.
+
+---
+
 ## Model: MacBook10,1 (Mid 2017) — explicit, not assumption
 
 **Date:** 2026-09-25
