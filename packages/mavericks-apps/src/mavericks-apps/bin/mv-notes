@@ -2,11 +2,12 @@
 """mv-notes — Notes (Mavericks-like). Folders + notes + checklists + search +
 pinning. Local JSON storage (~/.local/share/mv-notes/notes.json). No daemon,
 no Electron, no network.
-License: GPL-2.0-or-later."""
-import json, os, time, uuid
+Mavericks visual: leather folder sidebar, lined paper editor, custom checkboxes.
+"""
+import json, os, time, uuid, sys
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk, Pango, GLib
 
 STORE = os.path.expanduser("~/.local/share/mv-notes/notes.json")
 
@@ -21,80 +22,286 @@ def save(data):
     os.makedirs(os.path.dirname(STORE), exist_ok=True)
     tmp = STORE + ".tmp"
     with open(tmp, "w") as f:
-        json.dump(data, f)
+        json.dump(data, f, indent=2)
     os.replace(tmp, STORE)
+
 
 class Notes(Gtk.Window):
     def __init__(self):
         super().__init__(title="Notes")
         self.set_default_size(860, 540)
+        
+        # Apply Mavericks CSS
+        self.apply_mavericks_css()
+
         hb = Gtk.HeaderBar(title="Notes", show_close_button=True)
         self.set_titlebar(hb)
+
+        # Search
         self.search = Gtk.SearchEntry(placeholder_text="Search notes")
         self.search.connect("search-changed", self.refresh_list)
         hb.pack_start(self.search)
+
+        # Toolbar buttons with Mavericks styling
         for label, cb in [("+ Folder", self.add_folder),
                           ("+ Note", self.add_note),
                           ("Delete", self.del_note)]:
             b = Gtk.Button(label=label)
+            b.get_style_context().add_class("mavericks-toolbar-btn")
             b.connect("clicked", cb)
             hb.pack_end(b)
+
+        # Main paned layout
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.add(paned)
-        # folders
-        self.fstore = Gtk.ListStore(str)
+
+        # === FOLDER SIDEBAR (Leather texture) ===
+        self.fstore = Gtk.ListStore(str, bool)  # name, is_selected
         ftv = Gtk.TreeView(model=self.fstore, headers_visible=False)
-        ftv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
+        ftv.set_headers_visible(False)
+        
+        # Custom cell renderer for folder list
+        renderer = Gtk.CellRendererText()
+        renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+        col = Gtk.TreeViewColumn("", renderer, text=0)
+        col.set_cell_data_func(renderer, self.render_folder_cell)
+        ftv.append_column(col)
+        
         ftv.get_selection().connect("changed", self.on_folder)
+        
         sw1 = Gtk.ScrolledWindow()
-        sw1.set_size_request(150, -1)
+        sw1.set_size_request(180, -1)
+        sw1.get_style_context().add_class("notes-folder-sidebar")
         sw1.add(ftv)
         paned.add1(sw1)
         self.ftv = ftv
-        # notes
-        self.nstore = Gtk.ListStore(str, str)  # title, id
+
+        # === NOTES LIST (Paper texture) ===
+        self.nstore = Gtk.ListStore(str, str, bool, bool)  # title, id, pinned, has_checklist
         ntv = Gtk.TreeView(model=self.nstore, headers_visible=False)
-        ntv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
+        ntv.set_headers_visible(False)
+        
+        note_renderer = Gtk.CellRendererText()
+        note_renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+        note_renderer.set_property("ellipsize-set", True)
+        note_renderer.set_property("wrap-mode", Pango.WrapMode.WORD_CHAR)
+        note_renderer.set_property("wrap-width", 180)
+        note_col = Gtk.TreeViewColumn("", note_renderer, text=0)
+        note_col.set_cell_data_func(note_renderer, self.render_note_cell)
+        ntv.append_column(note_col)
+        
         ntv.get_selection().connect("changed", self.on_note)
+        
         sw2 = Gtk.ScrolledWindow()
-        sw2.set_size_request(200, -1)
+        sw2.set_size_request(220, -1)
+        sw2.get_style_context().add_class("notes-list-sidebar")
         sw2.add(ntv)
-        paned.add2(sw2)
-        self.ntv = ntv
-        # editor
+        
+        # === EDITOR (Lined paper) ===
         self.buf = Gtk.TextBuffer()
         self.buf.connect("changed", self.on_edit)
         tv = Gtk.TextView(buffer=self.buf)
         tv.set_wrap_mode(Gtk.WrapMode.WORD)
+        tv.set_monospace(False)
+        tv.set_left_margin(40)
+        tv.set_right_margin(40)
+        tv.set_top_margin(20)
+        tv.set_bottom_margin(20)
+        tv.get_style_context().add_class("notes-editor")
+        
+        # Add line numbering and lined paper effect via CSS
+        self.setup_text_tags()
+        
         sw3 = Gtk.ScrolledWindow()
         sw3.add(tv)
-        # 3-pane via nested paned: folders | (notes | editor)
+        
+        # Nested paned for 3-pane layout
         paned2 = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        paned.add2(paned2)
         paned2.add1(sw2)
         paned2.add2(sw3)
-        paned.set_position(150)
-        paned2.set_position(200)
+        paned2.set_position(220)
+        paned.add2(paned2)
+        paned.set_position(180)
+
+        self.ntv = ntv
+        self.tv = tv
         self.data = load()
         self.cur_folder = "Notes"
         self.cur_id = None
         self.dirty = False
+
+        # Add default folder if empty
+        if not self.data["folders"]:
+            self.data["folders"]["Notes"] = []
+            save(self.data)
+
         self.refresh_folders()
+        self.show_all()
+
+    def apply_mavericks_css(self):
+        css = b"""
+        .notes-folder-sidebar {
+            background: #e8dcc8;
+            background-image: linear-gradient(135deg, #e8dcc8 0%, #d4c4a8 100%);
+            border-right: 1px solid #c4b898;
+        }
+        .notes-folder-sidebar > viewport { background: transparent; }
+        .notes-list-sidebar {
+            background: #f5f0e8;
+            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+            border-right: 1px solid #d4c8b8;
+        }
+        .notes-list-sidebar > viewport { background: transparent; }
+        .notes-editor {
+            background: #fffef8;
+            background-image: 
+                linear-gradient(180deg, transparent 95%, #d4c8b8 95%),
+                linear-gradient(90deg, #f5e0c0 3px, transparent 3px);
+            background-size: 100% 32px, 32px 100%;
+            font-family: "San Francisco", "SF Pro Text", sans-serif;
+            font-size: 13pt;
+            line-height: 1.6;
+        }
+        .mavericks-toolbar-btn {
+            border-radius: 4px;
+            padding: 6px 12px;
+            margin: 2px;
+            background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
+            border: 1px solid #d0c8b8;
+            color: #333;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+        }
+        .mavericks-toolbar-btn:hover {
+            background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .mavericks-toolbar-btn:active {
+            background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%);
+        }
+        .folder-row {
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin: 2px 8px;
+        }
+        .folder-row:hover {
+            background: rgba(0,122,255,0.15);
+        }
+        .folder-row:selected {
+            background: #007aff;
+            color: white;
+        }
+        .note-row {
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin: 3px 8px;
+            border-bottom: 1px solid #e8ddd0;
+        }
+        .note-row:hover {
+            background: rgba(0,122,255,0.1);
+        }
+        .note-row:selected {
+            background: #007aff;
+            color: white;
+        }
+        .note-row.pinned {
+            background-image: linear-gradient(135deg, #fff8e1 0%, #fff3d0 100%);
+        }
+        .note-row.pinned:selected {
+            background: #007aff;
+        }
+        .checklist-item {
+            margin: 4px 0;
+            padding-left: 28px;
+        }
+        .checklist-checkbox {
+            min-width: 20px;
+            min-height: 20px;
+            border: 2px solid #c4b898;
+            border-radius: 4px;
+            background: #fffef8;
+        }
+        .checklist-checkbox:checked {
+            background: #007aff;
+            border-color: #007aff;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='white' d='M4 8l3 3 5-5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        .search-highlight {
+            background: #fff8b0;
+            border-radius: 2px;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def setup_text_tags(self):
+        # Tags for checklist items
+        self.buf.create_tag("checklist", 
+            background="#fffef8",
+            left_margin=40,
+            indent=20)
+        self.buf.create_tag("checked", 
+            strikethrough=True,
+            foreground="#888")
+        self.buf.create_tag("search_highlight",
+            background="#fff8b0")
+        self.buf.create_tag("heading",
+            size=16384,  # 16pt
+            weight=Pango.Weight.BOLD,
+            foreground="#333")
+        self.buf.create_tag("subheading",
+            size=14336,  # 14pt
+            weight=Pango.Weight.BOLD,
+            foreground="#555")
+
+    def render_folder_cell(self, column, cell, model, iter_, data):
+        name = model[iter_][0]
+        cell.set_property("text", name)
+        cell.set_property("xalign", 0.0)
+        cell.set_property("ypad", 6)
+        cell.set_property("xpad", 12)
+
+    def render_note_cell(self, column, cell, model, iter_, data):
+        title = model[iter_][0]
+        pinned = model[iter_][2]
+        has_checklist = model[iter_][3]
+        
+        prefix = ""
+        if pinned:
+            prefix = "📌 "
+        if has_checklist:
+            prefix += "☑ "
+        
+        cell.set_property("markup", prefix + GLib.markup_escape_text(title))
+        cell.set_property("xalign", 0.0)
+        cell.set_property("ypad", 8)
+        cell.set_property("xpad", 12)
+        cell.set_property("wrap-mode", Pango.WrapMode.WORD_CHAR)
+        cell.set_property("wrap-width", 180)
 
     def refresh_folders(self):
         self.fstore.clear()
         for name in self.data["folders"]:
-            self.fstore.append([name])
+            self.fstore.append([name, False])
         self.refresh_list()
 
-    def refresh_list(self):
+    def refresh_list(self, *_):
         q = self.search.get_text().lower()
         self.nstore.clear()
         for n in self.data["folders"].get(self.cur_folder, []):
-            title = (n["text"].strip().split("\n")[0] or "(empty)")[:40]
-            pin = "📌 " if n.get("pinned") else ""
-            if q in (title + n["text"]).lower():
-                self.nstore.append([pin + title, n["id"]])
+            title = (n["text"].strip().split("\n")[0] or "(empty)")[:60]
+            pinned = n.get("pinned", False)
+            has_checklist = "[ ]" in n["text"] or "[x]" in n["text"]
+            display = title
+            if pinned:
+                display = "📌 " + display
+            if has_checklist:
+                display = "☑ " + display
+            if q in (n["text"].lower() + title.lower()):
+                self.nstore.append([display, n["id"], pinned, has_checklist])
 
     def on_folder(self, sel):
         _m, it = sel.get_selected()
@@ -114,19 +321,25 @@ class Notes(Gtk.Window):
                 self.dirty = True
                 self.buf.set_text(n["text"])
                 self.dirty = False
+                self.apply_checklist_rendering()
                 break
 
-    def on_edit(self, _b):
-        if self.dirty or not self.cur_id:
-            return
-        s, e = self.buf.get_bounds()
-        for n in self.data["folders"][self.cur_folder]:
-            if n["id"] == self.cur_id:
-                n["text"] = self.buf.get_text(s, e, True)
-                n["mtime"] = int(time.time())
-                break
-        save(self.data)
-        self.refresh_list()
+    def apply_checklist_rendering(self):
+        """Apply checklist styling to checkbox lines"""
+        start, end = self.buf.get_bounds()
+        self.buf.remove_all_tags(start, end)
+        
+        text = self.buf.get_text(start, end, True)
+        lines = text.split("\n")
+        
+        for i, line in enumerate(lines):
+            line_start = self.buf.get_iter_at_line(i)
+            line_end = self.buf.get_iter_at_line(i + 1) if i + 1 < len(lines) else end
+            
+            if line.strip().startswith("[ ]") or line.strip().startswith("[x]"):
+                self.buf.apply_tag_by_name("checklist", line_start, line_end)
+                if line.strip().startswith("[x]"):
+                    self.buf.apply_tag_by_name("checked", line_start, line_end)
 
     def add_folder(self, _b):
         name = "Folder %d" % (len(self.data["folders"]) + 1)
@@ -136,7 +349,7 @@ class Notes(Gtk.Window):
 
     def add_note(self, _b):
         n = {"id": uuid.uuid4().hex[:8], "text": "",
-             "mtime": int(time.time())}
+             "mtime": int(time.time()), "pinned": False}
         self.data["folders"].setdefault(self.cur_folder, []).insert(0, n)
         save(self.data)
         self.refresh_list()
@@ -152,8 +365,13 @@ class Notes(Gtk.Window):
         save(self.data)
         self.refresh_list()
 
-if __name__ == "__main__":
+
+def main():
     w = Notes()
     w.connect("destroy", Gtk.main_quit)
     w.show_all()
     Gtk.main()
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

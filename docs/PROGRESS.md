@@ -251,3 +251,10 @@
 - [x] .desktop file created with X-Mavericks-Native=true
 - [x] APPS.md status updated to PARTIALLY IMPLEMENTED (custom frontend)
 - [x] Package rebuilt, check-sync ALL PASSED
+
+### Фаза 0.30 — P1 Notes visual integration (2026-09-26, без железа)
+- [x] mv-notes: added Mavericks visual integration (leather texture background, paper page styling, folder sidebar with wood texture, pin indicator styling)
+- [x] Checklist support with custom checkbox styling
+- [x] Search highlighting with yellow background
+- [x] PINNED notes with pin icon and distinct background
+- [x] Package rebuilt, check-sync ALL PASSED
