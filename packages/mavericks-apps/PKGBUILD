@@ -15,7 +15,9 @@ optdepends=('poppler-glib: PDF preview in Quick Look'
             'ffmpegthumbnailer: video thumbnails'
             'evince: full PDF reading'
             'xfce4-genmon-plugin: Energy HUD panel host'
-            'plocate: fast file search for Spotlight file mode')
+            'plocate: fast file search for Spotlight file mode'
+            'pipewire: Voice Memos recording/playback backend'
+            'pulseaudio: Voice Memos fallback backend (parec/paplay)')
 makedepends=()
 # NOTE: sources live in ./src/mavericks-apps/ (repo-local, reproducible).
 # Build with: makepkg -si (from this directory). No network fetch required.

@@ -1,406 +1,923 @@
 #!/usr/bin/env python3
 """mv-voice — Voice Memos (Mavericks-like).
-Cassette tape UI, waveform visualization, metadata editing.
-Backend: pw-record/parec (PipeWire) or parec fallback.
-Mavericks visual: cassette tape UI, waveform, leather texture.
+
+Cassette tape UI with spinning reels, waveform strip, in-app playback,
+frame-aligned PCM trim, export, rename, delete (to Trash), info dialog.
+Backend: pw-record/parec for recording (PipeWire preferred), pw-play/paplay
+for playback. One-shot processes only — no daemon.
+Level meter is derived cheaply from the recording file tail (no second
+audio stream). All memo files live in ~/Music/Voice Memos.
 """
-import os, signal, subprocess, time, threading
+import os
+import re
+import shutil
+import signal
+import struct
+import subprocess
+import sys
+import time
+import wave
+
+import cairo
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Gio, Pango
 
 MEMO_DIR = os.path.expanduser("~/Music/Voice Memos")
+WAV_HEADER_BYTES = 44
+
+
+def fmt_time(sec):
+    sec = int(sec)
+    return "%d:%02d" % (sec // 60, sec % 60)
+
+
+def backend_cmd():
+    for exe, extra in (("pw-record", ["--format=wav"]), ("parec", ["--format=wav"])):
+        try:
+            subprocess.run([exe, "--help"], capture_output=True, timeout=3)
+            return [exe] + extra
+        except (OSError, subprocess.SubprocessError):
+            continue
+    return None
+
+
+def playback_cmd():
+    for exe in ("pw-play", "paplay"):
+        try:
+            subprocess.run([exe, "--help"], capture_output=True, timeout=3)
+            return [exe]
+        except (OSError, subprocess.SubprocessError):
+            continue
+    return None
+
+
+def wav_info(path):
+    try:
+        with wave.open(path, "rb") as w:
+            return {"rate": w.getframerate(), "channels": w.getnchannels(),
+                    "frames": w.getnframes(), "sampwidth": w.getsampwidth(),
+                    "duration": (w.getnframes() / float(w.getframerate()))
+                                if w.getframerate() else 0.0}
+    except Exception:
+        return None
+
+
+def wav_duration(path):
+    info = wav_info(path)
+    if info:
+        return info["duration"]
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "csv=p=0", path], capture_output=True, text=True,
+            timeout=5).stdout
+        return float(out.strip()) or None
+    except Exception:
+        return None
+
+
+def sanitize_memo_name(name):
+    name = name.strip()
+    if not name:
+        return ""
+    name = re.sub(r'[/\\:*?"<>|\000-\037]', "_", name)
+    if not name.lower().endswith(".wav"):
+        name += ".wav"
+    return name
+
+
+def list_memos(dirpath):
+    if not os.path.isdir(dirpath):
+        return []
+    out = []
+    for f in sorted(os.listdir(dirpath), reverse=True):
+        if not f.endswith(".wav"):
+            continue
+        p = os.path.join(dirpath, f)
+        if not os.path.isfile(p):
+            continue
+        try:
+            st = os.stat(p)
+        except OSError:
+            continue
+        dur = wav_duration(p)
+        out.append({
+            "name": f, "path": p,
+            "date": time.strftime("%b %d, %Y %H:%M", time.localtime(st.st_mtime)),
+            "duration": dur,
+            "duration_str": fmt_time(dur) if dur is not None else "—",
+            "size": st.st_size})
+    return out
+
+
+def waveform_peaks(path, buckets=160):
+    info = wav_info(path)
+    if not info or info["sampwidth"] != 2 or info["channels"] < 1:
+        return None
+    try:
+        with wave.open(path, "rb") as w:
+            frames = w.readframes(w.getnframes())
+    except Exception:
+        return None
+    if not frames:
+        return None
+    n = min(len(frames) // 2, info["frames"] * info["channels"])
+    if n < 2:
+        return None
+    samples = struct.unpack("<%dh" % n, frames[:n * 2])[::info["channels"]]
+    step = max(1, len(samples) // buckets)
+    peaks = []
+    for i in range(0, len(samples), step):
+        chunk = samples[i:i + step]
+        if not chunk:
+            break
+        peaks.append(max(abs(s) for s in chunk) / 32768.0)
+    return peaks or None
+
+
+def rms_level(data):
+    n = len(data) // 2
+    if n == 0:
+        return 0.0
+    samples = struct.unpack("<%dh" % n, data[:n * 2])
+    ss = 0
+    for s in samples:
+        ss += s * s
+    return min(1.0, (ss / n) ** 0.5 / 8000.0)
+
+
+def trim_wav(path, start, end):
+    info = wav_info(path)
+    if not info:
+        raise ValueError("not a PCM wav file")
+    dur = info["duration"]
+    start = max(0.0, float(start))
+    end = min(dur, float(end))
+    if end - start <= 0.05:
+        raise ValueError("selection too short")
+    rate, ch, sw = info["rate"], info["channels"], info["sampwidth"]
+    f0 = int(start * rate)
+    f1 = min(int(end * rate), info["frames"])
+    with wave.open(path, "rb") as w:
+        w.setpos(f0)
+        data = w.readframes(f1 - f0)
+    if not data:
+        raise ValueError("selection too short")
+    tmp = "%s.trim-%d.wav" % (path, os.getpid())
+    with wave.open(tmp, "wb") as w:
+        w.setnchannels(ch)
+        w.setsampwidth(sw)
+        w.setframerate(rate)
+        w.writeframes(data)
+    os.replace(tmp, path)
+    return (f1 - f0) / float(rate)
+
+
+def trash_file(path):
+    try:
+        Gio.File.new_for_path(path).trash(None)
+        return
+    except Exception:
+        pass
+    os.remove(path)
+
+
+class CassetteWidget(Gtk.DrawingArea):
+    def __init__(self):
+        super().__init__()
+        self.angle = 0.0
+        self.state = "idle"
+        self.led_on = False
+        self.set_size_request(-1, 116)
+        self.connect("draw", self.on_draw)
+        self._timer = None
+
+    def set_state(self, state):
+        self.state = state
+        self.led_on = False
+        if state != "idle" and self._timer is None:
+            self._timer = GLib.timeout_add(60, self._tick)
+        self.queue_draw()
+
+    def _tick(self):
+        self.angle = (self.angle + 6.0) % 360.0
+        if self.state == "recording":
+            self.led_on = not self.led_on
+        self.queue_draw()
+        return True
+
+    def stop(self):
+        self.state = "idle"
+        self.led_on = False
+        if self._timer is not None:
+            GLib.source_remove(self._timer)
+            self._timer = None
+        self.queue_draw()
+
+    def _reel(self, cr, cx, cy, r, angle):
+        cr.save()
+        cr.translate(cx, cy)
+        cr.set_source_rgb(0.90, 0.90, 0.90)
+        cr.arc(0, 0, r, 0, 2 * 3.14159265)
+        cr.fill()
+        cr.set_source_rgb(0.35, 0.35, 0.35)
+        for i in range(3):
+            cr.save()
+            cr.rotate(3.14159265 * 2.0 / 3.0 * i + angle * 3.14159265 / 180.0)
+            cr.move_to(0, 0)
+            cr.line_to(0, -r * 0.72)
+            cr.set_line_width(max(1.5, r * 0.14))
+            cr.stroke()
+            cr.restore()
+        cr.set_source_rgb(0.15, 0.15, 0.15)
+        cr.arc(0, 0, r * 0.20, 0, 2 * 3.14159265)
+        cr.fill()
+        cr.restore()
+
+    def on_draw(self, widget, cr):
+        w = widget.get_allocated_width()
+        h = widget.get_allocated_height()
+        if w < 10 or h < 10:
+            return False
+        grad = cairo.LinearGradient(0, 0, 0, h)
+        grad.add_color_stop_rgb(0, 0.23, 0.23, 0.24)
+        grad.add_color_stop_rgb(1, 0.09, 0.09, 0.10)
+        cr.set_source(grad)
+        cr.rectangle(1, 1, w - 2, h - 2)
+        cr.fill()
+        cr.set_source_rgb(0.94, 0.92, 0.86)
+        cr.rectangle(8, 6, w - 16, 18)
+        cr.fill()
+        cr.set_source_rgb(0.35, 0.35, 0.35)
+        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL,
+                            cairo.FONT_WEIGHT_BOLD)
+        cr.set_font_size(10)
+        cr.move_to(w / 2 - 42, 19)
+        cr.show_text("VOICE MEMOS")
+        cy = h * 0.58
+        r = min(w, h) * 0.185
+        self._reel(cr, w * 0.28, cy, r, self.angle)
+        self._reel(cr, w * 0.72, cy, r, -self.angle)
+        cr.set_source_rgb(0.30, 0.19, 0.10)
+        cr.set_line_width(max(2.0, r * 0.10))
+        cr.move_to(w * 0.28 + r * 0.55, cy + r * 0.35)
+        cr.line_to(w * 0.72 - r * 0.55, cy + r * 0.35)
+        cr.stroke()
+        lx, ly = w - 26, 15
+        if self.state == "recording":
+            cr.set_source_rgb(1.0, 0.15, 0.10) if self.led_on \
+                else cr.set_source_rgb(0.45, 0.06, 0.05)
+        elif self.state == "playing":
+            cr.set_source_rgb(0.15, 0.75, 0.30)
+        else:
+            cr.set_source_rgb(0.30, 0.30, 0.30)
+        cr.arc(lx, ly, 5, 0, 2 * 3.14159265)
+        cr.fill()
+        return False
+
+
+class WaveformWidget(Gtk.DrawingArea):
+    def __init__(self):
+        super().__init__()
+        self.peaks = []
+        self.progress = 0.0
+        self.set_size_request(-1, 52)
+        self.connect("draw", self.on_draw)
+
+    def set_memo(self, peaks):
+        self.peaks = peaks or []
+        self.progress = 0.0
+        self.queue_draw()
+
+    def set_progress(self, frac):
+        self.progress = max(0.0, min(1.0, frac))
+        self.queue_draw()
+
+    def on_draw(self, widget, cr):
+        w = widget.get_allocated_width()
+        h = widget.get_allocated_height()
+        if w < 10 or h < 10:
+            return False
+        cr.set_source_rgb(0.96, 0.94, 0.91)
+        cr.rectangle(0, 0, w, h)
+        cr.fill()
+        cr.set_source_rgb(0.83, 0.78, 0.72)
+        cr.rectangle(0.5, 0.5, w - 1, h - 1)
+        cr.stroke()
+        n = len(self.peaks)
+        if n:
+            bw = w / float(n)
+            for i, p in enumerate(self.peaks):
+                bh = max(1.0, p * (h - 8))
+                x = i * bw
+                if (i / float(n)) < self.progress:
+                    cr.set_source_rgb(0.0, 0.47, 1.0)
+                else:
+                    cr.set_source_rgb(0.78, 0.86, 0.94)
+                cr.rectangle(x + 0.5, (h - bh) / 2, max(1.0, bw - 1), bh)
+                cr.fill()
+        return False
+
 
 class VoiceMemos(Gtk.Window):
-    def __init__(self):
+    def __init__(self, open_path=None, memo_dir=None):
         super().__init__(title="Voice Memos")
-        self.set_default_size(520, 500)
-        
+        self.set_default_size(560, 640)
+        self.memo_dir = memo_dir or MEMO_DIR
+
         self.apply_mavericks_css()
 
         hb = Gtk.HeaderBar(title="Voice Memos", show_close_button=True)
         self.set_titlebar(hb)
 
-        # Main container
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         vbox.set_border_width(16)
         self.add(vbox)
 
-        # Cassette tape visual
         self.cassette = CassetteWidget()
         vbox.pack_start(self.cassette, False, False, 0)
 
-        # Status label
+        self.waveform = WaveformWidget()
+        vbox.pack_start(self.waveform, False, False, 0)
+
+        row = Gtk.Box(spacing=12)
         self.status = Gtk.Label(label="Ready to record")
         self.status.get_style_context().add_class("voice-status")
-        vbox.pack_start(self.status, False, False, 0)
+        self.status.set_halign(Gtk.Align.START)
+        row.pack_start(self.status, True, True, 0)
+        self.meter = Gtk.ProgressBar()
+        self.meter.get_style_context().add_class("voice-meter")
+        self.meter.set_size_request(140, -1)
+        self.meter.set_fraction(0.0)
+        self.meter.hide()
+        row.pack_start(self.meter, False, False, 0)
+        vbox.pack_start(row, False, False, 0)
 
-        # Recording time
         self.time_label = Gtk.Label(label="00:00")
         self.time_label.get_style_context().add_class("voice-time")
         vbox.pack_start(self.time_label, False, False, 0)
 
-        # Record button
+        ctl = Gtk.Box(spacing=8)
         self.rec_btn = Gtk.Button()
-        self.rec_btn.set_image(Gtk.Image.new_from_icon_name("media-record", Gtk.IconSize.DND))
+        self.rec_btn.set_image(Gtk.Image.new_from_icon_name(
+            "media-record", Gtk.IconSize.DND))
         self.rec_btn.set_always_show_image(True)
         self.rec_btn.get_style_context().add_class("voice-record-btn")
+        self.rec_btn.set_tooltip_text("Record (Ctrl+R)")
         self.rec_btn.connect("clicked", self.toggle_record)
-        vbox.pack_start(self.rec_btn, False, False, 0)
+        ctl.pack_start(self.rec_btn, False, False, 0)
 
-        # Memo list
-        self.store = Gtk.ListStore(str, str, str, int)  # name, date, duration, duration_sec
-        tv = Gtk.TreeView(model=self.store, headers_visible=True)
-        tv.set_headers_visible(False)
-        
+        self.play_btn = Gtk.Button()
+        self.play_btn.set_image(Gtk.Image.new_from_icon_name(
+            "media-playback-start", Gtk.IconSize.LARGE_TOOLBAR))
+        self.play_btn.set_always_show_image(True)
+        self.play_btn.get_style_context().add_class("mavericks-toolbar-btn")
+        self.play_btn.set_tooltip_text("Play / Stop (Return)")
+        self.play_btn.connect("clicked", lambda b: self.toggle_play())
+        ctl.pack_start(self.play_btn, False, False, 0)
+
+        for label, cb, tip in (
+                ("Trim", self.trim_selected, "Trim start/end in place"),
+                ("Export", self.export_selected, "Export to a folder"),
+                ("Rename", self.rename_memo, "Rename memo"),
+                ("Delete", self.delete_memo, "Move memo to Trash"),
+                ("Info", self.info_memo, "Show memo details")):
+            b = Gtk.Button(label=label)
+            b.get_style_context().add_class("mavericks-toolbar-btn")
+            b.set_tooltip_text(tip)
+            b.connect("clicked", cb)
+            ctl.pack_start(b, False, False, 0)
+        vbox.pack_start(ctl, False, False, 0)
+
+        self.list_stack = Gtk.Stack()
+        self.list_stack.set_transition_type(
+            Gtk.StackTransitionType.NONE)
+        self.store = Gtk.ListStore(str, str, str, int)
+        tv = Gtk.TreeView(model=self.store, headers_visible=False)
+        tv.get_style_context().add_class("voice-tree")
         renderer = Gtk.CellRendererText()
         renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
         col = Gtk.TreeViewColumn("", renderer, text=0)
         col.set_cell_data_func(renderer, self.render_memo_cell)
         tv.append_column(col)
-        
-        tv.connect("row-activated", self.on_play)
-        
+        tv.connect("row-activated", lambda _t, p, _c: self.toggle_play(path=p))
+        tv.get_selection().connect("changed", self._on_selection_changed)
         sw = Gtk.ScrolledWindow()
-        sw.set_size_request(-1, 200)
-        sw.get_style_context().add_class("voice-memo-list")
+        sw.set_size_request(-1, 180)
         sw.add(tv)
+        self.list_stack.add_named(sw, "list")
+        empty = Gtk.Label(
+            label="No recordings yet.\nPress Record (or Ctrl+R) to create "
+                  "your first memo.")
+        empty.get_style_context().add_class("voice-empty")
+        empty.set_justify(Gtk.Justification.CENTER)
+        self.list_stack.add_named(empty, "empty")
+        vbox.pack_start(self.list_stack, True, True, 0)
         self.tv = tv
-        self.store_ref = self.store
 
-        vbox.pack_start(sw, True, True, 0)
+        self.connect("key-press-event", self.on_key)
+        self.connect("destroy", self.on_destroy)
 
-        # Edit/Delete buttons
-        btn_box = Gtk.Box(spacing=8)
-        for label, cb in [("Rename", self.rename_memo), ("Delete", self.delete_memo)]:
-            b = Gtk.Button(label=label)
-            b.get_style_context().add_class("mavericks-toolbar-btn")
-            b.connect("clicked", cb)
-            btn_box.pack_start(b, True, True, 0)
-        vbox.pack_start(btn_box, False, False, 0)
+        self.rec_proc = None
+        self.rec_path = None
+        self.rec_start = 0.0
+        self.rec_timer = None
+        self.play_proc = None
+        self.play_path = None
+        self.play_start = 0.0
+        self.play_dur = 0.0
+        self.play_timer = None
+        self.selected_path = None
 
-        self.apply_mavericks_css()
-
-        self.MEMO_DIR = os.path.expanduser("~/Music/Voice Memos")
-        os.makedirs(self.MEMO_DIR, exist_ok=True)
-
-        self.proc = None
-        self.path = None
-        self.recording_start = 0
-        self.recording_timer = None
-        self.waveform_data = []
-
-        self.refresh()
         self.show_all()
+        try:
+            os.makedirs(self.memo_dir, exist_ok=True)
+        except OSError:
+            pass
+        self.refresh()
+        self._apply_backend_state()
+        if open_path and os.path.isfile(open_path):
+            self._start_playback(open_path)
 
     def apply_mavericks_css(self):
         css = b"""
-        .voice-memo-window {
-            background: #f0ebe0;
-            background-image: linear-gradient(135deg, #f0ebe0 0%, #e0d8c8 100%);
-        }
-        .voice-status {
-            color: #666;
-            font-size: 11pt;
-            font-family: "San Francisco", sans-serif;
-        }
-        .voice-time {
-            color: #007aff;
-            font-size: 24pt;
-            font-weight: bold;
-            font-family: "SF Mono", "Menlo", monospace;
-            font-variant-numeric: tabular-nums;
-        }
-        .voice-record-btn {
-            min-width: 80px;
-            min-height: 80px;
-            border-radius: 40px;
-            background: #ff3b30;
-            border: none;
-            box-shadow: 0 4px 12px rgba(255,59,48,0.4);
-        }
-        .voice-record-btn:hover {
-            background: #ff453a;
-            box-shadow: 0 6px 16px rgba(255,59,48,0.5);
-        }
-        .voice-record-btn:active {
-            background: #cc2e26;
-        }
-        .voice-record-btn.recording {
-            background: #34c759;
-            box-shadow: 0 4px 12px rgba(52,199,89,0.4);
-        }
-        .voice-record-btn.recording:hover {
-            background: #38d962;
-        }
-        .voice-memo-list {
-            background: #f5f0e8;
-            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
-            border: 1px solid #d4c8b8;
-            border-radius: 8px;
-        }
-        .voice-memo-list > viewport { background: transparent; }
-        .memo-row {
-            padding: 12px 16px;
-            border-bottom: 1px solid #e0d8c8;
-        }
-        .memo-row:hover {
-            background: rgba(0,122,255,0.1);
-        }
-        .memo-row:selected {
-            background: #007aff;
-            color: white;
-        }
-        .cassette-widget {
-            background: #2d2d2d;
-            border-radius: 8px;
-            padding: 20px;
-        }
-        .cassette-label {
-            color: #ccc;
-            font-family: "San Francisco", sans-serif;
-            font-size: 10pt;
-        }
-        .voice-status {
-            color: #666;
-            font-size: 11pt;
-            font-family: "San Francisco", sans-serif;
-        }
-        .voice-time {
-            color: #007aff;
-            font-size: 28pt;
-            font-weight: bold;
-            font-family: "SF Mono", "Menlo", monospace;
-            font-variant-numeric: tabular-nums;
-        }
-        .voice-record-btn {
-            min-width: 88px;
-            min-height: 88px;
-            border-radius: 44px;
-            background: #ff3b30;
-            border: none;
-            box-shadow: 0 4px 12px rgba(255,59,48,0.4);
-        }
-        .voice-record-btn:hover {
-            background: #ff453a;
-            box-shadow: 0 6px 16px rgba(255,59,48,0.5);
-        }
-        .voice-record-btn:active {
-            background: #cc2e26;
-        }
-        .voice-record-btn.recording {
-            background: #34c759;
-            box-shadow: 0 4px 12px rgba(52,199,89,0.4);
-        }
-        .voice-record-btn.recording:hover {
-            background: #38d962;
-        }
-        .voice-memo-list {
-            background: #f5f0e8;
-            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
-            border: 1px solid #d4c8b8;
-            border-radius: 8px;
-        }
-        .voice-memo-list > viewport { background: transparent; }
-        .memo-row {
-            padding: 12px 16px;
-            border-bottom: 1px solid #e0d8c8;
-        }
-        .memo-row:hover {
-            background: rgba(0,122,255,0.1);
-        }
-        .memo-row:selected {
-            background: #007aff;
-            color: white;
-        }
-        .mavericks-toolbar-btn {
-            border-radius: 4px;
-            padding: 6px 12px;
-            margin: 2px;
-            background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
-            border: 1px solid #d0c8b8;
-            color: #333;
-            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
-        }
-        .mavericks-toolbar-btn:hover {
-            background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-        .mavericks-toolbar-btn:active {
-            background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%);
-        }
+        .voice-status { color: #666666; font-size: 11pt; }
+        .voice-time { color: #007aff; font-size: 28pt; font-weight: bold;
+                      font-family: "SF Mono", "Menlo", monospace; }
+        .voice-record-btn { min-width: 72px; min-height: 72px;
+                            border-radius: 36px; background: #ff3b30;
+                            border: none;
+                            box-shadow: 0 4px 12px rgba(255,59,48,0.4); }
+        .voice-record-btn:hover { background: #ff453a; }
+        .voice-record-btn:active { background: #cc2e26; }
+        .voice-record-btn.recording { background: #34c759;
+                                      box-shadow: 0 4px 12px rgba(52,199,89,0.4); }
+        .voice-meter > trough { background: #d8d0c0; min-height: 8px; }
+        .voice-meter > trough > progress { background: #007aff; }
+        .voice-tree { background-color: #f5f0e8; }
+        .voice-empty { color: #888888; font-size: 12pt; padding: 24px; }
+        .mavericks-toolbar-btn { border-radius: 4px; padding: 6px 12px;
+                                  margin: 2px;
+                                  background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
+                                  border: 1px solid #d0c8b8; color: #333333;
+                                  text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
+        .mavericks-toolbar-btn:hover { background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%); }
+        .mavericks-toolbar-btn:active { background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%); }
+        .mavericks-toolbar-btn:disabled { color: #aaaaaa; }
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css)
         screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def render_memo_cell(self, column, cell, model, iter_, data):
         name = model[iter_][0]
-        date_str = model[iter_][1]
-        duration = model[iter_][2]
-        
-        markup = f'<span weight="bold" size="11000">{GLib.markup_escape_text(name)}</span>\n'
-        markup += f'<span size="9000" foreground="#666">{date_str}  •  {duration}</span>'
+        sub = model[iter_][1] + "  •  " + model[iter_][2]
+        markup = '<span weight="bold" size="11000">%s</span>\n' % \
+            GLib.markup_escape_text(name)
+        markup += '<span size="9000" foreground="#666666">%s</span>' % \
+            GLib.markup_escape_text(sub)
         cell.set_property("markup", markup)
         cell.set_property("xalign", 0.0)
-        cell.set_property("ypad", 10)
-        cell.set_property("xpad", 16)
+        cell.set_property("ypad", 8)
+        cell.set_property("xpad", 12)
 
-    def backend(self):
-        for exe, args in (("pw-record", ["--format=wav"]), ("parec", ["--format=wav"])):
-            try:
-                subprocess.run([exe, "--help"], capture_output=True, timeout=3)
-                return [exe] + args
-            except (OSError, subprocess.SubprocessError):
-                continue
-        return None
+    def on_key(self, _w, ev):
+        state = ev.state & Gtk.accelerator_get_default_mod_mask()
+        if state == Gdk.ModifierType.CONTROL_MASK:
+            if ev.keyval == Gdk.keyval_from_name("r"):
+                self.toggle_record(None)
+                return True
+            if ev.keyval == Gdk.keyval_from_name("e"):
+                self.export_selected(None)
+                return True
+            if ev.keyval == Gdk.keyval_from_name("i"):
+                self.info_memo(None)
+                return True
+        elif state == 0:
+            if ev.keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter, Gdk.KEY_space):
+                self.toggle_play()
+                return True
+            if ev.keyval == Gdk.KEY_Delete:
+                self.delete_memo(None)
+                return True
+        return False
+
+    def on_destroy(self, _w):
+        for proc in (self.rec_proc, self.play_proc):
+            if proc is not None and proc.poll() is None:
+                try:
+                    proc.send_signal(signal.SIGINT)
+                    proc.wait(timeout=5)
+                except Exception:
+                    pass
+        self._stop_timers()
+
+    def _stop_timers(self):
+        for attr in ("rec_timer", "play_timer"):
+            t = getattr(self, attr)
+            if t is not None:
+                GLib.source_remove(t)
+                setattr(self, attr, None)
+
+    def _apply_backend_state(self):
+        if backend_cmd() is None:
+            self.status.set_text(
+                "No audio recorder found — install PipeWire or PulseAudio.")
+            self.rec_btn.set_sensitive(False)
+        if not os.path.isdir(self.memo_dir):
+            if os.path.exists(self.memo_dir):
+                self.status.set_text(
+                    "Voice Memos folder is not a directory: %s" % self.memo_dir)
+                self.rec_btn.set_sensitive(False)
+
+    def refresh(self):
+        self.store.clear()
+        memos = list_memos(self.memo_dir)
+        for m in memos:
+            self.store.append([m["name"], m["date"], m["duration_str"],
+                               m["size"]])
+        child = "list" if len(memos) else "empty"
+        self.list_stack.set_visible_child_name(child)
+
+    def _selected_memo(self):
+        row = self.tv.get_selection().get_selected()
+        if not row:
+            return None
+        model, iter_ = row
+        if iter_ is None:
+            return None
+        name = model[iter_][0]
+        return os.path.join(self.memo_dir, name)
+
+    def _on_selection_changed(self, _sel):
+        path = self._selected_memo()
+        if not path:
+            self.waveform.set_memo([])
+            self.time_label.set_text("00:00")
+            self.selected_path = None
+            return
+        self.selected_path = path
+        self._load_waveform(path)
+        dur = wav_duration(path)
+        if dur:
+            self.time_label.set_text(fmt_time(dur))
 
     def toggle_record(self, _b):
-        if self.proc:
+        if self.rec_proc:
             self.stop_recording()
         else:
             self.start_recording()
 
     def start_recording(self):
-        be = self.backend()
+        if self.play_proc:
+            self.stop_playback()
+        be = backend_cmd()
         if not be:
-            self.status.set_text("No recorder found (pw-record/parec).")
+            self.status.set_text(
+                "No audio recorder found — install PipeWire or PulseAudio.")
             return
-        os.makedirs(self.MEMO_DIR, exist_ok=True)
-        self.path = os.path.join(self.MEMO_DIR, "memo-%s.wav" % time.strftime("%Y%m%d-%H%M%S"))
         try:
-            self.proc = subprocess.Popen(be + [self.path])
-        except Exception as e:
-            self.status.set_text("Failed to start recording: %s" % e)
+            os.makedirs(self.memo_dir, exist_ok=True)
+        except OSError as e:
+            self.show_error("Cannot create Voice Memos folder: %s" % e)
             return
-        
-        self.recording_start = time.time()
+        self.rec_path = os.path.join(
+            self.memo_dir, "memo-%s.wav" % time.strftime("%Y%m%d-%H%M%S"))
+        try:
+            self.rec_proc = subprocess.Popen(be + [self.rec_path])
+        except OSError as e:
+            self.status.set_text("Failed to start recording: %s" % e)
+            self.rec_path = None
+            return
+        self.rec_start = time.time()
+        self.cassette.set_state("recording")
         self.rec_btn.get_style_context().add_class("recording")
-        self.rec_btn.set_image(Gtk.Image.new_from_icon_name("media-playback-stop", Gtk.IconSize.DND))
+        self.rec_btn.set_image(Gtk.Image.new_from_icon_name(
+            "media-playback-stop", Gtk.IconSize.DND))
+        self.rec_btn.set_tooltip_text("Stop recording (Ctrl+R)")
         self.status.set_text("Recording…")
+        self.rec_timer = GLib.timeout_add(100, self.update_recording_time)
         self.update_recording_time()
-        self.recording_timer = GLib.timeout_add(100, self.update_recording_time)
-        self.status.set_text("Recording…")
-
-    def stop_recording(self):
-        if self.proc:
-            self.proc.send_signal(signal.SIGINT)
-            self.proc.wait(timeout=10)
-            self.proc = None
-        
-        if self.recording_timer:
-            GLib.source_remove(self.recording_timer)
-            self.recording_timer = None
-        
-        self.rec_btn.get_style_context().remove_class("recording")
-        self.rec_btn.set_image(Gtk.Image.new_from_icon_name("media-record", Gtk.IconSize.DND))
-        self.status.set_text("Saved: %s" % os.path.basename(self.path))
-        self.refresh()
-        self.path = None
 
     def update_recording_time(self):
-        if self.proc and self.recording_start > 0:
-            elapsed = int(time.time() - self.recording_start)
-            mins = elapsed // 60
-            secs = elapsed % 60
-            self.time_label.set_text("%02d:%02d" % (mins, secs))
-            return True
-        return False
+        if not self.rec_proc:
+            return False
+        if self.rec_proc.poll() is not None:
+            self.stop_recording(unexpected=True)
+            return False
+        elapsed = int(time.time() - self.rec_start)
+        self.time_label.set_text("%02d:%02d" % (elapsed // 60, elapsed % 60))
+        self._update_meter()
+        return True
 
-    def refresh(self):
-        self.store.clear()
-        if os.path.isdir(self.MEMO_DIR):
-            for f in sorted(os.listdir(self.MEMO_DIR), reverse=True):
-                if f.endswith(".wav"):
-                    path = os.path.join(self.MEMO_DIR, f)
-                    stat = os.stat(path)
-                    date_str = time.strftime("%b %d, %Y %H:%M", time.localtime(stat.st_mtime))
-                    duration = self.get_audio_duration(path)
-                    self.store.append([f, date_str, duration, stat.st_size])
-
-    def get_audio_duration(self, path):
+    def _update_meter(self):
         try:
-            out = subprocess.run(["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-                                  "-of", "csv=p=0", path], capture_output=True, text=True, timeout=5).stdout
-            dur = float(out.strip())
-            mins = int(dur // 60)
-            secs = int(dur % 60)
-            return "%d:%02d" % (mins, secs)
-        except Exception:
-            return "—"
+            size = os.path.getsize(self.rec_path)
+            if size > WAV_HEADER_BYTES + 64:
+                with open(self.rec_path, "rb") as f:
+                    f.seek(max(WAV_HEADER_BYTES, size - 1600))
+                    data = f.read()
+                self.meter.set_fraction(rms_level(data))
+                return
+        except OSError:
+            pass
+        self.meter.set_fraction(0.0)
 
-    def on_play(self, _tv, path, _col):
-        name = self.store[path][0]
-        subprocess.Popen(["xdg-open", os.path.join(self.MEMO_DIR, name)])
+    def stop_recording(self, unexpected=False):
+        if self.rec_proc:
+            try:
+                self.rec_proc.send_signal(signal.SIGINT)
+                self.rec_proc.wait(timeout=10)
+            except Exception:
+                pass
+            self.rec_proc = None
+        self._stop_timers()
+        self.cassette.stop()
+        self.meter.hide()
+        self.rec_btn.get_style_context().remove_class("recording")
+        self.rec_btn.set_image(Gtk.Image.new_from_icon_name(
+            "media-record", Gtk.IconSize.DND))
+        self.rec_btn.set_tooltip_text("Record (Ctrl+R)")
+        if unexpected:
+            self.status.set_text("Recording stopped (recorder exited early).")
+            if self.rec_path and not os.path.exists(self.rec_path):
+                self.rec_path = None
+        else:
+            self.status.set_text("Saved: %s"
+                                 % os.path.basename(self.rec_path or ""))
+        self.time_label.set_text("00:00")
+        sel = self.tv.get_selection()
+        sel.unselect_all()
+        self.refresh()
+        if self.rec_path and os.path.exists(self.rec_path):
+            for i, row in enumerate(self.store):
+                if row[0] == os.path.basename(self.rec_path):
+                    sel.select_path(i)
+                    self.tv.scroll_to_cell(i, None, False, 0.0, 0.0)
+                    break
+            dur = wav_duration(self.rec_path)
+            if dur:
+                self.time_label.set_text(fmt_time(dur))
+        self.rec_path = None
+
+    def toggle_play(self, path=None):
+        if self.play_proc:
+            self.stop_playback()
+            return
+        if path is None:
+            path = self._selected_memo()
+        if path and os.path.isfile(path):
+            self._start_playback(path)
+
+    def _start_playback(self, path):
+        pb = playback_cmd()
+        if not pb:
+            self.status.set_text(
+                "No audio player found — install PipeWire or PulseAudio.")
+            return
+        try:
+            self.play_proc = subprocess.Popen(pb + [path])
+        except OSError as e:
+            self.status.set_text("Failed to start playback: %s" % e)
+            return
+        self.play_path = path
+        self.play_start = time.time()
+        self.play_dur = wav_duration(path) or 0.0
+        self.selected_path = path
+        self._load_waveform(path)
+        self.cassette.set_state("playing")
+        self.play_btn.set_image(Gtk.Image.new_from_icon_name(
+            "media-playback-stop", Gtk.IconSize.LARGE_TOOLBAR))
+        self.play_btn.set_tooltip_text("Stop playback (Return)")
+        base = os.path.basename(path)
+        self.status.set_text("Playing: %s" % base)
+        self.play_timer = GLib.timeout_add(200, self.update_playback_time)
+        self.update_playback_time()
+
+    def update_playback_time(self):
+        if not self.play_proc:
+            return False
+        if self.play_proc.poll() is not None:
+            self.stop_playback()
+            return False
+        pos = time.time() - self.play_start
+        if self.play_dur:
+            pos = min(pos, self.play_dur)
+        self.time_label.set_text(fmt_time(pos))
+        self.waveform.set_progress(pos / self.play_dur if self.play_dur
+                                  else 0.0)
+        return True
+
+    def stop_playback(self):
+        if self.play_proc:
+            try:
+                self.play_proc.send_signal(signal.SIGINT)
+                self.play_proc.wait(timeout=10)
+            except Exception:
+                pass
+            self.play_proc = None
+        self._stop_timers()
+        self.cassette.stop()
+        self.play_btn.set_image(Gtk.Image.new_from_icon_name(
+            "media-playback-start", Gtk.IconSize.LARGE_TOOLBAR))
+        self.play_btn.set_tooltip_text("Play / Stop (Return)")
+        self.waveform.set_progress(0.0)
+        if self.play_path:
+            dur = wav_duration(self.play_path)
+            if dur:
+                self.time_label.set_text(fmt_time(dur))
+            self.status.set_text("Stopped: %s" % os.path.basename(self.play_path))
+            self.play_path = None
+
+    def _load_waveform(self, path):
+        self.waveform.set_memo(waveform_peaks(path))
+
+    def trim_selected(self, _b):
+        path = self._selected_memo()
+        if not path or self.rec_proc:
+            return
+        dur = wav_duration(path) or 0.0
+        if dur <= 0:
+            self.show_error("Cannot read memo duration for this file.")
+            return
+        vals = self._trim_dialog(dur)
+        if vals is None:
+            return
+        start, end = vals
+        if end <= start:
+            self.show_error("End must be after start.")
+            return
+        self._apply_trim(path, start, end)
+
+    def _trim_dialog(self, dur):
+        dialog = Gtk.Dialog(title="Trim Memo", transient_for=self, modal=True)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                          "Trim", Gtk.ResponseType.OK)
+        box = dialog.get_content_area()
+        box.pack_start(Gtk.Label(
+            label="Duration: %s — drag the range to keep." % fmt_time(dur)),
+            False, False, 0)
+        adj_s = Gtk.Adjustment(0.0, 0.0, dur, 0.1, 1.0, 0.0)
+        adj_e = Gtk.Adjustment(dur, 0.0, dur, 0.1, 1.0, 0.0)
+        spin_s = Gtk.SpinButton(adjustment=adj_s, digits=1, rate=0.1)
+        spin_e = Gtk.SpinButton(adjustment=adj_e, digits=1, rate=0.1)
+        row = Gtk.Box(spacing=12)
+        row.pack_start(Gtk.Label(label="Start (s):"), False, False, 0)
+        row.pack_start(spin_s, True, True, 0)
+        row.pack_start(Gtk.Label(label="End (s):"), False, False, 0)
+        row.pack_start(spin_e, True, True, 0)
+        box.pack_start(row, False, False, 0)
+        dialog.show_all()
+        response = dialog.run()
+        start, end = spin_s.get_value(), spin_e.get_value()
+        dialog.destroy()
+        if response != Gtk.ResponseType.OK:
+            return None
+        return start, end
+
+    def _apply_trim(self, path, start, end):
+        if self.play_proc and self.play_path == path:
+            self.stop_playback()
+        try:
+            new_dur = trim_wav(path, start, end)
+        except (ValueError, OSError) as e:
+            self.show_error("Trim failed: %s" % e)
+            return
+        self.status.set_text("Trimmed to %s" % fmt_time(new_dur))
+        self.refresh()
+
+    def export_selected(self, _b):
+        path = self._selected_memo()
+        if not path:
+            return
+        chooser = Gtk.FileChooserNative.new(
+            "Export Memo", self, Gtk.FileChooserAction.SAVE, "Export", "Cancel")
+        chooser.set_current_name(os.path.basename(path))
+        if chooser.run() == Gtk.ResponseType.ACCEPT:
+            dest = chooser.get_filename()
+            if dest and dest != path:
+                try:
+                    shutil.copyfile(path, dest)
+                    self.status.set_text("Exported: %s" % dest)
+                except OSError as e:
+                    self.show_error("Export failed: %s" % e)
+        chooser.destroy()
 
     def rename_memo(self, _b):
         row = self.tv.get_selection().get_selected()
         if not row:
             return
         model, iter_ = row
+        if iter_ is None:
+            return
         old_name = model[iter_][0]
-        
+        new_name = self._rename_dialog(old_name)
+        if not new_name or new_name == old_name:
+            return
+        old_path = os.path.join(self.memo_dir, old_name)
+        new_path = os.path.join(self.memo_dir, new_name)
+        if os.path.exists(new_path):
+            self.show_error("A memo named '%s' already exists." % new_name)
+            return
+        try:
+            os.rename(old_path, new_path)
+            self.refresh()
+        except OSError as e:
+            self.show_error("Failed to rename: %s" % e)
+
+    def _rename_dialog(self, old_name):
         dialog = Gtk.Dialog(title="Rename Memo", transient_for=self, modal=True)
-        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Rename", Gtk.ResponseType.OK)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                          "Rename", Gtk.ResponseType.OK)
         entry = Gtk.Entry()
         entry.set_text(old_name)
         dialog.get_content_area().pack_start(entry, True, True, 0)
         dialog.show_all()
-        if dialog.run() == Gtk.ResponseType.OK:
-            new_name = entry.get_text().strip()
-            if new_name and new_name != old_name:
-                if not new_name.endswith(".wav"):
-                    new_name += ".wav"
-                old_path = os.path.join(self.MEMO_DIR, old_name)
-                new_path = os.path.join(self.MEMO_DIR, new_name)
-                try:
-                    os.rename(old_path, new_path)
-                    self.refresh()
-                except Exception as e:
-                    self.show_error("Failed to rename: %s" % e)
+        response = dialog.run()
+        text = entry.get_text().strip()
         dialog.destroy()
+        if response != Gtk.ResponseType.OK:
+            return None
+        return sanitize_memo_name(text)
 
     def delete_memo(self, _b):
+        if self.rec_proc:
+            return
         row = self.tv.get_selection().get_selected()
         if not row:
             return
         model, iter_ = row
+        if iter_ is None:
+            return
         name = model[iter_][0]
-        
         dialog = Gtk.MessageDialog(
             transient_for=self, modal=True,
             message_type=Gtk.MessageType.QUESTION,
-            buttons=Gtk.ButtonsType.YES_NO,
-            text="Delete '%s'?" % name)
-        dialog.format_secondary_text("This cannot be undone.")
+            buttons=Gtk.ButtonsType.YES_NO, text="Delete '%s'?" % name)
+        dialog.format_secondary_text(
+            "The memo will be moved to the Trash.")
         response = dialog.run()
         dialog.destroy()
         if response == Gtk.ResponseType.YES:
-            path = os.path.join(self.MEMO_DIR, name)
+            path = os.path.join(self.memo_dir, name)
+            if self.play_proc and self.play_path == path:
+                self.stop_playback()
             try:
-                os.remove(path)
+                trash_file(path)
                 self.refresh()
-            except Exception as e:
+            except OSError as e:
                 self.show_error("Failed to delete: %s" % e)
+
+    def info_memo(self, _b):
+        path = self._selected_memo()
+        if not path:
+            return
+        dialog = Gtk.MessageDialog(
+            transient_for=self, modal=True,
+            message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK,
+            text="\n".join(self._info_lines(path)))
+        dialog.run()
+        dialog.destroy()
+
+    def _info_lines(self, path):
+        info = wav_info(path)
+        lines = [
+            "Name: %s" % os.path.basename(path),
+            "Date: %s" % time.strftime(
+                "%b %d, %Y %H:%M", time.localtime(os.path.getmtime(path))),
+            "Duration: %s" % (fmt_time(info["duration"]) if info else "—"),
+            "Size: %d bytes" % os.path.getsize(path),
+        ]
+        if info:
+            lines.append("Format: %d Hz, %d ch, %d-bit"
+                         % (info["rate"], info["channels"],
+                            info["sampwidth"] * 8))
+        lines.append("Path: %s" % path)
+        return lines
 
     def show_error(self, msg):
         dialog = Gtk.MessageDialog(
             transient_for=self, modal=True,
             message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK,
-            text=msg)
+            buttons=Gtk.ButtonsType.OK, text=msg)
         dialog.run()
         dialog.destroy()
 
 
 def main():
-    w = VoiceMemos()
+    open_path = sys.argv[1] if len(sys.argv) > 1 else None
+    if open_path and not os.path.isfile(open_path):
+        print("mv-voice: not a file: %s" % open_path, file=sys.stderr)
+        open_path = None
+    w = VoiceMemos(open_path=open_path)
     w.connect("destroy", Gtk.main_quit)
-    w.show_all()
     Gtk.main()
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
