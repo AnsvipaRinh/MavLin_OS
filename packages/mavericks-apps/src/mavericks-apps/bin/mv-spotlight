@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""mv-spotlight — Unified Spotlight search (apps + files) for rofi script mode.
+"""mv-spotlight — Unified Spotlight search (apps + files + calculator) for rofi script mode.
 Outputs rofi-compatible formatted results with categories.
+Features:
+- Application search (exact/prefix/substring ranking)
+- File search via plocate with categorization
+- Calculator/conversion (simple math, unit conversion)
+- Recent items (from GTK recently-used)
 """
 import os
 import sys
 import subprocess
-import json
+import re
+import math
 from pathlib import Path
 
 DESKTOP_DIRS = [
@@ -14,16 +20,63 @@ DESKTOP_DIRS = [
     os.path.expanduser("~/.local/share/applications"),
 ]
 
-CACHE_FILE = Path.home() / ".cache" / "mv-spotlight-apps.json"
+RECENT_FILE = Path.home() / ".local" / "share" / "recently-used.xbel"
+
+# Category definitions for files
+FILE_CATEGORIES = [
+    ("Images", [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".tiff", ".ico"]),
+    ("Documents", [".pdf", ".doc", ".docx", ".odt", ".rtf", ".txt", ".md", ".tex", ".epub"]),
+    ("Spreadsheets", [".xls", ".xlsx", ".ods", ".csv", ".tsv"]),
+    ("Presentations", [".ppt", ".pptx", ".odp", ".key"]),
+    ("Audio", [".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac", ".wma", ".opus"]),
+    ("Video", [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv", ".m4v", ".ogv"]),
+    ("Archives", [".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar", ".tgz", ".tbz2"]),
+    ("Code", [".py", ".js", ".ts", ".html", ".css", ".json", ".xml", ".yaml", ".yml", ".sh", ".bash", ".zsh", ".c", ".cpp", ".h", ".hpp", ".rs", ".go", ".java", ".kt", ".swift", ".rb", ".php", ".pl", ".lua", ".r", ".m", ".sql"]),
+    ("Folders", []),  # Special: directories
+    ("Other", []),    # Catch-all
+]
+
+
+def categorize_file(path, name):
+    """Return category name for a file."""
+    if os.path.isdir(path):
+        return "Folders"
+    ext = os.path.splitext(name)[1].lower()
+    for cat, extensions in FILE_CATEGORIES:
+        if ext in extensions:
+            return cat
+    return "Other"
+
+
+def get_icon_for_file(name, path):
+    """Return appropriate icon name for file."""
+    if os.path.isdir(path):
+        return "folder"
+    ext = os.path.splitext(name)[1].lower()
+    if ext in [".pdf"]:
+        return "application-pdf"
+    elif ext in [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".tiff", ".ico"]:
+        return "image-x-generic"
+    elif ext in [".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac", ".wma", ".opus"]:
+        return "audio-x-generic"
+    elif ext in [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".wmv", ".m4v", ".ogv"]:
+        return "video-x-generic"
+    elif ext in [".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar", ".tgz", ".tbz2"]:
+        return "package-x-generic"
+    elif ext in [".py", ".js", ".ts", ".html", ".css", ".json", ".xml", ".yaml", ".yml", ".sh", ".bash", ".zsh", ".c", ".cpp", ".h", ".hpp", ".rs", ".go", ".java", ".kt", ".swift", ".rb", ".php", ".pl", ".lua", ".r", ".m", ".sql"]:
+        return "text-x-script"
+    return "text-x-generic"
+
 
 def load_desktop_apps():
+    """Load all .desktop applications."""
     apps = []
     for d in DESKTOP_DIRS:
         if not os.path.isdir(d):
             continue
         for f in Path(d).glob("*.desktop"):
             try:
-                with open(f, "r") as fp:
+                with open(f, "r", encoding="utf-8", errors="ignore") as fp:
                     content = fp.read()
                 if "NoDisplay=true" in content or "Hidden=true" in content:
                     continue
@@ -52,43 +105,178 @@ def load_desktop_apps():
                 pass
     return apps
 
+
+def rank_app_match(query, app):
+    """Return ranking score for app match (lower = better)."""
+    q = query.lower()
+    name = app["name"].lower()
+    exec_cmd = app["exec"].lower()
+
+    # Exact match
+    if q == name:
+        return 0
+    # Prefix match
+    if name.startswith(q):
+        return 1
+    # Word prefix match (e.g. "fi" -> "File Manager")
+    words = name.split()
+    for w in words:
+        if w.startswith(q):
+            return 2
+    # Substring in name
+    if q in name:
+        return 3
+    # Substring in exec
+    if q in exec_cmd:
+        return 4
+    return 5
+
+
 def search_apps(query, apps):
-    query = query.lower()
+    """Search apps with ranking."""
     results = []
     for app in apps:
-        if query in app["name"].lower() or query in app["exec"].lower():
-            results.append(app)
-    return results
+        rank = rank_app_match(query, app)
+        if rank < 5:
+            results.append((rank, app))
+    results.sort(key=lambda x: x[0])
+    return [r[1] for r in results]
+
 
 def search_files(query):
+    """Search files via plocate."""
     try:
         result = subprocess.run(
-            ["plocate", "-i", "-l", "50", query],
+            ["plocate", "-i", "-l", "100", query],
             capture_output=True,
             text=True,
             timeout=3
         )
         files = result.stdout.strip().split("\n") if result.stdout.strip() else []
-        return [{"path": f, "name": os.path.basename(f), "source": "file"} for f in files if f]
+        return [f for f in files if f]
     except Exception:
         return []
 
-def format_result(item, index):
+
+def get_recent_items(limit=5):
+    """Get recently used files from GTK recently-used.xbel."""
+    items = []
+    if not RECENT_FILE.exists():
+        return items
+    try:
+        import xml.etree.ElementTree as ET
+        tree = ET.parse(RECENT_FILE)
+        root = tree.getroot()
+        # namespace handling
+        ns = {"bookmark": "http://www.w3.org/2001/XMLSchema-instance"}
+        for bookmark in root.findall(".//{http://www.ecma-international.org/standards/ecma-323/2004/}bookmark"):
+            href = bookmark.get("href", "")
+            if href.startswith("file://"):
+                path = href[7:]  # remove file://
+                if os.path.exists(path):
+                    items.append(path)
+            if len(items) >= limit:
+                break
+    except Exception:
+        pass
+    return items
+
+
+def evaluate_calculator(query):
+    """Evaluate simple math expressions and unit conversions."""
+    q = query.strip()
+    results = []
+
+    # Simple math: 2+2, 3*4, etc.
+    math_pattern = r'^[\d\s\+\-\*\/\.\%\(\)]+$'
+    if re.match(math_pattern, q):
+        try:
+            # Safe eval for basic math
+            allowed = {"__builtins__": None, "math": math}
+            result = eval(q, allowed, {"math": math})
+            results.append({
+                "name": f"{result}",
+                "info": f"Calculator: {q} = {result}",
+                "icon": "accessories-calculator",
+                "source": "calculator",
+                "action": f"echo '{result}' | xclip -selection clipboard 2>/dev/null || true"
+            })
+        except Exception:
+            pass
+
+    # Unit conversions: "10 cm to inches", "5 kg to lbs", etc.
+    conv_patterns = [
+        (r'^(\d+(?:\.\d+)?)\s*(cm|mm|m|km)\s+to\s+(in|inches?|ft|feet|yd|yards?|mi|miles?)$', 'length'),
+        (r'^(\d+(?:\.\d+)?)\s*(kg|g|mg|lb|lbs|oz|ounces?)\s+to\s+(kg|g|mg|lb|lbs|oz|ounces?)$', 'weight'),
+        (r'^(\d+(?:\.\d+)?)\s*(c|celsius|f|fahrenheit|k|kelvin)\s+to\s+(c|celsius|f|fahrenheit|k|kelvin)$', 'temp'),
+    ]
+    for pattern, ctype in conv_patterns:
+        match = re.match(pattern, q, re.IGNORECASE)
+        if match:
+            val = float(match.group(1))
+            from_unit = match.group(2).lower()
+            to_unit = match.group(3).lower()
+            result = convert_units(val, from_unit, to_unit, ctype)
+            if result is not None:
+                results.append({
+                    "name": f"{result}",
+                    "info": f"Convert: {q} = {result}",
+                    "icon": "accessories-calculator",
+                    "source": "calculator",
+                    "action": f"echo '{result}' | xclip -selection clipboard 2>/dev/null || true"
+                })
+    return results
+
+
+def convert_units(value, from_unit, to_unit, ctype):
+    """Convert between units."""
+    conversions = {
+        'length': {
+            'cm': 0.01, 'mm': 0.001, 'm': 1, 'km': 1000,
+            'in': 0.0254, 'inch': 0.0254, 'inches': 0.0254,
+            'ft': 0.3048, 'feet': 0.3048, 'yd': 0.9144, 'yards': 0.9144,
+            'mi': 1609.34, 'miles': 1609.34, 'mile': 1609.34,
+        },
+        'weight': {
+            'kg': 1, 'g': 0.001, 'mg': 0.000001,
+            'lb': 0.453592, 'lbs': 0.453592, 'oz': 0.0283495, 'ounces': 0.0283495,
+        }
+    }
+    if ctype == 'temp':
+        # Temperature conversions
+        if from_unit in ['c', 'celsius'] and to_unit in ['f', 'fahrenheit']:
+            return f"{value * 9/5 + 32:.1f} °F"
+        if from_unit in ['f', 'fahrenheit'] and to_unit in ['c', 'celsius']:
+            return f"{(value - 32) * 5/9:.1f} °C"
+        if from_unit in ['c', 'celsius'] and to_unit in ['k', 'kelvin']:
+            return f"{value + 273.15:.1f} K"
+        if from_unit in ['k', 'kelvin'] and to_unit in ['c', 'celsius']:
+            return f"{value - 273.15:.1f} °C"
+        if from_unit in ['f', 'fahrenheit'] and to_unit in ['k', 'kelvin']:
+            return f"{(value - 32) * 5/9 + 273.15:.1f} K"
+        if from_unit in ['k', 'kelvin'] and to_unit in ['f', 'fahrenheit']:
+            return f"{(value - 273.15) * 9/5 + 32:.1f} °F"
+        return None
+    elif ctype in conversions:
+        factors = conversions[ctype]
+        if from_unit in factors and to_unit in factors:
+            meters = value * factors[from_unit]
+            result = meters / factors[to_unit]
+            return f"{result:.4g} {to_unit}"
+    return None
+
+
+def format_result(item):
+    """Format item for rofi script mode output."""
     if item["source"] == "app":
         return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fApplication"
+    elif item["source"] == "calculator":
+        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1f{item['info']}"
     else:
-        icon = "text-x-generic"
-        if item["name"].endswith((".pdf", ".PDF")):
-            icon = "application-pdf"
-        elif item["name"].endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg")):
-            icon = "image-x-generic"
-        elif item["name"].endswith((".mp3", ".wav", ".flac", ".m4a")):
-            icon = "audio-x-generic"
-        elif item["name"].endswith((".mp4", ".mov", ".avi", ".mkv")):
-            icon = "video-x-generic"
-        elif item["name"].endswith((".zip", ".tar", ".gz", ".bz2", ".xz", ".7z")):
-            icon = "package-x-generic"
-        return f"{item['name']}\0icon\x1f{icon}\0info\x1fFile: {os.path.dirname(item['path'])}"
+        icon = item.get("icon", "text-x-generic")
+        info = item.get("info", f"File: {os.path.dirname(item['path'])}")
+        return f"{item['name']}\0icon\x1f{icon}\0info\x1f{info}"
+
 
 def main():
     if len(sys.argv) < 2:
@@ -97,22 +285,60 @@ def main():
 
     query = sys.argv[1].strip()
     if not query:
+        # Show recent items when query is empty
+        recent = get_recent_items(8)
+        if recent:
+            print("Recent")
+            for path in recent:
+                name = os.path.basename(path)
+                cat = categorize_file(path, name)
+                icon = get_icon_for_file(name, path)
+                print(f"{name}\0icon\x1f{icon}\0info\x1f{cat}: {os.path.dirname(path)}")
         return 0
 
+    # Calculator/conversion
+    calc_results = evaluate_calculator(query)
+    if calc_results:
+        for r in calc_results:
+            print(format_result(r))
+        print("---")  # separator
+
+    # Applications
     apps = load_desktop_apps()
     app_results = search_apps(query, apps)
-    file_results = search_files(query)
 
-    print("Applications")
-    for app in app_results[:8]:
-        print(format_result(app, 0))
+    if app_results:
+        print("Applications")
+        for app in app_results[:8]:
+            print(format_result(app))
 
-    if file_results:
-        print("Files")
-        for f in file_results[:12]:
-            print(format_result(f, 0))
+    # Files (categorized)
+    file_paths = search_files(query)
+    if file_paths:
+        # Group by category
+        categorized = {}
+        for path in file_paths[:50]:
+            name = os.path.basename(path)
+            cat = categorize_file(path, name)
+            if cat not in categorized:
+                categorized[cat] = []
+            categorized[cat].append({
+                "path": path,
+                "name": name,
+                "icon": get_icon_for_file(name, path),
+                "source": "file"
+            })
+
+        # Order categories
+        category_order = ["Folders", "Documents", "Images", "Audio", "Video", "Archives", "Code", "Spreadsheets", "Presentations", "Other"]
+        for cat in category_order:
+            if cat in categorized and categorized[cat]:
+                print(cat)
+                for item in categorized[cat][:8]:
+                    print(format_result(item))
 
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
