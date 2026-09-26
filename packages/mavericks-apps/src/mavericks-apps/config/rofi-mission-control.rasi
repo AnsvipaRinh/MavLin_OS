@@ -1,0 +1,25 @@
+/* Mavericks Mission Control (rofi script mode — window overview) */
+* {
+    font: "San Francisco 11";
+    background: rgba(240, 240, 240, 0.96);
+    foreground: #333333;
+    border: 0;
+}
+window {
+    width: 800px;
+    location: center;
+    anchor: center;
+    border: 1px;
+    border-color: #999999;
+    border-radius: 8px;
+    padding: 12px;
+}
+mainbox { children: [ inputbar, listview ]; spacing: 8px; }
+inputbar { children: [ prompt, entry ]; border: 1px; border-color: #cccccc; border-radius: 4px; padding: 6px; }
+entry { placeholder: "Filter windows..."; }
+listview { lines: 15; columns: 1; fixed-height: true; }
+element { padding: 8px 10px; border-radius: 4px; }
+element selected { background: #2f7cf6; foreground: white; }
+element-icon { size: 24px; }
+element-text { vertical-align: 0.5; }
+category { padding: 6px 10px; background: rgba(0,0,0,0.04); font-weight: 600; color: #666; border-radius: 4px; margin: 4px 0 2px; }

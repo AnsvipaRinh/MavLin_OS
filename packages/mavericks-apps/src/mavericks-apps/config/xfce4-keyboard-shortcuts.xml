@@ -10,7 +10,7 @@
       <!-- Launchpad -->
       <property name="&lt;Super&gt;l" type="string" value="rofi -show -modi 'launchpad:/usr/bin/mv-launchpad' -theme /usr/share/mavericks-apps/rofi-launchpad.rasi"/>
       <!-- Mission Control (window switcher; skippy-xd overview = E-MC experiment) -->
-      <property name="&lt;Super&gt;Tab" type="string" value="rofi -show window -theme /usr/share/mavericks-apps/rofi-mavericks.rasi"/>
+      <property name="&lt;Super&gt;Tab" type="string" value="rofi -show -modi 'mission-control:/usr/bin/mv-mission-control' -theme /usr/share/mavericks-apps/rofi-mission-control.rasi"/>
       <!-- Screenshot: region / window / fullscreen / record -->
       <property name="&lt;Super&gt;&lt;Shift&gt;4" type="string" value="mv-shot -i -c"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;3" type="string" value="mv-shot -m"/>

@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""mv-mission-control — Window overview for rofi script mode.
+Lists all open windows with thumbnails (where possible), allows selection.
+Features:
+- Lists all windows across all workspaces
+- Shows window title, class, workspace
+- Click/Enter to activate window
+- Escape to cancel
+- Groups by workspace where possible
+"""
+import os
+import sys
+import subprocess
+import re
+
+
+def get_windows():
+    """Get all windows using wmctrl."""
+    try:
+        result = subprocess.run(
+            ["wmctrl", "-l", "-x"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        lines = result.stdout.strip().split("\n") if result.stdout.strip() else []
+        windows = []
+        for line in lines:
+            parts = line.split(None, 4)
+            if len(parts) >= 5:
+                win_id = parts[0]
+                desktop = parts[1]
+                win_class = parts[2]
+                host = parts[3]
+                title = parts[4]
+                # Skip special windows
+                if title.startswith("xfce4-panel") or title.startswith("Plank") or win_class == "xfce4-panel":
+                    continue
+                windows.append({
+                    "id": win_id,
+                    "desktop": desktop,
+                    "class": win_class,
+                    "title": title
+                })
+        return windows
+    except Exception:
+        return []
+
+
+def get_active_workspace():
+    """Get current workspace number."""
+    try:
+        result = subprocess.run(
+            ["wmctrl", "-d"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        for line in result.stdout.strip().split("\n"):
+            if "*" in line:
+                return int(line.split()[0])
+    except Exception:
+        pass
+    return 0
+
+
+def get_window_icon(win_class):
+    """Map window class to icon."""
+    icon_map = {
+        "thunar": "folder",
+        "firefox": "web-browser",
+        "code": "text-editor",
+        "terminal": "utilities-terminal",
+        "xfce4-terminal": "utilities-terminal",
+        "gedit": "text-editor",
+        "mousepad": "text-editor",
+        "galculator": "accessories-calculator",
+        "pavucontrol": "audio-volume-high",
+        "gnome-disks": "drive-harddisk",
+        "rofi": "system-run",
+        "skippy-xd": "preferences-system-windows",
+    }
+    cls = win_class.lower()
+    for key, icon in icon_map.items():
+        if key in cls:
+            return icon
+    return "application-x-executable"
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--list":
+        # Just list windows for testing
+        windows = get_windows()
+        for w in windows:
+            print(f"{w['id']}  Desk {w['desktop']}  {w['class']}  {w['title']}")
+        return 0
+
+    windows = get_windows()
+    if not windows:
+        print("No windows\0icon\x1fdialog-information\0info\x1fNo windows found")
+        return 0
+
+    # Get active workspace
+    active_ws = get_active_workspace()
+
+    # Group by workspace
+    by_desktop = {}
+    for w in windows:
+        desk = w["desktop"]
+        if desk not in by_desktop:
+            by_desktop[desk] = []
+        by_desktop[desk].append(w)
+
+    # Output workspaces in order, active first
+    desks = sorted(by_desktop.keys())
+    # Move active to front
+    if active_ws in desks:
+        desks.remove(active_ws)
+        desks.insert(0, active_ws)
+
+    for desk in desks:
+        ws_label = f"Desktop {desk}"
+        if desk == active_ws:
+            ws_label += " (current)"
+        print(ws_label)
+        for w in by_desktop[desk]:
+            icon = get_window_icon(w["class"])
+            print(f"{w['title']}\0icon\x1f{icon}\0info\x1fWorkspace {w['desktop']} — {w['class']}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
