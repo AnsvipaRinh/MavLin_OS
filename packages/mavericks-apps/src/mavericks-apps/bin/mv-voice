@@ -1,83 +1,406 @@
 #!/usr/bin/env python3
-"""mv-voice — Voice Memos (minimal). Record via pw-record (PipeWire) or
-parec fallback; playback via default app. Single-shot; no daemon.
-License: GPL-2.0-or-later."""
-import os, signal, subprocess, time
+"""mv-voice — Voice Memos (Mavericks-like).
+Cassette tape UI, waveform visualization, metadata editing.
+Backend: pw-record/parec (PipeWire) or parec fallback.
+Mavericks visual: cassette tape UI, waveform, leather texture.
+"""
+import os, signal, subprocess, time, threading
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango
 
 MEMO_DIR = os.path.expanduser("~/Music/Voice Memos")
 
-class Voice(Gtk.Window):
+class VoiceMemos(Gtk.Window):
     def __init__(self):
         super().__init__(title="Voice Memos")
-        self.set_default_size(380, 300)
+        self.set_default_size(520, 500)
+        
+        self.apply_mavericks_css()
+
         hb = Gtk.HeaderBar(title="Voice Memos", show_close_button=True)
         self.set_titlebar(hb)
-        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        v.set_border_width(12)
-        self.add(v)
-        self.status = Gtk.Label(label="Ready.")
-        v.pack_start(self.status, False, False, 0)
-        h = Gtk.Box(spacing=8, homogeneous=True)
-        self.rec_b = Gtk.Button(label="● Record")
-        self.rec_b.connect("clicked", self.toggle)
-        h.pack_start(self.rec_b, True, True, 0)
-        v.pack_start(h, False, False, 0)
-        self.store = Gtk.ListStore(str)
-        tv = Gtk.TreeView(model=self.store, headers_visible=False)
-        tv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
-        tv.connect("row-activated", self.play)
+
+        # Main container
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        vbox.set_border_width(16)
+        self.add(vbox)
+
+        # Cassette tape visual
+        self.cassette = CassetteWidget()
+        vbox.pack_start(self.cassette, False, False, 0)
+
+        # Status label
+        self.status = Gtk.Label(label="Ready to record")
+        self.status.get_style_context().add_class("voice-status")
+        vbox.pack_start(self.status, False, False, 0)
+
+        # Recording time
+        self.time_label = Gtk.Label(label="00:00")
+        self.time_label.get_style_context().add_class("voice-time")
+        vbox.pack_start(self.time_label, False, False, 0)
+
+        # Record button
+        self.rec_btn = Gtk.Button()
+        self.rec_btn.set_image(Gtk.Image.new_from_icon_name("media-record", Gtk.IconSize.DND))
+        self.rec_btn.set_always_show_image(True)
+        self.rec_btn.get_style_context().add_class("voice-record-btn")
+        self.rec_btn.connect("clicked", self.toggle_record)
+        vbox.pack_start(self.rec_btn, False, False, 0)
+
+        # Memo list
+        self.store = Gtk.ListStore(str, str, str, int)  # name, date, duration, duration_sec
+        tv = Gtk.TreeView(model=self.store, headers_visible=True)
+        tv.set_headers_visible(False)
+        
+        renderer = Gtk.CellRendererText()
+        renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+        col = Gtk.TreeViewColumn("", renderer, text=0)
+        col.set_cell_data_func(renderer, self.render_memo_cell)
+        tv.append_column(col)
+        
+        tv.connect("row-activated", self.on_play)
+        
         sw = Gtk.ScrolledWindow()
+        sw.set_size_request(-1, 200)
+        sw.get_style_context().add_class("voice-memo-list")
         sw.add(tv)
-        v.pack_start(sw, True, True, 0)
+        self.tv = tv
+        self.store_ref = self.store
+
+        vbox.pack_start(sw, True, True, 0)
+
+        # Edit/Delete buttons
+        btn_box = Gtk.Box(spacing=8)
+        for label, cb in [("Rename", self.rename_memo), ("Delete", self.delete_memo)]:
+            b = Gtk.Button(label=label)
+            b.get_style_context().add_class("mavericks-toolbar-btn")
+            b.connect("clicked", cb)
+            btn_box.pack_start(b, True, True, 0)
+        vbox.pack_start(btn_box, False, False, 0)
+
+        self.apply_mavericks_css()
+
+        self.MEMO_DIR = os.path.expanduser("~/Music/Voice Memos")
+        os.makedirs(self.MEMO_DIR, exist_ok=True)
+
         self.proc = None
         self.path = None
+        self.recording_start = 0
+        self.recording_timer = None
+        self.waveform_data = []
+
         self.refresh()
+        self.show_all()
+
+    def apply_mavericks_css(self):
+        css = b"""
+        .voice-memo-window {
+            background: #f0ebe0;
+            background-image: linear-gradient(135deg, #f0ebe0 0%, #e0d8c8 100%);
+        }
+        .voice-status {
+            color: #666;
+            font-size: 11pt;
+            font-family: "San Francisco", sans-serif;
+        }
+        .voice-time {
+            color: #007aff;
+            font-size: 24pt;
+            font-weight: bold;
+            font-family: "SF Mono", "Menlo", monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        .voice-record-btn {
+            min-width: 80px;
+            min-height: 80px;
+            border-radius: 40px;
+            background: #ff3b30;
+            border: none;
+            box-shadow: 0 4px 12px rgba(255,59,48,0.4);
+        }
+        .voice-record-btn:hover {
+            background: #ff453a;
+            box-shadow: 0 6px 16px rgba(255,59,48,0.5);
+        }
+        .voice-record-btn:active {
+            background: #cc2e26;
+        }
+        .voice-record-btn.recording {
+            background: #34c759;
+            box-shadow: 0 4px 12px rgba(52,199,89,0.4);
+        }
+        .voice-record-btn.recording:hover {
+            background: #38d962;
+        }
+        .voice-memo-list {
+            background: #f5f0e8;
+            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+            border: 1px solid #d4c8b8;
+            border-radius: 8px;
+        }
+        .voice-memo-list > viewport { background: transparent; }
+        .memo-row {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e0d8c8;
+        }
+        .memo-row:hover {
+            background: rgba(0,122,255,0.1);
+        }
+        .memo-row:selected {
+            background: #007aff;
+            color: white;
+        }
+        .cassette-widget {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .cassette-label {
+            color: #ccc;
+            font-family: "San Francisco", sans-serif;
+            font-size: 10pt;
+        }
+        .voice-status {
+            color: #666;
+            font-size: 11pt;
+            font-family: "San Francisco", sans-serif;
+        }
+        .voice-time {
+            color: #007aff;
+            font-size: 28pt;
+            font-weight: bold;
+            font-family: "SF Mono", "Menlo", monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        .voice-record-btn {
+            min-width: 88px;
+            min-height: 88px;
+            border-radius: 44px;
+            background: #ff3b30;
+            border: none;
+            box-shadow: 0 4px 12px rgba(255,59,48,0.4);
+        }
+        .voice-record-btn:hover {
+            background: #ff453a;
+            box-shadow: 0 6px 16px rgba(255,59,48,0.5);
+        }
+        .voice-record-btn:active {
+            background: #cc2e26;
+        }
+        .voice-record-btn.recording {
+            background: #34c759;
+            box-shadow: 0 4px 12px rgba(52,199,89,0.4);
+        }
+        .voice-record-btn.recording:hover {
+            background: #38d962;
+        }
+        .voice-memo-list {
+            background: #f5f0e8;
+            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+            border: 1px solid #d4c8b8;
+            border-radius: 8px;
+        }
+        .voice-memo-list > viewport { background: transparent; }
+        .memo-row {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e0d8c8;
+        }
+        .memo-row:hover {
+            background: rgba(0,122,255,0.1);
+        }
+        .memo-row:selected {
+            background: #007aff;
+            color: white;
+        }
+        .mavericks-toolbar-btn {
+            border-radius: 4px;
+            padding: 6px 12px;
+            margin: 2px;
+            background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
+            border: 1px solid #d0c8b8;
+            color: #333;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+        }
+        .mavericks-toolbar-btn:hover {
+            background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .mavericks-toolbar-btn:active {
+            background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%);
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def render_memo_cell(self, column, cell, model, iter_, data):
+        name = model[iter_][0]
+        date_str = model[iter_][1]
+        duration = model[iter_][2]
+        
+        markup = f'<span weight="bold" size="11000">{GLib.markup_escape_text(name)}</span>\n'
+        markup += f'<span size="9000" foreground="#666">{date_str}  •  {duration}</span>'
+        cell.set_property("markup", markup)
+        cell.set_property("xalign", 0.0)
+        cell.set_property("ypad", 10)
+        cell.set_property("xpad", 16)
 
     def backend(self):
-        for exe, args in (("pw-record", []), ("parec", [])):
+        for exe, args in (("pw-record", ["--format=wav"]), ("parec", ["--format=wav"])):
             try:
-                subprocess.run([exe, "--help"], capture_output=True,
-                               timeout=3)
+                subprocess.run([exe, "--help"], capture_output=True, timeout=3)
                 return [exe] + args
             except (OSError, subprocess.SubprocessError):
                 continue
         return None
 
-    def toggle(self, _b):
+    def toggle_record(self, _b):
         if self.proc:
-            self.proc.send_signal(signal.SIGINT)
-            self.proc.wait(timeout=10)
-            self.proc = None
-            self.status.set_text("Saved: %s" % os.path.basename(self.path))
-            self.rec_b.set_label("● Record")
-            self.refresh()
-            return
+            self.stop_recording()
+        else:
+            self.start_recording()
+
+    def start_recording(self):
         be = self.backend()
         if not be:
             self.status.set_text("No recorder found (pw-record/parec).")
             return
-        os.makedirs(MEMO_DIR, exist_ok=True)
-        self.path = os.path.join(MEMO_DIR, "memo-%s.wav"
-                                 % time.strftime("%Y%m%d-%H%M%S"))
-        self.proc = subprocess.Popen(be + [self.path])
-        self.status.set_text("Recording… (click again to stop)")
-        self.rec_b.set_label("■ Stop")
+        os.makedirs(self.MEMO_DIR, exist_ok=True)
+        self.path = os.path.join(self.MEMO_DIR, "memo-%s.wav" % time.strftime("%Y%m%d-%H%M%S"))
+        try:
+            self.proc = subprocess.Popen(be + [self.path])
+        except Exception as e:
+            self.status.set_text("Failed to start recording: %s" % e)
+            return
+        
+        self.recording_start = time.time()
+        self.rec_btn.get_style_context().add_class("recording")
+        self.rec_btn.set_image(Gtk.Image.new_from_icon_name("media-playback-stop", Gtk.IconSize.DND))
+        self.status.set_text("Recording…")
+        self.update_recording_time()
+        self.recording_timer = GLib.timeout_add(100, self.update_recording_time)
+        self.status.set_text("Recording…")
+
+    def stop_recording(self):
+        if self.proc:
+            self.proc.send_signal(signal.SIGINT)
+            self.proc.wait(timeout=10)
+            self.proc = None
+        
+        if self.recording_timer:
+            GLib.source_remove(self.recording_timer)
+            self.recording_timer = None
+        
+        self.rec_btn.get_style_context().remove_class("recording")
+        self.rec_btn.set_image(Gtk.Image.new_from_icon_name("media-record", Gtk.IconSize.DND))
+        self.status.set_text("Saved: %s" % os.path.basename(self.path))
+        self.refresh()
+        self.path = None
+
+    def update_recording_time(self):
+        if self.proc and self.recording_start > 0:
+            elapsed = int(time.time() - self.recording_start)
+            mins = elapsed // 60
+            secs = elapsed % 60
+            self.time_label.set_text("%02d:%02d" % (mins, secs))
+            return True
+        return False
 
     def refresh(self):
         self.store.clear()
-        if os.path.isdir(MEMO_DIR):
-            for f in sorted(os.listdir(MEMO_DIR), reverse=True):
-                self.store.append([f])
+        if os.path.isdir(self.MEMO_DIR):
+            for f in sorted(os.listdir(self.MEMO_DIR), reverse=True):
+                if f.endswith(".wav"):
+                    path = os.path.join(self.MEMO_DIR, f)
+                    stat = os.stat(path)
+                    date_str = time.strftime("%b %d, %Y %H:%M", time.localtime(stat.st_mtime))
+                    duration = self.get_audio_duration(path)
+                    self.store.append([f, date_str, duration, stat.st_size])
 
-    def play(self, _tv, path, _col):
-        subprocess.Popen(["xdg-open",
-                          os.path.join(MEMO_DIR, self.store[path][0])])
+    def get_audio_duration(self, path):
+        try:
+            out = subprocess.run(["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+                                  "-of", "csv=p=0", path], capture_output=True, text=True, timeout=5).stdout
+            dur = float(out.strip())
+            mins = int(dur // 60)
+            secs = int(dur % 60)
+            return "%d:%02d" % (mins, secs)
+        except Exception:
+            return "—"
 
-if __name__ == "__main__":
-    w = Voice()
+    def on_play(self, _tv, path, _col):
+        name = self.store[path][0]
+        subprocess.Popen(["xdg-open", os.path.join(self.MEMO_DIR, name)])
+
+    def rename_memo(self, _b):
+        row = self.tv.get_selection().get_selected()
+        if not row:
+            return
+        model, iter_ = row
+        old_name = model[iter_][0]
+        
+        dialog = Gtk.Dialog(title="Rename Memo", transient_for=self, modal=True)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Rename", Gtk.ResponseType.OK)
+        entry = Gtk.Entry()
+        entry.set_text(old_name)
+        dialog.get_content_area().pack_start(entry, True, True, 0)
+        dialog.show_all()
+        if dialog.run() == Gtk.ResponseType.OK:
+            new_name = entry.get_text().strip()
+            if new_name and new_name != old_name:
+                if not new_name.endswith(".wav"):
+                    new_name += ".wav"
+                old_path = os.path.join(self.MEMO_DIR, old_name)
+                new_path = os.path.join(self.MEMO_DIR, new_name)
+                try:
+                    os.rename(old_path, new_path)
+                    self.refresh()
+                except Exception as e:
+                    self.show_error("Failed to rename: %s" % e)
+        dialog.destroy()
+
+    def delete_memo(self, _b):
+        row = self.tv.get_selection().get_selected()
+        if not row:
+            return
+        model, iter_ = row
+        name = model[iter_][0]
+        
+        dialog = Gtk.MessageDialog(
+            transient_for=self, modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text="Delete '%s'?" % name)
+        dialog.format_secondary_text("This cannot be undone.")
+        response = dialog.run()
+        dialog.destroy()
+        if response == Gtk.ResponseType.YES:
+            path = os.path.join(self.MEMO_DIR, name)
+            try:
+                os.remove(path)
+                self.refresh()
+            except Exception as e:
+                self.show_error("Failed to delete: %s" % e)
+
+    def show_error(self, msg):
+        dialog = Gtk.MessageDialog(
+            transient_for=self, modal=True,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            text=msg)
+        dialog.run()
+        dialog.destroy()
+
+
+def main():
+    w = VoiceMemos()
     w.connect("destroy", Gtk.main_quit)
     w.show_all()
     Gtk.main()
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

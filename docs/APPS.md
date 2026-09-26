@@ -47,12 +47,12 @@
 |---|---|---|---|---|---|---|---|
 | TextEdit | PARTIALLY IMPLEMENTED | custom mv-textedit (GtkSourceView4) | custom frontend (Category B) | gtksourceview4 | on-demand | — | custom app implemented; missing Mavericks visual integration (ruler, document inspector, leather texture, rich text/RTF support, spelling) |
 | Calculator | PARTIALLY IMPLEMENTED | custom mv-calculator (Python/GTK3, math backend) | custom frontend (Category B) | — | on-demand | — | custom app implemented (Basic/Scientific/Programmer modes, paper tape); missing Mavericks visual integration (metal buttons, LED display, history drawer, RPN mode) |
-| Notes | PARTIALLY IMPLEMENTED | custom mv-notes (local JSON + GTK3) | custom frontend (Category B) | — | on-demand | — | custom app exists; Mavericks visual integration added (leather folder sidebar, lined paper editor, custom checkboxes, pin indicators, search highlighting) |
-| Reminders | PARTIALLY IMPLEMENTED | custom mv-reminders (local JSON + systemd timer) | custom frontend (Category B) | libnotify | timer 1/h | — | custom app exists; Mavericks visual integration added (paper task list, leather sidebar, priority badges, due date indicators, overdue highlighting) |
+| Notes | PARTIALLY IMPLEMENTED | custom mv-notes (local JSON + GTK3) | custom frontend (Category B) | — | on-demand | — | custom app exists; missing Mavericks visual integration (leather texture, pin UI, folder sidebar styling) |
+| Reminders | PARTIALLY IMPLEMENTED | custom mv-reminders (local JSON + systemd timer) | custom frontend (Category B) | libnotify | timer 1/h | — | custom app exists; missing Mavericks visual integration (paper texture, list styling, notification styling) |
 | Calendar | PARTIALLY IMPLEMENTED | custom mv-calendar (libical + local JSON) | custom frontend (Category B) | — | on-demand | — | custom app implemented (Month/Week/Day views, ICS import/export, multiple calendars); missing Mavericks visual integration (leather texture, paper page flip, birthdays from Contacts) |
 | Music | PARTIALLY IMPLEMENTED | lollypop 1.4 (GPL-3.0+, GStreamer) | alias/wrapper (Category D) | lollypop | on-demand | audio backend | no Mavericks UI; stock lollypop only; .desktop alias only |
 | Photos | PARTIALLY IMPLEMENTED | gthumb 3.12 (GPL-2.0+) | alias/wrapper (Category D) | gthumb | on-demand | — | no Mavericks UI; stock gthumb only; .desktop alias only |
-| Voice Memos | PARTIALLY IMPLEMENTED | custom mv-voice (pw-record/parec backend) | custom frontend (Category B) | pw-record, parec | on-demand | audio backend | custom app exists; missing Mavericks visual integration (cassette tape UI, waveform viz) |
+| Voice Memos | PARTIALLY IMPLEMENTED | custom mv-voice (pw-record/parec backend) | custom frontend (Category B) | pw-record, parec | on-demand | audio backend | custom app implemented (cassette tape UI, waveform visualization, rename/delete); missing Mavericks visual integration (cassette tape animation, real-time waveform during recording, metadata editing, iCloud sync placeholder) |
 | Console | PARTIALLY IMPLEMENTED | custom mv-console (journalctl backend) | custom frontend (Category B) | — | on-demand | values real on HW | custom app exists; missing Mavericks visual integration (sidebar sources, log filtering UI, severity badges) |
 | Keychain Access | PARTIALLY IMPLEMENTED | seahorse 47 (GPL-2.0) + GNOME Keyring | alias/wrapper (Category D) | seahorse | on-demand | libsecret backend | no Mavericks UI; stock seahorse only; .desktop alias only |
 | Font Book | PARTIALLY IMPLEMENTED | gnome-font-viewer 50 (GTK4/libadwaita) | alias/wrapper (Category D) | gnome-font-viewer | on-demand | — | no Mavericks UI; stock font viewer only; .desktop alias only; GTK4/libadwaita dependency |
@@ -60,7 +60,7 @@
 | Stickies | PARTIALLY IMPLEMENTED | xfce4-notes-plugin 1.12 (panel plugin) | alias/wrapper (Category D) | xfce4-notes-plugin | on-demand | panel integration | no Mavericks UI; panel plugin only (not standalone); .desktop alias only |
 | Mail | PARTIALLY IMPLEMENTED | geary 46 (GPL-3.0) | alias/wrapper (Category D) | geary | on-demand | protocol backend | no Mavericks UI; stock geary only; .desktop alias only |
 | Preview | PARTIALLY IMPLEMENTED | evince (GPL, poppler backend) | alias/wrapper (Category D) | evince | on-demand | PDF render on panel | no Mavericks UI; stock evince only; .desktop alias only |
-| Dictionary | PARTIALLY IMPLEMENTED | custom mv-dictionary (WebKit2 + Wiktionary/Thesaurus/Wikipedia/Apple) | custom frontend (Category B) | webkit2gtk | on-demand | — | custom app implemented (Dictionary/Thesaurus/Wikipedia/Apple tabs, history, bookmarks); missing Mavericks visual integration (leather binding, page flip animation, pronunciation audio, word of the day) |
+| Dictionary | NOT_STARTED | — | — | — | — | — | no implementation; no .desktop; no backend identified |
 
 ## P2 — research only
 

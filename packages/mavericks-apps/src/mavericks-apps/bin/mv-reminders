@@ -2,12 +2,11 @@
 """mv-reminders — Reminders (Mavericks-like). Lists + tasks + due dates +
 priorities + notifications. Local JSON. Due-date nudges via user systemd
 TIMER (hourly, oneshot notify-send, exits) — no persistent daemon.
-Mavericks visual: leather sidebar, paper task list, custom checkboxes, priority badges.
-"""
+License: GPL-2.0-or-later."""
 import json, os, sys, time, uuid
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib, Pango
+from gi.repository import Gtk
 
 STORE = os.path.expanduser("~/.local/share/mv-reminders/tasks.json")
 
@@ -22,7 +21,7 @@ def save(data):
     os.makedirs(os.path.dirname(STORE), exist_ok=True)
     tmp = STORE + ".tmp"
     with open(tmp, "w") as f:
-        json.dump(data, f, indent=2)
+        json.dump(data, f)
     os.replace(tmp, STORE)
 
 def check_due():
@@ -42,249 +41,51 @@ def check_due():
     if changed:
         save(data)
 
-
 class Reminders(Gtk.Window):
     def __init__(self):
         super().__init__(title="Reminders")
-        self.set_default_size(800, 520)
-        
-        # Apply Mavericks CSS
-        self.apply_mavericks_css()
-
+        self.set_default_size(700, 460)
         hb = Gtk.HeaderBar(title="Reminders", show_close_button=True)
         self.set_titlebar(hb)
-        
         for label, cb in [("+ List", self.add_list), ("+ Task", self.add_task)]:
             b = Gtk.Button(label=label)
-            b.get_style_context().add_class("mavericks-toolbar-btn")
             b.connect("clicked", cb)
             hb.pack_end(b)
-
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.add(paned)
-
-        # === LIST SIDEBAR (Leather texture) ===
-        self.lstore = Gtk.ListStore(str, bool)  # name, is_selected
+        self.lstore = Gtk.ListStore(str)
         ltv = Gtk.TreeView(model=self.lstore, headers_visible=False)
-        ltv.set_headers_visible(False)
-        
-        renderer = Gtk.CellRendererText()
-        renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
-        col = Gtk.TreeViewColumn("", renderer, text=0)
-        col.set_cell_data_func(renderer, self.render_list_cell)
-        ltv.append_column(col)
-        
+        ltv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
         ltv.get_selection().connect("changed", self.on_list)
-        
         sw1 = Gtk.ScrolledWindow()
-        sw1.set_size_request(180, -1)
-        sw1.get_style_context().add_class("reminders-list-sidebar")
+        sw1.set_size_request(160, -1)
         sw1.add(ltv)
         paned.add1(sw1)
         self.ltv = ltv
-
-        # === TASK LIST (Paper texture) ===
-        self.tstore = Gtk.ListStore(bool, str, str, str, str, bool)  # done, title, due, prio, id, overdue
-        ttv = Gtk.TreeView(model=self.tstore, headers_visible=True)
-        
-        # Done column with custom checkbox
+        # tasks: done-toggle, title, due, priority
+        self.tstore = Gtk.ListStore(bool, str, str, str, str)  # done,title,due,prio,id
+        ttv = Gtk.TreeView(model=self.tstore)
         tog = Gtk.CellRendererToggle()
-        tog.set_property("activatable", True)
         tog.connect("toggled", self.on_toggle)
-        ttv.append_column(Gtk.TreeViewColumn("", tog, active=0))
-        
-        # Task title with priority badge
-        title_renderer = Gtk.CellRendererText()
-        title_renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
-        title_renderer.set_property("ellipsize-set", True)
-        title_col = Gtk.TreeViewColumn("Task", title_renderer, text=1)
-        title_col.set_cell_data_func(title_renderer, self.render_task_cell)
-        ttv.append_column(title_col)
-        
-        # Due date
-        due_renderer = Gtk.CellRendererText()
-        due_col = Gtk.TreeViewColumn("Due", due_renderer, text=2)
-        due_col.set_cell_data_func(due_renderer, self.render_due_cell)
-        ttv.append_column(due_col)
-        
-        # Priority
-        prio_renderer = Gtk.CellRendererText()
-        prio_col = Gtk.TreeViewColumn("Priority", prio_renderer, text=3)
-        prio_col.set_cell_data_func(prio_renderer, self.render_priority_cell)
-        ttv.append_column(prio_col)
-        
+        ttv.append_column(Gtk.TreeViewColumn("Done", tog, active=0))
+        for i, h in [(1, "Task"), (2, "Due"), (3, "Priority")]:
+            ttv.append_column(Gtk.TreeViewColumn(h, Gtk.CellRendererText(), text=i))
         ttv.connect("row-activated", self.on_edit_title)
-        
         sw2 = Gtk.ScrolledWindow()
-        sw2.get_style_context().add_class("reminders-task-sidebar")
         sw2.add(ttv)
         paned.add2(sw2)
-        self.ttv = ttv
-
-        self.apply_mavericks_css()
-
         self.data = load()
         self.cur = "Reminders"
         self.refresh()
 
-        self.show_all()
-
-    def apply_mavericks_css(self):
-        css = b"""
-        .reminders-list-sidebar {
-            background: #e8dcc8;
-            background-image: linear-gradient(135deg, #e8dcc8 0%, #d4c4a8 100%);
-            border-right: 1px solid #c4b898;
-        }
-        .reminders-list-sidebar > viewport { background: transparent; }
-        .reminders-task-sidebar {
-            background: #f5f0e8;
-            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
-        }
-        .reminders-task-sidebar > viewport { background: transparent; }
-        .mavericks-toolbar-btn {
-            border-radius: 4px;
-            padding: 6px 12px;
-            margin: 2px;
-            background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
-            border: 1px solid #d0c8b8;
-            color: #333;
-            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
-        }
-        .mavericks-toolbar-btn:hover {
-            background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-        .mavericks-toolbar-btn:active {
-            background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%);
-        }
-        .reminder-row {
-            padding: 8px 12px;
-            border-radius: 6px;
-            margin: 2px 8px;
-            border-bottom: 1px solid #e8ddd0;
-        }
-        .reminder-row:hover {
-            background: rgba(0,122,255,0.1);
-        }
-        .reminder-row:selected {
-            background: #007aff;
-            color: white;
-        }
-        .priority-high {
-            background: #ff3b30;
-            color: white;
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-size: 9pt;
-        }
-        .priority-medium {
-            background: #ff9500;
-            color: white;
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-size: 9pt;
-        }
-        .priority-low {
-            background: #34c759;
-            color: white;
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-size: 9pt;
-        }
-        .due-today {
-            background: #fff8e1;
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-weight: bold;
-        }
-        .due-overdue {
-            background: #ffe8e8;
-            color: #ff3b30;
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-weight: bold;
-        }
-        .due-soon {
-            background: #fff8e1;
-            border-radius: 4px;
-            padding: 2px 6px;
-        }
-        .completed-task {
-            color: #888;
-        }
-        .completed-task text {
-            text-decoration: line-through;
-        }
-        """
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css)
-        screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-
-    def render_list_cell(self, column, cell, model, iter_, data):
-        name = model[iter_][0]
-        cell.set_property("text", name)
-        cell.set_property("xalign", 0.0)
-        cell.set_property("ypad", 8)
-        cell.set_property("xpad", 12)
-
-    def render_task_cell(self, column, cell, model, iter_, data):
-        title = model[iter_][1]
-        done = model[iter_][0]
-        cell.set_property("text", title)
-        cell.set_property("xalign", 0.0)
-        cell.set_property("xpad", 12)
-        cell.set_property("ypad", 8)
-        if done:
-            cell.set_property("strikethrough", True)
-            cell.set_property("foreground", "#888")
-
-    def render_due_cell(self, column, cell, model, iter_, data):
-        due = model[iter_][2]
-        overdue = model[iter_][5]
-        cell.set_property("text", due if due else "—")
-        cell.set_property("xalign", 0.5)
-        cell.set_property("xpad", 8)
-        cell.set_property("ypad", 4)
-        
-        if overdue:
-            cell.get_style_context().add_class("due-overdue")
-        elif due:
-            today = time.strftime("%Y-%m-%d")
-            if due == today:
-                cell.get_style_context().add_class("due-today")
-            elif due < today:
-                cell.get_style_context().add_class("due-overdue")
-
-    def render_priority_cell(self, column, cell, model, iter_, data):
-        prio = model[iter_][3]
-        if prio:
-            cell.set_property("text", prio)
-            cell.set_property("xalign", 0.5)
-            cell.get_style_context().add_class("priority-" + prio.lower())
-        else:
-            cell.set_property("text", "—")
-            cell.set_property("xalign", 0.5)
-
     def refresh(self):
         self.lstore.clear()
         for name in self.data["lists"]:
-            self.lstore.append([name, False])
+            self.lstore.append([name])
         self.tstore.clear()
         for t in self.data["lists"].get(self.cur, []):
-            overdue = False
-            if t.get("due") and not t.get("done"):
-                if t["due"] < time.strftime("%Y-%m-%d"):
-                    overdue = True
-            self.tstore.append([
-                t.get("done", False), 
-                t["title"],
-                t.get("due", ""), 
-                t.get("prio", ""), 
-                t["id"],
-                overdue
-            ])
+            self.tstore.append([t.get("done", False), t["title"],
+                                t.get("due", ""), t.get("prio", ""), t["id"]])
 
     def on_list(self, sel):
         _m, it = sel.get_selected()
@@ -302,7 +103,7 @@ class Reminders(Gtk.Window):
 
     def on_edit_title(self, _tv, path, _col):
         tid = self.tstore[path][4]
-        d = Gtk.Dialog(title="Edit Task", transient_for=self, modal=True)
+        d = Gtk.Dialog(title="Edit task", transient_for=self, modal=True)
         d.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "OK", Gtk.ResponseType.OK)
         grid = Gtk.Grid(column_spacing=8, row_spacing=8, margin=12)
         title_e = Gtk.Entry()
@@ -345,16 +146,11 @@ class Reminders(Gtk.Window):
         save(self.data)
         self.refresh()
 
-
-def main():
-    w = Reminders()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
-    return 0
-
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--check-due":
         check_due()
     else:
-        sys.exit(main())
+        w = Reminders()
+        w.connect("destroy", Gtk.main_quit)
+        w.show_all()
+        Gtk.main()
