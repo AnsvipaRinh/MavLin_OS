@@ -1,52 +1,539 @@
 #!/usr/bin/env python3
-"""mv-power-ui — Sleep / Restart / Shut Down dialog (Mavericks wording).
-Backend: systemd/logind only. Single-shot.
+"""mv-power-ui — Mavericks-style Sleep / Restart / Shut Down / Log Out dialog.
+
+Backend: systemd/logind D-Bus (org.freedesktop.login1) with automatic
+fallback to systemctl when logind is unavailable. Logout via
+xfce4-session-logout. Read-only battery status via UPower D-Bus.
+Single-shot, on-demand, no daemon. Power baseline untouched.
+
+Usage:
+  mv-power-ui              chooser: Sleep / Restart / Shut Down / Log Out
+  mv-power-ui sleep        preset dialog, 60 s countdown, then sleep
+  mv-power-ui restart      preset dialog, 60 s countdown, reopen-windows checkbox
+  mv-power-ui shutdown     preset dialog, 60 s countdown, then shut down
+  mv-power-ui logout       preset dialog, 60 s countdown, then log out
+  mv-power-ui --status     capability summary for diagnostics/tests (no dialog)
+
+Dialogs can be cancelled at any time (Cancel button or Escape); the
+countdown aborts without executing anything.
+
 License: GPL-2.0-or-later."""
-import subprocess, sys
+import argparse
+import shutil
+import subprocess
+import sys
+
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+gi.require_version("Gdk", "3.0")
+gi.require_version("Gio", "2.0")
+gi.require_version("GLib", "2.0")
+from gi.repository import Gtk, Gdk, Gio, GLib
+
+LOGIND_BUS = "org.freedesktop.login1"
+LOGIND_PATH = "/org/freedesktop/login1"
+LOGIND_MGR_IFACE = "org.freedesktop.login1.Manager"
+UPOWER_BUS = "org.freedesktop.UPower"
+UPOWER_PATH = "/org/freedesktop/UPower"
+UPOWER_IFACE = "org.freedesktop.UPower"
+UPOWER_DEVICE_IFACE = "org.freedesktop.UPower.Device"
+DBUS_PROPS_IFACE = "org.freedesktop.DBus.Properties"
+
+COUNTDOWN_SECONDS = 60
 
 ACTIONS = {
-    "sleep": ("Sleep", ["systemctl", "suspend"]),
-    "restart": ("Restart", ["systemctl", "reboot"]),
-    "shutdown": ("Shut Down", ["systemctl", "poweroff"]),
+    "sleep": {
+        "label": "Sleep",
+        "verb": "go to sleep",
+        "message": "If you put your computer to sleep now, you will be "
+                   "unable to use it until you wake it up.",
+        "can_method": "CanSuspend",
+        "method": "Suspend",
+    },
+    "restart": {
+        "label": "Restart",
+        "verb": "restart",
+        "message": "If you restart your computer now, you will be unable "
+                   "to use it until it starts up again.",
+        "can_method": "CanReboot",
+        "method": "Reboot",
+    },
+    "shutdown": {
+        "label": "Shut Down",
+        "verb": "shut down",
+        "message": "If you shut down your computer now, you will be unable "
+                   "to use it until you turn it back on.",
+        "can_method": "CanPowerOff",
+        "method": "PowerOff",
+    },
+    "logout": {
+        "label": "Log Out",
+        "verb": "log out",
+        "message": "Are you sure you want to quit all applications and "
+                   "log out now?",
+        "can_method": None,
+        "method": None,
+    },
 }
 
-class PowerUI(Gtk.Window):
-    def __init__(self, preset=None):
-        super().__init__(title="")
-        self.set_default_size(420, 140)
-        self.set_position(Gtk.WindowPosition.CENTER)
-        hb = Gtk.HeaderBar(title="Are you sure?", show_close_button=True)
-        self.set_titlebar(hb)
-        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        v.set_border_width(14)
-        self.add(v)
-        msg = {"sleep": "The system will go to sleep.",
-               "restart": "The system will restart.",
-               "shutdown": "The system will shut down."}.get(
-                   preset, "Choose a power action.")
-        v.pack_start(Gtk.Label(label=msg), False, False, 0)
-        h = Gtk.Box(spacing=8, homogeneous=True)
-        for key, (label, cmd) in ACTIONS.items():
-            b = Gtk.Button(label=label)
-            b.connect("clicked", self.do, cmd)
-            h.pack_start(b, True, True, 0)
-            if key == preset:
-                b.grab_focus()
-        v.pack_start(h, False, False, 0)
-        c = Gtk.Button(label="Cancel")
-        c.connect("clicked", lambda *_: Gtk.main_quit())
-        v.pack_start(c, False, False, 0)
+SYSTEMCTL_FALLBACK = {
+    "sleep": ["systemctl", "suspend"],
+    "restart": ["systemctl", "reboot"],
+    "shutdown": ["systemctl", "poweroff"],
+}
 
-    def do(self, _b, cmd):
-        subprocess.Popen(cmd)
-        Gtk.main_quit()
+UPOWER_STATES = {
+    1: "Charging",
+    2: "Discharging",
+    3: "Empty",
+    4: "Fully Charged",
+    5: "Pending Charge",
+    6: "Pending Discharge",
+}
+
+CSS = b"""
+.window {
+    background: linear-gradient(to bottom, #f4f4f4 0%, #e4e4e4 100%);
+    border: 1px solid #8f8f8f;
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+}
+.mv-icon { margin-top: 18px; }
+.mv-message {
+    color: #1a1a1a;
+    font-weight: bold;
+    font-size: 13pt;
+    margin-top: 10px;
+    margin-bottom: 4px;
+}
+.mv-countdown {
+    color: #555555;
+    font-size: 11pt;
+    margin-bottom: 6px;
+}
+.mv-button {
+    border-radius: 6px;
+    border: 1px solid #9a9a9a;
+    background: linear-gradient(to bottom, #fdfdfd 0%, #e2e2e2 100%);
+    color: #1a1a1a;
+    padding: 6px 18px;
+}
+.mv-button:hover {
+    background: linear-gradient(to bottom, #ffffff 0%, #e8e8e8 100%);
+}
+.mv-button:disabled {
+    color: #9a9a9a;
+}
+.mv-default {
+    border: 1px solid #1c68b8;
+    background: linear-gradient(to bottom, #7db9f7 0%, #2f7cd6 100%);
+    color: #ffffff;
+    font-weight: bold;
+}
+.mv-default:hover {
+    background: linear-gradient(to bottom, #8fc6f9 0%, #3b88dd 100%);
+}
+.mv-cancel {
+    border-radius: 6px;
+    border: 1px solid #9a9a9a;
+    background: linear-gradient(to bottom, #fdfdfd 0%, #e2e2e2 100%);
+    padding: 6px 18px;
+}
+.mv-battery {
+    color: #666666;
+    font-size: 10pt;
+    margin-top: 12px;
+}
+.mv-reopen {
+    color: #333333;
+    font-size: 11pt;
+    margin-top: 8px;
+}
+"""
+
+
+def _system_bus_call(bus_name, path, iface, method, parameters=None,
+                     reply_type=None, timeout=2.0):
+    """One-shot D-Bus call on the system bus. Returns unpacked result or None."""
+    try:
+        conn = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        result = conn.call_sync(
+            bus_name, path, iface, method, parameters,
+            reply_type, Gio.DBusCallFlags.NONE, int(timeout * 1000), None)
+        return result.unpack() if result is not None else None
+    except Exception:
+        return None
+
+
+def query_capabilities(timeout=2.0):
+    """Query logind Can* methods.
+
+    Returns dict {action: 'yes'|'no'|'challenge'} for sleep/restart/shutdown,
+    or None when logind is unavailable (caller falls back to systemctl).
+    """
+    caps = {}
+    for action in ("sleep", "restart", "shutdown"):
+        res = _system_bus_call(LOGIND_BUS, LOGIND_PATH, LOGIND_MGR_IFACE,
+                               ACTIONS[action]["can_method"], None,
+                               GLib.VariantType("(s)"), timeout)
+        if res is None:
+            return None
+        caps[action] = res[0] if res else "no"
+    return caps
+
+
+def resolve_action(action, caps):
+    """Build an execution plan for action.
+
+    Returns (kind, payload):
+      ('dbus',    method)              logind D-Bus call
+      ('systemctl', [cmd, ...])        fallback when logind is absent
+      ('logout',  ['xfce4-session-logout', '--logout'])
+      ('unavailable', reason)          policy denies the action
+    """
+    if action == "logout":
+        return ("logout", ["xfce4-session-logout", "--logout"])
+    if caps is None:
+        return ("systemctl", list(SYSTEMCTL_FALLBACK[action]))
+    if caps.get(action) in ("yes", "challenge"):
+        return ("dbus", ACTIONS[action]["method"])
+    return ("unavailable",
+            "%s is not permitted by the system policy" % ACTIONS[action]["label"])
+
+
+def execute_plan(plan, on_error=None):
+    """Execute a plan from resolve_action. Never raises; reports via on_error."""
+    kind, payload = plan
+    try:
+        if kind == "dbus":
+            res = _system_bus_call(LOGIND_BUS, LOGIND_PATH, LOGIND_MGR_IFACE,
+                                   payload, GLib.Variant("(b)", (True,)))
+            if res is None:
+                raise RuntimeError("logind did not accept the %s request" % payload)
+        elif kind in ("systemctl", "logout"):
+            subprocess.Popen(payload)
+        else:
+            raise RuntimeError(str(payload))
+        return True
+    except Exception as exc:
+        if on_error is not None:
+            on_error(str(exc))
+        return False
+
+
+def query_battery(timeout=2.0):
+    """Read-only UPower battery status. Returns dict or None when unavailable."""
+    try:
+        conn = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        res = conn.call_sync(UPOWER_BUS, UPOWER_PATH, UPOWER_IFACE,
+                             "EnumerateDevices", None, GLib.VariantType("(ao)"),
+                             Gio.DBusCallFlags.NONE, int(timeout * 1000), None)
+        paths = res.unpack()[0] if res else []
+        battery_path = None
+        for p in paths:
+            if "battery" in p.lower():
+                battery_path = p
+                break
+        if not battery_path:
+            return None
+        res = conn.call_sync(UPOWER_BUS, battery_path, DBUS_PROPS_IFACE,
+                             "GetAll", GLib.Variant("(s)", (UPOWER_DEVICE_IFACE,)),
+                             GLib.VariantType("(a{sv})"),
+                             Gio.DBusCallFlags.NONE, int(timeout * 1000), None)
+        props = res.unpack()[0] if res else {}
+        return {
+            "percentage": props.get("Percentage"),
+            "state": props.get("State"),
+            "path": battery_path,
+        }
+    except Exception:
+        return None
+
+
+def format_battery_line(info):
+    if not info:
+        return "Battery status unavailable"
+    pct = info.get("percentage")
+    state = UPOWER_STATES.get(info.get("state"), "Unknown")
+    if pct is None:
+        return "Battery: %s" % state
+    return "Battery: %.0f%% (%s)" % (pct, state)
+
+
+class Countdown:
+    """Pure countdown logic (no Gtk) so it is headless-testable."""
+
+    def __init__(self, seconds, on_finish, on_tick=None):
+        self.total = seconds
+        self.left = seconds
+        self.on_finish = on_finish
+        self.on_tick = on_tick
+        self.cancelled = False
+
+    def tick(self):
+        """Advance one second. Returns True to keep going, False when done."""
+        if self.cancelled:
+            return False
+        self.left -= 1
+        if self.on_tick is not None:
+            self.on_tick(self.left)
+        if self.left <= 0:
+            self.cancelled = True
+            self.on_finish()
+            return False
+        return True
+
+    def cancel(self):
+        self.cancelled = True
+
+
+def countdown_text(action, seconds):
+    verb = ACTIONS[action]["verb"]
+    if seconds == 1:
+        return "The computer will %s in 1 second." % verb
+    return "The computer will %s in %d seconds." % (verb, seconds)
+
+
+def action_state(action, caps):
+    """'available' or 'unavailable' for button rendering."""
+    if action == "logout":
+        return "available"
+    if caps is None:
+        return "available"
+    return "available" if caps.get(action) in ("yes", "challenge") else "unavailable"
+
+
+def status_report():
+    caps = query_capabilities()
+    lines = []
+    if caps is None:
+        lines.append("logind: unavailable (systemctl fallback)")
+    else:
+        for action in ("sleep", "restart", "shutdown"):
+            lines.append("logind %s: %s"
+                         % (ACTIONS[action]["can_method"], caps[action]))
+    lines.append("logout backend: %s"
+                 % ("xfce4-session-logout" if shutil.which("xfce4-session-logout")
+                    else "xfce4-session-logout NOT FOUND"))
+    lines.append(format_battery_line(query_battery()))
+    return "\n".join(lines)
+
+
+class PowerUI(Gtk.Window):
+    """Mavericks-style power dialog (no title bar, centered alert)."""
+
+    def __init__(self, preset=None):
+        super().__init__()
+        self.preset = preset if preset in ACTIONS else None
+        self.caps = query_capabilities()
+        self.battery = query_battery()
+        self.countdown = None
+        self.timeout_id = None
+        self.action = self.preset
+
+        self.set_decorated(False)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.set_resizable(False)
+        self.set_keep_above(True)
+        self.set_skip_taskbar_hint(True)
+        self.set_type_hint(Gtk.WindowTypeHint.DIALOG)
+
+        self._provider = Gtk.CssProvider()
+        self._provider.load_from_data(CSS)
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, self._provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        self._outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self._outer.get_style_context().add_class("window")
+        self._outer.set_border_width(0)
+        self.add(self._outer)
+
+        self._body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self._body.set_border_width(18)
+        self._outer.pack_start(self._body, True, True, 0)
+
+        self._build()
+        self._update_battery_footer()
+
+        self.connect("destroy", self._on_destroy)
+        self.connect("key-press-event", self._on_key)
+
+    def _clear_body(self):
+        for child in self._body.get_children():
+            self._body.remove(child)
+            child.destroy()
+
+    def _add_icon(self):
+        icon = Gtk.Image.new_from_icon_name("system-shutdown", Gtk.IconSize.DIALOG)
+        icon.get_style_context().add_class("mv-icon")
+        icon.set_alignment(0.5, 0.5)
+        self._body.pack_start(icon, False, False, 0)
+
+    def _add_message(self, text):
+        lbl = Gtk.Label(label=text)
+        lbl.get_style_context().add_class("mv-message")
+        lbl.set_line_wrap(True)
+        lbl.set_max_width_chars(46)
+        lbl.set_alignment(0.5, 0.5)
+        self._body.pack_start(lbl, False, False, 0)
+
+    def _add_countdown_label(self):
+        self._cd_label = Gtk.Label()
+        self._cd_label.get_style_context().add_class("mv-countdown")
+        self._cd_label.set_alignment(0.5, 0.5)
+        self._body.pack_start(self._cd_label, False, False, 0)
+
+    def _make_button(self, label, css_class, sensitive=True):
+        b = Gtk.Button(label=label)
+        b.get_style_context().add_class(css_class)
+        b.set_sensitive(sensitive)
+        return b
+
+    def _build(self):
+        self._clear_body()
+        self._add_icon()
+        self._add_message(ACTIONS[self.action]["message"]
+                          if self.action else "Choose a power action.")
+        if self.action:
+            self._add_countdown_label()
+            self._start_countdown()
+            row = Gtk.Box(spacing=8, homogeneous=True)
+            btn = self._make_button(ACTIONS[self.action]["label"], "mv-default")
+            btn.connect("clicked", lambda *_: self._execute(self.action))
+            row.pack_start(btn, True, True, 0)
+            cancel = self._make_button("Cancel", "mv-cancel")
+            cancel.connect("clicked", lambda *_: self.close())
+            row.pack_start(cancel, True, True, 0)
+            self._body.pack_start(row, False, False, 0)
+            btn.grab_focus()
+            if self.action == "restart":
+                self._add_reopen_checkbox()
+        else:
+            row = Gtk.Box(spacing=8)
+            for key in ("sleep", "restart", "shutdown", "logout"):
+                state = action_state(key, self.caps)
+                b = self._make_button(ACTIONS[key]["label"], "mv-button",
+                                      sensitive=(state == "available"))
+                b.connect("clicked", self._on_chooser, key)
+                row.pack_start(b, False, False, 0)
+            self._body.pack_start(row, False, False, 0)
+            cancel = self._make_button("Cancel", "mv-cancel")
+            cancel.connect("clicked", lambda *_: self.close())
+            self._body.pack_start(cancel, False, False, 0)
+            cancel.grab_focus()
+
+    def _add_reopen_checkbox(self):
+        active = False
+        try:
+            out = subprocess.run(
+                ["xfconf-query", "-c", "xfce4-session", "-p", "/general/SaveOnExit"],
+                capture_output=True, text=True, timeout=3).stdout.strip()
+            active = out.lower() in ("true", "1")
+        except Exception:
+            pass
+        self._reopen = Gtk.CheckButton(label="Reopen windows when logging back in")
+        self._reopen.set_active(active)
+        self._reopen.get_style_context().add_class("mv-reopen")
+        self._reopen.set_alignment(0.5, 0.5)
+        self._body.pack_start(self._reopen, False, False, 0)
+
+    def _set_reopen_pref(self):
+        if not hasattr(self, "_reopen") or not self._reopen.get_active():
+            return
+        try:
+            subprocess.run(
+                ["xfconf-query", "-c", "xfce4-session", "-p", "/general/SaveOnExit",
+                 "-s", "true", "-n", "-t", "bool"],
+                capture_output=True, timeout=3)
+        except Exception:
+            pass
+
+    def _start_countdown(self):
+        self.countdown = Countdown(
+            COUNTDOWN_SECONDS,
+            on_finish=lambda: self._execute(self.action),
+            on_tick=self._on_tick)
+        self._cd_label.set_text(countdown_text(self.action, COUNTDOWN_SECONDS))
+        self.timeout_id = GLib.timeout_add_seconds(1, self._tick)
+
+    def _tick(self):
+        if self.countdown is None:
+            return False
+        return self.countdown.tick()
+
+    def _on_tick(self, left):
+        self._cd_label.set_text(countdown_text(self.action, left))
+
+    def _stop_countdown(self):
+        if self.countdown is not None:
+            self.countdown.cancel()
+            self.countdown = None
+        if self.timeout_id is not None:
+            GLib.source_remove(self.timeout_id)
+            self.timeout_id = None
+
+    def _on_chooser(self, _btn, key):
+        self.action = key
+        self._stop_countdown()
+        self._build()
+
+    def _execute(self, action):
+        self._stop_countdown()
+        self._set_reopen_pref()
+        plan = resolve_action(action, self.caps)
+        if execute_plan(plan, on_error=self._show_error):
+            self.destroy()
+
+    def _show_error(self, message):
+        dlg = Gtk.MessageDialog(
+            transient_for=self, modal=True, message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK, text="Power action failed")
+        dlg.format_secondary_text(message)
+        dlg.run()
+        dlg.destroy()
+
+    def _update_battery_footer(self):
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hb.set_border_width(10)
+        img = Gtk.Image.new_from_icon_name("battery", Gtk.IconSize.MENU)
+        hb.pack_start(img, False, False, 0)
+        lbl = Gtk.Label(label=format_battery_line(self.battery))
+        lbl.get_style_context().add_class("mv-battery")
+        lbl.set_alignment(0.0, 0.5)
+        hb.pack_start(lbl, False, False, 0)
+        self._outer.pack_end(hb, False, False, 0)
+
+    def _on_key(self, _w, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.close()
+            return True
+        return False
+
+    def _on_destroy(self, *_a):
+        self._stop_countdown()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Mavericks-style Sleep / Restart / Shut Down / Log Out dialog")
+    parser.add_argument("action", nargs="?", default=None,
+                        choices=list(ACTIONS),
+                        help="preset action (default: chooser)")
+    parser.add_argument("--status", action="store_true",
+                        help="print capability summary and exit (no dialog)")
+    args = parser.parse_args()
+
+    if args.status:
+        print(status_report())
+        return 0
+
+    from gi.repository import Gtk
+    win = PowerUI(preset=args.action)
+    win.show_all()
+    Gtk.main()
+    return 0
+
 
 if __name__ == "__main__":
-    preset = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] in ACTIONS else None
-    w = PowerUI(preset)
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
+    sys.exit(main())

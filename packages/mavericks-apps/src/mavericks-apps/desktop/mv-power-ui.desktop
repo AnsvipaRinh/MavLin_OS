@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Shut Down…
+GenericName=Power
+Comment=Sleep / Restart / Shut Down / Log Out dialog (Mavericks)
+Exec=mv-power-ui
+Icon=system-shutdown
+Terminal=false
+Categories=System;
+StartupNotify=true
+NoDisplay=true
+X-Mavericks-Native=true
