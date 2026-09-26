@@ -685,14 +685,14 @@ there and LOOK like a spark sub-agent.
 **Applied (plane matrix):**
 | plane | mechanism | value |
 |---|---|---|
-| orchestrator session | free /models choice | anything except blacklisted |
+| orchestrator session | free /models choice | ALL models (including Muse Spark — user requirement) |
 | worker (build Task) | `agent.build` pin (project) | `opencode/longcat-2.5-preview-free` |
 | background (title/…) | project `small_model` | `openrouter/cohere/north-mini-code:free` |
-| picker visibility | `provider.opencode.blacklist` (4 spark IDs) | project + container-global + Windows-global mirrors |
-Blacklist is picker-visibility only (a stale spark session keeps running until
-switched once); execution safety comes from the pin + small_model. No secrets
-in any of these files (auth stays in auth.json).
+| picker visibility | NO provider.blacklist | spark MUST be selectable for orchestrator |
+Blacklist was a mistake (hid spark from picker); execution safety comes from
+the pin + small_model only. No secrets in any of these files (auth stays in
+auth.json).
 
 **Still required once:** FULL server restart (quit app/process, not just new
-chat — agent files have no hot-reload) + switch the stale spark session away
-via /models (spark will no longer be offered).
+chat — agent files have no hot-reload). After restart, picker shows full list
+including spark for orchestrator selection; workers stay on LongCat pin.
