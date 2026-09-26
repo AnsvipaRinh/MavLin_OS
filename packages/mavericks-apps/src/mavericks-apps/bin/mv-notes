@@ -1,159 +1,938 @@
 #!/usr/bin/env python3
 """mv-notes — Notes (Mavericks-like). Folders + notes + checklists + search +
-pinning. Local JSON storage (~/.local/share/mv-notes/notes.json). No daemon,
-no Electron, no network.
+pinning + Recently Deleted trash. Local JSON storage
+(~/.local/share/mv-notes/notes.json). No daemon, no Electron, no network.
+Mavericks visual: leather folder sidebar, lined paper editor, custom
+checkboxes, pin indicators, search highlighting.
 License: GPL-2.0-or-later."""
-import json, os, time, uuid
+import json, os, sys, time, uuid
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk, Pango, GLib
+
+try:
+    import cairo
+except ImportError:
+    cairo = None
 
 STORE = os.path.expanduser("~/.local/share/mv-notes/notes.json")
+TRASH_DAYS = 30
+REFRESH_DEBOUNCE_MS = 700
+CHECKBOX_ZONE = 18
 
-def load():
+
+def now():
+    return int(time.time())
+
+
+def make_note(text="", pinned=False):
+    return {"id": uuid.uuid4().hex[:8], "text": text,
+            "mtime": now(), "pinned": pinned}
+
+
+def note_title(note):
+    return (note.get("text", "").strip().split("\n")[0] or "(empty)")[:60]
+
+
+def has_checklist(text):
+    return "[ ]" in text or "[x]" in text
+
+
+def toggle_checklist_line(line):
+    stripped = line.lstrip()
+    indent = line[:len(line) - len(stripped)]
+    for box in ("[ ]", "[x]", "[X]"):
+        if stripped.startswith(box):
+            rest = stripped[3:]
+            new_box = "[x]" if box == "[ ]" else "[ ]"
+            if not rest.startswith(" "):
+                rest = " " + rest
+            return indent + new_box + rest
+    return line
+
+
+def sanitize_filename(title):
+    name = "".join(c if c.isalnum() or c in " ._-" else "_" for c in title)
+    return (name.strip() or "note")[:60]
+
+
+def highlight_ranges(text, query):
+    ranges = []
+    if not query:
+        return ranges
+    low, q = text.lower(), query.lower()
+    start = 0
+    while True:
+        i = low.find(q, start)
+        if i < 0:
+            break
+        ranges.append((i, i + len(q)))
+        start = i + len(q)
+    return ranges
+
+
+def paginate(text, lines_per_page):
+    lines = text.split("\n")
+    pages, cur = [], []
+    for ln in lines:
+        cur.append(ln)
+        if len(cur) >= lines_per_page:
+            pages.append(cur)
+            cur = []
+    if cur or not pages:
+        pages.append(cur)
+    return pages
+
+
+def import_file(path):
+    with open(path, "r", errors="replace") as f:
+        return f.read()
+
+
+def purge_trash(data, now_ts=None):
+    now_ts = now_ts if now_ts is not None else now()
+    cutoff = now_ts - TRASH_DAYS * 86400
+    data["trash"] = [n for n in data.get("trash", [])
+                     if n.get("deleted_at", now_ts) >= cutoff]
+
+
+def trash_note(data, folder, note_id):
+    notes = data["folders"].get(folder, [])
+    for n in notes:
+        if n["id"] == note_id:
+            n["deleted_at"] = now()
+            n["folder"] = folder
+            data["folders"][folder] = [x for x in notes if x["id"] != note_id]
+            data.setdefault("trash", []).insert(0, n)
+            return True
+    return False
+
+
+def restore_note(data, note_id):
+    for n in data.get("trash", []):
+        if n["id"] == note_id:
+            n.pop("deleted_at", None)
+            folder = n.pop("folder", "Notes")
+            data["folders"].setdefault(folder, []).insert(0, n)
+            data["trash"] = [x for x in data["trash"] if x["id"] != note_id]
+            return folder
+    return None
+
+
+def delete_forever(data, note_id):
+    before = len(data.get("trash", []))
+    data["trash"] = [x for x in data.get("trash", []) if x["id"] != note_id]
+    return len(data["trash"]) < before
+
+
+def empty_trash(data):
+    data["trash"] = []
+
+
+def delete_folder(data, name):
+    if name not in data["folders"]:
+        return False
+    for n in data["folders"][name]:
+        n["deleted_at"] = now()
+        n["folder"] = name
+        data["trash"].insert(0, n)
+    del data["folders"][name]
+    if not data["folders"]:
+        data["folders"]["Notes"] = []
+    return True
+
+
+def _backup_path(path):
+    return path + ".bak"
+
+
+def _quarantine_path(path):
+    return "%s.corrupt-%d" % (path, now())
+
+
+def load_store(path=None, on_warn=None):
+    path = path or STORE
+    def warn(msg):
+        if on_warn:
+            on_warn(msg)
+    if not os.path.exists(path):
+        return _normalize({"folders": {"Notes": []}})
     try:
-        with open(STORE) as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {"folders": {"Notes": []}}
+        with open(path) as f:
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        bak = _backup_path(path)
+        if os.path.exists(bak):
+            try:
+                with open(bak) as f:
+                    data = json.load(f)
+                warn("Notes store was unreadable (%s); restored from backup." % e)
+                return _normalize(data)
+            except (OSError, ValueError):
+                pass
+        if os.path.exists(path):
+            try:
+                os.replace(path, _quarantine_path(path))
+            except OSError:
+                pass
+        warn("Notes store was unreadable (%s); the corrupt file was "
+             "quarantined and a fresh store was started." % e)
+        data = {"folders": {"Notes": []}}
+    return _normalize(data)
 
-def save(data):
-    os.makedirs(os.path.dirname(STORE), exist_ok=True)
-    tmp = STORE + ".tmp"
+
+def _normalize(data):
+    if not isinstance(data, dict):
+        return {"folders": {"Notes": []}, "trash": [], "geometry": {}}
+    if not isinstance(data.get("folders"), dict):
+        data["folders"] = {"Notes": []}
+    data.setdefault("trash", [])
+    data.setdefault("geometry", {})
+    purge_trash(data)
+    return data
+
+
+def save_store(path=None, data=None):
+    path = path or STORE
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if os.path.exists(path):
+        try:
+            os.replace(path, _backup_path(path))
+        except OSError:
+            pass
+    tmp = path + ".tmp"
     with open(tmp, "w") as f:
-        json.dump(data, f)
-    os.replace(tmp, STORE)
+        json.dump(data, f, indent=2)
+    os.replace(tmp, path)
+
 
 class Notes(Gtk.Window):
     def __init__(self):
         super().__init__(title="Notes")
-        self.set_default_size(860, 540)
-        hb = Gtk.HeaderBar(title="Notes", show_close_button=True)
-        self.set_titlebar(hb)
-        self.search = Gtk.SearchEntry(placeholder_text="Search notes")
-        self.search.connect("search-changed", self.refresh_list)
-        hb.pack_start(self.search)
-        for label, cb in [("+ Folder", self.add_folder),
-                          ("+ Note", self.add_note),
-                          ("Delete", self.del_note)]:
-            b = Gtk.Button(label=label)
-            b.connect("clicked", cb)
-            hb.pack_end(b)
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
-        # folders
-        self.fstore = Gtk.ListStore(str)
-        ftv = Gtk.TreeView(model=self.fstore, headers_visible=False)
-        ftv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
-        ftv.get_selection().connect("changed", self.on_folder)
-        sw1 = Gtk.ScrolledWindow()
-        sw1.set_size_request(150, -1)
-        sw1.add(ftv)
-        paned.add1(sw1)
-        self.ftv = ftv
-        # notes
-        self.nstore = Gtk.ListStore(str, str)  # title, id
-        ntv = Gtk.TreeView(model=self.nstore, headers_visible=False)
-        ntv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
-        ntv.get_selection().connect("changed", self.on_note)
-        sw2 = Gtk.ScrolledWindow()
-        sw2.set_size_request(200, -1)
-        sw2.add(ntv)
-        paned.add2(sw2)
-        self.ntv = ntv
-        # editor
-        self.buf = Gtk.TextBuffer()
-        self.buf.connect("changed", self.on_edit)
-        tv = Gtk.TextView(buffer=self.buf)
-        tv.set_wrap_mode(Gtk.WrapMode.WORD)
-        sw3 = Gtk.ScrolledWindow()
-        sw3.add(tv)
-        # 3-pane via nested paned: folders | (notes | editor)
-        paned2 = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        paned.add2(paned2)
-        paned2.add1(sw2)
-        paned2.add2(sw3)
-        paned.set_position(150)
-        paned2.set_position(200)
-        self.data = load()
+        self.apply_mavericks_css()
+        self.store_warnings = []
+        self.data = load_store(STORE, self.store_warnings.append)
+        g = self.data.get("geometry", {})
+        if g.get("w") and g.get("h"):
+            self.set_default_size(g["w"], g["h"])
+            self.move(g.get("x", 100), g.get("y", 100))
+        self.maximized = False
+        self.mode = "folder"
         self.cur_folder = "Notes"
         self.cur_id = None
         self.dirty = False
+        self._refresh_token = 0
+
+        hb = Gtk.HeaderBar(title="Notes", show_close_button=True)
+        self.set_titlebar(hb)
+        self.search = Gtk.SearchEntry(placeholder_text="Search notes")
+        self.search.connect("changed", lambda *_: self.refresh_list())
+        self.search.connect("search-changed", lambda *_: self.refresh_list())
+        self.search.connect("key-press-event", self.on_search_key)
+        hb.pack_start(self.search)
+        self.btn_folder = Gtk.Button(label="+ Folder")
+        self.btn_folder.get_style_context().add_class("mavericks-toolbar-btn")
+        self.btn_folder.connect("clicked", self.add_folder)
+        self.btn_note = Gtk.Button(label="+ Note")
+        self.btn_note.get_style_context().add_class("mavericks-toolbar-btn")
+        self.btn_note.connect("clicked", self.add_note)
+        self.btn_pin = Gtk.Button(label="Pin")
+        self.btn_pin.get_style_context().add_class("mavericks-toolbar-btn")
+        self.btn_pin.connect("clicked", self.toggle_pin)
+        self.btn_del = Gtk.Button(label="Delete")
+        self.btn_del.get_style_context().add_class("mavericks-toolbar-btn")
+        self.btn_del.connect("clicked", self.del_note)
+        self.btn_restore = Gtk.Button(label="Restore")
+        self.btn_restore.get_style_context().add_class("mavericks-toolbar-btn")
+        self.btn_restore.connect("clicked", self.restore_selected)
+        self.btn_empty = Gtk.Button(label="Empty Trash")
+        self.btn_empty.get_style_context().add_class("mavericks-toolbar-btn")
+        self.btn_empty.connect("clicked", self.empty_trash_action)
+        for b in (self.btn_folder, self.btn_note, self.btn_pin, self.btn_del,
+                  self.btn_restore, self.btn_empty):
+            hb.pack_end(b)
+        grp = Gtk.AccelGroup()
+        self.add_accel_group(grp)
+        self.btn_note.add_accelerator("clicked", grp, Gdk.KEY_n,
+                                      Gdk.ModifierType.CONTROL_MASK,
+                                      Gtk.AccelFlags.VISIBLE)
+        self.btn_folder.add_accelerator("clicked", grp, Gdk.KEY_N,
+                                        Gdk.ModifierType.CONTROL_MASK |
+                                        Gdk.ModifierType.SHIFT_MASK,
+                                        Gtk.AccelFlags.VISIBLE)
+        self.btn_pin.add_accelerator("clicked", grp, Gdk.KEY_P,
+                                     Gdk.ModifierType.CONTROL_MASK |
+                                     Gdk.ModifierType.SHIFT_MASK,
+                                     Gtk.AccelFlags.VISIBLE)
+        self.btn_del.add_accelerator("clicked", grp, Gdk.KEY_Delete, 0,
+                                     Gtk.AccelFlags.VISIBLE)
+
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(paned)
+
+        self.fstore = Gtk.ListStore(str, str)  # markup, kind
+        ftv = Gtk.TreeView(model=self.fstore, headers_visible=False)
+        renderer = Gtk.CellRendererText()
+        renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+        col = Gtk.TreeViewColumn("", renderer, markup=0)
+        ftv.append_column(col)
+        ftv.get_selection().connect("changed", self.on_folder)
+        ftv.connect("button-press-event", self.on_folder_button_press)
+        sw1 = Gtk.ScrolledWindow()
+        sw1.set_size_request(180, -1)
+        sw1.get_style_context().add_class("notes-folder-sidebar")
+        sw1.add(ftv)
+        paned.add1(sw1)
+        self.ftv = ftv
+
+        self.nstore = Gtk.ListStore(str, str, bool, bool)
+        ntv = Gtk.TreeView(model=self.nstore, headers_visible=False)
+        note_renderer = Gtk.CellRendererText()
+        note_renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+        note_col = Gtk.TreeViewColumn("", note_renderer, markup=0)
+        ntv.append_column(note_col)
+        ntv.get_selection().connect("changed", self.on_note)
+        ntv.connect("button-press-event", self.on_note_button_press)
+        sw2 = Gtk.ScrolledWindow()
+        sw2.set_size_request(240, -1)
+        sw2.get_style_context().add_class("notes-list-sidebar")
+        sw2.add(ntv)
+        self.ntv = ntv
+        self.list_hint = Gtk.Label(label="")
+        self.list_hint.get_style_context().add_class("notes-hint")
+        self.list_hint.set_halign(Gtk.Align.CENTER)
+        self.list_hint.set_valign(Gtk.Align.CENTER)
+        self.list_hint.set_no_show_all(True)
+        ov2 = Gtk.Overlay()
+        ov2.add(sw2)
+        ov2.add_overlay(self.list_hint)
+
+        self.buf = Gtk.TextBuffer()
+        self.buf.connect("changed", self.on_edit)
+        self.tv = Gtk.TextView(buffer=self.buf)
+        self.tv.set_wrap_mode(Gtk.WrapMode.WORD)
+        self.tv.set_left_margin(40)
+        self.tv.set_right_margin(40)
+        self.tv.set_top_margin(20)
+        self.tv.set_bottom_margin(20)
+        self.tv.get_style_context().add_class("notes-editor")
+        self.tv.connect("button-press-event", self.on_editor_click)
+        self.setup_text_tags()
+        sw3 = Gtk.ScrolledWindow()
+        sw3.add(self.tv)
+        self.editor_hint = Gtk.Label(
+            label="Select a note or create a new one")
+        self.editor_hint.get_style_context().add_class("notes-hint")
+        self.editor_hint.set_halign(Gtk.Align.CENTER)
+        self.editor_hint.set_valign(Gtk.Align.CENTER)
+        self.editor_hint.set_no_show_all(True)
+        ov3 = Gtk.Overlay()
+        ov3.add(sw3)
+        ov3.add_overlay(self.editor_hint)
+
+        paned2 = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        paned2.add1(ov2)
+        paned2.add2(ov3)
+        paned2.set_position(240)
+        paned.add2(paned2)
+        paned.set_position(180)
+
+        self.connect("key-press-event", self.on_key_press)
+        self.connect("window-state-event", self.on_window_state)
+        self.connect("destroy", self.on_destroy)
+
+        if not self.data["folders"]:
+            self.data["folders"]["Notes"] = []
         self.refresh_folders()
+        self.update_header()
+        self.show_all()
+        self.import_argv()
+        for msg in self.store_warnings:
+            dlg = Gtk.MessageDialog(
+                self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
+                Gtk.ButtonsType.OK, "Notes store warning")
+            dlg.format_secondary_text(msg)
+            dlg.run()
+            dlg.destroy()
+
+    def apply_mavericks_css(self):
+        css = b"""
+        .notes-folder-sidebar {
+            background: #e8dcc8;
+            background-image: linear-gradient(135deg, #e8dcc8 0%, #d4c4a8 100%);
+            border-right: 1px solid #c4b898;
+        }
+        .notes-folder-sidebar > viewport { background: transparent; }
+        .notes-list-sidebar {
+            background: #f5f0e8;
+            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+            border-right: 1px solid #d4c8b8;
+        }
+        .notes-list-sidebar > viewport { background: transparent; }
+        .notes-editor {
+            background: #fffef8;
+            background-image:
+                linear-gradient(180deg, transparent 95%, #d4c8b8 95%),
+                linear-gradient(90deg, #f5e0c0 3px, transparent 3px);
+            background-size: 100% 32px, 32px 100%;
+            font-family: "San Francisco", "SF Pro Text", sans-serif;
+            font-size: 13pt;
+        }
+        .mavericks-toolbar-btn {
+            border-radius: 4px;
+            padding: 6px 12px;
+            margin: 2px;
+            background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
+            border: 1px solid #d0c8b8;
+            color: #333;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+        }
+        .mavericks-toolbar-btn:hover {
+            background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .mavericks-toolbar-btn:active {
+            background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%);
+        }
+        .notes-hint {
+            color: #999;
+            font-style: italic;
+            font-size: 14pt;
+        }
+        .search-highlight {
+            background: #fff8b0;
+            border-radius: 2px;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def setup_text_tags(self):
+        self.buf.create_tag("checklist", left_margin=40, indent=20)
+        self.buf.create_tag("checked", strikethrough=True, foreground="#888")
+        self.buf.create_tag("search_highlight", background="#fff8b0")
+
+    def import_argv(self):
+        imported = 0
+        for path in sys.argv[1:]:
+            try:
+                text = import_file(path)
+            except OSError as e:
+                self.store_warnings.append(
+                    "Could not import %s: %s" % (path, e))
+                continue
+            n = make_note(text)
+            self.data["folders"].setdefault(self.cur_folder, []).insert(0, n)
+            imported += 1
+        if imported:
+            save_store(STORE, self.data)
+            self.refresh_folders()
+
+    def current_note(self):
+        items = (self.data["trash"] if self.mode == "trash"
+                 else self.data["folders"].get(self.cur_folder, []))
+        for n in items:
+            if n["id"] == self.cur_id:
+                return n
+        return None
 
     def refresh_folders(self):
+        sel = self.ftv.get_selection()
+        sel.handler_block_by_func(self.on_folder)
         self.fstore.clear()
         for name in self.data["folders"]:
-            self.fstore.append([name])
+            count = len(self.data["folders"][name])
+            markup = '%s <span foreground="#999" font_size="small">(%d)</span>' % (
+                GLib.markup_escape_text(name), count)
+            self.fstore.append([markup, "folder"])
+        tcount = len(self.data.get("trash", []))
+        self.fstore.append(['<span foreground="#888">\U0001f5d1 Recently '
+                            'Deleted (%d)</span>' % tcount, "trash"])
+        sel.handler_unblock_by_func(self.on_folder)
+        if self.mode == "trash":
+            target = len(self.data["folders"])
+        else:
+            names = list(self.data["folders"])
+            target = names.index(self.cur_folder) if self.cur_folder in names else 0
+        sel.select_path(Gtk.TreePath.new_from_indices([target]))
         self.refresh_list()
 
-    def refresh_list(self):
-        q = self.search.get_text().lower()
+    def refresh_list(self, *_):
+        q = self.search.get_text().strip().lower()
         self.nstore.clear()
-        for n in self.data["folders"].get(self.cur_folder, []):
-            title = (n["text"].strip().split("\n")[0] or "(empty)")[:40]
-            pin = "📌 " if n.get("pinned") else ""
-            if q in (title + n["text"]).lower():
-                self.nstore.append([pin + title, n["id"]])
+        if self.mode == "trash":
+            items = self.data.get("trash", [])
+        else:
+            items = self.data["folders"].get(self.cur_folder, [])
+        for n in items:
+            title = note_title(n)
+            date = time.strftime("%b %d, %Y",
+                                 time.localtime(n.get("mtime", 0)))
+            if self.mode == "trash":
+                prefix = ""
+            else:
+                prefix = ("\U0001f4cc " if n.get("pinned") else "")
+                prefix += "\u2611 " if has_checklist(n.get("text", "")) else ""
+            if q and q not in (n.get("text", "") + title).lower():
+                continue
+            markup = '%s<span foreground="#777" font_size="small">%s</span>' % (
+                GLib.markup_escape_text(prefix + title), date)
+            self.nstore.append([markup, n["id"],
+                                bool(n.get("pinned")),
+                                has_checklist(n.get("text", ""))])
+        if self.cur_id:
+            for i in range(self.nstore.iter_n_children(None)):
+                if self.nstore[i][1] == self.cur_id:
+                    self.ntv.get_selection().select_path(
+                        Gtk.TreePath.new_from_indices([i]))
+                    break
+        self.update_list_hint(q)
+        self.editor_hint.set_visible(self.cur_id is None)
+        self.apply_search_highlight()
+
+    def update_list_hint(self, q):
+        if self.nstore.iter_n_children(None) > 0:
+            self.list_hint.hide()
+            return
+        self.list_hint.show()
+        if self.mode == "trash":
+            self.list_hint.set_label("Recently Deleted is empty")
+        elif q:
+            self.list_hint.set_label('No results for "%s"' % q)
+        else:
+            self.list_hint.set_label("No notes in this folder")
+
+    def update_header(self):
+        in_trash = self.mode == "trash"
+        self.btn_restore.set_visible(in_trash)
+        self.btn_empty.set_visible(in_trash)
+        self.btn_pin.set_visible(not in_trash)
+        self.btn_note.set_sensitive(not in_trash)
+        self.btn_del.set_sensitive(self.cur_id is not None)
+        self.btn_del.set_label("Delete Forever" if in_trash else "Delete")
+        note = self.current_note()
+        self.btn_pin.set_sensitive(note is not None and not in_trash)
+        if note:
+            self.btn_pin.set_label("Unpin" if note.get("pinned") else "Pin")
+        else:
+            self.btn_pin.set_label("Pin")
 
     def on_folder(self, sel):
         _m, it = sel.get_selected()
-        if it:
-            self.cur_folder = self.fstore[it][0]
-            self.cur_id = None
-            self.refresh_list()
+        if not it:
+            return
+        kind = self.fstore[it][1]
+        if kind == "trash":
+            self.mode = "trash"
+            self.cur_folder = None
+        else:
+            self.mode = "folder"
+            self.cur_folder = self._folder_name(it)
+        self.cur_id = None
+        self.buf.set_text("")
+        self.tv.set_editable(self.mode == "folder")
+        self.update_header()
+        self.refresh_list()
+
+    def _folder_name(self, it):
+        raw = self.fstore[it][0]
+        return raw.split(" <span")[0] if " <span" in raw else raw
 
     def on_note(self, sel):
         _m, it = sel.get_selected()
         if not it:
             return
         nid = self.nstore[it][1]
-        for n in self.data["folders"][self.cur_folder]:
+        note = None
+        items = (self.data["trash"] if self.mode == "trash"
+                 else self.data["folders"].get(self.cur_folder, []))
+        for n in items:
             if n["id"] == nid:
-                self.cur_id = nid
-                self.dirty = True
-                self.buf.set_text(n["text"])
-                self.dirty = False
+                note = n
                 break
+        if not note:
+            return
+        self.cur_id = nid
+        self.dirty = True
+        self.buf.set_text(note.get("text", ""))
+        self.dirty = False
+        self.tv.set_editable(self.mode == "folder")
+        self.apply_checklist_rendering()
+        self.apply_search_highlight()
+        self.update_header()
 
     def on_edit(self, _b):
-        if self.dirty or not self.cur_id:
+        if self.dirty or not self.cur_id or self.mode != "folder":
+            return
+        note = self.current_note()
+        if not note:
             return
         s, e = self.buf.get_bounds()
-        for n in self.data["folders"][self.cur_folder]:
-            if n["id"] == self.cur_id:
-                n["text"] = self.buf.get_text(s, e, True)
-                n["mtime"] = int(time.time())
-                break
-        save(self.data)
+        note["text"] = self.buf.get_text(s, e, True)
+        note["mtime"] = now()
+        save_store(STORE, self.data)
+        self.schedule_refresh()
+
+    def schedule_refresh(self):
+        if self._refresh_token:
+            GLib.source_remove(self._refresh_token)
+        self._refresh_token = GLib.timeout_add(
+            REFRESH_DEBOUNCE_MS, self._do_refresh)
+
+    def _do_refresh(self):
+        self._refresh_token = 0
         self.refresh_list()
+        return False
+
+    def apply_checklist_rendering(self):
+        start, end = self.buf.get_bounds()
+        self.buf.remove_all_tags(start, end)
+        text = self.buf.get_text(start, end, True)
+        for i, line in enumerate(text.split("\n")):
+            line_start = self.buf.get_iter_at_line(i)
+            if i + 1 < self.buf.get_line_count():
+                line_end = self.buf.get_iter_at_line(i + 1)
+            else:
+                line_end = end
+            s = line.strip()
+            if s.startswith("[ ]") or s.startswith("[x]"):
+                self.buf.apply_tag_by_name("checklist", line_start, line_end)
+                if s.startswith("[x]"):
+                    self.buf.apply_tag_by_name("checked", line_start, line_end)
+
+    def apply_search_highlight(self):
+        if not self.cur_id:
+            return
+        note = self.current_note()
+        if not note:
+            return
+        start, end = self.buf.get_bounds()
+        self.buf.remove_tag_by_name("search_highlight", start, end)
+        q = self.search.get_text().strip()
+        if not q:
+            return
+        text = self.buf.get_text(start, end, True)
+        for (s, e) in highlight_ranges(text, q):
+            self.buf.apply_tag_by_name(
+                "search_highlight",
+                self.buf.get_iter_at_offset(s),
+                self.buf.get_iter_at_offset(e))
 
     def add_folder(self, _b):
         name = "Folder %d" % (len(self.data["folders"]) + 1)
         self.data["folders"][name] = []
-        save(self.data)
+        save_store(STORE, self.data)
         self.refresh_folders()
 
     def add_note(self, _b):
-        n = {"id": uuid.uuid4().hex[:8], "text": "",
-             "mtime": int(time.time())}
+        if self.mode != "folder":
+            return
+        n = make_note()
         self.data["folders"].setdefault(self.cur_folder, []).insert(0, n)
-        save(self.data)
-        self.refresh_list()
+        save_store(STORE, self.data)
+        self.refresh_folders()
+        self.ntv.get_selection().select_path(Gtk.TreePath.new_first())
+        self.tv.grab_focus()
 
     def del_note(self, _b):
+        if self.mode == "trash":
+            self.delete_forever_action()
+        elif self.cur_id:
+            if trash_note(self.data, self.cur_folder, self.cur_id):
+                self.cur_id = None
+                self.buf.set_text("")
+                save_store(STORE, self.data)
+                self.refresh_folders()
+
+    def toggle_pin(self, _b):
+        note = self.current_note()
+        if not note or self.mode != "folder":
+            return
+        note["pinned"] = not note.get("pinned", False)
+        note["mtime"] = now()
+        save_store(STORE, self.data)
+        self.refresh_list()
+        self.update_header()
+
+    def restore_selected(self, _b):
         if not self.cur_id:
             return
-        notes = self.data["folders"][self.cur_folder]
-        self.data["folders"][self.cur_folder] = [
-            n for n in notes if n["id"] != self.cur_id]
+        folder = restore_note(self.data, self.cur_id)
+        if folder is None:
+            return
         self.cur_id = None
         self.buf.set_text("")
-        save(self.data)
-        self.refresh_list()
+        save_store(STORE, self.data)
+        self.mode = "folder"
+        self.cur_folder = folder
+        self.refresh_folders()
 
-if __name__ == "__main__":
+    def delete_forever_action(self, _b=None):
+        if not self.cur_id:
+            return
+        dlg = Gtk.MessageDialog(
+            self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
+            Gtk.ButtonsType.YES_NO, "Delete note forever?")
+        dlg.format_secondary_text(
+            "This permanently deletes the note. This cannot be undone.")
+        if dlg.run() != Gtk.ResponseType.YES:
+            dlg.destroy()
+            return
+        dlg.destroy()
+        delete_forever(self.data, self.cur_id)
+        self.cur_id = None
+        self.buf.set_text("")
+        save_store(STORE, self.data)
+        self.refresh_folders()
+
+    def empty_trash_action(self, _b=None):
+        if not self.data.get("trash"):
+            return
+        dlg = Gtk.MessageDialog(
+            self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
+            Gtk.ButtonsType.YES_NO, "Empty Recently Deleted?")
+        dlg.format_secondary_text(
+            "All notes in Recently Deleted will be permanently deleted.")
+        if dlg.run() != Gtk.ResponseType.YES:
+            dlg.destroy()
+            return
+        dlg.destroy()
+        empty_trash(self.data)
+        self.cur_id = None
+        self.buf.set_text("")
+        save_store(STORE, self.data)
+        self.refresh_folders()
+
+    def delete_folder_action(self, folder):
+        if folder not in self.data["folders"]:
+            return
+        dlg = Gtk.MessageDialog(
+            self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
+            Gtk.ButtonsType.YES_NO, 'Delete folder "%s"?' % folder)
+        dlg.format_secondary_text(
+            "Its notes will be moved to Recently Deleted.")
+        if dlg.run() != Gtk.ResponseType.YES:
+            dlg.destroy()
+            return
+        dlg.destroy()
+        delete_folder(self.data, folder)
+        if self.cur_folder == folder or self.mode != "folder":
+            self.mode = "folder"
+            self.cur_folder = next(iter(self.data["folders"]))
+        self.cur_id = None
+        self.buf.set_text("")
+        save_store(STORE, self.data)
+        self.refresh_folders()
+
+    def export_note(self, _b):
+        note = self.current_note()
+        if not note:
+            return
+        dlg = Gtk.FileChooserDialog(
+            "Export Note", self, Gtk.FileChooserAction.SAVE,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+             Gtk.STOCK_SAVE, Gtk.ResponseType.ACCEPT))
+        dlg.set_current_name(sanitize_filename(note_title(note)) + ".txt")
+        dlg.set_do_overwrite_confirmation(True)
+        if dlg.run() == Gtk.ResponseType.ACCEPT:
+            try:
+                with open(dlg.get_filename(), "w") as f:
+                    f.write(note.get("text", ""))
+            except OSError as e:
+                err = Gtk.MessageDialog(
+                    self, Gtk.DialogFlags.MODAL, Gtk.MessageType.ERROR,
+                    Gtk.ButtonsType.OK, "Export failed")
+                err.format_secondary_text(str(e))
+                err.run()
+                err.destroy()
+        dlg.destroy()
+
+    def print_note(self, _b):
+        note = self.current_note()
+        if not note:
+            return
+        if cairo is None:
+            err = Gtk.MessageDialog(
+                self, Gtk.DialogFlags.MODAL, Gtk.MessageType.ERROR,
+                Gtk.ButtonsType.OK, "Printing unavailable")
+            err.format_secondary_text("The python-cairo package is required.")
+            err.run()
+            err.destroy()
+            return
+        op = Gtk.PrintOperation()
+        pages = paginate(note.get("text", ""), 42)
+        op.set_n_pages(len(pages))
+
+        def draw(_op, ctx, pageno):
+            cr = ctx.get_cairo_context()
+            cr.set_source_rgb(0.1, 0.1, 0.1)
+            cr.select_font_face("Monospace", cairo.FONT_SLANT_NORMAL,
+                                cairo.FONT_WEIGHT_BOLD)
+            cr.set_font_size(11)
+            cr.move_to(48, 56)
+            cr.show_text(note_title(note))
+            cr.select_font_face("Monospace", cairo.FONT_SLANT_NORMAL,
+                                cairo.FONT_WEIGHT_NORMAL)
+            cr.set_font_size(10)
+            y = 84
+            for ln in pages[pageno]:
+                cr.move_to(48, y)
+                cr.show_text(ln[:110])
+                y += 15
+
+        op.connect("draw-page", draw)
+        op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self)
+
+    def on_editor_click(self, tv, event):
+        if event.button != 1 or self.mode != "folder":
+            return False
+        x, y = tv.window_to_buffer_coords(
+            Gtk.TextWindowType.WIDGET, int(event.x), int(event.y))
+        if x > tv.get_left_margin() + CHECKBOX_ZONE:
+            return False
+        ok, it = tv.get_iter_at_location(int(x), int(y))
+        if not ok:
+            return False
+        buf = tv.get_buffer()
+        line_idx = it.get_line()
+        ls = buf.get_iter_at_line(line_idx)
+        if line_idx + 1 < buf.get_line_count():
+            le = buf.get_iter_at_line(line_idx + 1)
+        else:
+            le = buf.get_end_iter()
+        line = buf.get_text(ls, le, True).rstrip("\n")
+        new = toggle_checklist_line(line)
+        if new == line:
+            return False
+        buf.delete(ls, le)
+        buf.insert(ls, new + "\n")
+        self.apply_checklist_rendering()
+        self.on_edit(buf)
+        return True
+
+    def popup_note_menu(self, event):
+        note = self.current_note()
+        menu = Gtk.Menu()
+        if self.mode == "trash":
+            item = Gtk.MenuItem(label="Restore")
+            item.connect("activate", lambda *_: self.restore_selected(None))
+            menu.append(item)
+            item = Gtk.MenuItem(label="Delete Forever")
+            item.connect("activate", lambda *_: self.delete_forever_action())
+            menu.append(item)
+        else:
+            if note and note.get("pinned"):
+                item = Gtk.MenuItem(label="Unpin")
+            else:
+                item = Gtk.MenuItem(label="Pin")
+            item.connect("activate", lambda *_: self.toggle_pin(None))
+            menu.append(item)
+            item = Gtk.MenuItem(label="Export…")
+            item.connect("activate", lambda *_: self.export_note(None))
+            menu.append(item)
+            item = Gtk.MenuItem(label="Delete")
+            item.connect("activate", lambda *_: self.del_note(None))
+            menu.append(item)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+
+    def on_note_button_press(self, tv, event):
+        if event.button != 3:
+            return False
+        path = tv.get_path_at_pos(int(event.x), int(event.y))
+        if path:
+            tv.get_selection().select_path(path)
+        self.popup_note_menu(event)
+        return True
+
+    def on_folder_button_press(self, tv, event):
+        if event.button != 3:
+            return False
+        path = tv.get_path_at_pos(int(event.x), int(event.y))
+        if path:
+            tv.get_selection().select_path(path)
+        _m, it = tv.get_selection().get_selected()
+        if not it:
+            return True
+        kind = self.fstore[it][1]
+        menu = Gtk.Menu()
+        if kind == "trash":
+            item = Gtk.MenuItem(label="Empty Trash")
+            item.connect("activate", lambda *_: self.empty_trash_action())
+            menu.append(item)
+        else:
+            name = self._folder_name(it)
+            item = Gtk.MenuItem(label="New Folder")
+            item.connect("activate", lambda *_: self.add_folder(None))
+            menu.append(item)
+            item = Gtk.MenuItem(label='Delete Folder "%s"' % name)
+            item.connect("activate",
+                         lambda *_: self.delete_folder_action(name))
+            menu.append(item)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+        return True
+
+    def on_search_key(self, w, event):
+        if event.keyval == Gdk.KEY_Escape:
+            w.set_text("")
+            self.tv.grab_focus()
+            return True
+        return False
+
+    def on_key_press(self, _w, event):
+        ctrl = event.state & Gdk.ModifierType.CONTROL_MASK
+        shift = event.state & Gdk.ModifierType.SHIFT_MASK
+        if ctrl and not shift and event.keyval == Gdk.KEY_f:
+            self.search.grab_focus()
+            self.search.select_region(0, -1)
+            return True
+        if ctrl and event.keyval in (Gdk.KEY_p, Gdk.KEY_P):
+            if shift:
+                self.toggle_pin(None)
+            else:
+                self.print_note(None)
+            return True
+        if ctrl and event.keyval == Gdk.KEY_e:
+            self.export_note(None)
+            return True
+        if ctrl and event.keyval in (Gdk.KEY_n, Gdk.KEY_N):
+            if shift:
+                self.add_folder(None)
+            else:
+                self.add_note(None)
+            return True
+        if not ctrl and event.keyval == Gdk.KEY_Delete:
+            if not (self.tv.has_focus() or self.search.has_focus()):
+                self.del_note(None)
+                return True
+        return False
+
+    def on_window_state(self, _w, event):
+        self.maximized = bool(event.new_window_state &
+                              Gdk.WindowState.MAXIMIZED)
+
+    def on_destroy(self, _w):
+        if self._refresh_token:
+            GLib.source_remove(self._refresh_token)
+            self._refresh_token = 0
+        if not self.maximized:
+            w, h = self.get_size()
+            x, y = self.get_position()
+            self.data["geometry"] = {"w": w, "h": h, "x": x, "y": y}
+        save_store(STORE, self.data)
+
+
+def main():
     w = Notes()
     w.connect("destroy", Gtk.main_quit)
     w.show_all()
     Gtk.main()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
