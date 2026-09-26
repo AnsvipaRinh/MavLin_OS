@@ -1,5 +1,23 @@
 # DECISIONS
 
+## Notes: trash model, store safety, and the 89b6649 regression (Phase 0.46)
+
+**Date:** 2026-09-26
+**Decision:**
+1. mv-notes delete → Recently Deleted trash (not permanent), with restore / delete-forever / empty-trash and 30-day auto-purge on load.
+2. Store safety: backup-on-save (notes.json.bak, one-deep), restore-from-backup on parse failure, quarantine of corrupt file + warning dialog; missing store on first run is silent (not corruption).
+3. Visual integration restored after commit 89b6649 (Voice Memos) silently reverted mv-notes (and mv-reminders) to pre-visual basic versions while APPS.md still claimed the integration existed.
+
+**Reasoning:**
+- macOS Notes has Recently Deleted; permanent delete without recovery was a data-loss risk on a fanless laptop where the store is the only copy.
+- The previous load() silently returned a default store on ANY parse error — a corrupt file meant silent total data loss. Backup + quarantine makes corruption recoverable and visible.
+- Forensic audit (git history) proved the docs were wrong: 03e26cd added 376-line visual version, 89b6649 replaced it with the 159-line basic version. Lesson recorded: verify code, not docs (AGENTS.md section 9).
+- mv-reminders regression documented in APPS.md; restore is the next P1 #28 objective.
+
+**Status:** Notes implemented pre-hardware (41 headless tests + GUI smoke). Reminders restore pending.
+
+---
+
 ## P0 Desktop Chrome: xfwm4 theme, wallpaper, autostart, panel CSS (Phase 0.44)
 
 **Date:** 2026-09-26

@@ -158,3 +158,11 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Hardware power button (top-right) behavior is coherent with the dialog (logind HandlePowerKey)
 - [ ] Visual validation: undecorated Mavericks alert renders correctly on 2304×1440 panel (shadow, rounded corners, aqua default button)
 - [ ] Countdown label updates each second; Escape/Cancel aborts without executing
+
+## Notes — hardware validation
+- [ ] Visual validation: leather folder sidebar, lined paper editor, paper notes list render correctly on 2304×1440 panel (CSS gradients, margins)
+- [ ] Checkbox click-to-toggle feels correct (click zone vs cursor placement) on the real trackpad
+- [ ] Print dialog renders note text correctly (Gtk.PrintOperation draw-page)
+- [ ] Window geometry persistence restores size/position on relaunch in a real session
+- [ ] Search highlighting visible at 2304×1440 with project font stack
+- [ ] %U import: opening a .txt file from Thunar/Finder creates a note (MIME association check)

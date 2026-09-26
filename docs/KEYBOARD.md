@@ -69,7 +69,20 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Super+E | Finder | NOT BOUND |
 | Super+T | New Terminal | NOT BOUND |
 
-## Notes
+## Notes (mv-notes app-level accelerators)
+
+| Shortcut | Action |
+|---|---|
+| Ctrl+N | New note |
+| Ctrl+Shift+N | New folder |
+| Delete | Delete note (to Recently Deleted; not while typing) |
+| Ctrl+F | Focus search |
+| Ctrl+P | Print note |
+| Ctrl+E | Export note to .txt |
+| Ctrl+Shift+P | Toggle pin |
+| Escape | Clear search (when search focused) |
+
+## Xfce global bindings
 
 - All bindings are in `xfce4-keyboard-shortcuts.xml` (channel: `commands/default` and `xfwm4/default`)
 - No conflicts detected (all bindings unique)

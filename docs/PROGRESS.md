@@ -1,5 +1,23 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.46 — Notes: regression restore + trash/shortcuts/export/print (2026-09-26, без железа)
+- [x] Forensic audit: APPS.md заявлял leather sidebar/lined paper/checkboxes/pin/search-highlight, но код mv-notes был откачен к базовой версии 159 строк в коммите 89b6649 (Voice Memos) — визуальная интеграция уничтожена молча; найдено через git history (03e26cd → 89b6649)
+- [x] Регрессия восстановлена: Mavericks CSS (leather folder sidebar, lined paper editor), custom cell renderers, pin/checklist индикаторы, text tags
+- [x] Recently Deleted: delete → trash (не удаление), restore/delete-forever/empty-trash с confirm-диалогами, 30-дневный auto-purge при load, trash pseudo-folder в sidebar со счётчиком
+- [x] Pin toggle (кнопка + Ctrl+Shift+P + context menu) — ранее флаг pinned существовал, но UI-действия не было
+- [x] Click-to-toggle checkboxes ([ ]↔[x]) кликом в checkbox-зоне редактора
+- [x] Search highlighting: тег search_highlight применяется к совпадениям в открытой заметке (тег был создан, но не использован)
+- [x] Export note → .txt (FileChooser save), Print (Gtk.PrintOperation, draw-page рендеринг текста)
+- [x] Keyboard shortcuts: Ctrl+N note, Ctrl+Shift+N folder, Delete, Ctrl+F search, Ctrl+P print, Ctrl+E export, Ctrl+Shift+P pin, Escape clear search
+- [x] Context notes: note (Pin/Export/Delete), folder (New/Delete folder → notes в trash), trash (Restore/Delete Forever/Empty Trash)
+- [x] Empty states: подсказки в notes pane и editor pane; сортировка по mtime, счётчики в sidebar, даты в списке
+- [x] Window geometry persistence (store["geometry"], save on destroy)
+- [x] %U import: открытие .txt файла создаёт новую заметку
+- [x] Corrupt-store handling: backup-on-save (.bak), restore from backup при повреждении, quarantine файла + warning-диалог, missing store ≠ corruption (silent first-run)
+- [x] Найдено и исправлено по ходу: (1) refresh_folders менял selection → view переключался в trash mode (handler block + restore selection); (2) Gtk.SearchEntry search-changed не срабатывает на programmatic set_text → connect на changed; (3) STORE default-arg binding → late binding; (4) missing store ошибочно считался corruption → блокирующий диалог на первом запуске
+- [x] Validation: py_compile OK, 41 headless-тест (scripts/test-mv-notes.py: store/backup/quarantine/trash/purge/folders/checklist/sanitize/highlight/paginate/import/geometry), GUI smoke на реальном GTK (create/edit/pin/search/trash/restore/shortcuts/delete-folder), corrupt-store GUI warning OK, desktop-file-validate OK, check-sync ALL CHECKS PASSED, package rebuilt + DESTDIR install OK
+- [ ] HW: visual validation leather/lined-paper на 2304×1440, print dialog rendering, checkbox click feel, geometry restore на реальной сессии
+
 ### Фаза 0.45 — TextEdit: Mavericks visual integration (2026-09-26, без железа)
 - [x] Аудит существующего mv-textedit: GtkSourceView4, HeaderBar с New/Open/Save/SaveAs, format-меню (Bold/Italic/Underline/Strikethrough/Font/Color/Alignment), status bar (Ln/Col/chars), открытие/сохранение .txt/.md
 - [x] Format bar добавлен как отдельная панель под HeaderBar: Bold/Italic/Underline (ToggleButton), Alignment (Left/Center/Right), Font Family combo, Font Size combo, Text Color picker
