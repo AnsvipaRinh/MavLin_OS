@@ -22,6 +22,12 @@
 - [x] Честное ограничение: смерть пина = единственная stop-and-wait (one-paste sed + рестарт); зафиксировано в orchestrator.md
 - [x] Проверено: py_compile, оба сценария резолвера, jsonc-пин
 
+### Фаза 0.41 — Plane split в конфиге (2026-09-26, без железа)
+- [x] `provider.opencode.blacklist` (4 spark-ID): проект + оба global-зеркала — spark скрыт из `/models`-пикера везде
+- [x] `small_model` = north-mini (проект): фоновые title/summary не уедут на spark через auto-cheap-pick
+- [x] Матрица плоскостей зафиксирована в DECISIONS.md; sync never/blacklist описан в chain-файле
+- [x] Проверено: все 3 jsonc парсятся, пины на месте; требуется ПОЛНЫЙ рестарт сервера + разовый уход stale-сессии со spark
+
 ## Phase 0 — База и идентификация железа
 - [x] Определить точную модель/ревизию: MacBook10,1 (Mid 2017)
 - [x] Зафиксировать в docs/HARDWARE.md

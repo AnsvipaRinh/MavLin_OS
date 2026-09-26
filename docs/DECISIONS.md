@@ -666,3 +666,33 @@ in orchestrator.md as the single exception.
 **Also:** classifier gained `AUTH_ERROR` (exit 40, 401/403/key//connect
 patterns) — e.g. Zen entries on a server without `/connect` Zen; resolver
 `--all` stays diagnostics-only.
+
+---
+
+## 2026-09-26 — Plane split enforced in config: picker blacklist + small_model
+
+**User demand:** split the lists — orchestrator choice free, workers ONLY the
+chosen chain; spark must not appear as a sub-agent even in a fresh session.
+
+**Mechanism found (official providers doc + config schema):**
+`provider.<id>.blacklist[]` hides model IDs from the `/models` picker
+(`whitelist` = keep only listed; combinable). `AgentConfig.model` is a single
+string — no native multi-model worker pool, the build pin stays the execution
+fix. `small_model` drives background agents (title/summary/compaction), which
+otherwise auto-pick "a cheaper model" — a free spark could be auto-selected
+there and LOOK like a spark sub-agent.
+
+**Applied (plane matrix):**
+| plane | mechanism | value |
+|---|---|---|
+| orchestrator session | free /models choice | anything except blacklisted |
+| worker (build Task) | `agent.build` pin (project) | `opencode/longcat-2.5-preview-free` |
+| background (title/…) | project `small_model` | `openrouter/cohere/north-mini-code:free` |
+| picker visibility | `provider.opencode.blacklist` (4 spark IDs) | project + container-global + Windows-global mirrors |
+Blacklist is picker-visibility only (a stale spark session keeps running until
+switched once); execution safety comes from the pin + small_model. No secrets
+in any of these files (auth stays in auth.json).
+
+**Still required once:** FULL server restart (quit app/process, not just new
+chat — agent files have no hot-reload) + switch the stale spark session away
+via /models (spark will no longer be offered).

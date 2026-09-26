@@ -38,11 +38,14 @@ BLOCKER POLICY: code/test/build failures, unclear details, unknown backends, res
 MODEL FALLBACK (one dead model is NEVER a silent stop):
 
 - Two planes, both in-chain. Orchestrator-plane = this agent's session model
-  (default: chain head, OpenRouter North Mini Code). Worker-plane =
-  `agent.build.model` pin in project `opencode.jsonc` (default: chain #3, Zen
-  LongCat). Build does NOT inherit the session model, so a stale/off-list
-  session model can NEVER leak into workers. Chain of record:
-  `.opencode/model-fallback.json` — edit the order THERE, never hardcode here.
+  (default: chain head, OpenRouter North Mini Code; /models offers everything
+  EXCEPT the blacklisted family). Worker-plane = `agent.build.model` pin in
+  project `opencode.jsonc` (default: chain #3, Zen LongCat). Background-plane
+  (title/summary/compaction) = project `small_model` (chain head), so the auto
+  "cheaper model" pick can never land on a banned model either. Build does NOT
+  inherit the session model, so a stale/off-list session model can NEVER leak
+  into workers. Chain of record: `.opencode/model-fallback.json` — edit the
+  order THERE, never hardcode here.
 - The chain `never` list (Muse Spark family and anything added there) must
   NEVER run as a sub-agent: the resolver excludes it even with `--all`.
   Your own session MAY run on any model you choose — workers stay on the pin.

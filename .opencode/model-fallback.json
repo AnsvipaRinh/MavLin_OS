@@ -9,7 +9,7 @@
     "muse-spark-1.2",
     "muse-spark"
   ],
-  "never_reason": "User 2026-09-26: Muse Spark is NOT an allowed sub-agent (Task worker). The resolver always excludes these substrings, even with --all. Interactive/manual use is the user's own choice; autonomous execution must never settle on them.",
+  "never_reason": "User 2026-09-26: Muse Spark is NOT an allowed sub-agent (Task worker). The resolver always excludes these substrings, even with --all. Picker-visibility mirror: provider.opencode.blacklist in opencode.jsonc (project) + global mirrors (~/.config + Windows-side) — keep the four IDs in sync when this list changes. Interactive/manual use of a banned model remains technically possible if typed, but autonomous execution must never settle on them.",
   "chain": [
     {
       "order": 1,
