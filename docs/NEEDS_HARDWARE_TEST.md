@@ -166,3 +166,13 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Window geometry persistence restores size/position on relaunch in a real session
 - [ ] Search highlighting visible at 2304×1440 with project font stack
 - [ ] %U import: opening a .txt file from Thunar/Finder creates a note (MIME association check)
+
+## Reminders — hardware validation
+- [ ] Visual validation: leather list sidebar, paper task list, priority badges, overdue/due-today highlighting render correctly on 2304×1440 panel
+- [ ] Due-date nudges: hourly user systemd timer (mv-reminders-check) fires notify-send for due/overdue tasks in a real session (once per task per day)
+- [ ] notify-send notifications appear in xfce4-notifyd and reach Notification Center
+- [ ] Checkbox toggle feels correct on the real trackpad; row double-click opens edit dialog
+- [ ] Context menus (task: Edit/Toggle/Delete; list: Rename/Delete) render with Mavericks styling on 2304×1440
+- [ ] Last-list deletion guard shows the info dialog in a real session
+- [ ] Window geometry persistence restores size/position on relaunch in a real session
+- [ ] Corrupt-store warning dialog renders correctly (backup restore + quarantine paths)

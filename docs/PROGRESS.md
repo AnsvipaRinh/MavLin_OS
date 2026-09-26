@@ -1,5 +1,16 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.47 — Reminders: regression restore + refinement pass (2026-09-26, без железа)
+- [x] Forensic audit: подтверждено, что коммит 89b6649 (Voice Memos) молча откатил mv-reminders 359→156 строк — leather sidebar, paper task list, priority badges, overdue highlighting уничтожены; APPS.md индексировал регрессию, но код не был восстановлен после Notes 0.46
+- [x] Visual integration восстановлена из 89b6649^: leather list sidebar, paper task list, custom checkboxes (cell data funcs), priority badges, overdue/due-today подсветка, strikethrough выполненных, Mavericks toolbar CSS
+- [x] Latent bug найден и исправлен: CellRendererText не имеет get_style_context в GTK3 — pre-regression код вызывал его в render_due_cell/render_priority_cell (краш на любой задаче с due/prio); заменено на прямые свойства (foreground/background/weight)
+- [x] Due-date notifications: существующий hourly user systemd timer (mv-reminders-check, oneshot → --check-due) покрывает due-today + overdue, notify once/task/day через libnotify; проверено тестами с моком notify-send
+- [x] Refinement: search filter (Ctrl+F, Escape — фикс тот же, что в mv-notes: "changed" вместо "search-changed"), context menus (task: Edit/Toggle/Delete; list: Rename/Delete с защитой последнего списка), Clear Completed с confirm, rename/delete list, keyboard Ctrl+N/Ctrl+Shift+N/Delete/Ctrl+F/Escape, empty states, geometry persistence
+- [x] Corrupt-store safety (как в Notes): backup-on-save (.bak), restore from backup, quarantine + warning-диалог; missing store — тихий first-run
+- [x] Sibling regression audit: mv-calendar (614), mv-voice (405), mv-console (290), mv-textedit (584), mv-notes (938), mv-calculator (369), mv-stickies (203) — все совпадают с последними feature-коммитами, silent reverts не найдены; только mv-reminders был откачен
+- [x] Validation: py_compile OK, desktop-file-validate OK, 31 headless-тест (scripts/test-mv-reminders.py: store/backup/quarantine/restore/normalize/due_state/matches/geometry/check_due с моком notify-send), GUI smoke на реальном GTK :0 (create/add/toggle/search/shortcuts/context-menus/clear-completed/last-list-guard/corrupt-store-warning), check-sync ALL CHECKS PASSED, systemd-analyze verify OK (с DESTDIR-установленным бинарём; на build-хосте /usr/bin/mv-reminders отсутствует — ожидаемо, путь из target-установки), makepkg rebuild OK, packed binary == source, DESTDIR install OK
+- [ ] HW: visual validation leather/paper на 2304×1440, due/priority cell rendering, доставка уведомлений через реальный user timer в сессии, geometry restore на реальной сессии
+
 ### Фаза 0.46 — Notes: regression restore + trash/shortcuts/export/print (2026-09-26, без железа)
 - [x] Forensic audit: APPS.md заявлял leather sidebar/lined paper/checkboxes/pin/search-highlight, но код mv-notes был откачен к базовой версии 159 строк в коммите 89b6649 (Voice Memos) — визуальная интеграция уничтожена молча; найдено через git history (03e26cd → 89b6649)
 - [x] Регрессия восстановлена: Mavericks CSS (leather folder sidebar, lined paper editor), custom cell renderers, pin/checklist индикаторы, text tags

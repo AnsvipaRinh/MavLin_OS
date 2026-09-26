@@ -82,6 +82,18 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Ctrl+Shift+P | Toggle pin |
 | Escape | Clear search (when search focused) |
 
+## Reminders (mv-reminders app-level accelerators)
+
+| Shortcut | Action |
+|---|---|
+| Ctrl+N | New task (opens edit dialog immediately) |
+| Ctrl+Shift+N | New list |
+| Delete | Delete selected task (with confirm) |
+| Ctrl+F | Focus search |
+| Escape | Clear search |
+
+Right-click context menus: task row (Edit / Toggle Done / Delete), list sidebar (Rename List / Delete List; last-list deletion blocked).
+
 ## Xfce global bindings
 
 - All bindings are in `xfce4-keyboard-shortcuts.xml` (channel: `commands/default` and `xfwm4/default`)

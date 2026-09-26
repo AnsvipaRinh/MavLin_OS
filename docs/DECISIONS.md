@@ -1,5 +1,20 @@
 # DECISIONS
 
+## Reminders: 89b6649 regression cause + guard (Phase 0.47)
+
+**Date:** 2026-09-26
+**Decision:**
+1. mv-reminders visual integration restored from 89b6649^ (359-line version) and refined (search, context menus, clear-completed, store safety, geometry).
+2. Cell renderer styling uses direct properties (foreground/background/weight) instead of CSS classes — CellRendererText has no style context in GTK3 (latent crash in the pre-regression code, found by GUI smoke).
+3. SearchEntry connects to "changed", not "search-changed" (programmatic set_text does not fire search-changed; same fix as mv-notes).
+4. Guard against repeat regression: every P1 frontend is now covered by a headless test suite (test-mv-notes.py, test-mv-reminders.py) that instantiates the module and fails if the store/logic layer disappears; plus a source-level check — frontend line counts are recorded in this file and re-verified after every P1 visual-integration commit.
+
+**Root cause of the 89b6649 regression:** the Voice Memos commit edited mv-voice, mv-notes, and mv-reminders in one changeset; the mv-notes/mv-reminders diffs silently reverted both apps to pre-visual basic versions (probably a bad merge/resolve or copy of an older file) while APPS.md claimed the integration existed. Notes was caught in Phase 0.46; Reminders was only caught now via explicit forensic request. Lesson (extended from Phase 0.46): after any multi-file P1 commit, verify each touched frontend against its last feature commit — line count + feature markers — not just the commit message and check-sync.
+
+**Status:** Reminders implemented pre-hardware (31 headless tests + GUI smoke). Sibling audit clean: mv-calendar/mv-voice/mv-console/mv-textedit/mv-notes/mv-calculator/mv-stickies all match their last feature commits; no other silent reverts found.
+
+---
+
 ## Notes: trash model, store safety, and the 89b6649 regression (Phase 0.46)
 
 **Date:** 2026-09-26
