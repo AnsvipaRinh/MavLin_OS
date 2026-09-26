@@ -17,6 +17,7 @@
       <property name="&lt;Super&gt;i" type="string" value="mv-getinfo $HOME"/>
       <property name="&lt;Super&gt;o" type="string" value="mv-openwith $HOME"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;v" type="string" value="mv-notification-center"/>
+      <property name="&lt;Super&gt;&lt;Shift&gt;space" type="string" value="mv-quicklook-thunar"/>
       <property name="XF86AudioRaiseVolume" type="string" value="pactl set-sink-volume @DEFAULT_SINK@ +5%"/>
       <property name="XF86AudioLowerVolume" type="string" value="pactl set-sink-volume @DEFAULT_SINK@ -5%"/>
       <property name="XF86AudioMute" type="string" value="pactl set-sink-mute @DEFAULT_SINK@ toggle"/>
