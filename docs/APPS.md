@@ -43,17 +43,24 @@
 
 ## P1 — after P0 core
 
-| Name | State | Decision |
-|---|---|---|
-| Mail | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | geary 46 (GPL-3.0) + alias; no protocol code written |
-| Photos | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | gthumb 3.12 (GPL-2.0+) + alias; GdkPixbuf backend |
-| Voice Memos | IMPLEMENTED | custom mv-voice (pw-record/parec backend); EXPERIMENT: recording power |
-| Keychain Access | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | seahorse 47 (GPL-2.0) + alias over GNOME Keyring/libsecret |
-| Console | IMPLEMENTED | custom mv-console (journalctl backend, live toggle) |
-| Font Book | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | gnome-font-viewer 50 (GTK4/libadwaita) + alias |
-| Digital Color Meter | IMPLEMENTED | gcolor3 2.4 (GPL-2.0) + alias |
-| Stickies | IMPLEMENTED | xfce4-notes-plugin 1.12 (panel plugin; NOT added to panel by default) |
-| Preview | PARTIALLY IMPLEMENTED | evince (GPL, poppler backend) + alias mv-preview.desktop | stock evince UI (no Mavericks theming) | evince (in ISO) | on-demand | PDF render on panel | no Mavericks UI; no annotation; no sidebar; validate open/pdf flow on HW |
+| Name | State | Backend | UI Type | Deps | Runtime | HW dep | Known Gaps / Next Action |
+|---|---|---|---|---|---|---|---|
+| TextEdit | PARTIALLY IMPLEMENTED | mousepad 0.7 (GPL-2.0+, gtksourceview4) | alias/wrapper (Category D) | mousepad | on-demand | — | no Mavericks UI; stock mousepad only; .desktop alias only |
+| Calculator | PARTIALLY IMPLEMENTED | galculator 2.1 (GPL-2.0+) | alias/wrapper (Category D) | galculator | on-demand | — | no Mavericks UI; stock galculator only; .desktop alias only |
+| Notes | PARTIALLY IMPLEMENTED | custom mv-notes (local JSON + GTK3) | custom frontend (Category B) | — | on-demand | — | custom app exists; missing Mavericks visual integration (leather texture, pin UI, folder sidebar styling) |
+| Reminders | PARTIALLY IMPLEMENTED | custom mv-reminders (local JSON + systemd timer) | custom frontend (Category B) | libnotify | timer 1/h | — | custom app exists; missing Mavericks visual integration (paper texture, list styling, notification styling) |
+| Calendar | PARTIALLY IMPLEMENTED | orage 4.20 (GPL-2.0+, libical) | alias/wrapper (Category D) | orage | on-demand | — | no Mavericks UI; stock orage only; .desktop alias only |
+| Music | PARTIALLY IMPLEMENTED | lollypop 1.4 (GPL-3.0+, GStreamer) | alias/wrapper (Category D) | lollypop | on-demand | audio backend | no Mavericks UI; stock lollypop only; .desktop alias only |
+| Photos | PARTIALLY IMPLEMENTED | gthumb 3.12 (GPL-2.0+) | alias/wrapper (Category D) | gthumb | on-demand | — | no Mavericks UI; stock gthumb only; .desktop alias only |
+| Voice Memos | PARTIALLY IMPLEMENTED | custom mv-voice (pw-record/parec backend) | custom frontend (Category B) | pw-record, parec | on-demand | audio backend | custom app exists; missing Mavericks visual integration (cassette tape UI, waveform viz) |
+| Console | PARTIALLY IMPLEMENTED | custom mv-console (journalctl backend) | custom frontend (Category B) | — | on-demand | values real on HW | custom app exists; missing Mavericks visual integration (sidebar sources, log filtering UI, severity badges) |
+| Keychain Access | PARTIALLY IMPLEMENTED | seahorse 47 (GPL-2.0) + GNOME Keyring | alias/wrapper (Category D) | seahorse | on-demand | libsecret backend | no Mavericks UI; stock seahorse only; .desktop alias only |
+| Font Book | PARTIALLY IMPLEMENTED | gnome-font-viewer 50 (GTK4/libadwaita) | alias/wrapper (Category D) | gnome-font-viewer | on-demand | — | no Mavericks UI; stock font viewer only; .desktop alias only; GTK4/libadwaita dependency |
+| Digital Color Meter | PARTIALLY IMPLEMENTED | gcolor3 2.4 (GPL-2.0) | alias/wrapper (Category D) | gcolor3 | on-demand | — | no Mavericks UI; stock gcolor3 only; .desktop alias only |
+| Stickies | PARTIALLY IMPLEMENTED | xfce4-notes-plugin 1.12 (panel plugin) | alias/wrapper (Category D) | xfce4-notes-plugin | on-demand | panel integration | no Mavericks UI; panel plugin only (not standalone); .desktop alias only |
+| Mail | PARTIALLY IMPLEMENTED | geary 46 (GPL-3.0) | alias/wrapper (Category D) | geary | on-demand | protocol backend | no Mavericks UI; stock geary only; .desktop alias only |
+| Preview | PARTIALLY IMPLEMENTED | evince (GPL, poppler backend) | alias/wrapper (Category D) | evince | on-demand | PDF render on panel | no Mavericks UI; stock evince only; .desktop alias only |
+| Dictionary | NOT_STARTED | — | — | — | — | — | no implementation; no .desktop; no backend identified |
 
 ## P2 — research only
 

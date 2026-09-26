@@ -223,3 +223,11 @@
 - [x] Desktop/Wallpaper: PARTIALLY IMPLEMENTED (xfdesktop + Mavericks wallpapers)
 - [x] Window Management: PARTIALLY IMPLEMENTED (xfwm4 Mavericks theme + tiling)
 - [x] APPS.md updated with all P0 infrastructure items
+
+### Фаза 0.27 — P1 applications forensic audit (2026-09-26)
+- [x] Full source audit of all 15 P1 applications
+- [x] Identified 8 alias/wrapper apps (Category D): TextEdit, Calculator, Calendar, Music, Photos, Keychain, Font Book, Color Meter, Stickies, Mail, Preview
+- [x] Identified 4 custom frontend apps (Category B): Notes, Reminders, Voice Memos, Console
+- [x] Dictionary: NOT_STARTED (no implementation)
+- [x] APPS.md P1 section completely rewritten with real statuses (all PARTIALLY IMPLEMENTED or NOT_STARTED)
+- [x] No fake IMPLEMENTED claims remain
