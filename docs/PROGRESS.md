@@ -8,6 +8,13 @@
 - [x] Проверено: py_compile, матрица классификатора, offline-резолвер (ultra skipped → next North Mini Code); живое доказательство — objective продолжен кросс-модельно (ultra Task cancelled → продолжение на muse-spark)
 - [x] Caveats: LongCat Zen-id не верифицирован live; lightning — last resort; нужен connected OpenRouter; после правок agent-файла — рестарт сервера
 
+### Фаза 0.39 — Fallback hardening (2026-09-26, без железа)
+- [x] Chain-only execution по умолчанию (`--all` только для диагностики); `never`-list (Muse Spark) исключается всегда — проверено unit-тестом
+- [x] Orchestrator frontmatter → `openrouter/cohere/north-mini-code:free` (head цепочки); явный запрет self-invoke (только `build` через Task)
+- [x] LongCat: ВЕРИФИЦИРОВАН как Zen-модель (`longcat-2.5-preview-free`, models.dev, релиз 2026-09-25) — guess ID совпал
+- [x] Auth-инвентарь (без секретов): контейнер — openrouter+opencode; Windows-профиль — openrouter+google+groq, БЕЗ opencode → Zen-пункты на Windows-сервере только после `/connect` Zen
+- [x] Проверено: py_compile, резолвер chain-only/--all, never-enforcement; опциональный hard-block — disable muse-spark в Zen-консоли
+
 ## Phase 0 — База и идентификация железа
 - [x] Определить точную модель/ревизию: MacBook10,1 (Mid 2017)
 - [x] Зафиксировать в docs/HARDWARE.md

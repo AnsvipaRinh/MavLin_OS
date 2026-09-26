@@ -1,6 +1,15 @@
 {
   "$schema": "mavericks model-fallback-chain v1",
-  "note": "User-defined ordered fallback chain (2026-09-26). Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. Edit the order HERE — never hardcode model names in scripts or prompts.",
+  "note": "User-defined ordered fallback chain (2026-09-26). Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts.",
+  "execution": "chain-only",
+  "never": [
+    "muse-spark-1.3-contributor-free",
+    "muse-spark-1.2-contributor-free",
+    "muse-spark-1.3",
+    "muse-spark-1.2",
+    "muse-spark"
+  ],
+  "never_reason": "User 2026-09-26: Muse Spark is NOT an allowed sub-agent (Task worker). The resolver always excludes these substrings, even with --all. Interactive/manual use is the user's own choice; autonomous execution must never settle on them.",
   "chain": [
     {
       "order": 1,
@@ -24,7 +33,7 @@
       "provider": "opencode",
       "match": "longcat",
       "want": "opencode/longcat-2.5-preview-free",
-      "label": "LongCat 2.5 Preview Free (Zen; exact id NOT verified live — confirm via `opencode models`, resolution is substring-based so renames still match)"
+      "label": "LongCat 2.5 Preview Free (Zen; VERIFIED 2026-09-26 via models.dev: served by OpenCode Zen AND OpenCode Go as 'longcat-2.5-preview-free', $0, 1M context; confirm locally via `opencode models`)"
     },
     {
       "order": 4,

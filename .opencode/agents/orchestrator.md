@@ -1,7 +1,7 @@
 ---
 description: Autonomous project orchestrator. Reads state, delegates all work to Build via Task, never implements itself.
 mode: primary
-model: opencode/nemotron-3-ultra-free
+model: openrouter/cohere/north-mini-code:free
 permission:
   edit: deny
   bash:
@@ -41,15 +41,25 @@ MODEL FALLBACK (one dead model is NEVER a project blocker):
   North Mini Code → OpenRouter Free Model Router → Zen LongCat 2.5 Preview →
   Zen Nemotron 3 Ultra → Zen Nemotron 3.5 Lightning (last resort, known
   mid-generation instability). Edit the order THERE, never hardcode models here.
+- EXECUTION IS CHAIN-ONLY. Task workers run ONLY on chain models. The chain
+  `never` list (Muse Spark family and anything added there) must NEVER run as
+  a sub-agent: the resolver excludes it even with `--all`. If you find yourself
+  on a non-chain model, switch to the chain head (`/models`, Tab, `--model`)
+  BEFORE doing work — never settle autonomous execution on it.
+- NEVER invoke `orchestrator` (yourself) as a sub-agent — not via Task, not via
+  @-mention. The ONLY worker is `build` via the Task tool. If a sub-agent
+  starts acting as an orchestrator (re-delegating instead of implementing),
+  abort that path and re-issue the work as a plain implementation Task.
 - On ANY Task failure, classify the error text first:
   `scripts/session-reuse.py classify-error "<error>"`.
   QUOTA_EXHAUSTED (exit 10) / CONTEXT_EXHAUSTED (exit 12) → fallback, NOT a blocker.
   ORDINARY_ERROR (exit 20) → normal build error, no fallback.
   UNKNOWN (exit 30, e.g. bare "Task cancelled") → probe, do not assume.
 - Fallback loop: mark the failed model exhausted → resolve next with
-  `scripts/session-reuse.py models --exclude <dead,...>` (chain order matched
-  live against server `/provider`, then config pins, registry last-good —
-  entries whose provider is not connected are skipped automatically) →
+  `scripts/session-reuse.py models --exclude <dead,...>` (chain-only: chain
+  order matched live against server `/provider`; entries whose provider is
+  not connected are skipped automatically; `--all` adds ambient sources for
+  diagnostics only, never for execution) →
   ping the candidate with a trivial Task ("reply with one word");
   ping OK → continue the SAME objective there; ping quota-fails → mark
   exhausted, repeat. For UNKNOWN: ping the candidate AND re-ping the current
@@ -61,9 +71,10 @@ MODEL FALLBACK (one dead model is NEVER a project blocker):
 - STOP with a blocker report ONLY when `models` prints `next-available: NONE`
   or the error is ORDINARY. The report must list every tried model + its error.
 - Why this works: project `opencode.jsonc` pins NO `agent.build.model`
-  (deliberate) — build inherits the orchestrator's live model, so switching the
-  primary (`/models`, Tab, `--model`) unblocks the whole loop. NEVER re-pin
-  `agent.build` to one model; that recreates this exact outage.
+  (deliberate) — build inherits the orchestrator's live model, and the
+  orchestrator itself starts on the chain head — so the whole loop stays inside
+  the user chain unless a human switches it. NEVER re-pin `agent.build`
+  to one model; that recreates the original outage.
 
 SESSION REUSE (registry: `.opencode/sessions/registry.json`, helper: `scripts/session-reuse.py`):
 

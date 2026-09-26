@@ -13,11 +13,12 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
   status                    live status of all sessions (idle/busy/retry)
   children <id>             list child (sub-agent) sessions
   list                      registry contents
-  models [--exclude M,...] [--format text|json]
-                            ordered fallback candidates: user chain
-                            (.opencode/model-fallback.json) matched live
-                            against GET /provider, then config pins, registry
-                            last-good, remaining live models. No hardcoding.
+  models [--exclude M,...] [--all] [--format text|json]
+                            ordered fallback candidates, CHAIN-ONLY by default
+                            (user chain matched live vs GET /provider).
+                            --all adds config pins, registry last-good,
+                            remaining live models. Chain 'never' list is
+                            always excluded. No hardcoding.
   classify-error [TEXT...]  QUOTA_EXHAUSTED(10)/CONTEXT_EXHAUSTED(12) vs
                             ORDINARY_ERROR(20)/UNKNOWN(30). Only 10/12 trigger
                             model fallback (reads stdin when no args).
@@ -414,23 +415,42 @@ def registry_models():
     return ms
 
 
+def load_never():
+    """Substrings (lowercase) that must never run as Task workers."""
+    cfg = load_jsonc(CHAIN)
+    if isinstance(cfg, dict) and isinstance(cfg.get("never"), list):
+        return [str(x).lower() for x in cfg["never"] if x]
+    return []
+
+
+def is_never(full, never):
+    low = full.lower()
+    return any(n and n in low for n in never)
+
+
 def cmd_models(args):
     import argparse
     p = argparse.ArgumentParser(
         description="Resolve model fallback candidates: user chain "
                     "(.opencode/model-fallback.json) matched live against "
-                    "GET /provider, then config pins, registry last-good, "
-                    "remaining live models.")
+                    "GET /provider. CHAIN-ONLY by default; --all adds config "
+                    "pins, registry last-good and remaining live models. "
+                    "The chain 'never' list is always excluded.")
     p.add_argument("--exclude", default="",
                    help="Comma-separated exhausted models to skip "
                         "(full provider/model or bare id)")
+    p.add_argument("--all", action="store_true",
+                   help="Include ambient sources (config pins, registry, "
+                        "rest of live). Default: chain entries only.")
     p.add_argument("--format", choices=("text", "json"), default="text")
     a = p.parse_args(args)
     excluded = {e.strip().lower() for e in a.exclude.split(",") if e.strip()}
+    never = load_never()
 
     def is_excluded(full):
         low = full.lower()
-        return low in excluded or low.split("/", 1)[-1] in excluded
+        return low in excluded or low.split("/", 1)[-1] in excluded \
+            or is_never(full, never)
 
     ordered, seen = [], set()
 
@@ -472,20 +492,27 @@ def cmd_models(args):
         add(resolved or want,
             f"fallback-chain:{entry.get('order', '?')}"
             f"{' (unverified, server unreachable)' if not resolved else ''}")
-    for m, src in config_models():
-        add(m, src)
-    for m in registry_models():
-        add(m, "registry:last-good")
-    if live is not None:
-        for _key, full in sorted(live_index.items()):
-            add(full, "live:/provider")
+    if a.all:
+        for m, src in config_models():
+            add(m, src)
+        for m in registry_models():
+            add(m, "registry:last-good")
+        if live is not None:
+            for _key, full in sorted(live_index.items()):
+                add(full, "live:/provider")
+    elif live is None:
+        pass  # chain want-ids already added above; nothing ambient offline
     if a.format == "json":
         print(json.dumps(
             [{"model": m, "source": s, "excluded": e}
              for m, s, e in ordered], indent=1))
     else:
         for m, s, e in ordered:
-            print(f"{m}  source={s}" + ("  [EXHAUSTED-skip]" if e else ""))
+            tag = ""
+            if e:
+                tag = ("  [FORBIDDEN-never-list]" if is_never(m, never)
+                       else "  [EXHAUSTED-skip]")
+            print(f"{m}  source={s}" + tag)
         avail = [m for m, _s, e in ordered if not e]
         if avail:
             print(f"next-available: {avail[0]}")

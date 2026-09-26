@@ -597,3 +597,42 @@ substring resolution + `opencode models` check pending; lightning stays last
 resort per the 2026-09-26 TEMP instability note; OpenRouter entries need a
 connected provider (else skipped live); after agent-file changes restart
 `opencode serve` / desktop app (no hot-reload).
+
+---
+
+## 2026-09-26 — Fallback hardening: chain-only execution, Muse Spark banned as worker, LongCat verified
+
+**Symptom (user report after restart):** Orchestrator ran a sub-agent on
+Muse Spark — a model the user never listed — and once appeared to invoke
+itself (orchestrator-as-subagent).
+
+**Root cause:** removing the `agent.build` pin made build inherit the
+orchestrator's live model, but nothing constrained WHICH model that may be:
+the resolver additionally surfaced ambient models (config pins, registry,
+full live provider list) as execution candidates, so an off-list model could
+be picked. Self-invocation was denied only by Task permission, bypassable via
+@-mention (documented residual) — no explicit prompt ban existed.
+
+**Fix:**
+1. `.opencode/model-fallback.json`: `execution: chain-only` + `never` list
+   (Muse Spark family). Resolver default = chain entries only; `--all` adds
+   ambient sources for diagnostics, `never` excluded even then.
+2. `orchestrator.md` frontmatter `model:` → `openrouter/cohere/north-mini-code:free`
+   (user chain head): fresh sessions start in-chain, inheritance stays in-chain.
+3. Explicit bans: chain-only execution, never-list, NEVER invoke `orchestrator`
+   as sub-agent (only `build` via Task; abort re-delegating workers).
+
+**Corrections to user assumptions (evidence-backed):** LongCat 2.5 Preview
+IS a Zen model after all — models.dev (the DB OpenCode itself uses) lists
+`longcat-2.5-preview-free` served by OpenCode Zen + Go, $0, 1M ctx, released
+2026-09-25 (too new for older catalog mirrors); chain entry marked VERIFIED,
+exact id `opencode/longcat-2.5-preview-free` was guessed right.
+
+**Auth inventory (presence only, no secrets read/committed):** container
+`~/.local/share/opencode/auth.json` has `openrouter` + `opencode` keys;
+Windows profile `Vsevolod Avdonkin` has `openrouter` + `google` + `groq` but
+NO `opencode` key — Zen chain entries (#3–5) cannot run on the Windows-spawned
+server until the user runs `/connect` → OpenCode Zen there. Nothing to copy
+into the repo (keys must never be committed); OpenRouter key already present
+on both sides. Optional hard block: Zen workspace admin can disable
+muse-spark for the workspace (console) — requests then error instead of running.
