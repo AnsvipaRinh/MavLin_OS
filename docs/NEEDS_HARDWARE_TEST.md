@@ -213,3 +213,13 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Window geometry persistence restores size/position on relaunch in a real session
 - [ ] Corrupt-store warning dialog renders correctly (backup restore + quarantine paths)
 - [ ] Import a real-world ICS (e.g. Google Calendar export): escaping/folding/RRULE parse correctly
+
+## Keychain Access — hardware validation
+- [ ] Real gnome-keyring daemon present in the Xfce session; auto-unlock at login (pam-gnome-keyring or equivalent) works on MacBook10,1
+- [ ] Collections from the real daemon (login / System / System Roots) appear in the sidebar with correct lock icons
+- [ ] Real items visible: NetworkManager network passwords, stored Wi-Fi credentials, any certificates/keys in the system keyring
+- [ ] "Show password" triggers the daemon unlock prompt for a locked collection; secret renders only after successful unlock
+- [ ] Lock button actually locks items (verify via seahorse or secret-service state after click)
+- [ ] New Password Item / generator / delete work against the real daemon; stored items appear in seahorse
+- [ ] Rendering of leather sidebar, paper detail pane, and dialogs on the 2304×1440 panel
+- [ ] Energy cost of the open window (design goal: zero — no polling, all reads on-demand; verify no periodic wakeups)

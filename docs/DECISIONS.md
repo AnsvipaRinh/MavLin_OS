@@ -934,3 +934,25 @@ orchestrator.md step 3 ("do not invoke subagents…") + AGENTS.md 14.7.
 **Reasoning:** the app is a transient diagnostic viewer; persisting geometry/wrap adds a state-store subsystem (backup/quarantine/restore machinery in sibling apps) for near-zero user value, and every persistence mechanism is a corrupt-prefs risk (the mv-voice fake-completion class of bug). No persistence = no corruption mode. Reconsidered only if HW validation shows users keep it open permanently.
 
 **Testability:** code has no prefs paths to test; future persistence, if ever added, must ship with the standard state-store test pattern (roundtrip/backup/quarantine/restore).
+
+---
+
+## Keychain: Gio.Secret API directly (no secret-tool subprocess, no seahorse launch)
+
+**Date:** 2026-09-27 (Phase 0.53)
+**Decision:** mv-keychain talks to libsecret via the Gio.Secret typelib (Secret.Service.get_sync, Collection.load_items_sync, Item.load_secret_sync, password_store_sync/lock_sync/clear via delete_sync). No `secret-tool` subprocess, no `seahorse` launch. The old stub launched seahorse after 100 ms and showed a static label — zero real backend wiring.
+
+**Reasoning:** Gio.Secret shares the GLib main loop (no extra process per operation), gives collection listing with locked state (secret-tool has no list-collections), returns secrets as bytes that never touch logs, and is trivially mockable for headless tests (fake module injected via `m.Secret`). seahorse remains an optdep for users who want the full Passwords and Keys GUI. secret-tool's output format also varies across libsecret versions; the introspection API is stable.
+
+**Testability:** scripts/test-mv-keychain.py injects a fake Secret module (FakeService/FakeCollection/FakeItem/FakeSchema) — collection/item parsing, store/lock/delete wiring, and error paths all covered without a real daemon or real secrets.
+
+---
+
+## Keychain: unlock is lazy (daemon prompts on access), lock is eager per-item
+
+**Date:** 2026-09-27 (Phase 0.53)
+**Decision:** "Lock this keychain" calls Secret.password_lock_sync for every listed item. There is no explicit unlock button: Item.load_secret_sync makes the daemon prompt for the collection password on next access (documented libsecret behavior).
+
+**Reasoning:** libsecret exposes no standalone password_unlock_sync; the supported unlock flow is the daemon's access-time prompt. An explicit unlock would require raw org.freedesktop.Secret D-Bus calls — complexity without user-visible gain. Documented as a limitation instead of faking an unlock button.
+
+**Testability:** lock path covered per-item (call count == item count, attrless items skipped, backend errors tolerated); unlock path is daemon-side and hardware-validation only.
