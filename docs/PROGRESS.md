@@ -1,5 +1,17 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.43 — Power UI: Mavericks-диалог питания поверх logind D-Bus (2026-09-26, без железа)
+- [x] Аудит: старая mv-power-ui была минималистичным GTK-окном (4 кнопка + systemctl напрямую, без logind/UPower/логута/состояний ошибок); строки в APPS.md P0 не было вовсе
+- [x] Развёрнут backend: logind D-Bus (CanSuspend/CanReboot/CanPowerOff → Suspend/Reboot/PowerOff с interactive=TRUE), fallback на systemctl при отсутствии logind, логут через xfce4-session-logout, только-чтение батарея через UPower D-Bus
+- [x] Mavericks UX: chooser (Sleep/Restart/Shut Down/Log Out) + preset-диалоги с 60-секундным обратным отсчётом (Cancel/Escape прерывает), кнопка по умолчанию — aqua-синяя, чекбокс «Reopen windows when logging back in» → xfconf SaveOnExit, футер батареи, бесшовное оформление через CSS (градиентное окно, скругления, тень)
+- [x] Состояния: кнопка действия недоступна при Can*=no; error-dialog при отказе logind D-Bus; «Battery status unavailable» при отсутствии UPower
+- [x] Тесты: scripts/test-mv-power-ui.py — 44 headless-теста (mock-logind на private bus: caps yes/no/challenge, записывает вызовы, не выполняя реальных действий; fallback-планы; Countdown/countdown_text/format_battery_line/action_state; execute_plan с инжектированными моками; CLI --status с и без logind); все проходят
+- [x] Проверки: py_compile, xmllint (оба зеркала keybindings), desktop-file-validate (mv-power-ui.desktop), scripts/check-sync.sh — ALL CHECKS PASSED
+- [x] Keybindings: Ctrl+Alt+Escape → chooser (было), добавлен Ctrl+Alt+Delete → logout; оба зеркала xfce4-keyboard-shortcuts.xml синхронны
+- [x] .desktop: mv-power-ui.desktop (NoDisplay=true — в Launchpad не нужен, как и в macOS; приложение вызывается hotkey/Apple-меню)
+- [x] GUI smoke на этом хосте невозможен (нет Xvfb) — инстанциация PowerUI остаётся HW-валидацией; логика покрыта 44 тестами
+- [ ] HW: suspend/resume реальный, телеметрия батареи, polkit interactive auth, аппаратная кнопка питания
+
 ### Фаза 0.38 — Orchestrator model fallback (2026-09-26, без железа)
 - [x] Причина: двойной пин `nemotron-3-ultra-free` (orchestrator frontmatter + agent.build) — одна мёртвая модель роняла весь loop; fallback-процедуры не было вовсе (проверено историей)
 - [x] `.opencode/model-fallback.json`: цепочка пользователя (OpenRouter North Mini Code → Free Router → Zen LongCat 2.5 Preview → Nemotron 3 Ultra → Nemotron 3.5 Lightning last-resort)

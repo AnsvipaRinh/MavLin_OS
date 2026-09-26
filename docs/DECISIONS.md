@@ -716,3 +716,22 @@ including spark for orchestrator selection; workers stay on LongCat pin.
 **Rollback path:** if UDisks2 integration proves unstable on hardware, revert .desktop Exec to gnome-disks (one line) — the frontend is self-contained in mavericks-apps.
 
 **Testability:** DBUS_SYSTEM_BUS_ADDRESS is honored by get_connection() so headless tests can point the app at a private bus; scripts/mock-udisks2.py serves a fake UDisks2 with three devices; scripts/test-mv-diskutil.py runs 34 read-only assertions (enumeration, partition mapping, mount/unmount/eject wiring, SMART parsing, absent-service fallback).
+
+---
+
+## Power UI: logind D-Bus primary backend, systemctl fallback, Mavericks countdown dialog
+
+**Date:** 2026-09-26 (Phase 0.43)
+**Decision:** mv-power-ui uses systemd/logind D-Bus (org.freedesktop.login1) as the primary backend: CanSuspend/CanReboot/CanPowerOff gate the UI, Suspend/Reboot/PowerOff execute with interactive=TRUE (polkit can prompt). When logind is unavailable (D-Bus error/timeout), plans fall back to `systemctl suspend/reboot/poweroff`. Logout goes through `xfce4-session-logout --logout`. Battery status is read-only via UPower D-Bus. Preset dialogs (sleep/restart/shutdown/logout) show a 60-second macOS-style countdown that auto-executes; Cancel/Escape aborts. The chooser (Ctrl+Alt+Escape) has no countdown. .desktop is NoDisplay=true.
+
+**Reasoning:**
+- logind is the system's single source of truth for what power actions are permitted (polkit policy lives there); querying Can* before acting turns "button does nothing / auth fails late" into an explicit disabled state — better UX and testable headlessly.
+- systemctl fallback keeps the dialog functional on hosts/sessions without logind (test containers, some containers/VMs); resolve_action() makes the fallback a pure function of caps, so it is unit-testable without root.
+- xfce4-session-logout is the mature Xfce session backend — reusing it avoids reimplementing session termination (reuse-first).
+- 60 s countdown mirrors Mavericks behavior (Shut Down.../Restart.../Log Out... dialogs auto-execute after 60 s unless cancelled); pure Countdown class keeps the logic headless-testable and the GLib tick loop is the only GUI part.
+- NoDisplay=true .desktop: macOS exposes power actions via Apple menu/hotkeys, not Launchpad; the entry exists for app association without polluting the launcher.
+- Power baseline untouched: on-demand D-Bus queries at dialog open, no polling, no daemon, no signal subscriptions.
+
+**Rollback path:** if logind proves unreliable on hardware, forcing the systemctl fallback is a one-line change (pass caps=None); both paths are covered by tests.
+
+**Testability:** scripts/mock-logind.py serves a configurable fake org.freedesktop.login1 on a private bus (caps yes/no/challenge, optional action failure, call recording); scripts/test-mv-power-ui.py runs 44 read-only assertions including CLI --status with and without logind. No real power action is ever executed in tests.

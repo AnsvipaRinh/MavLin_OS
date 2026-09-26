@@ -135,3 +135,15 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] UDisks2 not-available empty state is NOT shown on a normal boot (service present)
 - [ ] Visual validation: sidebar/detail/First Aid render correctly on 2304×1440 panel
 - [ ] Format/partition fallback note: launching gnome-disks from terminal works for destructive ops
+
+## Power UI — hardware validation
+- [ ] Ctrl+Alt+Escape opens the chooser; Ctrl+Alt+Delete opens the Log Out dialog
+- [ ] Sleep: system suspends and resumes cleanly (S3) on MacBook10,1; Wi-Fi/audio survive resume
+- [ ] Restart: 60 s countdown auto-executes; Cancel aborts; reopen-windows checkbox restores session
+- [ ] Shut Down: powers off completely; next boot starts firmware/UEFI normally
+- [ ] Log out: xfce4-session-logout terminates the session back to the login screen
+- [ ] Battery footer shows real percentage/state from UPower (Charging/Discharging)
+- [ ] polkit interactive auth (if required) renders correctly during power actions
+- [ ] Hardware power button (top-right) behavior is coherent with the dialog (logind HandlePowerKey)
+- [ ] Visual validation: undecorated Mavericks alert renders correctly on 2304×1440 panel (shadow, rounded corners, aqua default button)
+- [ ] Countdown label updates each second; Escape/Cancel aborts without executing
