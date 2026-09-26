@@ -304,3 +304,17 @@
 - [x] All validations pass: py_compile, xmllint, desktop-file-validate, check-sync ALL PASSED
 - [x] APPS.md Notification Center row updated with implemented features
 - [x] Remaining gap: action buttons on banners (xfce4-notifyd limitation, not feasible without daemon); banner visual validation needs hardware
+
+### Фаза 0.35 — Quick Look enhancements (2026-09-26, без железа)
+- [x] mv-quicklook: multi-file support (pass multiple files, navigate with Left/Right arrows, Space, PgUp/PgDn)
+- [x] mv-quicklook: fullscreen toggle (F key, double-click, toolbar button)
+- [x] mv-quicklook: counter display ("2 of 5") in header bar
+- [x] mv-quicklook: Previous/Next/Fullscreen toolbar buttons
+- [x] mv-quicklook: keyboard shortcuts (Escape/q=close, Enter/o=open, Left/P/Up=prev, Right/N/Down/Space=next, F/F11=fullscreen)
+- [x] mv-quicklook-thunar: global hotkey handler (Super+Shift+Space) — uses xdotool to copy Thunar selection to clipboard, parses file:// URIs, launches mv-quicklook
+- [x] mv-quicklook-thunar.desktop: desktop entry for app menu integration
+- [x] xfce4-keyboard-shortcuts.xml: added Super+Shift+Space → mv-quicklook-thunar
+- [x] Makefile: added mv-quicklook-thunar to install targets
+- [x] All validations pass: py_compile, xmllint, desktop-file-validate, check-sync ALL PASSED
+- [x] APPS.md Quick Look row updated with implemented features
+- [x] Remaining gap: native Thunar Space key binding (requires Thunar plugin, not feasible pre-hardware); clipboard-based approach has ~150ms latency and requires xdotool; test Super+Shift+Space on HW

@@ -519,3 +519,29 @@ Validations: py_compile, check-sync ALL PASSED, headless import test passed, fal
 
 **Implementation:** mv-notify-send (Python), mv-notification-center (Python/GTK3), xfce4-keyboard-shortcuts.xml, mv-notification-center.desktop, Makefile.
 **Validations:** py_compile, xmllint, desktop-file-validate, check-sync ALL PASSED.
+
+---
+
+## 2026-09-26 — Quick Look Space binding investigation + enhancements
+
+**Problem:** Quick Look (mv-quicklook) was single-file only with no Space key integration in Thunar. Thunar UCA does not support keyboard accelerators; no native Space hook exists.
+
+**Investigation:**
+1. Thunar UCA XML schema has no `<accelerator>` or `<keybinding>` element — verified via Thunar 4.20 source and docs.
+2. Thunar plugin API (thunarx-3) supports menu providers, property pages, renamers — but adding a global key handler requires a C plugin loaded by Thunar, adding build complexity and maintenance burden.
+3. xfce4-keyboard-shortcuts.xml supports only global shortcuts, not app-specific ones.
+4. xdotool-based clipboard grab (Ctrl+C → parse file:// URIs) is the only feasible pre-hardware approach for a global hotkey that works when Thunar is focused.
+
+**Decision:**
+1. Enhanced mv-quicklook with multi-file navigation (Left/Right/Space), fullscreen toggle (F), counter display, toolbar buttons, and proper keyboard handling (Escape, Enter, arrows).
+2. Created mv-quicklook-thunar as a global hotkey handler (Super+Shift+Space) using xdotool clipboard grab.
+3. Accepted limitations: ~150ms latency for clipboard sync; requires xdotool dependency; only works when Thunar is active window; no native Space key in Thunar context menu.
+4. Native Thunar plugin for Space key deferred — would require C development, thunarx-3 API, and hardware testing for validation. Not feasible pre-hardware.
+
+**Alternatives considered:**
+- Thunar C plugin for Space key — rejected (adds compiled dependency, maintenance burden, no Arch package).
+- rofi-based file preview — rejected (rofi script mode doesn't support rich preview; would need custom GUI).
+- Patch Thunar upstream — rejected (not our fork, long review cycle).
+
+**Implementation:** mv-quicklook (enhanced), mv-quicklook-thunar (new), mv-quicklook-thunar.desktop, xfce4-keyboard-shortcuts.xml, Makefile.
+**Validations:** py_compile, xmllint, desktop-file-validate, check-sync ALL PASSED.

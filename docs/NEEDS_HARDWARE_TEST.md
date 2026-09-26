@@ -81,7 +81,11 @@ Strategy 3: Try linux-lts or different kernel version
 ## Phase 3+ — app validation (source-уровень готов в 0.8–0.15)
 - [ ] Preview: открыть PDF в evince через mv-preview alias на панели 2304x1440
 - [ ] Spotlight: после первой загрузки дождаться plocate-updatedb.timer, Super+Space находит файлы
-- [ ] Quick Look: mv-quicklook на image/PDF/text/audio (Poppler-путь не покрыт хостом)
+- [ ] Quick Look: mv-quicklook на image/PDF/text/audio — multi-file nav (←/→/Space), fullscreen (F), Open button work
+- [ ] Quick Look: Super+Shift+Space в Thunar копирует выбор в буфер обмена и открывает mv-quicklook с выбранными файлами
+- [ ] Quick Look: UCA контекстное меню "Quick Look" работает (правый клик → Quick Look)
+- [ ] Quick Look: PDF превью через poppler-glib рендерит первую страницу на 2304x1440
+- [ ] Quick Look: Медиа файлы показывают метаданные через ffprobe
 - [ ] GUI: notes/settings/about/activity/console на живой Xfce-сессии (на хосте — alive)
 - [ ] HUD: mv-hud в genmon показывает ватты RAPL m3-7Y32 (на хосте — graceful `n/a`)
 - [ ] Launchpad: Super+L открывает полноэкранную сетку; поиск фильтрует; папки (Utilities/Other) открываются; Back возвращает; иконки отображаются корректно на 2304x1440
