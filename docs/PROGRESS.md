@@ -198,3 +198,9 @@
 - [x] Super+Tab → mv-mission-control script mode (XML validated)
 - [x] E-MC experiment preserved: skippy-xd one-shot expose as advanced option
 - [x] APPS.md: Mission Control status updated
+
+### Фаза 0.24 — Control Center + Notification Center (2026-09-26, без железа)
+- [x] mv-control: full Mavericks-like Control Center with sliders (Wi-Fi toggle/list, BT toggle, volume/mute/output device, brightness/night shift, battery/power mode, DND)
+- [x] xfce4-notifyd: Mavericks theme (top-right, rounded, translucent) + notifyd config
+- [x] APPS.md: Control Center & Notification Center statuses updated to PARTIALLY IMPLEMENTED
+- [x] Packages rebuilt, check-sync ALL PASSED
