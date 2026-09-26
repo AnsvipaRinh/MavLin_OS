@@ -14,7 +14,7 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
   children <id>             list child (sub-agent) sessions
   list                      registry contents
 
-Reuse rule: same agent role + same objective + coherent + >50% context remaining.
+Reuse rule: same agent role (`build`) + same objective + coherent + >50% context remaining.
 Objective boundary: Calendar -> Calendar refinement = SAME session;
 Calendar -> Disk Utility = NEW session. Never resume on context pressure,
 error state, or role/objective change.

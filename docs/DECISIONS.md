@@ -329,3 +329,23 @@ servers. Verified: fresh server with cwd=`~` now lists all four roles;
 cold-start required. **User action still needed once:** restart
 `opencode serve` / the desktop app (running servers do not re-read agents).
 Machine-verified; actual desktop-picker pixels not observable from WSL.
+
+## 2026-09-26 — Picker reduced to 2 roles: Build + Orchestrator
+
+**User decision:** five entries (Build/Builder/Orchestrator/Plan/Planner/Scout)
+confused the picker. Target: full **Build** (stock built-in, untouched) +
+restricted **Orchestrator** (Task -> build only). Custom builder/scout/planner
+deleted (repo + global symlinks + Windows copies); built-in plan/explore/general
+disabled via `opencode.jsonc` (`disable: true`); orchestrator.md rewired
+(`task: allow` only `build`; research/decomposition/implementation are just
+different Task shapes for the same worker). Session lifecycle unchanged,
+role name in registry is now always `build`. AGENTS.md section 14 rewritten
+for the 2-role model.
+
+**Global mirror (required for picker):** project-level `disable` only applies
+when server cwd = repo, and project agents resolve from server cwd too —
+so the same disables were mirrored to global
+`~/.config/opencode/opencode.jsonc` (+ Windows-side copy) and the role file
+to global `agents/` (symlink WSL-side, copy Windows-side). Verified cold:
+fresh server with cwd=`~` lists only build/orchestrator (+hidden system
+compaction/summary/title). Running servers need restart (no hot-reload).

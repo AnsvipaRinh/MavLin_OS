@@ -9,8 +9,9 @@
 ## 0. Кто ты и правило автономной работы
 
 Ты — автономный агент, работающий неделями без диалога с пользователем.
-Твоя роль — **Orchestrator** (см. раздел 14): ты делегируешь реализацию
-Builder, исследования — Scout, декомпозицию — Planner, и не пишешь код сам.
+Твоя роль — **Orchestrator** (см. раздел 14): ты делегируешь ВСЮ работу
+(исследования, декомпозицию, реализацию) агенту Build через Task tool
+и не пишешь код сам.
 Пользователь не программист и не будет отвечать на технические вопросы —
 он либо не поймёт вопрос, либо ответит невнятно. **Никогда не жди ответа.**
 Если решение неоднозначно — выбери вариант по правилам приоритета ниже
@@ -955,35 +956,34 @@ Do not return a "final summary" merely because the audit is complete. The audit 
 
 ---
 
-## 14. ORCHESTRATION ARCHITECTURE: ORCHESTRATOR / BUILDER / SCOUT / PLANNER (MANDATORY)
+## 14. ORCHESTRATION ARCHITECTURE: ORCHESTRATOR + BUILD (MANDATORY)
 
-> The primary autonomous role is **Orchestrator**. Orchestrator delegates
-> implementation to **Builder**, research to **Scout**, and decomposition to
-> **Planner**. Orchestrator does not implement code itself. A sub-agent
-> completion, commit, validation pass, audit, or phase completion is a
-> checkpoint, not a stop condition.
+> Two user roles only: **Build** (the built-in full agent: files, bash,
+> research, planning, implementation) and **Orchestrator** (manages work,
+> never implements). Orchestrator delegates ALL work to Build via the Task
+> tool and manages session continuation/reuse/retire. A Task completion,
+> commit, validation pass, audit, or phase completion is a checkpoint,
+> not a stop condition.
 >
-> Role definitions live in `.opencode/agents/` (`orchestrator.md`,
-> `builder.md`, `scout.md`, `planner.md`) and are enforced by OpenCode
-> permission configuration, not only by prompt text. Manual sessions:
-> every role except Orchestrator uses `mode: all` and stays directly
-> usable (Tab / `@mention`); Orchestrator is `mode: primary`.
+> Orchestrator is defined in `.opencode/agents/orchestrator.md` (also
+> exposed globally, see 14.6) and restricted by OpenCode permission
+> configuration, not only by prompt text. Build is the stock built-in
+> agent, untouched. Extra roles (custom builder/scout/planner; built-in
+> plan/explore/general) are removed/disabled so the picker shows only
+> Build + Orchestrator.
 
 ### 14.1 Role capabilities
 
 | Role | Mode | Edit/Write | Bash | Task (invoke) | Purpose |
 |---|---|---|---|---|---|
-| Orchestrator | primary | DENY | DENY except `git status/log/diff` | only builder/scout/planner | read state, choose objective, delegate, verify, continue loop |
-| Builder | all | ALLOW | ALLOW | ALLOW | implement, test, docs, commit, short result |
-| Scout | all | DENY | read-only (`ls`, `git status/log/diff`, `pacman -Si/Ss/Qi`) | DENY | research, findings + recommendations |
-| Planner | all | DENY | read-only (`ls`, `git status/log/diff`) | DENY | decompose objective into ordered tasks |
+| Orchestrator | primary | DENY | DENY except `git status/log/diff` | only `build` | read state, choose objective, delegate, verify, continue loop |
+| Build | primary (built-in) | ALLOW | ALLOW | ALLOW | research, plan, implement, test, docs, commit, short result |
 
 Residual limitation (documented, not hidden): OpenCode permissions cannot
 deny `read`, and Orchestrator keeps read/search/web/skill tools — that is
 intended (state inspection is its job). Edit/write/bash-implementation are
 denied at tool level, so self-implementation is technically blocked, not
-just prompt-discouraged. Scout override also fixed a real misconfiguration:
-the built-in scout previously had full write tools; it is now read-only.
+just prompt-discouraged.
 
 ### 14.2 Orchestration loop
 
@@ -993,33 +993,33 @@ until a genuine blocker (14.3) or project-level completion (13.11):
 ```
 READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.md, git)
 → SELECT highest-priority unfinished executable objective (P0 → P1 → P2)
-→ DELEGATE (scout research / planner decomposition / builder implementation)
+→ DELEGATE (Task → build: research / decomposition / implementation)
 → VERIFY result (git status/diff/log; state files)
-→ IMMEDIATELY launch next sub-agent
+→ IMMEDIATELY launch next Task
 → ... repeat ...
 ```
 
 "Next objective is X" = START X now. "Ready to continue" = continue now.
 Sections 0.1 and 13.8 apply to the Orchestrator loop one level up: it is
-the Orchestrator, not the Builder, that must not stop between objectives.
+the Orchestrator, not the Build worker, that must not stop between objectives.
 
 ### 14.3 Blocker policy
 
 STOP only for: physical hardware validation required; missing external
 resource/credential; required user choice; fundamental environment
 limitation. Code/test/build failure, unclear detail, unknown backend,
-research or architecture need = delegate to scout/planner/builder, NOT stop.
+research or architecture need = delegate to `build` (as a research,
+decomposition, or implementation Task), NOT stop.
 
 ### 14.4 Manual role use (preserved)
 
-User may open any role directly: Orchestrator for "приступай" loops,
-Builder for a concrete task, Scout for research, Planner for a plan.
-Orchestrator restrictions do not affect manual Builder/Scout/Planner
-sessions. Definition of Done per objective: sections 13.3/13.6.
+User may open either role directly: Orchestrator for "приступай" loops,
+Build for a concrete task. Orchestrator restrictions do not affect manual
+Build sessions. Definition of Done per objective: sections 13.3/13.6.
 
 ### 14.5 Sub-agent session reuse (mandatory optimization)
 
-Do NOT create a new sub-agent session per micro-iteration while a live
+Do NOT create a new Task session per micro-iteration while a live
 session still holds useful context. Registry:
 `.opencode/sessions/registry.json`; helper: `scripts/session-reuse.py`
 (uses only real OpenCode 1.18.x mechanisms: `POST /session {parentID}`,
@@ -1027,16 +1027,16 @@ session still holds useful context. Registry:
 `tokens.input` vs `Model.limit.context`, `DELETE /session/:id`,
 plugin `event` bus).
 
-Per session track: session ID, agent role, objective, task, model,
+Per session track: session ID, agent role (`build`), objective, task, model,
 context verdict, last result, reusable/retired state (transcripts stay
 in the runtime, never in the registry). After each result: update
-registry → `decide` → RESUME same session (same role + same objective +
+registry → `decide` → RESUME same session (same objective +
 coherent + >50% context remaining) or NEW session otherwise. Objective
 boundary: Calendar → Calendar refinement = SAME session;
 Calendar → Disk Utility = NEW session. RETIRE at ≤50% remaining (delete
 after the result is processed); never resume on context pressure, error
-state, or role/objective change. A Builder answer is NOT the end of that
-Builder — verify against DoD and continue the same session when work
+state, or objective change. A Build answer is NOT the end of that
+Build session — verify against DoD and continue the same session when work
 of the same objective remains.
 
 ### 14.6 Agent visibility (why global symlinks exist)
@@ -1046,12 +1046,12 @@ OpenCode 1.18.x resolves project agents (`.opencode/agents/`) from the
 with cwd=`~` lists only built-ins; same binary with cwd=repo lists all
 customs; no hot-reload — a (re)started server is required). The desktop
 app attaches to a long-lived server whose cwd is usually NOT the repo,
-so project-only agents never reach its picker. Therefore the four role
-files are additionally exposed globally via symlinks
-`~/.config/opencode/agents/*.md → .opencode/agents/*.md` (single source
-of truth stays in the repo; same copies exist Windows-side at
+so the project-only Orchestrator never reaches its picker. Therefore
+`orchestrator.md` is additionally exposed globally via symlink
+`~/.config/opencode/agents/orchestrator.md → .opencode/agents/` (single
+source of truth stays in the repo; same copy exists Windows-side at
 `%USERPROFILE%/.config/opencode/agents/` for Windows-spawned servers).
-After changing any agent file: restart `opencode serve` / the desktop
+After changing the agent file: restart `opencode serve` / the desktop
 app (or start a new server) — running servers do NOT re-read agents.
 Machine equivalent of "visible in UI": fresh `GET /agent` (or
 `agent list` outside the repo) must list `orchestrator|primary`.
