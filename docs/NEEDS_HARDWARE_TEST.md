@@ -176,3 +176,14 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Last-list deletion guard shows the info dialog in a real session
 - [ ] Window geometry persistence restores size/position on relaunch in a real session
 - [ ] Corrupt-store warning dialog renders correctly (backup restore + quarantine paths)
+
+## Calendar — hardware validation
+- [ ] Visual validation: leather sidebar, paper content, mini-month marks, colored event blocks render correctly on 2304×1440 panel
+- [ ] Week/Day time grid: hour gutter, all-day strip, event block positioning by hour/minute render correctly
+- [ ] Upcoming-event nudges: mv-calendar-check user timer (every 5 min) fires notify-send for events starting within 15 minutes in a real session; once per event per start
+- [ ] notify-send notifications appear in xfce4-notifyd and reach Notification Center
+- [ ] Ctrl+Alt+C global binding opens Calendar in a real Xfce session
+- [ ] Event dialog validation UX (OK disabled until title; end<start error) with real keyboard/trackpad
+- [ ] Window geometry persistence restores size/position on relaunch in a real session
+- [ ] Corrupt-store warning dialog renders correctly (backup restore + quarantine paths)
+- [ ] Import a real-world ICS (e.g. Google Calendar export): escaping/folding/RRULE parse correctly

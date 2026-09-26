@@ -94,6 +94,22 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 
 Right-click context menus: task row (Edit / Toggle Done / Delete), list sidebar (Rename List / Delete List; last-list deletion blocked).
 
+## Calendar (mv-calendar app-level accelerators)
+
+| Shortcut | Action |
+|---|---|
+| Ctrl+N | New event |
+| Ctrl+F | Focus search |
+| Ctrl+E | Export ICS |
+| Ctrl+I | Import ICS |
+| ← / → | Previous / next period |
+| T | Today |
+| 1 / 2 / 3 | Month / Week / Day view |
+| Delete | Delete selected event (with confirm) |
+| Escape | Clear search |
+
+Right-click event block: Edit / Delete. Double-click event block: edit. Global binding: Ctrl+Alt+C opens Calendar.
+
 ## Xfce global bindings
 
 - All bindings are in `xfce4-keyboard-shortcuts.xml` (channel: `commands/default` and `xfwm4/default`)

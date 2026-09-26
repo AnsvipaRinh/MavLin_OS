@@ -808,3 +808,32 @@ orchestrator.md step 3 ("do not invoke subagents…") + AGENTS.md 14.7.
 **Rollback path:** if logind proves unreliable on hardware, forcing the systemctl fallback is a one-line change (pass caps=None); both paths are covered by tests.
 
 **Testability:** scripts/mock-logind.py serves a configurable fake org.freedesktop.login1 on a private bus (caps yes/no/challenge, optional action failure, call recording); scripts/test-mv-power-ui.py runs 44 read-only assertions including CLI --status with and without logind. No real power action is ever executed in tests.
+
+---
+
+## Calendar: upcoming-event nudges via 5-min oneshot user timer; reminder mechanism mirrors Reminders
+
+**Date:** 2026-09-26 (Phase 0.48)
+**Decision:** Calendar upcoming events ("starts in 15 minutes") are nudged through `mv-calendar --check-upcoming`, a CLI entry point invoked by a user systemd timer (`mv-calendar-check.timer`, `OnCalendar=*:0/5`, Persistent=true, oneshot → exits). The service notifies once per event per start-time via libnotify (notify-send), marks the event `notified` in the store, and saves. Enabled in firstboot next to the Reminders timer. No resident daemon, no polling loop, no signal subscriptions.
+
+**Reasoning:**
+- Reuse-first: the Reminders due-nudge mechanism (hourly oneshot user timer + notify-send + once-per-day dedup via a `notified` field) was already implemented, tested, and wired into firstboot; extending the same pattern to Calendar keeps one notification architecture for the whole family instead of a second daemon.
+- Cadence: 5 minutes (not hourly) because the nudge window is 15 minutes and the event must not be missed; a oneshot 5-minute timer costs one process spawn per 5 minutes — negligible CPU/wakeups vs the hourly Reminders timer (power baseline unaffected; documented, not silent).
+- Dedup key is the event start datetime (not a day): repeat occurrences each get their own nudge.
+- All-day events are excluded (no meaningful "starting soon" time).
+- Store writes happen only when something was notified; quiet runs write nothing.
+
+**Rollback path:** if timers prove problematic on hardware, disabling is `systemctl --user disable mv-calendar-check.timer` (firstboot line is the single enable point).
+
+**Testability:** scripts/test-mv-calendar.py mocks subprocess.run (same technique as test-mv-reminders.py) and covers due-soon/past/already-notified/all-day/skipped cases plus the CLI second-run-quiet property.
+
+---
+
+## Calendar: birthdays-from-Contacts stays out of scope; repeat = FREQ subset; no page-flip animation
+
+**Date:** 2026-09-26 (Phase 0.48)
+**Decision:** Three APPS.md gaps are consciously NOT implemented in Phase 0.48: (1) automatic birthdays from Contacts — Contacts is EXCLUDED from the canonical app inventory (AGENTS.md 13.2), so there is no address-book backend to read; the default "Birthdays" calendar remains for manual birthday events; (2) recurrence is stored as a simple `repeat` frequency (none/daily/weekly/monthly/yearly) with bounded expansion in `iter_event_dates` (3-year horizon, 500-occurrence cap, month-end/leap clamping) and exported as RRULE:FREQ — full RFC-5545 RRULE (INTERVAL/COUNT/UNTIL/BYDAY) is deferred; (3) the Mavericks page-flip animation is deferred — it is not feasible with stock GTK3 widgets and would add animation machinery with real runtime cost for pure aesthetics.
+
+**Reasoning:** implementing birthdays without a Contacts backend would mean inventing an address-book store — outside the Calendar objective and the excluded-app boundary. A FREQ-only subset covers the vast majority of real calendar repeats, keeps expansion a pure headless-testable function, and round-trips through standard RRULE so interoperability with real calendars (Google/Apple) is preserved. Full RRULE can be layered on later behind the same `repeat`/`RRULE` export path.
+
+**Testability:** repeat clamping (Feb 28 anchor, leap-year Feb 29 recovery), horizon cap, and ICS RRULE round-trip are covered by headless tests.
