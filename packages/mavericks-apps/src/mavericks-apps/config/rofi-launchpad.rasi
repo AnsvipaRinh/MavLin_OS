@@ -1,4 +1,4 @@
-/* Mavericks Launchpad (rofi drun fullscreen grid) */
+/* Mavericks Launchpad (rofi script mode — paginated grid with folders) */
 * { font: "San Francisco 11"; }
 window {
     fullscreen: true;
@@ -12,7 +12,7 @@ inputbar {
     border-radius: 16px; padding: 8px;
     width: 300px;
 }
-entry { placeholder: "Search"; foreground: white; }
+entry { placeholder: "Search apps..."; foreground: white; }
 listview { lines: 5; columns: 7; fixed-height: false; spacing: 16px; }
 element { orientation: vertical; padding: 10px; border-radius: 8px; }
 element icon { size: 64px; }

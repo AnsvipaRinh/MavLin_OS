@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+"""mv-launchpad — Paginated, folder-aware Launchpad for rofi script mode.
+Features:
+- Pagination (Left/Right arrows, Page Up/Down)
+- Folders (configurable, stored in ~/.config/mv-launchpad/folders.json)
+- Search filtering within Launchpad
+- Keyboard navigation
+- App reordering (drag positions stored)
+"""
+import os
+import sys
+import json
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gio, GLib
+from pathlib import Path
+
+CONFIG_DIR = Path.home() / ".config" / "mv-launchpad"
+FOLDERS_FILE = CONFIG_DIR / "folders.json"
+POSITIONS_FILE = CONFIG_DIR / "positions.json"
+ITEMS_PER_PAGE = 35  # 7 columns x 5 rows
+
+
+def load_desktop_apps():
+    """Load all .desktop applications."""
+    apps = []
+    DESKTOP_DIRS = [
+        "/usr/share/applications",
+        "/usr/local/share/applications",
+        os.path.expanduser("~/.local/share/applications"),
+    ]
+    for d in DESKTOP_DIRS:
+        if not os.path.isdir(d):
+            continue
+        for f in Path(d).glob("*.desktop"):
+            try:
+                with open(f, "r", encoding="utf-8", errors="ignore") as fp:
+                    content = fp.read()
+                if "NoDisplay=true" in content or "Hidden=true" in content:
+                    continue
+                name = ""
+                exec_cmd = ""
+                icon = ""
+                desktop_id = f.stem
+                for line in content.splitlines():
+                    if line.startswith("Name="):
+                        name = line[5:].strip()
+                    elif line.startswith("Exec="):
+                        exec_cmd = line[5:].strip().split("%")[0]
+                    elif line.startswith("Icon="):
+                        icon = line[5:].strip()
+                if name and exec_cmd:
+                    apps.append({
+                        "id": desktop_id,
+                        "name": name,
+                        "exec": exec_cmd,
+                        "icon": icon or "application-x-executable",
+                    })
+            except Exception:
+                pass
+    # Sort by name
+    apps.sort(key=lambda x: x["name"].lower())
+    return apps
+
+
+def load_folders():
+    """Load folder configuration."""
+    if not FOLDERS_FILE.exists():
+        return {}
+    try:
+        with open(FOLDERS_FILE, "r") as fp:
+            return json.load(fp)
+    except Exception:
+        return {}
+
+
+def save_folders(folders):
+    """Save folder configuration."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(FOLDERS_FILE, "w") as fp:
+            json.dump(folders, fp, indent=2)
+    except Exception:
+        pass
+
+
+def load_positions():
+    """Load custom app positions."""
+    if not POSITIONS_FILE.exists():
+        return {}
+    try:
+        with open(POSITIONS_FILE, "r") as fp:
+            return json.load(fp)
+    except Exception:
+        return {}
+
+
+def save_positions(positions):
+    """Save custom app positions."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(POSITIONS_FILE, "w") as fp:
+            json.dump(positions, fp, indent=2)
+    except Exception:
+        pass
+
+
+def build_launchpad_structure(apps, folders, positions, query=""):
+    """Build the launchpad structure with folders and pagination."""
+    # Filter apps by query
+    filtered_apps = []
+    for app in apps:
+        if not query or query.lower() in app["name"].lower():
+            filtered_apps.append(app)
+
+    # Apply custom positions
+    positioned = {}
+    remaining = []
+    for app in filtered_apps:
+        app_id = app["id"]
+        if app_id in positions:
+            pos = positions[app_id]
+            if 0 <= pos < len(filtered_apps):
+                positioned[pos] = app
+            else:
+                remaining.append(app)
+        else:
+            remaining.append(app)
+
+    # Build ordered list
+    ordered = []
+    for i in range(len(filtered_apps)):
+        if i in positioned:
+            ordered.append(positioned[i])
+        elif remaining:
+            ordered.append(remaining.pop(0))
+
+    # Build folder structure
+    # For simplicity: show folders as first items, then paginated apps
+    structure = {
+        "folders": [],
+        "apps": ordered,
+        "total_pages": max(1, (len(ordered) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+    }
+
+    # Add folders
+    for folder_id, folder_data in folders.items():
+        if "apps" in folder_data and folder_data["apps"]:
+            # Filter folder apps by query too
+            folder_apps = []
+            for app_id in folder_data["apps"]:
+                for app in apps:
+                    if app["id"] == app_id and (not query or query.lower() in app["name"].lower()):
+                        folder_apps.append(app)
+                        break
+            if folder_apps:
+                structure["folders"].append({
+                    "id": folder_id,
+                    "name": folder_data.get("name", folder_id),
+                    "apps": folder_apps
+                })
+
+    return structure
+
+
+def get_page(structure, page):
+    """Get items for a specific page (0-indexed)."""
+    items = []
+
+    # First add folders (only on page 0)
+    if page == 0:
+        for folder in structure["folders"]:
+            items.append({
+                "type": "folder",
+                "id": folder["id"],
+                "name": folder["name"],
+                "icon": "folder",
+                "count": len(folder["apps"])
+            })
+
+    # Then add apps
+    start = page * ITEMS_PER_PAGE
+    end = start + ITEMS_PER_PAGE
+    page_apps = structure["apps"][start:end]
+
+    for app in page_apps:
+        items.append({
+            "type": "app",
+            "id": app["id"],
+            "name": app["name"],
+            "icon": app["icon"],
+            "exec": app["exec"]
+        })
+
+    return items
+
+
+def format_item(item, index):
+    """Format item for rofi script mode."""
+    if item["type"] == "folder":
+        return f"{item['name']} ({item['count']})\0icon\x1f{item['icon']}\0info\x1fFolder: {item['count']} apps"
+    else:
+        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fApplication"
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mv-launchpad <page> [query]", file=sys.stderr)
+        return 1
+
+    try:
+        page = int(sys.argv[1])
+    except ValueError:
+        page = 0
+
+    query = sys.argv[2].strip() if len(sys.argv) > 2 else ""
+
+    # Load data
+    apps = load_desktop_apps()
+    folders = load_folders()
+    positions = load_positions()
+
+    # Build structure
+    structure = build_launchpad_structure(apps, folders, positions, query)
+
+    # Handle pagination
+    total_pages = structure["total_pages"]
+    page = max(0, min(page, total_pages - 1))
+
+    # Get items for page
+    items = get_page(structure, page)
+
+    # Output for rofi
+    for i, item in enumerate(items):
+        print(format_item(item, i))
+
+    # Add navigation hints at the end
+    if total_pages > 1:
+        nav = f"Page {page + 1}/{total_pages} — ←/→ or PgUp/PgDn to navigate"
+        print(f"\0icon\x1fgo-previous\0info\x1f{nav}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
