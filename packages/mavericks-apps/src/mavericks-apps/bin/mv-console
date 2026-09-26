@@ -1,66 +1,291 @@
 #!/usr/bin/env python3
-"""mv-console — Console.app-like GUI log viewer. Backend: journalctl (popen on
-demand) + dmesg file read. Live tail via single GLib timeout; nothing when closed.
-License: GPL-2.0-or-later."""
+"""mv-console — Console.app-like GUI log viewer. Backend: journalctl + dmesg.
+Mavericks visual: sidebar with log sources, severity badges, search, live tail.
+"""
 import subprocess
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib
+from gi.repository import Gtk, GLib, Pango, Gdk
 
 class Console(Gtk.Window):
     def __init__(self):
         super().__init__(title="Console")
-        self.set_default_size(820, 520)
+        self.set_default_size(900, 560)
+        
+        self.apply_mavericks_css()
+
         hb = Gtk.HeaderBar(title="Console", show_close_button=True)
         self.set_titlebar(hb)
-        self.search = Gtk.SearchEntry(placeholder_text="Filter")
-        self.search.connect("search-changed", self.reload)
+
+        # Search
+        self.search = Gtk.SearchEntry(placeholder_text="Filter logs...")
+        self.search.connect("search-changed", self.on_search_changed)
+        self.search.connect("activate", self.reload)
         hb.pack_start(self.search)
+
+        # Source selector
+        self.source_combo = Gtk.ComboBoxText()
+        for src in ["All Messages", "System Log", "Kernel Log", "User Log", "App Log"]:
+            self.source_combo.append_text(src)
+        self.source_combo.set_active(0)
+        self.source_combo.connect("changed", self.reload)
+        hb.pack_start(self.source_combo)
+
+        # Level filter
         self.level = Gtk.ComboBoxText()
-        for lvl in ["all", "emerg", "alert", "crit", "err",
-                    "warning", "notice", "info", "debug"]:
+        for lvl in ["All", "Emergency", "Alert", "Critical", "Error",
+                    "Warning", "Notice", "Info", "Debug"]:
             self.level.append_text(lvl)
-        self.level.set_active(4)
+        self.level.set_active(0)
         self.level.connect("changed", self.reload)
         hb.pack_end(self.level)
+
+        # Follow toggle
         self.follow = Gtk.ToggleButton(label="Live")
         self.follow.set_active(True)
         hb.pack_end(self.follow)
-        buf = Gtk.TextBuffer()
-        self.buf = buf
-        tv = Gtk.TextView(buffer=buf)
-        tv.set_editable(False)
-        tv.set_monospace(True)
+
+        # Clear button
+        clear_btn = Gtk.Button(label="Clear")
+        clear_btn.get_style_context().add_class("mavericks-toolbar-btn")
+        clear_btn.connect("clicked", self.clear_log)
+        hb.pack_end(clear_btn)
+
+        # Main paned
+        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(paned)
+
+        # Sidebar: Log Sources
+        self.sidebar_store = Gtk.ListStore(str, str, int)  # name, icon, count
+        self.sidebar_tree = Gtk.TreeView(model=self.sidebar_store, headers_visible=False)
+        self.sidebar_tree.set_headers_visible(False)
+        
+        renderer = Gtk.CellRendererText()
+        col = Gtk.TreeViewColumn("", renderer, text=0)
+        self.sidebar_tree.append_column(col)
+        
+        sidebar_sw = Gtk.ScrolledWindow()
+        sidebar_sw.set_size_request(200, -1)
+        sidebar_sw.get_style_context().add_class("console-sidebar")
+        sidebar_sw.add(self.sidebar_tree)
+        
+        self.sidebar_tree.get_selection().connect("changed", self.on_source_select)
+        paned.add1(sidebar_sw)
+
+        # Main log view
+        self.buf = Gtk.TextBuffer()
+        self.tv = Gtk.TextView(buffer=self.buf)
+        self.tv.set_editable(False)
+        self.tv.set_monospace(True)
+        self.tv.set_left_margin(12)
+        self.tv.set_right_margin(12)
+        
+        # Severity tags
+        self.setup_severity_tags()
+        
         sw = Gtk.ScrolledWindow()
-        sw.add(tv)
-        self.add(sw)
-        self.tv = tv
+        sw.add(self.tv)
+        
+        paned.add2(sw)
+        paned.set_position(220)
+
+        # Initialize sources
+        self.sources = [
+            ("All Messages", "view-filter", "all"),
+            ("System Log", "system-log", "system"),
+            ("Kernel Log", "drive-harddisk", "kernel"),
+            ("User Log", "preferences-system", "user"),
+            ("App Log", "application-x-executable", "app"),
+        ]
+        for name, icon, key in self.sources:
+            self.sidebar_store.append([name, icon, 0])
+        
+        self.current_source = "all"
+        self.current_level = "all"
+        
         GLib.timeout_add_seconds(2, self.tick)
         self.reload()
+
+        self.apply_mavericks_css()
+        self.show_all()
+
+    def apply_mavericks_css(self):
+        css = b"""
+        .console-sidebar {
+            background: #e8dcc8;
+            background-image: linear-gradient(135deg, #e8dcc8 0%, #d4c4a8 100%);
+            border-right: 1px solid #c4b898;
+        }
+        .console-sidebar > viewport { background: transparent; }
+        .console-log-view {
+            background: #1a1a1a;
+            color: #e0e0e0;
+            font-family: "SF Mono", "Menlo", monospace;
+            font-size: 11pt;
+        }
+        .console-log-view > viewport { background: #1a1a1a; }
+        .mavericks-toolbar-btn {
+            border-radius: 4px;
+            padding: 6px 12px;
+            margin: 2px;
+            background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
+            border: 1px solid #d0c8b8;
+            color: #333;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+        }
+        .mavericks-toolbar-btn:hover {
+            background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .mavericks-toolbar-btn:active {
+            background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%);
+        }
+        .severity-emerg { color: #ff3b30; font-weight: bold; }
+        .severity-alert { color: #ff3b30; }
+        .severity-crit { color: #ff3b30; }
+        .severity-err { color: #ff6b6b; }
+        .severity-warning { color: #ff9500; }
+        .severity-notice { color: #ffd60a; }
+        .severity-info { color: #007aff; }
+        .severity-debug { color: #8e8e93; }
+        .timestamp { color: #666; font-size: 9pt; }
+        .source-tag { color: #007aff; font-weight: bold; }
+        .search-highlight { background: #fff8b0; }
+        .log-line { padding: 2px 0; }
+        .log-line:hover { background: #2a2a2a; }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def setup_severity_tags(self):
+        tag_configs = {
+            "emerg": {"foreground": "#ff3b30", "weight": Pango.Weight.BOLD},
+            "alert": {"foreground": "#ff3b30"},
+            "crit": {"foreground": "#ff3b30"},
+            "err": {"foreground": "#ff6b6b"},
+            "warning": {"foreground": "#ff9500"},
+            "notice": {"foreground": "#ffd60a"},
+            "info": {"foreground": "#007aff"},
+            "debug": {"foreground": "#8e8e93"},
+            "timestamp": {"foreground": "#666", "size": 9 * Pango.SCALE},
+            "source": {"foreground": "#007aff", "weight": Pango.Weight.BOLD},
+            "message": {"foreground": "#e0e0e0"},
+        }
+        for name, props in tag_configs.items():
+            tag = self.buf.create_tag(name)
+            for key, value in props.items():
+                tag.set_property(key, value)
+
+    def on_search_changed(self, entry):
+        # Could implement live filtering here
+        pass
+
+    def reload(self, *_a):
+        q = self.search.get_text().lower()
+        lvl = self.level.get_active_text().lower()
+        src = self.current_source
+        
+        try:
+            if src == "all":
+                cmd = ["journalctl", "-b", "-n", "500", "--no-pager"]
+            elif src == "system":
+                cmd = ["journalctl", "-b", "-n", "500", "--no-pager", "-k"]
+            elif src == "kernel":
+                cmd = ["dmesg", "-T"]
+            elif src == "user":
+                cmd = ["journalctl", "-b", "-n", "500", "--no-pager", "--user"]
+            elif src == "app":
+                cmd = ["journalctl", "-b", "-n", "500", "--no-pager", "-u", "*"]
+            else:
+                cmd = ["journalctl", "-b", "-n", "500", "--no-pager"]
+            
+            if lvl != "all":
+                if "journalctl" in cmd[0]:
+                    cmd.extend(["-p", lvl])
+            
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=10).stdout.splitlines()
+        except (OSError, subprocess.SubprocessError):
+            out = ["(journalctl unavailable)"]
+        
+        if q:
+            out = [l for l in out if q in l.lower()]
+        
+        self.buf.set_text("")
+        for line in out[-500:]:
+            self.append_log_line(line)
+        
+        # Update sidebar counts
+        self.update_sidebar_counts()
+        
+        if self.follow.get_active():
+            adj = self.tv.get_vadjustment()
+            adj.set_value(adj.get_upper())
+
+    def append_log_line(self, line):
+        # Parse journalctl line: timestamp source[pid]: message
+        # Format: Oct 15 10:30:45 hostname service[123]: message
+        parts = line.split(" ", 5)
+        if len(parts) >= 5:
+            timestamp = " ".join(parts[:3])
+            source_part = parts[3]
+            message = " ".join(parts[4:]) if len(parts) > 4 else ""
+            
+            # Extract severity if present
+            severity = "info"
+            msg_lower = message.lower()
+            if "emerg" in msg_lower: severity = "emerg"
+            elif "alert" in msg_lower: severity = "alert"
+            elif "crit" in msg_lower: severity = "crit"
+            elif "error" in msg_lower or "err" in msg_lower: severity = "err"
+            elif "warn" in msg_lower: severity = "warning"
+            elif "notice" in msg_lower: severity = "notice"
+            elif "info" in msg_lower: severity = "info"
+            elif "debug" in msg_lower: severity = "debug"
+            
+            end = self.buf.get_end_iter()
+            self.buf.insert_with_tags_by_name(end, timestamp + "  ", "timestamp")
+            self.buf.insert_with_tags_by_name(end, source_part + ": ", "source")
+            self.buf.insert_with_tags_by_name(end, message + "\n", severity, "message")
+        else:
+            end = self.buf.get_end_iter()
+            self.buf.insert(end, line + "\n")
+
+    def update_sidebar_counts(self):
+        # Could update counts per source
+        pass
+
+    def on_source_select(self, sel):
+        _m, it = sel.get_selected()
+        if it:
+            idx = self.sidebar_store.get_path(it)[0]
+            self.current_source = self.sources[idx][2]
+            self.reload()
+
+    def on_source_select(self, sel):
+        _m, it = sel.get_selected()
+        if it:
+            idx = self.sidebar_store.get_path(it)[0]
+            self.current_source = self.sources[idx][2]
+            self.reload()
+
+    def clear_log(self, _b):
+        self.buf.set_text("")
 
     def tick(self):
         if self.follow.get_active():
             self.reload()
         return True
 
-    def reload(self, *_a):
-        q = self.search.get_text().lower()
-        lvl = self.level.get_active_text()
-        try:
-            cmd = ["journalctl", "-b", "-n", "500", "--no-pager",
-                   "-p", "debug" if lvl == "all" else lvl]
-            out = subprocess.run(cmd, capture_output=True, text=True,
-                                 timeout=10).stdout.splitlines()
-        except (OSError, subprocess.SubprocessError):
-            out = ["(journalctl unavailable)"]
-        if q:
-            out = [l for l in out if q in l.lower()]
-        self.buf.set_text("\n".join(out[-500:]))
-        adj = self.tv.get_vadjustment()
-        adj.set_value(adj.get_upper())
 
-if __name__ == "__main__":
+def main():
     w = Console()
     w.connect("destroy", Gtk.main_quit)
     w.show_all()
     Gtk.main()
+    return 0
+
+if __name__ == "__main__":
+    import subprocess
+    sys.exit(main())
