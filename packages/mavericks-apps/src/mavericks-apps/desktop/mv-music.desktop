@@ -2,8 +2,8 @@
 Type=Application
 Name=Music
 Comment=Music Player (Mavericks)
-Exec=lollypop %U
+Exec=mv-music %U
 Icon=audio-x-generic
-Categories=AudioVideo;
+Categories=Audio;Music;Player;
 StartupNotify=true
-X-Mavericks-Alias-For=lollypop
+X-Mavericks-Native=true

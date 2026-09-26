@@ -2,8 +2,8 @@
 Type=Application
 Name=Preview
 Comment=Preview (Mavericks)
-Exec=evince %U
+Exec=mv-preview %U
 Icon=document-viewer
 Categories=Graphics;Viewer;
 StartupNotify=true
-X-Mavericks-Alias-For=evince
+X-Mavericks-Native=true

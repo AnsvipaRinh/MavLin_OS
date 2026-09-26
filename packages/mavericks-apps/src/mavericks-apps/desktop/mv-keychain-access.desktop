@@ -2,8 +2,8 @@
 Type=Application
 Name=Keychain Access
 Comment=Passwords and Keys (Mavericks)
-Exec=seahorse %U
+Exec=mv-keychain %U
 Icon=dialog-password
-Categories=System;
+Categories=System;Security;
 StartupNotify=true
-X-Mavericks-Alias-For=seahorse
+X-Mavericks-Native=true

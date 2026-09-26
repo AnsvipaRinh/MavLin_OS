@@ -211,3 +211,33 @@ frontend — rejected for now (reuse-first; revisit only if E-MC fails on HW).
 **HW validation (E-MC apply on target):** expose shows all windows
 non-overlapping; arrows+Return select; Escape cancels; Super+Tab rebind works
 via xfconf-query; minimized windows show filler (accepted: daemon stays off).
+
+## 2026-09-26 — Orchestration architecture: Orchestrator/Builder/Scout/Planner
+
+**Problem:** the primary agent combined orchestrator+builder roles: it analyzed,
+implemented, tested and committed in one body, burning its generation budget on
+implementation and stopping after each cycle while the project was far from done.
+
+**Decision:** four roles in `.opencode/agents/` (project-level, travel with repo):
+`orchestrator.md` (mode primary, edit/write DENY, bash DENY except
+`git status/log/diff`, task ONLY builder/scout/planner),
+`builder.md` (mode all, full permissions),
+`scout.md` (mode all, read-only override),
+`planner.md` (mode all, read-only).
+AGENTS.md section 14 is binding; section 0 points to it.
+
+**Inspection findings that shaped this:**
+- Built-in `scout` was documented as read-only but actually had full
+  edit/write/bash tools in this install (verified via `debug agent scout`) —
+  overridden to read-only by `scout.md`.
+- Custom agents work via `.opencode/agents/*.md` frontmatter
+  (`mode`/`permission`/`model`); verified with `agent list` + `debug agent`.
+- Permission system cannot deny `read`; orchestrator keeps read/search/skill —
+  intended (state inspection is its job). `question` stays denied for
+  orchestrator (autonomous doctrine: instruct, don't ask).
+- `mode: all` on builder/scout/planner preserves manual Tab/@ sessions.
+- `project-meta.json` already referenced a nonexistent `"agent": "orchestrator"` —
+  now valid.
+- Residual: task-tool `task` permission is name-glob based; users can still
+  @-invoke any subagent manually regardless of orchestrator's task allow-list
+  (by design, manual override preserved).

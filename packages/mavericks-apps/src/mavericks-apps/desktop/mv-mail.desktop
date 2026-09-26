@@ -2,8 +2,8 @@
 Type=Application
 Name=Mail
 Comment=Mail Client (Mavericks)
-Exec=geary %U
+Exec=mv-mail %U
 Icon=mail-client
-Categories=Network;
+Categories=Network;Email;
 StartupNotify=true
-X-Mavericks-Alias-For=geary
+X-Mavericks-Native=true

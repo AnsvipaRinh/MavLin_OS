@@ -2,8 +2,8 @@
 Type=Application
 Name=Photos
 Comment=Photo Manager (Mavericks)
-Exec=gthumb %U
+Exec=mv-photos %U
 Icon=image-x-generic
-Categories=Graphics;
+Categories=Graphics;Viewer;
 StartupNotify=true
-X-Mavericks-Alias-For=gthumb
+X-Mavericks-Native=true

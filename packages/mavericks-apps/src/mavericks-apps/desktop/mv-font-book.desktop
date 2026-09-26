@@ -2,8 +2,8 @@
 Type=Application
 Name=Font Book
 Comment=Font Manager (Mavericks)
-Exec=gnome-font-viewer %U
+Exec=mv-fontbook %U
 Icon=font-x-generic
 Categories=Graphics;
 StartupNotify=true
-X-Mavericks-Alias-For=gnome-font-viewer
+X-Mavericks-Native=true
