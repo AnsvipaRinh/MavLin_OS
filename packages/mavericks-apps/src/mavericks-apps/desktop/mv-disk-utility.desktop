@@ -2,8 +2,9 @@
 Type=Application
 Name=Disk Utility
 Comment=Disk Utility (Mavericks)
-Exec=gnome-disks %U
+Exec=mv-diskutil %U
 Icon=drive-harddisk
 Categories=System;
 StartupNotify=true
-X-Mavericks-Alias-For=gnome-disks
+Keywords=disk;volume;partition;mount;unmount;eject;smart;first aid;
+X-Mavericks-Native=true
