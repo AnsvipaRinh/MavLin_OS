@@ -12,7 +12,7 @@ import urllib.parse
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("WebKit2", "4.0")
-from gi.repository import Gtk, GLib, WebKit2, Gdk
+from gi.repository import Gtk, WebKit2
 
 CACHE_DIR = os.path.expanduser("~/.cache/mv-dictionary")
 HISTORY_FILE = os.path.join(CACHE_DIR, "history.json")

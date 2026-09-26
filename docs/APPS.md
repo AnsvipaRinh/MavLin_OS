@@ -41,7 +41,7 @@
 | Stickies | PARTIALLY IMPLEMENTED | custom mv-stickies (native GTK3) | custom frontend (Category B) | — | on-demand | — | custom app implemented (yellow stickies, handwriting font, color picker, desktop persistence); missing Mavericks visual integration (window shadow, transparency, print, sync) |
 | Mail | PARTIALLY IMPLEMENTED | custom mv-mail (geary backend wrapper) | custom frontend (Category B) | geary | on-demand | protocol backend | custom wrapper with Mavericks sidebar/theme; missing Mavericks visual integration (conversation view, VIP flags, rules, signatures) |
 | Preview | PARTIALLY IMPLEMENTED | custom mv-preview (evince backend wrapper) | custom frontend (Category B) | evince | on-demand | PDF render on panel | custom wrapper with annotation toolbar; missing Mavericks visual integration (thumbnail sidebar, markup toolbar, form filling, export) |
-| Dictionary | PARTIALLY IMPLEMENTED | custom mv-dictionary (WebKit2 + Wiktionary/Thesaurus/Wikipedia/Apple) | custom frontend (Category B) | webkit2gtk | on-demand | — | custom app implemented (Dictionary/Thesaurus/Wikipedia/Apple tabs, history, bookmarks); missing Mavericks visual integration (leather binding, page flip animation, pronunciation audio, word of the day) |
+| Dictionary | PARTIALLY IMPLEMENTED | custom mv-dictionary (GTK3+WebKit2) | custom frontend (Category B) | webkit2gtk | on-demand | — | custom app implemented (Dictionary/Thesaurus/Wikipedia/Apple tabs, history, bookmarks); missing Mavericks visual integration (leather binding, page flip animation, pronunciation audio, word of the day) |
 
 ## P2 — research only
 

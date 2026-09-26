@@ -6,7 +6,7 @@ pkgdesc="Mavericks-like system apps for Xfce (settings, activity, console, contr
 arch=('x86_64')
 url="https://github.com/mavericks-linux/macbook12-macos-linux"
 license=('GPL2')
-depends=('gtk3' 'python-gobject' 'python-cairo' 'gtksourceview4'
+depends=('gtk3' 'python-gobject' 'python-cairo' 'gtksourceview4' 'webkit2gtk'
          'thunar' 'rofi' 'xfce4-screenshooter' 'trash-cli' 'xarchiver'
          'networkmanager' 'pavucontrol' 'upower' 'bluez-utils'
          'gnome-disk-utility' 'xfce4-notifyd' 'libnotify')
