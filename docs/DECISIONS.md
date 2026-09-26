@@ -696,3 +696,23 @@ auth.json).
 **Still required once:** FULL server restart (quit app/process, not just new
 chat — agent files have no hot-reload). After restart, picker shows full list
 including spark for orchestrator selection; workers stay on LongCat pin.
+
+---
+
+## Disk Utility: custom mv-diskutil frontend over UDisks2; destructive ops deferred to gnome-disks
+
+**Date:** 2026-09-26 (Phase 0.39)
+**Decision:** Implement a Mavericks-like Disk Utility frontend (`mv-diskutil`, Python/GTK3) directly over UDisks2 via Gio.DBus, instead of wrapping/stocking gnome-disks. Destructive operations (format, partition, erase) are NOT implemented in the frontend; the UI directs users to gnome-disks for those.
+
+**Reasoning:**
+- Reuse-first is satisfied at the storage-stack level: UDisks2 remains the single backend (enumeration, mount/unmount/eject, SMART). No storage code is rewritten.
+- gnome-disks 46 stock UI cannot be themed to Mavericks without forking; a thin custom frontend over the same UDisks2 backend gives full visual control with ~700 lines of Python and zero new heavy dependencies (python-gobject already ships with mavericks-apps).
+- Destructive D-Bus methods (Format, Partition, DeletePartition, Resize) require root polkit auth and carry real data-loss risk on the target's only internal disk. Shipping them unguarded in a new frontend is unacceptable; gating them behind confirmation still leaves format/partition UX half-implemented. Deferring with a clear in-UI reason is the honest pre-hardware choice. gnome-disks remains installed and is the documented fallback.
+- First Aid is read-only by design: S.M.A.R.T. properties + SmartGetAttributes (Drive.Ata) are displayed; fsck repair is never executed automatically (fsck on a mounted root is dangerous; on MacBook10,1 the root FS is the only internal disk). The First Aid dialog states this explicitly.
+- On-demand only: enumeration happens at startup and on refresh/action completion. No polling, no daemon, no signal subscriptions — zero idle cost (power baseline preserved).
+
+**Frontend-vs-gnome-disks choice:** custom frontend for the common read-only + mount/eject workflow (the 90% case, fully Mavericks-styled); gnome-disks for format/partition/erase (the 10% case, kept as a mature, safe backend). The .desktop launches mv-diskutil; the in-app note names gnome-disks as the fallback, so the fallback path is discoverable.
+
+**Rollback path:** if UDisks2 integration proves unstable on hardware, revert .desktop Exec to gnome-disks (one line) — the frontend is self-contained in mavericks-apps.
+
+**Testability:** DBUS_SYSTEM_BUS_ADDRESS is honored by get_connection() so headless tests can point the app at a private bus; scripts/mock-udisks2.py serves a fake UDisks2 with three devices; scripts/test-mv-diskutil.py runs 34 read-only assertions (enumeration, partition mapping, mount/unmount/eject wiring, SMART parsing, absent-service fallback).

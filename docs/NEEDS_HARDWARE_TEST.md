@@ -125,3 +125,13 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Recording (--record) works via ffmpeg x11grab, CPU/power acceptable on m3-7Y32
 - [ ] Error handling: graceful degradation if xfce4-screenshooter/ffmpeg missing
 - [ ] Visual validation: preview dialog renders correctly on 2304×1440 panel
+
+## Disk Utility — hardware validation
+- [ ] mv-diskutil launches from .desktop / app menu and shows the internal Apple SSD in the sidebar (Internal group)
+- [ ] S3X NVMe section appears for the Apple SSD and populates with real NVMe SMART/telemetry (graceful "Available on hardware" state is expected to be replaced by real data)
+- [ ] Capacity bar shows real used/free values (statvfs) for the mounted root volume
+- [ ] First Aid shows real S.M.A.R.T. status (Verified) and temperature for the internal SSD
+- [ ] Unmount/eject of a USB stick works via the UI; error dialog appears on failure (e.g. busy device)
+- [ ] UDisks2 not-available empty state is NOT shown on a normal boot (service present)
+- [ ] Visual validation: sidebar/detail/First Aid render correctly on 2304×1440 panel
+- [ ] Format/partition fallback note: launching gnome-disks from terminal works for destructive ops

@@ -382,3 +382,20 @@
 - [x] All validations pass: py_compile, desktop-file-validate, check-sync ALL PASSED
 - [x] APPS.md Screenshot row updated with implemented features
 - [x] Remaining gaps: actual annotation persistence (requires poppler annotation API in Preview); recording validation on HW (ffmpeg x11grab CPU/power); keybinding feel test on real hardware; preview dialog visual validation on 2304×1440 panel
+
+### Фаза 0.39 — Disk Utility Mavericks frontend (2026-09-26, без железа)
+- [x] mv-diskutil: custom Mavericks-like Disk Utility frontend (Python/GTK3) over UDisks2 via Gio.DBus — storage stack reused, not rewritten
+- [x] Sidebar: Internal/External groups, drives + partition children, Mavericks-style selection
+- [x] Detail pane: model/vendor/serial/capacity/connection/media, capacity bar (statvfs), FS type/label/UUID/mount point/device/partition type
+- [x] Actions: mount/unmount/eject via UDisks2 D-Bus (DO_NOT_AUTO_START, 15s timeout, error dialogs, re-enumerate after)
+- [x] First Aid: S.M.A.R.T. status/temperature/power-on hours/bad sectors + SmartGetAttributes table (read-only); fsck repair explicitly NOT performed — dialog explains and points to gnome-disks
+- [x] Destructive actions (format/partition/erase): deferred with in-UI reason pointing to gnome-disks — no unguarded destructive ops shipped
+- [x] Empty states: UDisks2 not-available / cannot-connect / no devices / no selection
+- [x] Apple S3X NVMe section: shown for NVMe drives, graceful "Available on hardware" empty state pre-HW
+- [x] Keyboard: ListBox arrow navigation, Escape closes; refresh via header-bar button; no polling, no daemon
+- [x] mv-disk-utility.desktop: Exec=mv-diskutil, X-Mavericks-Native=true, Keywords
+- [x] Makefile: mv-diskutil added to install targets; no new heavy deps (python-gobject already in mavericks-apps)
+- [x] Headless tests: scripts/mock-udisks2.py (fake UDisks2 service: SATA+ext4 mounted, USB vfat unmounted, Apple NVMe hfsplus) + scripts/test-mv-diskutil.py — 34 tests, all pass (read-only, no real disks)
+- [x] All validations pass: py_compile, desktop-file-validate, check-sync ALL PASSED, make install DESTDIR smoke test OK
+- [x] APPS.md Disk Utility row updated
+- [x] Remaining gaps: S3X NVMe telemetry validation on HW; whole-disk filesystems without partition table not listed (UDisks2 limitation); visual validation on 2304×1440 panel; format/partition remain in gnome-disks by design
