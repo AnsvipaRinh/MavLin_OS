@@ -1,0 +1,206 @@
+#!/usr/bin/env python3
+"""mv-openwith — Finder-like Open With dialog.
+Shows recommended applications for the file type.
+"""
+import os
+import sys
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gio", "2.0")
+from gi.repository import Gtk, Gio, GLib
+import mimetypes
+import subprocess
+
+
+def get_mime_type(path):
+    mime_type, _ = mimetypes.guess_type(path)
+    if not mime_type:
+        # Fallback: check if directory
+        if os.path.isdir(path):
+            return "inode/directory"
+        return "application/octet-stream"
+    return mime_type
+
+
+def get_recommended_apps(mime_type):
+    """Get recommended applications for MIME type."""
+    apps = []
+    try:
+        # Get default app
+        default_app = Gio.AppInfo.get_default_for_type(mime_type, False)
+        if default_app:
+            apps.append(("Default", default_app))
+
+        # Get all apps for this type
+        all_apps = Gio.AppInfo.get_all_for_type(mime_type)
+        for app in all_apps:
+            if app != default_app:
+                apps.append(("Other", app))
+    except:
+        pass
+
+    # Add "Other..." option
+    return apps
+
+
+class OpenWithDialog(Gtk.Dialog):
+    def __init__(self, paths):
+        super().__init__(title="Open With", transient_for=None)
+        self.set_modal(True)
+        self.set_default_size(400, 300)
+        self.paths = paths
+
+        mime_type = get_mime_type(paths[0])
+        self.mime_type = mime_type
+
+        # Header
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        hbox.set_margin_top(12)
+        hbox.set_margin_bottom(8)
+        hbox.set_margin_start(12)
+        hbox.set_margin_end(12)
+
+        icon_theme = Gtk.IconTheme.get_default()
+        try:
+            icon = Gio.content_type_get_icon(mime_type)
+            names = icon.get_names()
+            if names:
+                pixbuf = icon_theme.load_icon(names[0], 48, 0)
+                img = Gtk.Image.new_from_pixbuf(pixbuf)
+            else:
+                img = Gtk.Image.new_from_icon_name("text-x-generic", Gtk.IconSize.DIALOG)
+        except:
+            img = Gtk.Image.new_from_icon_name("text-x-generic", Gtk.IconSize.DIALOG)
+        hbox.pack_start(img, False, False, 0)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        name = os.path.basename(paths[0])
+        if len(paths) > 1:
+            name = f"{len(paths)} items"
+        lbl = Gtk.Label()
+        lbl.set_markup(f"<b><big>{GLib.markup_escape_text(name)}</big></b>")
+        lbl.set_halign(Gtk.Align.START)
+        vbox.pack_start(lbl, False, False, 0)
+
+        kind = Gtk.Label(label=f"Type: {mime_type}")
+        kind.set_halign(Gtk.Align.START)
+        vbox.pack_start(kind, False, False, 0)
+        hbox.pack_start(vbox, True, True, 0)
+
+        self.get_content_area().pack_start(hbox, False, False, 0)
+
+        # Separator
+        sep = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        self.get_content_area().pack_start(sep, False, False, 0)
+
+        # List of applications
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_min_content_height(200)
+
+        self.listbox = Gtk.ListBox()
+        self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.populate_apps()
+        scrolled.add(self.listbox)
+        self.get_content_area().pack_start(scrolled, True, True, 0)
+
+        # Buttons
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        open_btn = self.add_button("Open", Gtk.ResponseType.OK)
+        open_btn.set_sensitive(False)
+
+        self.listbox.connect("row-selected", self.on_selection_changed)
+
+        self.show_all()
+
+    def populate_apps(self):
+        apps = get_recommended_apps(self.mime_type)
+        for category, app in apps:
+            row = Gtk.ListBoxRow()
+            row.app_info = app
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            hbox.set_margin_top(6)
+            hbox.set_margin_bottom(6)
+            hbox.set_margin_start(12)
+            hbox.set_margin_end(12)
+
+            # App icon
+            try:
+                icon = app.get_icon()
+                if icon:
+                    img = Gtk.Image.new_from_gicon(icon, Gtk.IconSize.MENU)
+                else:
+                    img = Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.MENU)
+            except:
+                img = Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.MENU)
+            hbox.pack_start(img, False, False, 0)
+
+            # App name
+            lbl = Gtk.Label(label=app.get_name())
+            lbl.set_halign(Gtk.Align.START)
+            lbl.set_ellipsize(3)  # PANGO_ELLIPSIZE_END
+            hbox.pack_start(lbl, True, True, 0)
+
+            # Category badge
+            cat_lbl = Gtk.Label(label=category)
+            cat_lbl.get_style_context().add_class("dim-label")
+            cat_lbl.set_margin_end(12)
+            hbox.pack_start(cat_lbl, False, False, 0)
+
+            row.add(hbox)
+            self.listbox.add(row)
+
+        # Add "Choose Application..." row
+        row = Gtk.ListBoxRow()
+        row.app_info = None
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        hbox.set_margin_top(6)
+        hbox.set_margin_bottom(6)
+        hbox.set_margin_start(12)
+        hbox.set_margin_end(12)
+        img = Gtk.Image.new_from_icon_name("document-open", Gtk.IconSize.MENU)
+        hbox.pack_start(img, False, False, 0)
+        lbl = Gtk.Label(label="Choose Application…")
+        lbl.set_halign(Gtk.Align.START)
+        hbox.pack_start(lbl, True, True, 0)
+        row.add(hbox)
+        self.listbox.add(row)
+
+    def on_selection_changed(self, listbox, row):
+        open_btn = self.get_widget_for_response(Gtk.ResponseType.OK)
+        if row and row.app_info:
+            open_btn.set_sensitive(True)
+        else:
+            open_btn.set_sensitive(False)
+
+    def get_selected_app(self):
+        row = self.listbox.get_selected_row()
+        if row and row.app_info:
+            return row.app_info
+        return None
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mv-openwith <file> [file...]", file=sys.stderr)
+        return 1
+
+    paths = sys.argv[1:]
+    dialog = OpenWithDialog(paths)
+    response = dialog.run()
+
+    if response == Gtk.ResponseType.OK:
+        app = dialog.get_selected_app()
+        if app:
+            for path in paths:
+                try:
+                    app.launch([path], None)
+                except Exception as e:
+                    print(f"Failed to open {path}: {e}", file=sys.stderr)
+
+    dialog.destroy()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

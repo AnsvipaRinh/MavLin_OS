@@ -6,7 +6,7 @@
 
 | Name | State | Backend reused (license) | UI | Deps added | Runtime | HW dep | Next action |
 |---|---|---|---|---|---|---|---|
-| Finder | PARTIALLY IMPLEMENTED | Thunar 4.x (GPL-2.0+) + GVfs/GIO + trash-cli (GPL-2.0) | themed + uca.xml (Quick Look, Put Back, mv-newfolder auto-numbered, Compress, Terminal) + bookmarks | trash-cli | on-demand | none | no Space key binding for Quick Look (Thunar limitation); no column view; no recursive search toolbar; Space binding documented as accepted delta |
+| Finder | PARTIALLY IMPLEMENTED | Thunar 4.x (GPL-2.0+) + GVfs/GIO + trash-cli (GPL-2.0) | themed + uca.xml (Quick Look, Put Back, Get Info, Open With, Rename, Eject, mv-newfolder auto-numbered, Compress, Terminal) + bookmarks | trash-cli | on-demand | none | no Space key binding for Quick Look (Thunar limitation); no column view; no recursive search toolbar; Space binding documented as accepted delta |
 | System Settings | IMPLEMENTED | xfce4-settings, nm-connection-editor, pavucontrol, blueman*, gnome-disks (their licenses) | custom mv-settings launcher (Python/GTK3, exits on close) | — (backend pkgs) | on-demand | BT manager pkg | install blueman on HW test |
 | About / System Report | IMPLEMENTED | /proc /sys / DMI + lspci/lsusb/nmcli (cached) | custom mv-about | — | on-demand | values real on HW | validate fields |
 | Spotlight | PARTIALLY IMPLEMENTED | rofi 2.0 (MIT) + mv-spotlight script + plocate (GPL-2.0) | rofi-mavericks.rasi (categorized) | rofi, plocate | on-demand + daily updatedb oneshot | index builds on installed system | no preview pane; no calculator/conversion; no recent items; categories basic (Apps/Files); test Super+Space on HW |

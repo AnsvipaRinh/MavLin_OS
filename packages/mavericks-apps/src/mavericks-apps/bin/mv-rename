@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""mv-rename — Finder-like rename dialog (single file/folder).
+Usage: mv-rename <path>
+Opens a GTK dialog to rename the item, Finder-style.
+"""
+import os
+import sys
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GLib
+
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: mv-rename <path>", file=sys.stderr)
+        return 1
+
+    target = sys.argv[1]
+
+    if not os.path.exists(target):
+        print(f"Item not found: {target}", file=sys.stderr)
+        return 1
+
+    dirname = os.path.dirname(target)
+    basename = os.path.basename(target)
+
+    dialog = Gtk.Dialog(title="Rename", transient_for=None)
+    dialog.set_modal(True)
+    dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+    dialog.add_button("Rename", Gtk.ResponseType.OK)
+    dialog.set_default_response(Gtk.ResponseType.OK)
+
+    box = dialog.get_content_area()
+    box.set_spacing(12)
+    box.set_margin_top(12)
+    box.set_margin_bottom(12)
+    box.set_margin_start(12)
+    box.set_margin_end(12)
+
+    label = Gtk.Label(label="Enter new name:")
+    label.set_halign(Gtk.Align.START)
+    box.pack_start(label, False, False, 0)
+
+    entry = Gtk.Entry()
+    entry.set_text(basename)
+    entry.select_region(0, len(basename))
+    entry.set_activates_default(True)
+    box.pack_start(entry, False, False, 0)
+
+    dialog.show_all()
+
+    response = dialog.run()
+    new_name = entry.get_text().strip()
+    dialog.destroy()
+
+    if response != Gtk.ResponseType.OK:
+        return 0
+
+    if not new_name or new_name == basename:
+        return 0
+
+    if "/" in new_name:
+        print("Name cannot contain '/'", file=sys.stderr)
+        return 1
+
+    new_path = os.path.join(dirname, new_name)
+
+    if os.path.exists(new_path):
+        print(f"An item with that name already exists: {new_name}", file=sys.stderr)
+        return 1
+
+    try:
+        os.rename(target, new_path)
+        return 0
+    except Exception as e:
+        print(f"Failed to rename: {e}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -63,4 +63,61 @@
     <patterns>*</patterns>
     <directories/>
   </action>
+  <action>
+    <icon>dialog-information</icon>
+    <name>Get Info</name>
+    <submenu></submenu>
+    <unique-id>mv-getinfo</unique-id>
+    <command>mv-getinfo %F</command>
+    <description>Show file/folder information (size, dates, permissions)</description>
+    <patterns>*</patterns>
+    <startup-notify/>
+    <directories/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+  <action>
+    <icon>document-open</icon>
+    <name>Open With</name>
+    <submenu></submenu>
+    <unique-id>mv-openwith</unique-id>
+    <command>mv-openwith %F</command>
+    <description>Choose application to open file</description>
+    <patterns>*</patterns>
+    <startup-notify/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+  <action>
+    <icon>edit-rename</icon>
+    <name>Rename</name>
+    <submenu></submenu>
+    <unique-id>mv-rename</unique-id>
+    <command>mv-rename "%f"</command>
+    <description>Rename file or folder (Finder-style)</description>
+    <patterns>*</patterns>
+    <startup-notify/>
+    <directories/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+  <action>
+    <icon>media-eject</icon>
+    <name>Eject</name>
+    <submenu></submenu>
+    <unique-id>mv-eject</unique-id>
+    <command>mv-eject "%f"</command>
+    <description>Safely eject removable device</description>
+    <patterns>*</patterns>
+    <directories/>
+  </action>
 </actions>

@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""mv-eject — Finder-like eject/unmount for removable devices.
+Handles: USB drives, SD cards, mounted volumes.
+"""
+import os
+import sys
+import gi
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib
+import subprocess
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mv-eject <mount-point-or-device>", file=sys.stderr)
+        return 1
+
+    for arg in sys.argv[1:]:
+        try:
+            # Try to find the mount
+            mounts = Gio.UnixMountMonitor.get().get_mounts()
+            mount_to_eject = None
+
+            for mount in mounts:
+                root = mount.get_root()
+                if root and root.get_path() == os.path.abspath(arg):
+                    mount_to_eject = mount
+                    break
+
+            # If not found by path, try by device file
+            if not mount_to_eject and os.path.exists(arg):
+                for mount in mounts:
+                    device = mount.get_device()
+                    if device and device.get_device_file() == arg:
+                        mount_to_eject = mount
+                        break
+
+            if not mount_to_eject:
+                print(f"No mount found for: {arg}", file=sys.stderr)
+                continue
+
+            # Try to unmount
+            if mount_to_eject.can_unmount():
+                mount_to_eject.unmount_with_operation(
+                    Gio.MountUnmountFlags.FORCE,
+                    None,  # GMountOperation
+                    None,  # cancellable
+                    lambda source, result, user_data: None
+                )
+                print(f"Ejected: {arg}")
+            else:
+                print(f"Cannot eject (busy): {arg}", file=sys.stderr)
+
+        except Exception as e:
+            print(f"Error ejecting {arg}: {e}", file=sys.stderr)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

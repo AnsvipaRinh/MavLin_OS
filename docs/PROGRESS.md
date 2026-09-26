@@ -163,3 +163,12 @@
 - [x] Keyboard shortcuts: Super+Space → mv-spotlight (script mode), XML validated
 - [x] All packages rebuilt (mavericks-apps, mavericks-theme), local repo updated, check-sync ALL PASSED
 - [x] APPS.md updated with real statuses (no fake "IMPLEMENTED" claims)
+
+### Фаза 0.20 — Finder UCA actions implemented (2026-09-26, без железа)
+- [x] mv-getinfo: Finder-like Get Info dialog (size, dates, permissions, kind)
+- [x] mv-openwith: Finder-like Open With dialog (recommended apps + choose other)
+- [x] mv-rename: Finder-like Rename dialog (GTK-based, validates name)
+- [x] mv-eject: Finder-like Eject for removable devices (Gio.UnixMountMonitor)
+- [x] Thunar UCA updated with all 4 new actions (Get Info, Open With, Rename, Eject)
+- [x] All scripts added to Makefile, packages rebuilt, check-sync ALL PASSED
+- [x] APPS.md updated: Finder UCA now includes Get Info, Open With, Rename, Eject
