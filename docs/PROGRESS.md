@@ -46,6 +46,12 @@
 - [x] `.opencode/model-fallback.json`: `never` = только для резолвера (исполнение), picker visibility свободен
 - [x] Проверено: конфиги парсятся, пины на месте; требуется ПОЛНЫЙ рестарт сервера
 
+### Фаза 0.43 — Workers never delegate (2026-09-26, без железа)
+- [x] Причина: топ-уровень `task allow` без overrides для build — Task воркера показывал всех агентов, отсюда попытки вложенной делегации и build→orchestrator self-invoke
+- [x] `agent.build.permission.task` = deny-all + worker-description; stock Build не тронут, subagent_depth без изменений
+- [x] Промпт-компаньоны: orchestrator.md шаг 3 + AGENTS.md 14.7
+- [x] Проверено: jsonc валиден (deny у build, allow топ-уровня цел); требуется ПОЛНЫЙ рестарт сервера
+
 ## Phase 0 — База и идентификация железа
 - [x] Определить точную модель/ревизию: MacBook10,1 (Mid 2017)
 - [x] Зафиксировать в docs/HARDWARE.md

@@ -699,6 +699,30 @@ including spark for orchestrator selection; workers stay on LongCat pin.
 
 ---
 
+## 2026-09-26 — Workers never delegate: build task-deny (nested sub-agents killed)
+
+**Symptom (user report):** every build worker first tries to invoke yet-deeper
+sub-agents instead of executing itself.
+
+**Root cause (config, verified):** project `opencode.jsonc` top-level
+`permission.task = {"*": "allow"}` applied to ALL agents; `build` had no
+per-agent override, so its Task tool listed every available agent (`build`
+itself, `orchestrator`, …) — the model saw invokable agents and tried them.
+This also explains the earlier build→orchestrator "self-invoke".
+`subagent_depth` default (1) blocks execution depth platform-side but NOT the
+attempts; AGENTS.md "delegate via Task" language (written for Orchestrator,
+visible to all) invited imitation.
+
+**Fix (enforcement, not discipline):**
+`agent.build.permission.task = {"*": "deny"}` + worker `description`
+("executes ITSELF… never delegates"). Task tool now offers a worker zero
+agents → attempts vanish, including self-invoke. Stock Build untouched (config
+merge only; picker still Build + Orchestrator). `subagent_depth` unchanged:
+orchestrator→build remains the single allowed level. Prompt companions:
+orchestrator.md step 3 ("do not invoke subagents…") + AGENTS.md 14.7.
+
+---
+
 ## Disk Utility: custom mv-diskutil frontend over UDisks2; destructive ops deferred to gnome-disks
 
 **Date:** 2026-09-26 (Phase 0.39)

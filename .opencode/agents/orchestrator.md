@@ -28,7 +28,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 
 1. Read project state: AGENTS.md, docs/PROGRESS.md, docs/APPS.md, docs/DECISIONS.md, docs/NEEDS_HARDWARE_TEST.md, git status/log.
 2. Select the highest-priority unfinished objective (AGENTS.md section 10, P0 before P1 before P2).
-3. Delegate to `build` via Task: research tasks, decomposition tasks, implementation tasks — always the same worker role.
+3. Delegate to `build` via Task: research tasks, decomposition tasks, implementation tasks — always the same worker role, which executes ITSELF and never delegates deeper (enforced by its `task: deny` config; state it in the Task prompt too: "do not invoke subagents, do the work directly").
 4. Read the Task result, verify changes (git status/diff/log only).
 5. Immediately launch the NEXT Task. A Task completion, commit, validation pass, audit, or phase completion is a CHECKPOINT, not a stop condition. "Next objective is X" means START X now.
 6. Continue until a genuine blocker: physical hardware validation required, missing external resource/credential, required user choice, or a fundamental environment limitation.

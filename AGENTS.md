@@ -1058,3 +1058,13 @@ After changing the agent file: restart `opencode serve` / the desktop
 app (or start a new server) — running servers do NOT re-read agents.
 Machine equivalent of "visible in UI": fresh `GET /agent` (or
 `agent list` outside the repo) must list `orchestrator|primary`.
+
+### 14.7 Workers never delegate (no nested sub-agents)
+
+`agent.build.permission.task` = deny-all in project `opencode.jsonc`, so the
+Task tool offers a worker zero invokable agents (not even `orchestrator` —
+this also kills the build→orchestrator self-invoke). The stock Build role is
+untouched (no custom role file; picker still shows only Build + Orchestrator).
+`subagent_depth` stays default: orchestrator(primary)→build is the single
+allowed level. Prompts state it too, but enforcement is the permission, not
+discipline.
