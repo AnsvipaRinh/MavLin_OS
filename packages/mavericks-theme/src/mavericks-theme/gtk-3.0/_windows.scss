@@ -139,6 +139,30 @@ dialog > headerbar {
     border-radius: 4px 4px 0 0;
 }
 
+dialog .dialog-action-area {
+    padding: 12px 16px;
+    border-top: 1px solid $border_color;
+    background-color: $titlebar_bg_color;
+    border-radius: 0 0 4px 4px;
+}
+
+dialog .dialog-action-area button {
+    min-width: 80px;
+    margin: 0 4px;
+}
+
+dialog .dialog-action-area button.suggested-action {
+    @include button-gradient($accent_bg_color);
+    color: $accent_fg_color;
+    border-color: shade($accent_bg_color, 0.5);
+}
+
+dialog .dialog-action-area button.destructive-action {
+    @include button-gradient($destructive_bg_color);
+    color: $destructive_fg_color;
+    border-color: shade($destructive_bg_color, 0.5);
+}
+
 /* ============================================================
    POPOVER
    ============================================================ */
