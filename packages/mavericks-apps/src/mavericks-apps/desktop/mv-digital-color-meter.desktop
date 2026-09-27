@@ -5,5 +5,6 @@ Comment=Color Picker (Mavericks)
 Exec=mv-colormeter %U
 Icon=color-picker
 Categories=Graphics;
+Keywords=color;picker;screen;sampler;aperture;
 StartupNotify=true
 X-Mavericks-Native=true

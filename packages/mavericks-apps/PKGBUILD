@@ -21,7 +21,8 @@ optdepends=('poppler-glib: PDF preview in Quick Look'
             'pulseaudio: Voice Memos fallback backend (parec/paplay)'
             'seahorse: full Passwords and Keys GUI alongside mv-keychain'
             'gnome-keyring: secret daemon used by the libsecret backend'
-            'gnome-font-viewer: optional Open-in-Font-Viewer handoff in Font Book')
+             'gnome-font-viewer: optional Open-in-Font-Viewer handoff in Font Book'
+             'gcolor3: optional Open-in-Picker handoff in Digital Color Meter')
 makedepends=()
 # NOTE: sources live in ./src/mavericks-apps/ (repo-local, reproducible).
 # Build with: makepkg -si (from this directory). No network fetch required.
