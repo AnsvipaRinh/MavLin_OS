@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=AirDrop
+Comment=Share files with nearby devices (LocalSend backend)
+Exec=mv-airdrop
+Icon=airdrop
+Categories=Network;FileTransfer;
+Keywords=airdrop;share;nearby;localsend;file transfer;
+StartupNotify=true
+X-Mavericks-Native=true

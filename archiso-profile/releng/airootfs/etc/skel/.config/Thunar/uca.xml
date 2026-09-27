@@ -121,6 +121,22 @@
     <directories/>
   </action>
   <action>
+    <icon>airdrop</icon>
+    <name>Send via AirDrop…</name>
+    <submenu></submenu>
+    <unique-id>mv-airdrop-send</unique-id>
+    <command>mv-airdrop --send %F</command>
+    <description>Share selected files with nearby devices (LocalSend backend)</description>
+    <patterns>*</patterns>
+    <startup-notify/>
+    <directories/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+  <action>
     <icon>user-trash-full</icon>
     <name>Empty Trash</name>
     <submenu></submenu>

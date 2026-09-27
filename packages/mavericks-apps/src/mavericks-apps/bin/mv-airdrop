@@ -1,0 +1,517 @@
+#!/usr/bin/env python3
+"""mv-airdrop — AirDrop surface over LocalSend (Mavericks Linux).
+
+Discovery: LocalSend protocol v2 multicast announcement (UDP 224.0.0.167:53317,
+announce:true) + one-shot listen for replies/announcements. No avahi needed —
+LocalSend uses its own multicast, which fits the avahi-off baseline.
+
+Send: `localsend-cli send --to <ip> <files...>` (official CLI, AGPL-3.0-only,
+AUR localsend-cli-bin). Receive: launches the LocalSend GUI (Apache-2.0, AUR
+localsend-bin) — receiving requires a running LocalSend instance; received
+files land in ~/Downloads (LocalSend default = macOS AirDrop convention).
+
+Energy model: on-demand only. No daemon, no autostart, no tray, no polling.
+Discovery is a single ~2.5 s UDP burst per window open; sending is a
+short-lived subprocess. Backends are opt-in AUR packages; without them the
+app shows setup guidance instead of failing silently.
+
+License: GPL-2.0-or-later."""
+import argparse
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import threading
+import time
+import uuid
+
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gio", "2.0")
+from gi.repository import Gtk, Gio, Gdk, GLib
+
+MULTICAST_GROUP = "224.0.0.167"
+LOCALSEND_PORT = 53317
+DISCOVERY_TIMEOUT = 2.5
+NM_STATE_CONNECTED_MIN = 30
+
+DEVICE_ICONS = {
+    "mobile": "phone",
+    "desktop": "computer",
+    "web": "web-browser",
+    "headless": "utilities-terminal",
+    "server": "network-server",
+}
+DEFAULT_DEVICE_ICON = "network-workgroup"
+
+AUR_GUI = "localsend-bin"
+AUR_CLI = "localsend-cli-bin"
+RECEIVE_DIR = os.path.expanduser("~/Downloads")
+
+
+def build_announcement(fingerprint, alias, port=LOCALSEND_PORT):
+    return {
+        "alias": alias,
+        "version": "2.0",
+        "deviceModel": "Linux",
+        "deviceType": "desktop",
+        "fingerprint": fingerprint,
+        "port": port,
+        "protocol": "https",
+        "download": False,
+        "announce": True,
+    }
+
+
+def parse_device_datagram(data, source_ip, own_fingerprint):
+    try:
+        msg = json.loads(data.decode("utf-8", "replace"))
+    except ValueError:
+        return None
+    if not isinstance(msg, dict):
+        return None
+    fp = msg.get("fingerprint")
+    if not isinstance(fp, str) or not fp or fp == own_fingerprint:
+        return None
+    try:
+        port = int(msg.get("port") or LOCALSEND_PORT)
+    except (TypeError, ValueError):
+        port = LOCALSEND_PORT
+    return {
+        "alias": str(msg.get("alias") or "Unknown device"),
+        "ip": source_ip,
+        "port": port,
+        "protocol": str(msg.get("protocol") or "https"),
+        "deviceType": str(msg.get("deviceType") or "desktop"),
+        "deviceModel": str(msg.get("deviceModel") or ""),
+        "fingerprint": fp,
+        "download": bool(msg.get("download", False)),
+    }
+
+
+def discover(timeout=DISCOVERY_TIMEOUT, socket_factory=None, fingerprint=None,
+             alias=None, group=MULTICAST_GROUP, port=LOCALSEND_PORT):
+    """One-shot LocalSend discovery. Returns (devices, error_string|None)."""
+    if fingerprint is None:
+        fingerprint = uuid.uuid4().hex
+    if alias is None:
+        alias = socket.gethostname()
+    sock = None
+    try:
+        if socket_factory is not None:
+            sock = socket_factory()
+        else:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(("", port))
+            mreq = socket.inet_aton(group) + socket.inet_aton("0.0.0.0")
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        sock.settimeout(0.2)
+        announce = json.dumps(build_announcement(fingerprint, alias, port)).encode()
+        sock.sendto(announce, (group, port))
+        devices = {}
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                data, addr = sock.recvfrom(65535)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            dev = parse_device_datagram(data, addr[0], fingerprint)
+            if dev:
+                devices[dev["fingerprint"]] = dev
+        return list(devices.values()), None
+    except OSError as e:
+        return [], str(e)
+    finally:
+        if sock is not None:
+            try:
+                sock.close()
+            except OSError:
+                pass
+
+
+def nm_connectivity(checker=None):
+    """True=online, False=offline, None=unknown (caller must not block on None).
+
+    checker (tests) returns the raw NetworkManager State uint32, or None."""
+    try:
+        if checker is not None:
+            state = checker()
+        else:
+            proxy = Gio.DBusProxy.new_for_bus_sync(
+                Gio.BusType.SYSTEM, Gio.DBusProxyFlags.NONE, None,
+                "org.freedesktop.NetworkManager",
+                "/org/freedesktop/NetworkManager",
+                "org.freedesktop.DBus.Properties", None)
+            state = proxy.call_sync(
+                "Get",
+                GLib.Variant("(ss)", ("org.freedesktop.NetworkManager", "State")),
+                Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
+    except Exception:
+        return None
+    if state is None:
+        return None
+    return state >= NM_STATE_CONNECTED_MIN
+
+
+def send_command(device_ip, files):
+    return ["localsend-cli", "send", "--to", device_ip] + [str(f) for f in files]
+
+
+def device_icon_name(device_type):
+    return DEVICE_ICONS.get(device_type, DEFAULT_DEVICE_ICON)
+
+
+def have(cmd):
+    return shutil.which(cmd) is not None
+
+
+def notify(summary, body=""):
+    try:
+        subprocess.run(["mv-notify-send", "-a", "AirDrop", "-i", "airdrop",
+                        summary, body], timeout=5, capture_output=True)
+    except Exception:
+        pass
+
+
+class AirDropWindow(Gtk.Window):
+    def __init__(self, files=None, net_checker=None, discover_fn=None):
+        super().__init__(title="AirDrop")
+        self.set_default_size(540, 560)
+        self.files = list(files or [])
+        self.devices = {}
+        self.selected = None
+        self.send_proc = None
+        self.net_checker = net_checker or nm_connectivity
+        self.discover_fn = discover_fn or discover
+        self.apply_css()
+
+        self.connect("key-press-event", self.on_key_press)
+        self.connect("destroy", Gtk.main_quit)
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.add(root)
+
+        hb = Gtk.HeaderBar(title="AirDrop", show_close_button=True)
+        hb.set_subtitle("Nearby devices")
+        self.attr_label = Gtk.Label(label="Powered by LocalSend")
+        self.attr_label.get_style_context().add_class("mv-attribution")
+        hb.pack_end(self.attr_label)
+        self.set_titlebar(hb)
+
+        self.banner = Gtk.InfoBar()
+        self.banner.set_no_show_all(True)
+        root.pack_start(self.banner, False, False, 0)
+        self.banner_label = Gtk.Label(wrap=True, xalign=0)
+        self.banner_label.set_margin_start(12)
+        self.banner_label.set_margin_end(12)
+        self.banner_label.set_margin_top(6)
+        self.banner_label.set_margin_bottom(6)
+        self.banner.get_content_area().add(self.banner_label)
+
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        body.set_border_width(16)
+        root.pack_start(body, True, True, 0)
+
+        devices_head = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        body.pack_start(devices_head, False, False, 0)
+        head = Gtk.Label(label="<b>Nearby Devices</b>", use_markup=True, xalign=0)
+        devices_head.pack_start(head, True, True, 0)
+        self.spinner = Gtk.Spinner()
+        devices_head.pack_end(self.spinner, False, False, 0)
+
+        self.device_list = Gtk.ListBox()
+        self.device_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.device_list.connect("row-selected", self.on_row_selected)
+        self.device_list.get_style_context().add_class("mv-device-list")
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sw.add(self.device_list)
+        body.pack_start(sw, True, True, 0)
+
+        self.empty_label = Gtk.Label(
+            label="Searching for nearby devices…", xalign=0.5)
+        self.empty_label.set_margin_top(24)
+        self.empty_label.set_margin_bottom(24)
+        body.pack_start(self.empty_label, False, False, 0)
+
+        self.files_label = Gtk.Label(wrap=True, xalign=0)
+        self.files_label.get_style_context().add_class("mv-files-label")
+        body.pack_start(self.files_label, False, False, 0)
+
+        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        body.pack_start(buttons, False, False, 0)
+
+        self.select_btn = Gtk.Button(label="Select Files…")
+        self.select_btn.connect("clicked", self.on_select_files)
+        buttons.pack_start(self.select_btn, False, False, 0)
+
+        self.send_btn = Gtk.Button(label="Send")
+        self.send_btn.get_style_context().add_class("suggested-action")
+        self.send_btn.set_sensitive(False)
+        self.send_btn.connect("clicked", self.on_send)
+        buttons.pack_start(self.send_btn, False, False, 0)
+
+        self.receive_btn = Gtk.Button(label="Receive…")
+        self.receive_btn.set_tooltip_text(
+            "Opens LocalSend to accept incoming files.\n"
+            "Received files are saved to %s." % RECEIVE_DIR)
+        self.receive_btn.connect("clicked", self.on_receive)
+        buttons.pack_start(self.receive_btn, False, False, 0)
+
+        self.status = Gtk.Label(xalign=0)
+        self.status.get_style_context().add_class("mv-status")
+        self.status.set_margin_top(4)
+        root.pack_end(self.status, False, False, 0)
+
+        self.refresh_files_label()
+        self.check_backends()
+        self.refresh_sensitivity()
+        GLib.idle_add(self.start_discovery)
+
+    def apply_css(self):
+        css = """
+        .mv-attribution {
+            font-size: 9pt;
+            color: #6d6d6d;
+        }
+        .mv-device-list row:selected {
+            background-color: #cfe0f5;
+        }
+        .mv-files-label {
+            font-size: 10pt;
+            color: #3d3d3d;
+        }
+        .mv-status {
+            font-size: 9pt;
+            color: #6d6d6d;
+            padding: 6px 12px;
+            border-top: 1px solid #d8d8d8;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css.encode())
+        screen = Gdk.Screen.get_default()
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def show_banner(self, kind, text):
+        self.banner.set_message_type(kind)
+        self.banner_label.set_text(text)
+        self.banner.show()
+
+    def hide_banner(self):
+        self.banner.hide()
+
+    def check_backends(self):
+        if not have("localsend-cli"):
+            self.show_banner(
+                Gtk.MessageType.ERROR,
+                "LocalSend CLI not found — sending is disabled.\n"
+                "Install it: yay -S %s (AUR)" % AUR_CLI)
+        if not have("localsend"):
+            self.show_banner(
+                Gtk.MessageType.WARNING,
+                "LocalSend app not found — receiving is disabled.\n"
+                "Install it: yay -S %s (AUR)" % AUR_GUI)
+
+    def refresh_sensitivity(self):
+        self.send_btn.set_sensitive(
+            bool(self.selected) and bool(self.files) and have("localsend-cli")
+            and self.send_proc is None)
+        self.receive_btn.set_sensitive(have("localsend"))
+        self.select_btn.set_sensitive(self.send_proc is None)
+
+    def refresh_files_label(self):
+        if self.files:
+            names = ", ".join(os.path.basename(f) for f in self.files)
+            self.files_label.set_markup("<b>Ready to send:</b> %s" % names)
+        else:
+            self.files_label.set_markup(
+                "Select files to send, or open AirDrop on another device "
+                "and drag files here.")
+
+    def start_discovery(self):
+        self.spinner.start()
+        self.empty_label.show()
+        self.empty_label.set_text("Searching for nearby devices…")
+        net = self.net_checker()
+        if net is False:
+            self.spinner.stop()
+            self.empty_label.set_text(
+                "No network connection — connect to Wi-Fi to find nearby devices.")
+            self.show_banner(Gtk.MessageType.WARNING,
+                             "NetworkManager reports no connection. "
+                             "LocalSend needs a local network (Wi-Fi).")
+            return
+        threading.Thread(target=self._discovery_worker, daemon=True).start()
+
+    def _discovery_worker(self):
+        devices, error = self.discover_fn()
+        GLib.idle_add(self._discovery_done, devices, error)
+
+    def _discovery_done(self, devices, error):
+        self.spinner.stop()
+        if error is not None:
+            self.empty_label.set_text(
+                "Discovery unavailable: %s\n"
+                "If LocalSend is already running, use its own device list."
+                % error)
+            self.show_banner(Gtk.MessageType.INFO,
+                             "Port %d is busy — is LocalSend already running? "
+                             "Its window shows the same devices." % LOCALSEND_PORT)
+            return
+        self.devices = {d["fingerprint"]: d for d in devices}
+        self.rebuild_list()
+        if not devices:
+            self.empty_label.show()
+            self.empty_label.set_text(
+                "No nearby devices found.\n"
+                "Make sure the other device has LocalSend open, is on the "
+                "same network, and the network does not isolate clients.")
+        else:
+            self.empty_label.hide()
+        return False
+
+    def rebuild_list(self):
+        for child in self.device_list.get_children():
+            self.device_list.remove(child)
+        if self.devices:
+            self.empty_label.hide()
+        for dev in self.devices.values():
+            row = Gtk.ListBoxRow()
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            box.set_border_width(8)
+            icon = Gtk.Image.new_from_icon_name(
+                device_icon_name(dev["deviceType"]), Gtk.IconSize.DND)
+            box.pack_start(icon, False, False, 0)
+            texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            alias = Gtk.Label(label="<b>%s</b>" % dev["alias"],
+                              use_markup=True, xalign=0)
+            sub = Gtk.Label(label="%s · %s" % (dev["ip"], dev["protocol"]),
+                            xalign=0)
+            sub.get_style_context().add_class("mv-attribution")
+            texts.pack_start(alias, False, False, 0)
+            texts.pack_start(sub, False, False, 0)
+            box.pack_start(texts, True, True, 0)
+            row.add(box)
+            row.device_fingerprint = dev["fingerprint"]
+            self.device_list.show_all()
+            self.device_list.add(row)
+
+    def on_row_selected(self, _listbox, row):
+        self.selected = None
+        if row is not None:
+            self.selected = self.devices.get(row.device_fingerprint)
+        self.refresh_sensitivity()
+
+    def on_select_files(self, _btn):
+        dialog = Gtk.FileChooserDialog(
+            title="Send via AirDrop", parent=self,
+            action=Gtk.FileChooserAction.OPEN)
+        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                         Gtk.STOCK_OPEN, Gtk.ResponseType.ACCEPT)
+        dialog.set_select_multiple(True)
+        if dialog.run() == Gtk.ResponseType.ACCEPT:
+            self.files = dialog.get_filenames()
+            self.refresh_files_label()
+            self.refresh_sensitivity()
+        dialog.destroy()
+
+    def on_send(self, _btn):
+        if not self.selected or not self.files:
+            return
+        target = self.selected
+        cmd = send_command(target["ip"], self.files)
+        self.set_status("Sending to %s…" % target["alias"])
+        self.send_btn.set_sensitive(False)
+        self.select_btn.set_sensitive(False)
+        try:
+            self.send_proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError as e:
+            self.send_proc = None
+            self.refresh_sensitivity()
+            self.set_status("Could not start localsend-cli: %s" % e)
+            return
+        GLib.child_watch_add(self.send_proc.pid, self._on_send_exit, target)
+
+    def _on_send_exit(self, _pid, status, target):
+        proc = self.send_proc
+        self.send_proc = None
+        rc = os.waitstatus_to_exitcode(status)
+        err = ""
+        try:
+            if proc is not None and proc.stderr is not None:
+                err = proc.stderr.read().decode("utf-8", "replace").strip()
+        except Exception:
+            pass
+        if rc == 0:
+            self.set_status("Sent to %s — received files appear in %s."
+                           % (target["alias"], RECEIVE_DIR))
+            notify("AirDrop: sent to %s" % target["alias"])
+        else:
+            self.set_status("Send to %s failed (exit %d)%s"
+                           % (target["alias"], rc,
+                              ": " + err.splitlines()[-1] if err else ""))
+            dlg = Gtk.MessageDialog(
+                parent=self, modal=True, message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK, text="Send failed")
+            dlg.format_secondary_text(err or "localsend-cli exited with %d" % rc)
+            dlg.run()
+            dlg.destroy()
+        self.refresh_sensitivity()
+        return False
+
+    def on_receive(self, _btn):
+        try:
+            subprocess.Popen(["localsend"])
+        except OSError as e:
+            self.set_status("Could not start LocalSend: %s" % e)
+            return
+        self.set_status(
+            "LocalSend opened — accept incoming files there. "
+            "Received files are saved to %s." % RECEIVE_DIR)
+
+    def set_status(self, text):
+        self.status.set_text(text)
+
+    def on_key_press(self, _widget, event):
+        key = Gdk.keyval_name(event.keyval)
+        if key in ("Escape",):
+            self.destroy()
+            return True
+        if key in ("o", "O") and event.state & Gdk.ModifierType.CONTROL_MASK:
+            self.on_select_files(None)
+            return True
+        if key in ("Return", "KP_Enter"):
+            if self.send_btn.get_sensitive():
+                self.on_send(None)
+            return True
+        return False
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="AirDrop — share files with nearby devices (LocalSend backend)")
+    parser.add_argument("--send", nargs="+", default=[], metavar="FILE",
+                        help="files to send (Thunar action wiring)")
+    args = parser.parse_args()
+
+    files = []
+    for f in args.send:
+        path = os.path.abspath(os.path.expanduser(f))
+        if os.path.exists(path):
+            files.append(path)
+
+    win = AirDropWindow(files=files)
+    win.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

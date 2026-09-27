@@ -24,7 +24,9 @@ optdepends=('poppler-glib: PDF preview in Quick Look'
              'gnome-font-viewer: optional Open-in-Font-Viewer handoff in Font Book'
              'gcolor3: optional Open-in-Picker handoff in Digital Color Meter'
              'espeak-ng: pronunciation audio in Dictionary'
-             'dictd: offline WordNet definitions in Dictionary (dict protocol)')
+             'dictd: offline WordNet definitions in Dictionary (dict protocol)'
+             'localsend-bin: LocalSend GUI backend for AirDrop receive (AUR)'
+             'localsend-cli-bin: LocalSend CLI backend for AirDrop send (AUR)')
 makedepends=()
 # NOTE: sources live in ./src/mavericks-apps/ (repo-local, reproducible).
 # Build with: makepkg -si (from this directory). No network fetch required.
