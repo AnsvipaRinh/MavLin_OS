@@ -10,7 +10,7 @@ License: GPL-2.0-or-later."""
 import json, os, subprocess, sys, time, uuid
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib, Pango
+from gi.repository import Gtk, Gdk, Pango
 
 STORE = os.path.expanduser("~/.local/share/mv-reminders/tasks.json")
 PRIORITIES = ["", "Low", "Medium", "High"]

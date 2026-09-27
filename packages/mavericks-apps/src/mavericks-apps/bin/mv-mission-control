@@ -12,7 +12,6 @@ Features:
 - Shows empty workspaces
 - Graceful handling when wmctrl unavailable
 """
-import os
 import sys
 import subprocess
 import re

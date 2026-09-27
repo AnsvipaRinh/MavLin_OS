@@ -3,7 +3,6 @@
 PDF/images viewer with thumbnail sidebar and annotation toolbar.
 Backend: poppler-glib (same as evince) for PDF; GdkPixbuf for images.
 No daemon, no Electron. License: GPL-2.0-or-later."""
-import mimetypes
 import os
 import sys
 import gi

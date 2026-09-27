@@ -15,8 +15,7 @@ import sys
 
 import gi
 gi.require_version("Gtk", "3.0")
-gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
+from gi.repository import Gtk, Gdk, GLib
 
 LOUPE_SIZE = 11
 TICK_MS = 200

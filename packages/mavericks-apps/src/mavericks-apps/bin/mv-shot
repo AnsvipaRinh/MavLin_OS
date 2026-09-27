@@ -12,7 +12,6 @@ import sys
 import time
 import subprocess
 import configparser
-from pathlib import Path
 
 try:
     import gi

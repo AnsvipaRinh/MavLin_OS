@@ -2,7 +2,7 @@
 """mv-settings — Mavericks-like System Settings launcher (on-demand, exits on close).
 Backend: existing Xfce/GNOME tools + direct syscalls. No daemon.
 License: GPL-2.0-or-later."""
-import subprocess, sys
+import subprocess
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk

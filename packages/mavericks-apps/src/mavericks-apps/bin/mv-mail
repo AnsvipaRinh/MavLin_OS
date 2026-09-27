@@ -2,8 +2,6 @@
 """mv-mail — Mavericks-like Mail wrapper for Geary.
 Adds Mavericks visual theme and integration.
 """
-import os
-import sys
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
@@ -125,7 +123,6 @@ class MailWrapper(Gtk.Window):
             self.content.set_markup('<span color="#ff3b30">Geary not installed</span>\n\n<span color="#666">Install with: sudo pacman -S geary</span>')
         return False
 
-import os
 import subprocess
 import gi
 gi.require_version("Gtk", "3.0")

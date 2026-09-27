@@ -4,7 +4,7 @@
 Logs to ~/.local/share/mavericks/notifications.json (max 500 entries).
 No daemon; on-demand logging. License: GPL-2.0-or-later.
 """
-import json, os, subprocess, sys, time, uuid
+import json, os, subprocess, time, uuid
 
 STORE_DIR = os.path.expanduser("~/.local/share/mavericks")
 STORE_FILE = os.path.join(STORE_DIR, "notifications.json")
