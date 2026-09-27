@@ -128,8 +128,8 @@ class About(Gtk.Window):
         sw2.add(gv)
         paned.add2(sw2)
         self.fns = [fn for _, fn in CATEGORIES]
-        tv.get_selection().select_path(Gtk.TreePath.new_from_indices([0]))
         self.tv = tv
+        tv.get_selection().select_path(Gtk.TreePath.new_from_indices([0]))
 
     def on_select(self, sel):
         _m, it = sel.get_selected()

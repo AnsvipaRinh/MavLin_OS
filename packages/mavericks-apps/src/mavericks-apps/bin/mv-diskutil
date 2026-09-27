@@ -410,13 +410,13 @@ class DiskUtilWindow(Gtk.Window):
         for child in self.detail.get_children():
             self.detail.remove(child)
         if self.error:
-            self.detail.pack_empty_state(self.error)
+            self.pack_empty_state(self.error)
         elif self.selected is None:
-            self.detail.pack_empty_state("no-selection")
+            self.pack_empty_state("no-selection")
         else:
             item = self.find_item(*self.selected)
             if item is None:
-                self.detail.pack_empty_state("no-selection")
+                self.pack_empty_state("no-selection")
             elif item["kind"] == "drive":
                 self.detail.pack_drive(item)
             else:

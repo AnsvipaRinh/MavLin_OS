@@ -634,7 +634,6 @@ class PhotosWindow(Gtk.Window):
             font-weight: bold;
             color: #666;
             font-size: 9pt;
-            text-transform: uppercase;
             margin-bottom: 4px;
         }
         .sidebar-item {
@@ -643,7 +642,6 @@ class PhotosWindow(Gtk.Window):
             border-radius: 4px;
             padding: 6px 12px;
             margin: 2px 8px;
-            text-align: left;
         }
         .sidebar-item:hover {
             background: rgba(0,122,255,0.15);

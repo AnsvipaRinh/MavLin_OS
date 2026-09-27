@@ -54,11 +54,11 @@ class TextEdit(Gtk.Window):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.add(vbox)
 
-        self.build_format_bar(vbox)
-        self.build_search_bar(vbox)
-
         self.buffer = GtkSource.Buffer()
         self.buffer.connect("changed", self.on_changed)
+
+        self.build_format_bar(vbox)
+        self.build_search_bar(vbox)
 
         lm = GtkSource.LanguageManager.get_default()
         lang = lm.guess_language(None, "text/plain")

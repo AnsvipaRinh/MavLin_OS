@@ -336,7 +336,7 @@ class PowerUI(Gtk.Window):
         self.set_resizable(False)
         self.set_keep_above(True)
         self.set_skip_taskbar_hint(True)
-        self.set_type_hint(Gtk.WindowTypeHint.DIALOG)
+        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
 
         self._provider = Gtk.CssProvider()
         self._provider.load_from_data(CSS)
