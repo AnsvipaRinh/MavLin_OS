@@ -410,7 +410,10 @@ SCENARIOS = {
     "S10-quicklook-open": (lambda c: scenario_skipped(
         c, no_x_reason("preview window tier")), 1),
     "S14-browser-workload": (lambda c: scenario_skipped(
-        c, "deferred: no Firefox on host; HD615 behavior is HW-only"), 1),
+        c, "deferred: no browser on host (checked 2026-09-27: firefox, "
+           "firefox-esr, epiphany, icecat, chromium, google-chrome, brave, "
+           "edge, web — none found; offline discipline, no install); "
+           "headless page-load + HD615 behavior HW-only"), 1),
 }
 
 
