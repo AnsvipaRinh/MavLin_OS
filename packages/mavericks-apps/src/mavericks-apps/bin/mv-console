@@ -187,6 +187,26 @@ def source_count_command(key):
     return None
 
 
+def follow_command(key, level=None):
+    if level == "all":
+        level = None
+    if key == "kernel":
+        return None
+    if key == "user":
+        cmd = ["journalctl", "--user", "-f", "-n", "0", "--no-pager", "-o", "cat"]
+    elif key == "boot":
+        cmd = ["journalctl", "-b", "-f", "-n", "0", "--no-pager", "-o", "cat"]
+    elif key == "prevboot":
+        cmd = ["journalctl", "-b", "-1", "-f", "-n", "0", "--no-pager", "-o", "cat"]
+    elif key == "all":
+        cmd = ["journalctl", "-f", "-n", "0", "--no-pager", "-o", "cat"]
+    else:
+        return None
+    if level:
+        cmd += ["-p", level]
+    return cmd
+
+
 class Console(Gtk.Window):
     def __init__(self):
         super().__init__(title="Console")
@@ -195,13 +215,16 @@ class Console(Gtk.Window):
         self.current_source = "all"
         self.current_level = "all"
         self.entries = []
-        self.tick_id = None
         self._syncing = False
+        self._follow_proc = None
+        self._follow_watch = None
+        self._follow_timer = None
 
+        self._building = True
         self.apply_mavericks_css()
         self.build_ui()
+        self._building = False
 
-        self.tick_id = GLib.timeout_add_seconds(2, self.tick)
         self.reload(initial=True)
         self.show_all()
 
@@ -408,11 +431,15 @@ class Console(Gtk.Window):
             self.reload()
 
     def on_follow_toggled(self, btn):
-        if self._syncing:
+        if self._syncing or self._building:
             return
         self._syncing = True
         self.pause_item.set_active(not btn.get_active())
         self._syncing = False
+        if btn.get_active():
+            self.start_follow()
+        else:
+            self.stop_follow()
 
     def on_pause_toggled(self, item):
         if self._syncing:
@@ -426,9 +453,62 @@ class Console(Gtk.Window):
             Gtk.WrapMode.WORD_CHAR if item.get_active() else Gtk.WrapMode.NONE)
 
     def on_destroy(self, _w):
-        if self.tick_id is not None:
-            GLib.source_remove(self.tick_id)
-            self.tick_id = None
+        self.stop_follow()
+
+    def start_follow(self):
+        self.stop_follow()
+        if not self.follow.get_active():
+            return
+        cmd = follow_command(self.current_source, self.current_level)
+        if cmd is None:
+            self._follow_timer = GLib.timeout_add_seconds(5, self.reload)
+            return
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, text=True,
+                                    errors="replace", bufsize=1)
+        except (OSError, FileNotFoundError):
+            self.show_state("no-journal" if cmd[0] == "journalctl"
+                            else "no-dmesg", "journalctl is unavailable")
+            return
+        self._follow_proc = proc
+        self._follow_watch = GLib.io_add_watch(
+            proc.stdout, GLib.IO_IN | GLib.IO_HUP, self._on_follow_data)
+
+    def stop_follow(self):
+        if self._follow_watch is not None:
+            GLib.source_remove(self._follow_watch)
+            self._follow_watch = None
+        if self._follow_timer is not None:
+            GLib.source_remove(self._follow_timer)
+            self._follow_timer = None
+        proc, self._follow_proc = self._follow_proc, None
+        if proc is not None:
+            try:
+                proc.terminate()
+                proc.wait(timeout=2)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+
+    def _on_follow_data(self, fd, _condition):
+        proc = self._follow_proc
+        if proc is None:
+            return False
+        try:
+            line = fd.readline()
+        except Exception:
+            line = ""
+        if line:
+            entry = parse_line(line)
+            if entry:
+                self.entries = (self.entries + [entry])[-500:]
+            self.render()
+            return True
+        self.stop_follow()
+        return False
 
     def reload(self, initial=False, *_a):
         lvl_name = self.level.get_active_text()
@@ -474,6 +554,8 @@ class Console(Gtk.Window):
         self.render()
         if initial:
             self.refresh_sidebar_counts()
+        if self.follow.get_active():
+            self.start_follow()
 
     def refresh_sidebar_counts(self):
         for i, (_name, _icon, key) in enumerate(SOURCES):
@@ -555,12 +637,6 @@ class Console(Gtk.Window):
                     err.destroy()
         finally:
             dlg.destroy()
-
-    def tick(self):
-        if self.follow.get_active():
-            self.reload()
-        return True
-
 
 def main():
     w = Console()

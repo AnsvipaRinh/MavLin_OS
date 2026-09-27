@@ -21,7 +21,8 @@ GUI smoke (display only, skipped headless):
 - export to file (content header+body) and export error path
 - clear display, empty/no-prevboot/no-journal state messages
 - keyboard routing (Ctrl+F focus, Ctrl+E export, Ctrl+L live toggle)
-- live tail timer removed on destroy (window-open-only guarantee)
+- live tail via persistent journalctl --follow (IO watch, no polling),
+  follow proc + watch removed on destroy (window-open-only guarantee)
 
 Usage: python3 scripts/test-mv-console.py
 Exit 0 = all tests passed."""
@@ -182,6 +183,17 @@ def test_pure(m):
     for key in ("all", "boot", "prevboot", "kernel", "user"):
         check("count cmd %s" % key, m.source_count_command(key) is not None)
 
+    fcmd = m.follow_command("all")
+    check("follow cmd all", fcmd is not None and fcmd[:2] == ["journalctl", "-f"]
+          and "-n" in fcmd and "cat" in fcmd, fcmd)
+    check("follow cmd boot", m.follow_command("boot")[1] == "-b")
+    check("follow cmd prevboot", m.follow_command("prevboot")[1:3] == ["-b", "-1"])
+    check("follow cmd user", m.follow_command("user")[1] == "--user")
+    check("follow cmd level", m.follow_command("all", "err")[-2:] == ["-p", "err"])
+    check("follow cmd level all", "-p" not in m.follow_command("all", "all"))
+    check("follow cmd kernel None", m.follow_command("kernel") is None)
+    check("follow cmd unknown", m.follow_command("nope") is None)
+
     check("badge width", all(len(b.ljust(4)) == 4 for b in
                              ("EMRG", "ALRT", "CRIT", "ERR", "WRN", "NTC",
                               "INF", "DBG")))
@@ -212,8 +224,33 @@ def test_gui_smoke(m, td):
         return
 
     record = []
+    popen_record = []
+
+    def fake_popen(cmd, *a, **k):
+        popen_record.append(list(cmd))
+        r, w = os.pipe()
+
+        class FakeProc:
+            def __init__(self):
+                self.stdout = os.fdopen(r, "r")
+                self.stderr = None
+                self.returncode = None
+                self._w = w
+
+            def terminate(self):
+                pass
+
+            def wait(self, timeout=None):
+                return 0
+
+            def kill(self):
+                pass
+
+        return FakeProc()
+
     with mock.patch.object(m.subprocess, "run",
-                           mock_run(FIXTURE_JSON, record)):
+                           mock_run(FIXTURE_JSON, record)), \
+            mock.patch.object(m.subprocess, "Popen", fake_popen):
         win = m.Console()
         try:
             for _ in range(20):
@@ -259,14 +296,17 @@ def test_gui_smoke(m, td):
                   record[-1])
 
             win.follow.set_active(False)
-            win.tick()
             calls_before = len(record)
+            popen_before = len(popen_record)
             win.follow.set_active(False)
-            win.tick()
-            check("gui paused tick no query", len(record) == calls_before)
+            check("gui paused: no query, no follow proc",
+                  len(record) == calls_before
+                  and len(popen_record) == popen_before)
             win.follow.set_active(True)
-            win.tick()
-            check("gui resumed tick queries", len(record) == calls_before + 1)
+            check("gui resumed: persistent follow proc spawned",
+                  len(popen_record) == popen_before + 1
+                  and popen_record[-1][:2] == ["journalctl", "-f"],
+                  popen_record[-1] if popen_record else None)
 
             win.follow.set_active(False)
             win.level.set_active(0)
@@ -354,11 +394,12 @@ def test_gui_smoke(m, td):
             check("gui ctrl+l toggles live",
                   win.follow.get_active() is False)
 
+            win.follow.set_active(True)
             with mock.patch.object(m.GLib, "source_remove") as sr:
                 win.destroy()
                 for _ in range(5):
                     Gtk.main_iteration_do(False)
-            check("gui timer removed on destroy", sr.called)
+            check("gui follow cleanup on destroy", sr.called)
         finally:
             try:
                 win.destroy()
