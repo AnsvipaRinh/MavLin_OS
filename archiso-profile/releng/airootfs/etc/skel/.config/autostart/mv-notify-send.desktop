@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Mavericks Notification Logger
-Comment=Logs libnotify notifications to mv-notification-center history
-Exec=mv-notify-send
-Icon=preferences-system-notifications
-Terminal=false
-X-GNOME-Autostart-enabled=true
