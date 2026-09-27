@@ -293,3 +293,17 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Icon resolution end-to-end on hardware: mv-* .desktop icons resolve via Mavericks→hicolor→Adwaita chain (adwaita-icon-theme now in ISO); check Dock/plank, file dialogs, and app launcher show real icons (not broken-image placeholders)
 - [ ] App-launch stderr sample on hardware: confirm zero Gtk-WARNING theme-parse lines per app start (pre-fix: ~90; gate: scripts/test-theme-css.py)
 - [ ] HiDPI: theme proportions at 2304×1440 (titlebutton 14px circles, scale/switch slider min-sizes, scrollbar min-slider lengths)
+
+## Fresh-ISO hardware checklist (Phase 0.62, 2026-09-27)
+- [ ] Boot mavericks-linux-2026.09.27-x86_64.iso on MacBook10,1 via USB-C (write with dd or balenaEtcher)
+- [ ] systemd-boot menu appears → select "Arch Linux install medium"
+- [ ] airootfs loads → archiso hook runs → /run/archiso/bootmnt mounted
+- [ ] lightdm starts → Xfce session starts → Mavericks theme applies (panel, wallpaper, GTK theme name)
+- [ ] Spot-check: panel visible, wallpaper set, gtk theme = Mavericks (xfconf-query -c xsettings -p /Net/ThemeName)
+- [ ] applespi: keyboard + trackpad work (known risk — may not work on kernel 6.15+; external USB-C keyboard is fallback)
+- [ ] Wi-Fi: broadcom-wl-dkms or brcmfmac loads → BCM43602 associated
+- [ ] Audio: Cirrus codec patch → sound output works
+- [ ] NVMe: Apple S3X detected → /dev/nvme0n1 visible
+- [ ] Battery/thermal: power readings sane, no immediate throttling
+- [ ] Display: 2304×1440 panel at correct resolution, HiDPI scaling acceptable
+- [ ] USB-C: data + video output through single port

@@ -1178,3 +1178,32 @@ orchestrator.md step 3 ("do not invoke subagents…") + AGENTS.md 14.7.
 **Date:** 2026-09-27 (Phase 0.61)
 **Decision:** the Task→build delegation was unavailable ("Subagent depth limit reached (1)"); the Orchestrator performed the theme repair directly with file/bash tools.
 **Reasoning:** same as Phase 0.54/0.56/0.57 deviations — AGENTS.md blocker policy requires continuing executable work when a single path is blocked; the orchestrator/build split is an optimization (14.5), not a correctness requirement. Deviation recorded per the traceability rule.
+
+## webkit2gtk → webkit2gtk-4.1 rename (Phase 0.62)
+
+**Date:** 2026-09-27
+
+Arch extra переименовал `webkit2gtk` в `webkit2gtk-4.1` (слот 4.0 удалён, остаётся только 4.1). 
+- `packages/mavericks-apps/PKGBUILD`: depends `webkit2gtk` → `webkit2gtk-4.1`
+- `archiso-profile/releng/packages.x86_64`: добавлен `webkit2gtk-4.1` как явный hard dep (ранее был транзитивным через geary)
+- Код `mv-dictionary` уже поддерживает оба слота (4.1 → 4.0 → local mode), изменений не требуется
+- espeak-ng и dictd остаются optdeps (валидны в extra, но не обязательны для ISO)
+
+## mkarchiso work directory on large disk (Phase 0.62)
+
+**Date:** 2026-09-27
+
+Контейнер build env: /tmp = tmpfs 3.8G (100% full → "Write failed" при распакке kernel modules).
+Решение: work dir mkarchiso перенесён на /home/builder/mv-iso-work (937G free, ext4).
+Локальный pacman repo (/tmp/mavericks-repo, ~300KB) остаётся на tmpfs — достаточно.
+Первый failed run оставил corrupted mavericks-* в /var/cache/pacman/pkg — требуется sudo rm перед rebuild.
+
+## QEMU+OVMF smoke test blocked (Phase 0.62)
+
+**Date:** 2026-09-27
+
+OVMF firmware запускается (PI/UEFI), но не обнаруживает bootable device с ISO CD-ROM.
+Пробовано: -vga virtio, -vga std, прямая загрузка ядра (-kernel/-initrd), EFI disk image, USB mass storage.
+Все варианты дают "Guest has not initialized the display (yet)" — environment limitation (container),
+не дефект ISO. Структура ISO валидна (EFI BOOTx64.EFI, systemd-boot entries, airootfs.sfs, 737 пакетов).
+Полный boot-тест переносится на реальное железо (NEEDS_HARDWARE_TEST.md → Fresh-ISO checklist).

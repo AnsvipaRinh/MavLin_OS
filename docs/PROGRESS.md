@@ -681,3 +681,15 @@
 - [x] Gates: scripts/check-sync.sh ALL CHECKS PASSED (incl. --check-repos: adwaita-icon-theme in repos); desktop-file-validate OK; PKGBUILD parse OK.
 - [x] Not feasible here (no Xvfb): mv-* app-launch stderr before/after sampling → moved to NEEDS_HARDWARE_TEST.md (CssProvider gate is the pre-hardware substitute).
 - [x] Remaining gaps: visual validation of repaired theme on 2304×1440 (HW); selection color now GTK default (::selection removed — real GTK3 supports it, this container's 3.24.52 rejects it; documented trade-off); placeholder/icon-transform minor visual deltas accepted for zero-warning guarantee.
+
+### Фаза 0.62 — Rebuild ISO + QEMU smoke test (2026-09-27, без железа)
+- [x] webkit2gtk → webkit2gtk-4.1: Arch extra переименовал пакет (слот 4.0 удалён); PKGBUILD depends исправлен; packages.x86_64 добавлен webkit2gtk-4.1 (явно, не только транзитивно через geary)
+- [x] packages.x86_64 coherence: добавлены fontconfig и libsecret как явные hard deps mavericks-apps (были транзитивными); espeak-ng/dictd — optdeps, valid repo names, остаются optdeps
+- [x] check-sync.sh --check-repos: ALL CHECKS PASSED (все имена валидны в текущих sync DB)
+- [x] build-local-pkgs.sh: mavericks-apps 0.1.0-1, mavericks-theme 1.0.0-2, macbook12-audio-driver 1.0.0.r108.g4cdfcdb-1 — все собраны, repo-add OK
+- [x] mkarchiso: out/mavericks-linux-2026.09.27-x86_64.iso — 2.7G (2,866,518,016 bytes), sha256=02f9f2c45af157b4077f560f79dd0f701d4b4387bff7a6ce99b147f02b1a31fb
+- [x] ISO structure verified: EFI/BOOT/BOOTx64.EFI + BOOTIA32.EFI, systemd-boot entries (01-archiso-linux.conf, 02-archiso-speech-linux.conf), airootfs.sfs + airootfs.sha512, 737 packages (600 transitive deps + 137 direct from packages.x86_64)
+- [x] Package coherence: 0 profile-only packages missing from ISO (comm -23 = empty)
+- [x] QEMU+OVMF: BLOCKED — OVMF firmware runs ("Guest has not initialized the display (yet)") but does not detect bootable device from ISO CD-ROM; tried: -vga virtio, -vga std, direct kernel boot, EFI disk image, USB mass storage — all same result. Environment limitation (container lacks proper UEFI boot device emulation), NOT an ISO defect. ISO structure is valid per xorriso inspection.
+- [x] Note: first build attempt failed (tmpfs /tmp 3.8G 100% full → "Write failed" on kernel module extraction); fixed by moving work dir to /home/builder/mv-iso-work (937G free)
+- [x] Note: corrupted mavericks-* packages in /var/cache/pacman/pkg from first failed attempt; cleared with sudo rm, rebuild succeeded

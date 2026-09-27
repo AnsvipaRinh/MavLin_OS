@@ -25,6 +25,7 @@ ffmpegthumbnailer
 firefox
 firefox-ublock-origin
 flameshot
+fontconfig
 fsarchiver
 galculator
 gcolor3
@@ -43,6 +44,7 @@ iwd
 jfsutils
 less
 libnotify
+libsecret
 lightdm
 lightdm-gtk-greeter
 linux
@@ -106,6 +108,7 @@ udftools
 upower
 usbutils
 vim
+webkit2gtk-4.1
 wireless-regdb
 wireless_tools
 wireplumber
