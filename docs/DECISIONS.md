@@ -956,3 +956,33 @@ orchestrator.md step 3 ("do not invoke subagents…") + AGENTS.md 14.7.
 **Reasoning:** libsecret exposes no standalone password_unlock_sync; the supported unlock flow is the daemon's access-time prompt. An explicit unlock would require raw org.freedesktop.Secret D-Bus calls — complexity without user-visible gain. Documented as a limitation instead of faking an unlock button.
 
 **Testability:** lock path covered per-item (call count == item count, attrless items skipped, backend errors tolerated); unlock path is daemon-side and hardware-validation only.
+
+---
+
+## Font Book: self-sufficient frontend, gnome-font-viewer demoted to optional handoff
+
+**Date:** 2026-09-27 (Phase 0.54)
+**Decision:** mv-fontbook enumerates and renders fonts itself (fontconfig + Pango/Cairo). gnome-font-viewer is no longer launched on startup; it is an explicit "Open in Font Viewer" button (optdep) shown only when installed.
+
+**Reasoning:** the previous wrapper spawned gnome-font-viewer 100 ms after window creation and left an empty shell — the user left the window they clicked. A Font Book that hands off to a second window on launch is not a Font Book. fontconfig gives families/styles/files/spacing directly; PangoCairo gives coverage + rendering; both are already present via gtk3/python-gobject. gnome-font-viewer remains useful as a comparison viewer, hence optdep + button.
+
+**Testability:** enumeration, classification, install/remove, search all covered as pure functions; GUI smoke exercises install/remove round-trip in an isolated HOME.
+
+## Font Book: collection heuristics are name/spacing-based
+
+**Decision:** Fixed Width = fontconfig spacing ≥ 90; Serif/Sans Serif = family-name hints (serif/roman/times/georgia… vs sans/arial/helvet/mono…); User/Computer = path prefix under XDG user fonts dir.
+
+**Reasoning:** fontconfig exposes no generic "serif/sans" classification; PANGO family names are the only signal. Heuristics are documented in the APPS.md row and DECISIONS rather than presented as exact.
+
+## Font Book: keyboard via window key-press handler, not Gtk.AccelGroup
+
+**Decision:** Ctrl+F/I/O + Delete + Escape are handled in the window's `key-press-event` (bubbles from any focused widget) instead of per-widget accel accelerators.
+
+**Reasoning:** accel matching could not be triggered end-to-end from synthesized key events in the build environment (device-less events; TreeView focus), making the shortcut layer untestable and fragile across focus states. A window-level handler is deterministic, works regardless of which widget has focus, and is directly testable via event emission. Per-view GTK interactive search is disabled (`set_enable_search(False)`) so Ctrl+F always means the global search field (Mavericks behavior).
+
+## Orchestrator deviation: implementation performed without Build delegation (Phase 0.54)
+
+**Date:** 2026-09-27
+**Decision:** the Task→build delegation was unavailable ("Subagent depth limit reached (1)" — server-side depth limit, not configurable from the repo); the Orchestrator performed the Font Book implementation directly with file/bash tools.
+
+**Reasoning:** AGENTS.md blocker policy requires continuing all executable work when a single path is blocked; the orchestrator/build split is an optimization (14.5), not a correctness requirement. Deviation recorded here per the traceability rule. Future phases should retry Task delegation first.

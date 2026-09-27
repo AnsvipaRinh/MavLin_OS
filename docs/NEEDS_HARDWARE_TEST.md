@@ -223,3 +223,10 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] New Password Item / generator / delete work against the real daemon; stored items appear in seahorse
 - [ ] Rendering of leather sidebar, paper detail pane, and dialogs on the 2304×1440 panel
 - [ ] Energy cost of the open window (design goal: zero — no polling, all reads on-demand; verify no periodic wakeups)
+
+## Font Book — hardware validation
+- [ ] Waterfall + glyph grid rendering quality on the 2304×1440 HiDPI panel (cell density, paper backgrounds, section headers)
+- [ ] Install font round-trip on the real system: copy to ~/.local/share/fonts, fc-cache picks it up, font appears in apps (Firefox) after re-enumeration
+- [ ] Serif/Sans/Fixed Width classification sanity against the real font set of the installed ISO
+- [ ] gnome-font-viewer handoff button behavior when gnome-font-viewer is installed
+- [ ] Energy cost of the open window (design goal: zero — all rendering on-demand via draw signals, no timers, no polling; verify no periodic wakeups)

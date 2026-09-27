@@ -562,3 +562,22 @@
 - [x] All validations pass: py_compile, desktop-file-validate, check-sync ALL PASSED, make install DESTDIR smoke test OK
 - [x] APPS.md Disk Utility row updated
 - [x] Remaining gaps: S3X NVMe telemetry validation on HW; whole-disk filesystems without partition table not listed (UDisks2 limitation); visual validation on 2304×1440 panel; format/partition remain in gnome-disks by design
+
+### Фаза 0.54 — Font Book: forensic launchability audit + self-sufficient rewrite (2026-09-27, без железа)
+- [x] Forensic audit: real binary launch reproduced 100% startup crash — `Gtk.CssProvider.load_from_data` raised `gtk-css-provider-error-quark: 'text-align' is not a valid property name` (invalid GTK3 CSS in `.sidebar-item`), exit 1 before window construction. Same bug class as mv-keychain (7785bf4) — 4th fake completion.
+- [x] Audit findings beyond crash: sidebar buttons non-functional, gnome-font-viewer handoff leaves window (and gnome-font-viewer not even in PKGBUILD deps), no enumeration/waterfall/glyphs/collections/search/keyboard, duplicate imports.
+- [x] mv-fontbook rewritten self-sufficient: fontconfig enumeration via `fc-list --format` (cached per process, no polling) with Pango family-list fallback for degraded systems
+- [x] Preview waterfall: selected face at 11/14/18/24/36/48 pt with pt labels + separators on paper background (PangoCairo on Gtk.DrawingArea)
+- [x] Glyph grid: Pango coverage (`font.get_coverage`) over Basic Latin + Latin-1 + punctuation ranges, paper-backed section headers, dashed cells for uncovered codepoints
+- [x] Collections: All Fonts / User / Computer / Fixed Width (fontconfig spacing ≥ 90) / Serif / Sans Serif (family-name heuristics — documented limits)
+- [x] Install/remove user fonts: FileChooser → ~/.local/share/fonts (XDG) → fc-cache → re-enumerate; system font dirs never touched (path-prefix guard); confirm dialog on remove
+- [x] Search (client-side filter, Ctrl+F), keyboard: Ctrl+F/I/O, Delete (user fonts only), Escape clears search; per-view GTK interactive search disabled so Ctrl+F always means the global field
+- [x] Error/empty states: no-backend InfoBar, empty collection/search, install failure, remove refusal, missing gnome-font-viewer handoff
+- [x] CSS crash-class regression fix: provider load wrapped in try/except GLib.Error → stderr + default theme, never crash on CSS
+- [x] Real GUI smoke (Wayland :0): window constructs, 6 collections, 36 container fonts enumerated, collections/search filter, install+remove round-trip in isolated HOME, argv file preselection, waterfall + glyph grid rendered to cairo surfaces and visually verified (screenshots)
+- [x] Launch re-verified post-fix: real binary alive at 4s, zero stderr (pre-fix: GLib.GError + exit 1)
+- [x] scripts/test-mv-fontbook.py: 65 tests (pure logic + GUI smoke), all pass
+- [x] Gate: py_compile, desktop-file-validate, check-sync ALL CHECKS PASSED, makepkg -f builds
+- [x] mv-font-book.desktop: added MimeType (font/ttf, font/otf, font/collection, x-font forms)
+- [x] PKGBUILD: fontconfig → depends; gnome-font-viewer → optdepends
+- [x] Remaining gaps: Serif/Sans heuristics are name-based (documented); visual validation on 2304×1440 panel; font install round-trip on real system; HiDPI glyph grid density
