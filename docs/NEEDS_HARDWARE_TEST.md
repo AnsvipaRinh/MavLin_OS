@@ -284,3 +284,12 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Receive path: LocalSend GUI accept dialog on the Mavericks theme; files land in ~/Downloads
 - [ ] Energy cost measurement: discovery burst (~2.5 s UDP) and active transfer vs idle baseline (design goal: zero idle cost — no daemon/autostart)
 - [ ] HiDPI rendering of the device list and airdrop.svg icon at 2304×1440
+
+## Theme CSS repair — hardware validation (Phase 0.61)
+- [ ] Visual check of repaired Mavericks theme on the 2304×1440 HiDPI panel: gradients/shadows/radii intact after syntax-only repair (width/height→min-width/min-height, border-radius 4-value fix, scrollbar stepper collapse)
+- [ ] Selection color: ::selection was removed (container GTK 3.24.52 rejects it; real GTK3 supports it) — verify text selection is visible/acceptable with GTK default on hardware; if unacceptable, re-add `*::selection` guarded for real GTK3
+- [ ] Placeholder text color in entries (entry::placeholder removed — same GTK3 build limitation) — verify default placeholder contrast on hardware
+- [ ] Progress bar pulse (now opacity-based, was transform slide) and spinner animation (now native) render correctly
+- [ ] Icon resolution end-to-end on hardware: mv-* .desktop icons resolve via Mavericks→hicolor→Adwaita chain (adwaita-icon-theme now in ISO); check Dock/plank, file dialogs, and app launcher show real icons (not broken-image placeholders)
+- [ ] App-launch stderr sample on hardware: confirm zero Gtk-WARNING theme-parse lines per app start (pre-fix: ~90; gate: scripts/test-theme-css.py)
+- [ ] HiDPI: theme proportions at 2304×1440 (titlebutton 14px circles, scale/switch slider min-sizes, scrollbar min-slider lengths)
