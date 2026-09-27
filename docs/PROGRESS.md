@@ -17,6 +17,12 @@
 - [x] Решения (DECISIONS.md): выбор источников (glossary→dictd→wordlist→online), pronunciation disposition (espeak-ng on-demand, кнопка скрыта при отсутствии), page-flip анимация отложена (compositor-level, не стоит runtime cost)
 - [ ] HW: рендеринг WebKit2-табов на 2304×1440 (web-процесс не стартует в контейнере); реальный звук espeak-ng на Cirrus audio; наличие dictd/dict-wn в целевой системе; визуальная проверка paper/leather CSS под темой Mavericks
 
+### Фаза 0.58b — P2 research opening (P1 закрыт; 2026-09-27, без железа)
+- [x] P1 полностью закрыт (Dictionary = последнее P1-приложение) → по AGENTS.md §10 открывается P2
+- [x] AirDrop: DEFERRED → EXISTING SOLUTION FOUND — LocalSend (Apache-2.0, 90k★, v1.18.2 2026-08, cross-platform, local-network P2P + TLS, CLI с 1.18.0); НЕ AWDL-протокол (Mac↔Linux через LocalSend на обоих концах) → Mavericks-like frontend = share-sheet sender/receive UI поверх LocalSend
+- [x] Time Machine UI: backend = restic (BSD-2, 0.19.1 2026-07; encrypted/dedup/incremental, single binary, local/sftp/S3 backends); borg+btrfs-исследование 2026-09-25 упразднено в пользу restic; linux-timemachine (MIT) как CLI-референс
+- [x] Записано в APPS.md (P2-таблица) + DECISIONS.md; следующая цель реализации: AirDrop (интеграция LocalSend)
+
 ### Фаза 0.57 — Calculator: forensic launchability audit + refinement (2026-09-27, без железа)
 - [x] Forensic audit: real launch smoke — mv-calculator ЗАПУСКАЕМ (exit 124, окно живёт, без краша); py_compile OK, desktop-file-validate OK, check-sync OK — НЕ 7-й fake-completion repair; но найдены реальные дефекты (ниже)
 - [x] Найденные дефекты: (1) краш в программистском режиме: on_operator/on_bitwise делали float(current) без try — hex-ввод "A" → ValueError → краш; (2) calculate() в programmer mode: float("FF") → всегда "Error"; (3) отрицательный hex: hex(-5)[2:] = "x5"; (4) деление на ноль → float('inf') → показывался "inf" вместо Error; (5) tape-запись унарных функций показывала результат как вход (sin(0.5) = 0.5 вместо sin(30) = 0.5); (6) on_percent определён 3 раза; (7) Pango/Gdk импортировались только в __main__ (работало как скрипт, хрупко); (8) override_font deprecated; (9) basic grid: кнопка "." перекрывалась со spanning "0"; (10) scientific grid: "=" посреди сетки, "+" продублирован; (11) нет клавиатурного ввода; (12) нет персистентности tape; (13) нет copy/paste; (14) нет CSS/визуальной интеграции

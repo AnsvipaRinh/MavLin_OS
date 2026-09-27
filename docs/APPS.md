@@ -57,8 +57,8 @@
 
 | Name | State | Notes |
 |---|---|---|
-| AirDrop | DEFERRED | No mature+legal Linux backend identified; revisit after P0/P1 |
-| Time Machine | DEFERRED | Candidates evaluated 2026-09-25 (docs/RESEARCH_TIMEMACHINE.md): Borg 1.4.5 primary + btrfs snapshots local layer; restic deferred | UI after P1 |
+| AirDrop | EXISTING SOLUTION FOUND | LocalSend (Apache-2.0, mature: 90k★, v1.18.2 2026-08, cross-platform Linux/macOS/Windows/Android/iOS, local-network P2P + TLS, CLI since 1.18.0) — the standard open-source AirDrop alternative; NOT Apple-AWDL-protocol compatible (Mac↔Linux works via LocalSend on both ends). Next: Mavericks-like frontend integration (share-sheet sender + receive UI) after P1 queue closes — P1 closed 2026-09-27 (Dictionary 0.58), AirDrop is first P2 target |
+| Time Machine | EXISTING SOLUTION FOUND | restic (BSD-2-Clause, mature, 0.19.1 2026-07) as snapshot backend + linux-timemachine (MIT, rsync) as CLI reference; prior research docs/RESEARCH_TIMEMACHINE.md (Borg 1.4.5 + btrfs) superseded by restic choice 2026-09-27. Next: Mavericks starfield browser UI over restic snapshots |
 | Automator/Shortcuts | DEFERRED | Architecture research only |
 | Grapher | DEFERRED | Candidates: matplotlib/labplot; not prioritized |
 

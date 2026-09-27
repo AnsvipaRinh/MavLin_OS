@@ -1,5 +1,19 @@
 # DECISIONS
 
+## P2 research opening: AirDrop → LocalSend, Time Machine → restic (Phase 0.58)
+
+**Date:** 2026-09-27
+**Decision:**
+1. AirDrop moves from DEFERRED to EXISTING SOLUTION FOUND: LocalSend (Apache-2.0) is a mature, legal, cross-platform AirDrop alternative (90k★, v1.18.2 Aug 2026, local-network P2P with TLS, CLI support since 1.18.0). The old deferral ("no mature+legal backend identified") is outdated. LocalSend does NOT speak Apple's AWDL protocol — Mac↔Linux transfer requires LocalSend on both ends — so the Mavericks-like frontend is a share-sheet sender/receive UI over LocalSend, not a protocol clone.
+2. Time Machine UI backend is restic (BSD-2-Clause, 0.19.1 Jul 2026): encrypted, deduplicated, incremental snapshots with a mature CLI — the right backend for a Mavericks starfield browser. The earlier Borg+btrfs research (docs/RESEARCH_TIMEMACHINE.md) is superseded: restic's single-binary reproducibility and backend flexibility (local dir/sftp/S3) fit the fanless-SSD power budget better than btrfs snapshots on the Apple S3X volume.
+3. P2 implementation order: AirDrop (LocalSend integration) → Time Machine UI (restic starfield) → remaining P2 per roadmap.
+
+**Reasoning:**
+- P1 queue closed 2026-09-27 (Dictionary Phase 0.58 = last P1 app); AGENTS.md §10 opens P2 after P0/P1.
+- Reuse-first (§5): both backends are mature open-source projects; the project value is the Mavericks-like frontend and desktop integration, not rewriting transfer/backup engines.
+
+**Status:** Research recorded; AirDrop is the next implementation target.
+
 ## Dictionary: lookup source order, WebKit2 loading, pronunciation disposition (Phase 0.58)
 
 **Date:** 2026-09-27
