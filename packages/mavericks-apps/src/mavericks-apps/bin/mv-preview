@@ -10,12 +10,22 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
 
-try:
-    gi.require_version("Poppler", "0.18")
-    from gi.repository import Poppler
-    HAVE_POPPLER = True
-except (ImportError, ValueError):
-    HAVE_POPPLER = False
+_POPPLER = None
+_POPPLER_TRIED = False
+
+
+def _ensure_poppler():
+    global _POPPLER, _POPPLER_TRIED
+    if _POPPLER_TRIED:
+        return _POPPLER
+    _POPPLER_TRIED = True
+    try:
+        gi.require_version("Poppler", "0.18")
+        from gi.repository import Poppler as _P
+        _POPPLER = _P
+    except (ImportError, ValueError):
+        _POPPLER = None
+    return _POPPLER
 
 IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".svg"}
 PDF_EXT = {".pdf"}
@@ -217,7 +227,7 @@ class Preview(Gtk.Window):
         self.current_path = path
         self.current_ext = ext
 
-        if ext in PDF_EXT and HAVE_POPPLER:
+        if ext in PDF_EXT and _ensure_poppler() is not None:
             self.load_pdf(path)
         elif ext in IMG_EXT:
             self.load_image(path)
@@ -229,7 +239,7 @@ class Preview(Gtk.Window):
 
     def load_pdf(self, path):
         try:
-            self.doc = Poppler.Document.new_from_file("file://" + path, None)
+            self.doc = _POPPLER.Document.new_from_file("file://" + path, None)
             self.n_pages = self.doc.get_n_pages()
             self.page = 0
             self.render_thumbnails()

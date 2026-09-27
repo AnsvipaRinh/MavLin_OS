@@ -130,6 +130,15 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Escape closes overview
 - [ ] Error handling: if wmctrl missing, user-friendly message with install hint appears
 
+## Thumbnailer — config gap (decision: no new daemon)
+- [ ] tumbler is absent from the ISO package list; thunarrc requests
+      thumbnails (`MiscThumbnailMode=ALWAYS`, `MiscShowThumbnails=TRUE`)
+      but no backend serves them. Adding tumbler = resident daemon;
+      deferred by phase-C decision (power baseline frozen). On hardware:
+      decide tumbler vs ffmpegthumbnailer-only vs thumbnails-off, then
+      verify Thunar icon-view thumbnails appear without measurable
+      idle CPU cost
+
 ## Phase 3+ — app validation (source-уровень готов в 0.8–0.15)
 - [ ] Preview: открыть PDF через mv-preview на панели 2304x1440 — multi-page nav (arrows, Home/End), thumbnail sidebar click, fullscreen (F), Open button, annotation toolbar visible
 - [ ] Preview: открыть image (PNG/JPG/TIFF) через mv-preview — render, fullscreen, multi-file nav (Ctrl+arrows)

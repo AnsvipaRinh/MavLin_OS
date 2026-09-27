@@ -1,0 +1,581 @@
+{
+  "schema": 1,
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "cpu_count": 2,
+    "mem_total_mb": 7643,
+    "container": "WSL2",
+    "display": ":0",
+    "date": "2026-09-27 21:53:54"
+  },
+  "profile": "unconstrained",
+  "scenarios": {
+    "S01-idle-residual": {
+      "status": "ok",
+      "repeats_planned": 1,
+      "metrics": {
+        "rss_top10_bytes": {
+          "median": 730271744,
+          "min": 730271744,
+          "max": 730271744,
+          "samples": [
+            730271744
+          ]
+        },
+        "cpu_idle_pct": {
+          "median": 96.5965965965966,
+          "min": 96.5965965965966,
+          "max": 96.5965965965966,
+          "samples": [
+            96.5965965965966
+          ]
+        },
+        "ctx_switches_per_s": {
+          "median": 3.5,
+          "min": 3.5,
+          "max": 3.5,
+          "samples": [
+            3.5
+          ]
+        },
+        "process_count": {
+          "median": 106,
+          "min": 106,
+          "max": 106,
+          "samples": [
+            106
+          ]
+        }
+      },
+      "notes": {
+        "window_s": 10.0,
+        "top_cpu_procs": [
+          {
+            "name": "opencode",
+            "cpu_ticks": 1496915,
+            "rss_kb": 676980
+          },
+          {
+            "name": "systemd-udevd",
+            "cpu_ticks": 1672,
+            "rss_kb": 9620
+          },
+          {
+            "name": "systemd",
+            "cpu_ticks": 567,
+            "rss_kb": 11872
+          },
+          {
+            "name": "dbus-broker",
+            "cpu_ticks": 270,
+            "rss_kb": 2936
+          },
+          {
+            "name": "polkitd",
+            "cpu_ticks": 246,
+            "rss_kb": 11748
+          }
+        ],
+        "note": "host has no desktop running; residual = host baseline, NOT target idle"
+      }
+    },
+    "S02-py-framework-startup": {
+      "status": "ok",
+      "repeats_planned": 10,
+      "metrics": {
+        "wall_s": {
+          "median": 0.3359511920134537,
+          "min": 0.29882429000281263,
+          "max": 0.40305839000211563,
+          "samples": [
+            0.40305839000211563,
+            0.352689391002059,
+            0.34445969099760987,
+            0.333074691996444,
+            0.3359511920134537,
+            0.3163381920021493,
+            0.30587789199489634,
+            0.3304559899988817,
+            0.29882429000281263,
+            0.36801508799544536
+          ]
+        }
+      },
+      "notes": {
+        "note": "proxy for GTK app framework import cost; window creation not included"
+      }
+    },
+    "S03-app-import-proxy": {
+      "status": "ok",
+      "repeats_planned": 1,
+      "metrics": {
+        "median_wall_s": {
+          "median": 0.3349,
+          "min": 0.3349,
+          "max": 0.3349,
+          "samples": [
+            0.3349
+          ]
+        },
+        "apps_measured": {
+          "median": 37,
+          "min": 37,
+          "max": 37,
+          "samples": [
+            37
+          ]
+        },
+        "apps_mainloop_reached": {
+          "median": 0,
+          "min": 0,
+          "max": 0,
+          "samples": [
+            0
+          ]
+        },
+        "max_wall_s": {
+          "median": 3.0085,
+          "min": 3.0085,
+          "max": 3.0085,
+          "samples": [
+            3.0085
+          ]
+        }
+      },
+      "notes": {
+        "note": "no X on host: non-GTK apps give real startup wall; GTK apps reach Gtk.main() and are killed at 5s (startup succeeded, latency tier is GUI). rc=None => mainloop-reached.",
+        "per_app": {
+          "mv-about": {
+            "wall_s": 0.3625,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-activity": {
+            "wall_s": 0.4227,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-airdrop": {
+            "wall_s": 0.3673,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-calculator": {
+            "wall_s": 0.3361,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-calendar": {
+            "wall_s": 0.3341,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-colormeter": {
+            "wall_s": 0.3363,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-console": {
+            "wall_s": 0.321,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-control": {
+            "wall_s": 0.3606,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-dictionary": {
+            "wall_s": 0.352,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-diskutil": {
+            "wall_s": 0.3315,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-eject": {
+            "wall_s": 0.3156,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-fontbook": {
+            "wall_s": 0.3349,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-getinfo": {
+            "wall_s": 0.3635,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-keychain": {
+            "wall_s": 0.3173,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-launchpad": {
+            "wall_s": 0.2937,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-mail": {
+            "wall_s": 0.2868,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-mission-control": {
+            "wall_s": 0.0596,
+            "rc": 0,
+            "class": "exited-ok"
+          },
+          "mv-music": {
+            "wall_s": 0.3356,
+            "rc": 3,
+            "class": "exited-error"
+          },
+          "mv-newfolder": {
+            "wall_s": 3.0085,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-notes": {
+            "wall_s": 0.3804,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-notification-center": {
+            "wall_s": 0.3105,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-notify-send": {
+            "wall_s": 0.1383,
+            "rc": 0,
+            "class": "exited-ok"
+          },
+          "mv-openwith": {
+            "wall_s": 0.3245,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-photos": {
+            "wall_s": 0.3363,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-power-ui": {
+            "wall_s": 0.3273,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-preview": {
+            "wall_s": 0.3159,
+            "rc": 2,
+            "class": "exited-error"
+          },
+          "mv-quicklook": {
+            "wall_s": 0.3104,
+            "rc": 2,
+            "class": "exited-error"
+          },
+          "mv-quicklook-thunar": {
+            "wall_s": 2.3227,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-reminders": {
+            "wall_s": 0.3727,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-rename": {
+            "wall_s": 0.2863,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-settings": {
+            "wall_s": 0.3074,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-shot": {
+            "wall_s": 0.4256,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-spotlight": {
+            "wall_s": 0.0932,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-stickies": {
+            "wall_s": 0.3931,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-textedit": {
+            "wall_s": 0.2859,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-timemachine": {
+            "wall_s": 0.3386,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-voice": {
+            "wall_s": 0.3592,
+            "rc": 1,
+            "class": "exited-error"
+          }
+        }
+      }
+    },
+    "S04-spotlight-query": {
+      "status": "ok",
+      "repeats_planned": 10,
+      "metrics": {
+        "wall_s": {
+          "median": 0.0914687180047622,
+          "min": 0.08133321700734086,
+          "max": 0.09975392000342254,
+          "samples": [
+            0.08870221801043954,
+            0.09424161999777425,
+            0.08396651699149515,
+            0.0848541169980308,
+            0.09795922099146992,
+            0.0914687180047622,
+            0.08502361699356697,
+            0.08133321700734086,
+            0.09975392000342254,
+            0.09320872000535019
+          ]
+        }
+      },
+      "notes": {
+        "note": "rofi script-mode query; plocate absent on host -> file search tier partial"
+      }
+    },
+    "S05-finder-browse-large": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 0.0035616000095615163,
+          "min": 0.003308701008791104,
+          "max": 0.004438700998434797,
+          "samples": [
+            0.004438700998434797,
+            0.0035616000095615163,
+            0.0036545009934343398,
+            0.003308701008791104,
+            0.003430600991123356
+          ]
+        }
+      },
+      "notes": {
+        "files": 5000,
+        "note": "os.scandir+sort backend proxy; Thunar GUI tier skipped (no DISPLAY)"
+      }
+    },
+    "S09-file-copy": {
+      "status": "ok",
+      "repeats_planned": 3,
+      "metrics": {
+        "wall_s": {
+          "median": 0.575785717999679,
+          "min": 0.5687414169951808,
+          "max": 0.7001658439985476,
+          "samples": [
+            0.7001658439985476,
+            0.575785717999679,
+            0.5687414169951808
+          ]
+        }
+      },
+      "notes": {
+        "bytes": 524288000,
+        "note": "host virtual disk; page-cached source; target SSD behavior HW-ONLY"
+      }
+    },
+    "S11-preview-render": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 0.22831604699604213,
+          "min": 0.10596372200234327,
+          "max": 0.23963614899548702,
+          "samples": [
+            0.2364276489970507,
+            0.23963614899548702,
+            0.16392593299678992,
+            0.10596372200234327,
+            0.22831604699604213
+          ]
+        }
+      },
+      "notes": {
+        "pixels": 12000000,
+        "note": "GdkPixbuf decode only; render/composite tier skipped (no DISPLAY)"
+      }
+    },
+    "S12-music-library-scan": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 0.0036330009897938,
+          "min": 0.0034595000033732504,
+          "max": 0.004043000997626223,
+          "samples": [
+            0.004043000997626223,
+            0.0036686009989352897,
+            0.0036330009897938,
+            0.0034738009999273345,
+            0.0034595000033732504
+          ]
+        }
+      },
+      "notes": {
+        "files": 500,
+        "note": "walk+stat enumeration proxy; mv-music GUI scan tier skipped (no DISPLAY)"
+      }
+    },
+    "S13-notification-burst": {
+      "status": "ok",
+      "repeats_planned": 3,
+      "metrics": {
+        "wall_s": {
+          "median": 0.06187201300053857,
+          "min": 0.05071551099536009,
+          "max": 0.08161631700932048,
+          "samples": [
+            0.06187201300053857,
+            0.08161631700932048,
+            0.05071551099536009
+          ]
+        }
+      },
+      "notes": {
+        "calls": 100,
+        "note": "100x dbus method round-trip on system bus = transport proxy; notifyd processing is GUI/HW tier"
+      }
+    },
+    "S15-cpu-burst-short": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 2.0443469199963147,
+          "min": 2.037561001998256,
+          "max": 2.0504003280075267,
+          "samples": [
+            2.037561001998256,
+            2.0504003280075267,
+            2.0489103269937914,
+            2.039654228006839,
+            2.0443469199963147
+          ]
+        }
+      },
+      "notes": {
+        "threads": 1,
+        "target_s": 2.0,
+        "note": "busy-loop CPU burst; host vCPU shared/burstable"
+      }
+    },
+    "S16-cpu-burst-sustained": {
+      "status": "ok",
+      "repeats_planned": 3,
+      "metrics": {
+        "wall_s": {
+          "median": 3.034734014989226,
+          "min": 3.034711316009634,
+          "max": 3.036985521990573,
+          "samples": [
+            3.034711316009634,
+            3.034734014989226,
+            3.036985521990573
+          ]
+        }
+      },
+      "notes": {
+        "threads": 2,
+        "target_s": 3.0,
+        "note": "busy-loop CPU burst; host vCPU shared/burstable"
+      }
+    },
+    "S17-return-to-idle": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 1.5048115639947355,
+          "min": 0.9028334580070805,
+          "max": 2.7092897799884668,
+          "samples": [
+            1.5048115639947355,
+            1.805798857996706,
+            2.7092897799884668,
+            0.9036978189978981,
+            0.9028334580070805
+          ]
+        }
+      },
+      "notes": {
+        "note": "seconds from burst end until CPU idle >95% sustained 0.6s; KEY metric: desktop return-to-idle speed"
+      }
+    },
+    "S18-nmcli-wifi-list": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 0.02217549800116103,
+          "min": 0.0207600980065763,
+          "max": 0.023685697000473738,
+          "samples": [
+            0.023685697000473738,
+            0.023480798001401126,
+            0.02217549800116103,
+            0.020822797989239916,
+            0.0207600980065763
+          ]
+        }
+      },
+      "notes": {
+        "note": "each call triggers a Wi-Fi rescan; quantifies mv-control refresh_wifi_list polling cost (docs/PERF_AUDIT.md suspect S-01)"
+      }
+    },
+    "S06-launchpad-open": {
+      "status": "skipped",
+      "repeats_planned": 1,
+      "reason": "no-x-display: DISPLAY=':0' set but no X server reachable in this environment; rofi render tier requires a real display"
+    },
+    "S07-mission-control": {
+      "status": "skipped",
+      "repeats_planned": 1,
+      "reason": "no-x-display: DISPLAY=':0' set but no X server reachable in this environment; overview render tier requires a real display"
+    },
+    "S08-window-switch": {
+      "status": "skipped",
+      "repeats_planned": 1,
+      "reason": "no-x-display: DISPLAY=':0' set but no X server reachable in this environment; compositor tier requires a real display"
+    },
+    "S10-quicklook-open": {
+      "status": "skipped",
+      "repeats_planned": 1,
+      "reason": "no-x-display: DISPLAY=':0' set but no X server reachable in this environment; preview window tier requires a real display"
+    },
+    "S14-browser-workload": {
+      "status": "skipped",
+      "repeats_planned": 1,
+      "reason": "deferred: no Firefox on host; HD615 behavior is HW-only"
+    }
+  }
+}

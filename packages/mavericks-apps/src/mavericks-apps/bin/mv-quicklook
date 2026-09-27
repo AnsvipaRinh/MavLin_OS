@@ -9,18 +9,38 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GdkPixbuf, Gdk
 
-try:
-    gi.require_version("Poppler", "0.18")
-    from gi.repository import Poppler
-    HAVE_POPPLER = True
-except (ImportError, ValueError):
-    HAVE_POPPLER = False
-try:
-    gi.require_version("GtkSource", "4")
-    from gi.repository import GtkSource
-    HAVE_SOURCE = True
-except (ImportError, ValueError):
-    HAVE_SOURCE = False
+_POPPLER = None
+_POPPLER_TRIED = False
+_GTKSOURCE = None
+_GTKSOURCE_TRIED = False
+
+
+def _ensure_poppler():
+    global _POPPLER, _POPPLER_TRIED
+    if _POPPLER_TRIED:
+        return _POPPLER
+    _POPPLER_TRIED = True
+    try:
+        gi.require_version("Poppler", "0.18")
+        from gi.repository import Poppler as _P
+        _POPPLER = _P
+    except (ImportError, ValueError):
+        _POPPLER = None
+    return _POPPLER
+
+
+def _ensure_gtksource():
+    global _GTKSOURCE, _GTKSOURCE_TRIED
+    if _GTKSOURCE_TRIED:
+        return _GTKSOURCE
+    _GTKSOURCE_TRIED = True
+    try:
+        gi.require_version("GtkSource", "4")
+        from gi.repository import GtkSource as _G
+        _GTKSOURCE = _G
+    except (ImportError, ValueError):
+        _GTKSOURCE = None
+    return _GTKSOURCE
 
 IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".svg"}
 TEXT_EXT = {".txt", ".md", ".c", ".h", ".py", ".rs", ".sh", ".js", ".ts",
@@ -97,9 +117,9 @@ class Preview(Gtk.Window):
             self.fullscreen()
 
     def build(self, path, ext):
-        if ext == ".pdf" and HAVE_POPPLER:
+        if ext == ".pdf" and _ensure_poppler() is not None:
             try:
-                doc = Poppler.Document.new_from_file("file://" + path, None)
+                doc = _POPPLER.Document.new_from_file("file://" + path, None)
                 page = doc.get_page(0)
                 w, h = page.get_size()
                 scale = min(620 / w, 460 / h, 2.0)
@@ -121,9 +141,9 @@ class Preview(Gtk.Window):
                     text = f.read(200000)
             except OSError as e:
                 return Gtk.Label(label=str(e))
-            if HAVE_SOURCE:
-                buf = GtkSource.Buffer()
-                tv = GtkSource.View(buffer=buf)
+            if _ensure_gtksource() is not None:
+                buf = _GTKSOURCE.Buffer()
+                tv = _GTKSOURCE.View(buffer=buf)
             else:
                 buf = Gtk.TextBuffer()
                 tv = Gtk.TextView(buffer=buf)

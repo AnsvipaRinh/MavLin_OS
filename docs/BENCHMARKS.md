@@ -140,3 +140,115 @@ mv-launchpad 0.41 s, mv-rename 0.38 s) — not startup crashes. The five
 apps that previously "exited fast" because they crashed at init
 (mv-control, mv-diskutil, mv-mail, mv-photos, mv-power-ui, mv-textedit)
 now reach `Gtk.main()` like every other GUI app.
+
+## Phase-C change log
+
+### 2026-09-27 — Phase C: lazy imports (8 apps touched)
+
+- Before: `docs/benchmarks/results-2026-09-27-phaseC-before.json`
+- After: `docs/benchmarks/results-2026-09-27-phaseC.json` +
+  `results-2026-09-27-phaseC2.json` (variance check, same code)
+- Result: 18 scenarios — 13 ok, 5 skipped (GUI tier), 0 failed.
+- Measurement note: a Wayland compositor became available on the build
+  host mid-phase, so S03 GTK apps now reach `Gtk.main()` (5 s kill) under
+  the harness instead of failing fast at init. Before/after pairs were
+  therefore taken with `GDK_BACKEND=x11` + no DISPLAY (fast-fail mode,
+  matching baseline conditions). Per-app import walls were additionally
+  measured with an interleaved 5-rep `python -X importtime` harness
+  (ABAB order to cancel host drift).
+
+#### Import-breakdown (self-time, fresh process, ms)
+
+| Module | Self cost | In Gtk dep tree? |
+|---|---|---|
+| Gtk | 136.9 | — (root) |
+| GtkSource | 145.2 | no (unique lib) |
+| WebKit2 | 129.9 | no (unique libs) |
+| Gdk | 107.2 | yes (via Gtk) |
+| PangoCairo | 50.0 | yes |
+| GdkPixbuf | 40.1 | no |
+| Pango | 45.7 | yes (via Gtk) |
+| Notify | 38.9 | no |
+| Gio | 35.1 | yes (via Gtk) |
+| Secret | 35.1 | yes |
+| GLib | 10.0 | yes |
+
+Key insight: the large self-times of Gdk/Gio/GLib/Pango/PangoCairo are
+mostly shared infrastructure that Gtk already loads — their *marginal*
+cost on top of Gtk is ~0–2 ms. The modules with real unique dependency
+trees are WebKit2, GtkSource, GdkPixbuf (and Poppler, absent on this
+host). Lazy-importing those is where the actual saving is.
+
+#### Lazy-import changes (files changed)
+
+| File | Import | Move |
+|---|---|---|
+| mv-dictionary | WebKit2 (4.1→4.0 loop) | `_ensure_webkit()` with module-global cache; called from tab construction. Local-mode (`WebKit2=None`) fallback preserved; tests mock `m.WebKit2` directly — `_WEBKIT_TRIED` sentinel keeps mocked None stable |
+| mv-quicklook | Poppler | `_ensure_poppler()` + `_POPPLER` cache; PDF branch only |
+| mv-quicklook | GtkSource 4 | `_ensure_gtksource()` + `_GTKSOURCE` cache; text/code branch only |
+| mv-preview | Poppler | `_ensure_poppler()` + `_POPPLER` cache; PDF branch only |
+| mv-notification-center | Gdk | removed (unused — 0 references) |
+| mv-rename | GLib | removed (unused) |
+| mv-launchpad | Gio, GLib | removed (unused) |
+| mv-getinfo | GdkPixbuf | removed (unused) |
+| mv-calendar | GdkPixbuf | removed (unused, had noqa) |
+
+No behavior change: all ImportError/ValueError fallbacks preserved
+verbatim; import-once semantics via `_TRIED` sentinels; no lazy loading
+inside loops. mv-textedit keeps top-level GtkSource (syntax
+highlighting is its core function — common path). mv-fontbook keeps
+PangoCairo (font rendering is its core function).
+
+#### S02/S03 scenario deltas (before → after run 1 → after run 2)
+
+| Scenario | Metric | Before | phC-1 | phC-2 | Verdict |
+|---|---|---|---|---|---|
+| S02 py-framework-startup | wall_s | 0.311 | 0.353 | 0.336 | host drift (Gtk import itself unchanged — expected) |
+| S03 app-import-proxy | median_wall_s | 0.319 | 0.339 | 0.335 | host drift; no regression |
+| S03 app-import-proxy | max_wall_s | 3.010 | 3.012 | 3.009 | stable (mv-newfolder arg-validation path) |
+| S11 preview-render | wall_s | 0.113 | 0.114 | 0.228 | host drift |
+| S13 notification-burst | wall_s | 0.053 | 0.074 | 0.062 | host drift |
+| S15 cpu-burst-short | wall_s | 2.033 | 2.033 | 2.044 | stable — no regression |
+| S16 cpu-burst-sustained | wall_s | 3.039 | 3.043 | 3.035 | stable — no regression |
+| S17 return-to-idle | wall_s | 1.805 | 0.902 | 1.505 | host drift (identical code swings ±0.9 s) |
+| S18 nmcli-wifi-list | wall_s | 0.019 | 0.016 | 0.022 | stable |
+
+Honesty note (same as phase B): this shared host's run-to-run variance
+exceeds the phase-C per-scenario deltas. The CPU scenarios (S15/S16)
+are stable, confirming no systemic regression.
+
+#### Per-app import walls (interleaved 5-rep median, ms)
+
+| App | Before | After | Delta | Note |
+|---|---|---|---|---|
+| mv-dictionary | 137.3 | 141.0 | +3.7 | noise; WebKit2 marginal-after-Gtk ≈ 1–13 ms (Gtk pre-loads its dep tree) |
+| mv-quicklook | 142.1 | 138.8 | −3.3 | GtkSource deferred to text path |
+| mv-preview | 142.6 | 138.4 | −4.2 | Poppler absent on host — no measurable change here |
+| mv-notification-center | 135.0 | 143.7 | +8.7 | noise (Gdk marginal ≈ 0 — Gtk loads it anyway) |
+| mv-rename | 137.2 | 144.6 | +7.4 | noise |
+| mv-launchpad | 146.3 | 134.2 | −12.0 | Gio+GLib removed (marginal ≈ 0; drift-dominated) |
+| mv-getinfo | 146.6 | 136.9 | −9.6 | GdkPixbuf removed (real marginal ≈ −10 ms) |
+| mv-calendar | 147.0 | 144.2 | −2.7 | GdkPixbuf removed |
+
+Net assessment: measured per-app deltas on this warm host are small
+(±15 ms) because Gtk pre-loads most of the shared gi infrastructure.
+The structural win is real but shows mainly on a **cold** target
+system: image-only Quick Look / Preview never loads GtkSource/Poppler
+at all, and apps that never open an online dictionary tab never load
+WebKit2. First-launch-after-boot on the MacBook (cold page cache) is
+where the 130–145 ms module costs actually apply.
+
+#### Thumbnailer / decode-path audit (task item 3)
+
+- tumbler is **absent** from the ISO package list (thunar +
+  ffmpegthumbnailer ship, but no tumbler daemon and no tumbler
+  config). thunarrc sets `MiscThumbnailMode=ALWAYS` +
+  `MiscShowThumbnails=TRUE` without a backend that can serve them.
+  Decision: do NOT add tumbler now (it is a resident daemon — power
+  baseline frozen; task rule). Documented in NEEDS_HARDWARE_TEST.md.
+- mv-preview: thumbnail sidebar renders each page once at 160 px cap
+  into a ListStore (surfaces cached, no per-frame re-decode); main
+  page render capped at 800×600 / 3.0 scale. No re-decode found.
+- mv-quicklook: renders only the current file; image path uses
+  `new_from_file_at_scale` (no full decode); text capped at 200 KB;
+  media via ffprobe metadata only. No re-decode found.

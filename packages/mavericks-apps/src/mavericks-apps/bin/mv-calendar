@@ -19,7 +19,7 @@ import uuid
 from datetime import datetime, timedelta
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib, Gdk, GdkPixbuf  # noqa: F401
+from gi.repository import Gtk, GLib, Gdk
 
 STORE = os.path.expanduser("~/.local/share/mv-calendar/calendars.json")
 REPEAT_MODES = ["none", "daily", "weekly", "monthly", "yearly"]

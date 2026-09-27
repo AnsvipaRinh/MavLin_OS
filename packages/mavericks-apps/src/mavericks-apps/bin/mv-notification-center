@@ -8,7 +8,7 @@ No persistent daemon; reads JSON log on demand. License: GPL-2.0-or-later.
 import json, os, sys, time
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, GLib
 
 STORE_FILE = os.path.expanduser("~/.local/share/mavericks/notifications.json")
 

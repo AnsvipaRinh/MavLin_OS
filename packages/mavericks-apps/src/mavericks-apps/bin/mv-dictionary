@@ -29,14 +29,23 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk
 
 WebKit2 = None
-for _ver in ("4.1", "4.0"):
-    try:
-        gi.require_version("WebKit2", _ver)
-        from gi.repository import WebKit2 as _WebKit2
-        WebKit2 = _WebKit2
-        break
-    except ValueError:
-        continue
+_WEBKIT_TRIED = False
+
+
+def _ensure_webkit():
+    global WebKit2, _WEBKIT_TRIED
+    if _WEBKIT_TRIED:
+        return WebKit2
+    _WEBKIT_TRIED = True
+    for _ver in ("4.1", "4.0"):
+        try:
+            gi.require_version("WebKit2", _ver)
+            from gi.repository import WebKit2 as _WebKit2
+            WebKit2 = _WebKit2
+            break
+        except ValueError:
+            continue
+    return WebKit2
 
 CACHE_DIR = os.path.expanduser("~/.cache/mv-dictionary")
 HISTORY_FILE = os.path.join(CACHE_DIR, "history.json")
@@ -397,7 +406,7 @@ class DictionaryWindow(Gtk.Window):
 
         for attr, page_id, title in self.TABS:
             scrolled = Gtk.ScrolledWindow()
-            if WebKit2 is not None:
+            if _ensure_webkit() is not None:
                 view = WebKit2.WebView()
                 view.connect("load-failed", self.on_load_failed)
                 scrolled.add(view)
