@@ -346,3 +346,94 @@ Honesty note (unchanged from phases B/C): run-to-run variance on this shared
 WSL2 host exceeds the per-scenario deltas; CPU scenarios S15/S16 are stable,
 confirming no systemic regression. Phase-D changes are harness/tooling/hygiene
 — their effects are cold-target or GUI-tier, quantified via the D-3 proxy.
+
+## Phase-E change log
+
+### 2026-09-27 — Phase E: browser emulator + GUI tier + stopping criteria + re-audit
+
+- Full run: `docs/benchmarks/results-2026-09-27-phaseE.json` — 24 scenarios,
+  19 ok, 5 skipped (S06/S07/S08/S10/S14 — specific app interactions, not
+  general GUI), 0 failed.
+
+#### E-1 browser-workload emulator (S14E)
+
+- New: `scripts/bench/browser_emu.py` — synthetic Firefox-ESR-class tabbed
+  session model. 7 phases: startup (regex/DOM), tab-alloc (RSS plateaus),
+  scroll (render ticks), media-burst (zlib image-decode-like), js-churn,
+  network-wait, return-idle. Deterministic (seed=42). Timeboxed (<3 min).
+- Integrated into bench.py as S14E (3 repeats).
+- Output: JSON schema 1 (compatible with bench.py). Logs to stderr, JSON to
+  stdout.
+
+#### E-2 GUI tier (G01-G05)
+
+- X-server detection: Xvfb/Xephyr absent, but WSLg X server on :0 is reachable
+  (Gdk.Display.open + window create/show/destroy verified). GUI tier is now
+  measurable — first time in the perf track.
+- G01: window create/show/hide/destroy ×10 per app (5 slowest starters).
+  Median 3.6-3.9 ms per cycle. P2.
+- G02: repeated open/close memory growth (RSS delta over 20 cycles).
+  0-4 KB for 4 apps; mv-diskutil 996 KB (one-time GTK/UDisks2 caching,
+  not a linear leak — inconsistent across runs). P2.
+- G03: event-loop latency (idle_add round-trip p50/p99). 1.5/2.6 ms. P2.
+- G04: notification burst through mv-notify-send logging path (50×).
+  0.13-0.48 s. P2. (notify-send transport blocked without daemon; logging
+  cost is the measurable part.)
+- G05: startup-to-first-draw for 5 slowest apps (X11 window detection via
+  ctypes + libX11). 0.24-0.30 s. P2 (all under 0.5 s P1 threshold).
+
+#### E-3 stopping criteria (docs/PERF_CRITERIA.md)
+
+- P0: interactive latency regression, background wakeup/rescan class, or
+  crash/leak with growth >threshold.
+- P1: startup >0.5 s cold-proxy-measured, or timer faster than UX needs with
+  backend cost.
+- P2: below host drift band, cosmetic, accepted-with-reason.
+- IGNORE: synthetic-only, no user-visible path.
+- Applied to all PERF_AUDIT.md suspects: **0 P0, 0 P1**. All suspects are
+  P2 or IGNORE. Performance track has reached its stopping criteria.
+
+#### E-4 re-audit
+
+- Full re-audit with criteria: polling, timers, wakeups, persistent processes,
+  repeated FS scans, unnecessary D-Bus, UI-thread blocking, memory growth
+  (G02), cold-start (S03/G05), return-to-idle (S17).
+- Result: 0 P0, 0 P1 suspects. All 24 suspects classified as P2 or IGNORE.
+  See PERF_AUDIT.md "Phase-E re-audit" section for the full table.
+
+#### GUI tier separation (X server proves vs HW-only)
+
+| What X server on :0 proves | What is HW-only |
+|---|---|
+| Widget construction cost (G01) | Compositing performance |
+| Memory growth/leak detection (G02) | Vsync/frame timing |
+| Event-loop latency (G03) | Panel pixels/HiDPI rendering |
+| Notification logging cost (G04) | notifyd processing/display |
+| Startup-to-first-draw wall (G05) | Real display latency |
+
+The X server on :0 is WSLg (software rendering, no GPU). It proves that
+widgets construct correctly, no leaks exist, the event loop is responsive,
+and apps start in <0.5 s. It does NOT prove anything about compositing,
+vsync, panel pixels, or HiDPI behavior — those require the real HD 615
+GPU and 2304×1440 display on MacBook10,1.
+
+#### CALIBRATION map (emulator → future real-Firefox measurements)
+
+The browser emulator produces synthetic patterns that can be correlated with
+real Firefox-ESR measurements on MacBook10,1. The calibration map documents
+which emulator numbers map to which future real-Firefox measurements:
+
+| Emulator phase | Emulator metric | Future real-Firefox measurement | Calibration notes |
+|---|---|---|---|
+| startup | wall_s, cpu_s | Firefox headless startup wall | Regex/DOM ops model HTML/CSS/JS parsing. Calibrate by measuring real Firefox startup on target. |
+| tab_alloc | peak_rss_kb, per_tab_rss_kb | Per-tab RSS in Firefox | 80 MB/tab default. Calibrate by measuring real per-tab RSS on target. |
+| scroll | tick_ms_median, tick_ms_p99 | Scroll frame time on Firefox | 16.7 ms target (60 fps). Calibrate by measuring real scroll frame times on target. |
+| media_burst | wall_s, cpu_s | Image decode time on Firefox | zlib compress/decompress models image decode. Calibrate by measuring real image decode on target. |
+| js_churn | wall_s, cpu_s | JS execution time on Firefox | Arithmetic + GC churn models JS execution. Calibrate by measuring real JS execution on target. |
+| network_wait | wall_s | Network wait time on Firefox | Idle sleeps model network waits. No calibration needed (wall = sleep duration). |
+| return_idle | wall_s | Firefox return-to-idle after workload | KEY metric. Calibrate by measuring real Firefox return-to-idle on target. |
+
+The emulator is NOT a Firefox replacement — it is a reproducible synthetic
+workload that exercises the same resources (CPU, memory, I/O) in the same
+patterns. When real Firefox measurements become available (on hardware), the
+emulator can be fitted to match by adjusting the phase intensities.

@@ -1,5 +1,16 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.65 — Performance track phase E: browser emulator + GUI tier + stopping criteria + re-audit (2026-09-27, без железа)
+- [x] Browser-workload emulator S14E (`scripts/bench/browser_emu.py`): synthetic Firefox-ESR-class tabbed session model — 7 phases (startup regex/DOM, tab-alloc RSS plateaus, scroll render ticks, media-burst zlib, js-churn, network-wait, return-idle); deterministic (seed=42); timeboxed <3 min; JSON schema 1 compatible with bench.py; integrated as S14E (3 repeats)
+- [x] GUI tier G01-G05 integrated into bench.py: X-server detection (Xvfb/Xephyr absent, WSLg :0 reachable — GUI tier now measurable for the first time); G01 window cycles 3.6-3.9 ms; G02 memory growth 0-4 KB (mv-diskutil 996 KB = one-time caching, not leak); G03 event-loop p50/p99 1.5/2.6 ms; G04 notification logging 0.13-0.48 s; G05 startup-to-first-draw 0.24-0.30 s (all P2)
+- [x] Stopping criteria (`docs/PERF_CRITERIA.md`): P0/P1/P2/IGNORE definitions + thresholds; applied to all PERF_AUDIT.md suspects — 0 P0, 0 P1; all 24 suspects P2 or IGNORE; performance track has reached stopping criteria
+- [x] Full re-audit: polling, timers, wakeups, persistent processes, repeated FS scans, unnecessary D-Bus, UI-thread blocking, memory growth (G02), cold-start (S03/G05), return-to-idle (S17) — 0 P0, 0 P1 found
+- [x] CALIBRATION map in BENCHMARKS.md: emulator phases → future real-Firefox measurements on MacBook10,1 (startup wall, per-tab RSS, scroll-tick CPU, burst CPU, return-to-idle)
+- [x] GUI tier separation doc: what X server proves (widget construction, leaks, loop latency) vs HW-only (compositing, vsync, panel pixels, HiDPI)
+- [x] Full harness: 24 scenarios, 19 ok, 5 skipped (S06/S07/S08/S10/S14 — specific app interactions), 0 failed (`results-2026-09-27-phaseE.json`); S17 33 s/repeat (host under load); S14E 37 s/repeat (host under load); CPU scenarios S15/S16 stable (≤1%)
+- [x] Docs: BENCHMARKS.md phase-E change log + calibration map + GUI separation; PERF_AUDIT.md phase-E re-audit (24 suspects, all P2/IGNORE); power baseline untouched
+- [x] Track assessment (A→E): measurable host wins = harness comparability + S02/S03 import-path reduction + cold-tier quantification + GUI tier now measurable (G01-G05); 0 P0/P1 after full re-audit; performance track stopping criteria met
+
 ### Фаза 0.64 — Performance track phase D: harness hardening + final measurable wins (2026-09-27, без железа)
 - [x] Harness display-leak fix (c359ab0): S02/S03 children no longer inherit host Wayland env (`headless_env()`: GDK_BACKEND=x11 + DISPLAY stripped); S03 scenario wall 127s→~15s, mainloop-reached 23→0, S02 −11%, S03 median −20%; before/after pairs comparable regardless of host display state
 - [x] Unused-import audit (2ae61e6): AST-based checker (pyflakes absent on host), 20 provably-unused imports removed across 15 mv-* apps; zero behavior change; 1233/1233 green

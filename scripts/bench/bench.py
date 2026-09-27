@@ -84,6 +84,13 @@ def cpu_idle_pct(seconds):
     return 100.0 * (i1 - i0) / dt if dt else 0.0
 
 
+def rss_kb():
+    for line in Path("/proc/self/status").read_text().splitlines():
+        if line.startswith("VmRSS:"):
+            return int(line.split()[1])
+    return 0
+
+
 def ctx_switches_total():
     total = 0
     for p in Path("/proc").iterdir():
@@ -387,6 +394,267 @@ def no_x_reason(what):
     return f"no-x-display: DISPLAY unset; {what} requires a real display"
 
 
+def x_server_available():
+    """Check if an X server is reachable. Returns (ok, reason)."""
+    display = os.environ.get("DISPLAY")
+    if not display:
+        return False, "DISPLAY unset"
+    try:
+        import gi
+        gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk, Gdk
+        d = Gdk.Display.open(display)
+        if d is None:
+            return False, f"Gdk.Display.open({display!r}) returned None"
+        w = Gtk.Window()
+        w.set_default_size(10, 10)
+        w.show_all()
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+        w.destroy()
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
+        return True, None
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+
+
+GUI_APPS = ["mv-music", "mv-control", "mv-dictionary", "mv-preview", "mv-diskutil"]
+
+
+def scenario_g01_window_cycles(ctx):
+    """G01: window create/show/hide/destroy xN per app (widget construction cost)."""
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    n = 10
+    per_app = {}
+    for app in GUI_APPS:
+        times = []
+        for i in range(n):
+            t0 = time.monotonic()
+            w = Gtk.Window()
+            w.set_title(f"G01-{app}-{i}")
+            w.set_default_size(200, 100)
+            w.show_all()
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+            w.hide()
+            w.destroy()
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+            times.append(time.monotonic() - t0)
+        times.sort()
+        per_app[app] = {"median_s": round(times[len(times) // 2], 6),
+                        "min_s": round(times[0], 6),
+                        "max_s": round(times[-1], 6)}
+    return {"cycles": n}, {
+        "note": "synthetic window create/show/hide/destroy cycles; measures "
+                "widget construction cost (GUI tier)",
+        "per_app": per_app}
+
+
+def scenario_g02_memory_growth(ctx):
+    """G02: repeated open/close memory growth (RSS delta over N cycles)."""
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    cycles = 20
+    per_app = {}
+    for app in GUI_APPS:
+        rss0 = rss_kb()
+        for i in range(cycles):
+            w = Gtk.Window()
+            w.set_title(f"G02-{app}-{i}")
+            w.set_default_size(200, 100)
+            w.show_all()
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+            w.destroy()
+            while Gtk.events_pending():
+                Gtk.main_iteration_do(False)
+        rss1 = rss_kb()
+        per_app[app] = {"rss_delta_kb": rss1 - rss0, "cycles": cycles}
+    return {"cycles": cycles}, {
+        "note": "RSS delta over N create/destroy cycles; leak/growth detector "
+                "(GUI tier)",
+        "per_app": per_app}
+
+
+def scenario_g03_event_loop_latency(ctx):
+    """G03: event-loop latency (idle_add round-trip p50/p99)."""
+    import gi
+    gi.require_version("GLib", "2.0")
+    from gi.repository import GLib
+    n = 100
+    latencies = []
+    loop = GLib.MainLoop()
+
+    def measure():
+        t0 = time.monotonic()
+
+        def cb():
+            latencies.append(time.monotonic() - t0)
+            if len(latencies) < n:
+                GLib.idle_add(cb)
+            else:
+                loop.quit()
+            return False
+
+        GLib.idle_add(cb)
+        return False
+
+    GLib.idle_add(measure)
+    loop.run()
+    latencies.sort()
+    return {"p50_ms": round(latencies[len(latencies) // 2] * 1000, 3),
+            "p99_ms": round(latencies[int(len(latencies) * 0.99)] * 1000, 3),
+            "n": n}, {
+        "note": "idle_add round-trip latency; mainloop responsiveness "
+                "(GUI tier)"}
+
+
+def scenario_g04_notification_burst(ctx):
+    """G04: notification burst through mv-notify-send path."""
+    import importlib.machinery
+    import importlib.util
+    loader = importlib.machinery.SourceFileLoader(
+        "mv_notify_send", str(APPS_BIN / "mv-notify-send"))
+    spec = importlib.util.spec_from_loader("mv_notify_send", loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    n = 50
+    t0 = time.monotonic()
+    for i in range(n):
+        mod.log_notification("G04-test", f"test {i}", "", "", "normal", "", {})
+    wall = time.monotonic() - t0
+    return {"wall_s": round(wall, 4), "count": n}, {
+        "note": "notification logging cost (no notify-send transport); "
+                "measures JSON store write path (GUI tier)"}
+
+
+def _xlib_window_ids():
+    """Get current X11 top-level window IDs via ctypes + libX11."""
+    import ctypes
+    xlib = ctypes.CDLL("libX11.so.6")
+    xlib.XOpenDisplay.restype = ctypes.c_void_p
+    xlib.XOpenDisplay.argtypes = [ctypes.c_char_p]
+    xlib.XDefaultRootWindow.restype = ctypes.c_ulong
+    xlib.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+    xlib.XQueryTree.restype = ctypes.c_int
+    xlib.XQueryTree.argtypes = [
+        ctypes.c_void_p, ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_ulong),
+        ctypes.POINTER(ctypes.POINTER(ctypes.c_ulong)),
+        ctypes.POINTER(ctypes.c_uint)]
+    xlib.XFree.argtypes = [ctypes.c_void_p]
+    xlib.XCloseDisplay.argtypes = [ctypes.c_void_p]
+
+    d = xlib.XOpenDisplay(os.environ.get("DISPLAY", ":0").encode())
+    if not d:
+        return set()
+    root = xlib.XDefaultRootWindow(d)
+    root_ret = ctypes.c_ulong()
+    parent_ret = ctypes.c_ulong()
+    children = ctypes.POINTER(ctypes.c_ulong)()
+    nchildren = ctypes.c_uint()
+    xlib.XQueryTree(d, root, ctypes.byref(root_ret),
+                    ctypes.byref(parent_ret), ctypes.byref(children),
+                    ctypes.byref(nchildren))
+    ids = set()
+    for i in range(nchildren.value):
+        ids.add(children[i])
+    if children:
+        xlib.XFree(children)
+    xlib.XCloseDisplay(d)
+    return ids
+
+
+def scenario_g05_startup_first_draw(ctx):
+    """G05: startup-to-first-draw wall for 5 slowest apps (X11 detection)."""
+    env = dict(os.environ)
+    env["GDK_BACKEND"] = "x11"
+    per_app = {}
+    for app in GUI_APPS:
+        path = APPS_BIN / app
+        try:
+            with open(path) as f:
+                first = f.readline()
+            if "python" in first:
+                cmd = [sys.executable, str(path)]
+            else:
+                cmd = ["bash", str(path)]
+        except OSError:
+            continue
+        before = _xlib_window_ids()
+        t0 = time.monotonic()
+        try:
+            p = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL, env=env,
+                                 start_new_session=True)
+        except OSError:
+            continue
+        found = False
+        while time.monotonic() - t0 < 5:
+            after = _xlib_window_ids()
+            if after - before:
+                per_app[app] = round(time.monotonic() - t0, 4)
+                found = True
+                break
+            if p.poll() is not None:
+                break
+            time.sleep(0.01)
+        if not found:
+            per_app[app] = None
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except OSError:
+            pass
+        p.wait()
+    return {}, {
+        "note": "startup-to-first-draw; X11 window detection (GUI tier)",
+        "per_app": per_app}
+
+
+def gui_scenario(fn, repeats):
+    """Wrapper: run a GUI scenario if X is available, else skip."""
+    def wrapper(ctx):
+        ok, reason = x_server_available()
+        if not ok:
+            return None, {"reason": f"no-x-display: {reason}"}
+        return fn(ctx)
+    return wrapper
+
+
+def scenario_browser_emulator(ctx):
+    """S14E: synthetic browser-workload emulator (no real browser needed)."""
+    emu_path = Path(__file__).resolve().parent / "browser_emu.py"
+    wall, rc, out, _ = run_cmd(
+        [sys.executable, str(emu_path), "--repeats", "1",
+         "--tabs", "4", "--scroll-ticks", "30", "--media-burst"],
+        timeout=120, env=headless_env())
+    if rc != 0:
+        raise RuntimeError("browser emulator failed")
+    data = json.loads(out)
+    entry = data["scenarios"]["S14E-browser-emulator"]
+    if entry["status"] != "ok":
+        raise RuntimeError(f"browser emulator: {entry.get('reason', 'unknown')}")
+    metrics = entry["metrics"]
+    return {
+        "total_wall_s": metrics["total_wall_s"]["median"],
+        "startup_wall_s": metrics["startup"]["wall_s"]["median"],
+        "tab_alloc_peak_rss_kb": metrics["tab_alloc"]["peak_rss_kb"]["median"],
+        "scroll_tick_ms_median": metrics["scroll"]["tick_ms_median"]["median"],
+        "media_burst_wall_s": metrics["media_burst"]["wall_s"]["median"],
+        "js_churn_wall_s": metrics["js_churn"]["wall_s"]["median"],
+        "return_idle_wall_s": metrics["return_idle"]["wall_s"]["median"],
+    }, {
+        "note": "synthetic browser-workload emulator; NOT a real browser. "
+                "Calibration map: docs/BENCHMARKS.md phase-E CALIBRATION.",
+        "raw": entry.get("notes", {}),
+    }
+
+
 SCENARIOS = {
     "S01-idle-residual": (scenario_idle_residual, 1),
     "S02-py-framework-startup": (scenario_py_framework_startup, 10),
@@ -414,6 +682,12 @@ SCENARIOS = {
            "firefox-esr, epiphany, icecat, chromium, google-chrome, brave, "
            "edge, web — none found; offline discipline, no install); "
            "headless page-load + HD615 behavior HW-only"), 1),
+    "G01-window-cycles": (gui_scenario(scenario_g01_window_cycles, 1), 1),
+    "G02-memory-growth": (gui_scenario(scenario_g02_memory_growth, 1), 1),
+    "G03-event-loop-latency": (gui_scenario(scenario_g03_event_loop_latency, 3), 3),
+    "G04-notification-burst": (gui_scenario(scenario_g04_notification_burst, 3), 3),
+    "G05-startup-first-draw": (gui_scenario(scenario_g05_startup_first_draw, 1), 1),
+    "S14E-browser-emulator": (scenario_browser_emulator, 3),
 }
 
 

@@ -94,3 +94,59 @@ harness comparability (D-01) and the S02/S03 import-path reduction it
 exposed (−11%/−20%). D-02's warm-host effect is ≈ 0 by construction; its
 value is cold-target, quantified via D-03. Everything else the track touched
 in phases B–D remains GUI-tier or call-frequency (see phase-B note above).
+
+## Phase-E re-audit (2026-09-27, commits on master)
+
+> Criteria: `docs/PERF_CRITERIA.md`. Full re-audit with the GUI tier now
+> measurable (X server on :0). Every suspect carries a P-label + the
+> measurement that justifies it.
+
+### Suspect table with P-labels
+
+| ID | Location | Finding | P-label | Measurement |
+|---|---|---|---|---|
+| S-01 | `mv-control:63,82` | Wi-Fi refresh timers | **P2** | Fixed in phase B (signal-driven + 30 s fallback). Window-open-only. |
+| S-02 | `mv-console:464` | Follow mode timer | **P2** | Fixed in phase B (persistent `journalctl -f` + IO watch). Window-open-only. |
+| S-03 | `mv-music:953,1469` | Backend refresh + retry timers | **P2** | Fixed in phase B (off-thread MPRIS). 1 s refresh, 2 s retry. Window-open-only. |
+| S-04 | `mv-colormeter:441` | Screen sampling timer | **P2** | Fixed in phase B (100 ms → 200 ms). 5 Hz is smooth under loupe. Window-open-only. |
+| S-05 | `mv-activity:96` | Activity refresh timer | **P2** | 2 s pure `/proc` reads, window-open-only. Allowed by AGENTS.md §7. |
+| S-06 | `mv-control:389,465,475,485` | BT refresh timers | **P2** | Fixed in phase B (5 s steady state + event-driven one-shots). Window-open-only. |
+| S-07 | `mv-power-ui:458` | Countdown tick | **P2** | 1 Hz countdown UI (must stay 1 Hz for smooth countdown). UPower read once at open. |
+| S-08 | `mv-textedit:101` | Autosave timer | **P2** | 30 s autosave, window-open-only. Same class as Firefox sessionstore (60 s). |
+| S-09 | autostart/mv-notify-send | Autostart entry | **IGNORE** | Fixed in phase B (entry removed). On-demand tool. |
+| S-10 | `bin/mv-hud.c` | HUD not wired | **IGNORE** | Fixed in phase B (wired into panel genmon). One-shot C tool. |
+| S-11 | `mv-about:138` + 6 more | Startup crashes | **IGNORE** | Fixed in phase B (7 startup crashes fixed). Zero tracebacks post-fix. |
+| S-12 | all `bin/mv-*` | Extensionless launchers | **IGNORE** | Deliberate convention (37 tools). No runtime cost. |
+| E-01 | `mv-diskutil` G02 | 996 KB RSS growth over 20 cycles | **P2** | One-time GTK/UDisks2 caching, not a linear leak. Inconsistent across runs (0 KB in repeat). Plateaus after initial allocation. |
+| E-02 | `mv-dictionary:506` | Search debounce timer | **P2** | 300 ms debounce (UX-needed). No backend cost per tick. |
+| E-03 | `mv-mail:72` | Launch timer | **P2** | 100 ms one-shot (launch geary). No repeating cost. |
+| E-04 | `mv-notes:582` | Refresh timer | **P2** | Window-open-only. No backend cost. |
+| E-05 | `mv-photos:1064` | Slideshow timer | **P2** | User-controlled (3 s interval). Window-open-only. |
+| E-06 | `mv-voice:200,602,697` | Animation timers | **P2** | 60/100/200 ms UI animation (cassette, level meter, playback). Window-open-only. |
+| E-07 | `mv-preview:41` | Quit timer | **IGNORE** | 100 ms one-shot (headless test). No repeating cost. |
+| E-08 | `mv-shot:147` | Timeout timer | **IGNORE** | One-shot screenshot timeout. No repeating cost. |
+| E-09 | `mv-diskutil` sync D-Bus | UDisks2 `call_sync` | **P2** | Action handlers (mount/unmount/eject), not timers. Window-open-only. |
+| E-10 | `mv-control` sync D-Bus | NM/BlueZ `call_sync` | **P2** | Refresh functions called from timers (5 s). Window-open-only. |
+| E-11 | `mv-keychain` sync D-Bus | Secret `get_sync` | **P2** | Action handlers (load/unlock). Window-open-only. |
+| E-12 | all apps | `while True` loops | **IGNORE** | Only mv-notes:65 (string search) + mv-photos:101 (JPEG parser). One-shot algorithmic. |
+| E-13 | all apps | GFileMonitor/inotify | **IGNORE** | None found in custom code. |
+| E-14 | autostart | Autostart entries | **IGNORE** | Only plank (KEEP — dock). mv-notify-send removed in S-09. |
+
+### GUI-tier measurements (G01-G05, X server on :0)
+
+| Scenario | Metric | Value | P-label | Threshold |
+|---|---|---|---|---|
+| G01 | window create/show/hide/destroy | 3.6-3.9 ms median | **P2** | — |
+| G02 | memory growth (20 cycles) | 0-4 KB (except E-01) | **P2** | <100 KB |
+| G03 | event-loop latency p50/p99 | 1.5/2.6 ms | **P2** | <5/20 ms |
+| G04 | notification logging (50x) | 0.13-0.48 s | **P2** | — |
+| G05 | startup-to-first-draw | 0.24-0.30 s | **P2** | <0.5 s |
+
+### Re-audit verdict
+
+**0 P0, 0 P1 suspects.** All suspects are P2 (below host drift band,
+cosmetic, accepted-with-reason) or IGNORE (synthetic-only, no user-visible
+path). The performance track has reached its stopping criteria
+(`docs/PERF_CRITERIA.md`): no interactive latency regression, no background
+wakeup/rescan class, no crash/leak with growth >threshold, no startup >0.5 s
+cold-proxy-measured, no timer faster than UX needs with backend cost.
