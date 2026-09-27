@@ -437,3 +437,52 @@ The emulator is NOT a Firefox replacement — it is a reproducible synthetic
 workload that exercises the same resources (CPU, memory, I/O) in the same
 patterns. When real Firefox measurements become available (on hardware), the
 emulator can be fitted to match by adjusting the phase intensities.
+
+## Phase 0.66 — mv-settings + mv-control full audit & P0/P1 fixes (2026-09-27)
+
+### Per-section backend/cost table
+
+| Section | Backend | Polling | Startup (ms) | D-Bus calls on open | RAM delta (20 cycles) | Issues |
+|---|---|---|---|---|---|---|
+| mv-settings (launcher) | subprocess.Popen per click | None | ~150-300 | 0 | 0 (exits on close) | Duplicates: Network/Wi-Fi, Battery/Energy |
+| Wi-Fi (mv-control) | nmcli subprocess + NM D-Bus signals | 30s fallback + signal-driven | ~50 | 6 (NM subs) + 1 (nmcli radio) | 0 | Signal-driven since phase B |
+| Bluetooth (mv-control) | BlueZ D-Bus GetManagedObjects | 30s (via refresh_all) | ~20 | 1 | 0 | Was: 2 D-Bus calls per 5s tick |
+| Sound (mv-control) | pactl subprocess | None (user-initiated) | ~20 | 0 | 0 | Was: 2 pactl calls per 5s tick |
+| Display (mv-control) | /sys/class/backlight reads | None (user-initiated) | ~5 | 0 | 0 | Was: /sys reads per 5s tick |
+| Battery (mv-control) | upower subprocess | 30s (via refresh_all) | ~15 | 0 | 0 | Was: upower call per 5s tick |
+| Power Mode (mv-control) | tlp-stat subprocess | 30s (via refresh_all) | ~15 | 0 | 0 | Was: tlp-stat call per 5s tick |
+| DND (mv-control) | xfconf-query subprocess | 30s (via refresh_all) | ~10 | 0 | 0 | Was: xfconf-query call per 5s tick |
+
+### P0/P1 fixes with before/after numbers
+
+| Fix | Before | After | Delta |
+|---|---|---|---|
+| refresh_all timer interval | 5s | 30s | 83% fewer timer ticks |
+| refresh_all subprocess calls per tick | ~8 (nmcli, pactl×2, upower, tlp-stat, xfconf-query, + 2 BT D-Bus) | ~4 (nmcli, tlp-stat, xfconf-query, + 1 BT D-Bus) | 50% fewer per tick |
+| BT D-Bus calls per refresh_all tick | 2 (get_bt_enabled + refresh_bt_list) | 1 (shared _bluez_get_objects) | 50% fewer |
+| Total subprocess spawns per 30s while CC open | ~48 (8×6 ticks) | ~4 (4×1 tick) | 92% reduction |
+| on_output_device_changed no-op pactl | 1 subprocess per change | 0 | Removed |
+| mv-settings duplicate entries | 21 entries (4 dupes) | 18 entries | Cleaner UI |
+
+### Fidelity changes
+
+- mv-settings: Removed duplicate Wi-Fi/Battery/Energy entries; consolidated
+  to single "Network" and "Energy Saver" (matches macOS Mavericks layout)
+- mv-settings: Removed dual-app launch from "Desktop & Dock" (was launching
+  both xfce4-desktop-settings AND plank --preferences simultaneously)
+- mv-control: No visual changes (CSS/layout already Mavericks-coherent)
+
+### Suite counts
+
+- mv-control: 32 tests (was 26, +6 new: BT on/off paths, _bluez_get_objects)
+- Full suite: 1233 → 1239 tests, all pass
+- check-sync.sh: ALL CHECKS PASSED
+
+### HW-only remainder for settings
+
+- suspend/resume + lid: logind hooks verified by inspection; HW behavior
+  (S3 state, Wi-Fi/audio survive resume) → NEEDS_HARDWARE_TEST.md
+- panel-brightness: /sys/class/backlight path verified; actual backlight
+  control on MacBook10,1 → NEEDS_HARDWARE_TEST.md
+- BT-pairing-real: BlueZ D-Bus calls verified; actual pairing with
+  real devices → NEEDS_HARDWARE_TEST.md

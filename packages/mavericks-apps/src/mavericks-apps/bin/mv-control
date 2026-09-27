@@ -21,6 +21,7 @@ from gi.repository import Gtk, Gio, GLib
 WIFI_FALLBACK_POLL_S = 30
 WIFI_REFRESH_DEBOUNCE_S = 1
 WIFI_REFRESH_MIN_INTERVAL_S = 2
+REFRESH_ALL_INTERVAL_S = 30
 
 
 def sh(cmd):
@@ -78,8 +79,8 @@ class ControlCenter(Gtk.Window):
         self.connect("key-press-event", self.on_key_press)
         self.connect("destroy", self.on_destroy)
 
-        # Refresh data periodically
-        GLib.timeout_add_seconds(5, self.refresh_all)
+        # Refresh data periodically (30s: battery, power mode, DND change externally)
+        GLib.timeout_add_seconds(REFRESH_ALL_INTERVAL_S, self.refresh_all)
 
         self.show_all()
 
@@ -374,15 +375,24 @@ class ControlCenter(Gtk.Window):
         btn.connect("clicked", lambda _: run_async(["blueman-manager"]))
         box.pack_start(btn, False, False, 0)
 
-    def get_bt_enabled(self):
+    def _bluez_get_objects(self):
         try:
             bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
             m = Gio.DBusMessage.new_method_call("org.bluez", "/",
                 "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")
             r = bus.send_message_with_reply_sync(m, 0, 500, None)
-            return "org.bluez.Adapter1" in r.print_(0) if r else False
+            if r:
+                return r.get_body()
+            return None
         except Exception:
+            return None
+
+    def get_bt_enabled(self):
+        objects = self._bluez_get_objects()
+        if objects is None:
             return False
+        return any("org.bluez.Adapter1" in interfaces
+                   for interfaces in objects.values())
 
     def on_bt_toggle(self, switch, _):
         run_async(["bluetoothctl", "power", "on" if switch.get_active() else "off"])
@@ -392,67 +402,59 @@ class ControlCenter(Gtk.Window):
         for child in self.bt_listbox.get_children():
             self.bt_listbox.remove(child)
 
-        try:
-            bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
-            m = Gio.DBusMessage.new_method_call("org.bluez", "/",
-                "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")
-            r = bus.send_message_with_reply_sync(m, 0, 500, None)
-            if r:
-                objects = r.get_body()
-                devices_found = False
-                for path, interfaces in objects.items():
-                    if "org.bluez.Device1" in interfaces:
-                        devices_found = True
-                        props = interfaces["org.bluez.Device1"]
-                        name = props.get("Name", "Unknown Device")
-                        connected = props.get("Connected", False)
-                        paired = props.get("Paired", False)
-                        icon_name = props.get("Icon", "audio-card")
+        objects = self._bluez_get_objects()
+        if objects is None:
+            self.add_info_row(self.bt_listbox, "BlueZ not available", "bluetooth-disabled")
+            self.bt_listbox.show_all()
+            return
 
-                        row = Gtk.ListBoxRow()
-                        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-                        hbox.set_border_width(8)
+        devices_found = False
+        for path, interfaces in objects.items():
+            if "org.bluez.Device1" in interfaces:
+                devices_found = True
+                props = interfaces["org.bluez.Device1"]
+                name = props.get("Name", "Unknown Device")
+                connected = props.get("Connected", False)
+                paired = props.get("Paired", False)
+                icon_name = props.get("Icon", "audio-card")
 
-                        # Device icon
-                        icon = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
-                        hbox.pack_start(icon, False, False, 0)
+                row = Gtk.ListBoxRow()
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                hbox.set_border_width(8)
 
-                        # Name and status
-                        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-                        name_lbl = Gtk.Label(label=name)
-                        name_lbl.set_xalign(0)
-                        vbox.pack_start(name_lbl, False, False, 0)
+                icon = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
+                hbox.pack_start(icon, False, False, 0)
 
-                        status_text = "Connected" if connected else ("Paired" if paired else "Available")
-                        status_lbl = Gtk.Label(label=status_text)
-                        status_lbl.set_xalign(0)
-                        status_lbl.get_style_context().add_class("dim-label")
-                        vbox.pack_start(status_lbl, False, False, 0)
+                vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+                name_lbl = Gtk.Label(label=name)
+                name_lbl.set_xalign(0)
+                vbox.pack_start(name_lbl, False, False, 0)
 
-                        hbox.pack_start(vbox, True, True, 0)
+                status_text = "Connected" if connected else ("Paired" if paired else "Available")
+                status_lbl = Gtk.Label(label=status_text)
+                status_lbl.set_xalign(0)
+                status_lbl.get_style_context().add_class("dim-label")
+                vbox.pack_start(status_lbl, False, False, 0)
 
-                        # Connect/Disconnect button
-                        if connected:
-                            btn = Gtk.Button(label="Disconnect")
-                            btn.connect("clicked", lambda _, p=path: self.bt_disconnect(p))
-                        elif paired:
-                            btn = Gtk.Button(label="Connect")
-                            btn.connect("clicked", lambda _, p=path: self.bt_connect(p))
-                        else:
-                            btn = Gtk.Button(label="Pair")
-                            btn.connect("clicked", lambda _, p=path: self.bt_pair(p))
-                        btn.set_size_request(80, -1)
-                        hbox.pack_start(btn, False, False, 0)
+                hbox.pack_start(vbox, True, True, 0)
 
-                        row.add(hbox)
-                        self.bt_listbox.add(row)
+                if connected:
+                    btn = Gtk.Button(label="Disconnect")
+                    btn.connect("clicked", lambda _, p=path: self.bt_disconnect(p))
+                elif paired:
+                    btn = Gtk.Button(label="Connect")
+                    btn.connect("clicked", lambda _, p=path: self.bt_connect(p))
+                else:
+                    btn = Gtk.Button(label="Pair")
+                    btn.connect("clicked", lambda _, p=path: self.bt_pair(p))
+                btn.set_size_request(80, -1)
+                hbox.pack_start(btn, False, False, 0)
 
-                if not devices_found:
-                    self.add_info_row(self.bt_listbox, "No Bluetooth devices found", "bluetooth-disabled")
-            else:
-                self.add_info_row(self.bt_listbox, "BlueZ not available", "bluetooth-disabled")
-        except Exception:
-            self.add_info_row(self.bt_listbox, "Bluetooth service not available", "bluetooth-disabled")
+                row.add(hbox)
+                self.bt_listbox.add(row)
+
+        if not devices_found:
+            self.add_info_row(self.bt_listbox, "No Bluetooth devices found", "bluetooth-disabled")
 
         self.bt_listbox.show_all()
 
@@ -573,9 +575,6 @@ class ControlCenter(Gtk.Window):
         if active >= 0 and active < len(self.output_sinks):
             sink = self.output_sinks[active]
             run_async(["pactl", "set-default-sink", sink])
-            # Also move existing streams to new sink
-            run_async(["pactl", "list", "short", "sink-inputs"])
-            # Note: moving streams requires parsing sink-inputs, keep simple for now
 
     # ==================== Display ====================
 
@@ -737,28 +736,10 @@ class ControlCenter(Gtk.Window):
         except Exception:
             pass
         try:
-            self.bt_switch.set_active(self.get_bt_enabled())
-        except Exception:
-            pass
-        try:
-            self.refresh_bt_list()
-        except Exception:
-            pass
-        try:
-            self.volume_scale.set_value(self.get_volume())
-        except Exception:
-            pass
-        try:
-            self.mute_btn.set_active(self.get_mute())
-        except Exception:
-            pass
-        try:
-            self.refresh_output_devices()
-        except Exception:
-            pass
-        try:
-            val, _ = self.get_brightness()
-            self.brightness_scale.set_value(val)
+            bt_on = self.get_bt_enabled()
+            self.bt_switch.set_active(bt_on)
+            if bt_on:
+                self.refresh_bt_list()
         except Exception:
             pass
         try:

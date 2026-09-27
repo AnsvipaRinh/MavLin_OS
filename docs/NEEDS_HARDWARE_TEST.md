@@ -159,11 +159,19 @@ Strategy 3: Try linux-lts or different kernel version
 
 ## Control Center — hardware validation
 - [ ] Wi-Fi: network list populates, connect to open/secured AP, disconnect works, password prompt appears; NM D-Bus signal-driven refresh fires on scan/connect (phase B: заменил 5s `nmcli dev wifi list` rescan poll; 30s fallback + manual Refresh button) — проверить что спасает battery (rescan energy на BCM43602)
-- [ ] Bluetooth: device list shows paired/available devices, connect/disconnect/pair works
-- [ ] Sound: output device list shows all sinks, switching changes default sink, volume/mute work
-- [ ] Display: brightness slider controls actual panel backlight, Night Shift toggle (if redshift installed)
-- [ ] Battery: charge/state/time read from UPower, power mode reflects TLP state
+- [ ] Bluetooth: device list shows paired/available devices, connect/disconnect/pair works; verify single _bluez_get_objects D-Bus call per refresh (phase 0.66 dedup)
+- [ ] Sound: output device list shows all sinks, switching changes default sink, volume/mute work; verify no-op pactl call removed (phase 0.66)
+- [ ] Display: brightness slider controls actual panel backlight on MacBook10,1 (phase 0.66: /sys/class/backlight path verified); Night Shift toggle (if redshift installed)
+- [ ] Battery: charge/state/time read from UPower, power mode reflects TLP state; verify 30s refresh_all interval (phase 0.66: was 5s)
 - [ ] DND: toggle syncs with xfce4-notifyd do-not-disturb setting
+- [ ] Energy Saver: xfce4-power-manager-settings opens from mv-settings (phase 0.66: consolidated from duplicate Battery+Energy entries)
+
+## Session/Power UI — hardware validation
+- [ ] Suspend/resume: S3 state on MacBook10,1; Wi-Fi/audio survive resume (logind hooks verified by inspection in phase 0.66)
+- [ ] Lid close/open: logind HandleLidSwitch fires; system suspends/resumes correctly
+- [ ] Power button: logind HandlePowerKey behavior coherent with mv-power-ui dialog
+- [ ] External display: xfce4-display-settings detects and configures via USB-C/DP
+- [ ] Suspend/resume test: tools/diagnostics/mv-suspend-test.sh runs clean on hardware
 
 ## Notification Center — hardware validation
 - [ ] Super+Shift+V opens mv-notification-center

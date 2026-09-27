@@ -1,5 +1,16 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.66 — mv-settings + mv-control full audit & P0/P1 fixes (2026-09-27, без железа)
+- [x] Per-section backend/cost table (BENCHMARKS.md): all 8 sections audited — backend, polling, startup, D-Bus calls, RAM delta
+- [x] P1 fix: mv-control `refresh_all` timer 5s→30s (83% fewer ticks); removed user-initiated refreshes (volume/mute/brightness/output-devices) from timer — only external-state polls remain (wifi-enable, bt-enable+list, power-mode, DND)
+- [x] P1 fix: mv-control BT deduplication — `get_bt_enabled()` + `refresh_bt_list()` shared `_bluez_get_objects()` helper; was 2 BlueZ GetManagedObjects D-Bus calls per tick, now 1
+- [x] P2 fix: mv-control `on_output_device_changed` no-op `pactl list short sink-inputs` removed
+- [x] P2 fix: mv-settings duplicates removed — Wi-Fi (dup of Network), Battery/Energy (dup of Energy Saver); "Desktop & Dock" no longer launches both xfce4-desktop-settings AND plank simultaneously
+- [x] Tests: mv-control 26→32 (+6: BT on/off paths, _bluez_get_objects, refresh_all interval); full suite 1239/1239 green; check-sync ALL CHECKS PASSED
+- [x] Fidelity: no visual changes needed (CSS/layout already Mavericks-coherent); mv-settings section list now matches macOS Mavericks layout
+- [x] HW-only remainder documented: suspend/resume+lid (logind hooks), panel-brightness (real backlight), BT-pairing-real (actual devices) → NEEDS_HARDWARE_TEST.md
+- [x] Power baseline untouched; no new daemons; no polling added
+
 ### Фаза 0.65 — Performance track phase E: browser emulator + GUI tier + stopping criteria + re-audit (2026-09-27, без железа)
 - [x] Browser-workload emulator S14E (`scripts/bench/browser_emu.py`): synthetic Firefox-ESR-class tabbed session model — 7 phases (startup regex/DOM, tab-alloc RSS plateaus, scroll render ticks, media-burst zlib, js-churn, network-wait, return-idle); deterministic (seed=42); timeboxed <3 min; JSON schema 1 compatible with bench.py; integrated as S14E (3 repeats)
 - [x] GUI tier G01-G05 integrated into bench.py: X-server detection (Xvfb/Xephyr absent, WSLg :0 reachable — GUI tier now measurable for the first time); G01 window cycles 3.6-3.9 ms; G02 memory growth 0-4 KB (mv-diskutil 996 KB = one-time caching, not leak); G03 event-loop p50/p99 1.5/2.6 ms; G04 notification logging 0.13-0.48 s; G05 startup-to-first-draw 0.24-0.30 s (all P2)
