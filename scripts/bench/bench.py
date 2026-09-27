@@ -146,6 +146,12 @@ def make_fixtures():
         pb.savev(str(img), "png", [], [])
 
 
+def headless_env():
+    env = {k: v for k, v in os.environ.items() if k != "DISPLAY"}
+    env["GDK_BACKEND"] = "x11"
+    return env
+
+
 def run_cmd(cmd, timeout=60, env=None):
     t0 = time.monotonic()
     try:
@@ -190,7 +196,7 @@ def scenario_py_framework_startup(ctx):
     wall, rc, _, _ = run_cmd(
         [sys.executable, "-c",
          "import gi; gi.require_version('Gtk','3.0'); from gi.repository import Gtk"],
-        timeout=30)
+        timeout=30, env=headless_env())
     if rc != 0:
         raise RuntimeError("gi import failed")
     return {"wall_s": wall}, {
@@ -212,8 +218,7 @@ def scenario_app_import_proxy(ctx):
             cmd = [sys.executable, str(app)]
         else:
             cmd = ["bash", str(app)]
-        env = {k: v for k, v in os.environ.items() if k != "DISPLAY"}
-        wall, rc, _, err = run_cmd(cmd, timeout=5, env=env)
+        wall, rc, _, err = run_cmd(cmd, timeout=5, env=headless_env())
         if rc is None:
             cls = "mainloop-reached"
         elif rc == 0:
