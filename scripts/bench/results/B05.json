@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "cpu_count": 2,
+    "mem_total_mb": 7643,
+    "container": "WSL2",
+    "display": ":0",
+    "date": "2026-09-28 00:07:14"
+  },
+  "profile": "workload",
+  "scenarios": {
+    "B05-workload_b05": {
+      "status": "ok",
+      "metrics": {
+        "workload": "B05",
+        "desc": "scroll ticks",
+        "scroll": {
+          "ticks": 120,
+          "tick_ms_median": 17.106800005421974,
+          "tick_ms_p99": 21.796300003188662,
+          "tick_ms_max": 23.208400001749396
+        },
+        "return_idle": {
+          "wall_s": 30.062412651008344
+        }
+      },
+      "calibration": {
+        "proxy": "scroll tick p50/p99",
+        "real_metric": "Firefox scroll frame time / dropped frames",
+        "hw_deferred": [
+          "actual frame time on 2304\u00d71440",
+          "WebRender vs basic compositor"
+        ]
+      }
+    }
+  }
+}

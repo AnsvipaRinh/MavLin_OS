@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "cpu_count": 2,
+    "mem_total_mb": 7643,
+    "container": "WSL2",
+    "display": ":0",
+    "date": "2026-09-28 00:06:02"
+  },
+  "profile": "workload",
+  "scenarios": {
+    "B03-workload_b03": {
+      "status": "ok",
+      "metrics": {
+        "workload": "B03",
+        "desc": "JS-heavy",
+        "js_churn": {
+          "iterations": 200000,
+          "wall_s": 0.24067040299996734,
+          "cpu_s": 0.21904199999999996,
+          "result": 626745634.2049999
+        },
+        "return_idle": {
+          "wall_s": 30.068543257002602
+        }
+      },
+      "calibration": {
+        "proxy": "JS execution wall + CPU",
+        "real_metric": "Firefox Speedometer 2.1 / JetStream 2 score",
+        "hw_deferred": [
+          "actual JS perf on m3-7Y32",
+          "JIT warmup behavior"
+        ]
+      }
+    }
+  }
+}

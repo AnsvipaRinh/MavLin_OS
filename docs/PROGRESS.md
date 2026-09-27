@@ -1,5 +1,16 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.67 — Safari-Mavericks UX spec + Firefox optimized config + mpv video-only + B01-B09 workloads (2026-09-28, без железа)
+- [x] docs/SAFARI_SPEC.md: full Safari 7 / Mavericks UX spec — toolbar, tabs, unified address/search, bookmarks bar+sidebar, Top Sites grid, downloads popover, history, find bar, private browsing, context menus, keyboard (Cmd-layer mapping to KEYBOARD.md), dialogs, typography/spacing/icons/loading states. Implementation surface: userChrome.css notes + Firefox prefs. No engine fork.
+- [x] Firefox optimized config: user.js extended (drawInTitlebar, closeButtons=1, firefox-view off, tabmanager off, sharepane off, Top Sites prefs, download.useDownloadDir, findbar prefs). AV1 pref commented-out (E-AV1). EXPERIMENT prefs unchanged (VAAPI, WebRender, processCount, unloadOnLowMemory). sessionstore 60s preserved.
+- [x] policies.json: ExtensionSettings added — `*` blocked + uBO force_installed. Homepage/TopSites hygiene verified.
+- [x] uBO backup: configs/firefox/ublock-backup.json — EasyList + EasyPrivacy + uBO filters + badware + privacy + unbreak + resource-abuse + URLhaus. SponsorBlock noted. Blocking ON/OFF modes documented.
+- [x] mpv video-only path: packages.x86_64 += mpv, yt-dlp, intel-media-driver (all verified in extra repo). mv-ytplayer script (one-shot, graceful no-backend). Thunar UCA "Play video-only" action. .desktop + MIME wiring (opt-in, no default-handler theft). Return-to-idle: one-shot process.
+- [x] B01-B09 workloads: browser_emu.py extended with 9 workload functions + CALIBRATION map. Baseline run: all 9 completed, JSON output in scripts/bench/results/. return_idle ~30s (host under load, emulator timeout — expected).
+- [x] check-sync.sh: extended with user.js no-duplicate-keys test + policies.json schema validation. --check-repos verified mpv/yt-dlp/intel-media-driver in extra.
+- [x] HW-only remainder: vainfo, real YouTube, AV1-SW cost, panel rendering → NEEDS_HARDWARE_TEST.md
+- [x] Power baseline untouched; no new daemons; no polling added; one-shot processes only
+
 ### Фаза 0.66 — mv-settings + mv-control full audit & P0/P1 fixes (2026-09-27, без железа)
 - [x] Per-section backend/cost table (BENCHMARKS.md): all 8 sections audited — backend, polling, startup, D-Bus calls, RAM delta
 - [x] P1 fix: mv-control `refresh_all` timer 5s→30s (83% fewer ticks); removed user-initiated refreshes (volume/mute/brightness/output-devices) from timer — only external-state polls remain (wifi-enable, bt-enable+list, power-mode, DND)

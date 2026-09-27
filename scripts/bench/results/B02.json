@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "cpu_count": 2,
+    "mem_total_mb": 7643,
+    "container": "WSL2",
+    "display": ":0",
+    "date": "2026-09-28 00:05:32"
+  },
+  "profile": "workload",
+  "scenarios": {
+    "B02-workload_b02": {
+      "status": "ok",
+      "metrics": {
+        "workload": "B02",
+        "desc": "5-tab static load",
+        "startup": {
+          "wall_s": 0.004781399999046698,
+          "cpu_s": 0.0047639999999999905,
+          "matches": 525,
+          "classes": 7
+        },
+        "tab_alloc": {
+          "tabs": 5,
+          "per_tab_rss_kb": [
+            {
+              "tab": 0,
+              "rss_kb": 81924
+            },
+            {
+              "tab": 1,
+              "rss_kb": 163848
+            },
+            {
+              "tab": 2,
+              "rss_kb": 245772
+            },
+            {
+              "tab": 3,
+              "rss_kb": 327696
+            },
+            {
+              "tab": 4,
+              "rss_kb": 409620
+            }
+          ],
+          "peak_rss_kb": 427420,
+          "rss_delta_kb": 409620
+        },
+        "return_idle": {
+          "wall_s": 30.058886187005555
+        }
+      },
+      "calibration": {
+        "proxy": "5-tab RSS plateau + idle",
+        "real_metric": "Firefox 5-tab RSS, content process count",
+        "hw_deferred": [
+          "actual per-tab memory on Core M",
+          "processCount tuning"
+        ]
+      }
+    }
+  }
+}

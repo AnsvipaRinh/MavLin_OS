@@ -96,5 +96,36 @@ if [[ "${1:-}" == "--check-repos" ]]; then
   ok "repo check done"
 fi
 
+echo "--- user.js syntax (no duplicate keys) ---"
+python3 - <<'PYEOF' && ok "user.js no-dup-keys" || bad "user.js duplicate keys"
+import re, sys
+from pathlib import Path
+for path in ["configs/firefox/user.js", "archiso-profile/releng/airootfs/etc/firefox/user.js"]:
+    seen = {}
+    for i, line in enumerate(Path(path).read_text().splitlines(), 1):
+        m = re.match(r'user_pref\("([^"]+)"', line)
+        if m:
+            key = m.group(1)
+            if key in seen:
+                print(f"DUPLICATE: {key} at {path}:{i} (first at {path}:{seen[key]})", file=sys.stderr)
+                sys.exit(1)
+            seen[key] = i
+PYEOF
+
+echo "--- policies.json validity ---"
+python3 - <<'PYEOF' && ok "policies.json valid" || bad "policies.json invalid"
+import json, sys
+from pathlib import Path
+for path in ["configs/firefox/policies.json", "archiso-profile/releng/airootfs/usr/lib/firefox/distribution/policies.json"]:
+    data = json.loads(Path(path).read_text())
+    assert "policies" in data, f"missing 'policies' key in {path}"
+    pol = data["policies"]
+    assert "DisableTelemetry" in pol, f"missing DisableTelemetry in {path}"
+    assert "ExtensionSettings" in pol, f"missing ExtensionSettings in {path}"
+    es = pol["ExtensionSettings"]
+    assert "*" in es and es["*"]["installation_mode"] == "blocked", f"missing * block in {path}"
+    assert "uBlock0@raymondhill.net" in es, f"missing uBO allow in {path}"
+PYEOF
+
 if [[ $FAIL -eq 0 ]]; then echo "ALL CHECKS PASSED"; else echo "CHECKS FAILED"; fi
 exit $FAIL

@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "cpu_count": 2,
+    "mem_total_mb": 7643,
+    "container": "WSL2",
+    "display": ":0",
+    "date": "2026-09-28 00:07:45"
+  },
+  "profile": "workload",
+  "scenarios": {
+    "B06-workload_b06": {
+      "status": "ok",
+      "metrics": {
+        "workload": "B06",
+        "desc": "open-close tabs",
+        "cycles": [
+          {
+            "tabs": 1,
+            "per_tab_rss_kb": [
+              {
+                "tab": 0,
+                "rss_kb": 81988
+              }
+            ],
+            "peak_rss_kb": 99316,
+            "rss_delta_kb": 81988
+          },
+          {
+            "tabs": 1,
+            "per_tab_rss_kb": [
+              {
+                "tab": 0,
+                "rss_kb": 81924
+              }
+            ],
+            "peak_rss_kb": 99316,
+            "rss_delta_kb": 81924
+          },
+          {
+            "tabs": 1,
+            "per_tab_rss_kb": [
+              {
+                "tab": 0,
+                "rss_kb": 81924
+              }
+            ],
+            "peak_rss_kb": 99316,
+            "rss_delta_kb": 81924
+          },
+          {
+            "tabs": 1,
+            "per_tab_rss_kb": [
+              {
+                "tab": 0,
+                "rss_kb": 81924
+              }
+            ],
+            "peak_rss_kb": 99316,
+            "rss_delta_kb": 81924
+          },
+          {
+            "tabs": 1,
+            "per_tab_rss_kb": [
+              {
+                "tab": 0,
+                "rss_kb": 81924
+              }
+            ],
+            "peak_rss_kb": 99316,
+            "rss_delta_kb": 81924
+          }
+        ],
+        "return_idle": {
+          "wall_s": 30.06702975400549
+        }
+      },
+      "calibration": {
+        "proxy": "tab alloc/dealloc cycles",
+        "real_metric": "Firefox tab open/close time, RSS delta",
+        "hw_deferred": [
+          "actual process spawn cost",
+          "memory reclaim speed"
+        ]
+      }
+    }
+  }
+}

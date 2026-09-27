@@ -14,6 +14,17 @@ Phases:
   6. network-wait — idle sleeps
   7. return-idle  — KEY metric: seconds until CPU idle >95% sustained
 
+Workloads (B01-B09, phase 0.67):
+  B01: 1-tab static load       — single page load + idle
+  B02: 5-tab static load       — five pages + idle
+  B03: JS-heavy emulator       — sustained JS execution
+  B04: image-heavy emulator    — sustained image decode
+  B05: scroll ticks            — repeated render ticks
+  B06: open-close tabs         — tab alloc/dealloc cycles
+  B07: YouTube-idle emulator   — page load + video idle
+  B08: playback emulator       — video decode + pause→idle
+  B09: seek+quality-change     — simulated seek + format switch
+
 Deterministic (seeded). Timeboxed (<3 min default). Output: JSON schema 1
 (compatible with bench.py).
 
@@ -22,6 +33,7 @@ Usage:
                                         [--tabs N] [--scroll-ticks N]
                                         [--media-burst] [--seed N]
                                         [--max-seconds N]
+                                        [--workload B01|B02|...|B09]
 """
 import argparse
 import json
@@ -277,7 +289,37 @@ def main():
     ap.add_argument("--media-burst", action="store_true")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--max-seconds", type=int, default=180)
+    ap.add_argument("--workload", default=None,
+                    help="Run single workload B01-B09 instead of full emulation")
     args = ap.parse_args()
+
+    if args.workload:
+        if args.workload not in WORKLOADS:
+            print(f"Unknown workload: {args.workload}. Choose from: {', '.join(WORKLOADS.keys())}",
+                  file=sys.stderr)
+            return 1
+        rng = random.Random(args.seed)
+        result = WORKLOADS[args.workload](rng)
+        output = {
+            "schema": 1,
+            "host": host_meta(),
+            "profile": "workload",
+            "scenarios": {
+                f"{args.workload}-{WORKLOADS[args.workload].__name__}": {
+                    "status": "ok",
+                    "metrics": result,
+                    "calibration": CALIBRATION.get(args.workload, {}),
+                }
+            },
+        }
+        json_text = json.dumps(output, indent=2)
+        if args.output:
+            Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.output).write_text(json_text)
+            print(f"wrote {args.output}", file=sys.stderr)
+        else:
+            print(json_text)
+        return 0
 
     out_path = Path(args.output) if args.output else None
     if out_path:
@@ -356,6 +398,138 @@ def main():
     else:
         print(json_text)
     return 0
+
+
+# --- B01-B09 workloads (phase 0.67) ---
+
+def workload_b01(rng):
+    """B01: 1-tab static load — single page load + idle."""
+    startup = phase_startup(rng, intensity=1.0)
+    tab = phase_tab_alloc(rng, tabs=1, tab_mb=80)
+    idle = phase_return_idle()
+    return {"workload": "B01", "desc": "1-tab static load",
+            "startup": startup, "tab_alloc": tab, "return_idle": idle}
+
+
+def workload_b02(rng):
+    """B02: 5-tab static load — five pages + idle."""
+    startup = phase_startup(rng, intensity=1.0)
+    tab = phase_tab_alloc(rng, tabs=5, tab_mb=80)
+    idle = phase_return_idle()
+    return {"workload": "B02", "desc": "5-tab static load",
+            "startup": startup, "tab_alloc": tab, "return_idle": idle}
+
+
+def workload_b03(rng):
+    """B03: JS-heavy emulator — sustained JS execution."""
+    js = phase_js_churn(rng, iterations=200000)
+    idle = phase_return_idle()
+    return {"workload": "B03", "desc": "JS-heavy",
+            "js_churn": js, "return_idle": idle}
+
+
+def workload_b04(rng):
+    """B04: image-heavy emulator — sustained image decode."""
+    burst = phase_media_burst(rng, images=50, size=512)
+    idle = phase_return_idle()
+    return {"workload": "B04", "desc": "image-heavy",
+            "media_burst": burst, "return_idle": idle}
+
+
+def workload_b05(rng):
+    """B05: scroll ticks — repeated render ticks."""
+    scroll = phase_scroll(rng, ticks=120, intensity=1.0)
+    idle = phase_return_idle()
+    return {"workload": "B05", "desc": "scroll ticks",
+            "scroll": scroll, "return_idle": idle}
+
+
+def workload_b06(rng):
+    """B06: open-close tabs — tab alloc/dealloc cycles."""
+    cycles = []
+    for i in range(5):
+        tab = phase_tab_alloc(rng, tabs=1, tab_mb=80)
+        cycles.append(tab)
+    idle = phase_return_idle()
+    return {"workload": "B06", "desc": "open-close tabs",
+            "cycles": cycles, "return_idle": idle}
+
+
+def workload_b07(rng):
+    """B07: YouTube-idle emulator — page load + video idle."""
+    startup = phase_startup(rng, intensity=2.0)
+    tab = phase_tab_alloc(rng, tabs=1, tab_mb=120)
+    net = phase_network_wait(rng, waits=3, duration=1.0)
+    idle = phase_return_idle()
+    return {"workload": "B07", "desc": "YouTube-idle",
+            "startup": startup, "tab_alloc": tab,
+            "network_wait": net, "return_idle": idle}
+
+
+def workload_b08(rng):
+    """B08: playback emulator — video decode + pause→idle."""
+    startup = phase_startup(rng, intensity=1.5)
+    tab = phase_tab_alloc(rng, tabs=1, tab_mb=100)
+    burst = phase_media_burst(rng, images=10, size=256)
+    idle = phase_return_idle()
+    return {"workload": "B08", "desc": "playback+pause→idle",
+            "startup": startup, "tab_alloc": tab,
+            "media_burst": burst, "return_idle": idle}
+
+
+def workload_b09(rng):
+    """B09: seek+quality-change — simulated seek + format switch."""
+    startup = phase_startup(rng, intensity=1.0)
+    tab = phase_tab_alloc(rng, tabs=1, tab_mb=100)
+    burst = phase_media_burst(rng, images=5, size=256)
+    js = phase_js_churn(rng, iterations=50000)
+    idle = phase_return_idle()
+    return {"workload": "B09", "desc": "seek+quality-change",
+            "startup": startup, "tab_alloc": tab,
+            "media_burst": burst, "js_churn": js, "return_idle": idle}
+
+
+WORKLOADS = {
+    "B01": workload_b01,
+    "B02": workload_b02,
+    "B03": workload_b03,
+    "B04": workload_b04,
+    "B05": workload_b05,
+    "B06": workload_b06,
+    "B07": workload_b07,
+    "B08": workload_b08,
+    "B09": workload_b09,
+}
+
+CALIBRATION = {
+    "B01": {"proxy": "single page load wall + idle RSS",
+            "real_metric": "Firefox about:blank → example.com load time, RSS after 1 tab",
+            "hw_deferred": ["actual parse/render speed on HD 615", "HiDPI paint cost"]},
+    "B02": {"proxy": "5-tab RSS plateau + idle",
+            "real_metric": "Firefox 5-tab RSS, content process count",
+            "hw_deferred": ["actual per-tab memory on Core M", "processCount tuning"]},
+    "B03": {"proxy": "JS execution wall + CPU",
+            "real_metric": "Firefox Speedometer 2.1 / JetStream 2 score",
+            "hw_deferred": ["actual JS perf on m3-7Y32", "JIT warmup behavior"]},
+    "B04": {"proxy": "zlib decode wall + CPU",
+            "real_metric": "Firefox image decode on 50-image page",
+            "hw_deferred": ["actual JPEG/PNG decode on HD 615", "GPU-accelerated decode"]},
+    "B05": {"proxy": "scroll tick p50/p99",
+            "real_metric": "Firefox scroll frame time / dropped frames",
+            "hw_deferred": ["actual frame time on 2304×1440", "WebRender vs basic compositor"]},
+    "B06": {"proxy": "tab alloc/dealloc cycles",
+            "real_metric": "Firefox tab open/close time, RSS delta",
+            "hw_deferred": ["actual process spawn cost", "memory reclaim speed"]},
+    "B07": {"proxy": "page load + video idle",
+            "real_metric": "YouTube page load + idle CPU with video paused",
+            "hw_deferred": ["actual YouTube DOM complexity", "VAAPI idle behavior"]},
+    "B08": {"proxy": "video decode + pause→idle",
+            "real_metric": "mpv/YouTube playback CPU + pause→idle time",
+            "hw_deferred": ["actual VAAPI decode cost", "AV1 SW decode cost on Core M"]},
+    "B09": {"proxy": "seek + format switch",
+            "real_metric": "mpv seek time + quality switch latency",
+            "hw_deferred": ["actual seek on YouTube", "codec switch cost"]},
+}
 
 
 class TimeoutError(Exception):

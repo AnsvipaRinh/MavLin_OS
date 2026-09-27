@@ -1,5 +1,16 @@
 # NEEDS_HARDWARE_TEST — Items requiring real MacBook10,1 hardware
 
+## Browser / Video — hardware validation (phase 0.67)
+- [ ] vainfo on HD 615 Gen9.5 — confirm H.264/VP8/VP9/HEVC VAAPI profiles
+- [ ] Real YouTube playback via Firefox+uBO — measure CPU/RSS with uBO blocking ON
+- [ ] Real YouTube playback via mpv+yt-dlp — measure CPU/RSS, compare vs Firefox
+- [ ] AV1 software decode cost on Core M (expected high — Gen9.5 has no AV1 HW)
+- [ ] WebRender vs basic compositor on HD 615 at 2304×1440
+- [ ] HiDPI rendering of Firefox UI (uidensity=0, 2x scaling)
+- [ ] dom.ipc.processCount tuning (4 vs 6 vs 8) on 8-16GB RAM
+- [ ] Tab thrashing behavior with many tabs on fanless Core M
+- [ ] VAAPI video decode performance (H.264/VP9/HEVC) — media.ffmpeg.vaapi.enabled
+
 ## Dictionary — hardware validation
 - [ ] WebKit2 tab rendering on the 2304×1440 panel (web process cannot start in the build container — load-changed never fires even with sandbox disabled; all load paths verified at call level + local mode fully tested)
 - [ ] Mavericks paper/leather/serif CSS appearance under the Mavericks GTK theme at 2304×1440 (build env has no WM; pixel verification was GTK-level only)

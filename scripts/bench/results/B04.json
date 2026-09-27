@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "cpu_count": 2,
+    "mem_total_mb": 7643,
+    "container": "WSL2",
+    "display": ":0",
+    "date": "2026-09-28 00:06:41"
+  },
+  "profile": "workload",
+  "scenarios": {
+    "B04-workload_b04": {
+      "status": "ok",
+      "metrics": {
+        "workload": "B04",
+        "desc": "image-heavy",
+        "media_burst": {
+          "images": 50,
+          "wall_s": 8.622234372000094,
+          "cpu_s": 8.075123999999999,
+          "bytes_processed": 13107200
+        },
+        "return_idle": {
+          "wall_s": 30.0602362560021
+        }
+      },
+      "calibration": {
+        "proxy": "zlib decode wall + CPU",
+        "real_metric": "Firefox image decode on 50-image page",
+        "hw_deferred": [
+          "actual JPEG/PNG decode on HD 615",
+          "GPU-accelerated decode"
+        ]
+      }
+    }
+  }
+}

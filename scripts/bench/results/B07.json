@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "cpu_count": 2,
+    "mem_total_mb": 7643,
+    "container": "WSL2",
+    "display": ":0",
+    "date": "2026-09-28 00:08:18"
+  },
+  "profile": "workload",
+  "scenarios": {
+    "B07-workload_b07": {
+      "status": "ok",
+      "metrics": {
+        "workload": "B07",
+        "desc": "YouTube-idle",
+        "startup": {
+          "wall_s": 0.01628930000879336,
+          "cpu_s": 0.00942599999999999,
+          "matches": 1073,
+          "classes": 7
+        },
+        "tab_alloc": {
+          "tabs": 1,
+          "per_tab_rss_kb": [
+            {
+              "tab": 0,
+              "rss_kb": 122884
+            }
+          ],
+          "peak_rss_kb": 141156,
+          "rss_delta_kb": 122884
+        },
+        "network_wait": {
+          "waits": 3,
+          "wall_s": 3.0004981200036127
+        },
+        "return_idle": {
+          "wall_s": 30.063869616002194
+        }
+      },
+      "calibration": {
+        "proxy": "page load + video idle",
+        "real_metric": "YouTube page load + idle CPU with video paused",
+        "hw_deferred": [
+          "actual YouTube DOM complexity",
+          "VAAPI idle behavior"
+        ]
+      }
+    }
+  }
+}

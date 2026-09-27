@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "cpu_count": 2,
+    "mem_total_mb": 7643,
+    "container": "WSL2",
+    "display": ":0",
+    "date": "2026-09-28 00:09:20"
+  },
+  "profile": "workload",
+  "scenarios": {
+    "B09-workload_b09": {
+      "status": "ok",
+      "metrics": {
+        "workload": "B09",
+        "desc": "seek+quality-change",
+        "startup": {
+          "wall_s": 0.004717899995739572,
+          "cpu_s": 0.004714999999999997,
+          "matches": 525,
+          "classes": 7
+        },
+        "tab_alloc": {
+          "tabs": 1,
+          "per_tab_rss_kb": [
+            {
+              "tab": 0,
+              "rss_kb": 102404
+            }
+          ],
+          "peak_rss_kb": 120168,
+          "rss_delta_kb": 102404
+        },
+        "media_burst": {
+          "images": 5,
+          "wall_s": 0.21345499900053255,
+          "cpu_s": 0.21225899999999998,
+          "bytes_processed": 327680
+        },
+        "js_churn": {
+          "iterations": 50000,
+          "wall_s": 0.05149459998938255,
+          "cpu_s": 0.05118999999999985,
+          "result": 155507134.20499998
+        },
+        "return_idle": {
+          "wall_s": 30.05881161399884
+        }
+      },
+      "calibration": {
+        "proxy": "seek + format switch",
+        "real_metric": "mpv seek time + quality switch latency",
+        "hw_deferred": [
+          "actual seek on YouTube",
+          "codec switch cost"
+        ]
+      }
+    }
+  }
+}

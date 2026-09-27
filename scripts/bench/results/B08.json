@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "cpu_count": 2,
+    "mem_total_mb": 7643,
+    "container": "WSL2",
+    "display": ":0",
+    "date": "2026-09-28 00:08:49"
+  },
+  "profile": "workload",
+  "scenarios": {
+    "B08-workload_b08": {
+      "status": "ok",
+      "metrics": {
+        "workload": "B08",
+        "desc": "playback+pause\u2192idle",
+        "startup": {
+          "wall_s": 0.011097598995547742,
+          "cpu_s": 0.011060000000000014,
+          "matches": 800,
+          "classes": 7
+        },
+        "tab_alloc": {
+          "tabs": 1,
+          "per_tab_rss_kb": [
+            {
+              "tab": 0,
+              "rss_kb": 102404
+            }
+          ],
+          "peak_rss_kb": 120432,
+          "rss_delta_kb": 102404
+        },
+        "media_burst": {
+          "images": 10,
+          "wall_s": 0.43861427799856756,
+          "cpu_s": 0.42386799999999997,
+          "bytes_processed": 655360
+        },
+        "return_idle": {
+          "wall_s": 30.06059803799144
+        }
+      },
+      "calibration": {
+        "proxy": "video decode + pause\u2192idle",
+        "real_metric": "mpv/YouTube playback CPU + pause\u2192idle time",
+        "hw_deferred": [
+          "actual VAAPI decode cost",
+          "AV1 SW decode cost on Core M"
+        ]
+      }
+    }
+  }
+}
