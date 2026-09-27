@@ -143,13 +143,13 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Quick Look: Медиа файлы показывают метаданные через ffprobe
 - [ ] GUI: notes/settings/about/activity/console на живой Xfce-сессии (на хосте — alive)
 - [ ] Console: реальные значения journald на MacBook10,1 — JSON-поля PRIORITY/SYSLOG_IDENTIFIER/__REALTIME_TIMESTAMP парсятся, severity badges соответствуют приоритетам ядра/systemd
-- [ ] Console: dmesg permissions (root vs обычный пользователь — state «requires root» или реальные строки), наличие «Previous Boot» после реальных ребутов, рендеринг badges/sidebar на 2304×1440, energy cost 2s live-tail при открытом окне
+- [ ] Console: dmesg permissions (root vs обычный пользователь — state «requires root» или реальные строки), наличие «Previous Boot» после реальных ребутов, рендеринг badges/sidebar на 2304×1440, energy cost persistent `journalctl --follow` при открытом окне (phase B: заменил 2s respawn poll; kernel-источник — 5s fallback poll)
 - [ ] HUD: mv-hud в genmon показывает ватты RAPL m3-7Y32 (на хосте — graceful `n/a`)
 - [ ] Launchpad: Super+L открывает полноэкранную сетку; поиск фильтрует; папки (Utilities/Other) открываются; Back возвращает; иконки отображаются корректно на 2304x1440
 - [ ] Launchpad: mv-launchpad.desktop доступен в меню приложений и может быть закреплен в Dock
 
 ## Control Center — hardware validation
-- [ ] Wi-Fi: network list populates, connect to open/secured AP, disconnect works, password prompt appears
+- [ ] Wi-Fi: network list populates, connect to open/secured AP, disconnect works, password prompt appears; NM D-Bus signal-driven refresh fires on scan/connect (phase B: заменил 5s `nmcli dev wifi list` rescan poll; 30s fallback + manual Refresh button) — проверить что спасает battery (rescan energy на BCM43602)
 - [ ] Bluetooth: device list shows paired/available devices, connect/disconnect/pair works
 - [ ] Sound: output device list shows all sinks, switching changes default sink, volume/mute work
 - [ ] Display: brightness slider controls actual panel backlight, Night Shift toggle (if redshift installed)

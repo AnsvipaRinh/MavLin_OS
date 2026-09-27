@@ -81,5 +81,62 @@ arg-validation path (exits rc=1 without args), not startup.
 
 ## Phase-B change log
 
-(empty — phase B has not started; each entry: date, change, before/after JSON
-pair, delta table, verdict)
+### 2026-09-27 — Phase B: audit fixes S-01..S-11 (commits 8211b9f..b9d16ba)
+
+- Before: `docs/benchmarks/results-2026-09-27.json` (baseline, 20:09)
+- After: `docs/benchmarks/results-2026-09-27-phaseB.json` (run 1, ~21:05)
+  + `docs/benchmarks/results-2026-09-27-phaseB2.json` (run 2, same code, variance check)
+- Result: 18 scenarios — 13 ok, 5 skipped (GUI tier), 0 failed. No harness
+  regression: stable CPU scenarios moved ≤0.8% (S15 +0.7%, S16 +0.8%).
+
+#### Delta table (baseline → phaseB run 1 → phaseB run 2)
+
+| Scenario | Metric | Baseline | phB-1 | phB-2 | run1↔run2 | Verdict |
+|---|---|---|---|---|---|---|
+| S02 py-framework-startup | wall_s | 0.165 | 0.392 | 0.317 | -19% | host drift (untouched code path) |
+| S03 app-import-proxy | median_wall_s | 0.178 | 0.374 | 0.394 | +5% | host drift |
+| S03 app-import-proxy | apps_mainloop_reached | 17 | 24 | 24 | 0 | **real improvement** (S-11 fixes) |
+| S04 spotlight-query | wall_s | 0.039 | 0.089 | 0.090 | +1.5% | host drift |
+| S09 file-copy | wall_s | 0.269 | 0.528 | 0.519 | -1.8% | host drift |
+| S11 preview-render | wall_s | 0.046 | 0.115 | 0.102 | -11% | host drift |
+| S13 notification-burst | wall_s | 0.019 | 0.052 | 0.066 | +26% | host drift |
+| S15 cpu-burst-short | wall_s | 2.013 | 2.028 | 2.029 | +0.1% | stable — no regression |
+| S16 cpu-burst-sustained | wall_s | 3.016 | 3.040 | 3.034 | -0.2% | stable — no regression |
+| S17 return-to-idle | wall_s | 1.204 | 6.921 | 0.903 | -87% | host drift (run 2 faster than baseline) |
+| S18 nmcli-wifi-list | wall_s | 0.007 | 0.025 | 0.019 | -23% | per-call cost unchanged (as expected — S-01 reduces call *frequency*, not per-call cost) |
+
+**Honesty note:** run-to-run variance on this shared WSL2 host is larger
+than the baseline→phaseB delta for most scenarios (S17 swung 6.9 s → 0.9 s
+between two runs of identical code). Per PERF_METHODOLOGY.md §0, only
+same-host before/after deltas are meaningful, and here the dominant
+factor is host contention, not the changes. The phase-B fixes are
+app-level polling/timer/correctness changes whose effects are GUI-tier
+or call-frequency — not host-measurable. The one directly measurable
+signal (S03 apps_mainloop_reached 17 → 24) is a real improvement.
+
+#### Per-fix behavior preservation + effect
+
+| Fix | Behavior preserved | Measured/estimated delta |
+|---|---|---|
+| S-09 autostart removal | mv-notify-send still logs + forwards when called on-demand (mv-airdrop, mv-notification-center) | one less process + one less spurious notification per login |
+| S-01 Wi-Fi signal-driven | same list fields, connect/disconnect/password flow, refresh on open, manual Refresh button | rescan frequency while Control Center open: 0.2 Hz → signal-driven + 0.033 Hz fallback (≥83% fewer rescans) |
+| S-02 console follow | live tail, search-without-requery, Pause/Ctrl+L, cleanup on destroy | journalctl spawns while Console open: 0.5/s → 0 (persistent follow process, IO-watch driven) |
+| S-03 music off-thread | now-playing freshness (on_change → immediate refresh), mini player | UI-thread blocking D-Bus: 3 round-trips/refresh → 0 (worker thread); initial refresh 300 ms → 1 s; kick retry 900 ms → 2 s |
+| S-04 colormeter 200 ms | 5 Hz sampling still smooth under loupe | screen reads while open: 10 Hz → 5 Hz |
+| S-10 hud wired | one-shot C tool, genmon 5 s interval | menu-bar energy/thermal readout now exists (was dead code); cost = one short-lived C process per 5 s |
+| S-11 correctness | all apps construct and reach mainloop | S03 mainloop-reached 17 → 24; zero tracebacks in headless sweep |
+
+#### Updated top-5 most expensive (phase-B run 1)
+
+1. **S16 cpu-burst-sustained**: 3.04 s wall (stable vs baseline 3.02 s).
+2. **S15 cpu-burst-short**: 2.03 s wall (stable).
+3. **S09 file-copy**: 0.53 s (host drift; baseline 0.27 s — same disk).
+4. **S11 preview-render**: 0.115 s (host drift; baseline 0.046 s).
+5. **S02 py-framework-startup**: 0.39 s (host drift; baseline 0.17 s).
+
+Slowest S03 exits are now all expected CLI arg-validation paths
+(mv-newfolder 3.0 s, mv-quicklook-thunar 2.3 s, mv-getinfo 0.44 s,
+mv-launchpad 0.41 s, mv-rename 0.38 s) — not startup crashes. The five
+apps that previously "exited fast" because they crashed at init
+(mv-control, mv-diskutil, mv-mail, mv-photos, mv-power-ui, mv-textedit)
+now reach `Gtk.main()` like every other GUI app.

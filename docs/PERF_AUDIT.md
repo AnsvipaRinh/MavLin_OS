@@ -55,3 +55,27 @@
 3. S-09 is a one-line deletion; do it first.
 4. S-11 correctness bug should be fixed before hardware bring-up so the
    first-boot screenshot set is clean.
+
+## Phase-B dispositions (2026-09-27, commits on master)
+
+| ID | Disposition | Commit | Notes |
+|---|---|---|---|
+| S-01 | **FIXED** | 14c8009 | `nmcli dev wifi list` was a physical rescan every 5 s via `refresh_all` (plus 2–3 s one-shots after actions). Now NM D-Bus signal-driven (wireless device `PropertiesChanged`, `AccessPointAdded/Removed`, AP `PropertiesChanged`, `DeviceAdded/Removed`) with 1 s debounce + 2 s min interval, 30 s fallback poll, window-open refresh, manual Refresh button. Rescan frequency while Control Center open: 0.2 Hz → signals + 0.033 Hz fallback (≥83% reduction). Behavior preserved: same list fields, same connect/disconnect/password flow, refresh on open. |
+| S-02 | **FIXED** | bfebe9b | Follow mode spawned `journalctl` every 2 s. Now a persistent `journalctl -f -n 0` subprocess read via GLib IO watch (event-driven, zero polling); kernel source (dmesg cannot follow) falls back to a 5 s poll. Live-tail UX preserved: entries append live, search filters without requery, Pause/Ctrl+L toggle follow, cleanup on destroy. |
+| S-03 | **FIXED** | 143e9b2 | Audit said "3.3 Hz poll"; in fact both 300 ms timers were one-shot (handler returns False) — but `_refresh_backend` did 3 synchronous MPRIS round-trips (≤2 s each) in the UI thread. Fetch now runs in a worker thread on its own session-bus connection, results marshalled via `GLib.idle_add`; mini player same. Initial refresh 300 ms → 1 s; `_kick_playback` retry 900 ms → 2 s. Now-playing freshness preserved (`on_change` → immediate refresh on track/status change). |
+| S-04 | **FIXED** | 5330d93 | Colormeter tick 100 ms → 200 ms (10 Hz → 5 Hz while window open, x11 backend only). 5 Hz remains smooth under the loupe. |
+| S-05 | **ACCEPTED** (no change) | — | Activity Monitor 2 s refresh is pure `/proc` reads (no subprocess, verified), window-open-only — allowed by AGENTS.md §7. |
+| S-06 | **FIXED** | 14c8009 | Audit said "2 s poll"; steady state was already 5 s via `refresh_all` (the 2 s timers are event-driven one-shots after BT actions — kept for UX). Wi-Fi removal from `refresh_all` did not affect BT. Steady state now ≥5 s per spec. |
+| S-07 | **ACCEPTED** (misdiagnosis) | — | Audit claimed "1 Hz UPower reads"; the 1 Hz ticker is the shutdown/restart **countdown** UI (`_tick` → label update only) and must stay 1 Hz for a smooth countdown. UPower is read **once** at window open (`query_capabilities` + `query_battery` in `__init__`). No repeating UPower poll exists to relax. |
+| S-08 | **ACCEPTED** (no change) | — | TextEdit autosave 30 s is window-open-only, same class as Firefox sessionstore (60 s, already fixed Phase 0.5). SSD write every 30 s while editing is acceptable. |
+| S-09 | **FIXED** | 8211b9f | Autostart entry removed. `mv-notify-send` remains on-demand (callers: mv-airdrop, mv-notification-center); verified it still logs + forwards when invoked. |
+| S-10 | **FIXED** (wired) | b9d16ba | Verdict: WIRE, not remove. Added genmon as panel plugin-7 (command `mv-hud`, 5 s) in both xfce4-panel.xml mirrors. One-shot C tool matches §7 (no daemon, no polling loop); xfce4-genmon-plugin was already in the ISO list; Makefile already builds/installs mv-hud. Cost: one short-lived C process per 5 s. |
+| S-11 | **FIXED** | edd2eec | mv-about `self.tv` assignment moved before `select_path`. Empirical tree-wide sweep (headless launch of every mv-*) found 6 more startup crashes, all fixed: mv-diskutil (`pack_empty_state` wrong receiver), mv-mail + mv-photos (invalid GTK3 CSS `text-transform`/`text-align` killed the whole stylesheet), mv-power-ui (`Gtk.WindowTypeHint` is GTK4; correct is `Gdk.WindowTypeHint`), mv-textedit (`SearchContext.new(self.buffer)` before `self.buffer` exists). Additionally unmasked in mv-control (fixed in 14c8009): `pack_start` on `Gtk.ListBox`, and `refresh_power_mode`'s `set_active` firing `changed` during init → modal `dialog.run()` blocked startup forever. Post-fix sweep: zero tracebacks. |
+| S-12 | **ACCEPTED** (no change) | — | Extensionless launchers are a deliberate convention (all 37 mv-* tools, Makefile install loop keys on it, tests load via importlib path). Renaming risks breaking tooling that keys on extensionless names for zero runtime gain; the "audit/repair risk" is mitigated by this disposition + the fact that check-sync gates `py_compile` via shebang gating. |
+
+**Host-measurability note:** all S-01/S-02/S-03/S-04/S-10 effects are
+GUI-tier or call-frequency changes — not host-measurable (no X
+interaction in harness, and per-call costs do not change). See
+`docs/BENCHMARKS.md` phase-B change log for the honest delta table
+(run-to-run variance on this shared WSL2 host dwarfs the before/after
+delta; stable CPU scenarios S15/S16 moved ≤0.8%).

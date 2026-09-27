@@ -1,5 +1,22 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза B — Performance track: audit fixes S-01..S-11 (2026-09-27, без железа)
+- [x] S-09 HYGIENE (8211b9f): autostart/mv-notify-send.desktop removed (on-demand tool); on-demand callers (mv-airdrop, mv-notification-center) verified unaffected
+- [x] S-01 HIGH (14c8009): mv-control Wi-Fi refresh → NM D-Bus signal-driven (wireless PropertiesChanged, AP added/removed + PropertiesChanged, device add/removed) + 1s debounce/2s min interval + 30s fallback poll + window-open refresh + manual Refresh button; rescan frequency while CC open 0.2Hz → signal+0.033Hz (≥83% reduction). BT steady state confirmed 5s (S-06). Also fixed 2 mv-control startup crashes unmasked by verification: Gtk.ListBox.pack_start AttributeError + modal dialog.run() hang from set_active during init
+- [x] S-11 CORRECTNESS (edd2eec): mv-about self.tv ordering fixed; empirical tree-wide sweep found+fixed 6 more startup crashes: mv-diskutil (pack_empty_state receiver), mv-mail+mv-photos (invalid GTK3 CSS text-transform/text-align killed stylesheet), mv-power-ui (Gtk.WindowTypeHint→Gdk.WindowTypeHint), mv-textedit (SearchContext before self.buffer). Post-fix sweep: zero tracebacks; S03 mainloop-reached 17→24
+- [x] S-02 (bfebe9b): mv-console follow → persistent `journalctl -f -n 0` + GLib IO watch (event-driven, 0 polling); kernel source falls back to 5s poll; live-tail UX preserved (search-without-requery, Pause/Ctrl+L, destroy cleanup)
+- [x] S-03 (143e9b2): mv-music MPRIS fetch off UI thread (worker thread + own session-bus connection + GLib.idle_add); main window + mini player; initial refresh 300ms→1s; _kick_playback 900ms→2s; on_change PropertiesChanged path preserved
+- [x] S-10 (b9d16ba): mv-hud WIRED into panel genmon (plugin-7, command mv-hud, 5s) in both xfce4-panel.xml mirrors (verdict: wire, not remove — one-shot C tool matches §7; genmon already in ISO list)
+- [x] S-04 (5330d93): mv-colormeter tick 100ms→200ms (10Hz→5Hz while open)
+- [x] S-05/S-08 ACCEPTED (no change): activity 2s = pure /proc reads window-open-only (§7); textedit autosave 30s = same class as Firefox sessionstore 60s
+- [x] S-07 ACCEPTED (misdiagnosis): power-ui 1Hz ticker is the countdown UI (no UPower reads); UPower read once at window open — no poll to relax
+- [x] S-12 ACCEPTED (no change): extensionless launchers are deliberate convention; documented disposition
+- [x] New tests: scripts/test-mv-control.py (26 tests: scheduling constants, debounce, min-interval, refresh_all no-wifi-poll, NM subscription set, destroy cleanup, pack_row dispatch); test-mv-console.py 92→100 (follow_command pure tests + redesigned pause/resume coverage)
+- [x] Full regression: 18 suites, 1233 tests, all pass (was 1199: +26 control, +8 console); check-sync.sh ALL CHECKS PASSED; bash -n/py_compile/desktop-file-validate/xmllint via gate
+- [x] Bench: full harness → docs/benchmarks/results-2026-09-27-phaseB.json (18 scenarios, 5 skipped GUI-tier, 0 failed); run-2 variance check (/tmp/results-phaseB2.json); honest delta table in BENCHMARKS.md — host drift dominates (S17 swung 6.9s→0.9s between identical-code runs); stable CPU scenarios S15/S16 moved ≤0.8%; S03 mainloop-reached 17→24 is the real measurable improvement
+- [x] Docs: PERF_AUDIT.md phase-B dispositions (FIXED/ACCEPTED with reasons); BENCHMARKS.md phase-B change log + delta table + updated top-5; DECISIONS.md phase-B entry (11 verdicts); power baseline untouched
+- [x] Phase-C proposal (remaining): startup overhead (S02 per-app gi+Gtk import ~0.15-0.4s × 37 apps — lazy-import candidates: gi.require_version + Gtk import is the cost; defer), thumbnailers (none configured — QEMU/hardware item), browser workload (S14 deferred — no Firefox on host, HD615 behavior HW-only), GUI-tier scenarios S06-S08/S10 (need QEMU+OVMF or hardware), RAPL/battery/thermals (HW-only), nmcli-wifi-list on real BCM43602 (rescan energy cost HW-validation)
+
 ### Фаза 0.63 — Pre-hardware regression sweep + P2 research close (2026-09-27, без железа)
 - [x] Full regression: 16 test suites (1,147 tests) all pass — airdrop 51, calculator 141, calendar 63, colormeter 76, console 92, dictionary 70, diskutil 34, fontbook 65, keychain 96, music 108, notes 41, photos 84, power-ui 44, reminders 31, stickies 72, timemachine 59, voice 63; test-theme-css 9/9; check-sync --check-repos ALL PASS; bash -n ALL-PASS; py_compile exit 0; desktop-file-validate 64/64; xmllint ALL-PASS
 - [x] Fixed SyntaxWarning in test-mv-calendar.py (invalid escape sequences `\;` `\,` → raw strings)
