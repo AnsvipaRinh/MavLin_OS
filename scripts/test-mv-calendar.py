@@ -255,8 +255,8 @@ def main():
         with open(ics_path, newline="") as f:
             raw = f.read()
         check("ics uses CRLF", "\r\n" in raw)
-        check("ics escapes semicolon", "standup\; daily" in raw)
-        check("ics escapes comma", "Team\, standup" in raw)
+        check("ics escapes semicolon", r"standup\; daily" in raw)
+        check("ics escapes comma", r"Team\, standup" in raw)
         check("ics escapes newline", "Line one\\nLine two" in raw)
         check("ics all-day VALUE=DATE", "DTSTART;VALUE=DATE:20261005" in raw)
         check("ics RRULE", "RRULE:FREQ=WEEKLY" in raw)
