@@ -73,6 +73,15 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Slideshow performance on Intel HD 615
 - [ ] Geometry restore on real session
 
+### Time Machine (restic + btrfs)
+- [ ] USB-C disk throughput on Apple S3X NVMe host (backup window size; restic over USB-C bridge)
+- [ ] restic repo on exFAT/NTFS USB disk (cross-platform target readability) vs ext4/btrfs
+- [ ] Real restic restore round-trip: backup → delete file → restore → verify content
+- [ ] Destructive btrfs subvolume restore from recovery environment (UI currently shows guidance only)
+- [ ] Hourly timer wakeup energy cost on battery (expect ~zero when restic no-ops; measure)
+- [ ] libsecret/gnome-keyring unlock integration on real login session
+- [ ] Starfield CSS appearance on 2304×1440 panel (dot density, label contrast)
+
 ## Phase 2 — Optimization
 - [ ] zram/zswap actual memory savings measurement
 - [ ] Boot time (systemd-analyze blame) target <10s to DM

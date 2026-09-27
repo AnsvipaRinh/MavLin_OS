@@ -31,6 +31,21 @@
 
 **Status:** Research recorded; AirDrop is the next implementation target.
 
+## Time Machine backend: restic chosen over borg, btrfs layer kept (Phase 0.60)
+
+**Date:** 2026-09-27
+**Decision:** Time Machine UI is implemented over **restic only** (extra, 0.19.1-1, BSD-2-Clause). Borg 1.4.5 (extra, BSD-3-Clause) is NOT implemented — one backend, not two. The btrfs read-only subvolume snapshot layer is kept as the complementary instant local layer (btrfs-progs 7.1, core, already in ISO; @/@home/@snapshots layout per the btrfs filesystem decision).
+
+**Reasoning:**
+- Phase 0.58 already recorded restic as the chosen backend (commit da6ebe0); this entry closes the loop with the implementation and records the XOR verdict explicitly so borg is not re-litigated.
+- restic is in official Arch `extra` → ships in the ISO as a hard dependency of mavericks-apps; borg would have been equally available but adds a second backup engine to maintain/test for no user-visible gain at this stage.
+- restic advantages for this project: always-on encryption (no repokey mode to misconfigure), single-binary reproducibility, backend flexibility (local dir now; sftp/S3 later without UI changes), mature CLI with `--json` output for the snapshot browser.
+- borg advantages (repokey-blend, slightly lower RAM on huge repos) are real but secondary; restic's index-in-RAM cost is acceptable for the expected repo size (home-directory backups on 8GB RAM).
+- btrfs snapshots stay because they are free (kernel + core utils), instant (CoW), and already part of the installed-system layout; they complement restic's off-device role rather than competing with it.
+- Passphrase handling: RESTIC_PASSWORD env var to the restic subprocess only (never argv, never disk plaintext); optional libsecret persistence with per-run prompt fallback — same keychain-family pattern as mv-keychain.
+
+**Status:** implemented (Phase 0.60); hardware validation pending (USB-C target, real restore).
+
 ## Dictionary: lookup source order, WebKit2 loading, pronunciation disposition (Phase 0.58)
 
 **Date:** 2026-09-27

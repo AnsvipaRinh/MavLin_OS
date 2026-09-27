@@ -46,5 +46,7 @@ never while on battery < 20% (UPower check in wrapper).
 
 ## Decision status
 
-RESEARCH REQUIRED → done (this file). Next: EXISTING SOLUTION FOUND (Borg),
-then P1-gated UI implementation. Do NOT add borg/restic to ISO yet.
+RESEARCH REQUIRED → done (this file) → SUPERSEDED: Phase 0.58 (DECISIONS.md)
+chose restic over borg; Phase 0.60 implemented mv-timemachine over restic with
+the btrfs snapshot layer kept. restic is in ISO (packages.x86_64); borg is not.
+This file's Borg recommendation is retained for history only.
