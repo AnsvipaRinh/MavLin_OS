@@ -581,3 +581,22 @@
 - [x] mv-font-book.desktop: added MimeType (font/ttf, font/otf, font/collection, x-font forms)
 - [x] PKGBUILD: fontconfig → depends; gnome-font-viewer → optdepends
 - [x] Remaining gaps: Serif/Sans heuristics are name-based (documented); visual validation on 2304×1440 panel; font install round-trip on real system; HiDPI glyph grid density
+
+### Фаза 0.55 — Digital Color Meter: forensic launchability audit + functional rewrite (2026-09-27, без железа)
+- [x] Forensic audit: real launch smoke — окно _constructs без CSS-краша, но второй скрытый баг: `display.get_pointer()[:2]` в GDK3 возвращает (screen, x, y, mask), т.е. x=объект GdkScreen → `pixbuf_get_from_window` падал с TypeError → проглатывался `except: pass` → показания цвета НИКОГДА не обновлялись. Aperture combo, Lock Position, HSV-лейбл и gcolor3 handoff были нерабочими; не было loupe/форматов/копирования/палитры/клавиатуры.
+- [x] mv-colormeter переписан: сэмплинг через Gdk root-window (X11), позиция указателя через seat API (non-deprecated) с fallback на get_pointer()
+- [x] Aperture 1×1/3×3/5×5/10×10/25×25 с настоящим усреднением блока (с клампом к границам экрана)
+- [x] Pixel loupe: увеличенное окно 11×11 вокруг точки с обведённой центральной ячейкой
+- [x] Переключение форматов: sRGB 8-bit / sRGB % / Hex / HSV / Display P3 (настоящая матричная конверсия sRGB↔P3 через D65, не гамма-фейк)
+- [x] Копирование в буфер (Ctrl+C) в активном формате; Ctrl+1..5 — горячие клавиши форматов
+- [x] Сессионная палитра: Ctrl+P добавить (дубликаты отклоняются), клик по swatch — загрузить цвет, × — удалить, Ctrl+S — экспорт в .gpl (GIMP Palette, round-trip протестирован)
+- [x] Lock Position: фиксирует точку сэмплинга; стрелки двигают на 1 px (Shift — 8 px)
+- [x] Wayland disposition: явное состояние "sampling unavailable under Wayland", без фейковых чёрных сэмплов; таймер 100 ms только под X11 и только пока окно открыто
+- [x] Error-состояния: нулевая геометрия экрана, сбой захвата, исключение сэмплинга, сохранение пустой палитры, отсутствующий gcolor3
+- [x] gcolor3 handoff: кнопка в header bar (Ctrl+O), видна только если установлен; optdep в PKGBUILD
+- [x] CSS crash-class regression guard: загрузка provider обёрнута в try/except GLib.Error (паттерн mv-fontbook)
+- [x] Реальный GUI smoke (Wayland :0): окно строится, fallback-состояние показано, все контролы протестированы
+- [x] Launch перепроверен: реальный бинарь жив на 4с, пустой stderr
+- [x] scripts/test-mv-colormeter.py: 76 тестов (pure logic + GUI smoke), все проходят
+- [x] Gate: py_compile, desktop-file-validate, check-sync ALL CHECKS PASSED, make install DESTDIR OK, makepkg -f собирается
+- [x] Remaining gaps: реальные значения пикселей на панели 2304×1440 (HW); валидация X11-пути под Xfce (build env — Wayland, X11 проверен только через мок-сэмплер); плотность loupe на HiDPI

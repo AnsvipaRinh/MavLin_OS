@@ -230,3 +230,12 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Serif/Sans/Fixed Width classification sanity against the real font set of the installed ISO
 - [ ] gnome-font-viewer handoff button behavior when gnome-font-viewer is installed
 - [ ] Energy cost of the open window (design goal: zero — all rendering on-demand via draw signals, no timers, no polling; verify no periodic wakeups)
+
+## Digital Color Meter — hardware validation
+- [ ] Real pixel values on the 2304×1440 panel: sample known colors (e.g., a test image in Preview) and verify readout accuracy
+- [ ] X11 session under Xfce: live sampling works (build env is Wayland — X11 path validated only via mocked sampler)
+- [ ] Aperture averaging correctness on real screen content (1×1 vs 25×25 on gradients)
+- [ ] Loupe rendering quality on the HiDPI panel (cell density, center outline)
+- [ ] Pointer tracking smoothness at 100 ms refresh on the real panel
+- [ ] gcolor3 handoff button when gcolor3 is installed
+- [ ] Energy cost of the open window (design goal: only the 100 ms timer while open; verify no periodic wakeups when closed)

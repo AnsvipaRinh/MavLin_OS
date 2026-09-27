@@ -986,3 +986,28 @@ orchestrator.md step 3 ("do not invoke subagents…") + AGENTS.md 14.7.
 **Decision:** the Task→build delegation was unavailable ("Subagent depth limit reached (1)" — server-side depth limit, not configurable from the repo); the Orchestrator performed the Font Book implementation directly with file/bash tools.
 
 **Reasoning:** AGENTS.md blocker policy requires continuing all executable work when a single path is blocked; the orchestrator/build split is an optimization (14.5), not a correctness requirement. Deviation recorded here per the traceability rule. Future phases should retry Task delegation first.
+
+## Digital Color Meter: X11-only sampling with explicit Wayland fallback
+
+**Date:** 2026-09-27 (Phase 0.55)
+**Decision:** screen sampling uses Gdk root-window reads (`Gdk.pixbuf_get_from_window`), which work on X11. Under Wayland the window shows an explicit "Live pixel sampling is unavailable under Wayland" state and does not sample; no portal-based picker is integrated.
+
+**Reasoning:** GTK root-window reads return black/garbage under Wayland (verified in build env: `GdkWaylandDisplay` root window yields 0x000000 while width/height are 0). Silently showing black is a fake completion; an honest unavailable state is not. A portal picker (xdg-desktop-portal) would add a dependency and a second code path that cannot be validated pre-hardware; documented as a possible follow-up. The target session is Xfce/X11 anyway. Related forensic finding: `Gdk.Display.get_pointer()` returns `(screen, x, y, mask)` — the old `[:2]` slice took the GdkScreen object as x and the readout never updated (silently swallowed exception). Pointer position now comes from the seat API (`display.get_default_seat().get_pointer().get_position()`), non-deprecated, with `get_pointer()` fallback.
+
+## Digital Color Meter: Display P3 via real D65 matrix conversion
+
+**Decision:** the "Display P3" format converts sRGB 8-bit → linear sRGB → XYZ (D65) → linear P3 → sRGB-transfer encode, using the published IEC 61966-2-1 / DCI-P3 matrices. White/black are exact; red (255,0,0) → (233,53,37).
+
+**Reasoning:** a gamma-only "approximation" would be misleading; the matrix path is ~10 lines of pure code, testable headless, and honest about what P3 conversion means.
+
+## Digital Color Meter: 100 ms sampling timer is accepted runtime cost
+
+**Decision:** a GLib timeout at 100 ms runs only while the window is open and only under X11.
+
+**Reasoning:** a color meter is inherently a live-sampling tool; 10 wakeups/s while the user explicitly has the meter open is the minimum viable refresh for a usable tool. No daemon, no polling when closed, no persistent process — the on-demand app model is preserved. Documented here per the energy-review rule rather than hidden.
+
+## Digital Color Meter: palette export as .gpl (GIMP Palette)
+
+**Decision:** session palettes export via FileChooser as `.gpl` under `~/.local/share/mavericks/palettes`; write/read round-trip is pure and tested.
+
+**Reasoning:** .gpl is plain-text and widely supported (GIMP, Inkscape, most editors); no binary-format or licensing concerns; round-trip is deterministically testable headless.
