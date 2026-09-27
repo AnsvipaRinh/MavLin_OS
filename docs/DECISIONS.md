@@ -1269,3 +1269,39 @@ OVMF firmware запускается (PI/UEFI), но не обнаруживае
 **Power baseline:** untouched (no TLP/kernel/cmdline/sysctl changes).
 
 **Track close (A→D):** measurable host wins = harness comparability + S02/S03 import-path reduction + cold-tier quantification. Accepted = host drift band; warm marginal ≈ 0 for the gi cleanup. HW-only remainder = GUI tiers (S06–S08, S10), browser workload (S14), RAPL/battery/thermals, applespi/BCM43602/Cirrus behavior, cold-target magnitudes on real NVMe.
+
+---
+
+## Browser engine comparison + YouTube architecture (Phase 0.66)
+
+**Date:** 2026-09-27
+**Context:** User-corrected RAM: 16GB (not 8GB). Research: docs/RESEARCH_BROWSER.md.
+
+**Decision:**
+1. **Engine: Firefox (current, not version-pinned) — KEEP.** No change from Phase 0.3 baseline. Firefox is the only engine with full uBlock Origin support (Chromium's Manifest V2 deprecation threatens uBO; WebKitGTK has no uBO). Firefox also has the best suspend/resume behavior on Linux (Chromium has known GPU process hangs). Already fully integrated in ISO (policies.json, user.js, firefox-ublock-origin, firstboot wiring). 58 deps vs chromium's 80.
+2. **Runner-up: Chromium.** Better JS performance (V8) and more aggressive background-tab throttling, but MV2 deprecation + suspend/resume issues + heavier idle footprint make it unsuitable as primary.
+3. **WebKitGTK/Epiphany: NOT viable.** No uBO, epiphany 50.6 depends on webkitgtk-6.0 (not 4.1), full GNOME stack, already excluded from ISO in Phase 0.3.
+4. **YouTube direction: D — Hybrid (Firefox + mpv+yt-dlp).** Firefox for general browsing with uBO; mpv+yt-dlp for video-only playback. mpv uses VA-API for HW decode on Gen9.5 (H.264/VP9/HEVC). `--format` can prefer VP9/H.264 over AV1 (no HW decode on Kaby Lake). One-shot process, no daemon, minimal idle cost.
+5. **Blocking policy: uBlock Origin + EasyList + EasyPrivacy + SponsorBlock ON; cosmetic filtering OFF; regional lists OFF.** Cosmetic filtering costs CPU per page load with minimal UX benefit. Regional lists are redundant with EasyList.
+6. **VA-API driver: intel-media-driver (iHD) — the ONLY correct driver for Gen9.5.** libva-intel-driver (i965) is for ≤Haswell. HuC firmware is NOT loaded by default on Gen9 (kernel 4.11+ disabled it); decode is unaffected but low-power encoding falls back to shader-based.
+7. **AV1: NOT supported on Kaby Lake (Gen9.5).** AV1 decode starts Gen12 (Tiger Lake). YouTube AV1 will decode in software on the fanless Core m3 — mitigation via mpv `--format` preferring VP9/H.264.
+8. **RAM correction: 16GB (user-corrected from 8GB).** This makes per-tab RSS advantage of WebKitGTK less critical, and gives ample headroom for Firefox's e10s model.
+
+**Criterion-by-criterion (Firefox vs Chromium vs WebKitGTK):**
+
+| Criterion | Firefox | Chromium | WebKitGTK | Winner |
+|---|---|---|---|---|
+| Idle CPU/RSS | Medium | Higher | Lowest | WebKitGTK (marginal) |
+| Startup wall | Medium | Slower | Fast | WebKitGTK |
+| Per-tab cost | ~30-50MB | ~50-80MB | ~20-40MB | WebKitGTK |
+| Scroll/render | Similar | Similar | Similar | Tie |
+| Suspend/resume | **Good** | **Poor** | Unvalidated | **Firefox** |
+| BG-tab throttling | Moderate | **Aggressive** | Unvalidated | Chromium |
+| Video decode | **Good** | **Good** | Unvalidated | Tie |
+| Return-to-idle | Fast | Slow | Fastest | WebKitGTK |
+| Maintainability | **Excellent** | Good | Good | **Firefox** |
+| Extension/blocking | **Excellent** | **Degraded** | **None** | **Firefox** |
+
+**Why Firefox wins:** uBlock Origin is decisive (Chromium MV2 + WebKitGTK no support). Suspend/resume reliability is critical for a laptop. Already integrated. Fewer deps. 16GB RAM makes WebKitGTK's RSS advantage marginal.
+
+**Status:** Research complete. No code changes. Step 2 (implementation) = Safari-Mavericks UX spec + optimized-mode implementation (user.js additions, mpv integration, blocking policy config, AV1 mitigation).

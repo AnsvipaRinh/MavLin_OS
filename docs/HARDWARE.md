@@ -1,6 +1,7 @@
 # HARDWARE
 
 **Model: MacBook10,1 (Mid 2017)**
+**RAM: 16GB LPDDR3 (user-corrected 2026-09-27, was 8GB)**
 
 **Known A1534 revisions:**
 - Keyboard/Trackpad: AppleSPI protocol — behavior differs from MacBook9,1; SPI controller rev 3+ on kernels 6.15+ may have timeout issues; external USB-C input mandatory for bring-up
