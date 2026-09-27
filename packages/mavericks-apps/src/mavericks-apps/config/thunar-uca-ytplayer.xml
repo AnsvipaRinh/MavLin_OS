@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+  <action>
+    <icon>mpv</icon>
+    <name>Play video-only</name>
+    <command>mv-ytplayer %f</command>
+    <description>Play video in mpv with yt-dlp (video-only, no browser)</description>
+    <patterns>*</patterns>
+    <audio-files/>
+    <video-files/>
+  </action>
+</actions>

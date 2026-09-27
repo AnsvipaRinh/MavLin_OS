@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# mv-ytplayer — video-only playback via mpv + yt-dlp.
+# One-shot process; nothing resident. Graceful no-backend states.
+set -euo pipefail
+
+URL="${1:-}"
+
+if [[ -z "$URL" ]]; then
+  echo "Usage: mv-ytplayer <URL>" >&2
+  exit 1
+fi
+
+if ! command -v mpv >/dev/null 2>&1; then
+  echo "mpv not found. Install: sudo pacman -S mpv" >&2
+  exit 1
+fi
+
+if ! command -v yt-dlp >/dev/null 2>&1; then
+  echo "yt-dlp not found. Install: sudo pacman -S yt-dlp" >&2
+  exit 1
+fi
+
+mpv \
+  --hwdec=auto \
+  --ytdl-format='bestvideo[height<=1080][vcodec!=av01]+bestaudio/best' \
+  --force-window=yes \
+  --keep-open=no \
+  "$URL"

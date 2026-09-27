@@ -1,0 +1,14 @@
+#!/usr/bin/env xdg-open
+# Thunar UCA: "Play video-only" — mpv + yt-dlp video-only playback.
+# OPT-IN action: does NOT steal default video/* handler.
+# This is a .desktop file wrapper for Thunar UCA integration.
+[Desktop Entry]
+Type=Application
+Name=Play video-only
+Comment=Play video in mpv with yt-dlp (video-only, no browser)
+Exec=mv-ytplayer %f
+Icon=mpv
+Terminal=false
+Categories=AudioVideo;Video;
+MimeType=video/webm;video/mp4;video/x-matroska;video/ogg;video/x-flv;video/quicktime;
+NoDisplay=true

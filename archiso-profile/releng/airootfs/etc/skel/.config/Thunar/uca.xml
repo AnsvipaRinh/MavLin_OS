@@ -137,6 +137,16 @@
     <video-files/>
   </action>
   <action>
+    <icon>mpv</icon>
+    <name>Play video-only</name>
+    <submenu></submenu>
+    <unique-id>mv-ytplayer</unique-id>
+    <command>mv-ytplayer "%f"</command>
+    <description>Play video in mpv with yt-dlp (video-only, no browser)</description>
+    <patterns>*</patterns>
+    <video-files/>
+  </action>
+  <action>
     <icon>user-trash-full</icon>
     <name>Empty Trash</name>
     <submenu></submenu>
