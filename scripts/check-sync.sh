@@ -31,6 +31,7 @@ PAIRS=(
   "configs/desktop/xfce/xfwm4.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml"
   "configs/desktop/xfce/xfce4-panel.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml"
   "configs/desktop/xfce/terminalrc:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/terminal/terminalrc"
+  "configs/desktop/fonts/99-mavericks-cursive.conf:archiso-profile/releng/airootfs/etc/fonts/conf.d/99-mavericks-cursive.conf"
   "configs/desktop/xfce/settings.ini:archiso-profile/releng/airootfs/etc/skel/.config/gtk-3.0/settings.ini"
   "configs/desktop/thunar/thunarrc:archiso-profile/releng/airootfs/etc/skel/.config/Thunar/thunarrc"
   "configs/desktop/thunar/bookmarks:archiso-profile/releng/airootfs/etc/skel/.gtk-bookmarks.template"
