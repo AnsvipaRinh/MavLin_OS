@@ -239,3 +239,14 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Pointer tracking smoothness at 100 ms refresh on the real panel
 - [ ] gcolor3 handoff button when gcolor3 is installed
 - [ ] Energy cost of the open window (design goal: only the 100 ms timer while open; verify no periodic wakeups when closed)
+
+## Stickies — hardware validation
+- [ ] Print dialog behavior on the real system without CUPS installed (dialog opens; "Save to PDF" path works; no printer → honest state, no hang)
+- [ ] Z003 handwriting font rendering quality on the 2304×1440 HiDPI panel (stroke weight, 14pt sizing, line spacing feel)
+- [ ] Visual check: yellow note background + border + headerbar color under the Mavericks theme at 2304×1440 (build env cannot render — no WM; pixel verification was GTK-level only: style context bg = #fff8b0)
+- [ ] sticky-notes icon appears correctly in Launchpad/Dock/menu with the Mavericks icon theme
+- [ ] Focus/raise behavior under xfwm4: clicking a note brings it forward; NORMAL window level behaves like macOS stickies (notes can go behind windows)
+- [ ] Multi-note workflow on the real panel: drag/resize smoothness, position persistence across reboots
+- [ ] pidfile single-instance lock on the real filesystem (second launch refuses; stale lock after crash is taken over)
+- [ ] Energy cost of an open note (design goal: zero — saves are event-driven on edit/configure, no timers, no polling; verify no periodic wakeups)
+- [ ] Corrupt-store recovery on the real system (kill -9 during edit → relaunch → backup/quarantine path, no data-loss loop)

@@ -1011,3 +1011,59 @@ orchestrator.md step 3 ("do not invoke subagents…") + AGENTS.md 14.7.
 **Decision:** session palettes export via FileChooser as `.gpl` under `~/.local/share/mavericks/palettes`; write/read round-trip is pure and tested.
 
 **Reasoning:** .gpl is plain-text and widely supported (GIMP, Inkscape, most editors); no binary-format or licensing concerns; round-trip is deterministically testable headless.
+
+## Stickies: handwriting font via gsfonts/Z003 (not Bradley Hand)
+
+**Date:** 2026-09-27 (Phase 0.56)
+**Decision:** the editor font stack is `"Bradley Hand", "Z003", "Comic Sans MS", cursive` in CSS. `gsfonts` (URW base 35, extra repo, free) is added to the ISO and provides Z003 (chancery face). A fontconfig snippet (`configs/desktop/fonts/99-mavericks-cursive.conf`, mirrored into the ISO) maps the generic `cursive` family to Z003.
+
+**Reasoning:** Bradley Hand and Comic Sans MS are Apple/Microsoft proprietary fonts — not distributable, and neither exists on the target (verified: `fc-match cursive` → FreeSans, i.e. the old stack silently rendered in a plain sans font — the "handwriting font" claim was fake). Z003 is a free chancery/cursive face, visually the closest available match to a handwriting stickie. The explicit stack order keeps Bradley Hand first for systems that have it. Verified: `fc-match cursive` → Z003; editor style context reports the full stack.
+
+## Stickies: NORMAL window level, not UTILITY/keep-above
+
+**Date:** 2026-09-27 (Phase 0.56)
+**Decision:** note windows use `Gtk.WindowTypeHint.NORMAL` and `keep_above` is not set.
+
+**Reasoning:** macOS Stickies notes are ordinary windows — they can be sent behind other windows, minimized, etc. The old code used UTILITY + keep-above(True), which pins notes above everything (annoying, and not Mavericks behavior). Window level is a user/WM concern now.
+
+## Stickies: plain Gtk.Window app + pidfile single-instance lock (no Gtk.Application)
+
+**Date:** 2026-09-27 (Phase 0.56)
+**Decision:** mv-stickies uses a plain `StickiesApp` object (window registry + store) with `Gtk.main()`, plus a pidfile lock (`~/.local/share/mv-stickies/instance.lock`) with stale-lock takeover for single-instance. The process quits when the last note window is destroyed.
+
+**Reasoning:** Gtk.Application was evaluated and rejected: constructing it without `g_application_run()` emits `GLib-GIO-CRITICAL: g_application_list_actions` (unregistered), and `add_window()` before the startup signal is a no-op — making the app untestable at the GTK level and fragile in production. The plain-window architecture matches the rest of the family (mv-fontbook, mv-reminders, mv-notes). The pidfile lock preserves the single-instance guarantee (two processes would clobber the shared JSON store) without D-Bus dependencies; stale locks (dead PID / junk content) are taken over. Verified: second launch refuses with a message and exit 0; closing the last note exits the process (no zombie).
+
+## Stickies: no autostart — persistence via store + on-demand launch only
+
+**Date:** 2026-09-27 (Phase 0.56)
+**Decision:** Stickies has no autostart/session-restore wiring (verified: no references in archiso-profile/, configs/, scripts/). Notes persist in `~/.local/share/mv-stickies/stickies.json` and are re-created on the next manual launch.
+
+**Reasoning:** autostarting Stickies on every login would spam windows the user may not want (the app must not autostart-spawn). Session-level window restoration is a desktop-integration concern outside this app's scope; the store keeps content/positions/colors across launches and reboots.
+
+## Stickies: window shadow/transparency and empty-state placeholder documented as not feasible in GTK3
+
+**Date:** 2026-09-27 (Phase 0.56)
+**Decision:** (1) Window shadows are not drawn via app CSS — GTK3 toplevel CSS `box-shadow` does not paint window-manager shadows; that is compositor (xfwm4) territory. (2) True window transparency needs an RGBA visual + compositor; not pursued for stickies. (3) No placeholder text in empty notes — GTK3 Gtk.TextView has no placeholder API (GTK4-only); the headerbar title shows "Sticky" instead.
+
+**Reasoning:** these are toolkit limitations, not missing implementation effort; documenting them honestly beats faking them. The note's own look (yellow paper, border, handwriting font) is fully self-contained via the app's CSS provider.
+
+## Orchestrator deviation: implementation performed without Build delegation (Phase 0.56)
+
+**Date:** 2026-09-27
+**Decision:** the Task→build delegation was unavailable ("Subagent depth limit reached (1)" — same server-side limit as Phase 0.54); the Orchestrator performed the Stickies implementation directly with file/bash tools.
+
+**Reasoning:** same as the Phase 0.54 deviation — AGENTS.md blocker policy requires continuing executable work when a single path is blocked; the orchestrator/build split is an optimization (14.5), not a correctness requirement. Deviation recorded per the traceability rule.
+
+## Font Book: font selection matches by file path, not (family, style)
+
+**Date:** 2026-09-27 (Phase 0.56, regression found via gsfonts install)
+**Decision:** the font list store carries the font file path (4th column); `on_font_selected`/`select_font` match by file path first, falling back to (family, style).
+
+**Reasoning:** fc-list returns one entry per font FILE — when the same face exists in both a user dir and a system dir (e.g. FreeSerif installed by the user over the system copy), matching by (family, style) picks whichever comes first in fc-list order (observed: system copy won after gsfonts changed fc-list ordering), making the Remove button dead for user fonts. File-path matching is exact and order-independent. Font Book status remains IMPLEMENTED — this was a latent selection bug exposed by the Phase 0.56 environment change, fixed and re-validated (65/65 with gsfonts installed).
+
+## Pre-existing issue (not a Phase 0.56 regression): mavericks-theme gtk.css is GTK4 syntax
+
+**Date:** 2026-09-27 (found during Phase 0.56)
+**Observation:** the committed `packages/mavericks-theme/src/mavericks-theme/gtk-3.0/gtk.css` (since abee05b) contains GTK4-only constructs (`@use`, `transform`, `overflow`, `flex-shrink`, …). GTK3 parses what it can and emits ~90 "Theme parsing error" warnings per app start when the Mavericks theme is active (build env default). The ISO has shipped this since Phase 1-3.
+
+**Impact:** warning spam in every GTK app's stderr/journald; GTK4-only theme features silently ignored. Not fixed in Phase 0.56 (out of Stickies scope; needs a dedicated theme phase — rewrite SCSS partials to GTK3 syntax or migrate the theme). Noted here because rebuilding the theme package in the build env activated it and it flooded smoke output.
