@@ -1,5 +1,13 @@
 # NEEDS_HARDWARE_TEST — Items requiring real MacBook10,1 hardware
 
+## Dictionary — hardware validation
+- [ ] WebKit2 tab rendering on the 2304×1440 panel (web process cannot start in the build container — load-changed never fires even with sandbox disabled; all load paths verified at call level + local mode fully tested)
+- [ ] Mavericks paper/leather/serif CSS appearance under the Mavericks GTK theme at 2304×1440 (build env has no WM; pixel verification was GTK-level only)
+- [ ] espeak-ng pronunciation audio through the Cirrus codec (button presence, voice quality, no audio glitches)
+- [ ] dictd/dict-wn availability and offline WordNet lookup on the target system (optdep; graceful no-data state already verified when absent)
+- [ ] Online tabs (Wiktionary/thesaurus.com/Wikipedia) load over the BCM43602 Wi-Fi after Phase 1 bring-up
+- [ ] load-failed offline page on real network loss (signal signature unit-tested; end-to-end needs real offline moment)
+
 ## Phase 0 — Base system
 - [ ] Boot ISO on real hardware (UEFI boot via systemd-boot)
 - [ ] Verify console access (autologin root, zsh prompt)

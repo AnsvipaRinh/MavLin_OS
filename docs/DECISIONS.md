@@ -1,5 +1,22 @@
 # DECISIONS
 
+## Dictionary: lookup source order, WebKit2 loading, pronunciation disposition (Phase 0.58)
+
+**Date:** 2026-09-27
+**Decision:**
+1. Lookup sources resolve in order: built-in glossary (60 common words, ships with the app) → WordNet via dictd (`dict -d wn`, optdep, 5s timeout) → system word list /usr/share/dict/* (existence check only) → graceful no-data state falling through to the online tabs.
+2. WebKit2 is loaded by trying 4.1 then 4.0, then falling back to local mode (no web views; glossary/Apple/word-of-the-day/history/bookmarks still work; online tabs show an honest notice). The previous hard `require_version("WebKit2", "4.0")` crashed at import on current Arch (only 4.1 ships) — the app was unlaunchable.
+3. Pronunciation uses espeak-ng (or espeak) as an on-demand subprocess, one per click, no audio daemon. The speaker button is hidden when no TTS binary is installed. espeak-ng is an optdep, not a hard dep.
+4. Page-flip animation is NOT implemented (deferred): it is a compositor/WebKit animation effect with runtime cost and no offline-testable path; the existing SLIDE_LEFT_RIGHT tab transition covers the navigation feel.
+5. The search field lives in a toolbar box below the headerbar, not inside it: Gtk.SearchEntry + Gtk.StackSwitcher + Gtk.Stack in one headerbar triggers a GTK3 allocation bug (negative-width warnings at first layout). The toolbar layout is also closer to macOS Dictionary.
+
+**Reasoning:**
+- A proprietary macOS dictionary (New Oxford American Dictionary) cannot be shipped; the built-in glossary + dictd/WordNet + system word list give real offline value without copying Apple assets, and the online tabs remain the primary source when the network is up.
+- espeak-ng is software TTS (not hardware-dependent), so it is implementable pre-hardware; the button degrades gracefully when absent.
+- Zero-stderr at launch is the family standard (every prior app was repaired for it); the headerbar allocation bug was found by bisecting GTK warnings.
+
+**Status:** Dictionary implemented pre-hardware (70 headless tests + GUI smoke + local-mode smoke). WebKit2 rendering and espeak audio validation pending on MacBook10,1 (see NEEDS_HARDWARE_TEST.md → Dictionary).
+
 ## Voice Memos: unlaunchable app repair + design decisions (Phase 0.51)
 
 **Date:** 2026-09-27
