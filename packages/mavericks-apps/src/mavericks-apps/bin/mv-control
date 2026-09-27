@@ -12,10 +12,15 @@ Features:
 """
 import os
 import subprocess
+import time
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gio", "2.0")
 from gi.repository import Gtk, Gio, GLib
+
+WIFI_FALLBACK_POLL_S = 30
+WIFI_REFRESH_DEBOUNCE_S = 1
+WIFI_REFRESH_MIN_INTERVAL_S = 2
 
 
 def sh(cmd):
@@ -30,6 +35,13 @@ def run_async(cmd):
         subprocess.Popen(cmd)
     except Exception:
         pass
+
+
+def pack_row(parent, row):
+    if isinstance(parent, Gtk.ListBox):
+        parent.add(row)
+    else:
+        parent.pack_start(row, False, False, 0)
 
 
 class ControlCenter(Gtk.Window):
@@ -49,6 +61,12 @@ class ControlCenter(Gtk.Window):
         self.main_box.set_border_width(16)
         scrolled.add(self.main_box)
 
+        self._nm_bus = None
+        self._wifi_signal_subs = []
+        self._wifi_fallback_id = None
+        self._wifi_pending = None
+        self._wifi_last_refresh = 0.0
+
         self.build_wifi_section()
         self.build_bluetooth_section()
         self.build_sound_section()
@@ -58,6 +76,7 @@ class ControlCenter(Gtk.Window):
 
         self.connect("focus-out-event", self.on_focus_out)
         self.connect("key-press-event", self.on_key_press)
+        self.connect("destroy", self.on_destroy)
 
         # Refresh data periodically
         GLib.timeout_add_seconds(5, self.refresh_all)
@@ -121,7 +140,7 @@ class ControlCenter(Gtk.Window):
         lbl.set_line_wrap(True)
         row.pack_start(lbl, True, True, 0)
 
-        parent.pack_start(row, False, False, 0)
+        pack_row(parent, row)
 
     # ==================== Wi-Fi ====================
 
@@ -140,6 +159,14 @@ class ControlCenter(Gtk.Window):
         self.wifi_listbox.connect("row-activated", self.on_wifi_row_activated)
         self.refresh_wifi_list()
         box.pack_start(self.wifi_listbox, False, False, 0)
+
+        refresh_btn = Gtk.Button(label="Refresh")
+        refresh_btn.connect("clicked", lambda _: self.refresh_wifi_list())
+        box.pack_start(refresh_btn, False, False, 0)
+
+        self._subscribe_nm_wifi_signals()
+        self._wifi_fallback_id = GLib.timeout_add_seconds(
+            WIFI_FALLBACK_POLL_S, self._wifi_fallback_tick)
 
     def get_wifi_enabled(self):
         result = sh(["nmcli", "-t", "-f", "WIFI", "radio"])
@@ -264,6 +291,67 @@ class ControlCenter(Gtk.Window):
         if response == Gtk.ResponseType.OK and password:
             run_async(["nmcli", "device", "wifi", "connect", ssid, "password", password])
             GLib.timeout_add_seconds(3, self.refresh_wifi_list)
+
+    def _subscribe_nm_wifi_signals(self):
+        try:
+            bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        except Exception:
+            return
+        self._nm_bus = bus
+        nm = "org.freedesktop.NetworkManager"
+        for iface, member in (
+            ("org.freedesktop.NetworkManager.Device.Wireless",
+             "PropertiesChanged"),
+            ("org.freedesktop.NetworkManager.Device.Wireless",
+             "AccessPointAdded"),
+            ("org.freedesktop.NetworkManager.Device.Wireless",
+             "AccessPointRemoved"),
+            ("org.freedesktop.NetworkManager.AccessPoint",
+             "PropertiesChanged"),
+            ("org.freedesktop.NetworkManager", "DeviceAdded"),
+            ("org.freedesktop.NetworkManager", "DeviceRemoved"),
+        ):
+            try:
+                self._wifi_signal_subs.append(bus.signal_subscribe(
+                    nm, iface, member, None, None,
+                    Gio.DBusSignalFlags.NONE, self._on_nm_wifi_signal))
+            except Exception:
+                pass
+
+    def _on_nm_wifi_signal(self, *_args):
+        if self._wifi_pending is not None:
+            return
+        self._wifi_pending = GLib.timeout_add_seconds(
+            WIFI_REFRESH_DEBOUNCE_S, self._wifi_signal_refresh)
+
+    def _wifi_signal_refresh(self):
+        self._wifi_pending = None
+        now = time.monotonic()
+        if now - self._wifi_last_refresh < WIFI_REFRESH_MIN_INTERVAL_S:
+            return False
+        self._wifi_last_refresh = now
+        self.refresh_wifi_list()
+        return False
+
+    def _wifi_fallback_tick(self):
+        self._wifi_last_refresh = time.monotonic()
+        self.refresh_wifi_list()
+        return True
+
+    def on_destroy(self, _w):
+        for sub_id in self._wifi_signal_subs:
+            try:
+                if self._nm_bus is not None:
+                    self._nm_bus.signal_unsubscribe(sub_id)
+            except Exception:
+                pass
+        self._wifi_signal_subs = []
+        if self._wifi_fallback_id is not None:
+            GLib.source_remove(self._wifi_fallback_id)
+            self._wifi_fallback_id = None
+        if self._wifi_pending is not None:
+            GLib.source_remove(self._wifi_pending)
+            self._wifi_pending = None
 
     # ==================== Bluetooth ====================
 
@@ -574,8 +662,8 @@ class ControlCenter(Gtk.Window):
         self.power_mode.append_text("Balanced")
         self.power_mode.append_text("Power Saver")
         self.power_mode.append_text("Performance")
-        self.power_mode.connect("changed", self.on_power_mode_changed)
         self.refresh_power_mode()
+        self.power_mode.connect("changed", self.on_power_mode_changed)
         self.add_row(box, "Power Mode", self.power_mode)
 
     def get_battery_info(self):
@@ -646,10 +734,6 @@ class ControlCenter(Gtk.Window):
     def refresh_all(self):
         try:
             self.wifi_switch.set_active(self.get_wifi_enabled())
-        except Exception:
-            pass
-        try:
-            self.refresh_wifi_list()
         except Exception:
             pass
         try:
