@@ -1,5 +1,14 @@
 # MEMORY BUDGET — 16 GB MacBook10,1 (estimates; UNKNOWN = measure on hardware)
 
+> Discrepancy flag (2026-09-27): AGENTS.md §2 specifies **8 GB LPDDR3** for
+> MacBook10,1, while this document's header says 16 GB. The table below works
+> for both (zram0 = RAM/2 covers the 8 GB case); re-measure on hardware and
+> correct the header once the target RAM is confirmed via `dmidecode`.
+>
+> Measured on build host (2026-09-27, NOT target): idle top-10 process RSS
+> 853 MB including the build agent itself (654 MB); 106 processes. See
+> `docs/BENCHMARKS.md` baseline S01.
+
 | Consumer | Est. steady-state | Notes |
 |---|---|---|
 | kernel + drivers | ~400MB | incl. i915, NVMe, brcmfmac fw |

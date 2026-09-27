@@ -65,8 +65,12 @@ while IFS= read -r -d '' f; do
   head -n 1 "$f" | grep -q "python3" || continue
   python3 -m py_compile "$f" 2>/dev/null || { bad "py_compile $f"; PYFAIL=1; }
 done < <(find packages/mavericks-apps/src -type f -print0 2>/dev/null)
-[[ $PYFAIL -eq 0 ]] && ok "py_compile all mv-*"
-find packages -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+while IFS= read -r -d '' f; do
+  head -n 1 "$f" | grep -q "python3" || continue
+  python3 -m py_compile "$f" 2>/dev/null || { bad "py_compile $f"; PYFAIL=1; }
+done < <(find scripts/bench -type f -name "*.py" -print0 2>/dev/null)
+[[ $PYFAIL -eq 0 ]] && ok "py_compile all mv-* + bench"
+find packages scripts -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 echo "--- xml ---"
 while IFS= read -r -d '' f; do
