@@ -266,7 +266,7 @@ class FontBookWindow(Gtk.Window):
         right = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
         paned.add2(right)
 
-        self.store = Gtk.ListStore(str, str, str)
+        self.store = Gtk.ListStore(str, str, str, str)
         self.view = Gtk.TreeView(model=self.store)
         self.view.get_selection().connect("changed", self.on_font_selected)
         for i, title in enumerate(("Family", "Style")):
@@ -411,7 +411,8 @@ class FontBookWindow(Gtk.Window):
         visible = filter_fonts(visible, self.search.get_text())
         self.store.clear()
         for font in visible:
-            self.store.append([font["family"], font["style"], font["family"]])
+            self.store.append([font["family"], font["style"], font["family"],
+                               font.get("file") or ""])
         if len(self.store):
             self.view.get_selection().select_path(Gtk.TreePath.new_first())
         else:
@@ -433,10 +434,18 @@ class FontBookWindow(Gtk.Window):
         if treeiter is None:
             self.selected_font = None
         else:
+            path = model[treeiter][3]
             family, style = model[treeiter][0], model[treeiter][1]
+            # Match by file first: the same face can exist in both user and
+            # system dirs (fc-list returns both) — family/style alone can
+            # pick the wrong one.
             self.selected_font = next(
-                (f for f in self.fonts
-                 if f["family"] == family and f["style"] == style), None)
+                (f for f in self.fonts if path and (f.get("file") or "") == path),
+                None)
+            if self.selected_font is None:
+                self.selected_font = next(
+                    (f for f in self.fonts
+                     if f["family"] == family and f["style"] == style), None)
         self.render_previews()
 
     def select_font(self, font):
@@ -445,6 +454,10 @@ class FontBookWindow(Gtk.Window):
         self.search.set_text("")
         self.refresh_list()
         for i, row in enumerate(self.store):
+            if (font.get("file") and row[3]
+                    and os.path.abspath(row[3]) == os.path.abspath(font["file"])):
+                self.view.get_selection().select_path(Gtk.TreePath.new_from_indices([i]))
+                break
             if row[0] == font["family"] and row[1] == font["style"]:
                 self.view.get_selection().select_path(Gtk.TreePath.new_from_indices([i]))
                 break
