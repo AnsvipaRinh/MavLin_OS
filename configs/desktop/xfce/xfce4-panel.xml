@@ -20,6 +20,7 @@
         <value type="int" value="4"/>
         <value type="int" value="5"/>
         <value type="int" value="6"/>
+        <value type="int" value="7"/>
       </property>
     </property>
   </property>
@@ -30,5 +31,10 @@
     <property name="plugin-4" type="string" value="systray"/>
     <property name="plugin-5" type="string" value="clock"/>
     <property name="plugin-6" type="string" value="actions"/>
+    <property name="plugin-7" type="string" value="genmon"/>
+    <property name="plugin-7" type="empty">
+      <property name="command" type="string" value="mv-hud"/>
+      <property name="interval" type="integer" value="5"/>
+    </property>
   </property>
 </channel>

@@ -25,7 +25,7 @@ static int read_temp(const char *path, double *celsius) {
 }
 /* Find first RAPL package energy file; cache path after first call (single run). */
 static const char *rapl_pkg(void) {
-    static char path[256];
+    static char path[512];
     static int done = 0;
     if (done) return path[0] ? path : NULL;
     done = 1;
