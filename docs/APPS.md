@@ -57,7 +57,7 @@
 
 | Name | State | Notes |
 |---|---|---|
-| AirDrop | EXISTING SOLUTION FOUND | LocalSend (Apache-2.0, mature: 90k★, v1.18.2 2026-08, cross-platform Linux/macOS/Windows/Android/iOS, local-network P2P + TLS, CLI since 1.18.0) — the standard open-source AirDrop alternative; NOT Apple-AWDL-protocol compatible (Mac↔Linux works via LocalSend on both ends). Next: Mavericks-like frontend integration (share-sheet sender + receive UI) after P1 queue closes — P1 closed 2026-09-27 (Dictionary 0.58), AirDrop is first P2 target |
+| AirDrop | PARTIALLY_IMPLEMENTED | LocalSend GUI localsend-bin (Apache-2.0, AUR, opt-in) + official CLI localsend-cli-bin (AGPL-3.0-only, AUR, opt-in) — mature: 90k★, v1.18.2 2026-08, cross-platform Linux/macOS/Windows/Android/iOS, local-network P2P + TLS; NOT Apple-AWDL-protocol compatible (Mac↔Linux works via LocalSend on both ends) | custom mv-airdrop (Python/GTK3: one-shot multicast discovery per protocol v2 UDP 224.0.0.167:53317, device list with type icons, send via `localsend-cli send --to <ip>`, receive launches LocalSend GUI, empty/error states: no-backend install guidance, NM-offline, port-busy, no-devices, send-failure dialog) + Thunar action "Send via AirDrop…" + mv-airdrop.desktop (Name=AirDrop, "Powered by LocalSend" attribution) + airdrop.svg in mavericks-theme | localsend-bin + localsend-cli-bin (AUR optdeps, NOT in ISO — opt-in) | on-demand only: no daemon/autostart/polling; discovery = single ~2.5 s UDP burst per window open; send = short-lived subprocess | real-device transfer (Mac↔Linux via LocalSend both ends), firewall/port 53317 on BCM43602 Wi-Fi, AP isolation | Phase 0.59: discovery/parse/NM-mapping/send-cmd 51 headless tests + GUI smoke; launch smoke :0 OK; desktop-file-validate OK; check-sync green; remaining gaps: no drag-and-drop onto window, no favorites/history, no PIN/quick-save configuration UI (delegated to LocalSend settings), no global hotkey; next: Time Machine UI over restic |
 | Time Machine | EXISTING SOLUTION FOUND | restic (BSD-2-Clause, mature, 0.19.1 2026-07) as snapshot backend + linux-timemachine (MIT, rsync) as CLI reference; prior research docs/RESEARCH_TIMEMACHINE.md (Borg 1.4.5 + btrfs) superseded by restic choice 2026-09-27. Next: Mavericks starfield browser UI over restic snapshots |
 | Automator/Shortcuts | DEFERRED | Architecture research only |
 | Grapher | DEFERRED | Candidates: matplotlib/labplot; not prioritized |
@@ -70,4 +70,6 @@
 MIT: rofi. GPL-2.0(-only/-or-later): Thunar, xfce4*, trash-cli, xarchiver,
 mousepad, galculator, orage, gnome-disk-utility, seahorse, gcolor3,
 xfce4-notes-plugin, gtksourceview4, plocate, custom mavericks-apps.
-GPL-3.0-or-later: lollypop, geary. LGPL (libraries): poppler-glib, GTK3, GLib/GIO.
+GPL-3.0-or-later: lollypop, geary, mavericks-theme. LGPL (libraries): poppler-glib,
+GTK3, GLib/GIO. Apache-2.0: LocalSend GUI (localsend-bin, AUR optdep).
+AGPL-3.0-only: LocalSend CLI (localsend-cli-bin, AUR optdep).

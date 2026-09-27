@@ -266,3 +266,12 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Paper tape persistence on the real filesystem (entries survive reboot; corrupt tape → empty, no crash)
 - [ ] Energy cost of an open calculator window (design goal: zero — no timers, no polling; saves are event-driven on tape add)
 - [ ] Mode switching (Basic/Scientific/Programmer) with the headerbar mode combo under the real WM
+
+## AirDrop — hardware validation
+- [ ] Real-device transfer Mac↔Linux with LocalSend on both ends (NOT Apple AWDL — a real Mac AirDrop client will not see this Mac; validation requires LocalSend installed on the other device too)
+- [ ] Device discovery over the BCM43602 Wi-Fi: multicast 224.0.0.167:53317 visible on the real AP; check router AP-isolation is off
+- [ ] Port 53317 (TCP+UDP) reachable on the real network (no firewall in our baseline; verify no local filtering)
+- [ ] Send path end-to-end: mv-airdrop → localsend-cli → LocalSend receiver (small file + large file, checksum verification)
+- [ ] Receive path: LocalSend GUI accept dialog on the Mavericks theme; files land in ~/Downloads
+- [ ] Energy cost measurement: discovery burst (~2.5 s UDP) and active transfer vs idle baseline (design goal: zero idle cost — no daemon/autostart)
+- [ ] HiDPI rendering of the device list and airdrop.svg icon at 2304×1440

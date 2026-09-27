@@ -1,5 +1,22 @@
 # DECISIONS
 
+## AirDrop: backend choice, autostart/energy disposition, ISO verdict (Phase 0.59)
+
+**Date:** 2026-09-27
+**Decision:**
+1. Backend = LocalSend via two AUR packages: `localsend-bin` 1.18.2-1 (GUI, Apache-2.0, receives; depends fuse2/xdg-user-dirs/libayatana-appindicator) and `localsend-cli-bin` 1.18.2-1 (official CLI, AGPL-3.0-only, glibc-only; `send --to <ip|alias>` is non-interactive). The source package `localsend` 1.18.2-2 was rejected: it builds via fvm (pinned Flutter) + Rust — a heavy, slow, fragile build inappropriate for this project's constrained ISO pipeline.
+2. Autostart/energy disposition: on-demand only. mv-airdrop launches on user action; discovery is a single ~2.5 s multicast burst per window open; sending is a short-lived `localsend-cli` subprocess; receiving launches the LocalSend GUI on demand. No daemon, no autostart, no tray process, no polling. LocalSend's own autostart setting stays OFF in our baseline (its settings are never modified).
+3. ISO inclusion verdict: NOT in the default ISO package list. Both backends are AUR-only (verified: Arch sync DB has no localsend), and the ISO assembles from Arch repos + repo-local packages only. mv-airdrop itself ships in the ISO (mavericks-apps) and degrades gracefully to setup guidance when the backends are absent. Users opt in: `yay -S localsend-bin localsend-cli-bin`. Same experiment-gate pattern as skippy-xd E-MC.
+4. Receive-directory convention: `~/Downloads` — LocalSend's own default equals the macOS AirDrop convention, so no configuration hacking is needed. Documented in the app tooltip and this record.
+5. avahi interplay: none required — LocalSend implements its own multicast (UDP 224.0.0.167:53317) and does not depend on avahi-daemon, which stays OFF per the frozen power baseline. This is a baseline-friendly property of the chosen backend.
+
+**Reasoning:**
+- Energy model (§7): every component must justify runtime cost; the on-demand design adds zero idle cost, so no measurement is needed to justify inclusion — the cost case is structurally won.
+- Reuse-first (§5): the official CLI handles the protocol (mTLS, prepare-upload, checksums); reimplementing it would duplicate a mature backend and risk protocol bugs.
+- Legal (§5): Apache-2.0 and AGPL-3.0 are OSI-approved; we consume both as unmodified AUR binaries; licenses recorded in APPS.md. No Apple assets: airdrop.svg is an original generic radar-waves glyph.
+
+**Status:** implemented (Phase 0.59); hardware validation pending (real-device transfer over BCM43602 Wi-Fi).
+
 ## P2 research opening: AirDrop → LocalSend, Time Machine → restic (Phase 0.58)
 
 **Date:** 2026-09-27
