@@ -1,0 +1,6 @@
+[Unit]
+Description=Time Machine hourly check (oneshot)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/mv-timemachine --check-due

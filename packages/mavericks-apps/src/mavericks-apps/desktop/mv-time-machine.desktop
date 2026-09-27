@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Time Machine
+Comment=Browse and restore backups (restic backend)
+Exec=mv-timemachine
+Icon=timemachine
+Categories=System;Utility;
+Keywords=time machine;backup;restore;snapshot;restic;
+StartupNotify=true
+X-Mavericks-Native=true
