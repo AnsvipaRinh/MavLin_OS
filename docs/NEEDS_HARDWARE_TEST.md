@@ -250,3 +250,11 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] pidfile single-instance lock on the real filesystem (second launch refuses; stale lock after crash is taken over)
 - [ ] Energy cost of an open note (design goal: zero — saves are event-driven on edit/configure, no timers, no polling; verify no periodic wakeups)
 - [ ] Corrupt-store recovery on the real system (kill -9 during edit → relaunch → backup/quarantine path, no data-loss loop)
+
+## Calculator — hardware validation
+- [ ] Mavericks CSS skin rendering on the 2304×1440 HiDPI panel (recessed display gradient, metal button gradients, error-state red, = warm gradient)
+- [ ] Keyboard behavior under xfwm4: window-level key-press routing (Enter always equals, Escape clears, numpad), focus behavior with can_focus=False buttons
+- [ ] Ctrl+C/Ctrl+V clipboard integration with the real X11/Wayland session
+- [ ] Paper tape persistence on the real filesystem (entries survive reboot; corrupt tape → empty, no crash)
+- [ ] Energy cost of an open calculator window (design goal: zero — no timers, no polling; saves are event-driven on tape add)
+- [ ] Mode switching (Basic/Scientific/Programmer) with the headerbar mode combo under the real WM

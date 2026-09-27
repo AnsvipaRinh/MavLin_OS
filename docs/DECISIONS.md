@@ -1067,3 +1067,33 @@ orchestrator.md step 3 ("do not invoke subagents…") + AGENTS.md 14.7.
 **Observation:** the committed `packages/mavericks-theme/src/mavericks-theme/gtk-3.0/gtk.css` (since abee05b) contains GTK4-only constructs (`@use`, `transform`, `overflow`, `flex-shrink`, …). GTK3 parses what it can and emits ~90 "Theme parsing error" warnings per app start when the Mavericks theme is active (build env default). The ISO has shipped this since Phase 1-3.
 
 **Impact:** warning spam in every GTK app's stderr/journald; GTK4-only theme features silently ignored. Not fixed in Phase 0.56 (out of Stickies scope; needs a dedicated theme phase — rewrite SCSS partials to GTK3 syntax or migrate the theme). Noted here because rebuilding the theme package in the build env activated it and it flooded smoke output.
+
+## Calculator: RPN mode excluded (not Mavericks-faithful)
+
+**Date:** 2026-09-27 (Phase 0.57)
+**Decision:** RPN mode is not implemented and is excluded from scope.
+**Reasoning:** macOS Calculator (including Mavericks 10.9) has no RPN mode — implementing it would diverge from the Mavericks UX target (AGENTS.md rule 3). The APPS.md gap note "RPN mode" is reclassified from gap to excluded.
+
+## Calculator: parentheses buttons removed from Scientific mode
+
+**Date:** 2026-09-27 (Phase 0.57)
+**Decision:** the ( ) buttons were removed from the scientific grid; the engine is a state machine (pending_op/pending_val) with no expression grouping.
+**Reasoning:** the buttons existed but were non-functional (on_digit("(") appended "(" to the display; float("(") later raised ValueError → Error) — a fake-completion pattern (section 9). macOS Calculator has no parentheses either. A real expression parser was rejected as scope creep: it would duplicate mature backend functionality and add runtime cost for a feature macOS does not have.
+
+## Calculator: no eval() — state-machine engine, adversarial battery tested
+
+**Date:** 2026-09-27 (Phase 0.57)
+**Decision:** the engine parses input via float()/int(text, base) only; no eval/exec anywhere.
+**Reasoning:** forensic audit confirmed no injection surface. Tests include an adversarial battery ("eval('1+1')", "__import__('os')...", "().__class__", ...) plus a source-level guard asserting "eval(" / "exec(" never appear in the app source.
+
+## Calculator: tape persistence simplified (atomic replace, no backup/quarantine)
+
+**Date:** 2026-09-27 (Phase 0.57)
+**Decision:** tape store uses tmp-file + os.replace with a 200-entry cap; no .bak/quarantine machinery (unlike mv-notes/mv-stickies stores).
+**Reasoning:** paper tape is low-value, easily recreated data; the backup/quarantine pattern exists in Notes/Stickies to protect irreplaceable user content. Corrupt tape → load_tape returns [] and the user can Clear. Keeps the code small and the write path trivial.
+
+## Orchestrator deviation: implementation performed without Build delegation (Phase 0.57)
+
+**Date:** 2026-09-27
+**Decision:** the Task→build delegation was unavailable ("Subagent depth limit reached (1)"); the Orchestrator performed the Calculator implementation directly with file/bash tools.
+**Reasoning:** same as Phase 0.54/0.56 deviations — AGENTS.md blocker policy requires continuing executable work when a single path is blocked; the orchestrator/build split is an optimization (14.5), not a correctness requirement. Deviation recorded per the traceability rule.
