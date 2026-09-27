@@ -10,6 +10,7 @@ import os
 import struct
 import subprocess
 import sys
+import threading
 import time
 import uuid
 
@@ -634,6 +635,54 @@ def write_cover(track):
 
 # ------------------------------------------------------------------ MPRIS
 
+def _props_get(props, name):
+    try:
+        v = props.call_sync(
+            "Get", GLib.Variant("(ss)", (MPRIS_IFACE, name)),
+            Gio.DBusCallFlags.NONE, 2000, None)
+        return v.unpack()[0] if v else None
+    except Exception:
+        return None
+
+
+def _mpris_parse_metadata(md):
+    if not isinstance(md, dict):
+        return {}
+    title = md.get("xesam:title") or ""
+    if isinstance(title, (list, tuple)):
+        title = title[0] if title else ""
+    artists = md.get("xesam:artist") or []
+    if isinstance(artists, str):
+        artists = [artists]
+    album = md.get("xesam:album") or ""
+    if isinstance(album, (list, tuple)):
+        album = album[0] if album else ""
+    length = md.get("mpris:length")
+    art_url = md.get("mpris:artUrl") or ""
+    return {"title": str(title), "artist": str(artists[0] or ""),
+            "album": str(album),
+            "length": int(length) if isinstance(length, int) else None,
+            "art_url": str(art_url)}
+
+
+def _fetch_snapshot(bus):
+    """Fetch (metadata, playback_status, position) over a caller-owned
+    connection. Blocking D-Bus: call from a worker thread only."""
+    props = Gio.DBusProxy.new_sync(
+        bus, Gio.DBusProxyFlags.NONE, None,
+        MPRIS_NAME, MPRIS_PATH, "org.freedesktop.DBus.Properties", None)
+    if props.get_name_owner() is None:
+        return {}, None, None
+    md = _mpris_parse_metadata(_props_get(props, "Metadata"))
+    status = _props_get(props, "PlaybackStatus")
+    pos = _props_get(props, "Position")
+    try:
+        pos = int(pos)
+    except (TypeError, ValueError):
+        pos = None
+    return md, (status if isinstance(status, str) else None), pos
+
+
 class MprisController:
     """Thin MPRIS client for the lollypop playback backend. Fully optional:
     every method degrades to None/False when the bus or player is absent.
@@ -686,13 +735,7 @@ class MprisController:
     def _get_prop(self, name):
         if not self.available or self.props is None:
             return None
-        try:
-            v = self.props.call_sync(
-                "Get", GLib.Variant("(ss)", (MPRIS_IFACE, name)),
-                Gio.DBusCallFlags.NONE, 2000, None)
-            return v.unpack()[0] if v else None
-        except Exception:
-            return None
+        return _props_get(self.props, name)
 
     def play(self):
         return self._player_call("Play")
@@ -707,24 +750,7 @@ class MprisController:
         return self._player_call("Previous")
 
     def metadata(self):
-        md = self._get_prop("Metadata")
-        if not isinstance(md, dict):
-            return {}
-        title = md.get("xesam:title") or ""
-        if isinstance(title, (list, tuple)):
-            title = title[0] if title else ""
-        artists = md.get("xesam:artist") or []
-        if isinstance(artists, str):
-            artists = [artists]
-        album = md.get("xesam:album") or ""
-        if isinstance(album, (list, tuple)):
-            album = album[0] if album else ""
-        length = md.get("mpris:length")
-        art_url = md.get("mpris:artUrl") or ""
-        return {"title": str(title), "artist": str(artists[0] or ""),
-                "album": str(album),
-                "length": int(length) if isinstance(length, int) else None,
-                "art_url": str(art_url)}
+        return _mpris_parse_metadata(self._get_prop("Metadata"))
 
     def playback_status(self):
         s = self._get_prop("PlaybackStatus")
@@ -922,7 +948,9 @@ class MusicWindow(Gtk.Window):
         self._build_ui()
         self._rescan_library(initial=True)
         self.controller.on_change = self.on_backend_change
-        GLib.timeout_add(300, self._refresh_backend)
+        self._fetching = False
+        self._closed = False
+        GLib.timeout_add_seconds(1, self._refresh_backend)
 
     # ------------------------------------------------------------- UI build
 
@@ -1205,6 +1233,7 @@ class MusicWindow(Gtk.Window):
     # --------------------------------------------------------------- events
 
     def on_destroy(self, *_):
+        self._closed = True
         self.controller.close()
         Gtk.main_quit()
 
@@ -1223,14 +1252,31 @@ class MusicWindow(Gtk.Window):
         GLib.idle_add(self._refresh_backend)
 
     def _refresh_backend(self):
-        md = self.controller.metadata() if self.controller.available else {}
-        playing = (self.controller.playback_status() or "") == "Playing"
+        if self._fetching:
+            return False
+        self._fetching = True
+        threading.Thread(target=self._fetch_backend_thread, daemon=True).start()
+        return False
+
+    def _fetch_backend_thread(self):
+        md, playing, pos = {}, None, None
+        try:
+            bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            md, playing, pos = _fetch_snapshot(bus)
+        except Exception:
+            pass
+        GLib.idle_add(self._apply_backend_snapshot, md, playing, pos)
+
+    def _apply_backend_snapshot(self, md, playing, pos):
+        self._fetching = False
+        if self._closed:
+            return False
+        playing = (playing or "") == "Playing"
         if md.get("title"):
             self.np_title.set_text(md.get("title", ""))
             self.np_artist.set_text("%s — %s" % (md.get("artist", ""),
                                                  md.get("album", "")))
             length = md.get("length")
-            pos = self.controller.position()
             self.np_time.set_text(
                 "%s / %s" % (fmt_time((pos or 0) / 1e6),
                              fmt_time((length or 0) / 1e6)))
@@ -1420,7 +1466,7 @@ class MusicWindow(Gtk.Window):
             return
         self.error_bar.set_reveal_child(False)
         self.error_msg = None
-        GLib.timeout_add(900, self._kick_playback)
+        GLib.timeout_add_seconds(2, self._kick_playback)
 
     def _launch_backend(self, paths):
         cmd = ["lollypop"] + list(paths)
@@ -1438,7 +1484,7 @@ class MusicWindow(Gtk.Window):
                 self.controller.play_pause()
             GLib.idle_add(self._refresh_backend)
         else:
-            GLib.timeout_add(900, self._kick_playback)
+            GLib.timeout_add_seconds(2, self._kick_playback)
         return False
 
     # ----------------------------------------------------------- mini player
@@ -1542,8 +1588,10 @@ class MiniPlayerWindow(Gtk.Window):
                 self.play_btn = b
         self.add(box)
         self.show_all()
+        self._fetching = False
+        self._closed = False
         controller.on_change = self.on_backend_change
-        GLib.timeout_add(300, self.refresh)
+        GLib.timeout_add_seconds(1, self.refresh)
 
     def on_backend_change(self):
         GLib.idle_add(self.refresh)
@@ -1568,13 +1616,32 @@ class MiniPlayerWindow(Gtk.Window):
             self.cover.set_from_pixbuf(_placeholder_cover_pixbuf(56))
 
     def refresh(self):
-        md = self.controller.metadata() if self.controller.available else {}
+        if self._fetching:
+            return False
+        self._fetching = True
+
+        def worker():
+            md, playing = {}, None
+            try:
+                bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+                md, playing, _pos = _fetch_snapshot(bus)
+            except Exception:
+                pass
+            GLib.idle_add(self._apply_mini_snapshot, md, playing)
+
+        threading.Thread(target=worker, daemon=True).start()
+        return False
+
+    def _apply_mini_snapshot(self, md, playing):
+        self._fetching = False
+        if self._closed:
+            return False
         if md.get("title"):
             self.title_lbl.set_text(md.get("title", ""))
             self.artist_lbl.set_text("%s — %s" % (md.get("artist", ""),
-                                                   md.get("album", "")))
+                                                    md.get("album", "")))
             self._set_cover(md)
-        playing = (self.controller.playback_status() or "") == "Playing"
+        playing = (playing or "") == "Playing"
         self.play_btn.set_image(Gtk.Image.new_from_icon_name(
             "media-playback-pause" if playing else "media-playback-start",
             Gtk.IconSize.BUTTON))
