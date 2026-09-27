@@ -1,44 +1,179 @@
 #!/usr/bin/env python3
 """mv-dictionary — Mavericks-like Dictionary.
-Definitions, synonyms, Wikipedia, Apple terminology.
-Backend: libwnck (WordNet) + Wikipedia API + local cache.
-Features: tabs for Dictionary/Thesaurus/Wikipedia/Apple, history, bookmarks.
+
+Lookup sources (in order):
+  1. built-in glossary (offline, ships with the app)
+  2. WordNet via dictd (`dict -d wn`, optional, offline)
+  3. system word list /usr/share/dict/* (existence check only)
+  4. online: Wiktionary / thesaurus.com / Wikipedia (WebKit2)
+  5. local Apple terminology database (offline)
+
+WebKit2 (tries 4.1, then 4.0) renders the online tabs. When WebKit2 is
+absent the app runs in local mode: glossary + Apple tab + word of the
+day + history + bookmarks still work; online tabs show an honest notice.
+No daemon, no polling: search-as-you-type is a debounced one-shot timer,
+pronunciation is an on-demand espeak-ng subprocess (button hidden when
+absent).
 """
 import os
+import re
 import sys
 import json
+import html
+import shutil
+import subprocess
 import urllib.request
 import urllib.parse
 import gi
 gi.require_version("Gtk", "3.0")
-gi.require_version("WebKit2", "4.0")
-from gi.repository import Gtk, WebKit2
+from gi.repository import Gtk, GLib, Gdk
+
+WebKit2 = None
+for _ver in ("4.1", "4.0"):
+    try:
+        gi.require_version("WebKit2", _ver)
+        from gi.repository import WebKit2 as _WebKit2
+        WebKit2 = _WebKit2
+        break
+    except ValueError:
+        continue
 
 CACHE_DIR = os.path.expanduser("~/.cache/mv-dictionary")
 HISTORY_FILE = os.path.join(CACHE_DIR, "history.json")
 BOOKMARKS_FILE = os.path.join(CACHE_DIR, "bookmarks.json")
+HISTORY_LIMIT = 50
+SEARCH_DELAY_MS = 300
+WORDLIST_PATHS = ("/usr/share/dict/american-english",
+                  "/usr/share/dict/british-english")
+
+GLOSSARY = {
+    "apple": "A round fruit with red, green, or yellow skin and crisp white flesh.",
+    "application": "A program designed to perform a specific task for the user.",
+    "backup": "A copy of files kept separately in case the originals are lost.",
+    "battery": "A rechargeable power source that lets the computer run without being plugged in.",
+    "bookmark": "A saved reference to a word or page for quick access later.",
+    "browser": "A program used to view and navigate pages on the World Wide Web.",
+    "button": "A control on screen that performs an action when clicked.",
+    "cache": "A storage area that keeps frequently used data for faster access.",
+    "calendar": "An app for organizing events, appointments, and dates.",
+    "clipboard": "A temporary holding area for cut or copied items.",
+    "cloud": "Remote storage and services accessed over the internet.",
+    "command": "An instruction given to the computer, often typed in a terminal.",
+    "computer": "An electronic machine that stores and processes data.",
+    "cursor": "The pointer on the screen that shows where the mouse is aimed.",
+    "desktop": "The main screen area where windows, icons, and files appear.",
+    "dock": "A bar of app icons, usually at the bottom of the screen, for quick launching.",
+    "document": "A file containing text, images, or other content.",
+    "download": "To copy data from a remote system to your own computer.",
+    "email": "Messages sent electronically between computers.",
+    "file": "A named collection of data stored on a disk.",
+    "folder": "A container that organizes files and other folders.",
+    "font": "A set of letters and characters in a particular style and size.",
+    "hardware": "The physical parts of a computer, such as the screen and keyboard.",
+    "history": "A record of words or pages looked up previously.",
+    "icon": "A small picture representing a file, folder, or application.",
+    "keyboard": "A set of keys used to type text and commands into the computer.",
+    "laptop": "A portable computer small enough to use on your lap.",
+    "menu": "A list of commands or options, often at the top of the screen.",
+    "monitor": "The screen that displays images and text from the computer.",
+    "mouse": "A handheld device used to move the cursor and point at items.",
+    "network": "A group of connected computers that share data and resources.",
+    "notebook": "A small, lightweight laptop computer.",
+    "password": "A secret word used to prove identity and protect accounts.",
+    "printer": "A device that puts digital documents on paper.",
+    "processor": "The chip that executes instructions; the brain of the computer.",
+    "program": "Another word for an application or software.",
+    "screen": "The surface on which the computer displays images and text.",
+    "search": "To look for specific information among files or words.",
+    "software": "The programs and instructions that run on a computer.",
+    "speaker": "A device that plays sound from the computer.",
+    "storage": "Memory, such as a disk or flash drive, that holds data.",
+    "system": "The whole computer, including hardware, software, and operating system.",
+    "terminal": "A text-based window for typing commands directly to the system.",
+    "trackpad": "A flat touch-sensitive surface that controls the cursor.",
+    "trash": "A folder that holds deleted items before they are permanently removed.",
+    "update": "A newer version of software that fixes or improves it.",
+    "usb": "A common connector standard for attaching devices to a computer.",
+    "user": "A person who uses a computer or account.",
+    "wallpaper": "The background image on the desktop.",
+    "web": "Short for the World Wide Web; pages and sites on the internet.",
+    "website": "A collection of related pages on the internet.",
+    "wifi": "A wireless networking technology for connecting to the internet.",
+    "window": "A rectangular area on screen showing a program or document.",
+    "word": "A single unit of language with meaning.",
+    "workspace": "A saved arrangement of open windows and apps.",
+}
+
+MAVERICKS_CSS = """
+body { font-family: Georgia, 'Times New Roman', serif; background: #f7f4ec;
+       color: #2b2b2b; margin: 0; padding: 28px 36px; line-height: 1.55; }
+h1 { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+     font-size: 26px; font-weight: 600; color: #1a1a1a; margin: 0 0 4px 0;
+     border-bottom: 2px solid #d8d2c0; padding-bottom: 10px; }
+.source { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+          font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+          color: #8a8574; margin: 0 0 18px 0; }
+.definition { font-size: 17px; }
+a { color: #2b6cb0; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.not-found { color: #8a8574; font-style: italic; }
+.wod { background: #efe9d8; border: 1px solid #d8d2c0; border-radius: 6px;
+       padding: 14px 18px; margin-bottom: 22px;
+       font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.wod .wod-title { font-size: 11px; letter-spacing: 1.5px;
+                  text-transform: uppercase; color: #8a8574; margin-bottom: 4px; }
+.wod .wod-word { font-size: 18px; font-weight: 600; color: #1a1a1a; }
+.wod .wod-def { font-family: Georgia, serif; font-size: 14px; color: #444; }
+.apple-band { background: linear-gradient(#7a5c3e, #5d4530);
+              padding: 10px 36px; margin: -28px -36px 18px -36px; }
+.apple-band span { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                   color: #f0e6d2; font-size: 13px; letter-spacing: 2px;
+                   text-transform: uppercase; }
+"""
+
+OFFLINE_HTML = """
+<html><head><style>
+body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+       background: #f7f4ec; color: #2b2b2b; padding: 40px; text-align: center; }
+h1 { color: #8a8574; }
+a { color: #2b6cb0; }
+</style></head><body>
+<h1>Offline</h1>
+<p>This page could not be loaded. Check your network connection.</p>
+<p>Offline sources (built-in glossary, WordNet via dictd, Apple
+terminology) still work without a network.</p>
+</body></html>
+"""
+
 
 def ensure_cache():
     os.makedirs(CACHE_DIR, exist_ok=True)
 
-def load_history():
+
+def _load_wordlist(path):
     try:
-        with open(HISTORY_FILE) as f:
-            return json.load(f)
+        with open(path) as f:
+            data = json.load(f)
     except (OSError, ValueError):
         return []
+    if not isinstance(data, list):
+        return []
+    return [w for w in data if isinstance(w, str)][:HISTORY_LIMIT]
+
+
+def load_history():
+    return _load_wordlist(HISTORY_FILE)
+
 
 def save_history(history):
     ensure_cache()
     with open(HISTORY_FILE, "w") as f:
-        json.dump(history[-100:], f)
+        json.dump(history[-HISTORY_LIMIT:], f)
+
 
 def load_bookmarks():
-    try:
-        with open(BOOKMARKS_FILE) as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return []
+    return _load_wordlist(BOOKMARKS_FILE)
+
 
 def save_bookmarks(bookmarks):
     ensure_cache()
@@ -46,77 +181,287 @@ def save_bookmarks(bookmarks):
         json.dump(bookmarks, f)
 
 
+def word_of_the_day():
+    import datetime
+    words = sorted(GLOSSARY)
+    day = datetime.date.today().timetuple().tm_yday
+    word = words[day % len(words)]
+    return word, GLOSSARY[word]
+
+
+def query_dictd(word):
+    if not shutil.which("dict"):
+        return None
+    try:
+        out = subprocess.run(["dict", "-d", "wn", "--", word],
+                             capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    text = out.stdout.strip()
+    if out.returncode == 0 and text and "No definitions found" not in text:
+        return text
+    return None
+
+
+_wordlist_cache = None
+
+
+def word_in_wordlist(word):
+    global _wordlist_cache
+    w = word.strip().lower()
+    if not w or not w.isalpha():
+        return False
+    if _wordlist_cache is None:
+        _wordlist_cache = set()
+        for path in WORDLIST_PATHS:
+            if not os.path.isfile(path):
+                continue
+            try:
+                with open(path, errors="ignore") as f:
+                    for line in f:
+                        _wordlist_cache.add(line.strip().lower())
+            except OSError:
+                continue
+    return w in _wordlist_cache
+
+
+def local_definition(word):
+    """Return (source, text) from offline sources, or None."""
+    w = word.strip().lower()
+    if w in GLOSSARY:
+        return ("built-in glossary", GLOSSARY[w])
+    dictd = query_dictd(w)
+    if dictd:
+        return ("WordNet (dictd)", dictd)
+    if word_in_wordlist(w):
+        return ("system word list",
+                "'%s' is a recognized English word. No local definition "
+                "is available; see the online tabs." % word.strip())
+    return None
+
+
+def speak(word):
+    for binary in ("espeak-ng", "espeak"):
+        if shutil.which(binary):
+            try:
+                subprocess.Popen([binary, "-q", "-v", "en", word],
+                                 stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL)
+                return True
+            except OSError:
+                return False
+    return False
+
+
+def _esc(s):
+    return html.escape(str(s), quote=True)
+
+
+def _strip_tags(fragment):
+    return html.unescape(re.sub(r"<[^>]+>", " ", fragment))
+
+
+def apple_definition(word):
+    apple_terms = {
+        "finder": "The Mac file manager that helps you organize and locate files.",
+        "dock": "The bar at the bottom of the screen that gives you quick access to apps.",
+        "menu bar": "The bar at the top of the screen with app menus and system status.",
+        "spotlight": "A system-wide search feature accessed with Command-Space.",
+        "mission control": "A feature that shows all open windows and spaces.",
+        "launchpad": "An app launcher that shows all installed apps in a grid.",
+        "control center": "Quick access to system settings like Wi-Fi, Bluetooth, and brightness.",
+        "notification center": "Shows notifications and widgets, accessed from the menu bar.",
+        "quick look": "Preview files by selecting them and pressing Space.",
+        "time machine": "Built-in backup software that automatically backs up your Mac.",
+        "airdrop": "Wirelessly send files to nearby Apple devices.",
+        "icloud": "Apple's cloud storage service for syncing files across devices.",
+        "safari": "Apple's web browser.",
+        "mail": "Apple's email client.",
+        "messages": "Apple's messaging app for iMessage and SMS.",
+        "facetime": "Apple's video and audio calling app.",
+        "photos": "Apple's photo management and editing app.",
+        "music": "Apple's music player and streaming service.",
+        "podcasts": "Apple's podcast player.",
+        "tv": "Apple's TV and movie streaming app.",
+        "books": "Apple's e-book reader and store.",
+        "maps": "Apple's mapping and navigation app.",
+        "contacts": "Apple's address book app.",
+        "calendar": "Apple's calendar app.",
+        "reminders": "Apple's to-do list app with location-based alerts.",
+        "notes": "Apple's note-taking app with rich text and attachments.",
+        "voice memos": "Apple's audio recording app.",
+        "terminal": "Command-line interface for Unix commands.",
+        "activity monitor": "Shows CPU, memory, energy, disk, and network usage.",
+        "disk utility": "Manages disks, partitions, and disk images.",
+        "keychain access": "Manages passwords, certificates, and keys.",
+        "font book": "Manages and previews installed fonts.",
+        "digital color meter": "Shows the color values of any pixel on screen.",
+        "stickies": "Virtual sticky notes for quick reminders.",
+        "textedit": "Simple text editor for plain and rich text documents.",
+        "calculator": "Basic, scientific, and programmer calculator.",
+        "preview": "View and annotate PDFs and images.",
+        "quicktime player": "Apple's media player for audio and video.",
+        "garageband": "Apple's music creation studio.",
+        "imovie": "Apple's video editing app.",
+        "pages": "Apple's word processor.",
+        "numbers": "Apple's spreadsheet app.",
+        "keynote": "Apple's presentation app.",
+        "xcode": "Apple's integrated development environment.",
+    }
+    found = apple_terms.get(word.lower())
+    if found:
+        definition = found
+        not_found = ""
+    else:
+        definition = "No Apple definition for '%s'." % _esc(word)
+        not_found = ('<p class="not-found">No entry in local Apple '
+                     "dictionary. Try the Wikipedia or Dictionary tabs.</p>")
+    return ("<html><head><style>%s</style></head><body>"
+            "<div class=\"apple-band\"><span>Apple</span></div>"
+            "<h1>%s</h1><p class=\"definition\">%s</p>%s</body></html>"
+            % (MAVERICKS_CSS, _esc(word), _esc(definition), not_found))
+
+
+def definition_html(word, text, source, online_url=None):
+    link = ""
+    if online_url:
+        link = '<p><a href="%s">View on Wiktionary</a></p>' % _esc(online_url)
+    return ("<html><head><style>%s</style></head><body>"
+            "<h1>%s</h1><p class=\"source\">%s</p>"
+            "<p class=\"definition\">%s</p>%s</body></html>"
+            % (MAVERICKS_CSS, _esc(word), _esc(source), _esc(text), link))
+
+
+def welcome_html():
+    wod_word, wod_def = word_of_the_day()
+    return ("<html><head><style>%s</style></head><body>"
+            "<div class=\"wod\"><div class=\"wod-title\">Word of the Day</div>"
+            "<div class=\"wod-word\">%s</div>"
+            "<div class=\"wod-def\">%s</div></div>"
+            "<p>Look up a word to get started. Sources: built-in glossary, "
+            "WordNet (dictd), Apple terminology, and online dictionaries."
+            "</p></body></html>"
+            % (MAVERICKS_CSS, _esc(wod_word), _esc(wod_def)))
+
+
+class LocalView:
+    """WebKit2-absent fallback: read-only text view with the same
+    load_uri/load_html interface the web views are called through."""
+
+    def __init__(self):
+        self.buf = Gtk.TextBuffer()
+        self.tv = Gtk.TextView(buffer=self.buf)
+        self.tv.set_editable(False)
+        self.tv.set_cursor_visible(False)
+        self.tv.set_wrap_mode(Gtk.WrapMode.WORD)
+
+    def load_uri(self, uri):
+        self.buf.set_text(
+            "Online content is unavailable: %s\n\n"
+            "Install webkit2gtk for the full Dictionary experience. "
+            "Offline sources (built-in glossary, WordNet via dictd, Apple "
+            "terminology, Word of the Day) still work." % uri)
+
+    def load_html(self, html_text, base):
+        self.buf.set_text(_strip_tags(html_text))
+
+
 class DictionaryWindow(Gtk.Window):
+    TAB_IDS = ("dictionary", "thesaurus", "wikipedia", "apple")
+    TABS = (("dict", "dictionary", "Dictionary"),
+            ("thes", "thesaurus", "Thesaurus"),
+            ("wiki", "wikipedia", "Wikipedia"),
+            ("apple", "apple", "Apple"))
+
     def __init__(self):
         super().__init__(title="Dictionary")
         self.set_default_size(900, 600)
         self.history = load_history()
         self.bookmarks = load_bookmarks()
         self.current_word = ""
+        self._search_timeout = 0
+        self._search_gen = 0
 
         hb = Gtk.HeaderBar(title="Dictionary", show_close_button=True)
         self.set_titlebar(hb)
 
-        # Search entry
         self.search_entry = Gtk.SearchEntry()
         self.search_entry.set_placeholder_text("Search Dictionary...")
         self.search_entry.connect("activate", self.on_search)
         self.search_entry.connect("search-changed", self.on_search_changed)
         self.search_entry.set_hexpand(True)
-        self.search_entry.set_max_width_chars(40)
-        hb.pack_start(self.search_entry)
 
-        # Source tabs
         self.source_stack = Gtk.Stack()
-        self.source_stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self.source_stack.set_transition_type(
+            Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
 
-        # Dictionary tab
-        self.dict_view = WebKit2.WebView()
-        self.dict_view.connect("load-failed", self.on_load_failed)
-        dict_scrolled = Gtk.ScrolledWindow()
-        dict_scrolled.add(self.dict_view)
-        self.source_stack.add_titled(dict_scrolled, "dictionary", "Dictionary")
+        for attr, page_id, title in self.TABS:
+            scrolled = Gtk.ScrolledWindow()
+            if WebKit2 is not None:
+                view = WebKit2.WebView()
+                view.connect("load-failed", self.on_load_failed)
+                scrolled.add(view)
+            else:
+                view = LocalView()
+                scrolled.add(view.tv)
+            self.source_stack.add_titled(scrolled, page_id, title)
+            setattr(self, attr + "_view", view)
 
-        # Thesaurus tab
-        self.thes_view = WebKit2.WebView()
-        self.thes_view.connect("load-failed", self.on_load_failed)
-        thes_scrolled = Gtk.ScrolledWindow()
-        thes_scrolled.add(self.thes_view)
-        self.source_stack.add_titled(thes_scrolled, "thesaurus", "Thesaurus")
-
-        # Wikipedia tab
-        self.wiki_view = WebKit2.WebView()
-        self.wiki_view.connect("load-failed", self.on_load_failed)
-        wiki_scrolled = Gtk.ScrolledWindow()
-        wiki_scrolled.add(self.wiki_view)
-        self.source_stack.add_titled(wiki_scrolled, "wikipedia", "Wikipedia")
-
-        # Apple tab (local)
-        self.apple_view = WebKit2.WebView()
-        self.apple_view.connect("load-failed", self.on_load_failed)
-        apple_scrolled = Gtk.ScrolledWindow()
-        apple_scrolled.add(self.apple_view)
-        self.source_stack.add_titled(apple_scrolled, "apple", "Apple")
-
-        # Switcher
         self.stack_switcher = Gtk.StackSwitcher()
         self.stack_switcher.set_stack(self.source_stack)
         hb.pack_end(self.stack_switcher)
 
-        # Bookmark button
         self.bookmark_btn = Gtk.ToggleButton()
-        self.bookmark_btn.set_image(Gtk.Image.new_from_icon_name("bookmark-new", Gtk.IconSize.BUTTON))
-        self.bookmark_btn.set_tooltip_text("Bookmark this word")
+        self.bookmark_btn.set_image(Gtk.Image.new_from_icon_name(
+            "bookmark-new", Gtk.IconSize.BUTTON))
+        self.bookmark_btn.set_tooltip_text("Bookmark this word (Ctrl+B)")
+        self.bookmark_btn.set_sensitive(False)
         self.bookmark_btn.connect("toggled", self.on_bookmark)
         hb.pack_end(self.bookmark_btn)
 
-        # Main content
+        self.hist_btn = Gtk.ToggleButton()
+        self.hist_btn.set_image(Gtk.Image.new_from_icon_name(
+            "view-history", Gtk.IconSize.BUTTON))
+        self.hist_btn.set_tooltip_text("Show History (Ctrl+H)")
+        self.hist_btn.connect("toggled", self.on_history_toggle)
+        hb.pack_end(self.hist_btn)
+
+        self.speak_btn = Gtk.Button()
+        self.speak_btn.set_image(Gtk.Image.new_from_icon_name(
+            "audio-speakers", Gtk.IconSize.BUTTON))
+        self.speak_btn.set_tooltip_text("Pronounce (espeak-ng)")
+        self.speak_btn.set_sensitive(False)
+        self.speak_btn.connect("clicked", self.on_speak)
+        if shutil.which("espeak-ng") or shutil.which("espeak"):
+            hb.pack_end(self.speak_btn)
+
+        self.wod_banner = Gtk.InfoBar()
+        self.wod_banner.set_message_type(Gtk.MessageType.INFO)
+        wod_word, wod_def = word_of_the_day()
+        wod_lbl = Gtk.Label()
+        wod_lbl.set_markup(
+            "<b>Word of the Day:</b> <b>%s</b> — %s"
+            % (_esc(wod_word), _esc(wod_def)))
+        wod_lbl.set_line_wrap(True)
+        self.wod_banner.get_content_area().add(wod_lbl)
+        self.wod_banner.add_button("Close", Gtk.ResponseType.CLOSE)
+        self.wod_banner.connect("response", self.on_wod_close)
+
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        toolbar.set_margin_start(12)
+        toolbar.set_margin_end(12)
+        toolbar.set_margin_top(6)
+        toolbar.set_margin_bottom(6)
+        toolbar.pack_start(self.search_entry, True, True, 0)
+
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        vbox.pack_start(toolbar, False, False, 0)
+        vbox.pack_start(self.wod_banner, False, False, 0)
         vbox.pack_start(self.source_stack, True, True, 0)
 
-        # History sidebar (initially hidden)
         self.history_revealer = Gtk.Revealer()
-        self.history_revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT)
+        self.history_revealer.set_transition_type(
+            Gtk.RevealerTransitionType.SLIDE_RIGHT)
         self.history_revealer.set_reveal_child(False)
         self.history_list = Gtk.ListBox()
         self.history_list.connect("row-activated", self.on_history_click)
@@ -130,23 +475,48 @@ class DictionaryWindow(Gtk.Window):
         sidebar.pack_start(vbox, True, True, 0)
         self.add(sidebar)
 
-        # History toggle button
-        hist_btn = Gtk.ToggleButton()
-        hist_btn.set_image(Gtk.Image.new_from_icon_name("view-history", Gtk.IconSize.BUTTON))
-        hist_btn.set_tooltip_text("Show History")
-        hist_btn.connect("toggled", self.on_history_toggle)
-        hb.pack_end(hist_btn)
-
+        self.connect("key-press-event", self.on_key_press)
+        self.refresh_history()
+        self.show_welcome()
         self.show_all()
 
+    def show_welcome(self):
+        self.dict_view.load_html(welcome_html(), "about:blank")
+
+    def on_wod_close(self, banner, response):
+        banner.hide()
+
     def on_search_changed(self, entry):
-        # Could implement live suggestions here
-        pass
+        self._cancel_search()
+        text = entry.get_text().strip()
+        if not text:
+            self.show_welcome()
+            return
+        self._search_gen += 1
+        gen = self._search_gen
+        self._search_timeout = GLib.timeout_add(
+            SEARCH_DELAY_MS, self._deferred_search, gen)
+
+    def _cancel_search(self):
+        self._search_gen += 1
+        if self._search_timeout:
+            GLib.source_remove(self._search_timeout)
+            self._search_timeout = 0
+
+    def _deferred_search(self, gen):
+        self._search_timeout = 0
+        if gen != self._search_gen:
+            return False
+        word = self.search_entry.get_text().strip()
+        if len(word) >= 2:
+            self.on_search(self.search_entry)
+        return False
 
     def on_search(self, entry):
         word = entry.get_text().strip()
         if not word:
             return
+        self._cancel_search()
         self.current_word = word
         self.load_definitions(word)
         self.add_to_history(word)
@@ -155,118 +525,65 @@ class DictionaryWindow(Gtk.Window):
     def load_definitions(self, word):
         encoded = urllib.parse.quote(word)
 
-        # Dictionary (Wiktionary)
-        dict_url = f"https://en.wiktionary.org/wiki/{encoded}"
-        self.dict_view.load_uri(dict_url)
-
-        # Thesaurus (thesaurus.com)
-        thes_url = f"https://www.thesaurus.com/browse/{encoded}"
-        self.thes_view.load_uri(thes_url)
-
-        # Wikipedia
-        wiki_url = f"https://en.wikipedia.org/wiki/{encoded}"
-        self.wiki_view.load_uri(wiki_url)
-
-        # Apple terminology (local)
-        apple_html = self.get_apple_definition(word)
-        self.apple_view.load_html(apple_html, "file://")
-
-    def get_apple_definition(self, word):
-        # Local Apple terminology database (simplified)
-        apple_terms = {
-            "finder": "The Mac file manager that helps you organize and locate files.",
-            "dock": "The bar at the bottom of the screen that gives you quick access to apps.",
-            "menu bar": "The bar at the top of the screen with app menus and system status.",
-            "spotlight": "A system-wide search feature accessed with Command-Space.",
-            "mission control": "A feature that shows all open windows and spaces.",
-            "launchpad": "An app launcher that shows all installed apps in a grid.",
-            "control center": "Quick access to system settings like Wi-Fi, Bluetooth, and brightness.",
-            "notification center": "Shows notifications and widgets, accessed from the menu bar.",
-            "quick look": "Preview files by selecting them and pressing Space.",
-            "time machine": "Built-in backup software that automatically backs up your Mac.",
-            "airdrop": "Wirelessly send files to nearby Apple devices.",
-            "icloud": "Apple's cloud storage service for syncing files across devices.",
-            "safari": "Apple's web browser.",
-            "mail": "Apple's email client.",
-            "messages": "Apple's messaging app for iMessage and SMS.",
-            "facetime": "Apple's video and audio calling app.",
-            "photos": "Apple's photo management and editing app.",
-            "music": "Apple's music player and streaming service.",
-            "podcasts": "Apple's podcast player.",
-            "tv": "Apple's TV and movie streaming app.",
-            "books": "Apple's e-book reader and store.",
-            "maps": "Apple's mapping and navigation app.",
-            "contacts": "Apple's address book app.",
-            "calendar": "Apple's calendar app.",
-            "reminders": "Apple's to-do list app with location-based alerts.",
-            "notes": "Apple's note-taking app with rich text and attachments.",
-            "voice memos": "Apple's audio recording app.",
-            "terminal": "Command-line interface for Unix commands.",
-            "activity monitor": "Shows CPU, memory, energy, disk, and network usage.",
-            "disk utility": "Manages disks, partitions, and disk images.",
-            "keychain access": "Manages passwords, certificates, and keys.",
-            "font book": "Manages and previews installed fonts.",
-            "digital color meter": "Shows the color values of any pixel on screen.",
-            "stickies": "Virtual sticky notes for quick reminders.",
-            "textedit": "Simple text editor for plain and rich text documents.",
-            "calculator": "Basic, scientific, and programmer calculator.",
-            "preview": "View and annotate PDFs and images.",
-            "quicktime player": "Apple's media player for audio and video.",
-            "garageband": "Apple's music creation studio.",
-            "imovie": "Apple's video editing app.",
-            "pages": "Apple's word processor.",
-            "numbers": "Apple's spreadsheet app.",
-            "keynote": "Apple's presentation app.",
-            "xcode": "Apple's integrated development environment.",
-        }
-        found = apple_terms.get(word.lower())
-        if found:
-            definition = found
-            footer = ""
+        local = local_definition(word)
+        if local:
+            source, text = local
+            online_url = "https://en.wiktionary.org/wiki/" + encoded
+            self.dict_view.load_html(
+                definition_html(word, text, source, online_url),
+                "about:blank")
         else:
-            definition = f"No Apple definition for '{word}'."
-            footer = '<p class="not-found">No entry in local Apple dictionary. Try Wikipedia or Dictionary tabs.</p>'
-        html_footer = ""
-        if footer:
-            html_footer = footer
-        return f"""
-        <html><head>
-        <style>
-            body {{ font-family: -apple-system, San Francisco, sans-serif; padding: 20px; line-height: 1.6; color: #333; }}
-            h1 {{ color: #007aff; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; }}
-        </style>
-        </head><body>
-        <h1>{word}</h1>
-        <p>{definition}</p>
-        {html_footer}
-        </body></html>
-        """
+            self.dict_view.load_uri(
+                "https://en.wiktionary.org/wiki/" + encoded)
+
+        self.thes_view.load_uri(
+            "https://www.thesaurus.com/browse/" + encoded)
+        self.wiki_view.load_uri(
+            "https://en.wikipedia.org/wiki/" + encoded)
+
+        apple_html = apple_definition(word)
+        self.apple_view.load_html(apple_html, "file://")
 
     def add_to_history(self, word):
         if word in self.history:
             self.history.remove(word)
         self.history.insert(0, word)
-        self.history = self.history[:50]
+        self.history = self.history[:HISTORY_LIMIT]
         save_history(self.history)
         self.refresh_history()
 
     def refresh_history(self):
         for child in self.history_list.get_children():
             self.history_list.remove(child)
-        for word in self.history:
+        if not self.history:
             row = Gtk.ListBoxRow()
-            lbl = Gtk.Label(label=word, xalign=0)
+            row.set_selectable(False)
+            lbl = Gtk.Label(label="No recent lookups", xalign=0)
             lbl.set_margin_start(12)
             lbl.set_margin_top(6)
             lbl.set_margin_bottom(6)
+            lbl.set_sensitive(False)
             row.add(lbl)
             self.history_list.add(row)
+        else:
+            for word in self.history:
+                row = Gtk.ListBoxRow()
+                lbl = Gtk.Label(label=word, xalign=0)
+                lbl.set_margin_start(12)
+                lbl.set_margin_top(6)
+                lbl.set_margin_bottom(6)
+                row.add(lbl)
+                self.history_list.add(row)
         self.history_list.show_all()
 
     def update_bookmark_button(self):
         is_bookmarked = self.current_word in self.bookmarks
+        self.bookmark_btn.set_sensitive(bool(self.current_word))
         self.bookmark_btn.set_active(is_bookmarked)
-        self.bookmark_btn.set_tooltip_text("Remove bookmark" if is_bookmarked else "Bookmark this word")
+        self.bookmark_btn.set_tooltip_text(
+            "Remove bookmark (Ctrl+B)" if is_bookmarked
+            else "Bookmark this word (Ctrl+B)")
+        self.speak_btn.set_sensitive(bool(self.current_word))
 
     def on_bookmark(self, btn):
         if not self.current_word:
@@ -279,6 +596,10 @@ class DictionaryWindow(Gtk.Window):
                 self.bookmarks.remove(self.current_word)
         save_bookmarks(self.bookmarks)
 
+    def on_speak(self, btn):
+        if self.current_word:
+            speak(self.current_word)
+
     def on_history_toggle(self, btn):
         self.history_revealer.set_reveal_child(btn.get_active())
 
@@ -289,30 +610,51 @@ class DictionaryWindow(Gtk.Window):
             self.search_entry.set_text(word)
             self.on_search(self.search_entry)
 
-    def on_load_failed(self, widget, error):
-        friendly = """
-        <html><head>
-        <style>
-            body { font-family: -apple-system, sans-serif; padding: 40px; text-align: center; }
-            h1 { color: #888; }
-        </style>
-        </head><body>
-        <h1>Offline</h1>
-        <p>Unable to load remote content. <a href="file:///usr/share/mavericks-apps/offline.html">Try offline mode</a>.</p>
-        </body></html>
-        """
-        widget.load_html(friendly, "about:blank")
+    def on_load_failed(self, web_view, load_event, failing_uri, error):
+        web_view.load_html(OFFLINE_HTML, "about:blank")
+        return True
+
+    def on_key_press(self, widget, event):
+        if event.state & Gdk.ModifierType.CONTROL_MASK:
+            if event.keyval == Gdk.KEY_l:
+                self.search_entry.grab_focus()
+                return True
+            if event.keyval in (Gdk.KEY_1, Gdk.KEY_2,
+                                Gdk.KEY_3, Gdk.KEY_4):
+                idx = event.keyval - Gdk.KEY_1
+                if idx < len(self.TAB_IDS):
+                    self.source_stack.set_visible_child_name(
+                        self.TAB_IDS[idx])
+                return True
+            if event.keyval == Gdk.KEY_b:
+                if self.bookmark_btn.get_sensitive():
+                    self.bookmark_btn.set_active(
+                        not self.bookmark_btn.get_active())
+                return True
+            if event.keyval == Gdk.KEY_h:
+                self.hist_btn.set_active(not self.hist_btn.get_active())
+                return True
+        if event.keyval == Gdk.KEY_Escape:
+            self.search_entry.set_text("")
+            return True
+        return False
 
 
-def main():
-    word = sys.argv[1] if len(sys.argv) > 1 else ""
+def run(word=""):
     w = DictionaryWindow()
     if word:
         w.search_entry.set_text(word)
         w.on_search(w.search_entry)
+    return w
+
+
+def main():
+    word = sys.argv[1] if len(sys.argv) > 1 else ""
+    w = run(word)
     w.connect("destroy", Gtk.main_quit)
     Gtk.main()
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
