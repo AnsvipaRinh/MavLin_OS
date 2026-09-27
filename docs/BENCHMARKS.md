@@ -252,3 +252,97 @@ where the 130–145 ms module costs actually apply.
 - mv-quicklook: renders only the current file; image path uses
   `new_from_file_at_scale` (no full decode); text capped at 200 KB;
   media via ffprobe metadata only. No re-decode found.
+
+## Phase-D change log
+
+### 2026-09-27 — Phase D: harness hardening + remaining measurable wins
+
+- Commits: c359ab0 (harness fix), 2ae61e6 (unused imports), ec4dad4 (S14 absence record)
+- Full run: `docs/benchmarks/results-2026-09-27-phaseD.json` — 18 scenarios,
+  13 ok, 5 skipped (GUI tier), 0 failed.
+
+#### D-1 harness display-leak fix (S02/S03)
+
+Problem: S02/S03 children inherited the host DISPLAY/Wayland env. A Wayland
+compositor became available on the build host mid-phase-C, so S03 GTK apps
+reached `Gtk.main()` under Wayland (23 × 5 s kills = 127 s scenario wall)
+instead of fast-failing at display init like the phase-A/B baseline.
+Before/after pairs were not comparable across host display states.
+
+Fix: `headless_env()` in bench.py — `GDK_BACKEND=x11` + DISPLAY stripped for
+both scenarios (commit c359ab0).
+
+| Scenario | Metric | Before (leak) | After (fixed) | Delta | Verdict |
+|---|---|---|---|---|---|
+| S02 | wall_s median | 0.3418 | 0.3029 | −11.4% | real: Wayland backend probe removed from import path |
+| S03 | median_wall_s | 0.3851 | 0.3088 | −19.8% | real: same mechanism |
+| S03 | apps_mainloop_reached | 23 | 0 | — | classification restored to baseline fast-fail semantics |
+| S03 | scenario wall | 127.0 s | ~15 s | −88% | harness no longer pays 23×5 s kills |
+
+Stability check: after-fix runs with parent DISPLAY set vs unset → same
+classification (mainloop=0), medians 0.309 vs 0.327 (host drift band). Pairs
+now comparable regardless of host display state.
+
+#### D-2 unused-import cleanup (20 imports, 15 apps)
+
+AST-based audit (pyflakes absent on host): zero Name/Attribute references, no
+star-imports, no `__all__`, no dynamic usage. Removed: `sys` (airdrop, mail,
+notify-send, settings), `os` (mail ×2, mission-control), `subprocess` (eject,
+launchpad, openwith), `mimetypes` (preview), `Path` (shot), `GLib` (eject,
+keychain, reminders), `Pango` (keychain), `GdkPixbuf` (colormeter, voice +
+their `require_version` lines), `Gio` (timemachine + `require_version`).
+Commit 2ae61e6.
+
+S03 delta: 0.3088 → 0.3302 (host drift band; removed gi modules were already
+loaded by Gtk — marginal ≈ 0, consistent with the phase-C import breakdown).
+Full suite 1233/1233 green.
+
+#### D-3 cold-cache import approximation (no root)
+
+Method: `posix_fadvise(POSIX_FADV_DONTNEED)` on the 113 .so/typelib files
+mapped by a probe child running the S02-style import; interleaved 5-rep
+warm/cold measurement (ABAB order cancels host drift).
+
+| Metric | Warm | Cold (evicted) | Delta |
+|---|---|---|---|
+| S02-style import wall, median | 0.3298 | 0.5379 | +0.2081 (+63.1%) |
+
+(rep0 outlier +0.87 s — first-eviction partial effect; reps 1–4 delta
++0.17…+0.26 s.)
+
+Verdict: FEASIBLE proxy, measured. Caveats: fadvise DONTNEED is best-effort;
+the WSL virtual disk is backed by the Windows host page cache (real S3X NVMe
+cold reads will differ in magnitude, not in kind); python/libc stayed warm
+(parent-held). Validates the phase-C insight: the lazy-import structural win
+is a cold-target effect — a cold Gtk import tree costs +0.21 s here; apps that
+never load WebKit2/GtkSource/GdkPixbuf on a given code path avoid those module
+costs entirely on first launch after boot.
+
+#### D-4 browser workload (S14)
+
+Absence recorded (2026-09-27): firefox, firefox-esr, epiphany, icecat,
+chromium, google-chrome, brave, edge, web — none found. Offline discipline:
+no install. S14 stays HW-deferred; skip reason in bench.py updated (ec4dad4).
+What HW will show: headless startup wall + fixed file:// page-load wall on the
+target, plus HD615 render behavior.
+
+#### Phase C → D delta table (full run, medians)
+
+| Scenario | Metric | Phase C (phC-1) | Phase D | Verdict |
+|---|---|---|---|---|
+| S02 | wall_s | 0.353 | 0.304 | harness fix (−14% vs phC-1; −2% vs phC-before 0.311) |
+| S03 | median_wall_s | 0.339 | 0.310 | host drift band; no regression |
+| S03 | max_wall_s | 3.012 | 3.009 | stable (mv-newfolder arg-validation path) |
+| S04 | wall_s | 0.089 | 0.084 | stable |
+| S09 | wall_s | 0.528 | 0.664 | host drift (shared disk) |
+| S11 | wall_s | 0.114 | 0.138 | host drift |
+| S13 | wall_s | 0.074 | 0.077 | stable |
+| S15 | wall_s | 2.033 | 2.029 | stable — no regression |
+| S16 | wall_s | 3.043 | 3.033 | stable — no regression |
+| S17 | wall_s | 0.902 | 1.204 | host drift (identical-code swings ±0.9 s in phase B) |
+| S18 | wall_s | 0.016 | 0.022 | stable (abs. small) |
+
+Honesty note (unchanged from phases B/C): run-to-run variance on this shared
+WSL2 host exceeds the per-scenario deltas; CPU scenarios S15/S16 are stable,
+confirming no systemic regression. Phase-D changes are harness/tooling/hygiene
+— their effects are cold-target or GUI-tier, quantified via the D-3 proxy.

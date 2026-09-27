@@ -1,5 +1,14 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.64 — Performance track phase D: harness hardening + final measurable wins (2026-09-27, без железа)
+- [x] Harness display-leak fix (c359ab0): S02/S03 children no longer inherit host Wayland env (`headless_env()`: GDK_BACKEND=x11 + DISPLAY stripped); S03 scenario wall 127s→~15s, mainloop-reached 23→0, S02 −11%, S03 median −20%; before/after pairs comparable regardless of host display state
+- [x] Unused-import audit (2ae61e6): AST-based checker (pyflakes absent on host), 20 provably-unused imports removed across 15 mv-* apps; zero behavior change; 1233/1233 green
+- [x] Cold-cache approximation (no root): fadvise(DONTNEED) eviction proxy over 113 mapped libs, interleaved 5-rep — cold Gtk import +0.21s (+63%) warm→cold on host; caveats documented (best-effort eviction, WSL page cache, python/libc warm); validates phase-C cold-target insight
+- [x] Browser workload S14: exact absence recorded (9 browser names checked, none found; offline discipline) — stays HW-deferred (ec4dad4)
+- [x] Full harness: 18 scenarios, 13 ok, 5 skipped GUI-tier, 0 failed (results-2026-09-27-phaseD.json); full suite 1233/1233; check-sync ALL CHECKS PASSED
+- [x] Docs: BENCHMARKS.md phase-D change log + delta table; PERF_AUDIT.md phase-D dispositions (D-01..D-04); DECISIONS.md phase-D entry; power baseline untouched
+- [x] Track assessment (A→D): measurable host wins = harness comparability + S02/S03 import-path −11%/−20% + cold-tier quantification; accepted = host drift band + warm marginal ≈ 0 for gi cleanup; HW-only = GUI tiers S06–S08/S10, S14 browser, RAPL/battery/thermals, applespi/BCM43602/Cirrus, cold-target magnitudes on real NVMe
+
 ### Фаза B — Performance track: audit fixes S-01..S-11 (2026-09-27, без железа)
 - [x] S-09 HYGIENE (8211b9f): autostart/mv-notify-send.desktop removed (on-demand tool); on-demand callers (mv-airdrop, mv-notification-center) verified unaffected
 - [x] S-01 HIGH (14c8009): mv-control Wi-Fi refresh → NM D-Bus signal-driven (wireless PropertiesChanged, AP added/removed + PropertiesChanged, device add/removed) + 1s debounce/2s min interval + 30s fallback poll + window-open refresh + manual Refresh button; rescan frequency while CC open 0.2Hz → signal+0.033Hz (≥83% reduction). BT steady state confirmed 5s (S-06). Also fixed 2 mv-control startup crashes unmasked by verification: Gtk.ListBox.pack_start AttributeError + modal dialog.run() hang from set_active during init

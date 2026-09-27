@@ -79,3 +79,18 @@ interaction in harness, and per-call costs do not change). See
 `docs/BENCHMARKS.md` phase-B change log for the honest delta table
 (run-to-run variance on this shared WSL2 host dwarfs the before/after
 delta; stable CPU scenarios S15/S16 moved ≤0.8%).
+
+## Phase-D dispositions (2026-09-27, commits on master)
+
+| ID | Disposition | Commit | Notes |
+|---|---|---|---|
+| D-01 TOOLING | **FIXED** | c359ab0 | S02/S03 display-leak: children inherited the host Wayland env → 23 GTK apps × 5 s mainloop kills (127 s S03 wall). `headless_env()` pins `GDK_BACKEND=x11` + strips DISPLAY. S02 −11%, S03 median −20%, mainloop-reached 23→0; before/after pairs comparable across host display states. |
+| D-02 HYGIENE | **FIXED** | 2ae61e6 | 20 provably-unused imports removed across 15 apps (AST audit: zero refs, no star-imports, no `__all__`, no dynamic usage). Host-measurable effect ≈ 0 (removed gi modules already loaded by Gtk — consistent with the phase-C import breakdown); cold-target effect per the D-03 proxy. 1233/1233 green. |
+| D-03 MEASUREMENT | **PROXY ADOPTED** | — | Cold-import approximation without root: `fadvise(DONTNEED)` eviction of the 113 libs mapped by the import, interleaved 5-rep warm/cold. Cold Gtk import +0.21 s (+63%) warm→cold on this host. Caveats: best-effort eviction, WSL page cache ≠ NVMe, python/libc stay warm. Not a watt predictor; quantifies the cold-target tier. |
+| D-04 BROWSER | **HW-DEFERRED** | ec4dad4 | No browser on host (9 names checked: firefox, firefox-esr, epiphany, icecat, chromium, google-chrome, brave, edge, web — none found; offline discipline, no install). S14 skip reason records the exact absence. HW will show: headless startup + file:// page-load wall, HD615 render behavior. |
+
+**Host-measurability note (phase D):** the only host-measurable wins are
+harness comparability (D-01) and the S02/S03 import-path reduction it
+exposed (−11%/−20%). D-02's warm-host effect is ≈ 0 by construction; its
+value is cold-target, quantified via D-03. Everything else the track touched
+in phases B–D remains GUI-tier or call-frequency (see phase-B note above).

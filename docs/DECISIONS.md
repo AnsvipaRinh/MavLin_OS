@@ -1252,3 +1252,20 @@ OVMF firmware запускается (PI/UEFI), но не обнаруживае
 **Reasoning:** All five items either lack a mature Linux backend (violating reuse-first) or have dep/power budgets incompatible with the fanless Core M target. No new pre-hardware implementation items. P2 research track is closed. Full analysis: docs/RESEARCH_P2_CLOSE.md.
 
 **Alternatives considered:** Implementing any of the five as a thin wrapper — rejected per §9 (fake-completion): a renamed Linux tool is not a Mavericks integration.
+
+---
+
+## 2026-09-27 — Phase D: performance-track close (harness fix, unused imports, cold-cache proxy, browser defer)
+
+**Context:** Phase C closed the lazy-import work. Phase D captures the remaining measurable pre-hardware wins and hardens the harness, per the phase-C proposal: (1) browser workload attempt, (2) cold-cache import approximation, (3) S03 harness display-leak fix, (4) unused-stdlib-import audit, (5) GUI-tier scenarios stay HW/QEMU.
+
+**Decisions:**
+- **Harness display-leak fix (c359ab0):** S02/S03 pin `GDK_BACKEND=x11` + strip DISPLAY via `headless_env()`. Rationale: the host gained a Wayland compositor mid-phase-C; leaking it made GTK apps reach `Gtk.main()` (23×5 s kills, 127 s S03 wall) and broke before/after comparability across host display states. Effect: S02 −11%, S03 median −20%, scenario wall −88%, mainloop-reached 23→0.
+- **Unused-import removal (2ae61e6):** AST audit (pyflakes absent on host); remove only zero-reference imports — 20 across 15 apps, no star-imports, no `__all__`, no dynamic usage. Rationale: hygiene + cold-target marginal. Warm-host effect ≈ 0 (Gtk pre-loads the gi dep tree) — accepted honestly, NOT claimed as a measurable win.
+- **Cold-cache proxy via `fadvise(DONTNEED)`:** adopted as the no-root approximation. `drop_caches` requires root (unavailable). Proxy: evict the 113 libs mapped by the import, interleaved 5-rep warm/cold. Measured +0.21 s (+63%) cold Gtk import on host. Caveats: best-effort eviction, WSL page cache ≠ NVMe, python/libc stay warm. Not a watt predictor; quantifies the cold-target tier where the phase-C lazy-import win actually lands.
+- **Browser workload (S14):** HW-deferred. 9 browser names checked (firefox, firefox-esr, epiphany, icecat, chromium, google-chrome, brave, edge, web), none on host; offline discipline — no install. Skip reason records the exact absence (ec4dad4).
+- **GUI-tier scenarios (S06–S08, S10):** stay HW/QEMU — no change.
+
+**Power baseline:** untouched (no TLP/kernel/cmdline/sysctl changes).
+
+**Track close (A→D):** measurable host wins = harness comparability + S02/S03 import-path reduction + cold-tier quantification. Accepted = host drift band; warm marginal ≈ 0 for the gi cleanup. HW-only remainder = GUI tiers (S06–S08, S10), browser workload (S14), RAPL/battery/thermals, applespi/BCM43602/Cirrus behavior, cold-target magnitudes on real NVMe.
