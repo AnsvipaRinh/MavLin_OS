@@ -6,7 +6,7 @@ pkgdesc="OS X 10.9 Mavericks skeuomorphic theme for Xfce/GTK3 - textures, shadow
 arch=('any')
 url="https://github.com/mavericks-linux/macbook12-macos-linux"
 license=('GPL-3.0-or-later')
-depends=('gtk3' 'plank' 'xfce4-panel' 'thunar' 'xfce4-settings' 'hicolor-icon-theme')
+depends=('gtk3' 'plank' 'xfce4-panel' 'thunar' 'xfce4-settings' 'hicolor-icon-theme' 'adwaita-icon-theme')
 # NOTE: no gtk-engine-murrine — theme is GTK3-only (gtk-3.0/gtk-3.20, no
 # gtk-2.0 dir, no murrine engine directives); the package is also not in
 # current Arch repos. Do NOT re-add without a gtk-2.0 theme dir.
