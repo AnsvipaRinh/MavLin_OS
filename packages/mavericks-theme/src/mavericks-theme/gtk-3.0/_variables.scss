@@ -1,7 +1,7 @@
 // Mavericks GTK3 Theme Variables
 // Maps semantic names to color palette
 
-@use "colors" as *;
+@import "colors";
 
 /* Base colors - mapped from palette */
 $fg_color: $mavericks-charcoal;

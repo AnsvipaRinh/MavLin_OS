@@ -1,8 +1,8 @@
 // Mavericks GTK3 Theme - Widget Styles
 
-@use "colors" as *;
-@use "variables" as *;
-@use "mixins" as *;
+@import "colors";
+@import "variables";
+@import "mixins";
 
 /* ============================================================
    BUTTON WIDGETS
@@ -39,7 +39,7 @@ button.text-button {
                     0 1px 2px rgba(0,0,0,0.15);
     }
 
-    &:insensitive {
+    &:disabled {
         background-image: none;
         background-color: $insensitive_bg_color;
         color: $insensitive_fg_color;
@@ -155,15 +155,10 @@ textview {
                     0 0 0 2px rgba(0, 122, 255, 0.2);
     }
 
-    &:insensitive {
+    &:disabled {
         background-color: $insensitive_bg_color;
         color: $insensitive_fg_color;
         border-color: shade($insensitive_bg_color, 0.8);
-    }
-
-    /* Placeholder text */
-    &::placeholder {
-        color: shade($entry_fg_color, 0.5);
     }
 }
 
@@ -250,17 +245,13 @@ scale {
         background-color: $mavericks-white;
         border: 1px solid shade($accent_bg_color, 0.5);
         border-radius: 50%;
-        width: $scale_slider_size;
-        height: $scale_slider_size;
+        min-width: $scale_slider_size;
+        min-height: $scale_slider_size;
         margin-top: -5px;
         @include control-shadow();
 
         &:hover {
             box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        }
-
-        &:active {
-            transform: scale(1.1);
         }
     }
 
@@ -291,7 +282,6 @@ progressbar {
     border: 1px solid shade($bg_color, 0.7);
     border-radius: 6px;
     min-height: 12px;
-    overflow: hidden;
 
     trough {
         background-color: transparent;
@@ -314,8 +304,9 @@ progressbar {
 }
 
 @keyframes progress-pulse {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
 }
 
 /* ============================================================
@@ -327,7 +318,6 @@ levelbar {
     border: 1px solid shade($bg_color, 0.7);
     border-radius: 6px;
     min-height: 12px;
-    overflow: hidden;
 
     trough {
         background-color: transparent;
@@ -388,7 +378,8 @@ scrollbar {
     }
 
     button {
-        display: none; /* Hide scroll arrows */
+        min-width: 0;
+        min-height: 0;
     }
 
     &.horizontal slider {
@@ -428,13 +419,6 @@ paned > separator {
         );
     }
 
-    &:horizontal {
-        min-height: 6px;
-    }
-
-    &:vertical {
-        min-width: 6px;
-    }
 }
 
 /* ============================================================
@@ -491,22 +475,6 @@ expander {
         }
     }
 
-    &:checked > arrow {
-        -gtk-icon-transform: rotate(90deg);
-    }
-}
-
-/* ============================================================
-   SPINNER
-   ============================================================ */
-
-spinner {
-    animation: spinner-rotate 1s linear infinite;
-}
-
-@keyframes spinner-rotate {
-    from { -gtk-icon-transform: rotate(0deg); }
-    to { -gtk-icon-transform: rotate(360deg); }
 }
 
 /* ============================================================
@@ -548,7 +516,7 @@ calendar {
             background-color: shade($bg_color, 0.9);
         }
 
-        &:insensitive {
+        &:disabled {
             color: $insensitive_fg_color;
         }
     }

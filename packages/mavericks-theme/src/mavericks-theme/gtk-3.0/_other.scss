@@ -1,8 +1,8 @@
 // Mavericks GTK3 Theme - Scrollbar, Scale, Progressbar, Sidebar, Headerbar, Switch, CheckRadio, Paned, Infobar, Popover, DND
 
-@use "colors" as *;
-@use "variables" as *;
-@use "mixins" as *;
+@import "colors";
+@import "variables";
+@import "mixins";
 
 /* ============================================================
    SCROLLBAR - THIN OVERLAY STYLE
@@ -35,7 +35,8 @@ scrollbar {
     }
 
     button {
-        display: none; /* Hide scroll arrows */
+        min-width: 0;
+        min-height: 0;
     }
 
     &.horizontal slider {
@@ -83,17 +84,13 @@ scale {
         background-color: $mavericks-white;
         border: 1px solid shade($accent_bg_color, 0.5);
         border-radius: 50%;
-        width: $scale_slider_size;
-        height: $scale_slider_size;
+        min-width: $scale_slider_size;
+        min-height: $scale_slider_size;
         margin-top: -5px;
         @include control-shadow();
 
         &:hover {
             box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        }
-
-        &:active {
-            transform: scale(1.1);
         }
     }
 
@@ -123,7 +120,6 @@ progressbar {
     border: 1px solid shade($bg_color, 0.7);
     border-radius: 6px;
     min-height: 12px;
-    overflow: hidden;
 
     trough {
         background-color: transparent;
@@ -145,8 +141,9 @@ progressbar {
 }
 
 @keyframes progress-pulse {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
 }
 
 /* ============================================================
@@ -202,14 +199,12 @@ headerbar {
     title {
         color: $titlebar_fg_color;
         font-weight: 500;
-        text-align: center;
         @include text-emboss();
     }
 
     subtitle {
         color: shade($titlebar_fg_color, 0.7);
         font-size: 0.85em;
-        text-align: center;
     }
 
     button,
@@ -253,8 +248,8 @@ switch {
         background-color: $mavericks-white;
         border: 1px solid rgba(0,0,0,0.15);
         border-radius: 16px;
-        width: $switch_slider_size;
-        height: $switch_slider_size;
+        min-width: $switch_slider_size;
+        min-height: $switch_slider_size;
         @include control-shadow();
         @include transition-fast;
 

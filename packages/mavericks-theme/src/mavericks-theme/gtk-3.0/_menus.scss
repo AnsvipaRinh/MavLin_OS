@@ -1,8 +1,8 @@
 // Mavericks GTK3 Theme - Menus, Tooltips, Popovers
 
-@use "colors" as *;
-@use "variables" as *;
-@use "mixins" as *;
+@import "colors";
+@import "variables";
+@import "mixins";
 
 /* ============================================================
    MENUS - FROSTED GLASS STYLE
@@ -34,7 +34,7 @@ menuitem {
         color: $menu_selected_fg_color;
     }
 
-    &:insensitive {
+    &:disabled {
         color: shade($menu_fg_color, 0.5);
     }
 
@@ -55,7 +55,6 @@ menuitem {
 
     /* Submenu arrow */
     arrow {
-        margin-left: auto;
         color: shade($menu_fg_color, 0.5);
     }
 }
@@ -95,7 +94,6 @@ tooltip {
     color: $tooltip_fg_color;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     font-size: 0.9em;
-    max-width: 300px;
 }
 
 /* ============================================================

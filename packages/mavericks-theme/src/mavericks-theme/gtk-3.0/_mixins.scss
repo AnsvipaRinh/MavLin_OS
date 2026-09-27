@@ -1,6 +1,6 @@
 // Mavericks GTK3 Theme Mixins
 
-@use "variables" as *;
+@import "variables";
 
 /* ============================================================
    GRADIENT MIXINS
@@ -106,35 +106,3 @@
     transition: all 0.3s ease-out;
 }
 
-/* ============================================================
-   HIGH CONTRAST MODE
-   ============================================================ */
-
-@mixin high-contrast-support {
-    @media (prefers-contrast: high) {
-        @content;
-        border-width: 2px !important;
-    }
-}
-
-/* ============================================================
-   REDUCED MOTION
-   ============================================================ */
-
-@mixin reduced-motion-support {
-    @media (prefers-reduced-motion: reduce) {
-        @content;
-        transition: none !important;
-        animation: none !important;
-    }
-}
-
-/* ============================================================
-   RTL SUPPORT
-   ============================================================ */
-
-@mixin rtl-support {
-    @media (direction: rtl) {
-        @content;
-    }
-}
