@@ -1207,3 +1207,27 @@ OVMF firmware запускается (PI/UEFI), но не обнаруживае
 Все варианты дают "Guest has not initialized the display (yet)" — environment limitation (container),
 не дефект ISO. Структура ISO валидна (EFI BOOTx64.EFI, systemd-boot entries, airootfs.sfs, 737 пакетов).
 Полный boot-тест переносится на реальное железо (NEEDS_HARDWARE_TEST.md → Fresh-ISO checklist).
+
+---
+
+## 2026-09-27 — Phase 0.63: P2 research close (Automator/Shortcuts, Grapher, Migration Assistant, App Store, Software Update polish)
+
+**Context:** Roadmap requires closing remaining P2 research items with explicit verdicts. Research-only per AGENTS.md §13.2 (P2 = future/advanced, only after P0/P1).
+
+**Candidates evaluated:**
+- **Automator/Shortcuts:** custom action runner over mv-* scripts + Thunar UCA (building blocks exist, but workflow-chaining UI = large new surface, no mature Linux backend); document-disposition watcher (inotify + shell, persistent watcher = power cost); wrapper over systemd/cron/incron (thin, no UX gain).
+- **Grapher:** matplotlib (heavy dep tree ~100MB, Python runtime — power/space unjustified on fanless Core M); labplot/kalgebra (KDE deps, not Xfce-coherent); gnuplot (lightweight but no Mavericks UI); custom GTK plotter (violates reuse-first).
+- **Migration Assistant:** Time Machine sparse-bundle/HFS+ parsing (no Linux backend, multi-week effort); firstboot wizard (already covers initial setup).
+- **App Store:** pamac (generic Linux package manager, not a store); pacman wrapper (thin, no coherence — §9 fake-completion); Flatpak/Flathub (different ecosystem).
+- **Software Update polish:** checkupdates + pacman -Syu + Mavericks progress dialog (feasible ~200 lines, but thin wrapper over pacman, limited coherence gain).
+
+**Verdicts:**
+- Automator/Shortcuts → DEFERRED (implement-later). Trigger: lightweight workflow-runner pattern emerges.
+- Grapher → DEFERRED (implement-later). Trigger: lightweight plotting need from another app.
+- Migration Assistant → EXCLUDED (confirmed). Trigger: user migration path from macOS becomes hard requirement.
+- App Store → EXCLUDED (confirmed). Trigger: curated app-discovery surface becomes user requirement.
+- Software Update polish → DEFERRED (implement-later). Trigger: update notification needed in Notification Center.
+
+**Reasoning:** All five items either lack a mature Linux backend (violating reuse-first) or have dep/power budgets incompatible with the fanless Core M target. No new pre-hardware implementation items. P2 research track is closed. Full analysis: docs/RESEARCH_P2_CLOSE.md.
+
+**Alternatives considered:** Implementing any of the five as a thin wrapper — rejected per §9 (fake-completion): a renamed Linux tool is not a Mavericks integration.

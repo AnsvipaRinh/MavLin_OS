@@ -1,5 +1,13 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.63 — Pre-hardware regression sweep + P2 research close (2026-09-27, без железа)
+- [x] Full regression: 16 test suites (1,147 tests) all pass — airdrop 51, calculator 141, calendar 63, colormeter 76, console 92, dictionary 70, diskutil 34, fontbook 65, keychain 96, music 108, notes 41, photos 84, power-ui 44, reminders 31, stickies 72, timemachine 59, voice 63; test-theme-css 9/9; check-sync --check-repos ALL PASS; bash -n ALL-PASS; py_compile exit 0; desktop-file-validate 64/64; xmllint ALL-PASS
+- [x] Fixed SyntaxWarning in test-mv-calendar.py (invalid escape sequences `\;` `\,` → raw strings)
+- [x] P2 research close (docs/RESEARCH_P2_CLOSE.md): Automator/Shortcuts → DEFERRED; Grapher → DEFERRED; Migration Assistant → EXCLUDED (confirmed); App Store → EXCLUDED (confirmed); Software Update polish → DEFERRED. No new pre-hardware implementation items. P2 research track closed.
+- [x] Docs-reality audit: spot-checked all 17 P1 apps (line counts 139–1636, all real code) + P0 scripts (all exist) + 31 .desktop files. No new fake-completion found. mv-mail (139 lines, thin geary wrapper) correctly marked PARTIALLY_IMPLEMENTED.
+- [x] DECISIONS.md: Phase 0.63 entry added. APPS.md: P2 table updated with all 5 items + verdicts. NEEDS_HARDWARE_TEST.md: no gaps found (fresh-ISO checklist from 0.62 still current).
+- [x] Next: hardware validation on MacBook10,1 (Phase 5). All feasible pre-hardware P0/P1 work complete; P2 research closed.
+
 ### Фаза 0.60 — Time Machine UI over restic (P2 #41; 2026-09-27, без железа)
 - [x] Backend-вердикт: restic (extra, 0.19.1-1, BSD-2-Clause) — XOR-выбор против borg 1.4.5 по DECISIONS Phase 0.58; borg НЕ реализуется; btrfs subvolume snapshot layer сохраняется как комплементарный instant local layer (btrfs-progs 7.1 core, уже в ISO)
 - [x] mv-timemachine (Python/GTK3): setup-флоу (выбор destination dir/USB-C, passphrase-диалог), restic init/backup/snapshots/restore wiring, passphrase через RESTIC_PASSWORD env only (никогда на cmdline, никогда plaintext на диске), libsecret-персистентность с fallback на per-run prompt, btrfs local snapshot list, destructive-restore confirmation, starfield CSS-браузер (дешёвые radial-gradient точки), empty/error состояния: no-target, restic-missing, no-snapshots, restore-confirm
