@@ -24,11 +24,14 @@ install: all
 	done
 	install -d "$(DESTDIR)$(PREFIX)/share/applications"
 	install -m644 desktop/*.desktop "$(DESTDIR)$(PREFIX)/share/applications/"
+	install -m644 config/mv-ytplayer-protocol.desktop "$(DESTDIR)$(PREFIX)/share/applications/"
 	install -d "$(DESTDIR)$(PREFIX)/share/mavericks-apps"
 	install -m644 config/rofi-mavericks.rasi "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/rofi-launchpad.rasi "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/thunar-uca.xml "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/xfce4-keyboard-shortcuts.xml "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
+	install -m644 config/mv-ytplayer-bookmarklet.html "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
+	install -Dm644 ../../../configs/mv-ytplayer/codec-policy.conf "$(DESTDIR)/etc/mv-ytplayer/codec-policy.conf"
 	install -Dm644 config/mv-reminders-check.timer \
 		"$(DESTDIR)/usr/lib/systemd/user/mv-reminders-check.timer"
 	install -Dm644 config/mv-reminders-check.service \

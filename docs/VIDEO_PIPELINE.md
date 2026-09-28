@@ -51,6 +51,24 @@ positive branch would silently force SW decode on the fanless Core M. Quality ca
 `MV_YT_MAX_HEIGHT` (default 1080) applies to every branch. Audio is a separate
 stream (`bestaudio`) merged by mpv — no audio codec decision in the chain.
 
+### 3.1 Codec policy layer
+
+The codec ranking is defined in `configs/mv-ytplayer/codec-policy.conf` — an easily
+editable policy file. Edit the file to change codec preference order. The selector
+chain is built from this list at runtime.
+
+| Codec | vcodec prefix | HW decode Gen9.5 | Expected CPU (SW) | Expected GPU (HW) | Fallback |
+|---|---|---|---|---|---|
+| H.264 | avc1 | YES | 4.20 ms/frame | Lowest | Primary choice |
+| VP9 | vp09 | YES | 5.57 ms/frame | Low | If avc1 unavailable |
+| HEVC | hev1 | YES | 7.99 ms/frame | Low | If avc1/vp09 unavailable |
+| AV1 | av01 | NO (SW-only) | 5.38 ms/frame | N/A (SW only) | Last resort (branch 5) |
+
+**NO-CONCLUSION**: Final codec choice comes from measured power/thermal on MacBook10,1,
+not from host bench. The host-SW numbers above are a ceiling, not a target. The
+policy is a starting point based on Gen9.5 HW availability. See
+`docs/HW_BROWSER_MATRIX.md` for the 4-mode measurement plan to validate on hardware.
+
 ## 4. Optimized playback mode (BY CONSTRUCTION)
 
 `mv-ytplayer` is the optimized video path. It is not "Firefox with a lighter page" —
