@@ -7,16 +7,19 @@ user_pref("browser.startup.homepage", "about:home");
 user_pref("browser.newtabpage.enabled", true);
 user_pref("browser.toolbars.bookmarks.visibility", "newtab");
 user_pref("browser.uidensity", 0);                    // normal density; compact breaks HiDPI
-user_pref("browser.theme.color_scheme", 1);           // light (Mavericks)
+// DEAD PREF (removed): browser.theme.color_scheme — not a real Firefox pref.
+// Light theme is default on Linux. Modern equivalent: browser.theme.toolbar-theme=0.
 user_pref("widget.non-native-theme.enabled", true);   // allow GTK theme to apply
 
 // --- Tabs / Toolbar (Safari-Mavericks UX, see docs/SAFARI_SPEC.md) ---
 user_pref("browser.tabs.drawInTitlebar", true);       // tabs in title bar (compact)
-user_pref("browser.tabs.closeButtons", 1);            // close button on active tab only
+// DEAD PREF (removed): browser.tabs.closeButtons — removed in FF89 (Proton).
+// Close button now shows on all tabs. Active-tab-only requires userChrome.css (not implemented).
 user_pref("browser.tabs.firefox-view", false);        // no Firefox View (not Mavericks)
-user_pref("browser.tabs.firefox-view-next", false);   // no Firefox View Next
-user_pref("browser.tabmanager.enabled", false);       // no tab manager button
-user_pref("browser.sharepane.enabled", false);        // no share button on Linux
+// DEAD PREF (removed): browser.tabs.firefox-view-next — not a real Firefox pref.
+// Firefox View is controlled solely by browser.tabs.firefox-view (already false).
+// DEAD PREF (removed): browser.tabmanager.enabled — removed in FF45. Tab manager no longer exists.
+// DEAD PREF (removed): browser.sharepane.enabled — removed in FF95. Share button no longer exists.
 
 // --- Top Sites (Mavericks-style grid) ---
 user_pref("browser.newtabpage.activity-stream.showSponsored", false);

@@ -293,15 +293,11 @@ Use Faenza/gnome-icon-theme-style icons (already in mavericks-theme).
 
 ## 14. Implementation Surface Summary
 
-### Active Firefox prefs (in user.js):
+### Active Firefox prefs (in user.js, verified against current ESR):
 ```
 browser.uidensity=0
-browser.theme.color_scheme=1
 browser.tabs.drawInTitlebar=true
-browser.tabs.closeButtons=1
 browser.tabs.firefox-view=false
-browser.tabs.firefox-view-next=false
-browser.tabmanager.enabled=false
 browser.newtabpage.enabled=true
 browser.newtabpage.activity-stream.showSponsored=false
 browser.newtabpage.activity-stream.showSponsoredTopSites=false
@@ -310,10 +306,18 @@ browser.newtabpage.activity-stream.feeds.section.highlights=false
 browser.toolbars.bookmarks.visibility="newtab"
 browser.download.useDownloadDir=true
 browser.download.start_downloads_in_tmp_dir=false
-browser.sharepane.enabled=false
 places.history.enabled=true
 findbar.highlightAll=true
 findbar.findAgainOnScroll=false
+```
+
+### Removed dead prefs (spec-claimed but non-functional in current ESR):
+```
+// browser.theme.color_scheme=1       — NOT a real pref. Light theme is Linux default.
+// browser.tabs.closeButtons=1         — removed in FF89 (Proton). Close button on all tabs now.
+// browser.tabs.firefox-view-next=false — NOT a real pref. Firefox View = browser.tabs.firefox-view only.
+// browser.tabmanager.enabled=false   — removed in FF45. Tab manager no longer exists.
+// browser.sharepane.enabled=false     — removed in FF95. Share button no longer exists.
 ```
 
 ### Commented-out proposals (uncertain, not yet active):
@@ -323,9 +327,13 @@ findbar.findAgainOnScroll=false
 ```
 
 ### userChrome.css (theme-only, not engine fork):
-- Toolbar gradient, tab shape, Top Sites grid, downloads popover, find bar,
-  private browsing dark mode, context menu style, sheet dialog animation.
-- Full userChrome.css lives in mavericks-theme package (not Firefox fork).
+- **STATUS: NOT IMPLEMENTED.** No userChrome.css exists anywhere in the repository.
+- The mavericks-theme package contains GTK3 CSS for native GTK apps (Thunar, etc.),
+  NOT Firefox chrome CSS. Firefox uses engine-rendered chrome (userChrome.css),
+  which is a separate system from GTK3 CSS.
+- All "userChrome.css notes" in sections 1-13 above are spec-only prose with zero
+  implementation behind them. They describe intended CSS that was never written.
+- Implementing userChrome.css is a feature-track task, not an audit fix.
 
 ---
 
@@ -337,3 +345,79 @@ findbar.findAgainOnScroll=false
 - WebRender vs basic compositor on HD 615
 - Memory pressure with 6 content processes on 8-16GB RAM
 - Tab thrashing behavior with many tabs on fanless Core M
+
+---
+
+## 16. Audit Appendix (2026-09-28) — Fidelity Classification
+
+Forensic audit of actual implementation vs spec claims. Evidence: file:line inspection
+of user.js, policies.json, mavericks-theme GTK CSS, KEYBOARD.md. No userChrome.css exists.
+
+### 16.1 Fidelity Table
+
+| Element | Spec Claim | Actual Implementation | Class |
+|---|---|---|---|
+| Toolbar layout | Unified row, 38px, gradient | Stock Firefox toolbar. No userChrome.css. | Firefox-native |
+| Unified address/search | Single field | Firefox default (already unified). | Firefox-native (matches by default) |
+| Tabs shape | Trapezoid, gradient, 30px | Stock Firefox tabs. drawInTitlebar=true only. | Firefox-native |
+| Tabs position | Above toolbar | drawInTitlebar=true (in titlebar). | Visually-adapted |
+| Close button | Active tab only | Dead pref (FF89+). Shows on all tabs. | Firefox-native (spec-only) |
+| Bookmarks bar | Below toolbar, optional | visibility="newtab" (only on new tab). | Visually-adapted |
+| Sidebar | 200px, bookmarks/reading list | Stock Firefox sidebar. No styling. | Firefox-native |
+| Downloads UI | Popover, progress bars | Stock Firefox downloads panel. | Firefox-native |
+| Top Sites | 4×3 grid, dark bg, thumbnails | activity-stream prefs enable/disable sections. No custom grid CSS. | Firefox-native |
+| Find bar | Bottom, 32px, yellow highlight | findbar.highlightAll=true. Stock styling. | Visually-adapted |
+| Private browsing | Dark chrome, purple tint | No implementation. Stock private window. | Firefox-native (spec-only) |
+| Context menus | Mavericks-style hover/selection | Stock Firefox context menus. | Firefox-native (spec-only) |
+| Dialogs | Sheet-style, slide-down | GTK3 dialogs themed by mavericks-theme GTK CSS. | Visually-adapted (GTK layer) |
+| Typography | San Francisco, 13px base | font prefs set but San Francisco/Menlo unavailable on Linux. Falls back to Cantarell. | Firefox-native (fallback) |
+| Icons | Pre-flat, glossy | Stock Firefox icons. | Firefox-native |
+| Keyboard (Cmd-layer) | Super=Cmd mapping | Ctrl-layer app-level (correct for Linux). Super layer for global actions. | Intentionally-different (correct) |
+| Loading states | Tab throbber, URL progress | Stock Firefox loading indicators. | Firefox-native |
+| HiDPI | 38px@1x, 76px@2x | uidensity=0 (normal). No resolution-aware CSS. | Firefox-native (1x assumption) |
+
+### 16.2 Spec-Only Items (Zero Implementation)
+
+All "userChrome.css notes" in sections 1-13 are spec-only prose:
+- Toolbar gradient + 38px height
+- Tab trapezoid shape + gradient + 30px height
+- Top Sites grid styling (4×3, dark bg, thumbnails, hover scale)
+- Downloads popover styling
+- Find bar styling (32px, yellow highlight)
+- Private browsing dark chrome
+- Context menu styling
+- Sheet dialog animation
+- Typography/spacing/icon sizing
+
+These describe CSS that was never written. No userChrome.css file exists in the
+repository or in the mavericks-theme package.
+
+### 16.3 Dead Prefs Removed (P1 Fix)
+
+5 prefs in user.js were spec-claimed but non-functional in current Firefox ESR:
+- `browser.theme.color_scheme` — not a real pref
+- `browser.tabs.closeButtons` — removed in FF89
+- `browser.tabs.firefox-view-next` — not a real pref
+- `browser.tabmanager.enabled` — removed in FF45
+- `browser.sharepane.enabled` — removed in FF95
+
+Removed from user.js with explanatory comments. Spec updated to match.
+
+### 16.4 HiDPI Assessment
+
+- `browser.uidensity=0` (normal density) is the only HiDPI-relevant pref. Correct choice.
+- No resolution-aware CSS exists (no userChrome.css).
+- No icon size overrides for HiDPI.
+- No toolbar density adjustments for HiDPI.
+- Firefox renders at 1x and relies on OS scaling. At 2304×1440 with 2x scaling,
+  Firefox UI will be scaled by the compositor. This is functional but not
+  pixel-perfect Mavericks fidelity.
+- Tracked in NEEDS_HARDWARE_TEST.md: "HiDPI rendering of Firefox UI (uidensity=0, 2x scaling)"
+
+### 16.5 Verdict
+
+Firefox chrome is **Firefox-native** for all visual elements. The only Mavericks
+adaptation is: (1) behavioral prefs that disable non-Mavericks features (Firefox View,
+tab manager, sponsored tiles), (2) bookmarks bar visibility, (3) find bar highlight,
+(4) GTK3 dialog theming via mavericks-theme. The entire visual layer (userChrome.css)
+is absent. This is the largest known gap in the Safari-Mavericks fidelity track.
