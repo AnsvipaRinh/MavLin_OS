@@ -1,5 +1,13 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.70 — Safari chrome fidelity rewrite: spec → actual implementation (2026-09-28, без железа)
+- [x] docs/SAFARI_SPEC.md fidelity rewrite: all "userChrome.css notes" spec-only prose replaced with actual implementation citations (file:line). 20 priority items classified: 9 implemented / 9 partially-implemented / 2 Firefox-native / 0 impossible-without-fork / 0 intentionally-different (item-level); 4 sub-aspects intentionally-different documented (tabs trapezoid transform, Top Sites light bg, menu gray hover, private light purple tint).
+- [x] Validation checklist added (§17): 23 browser-chrome states — 17 covered-by-CSS / 4 needs-pixel-validation-on-HW (error, history, fullscreen, maximized) / 2 untestable-headless (keyboard nav, 2304×1440). Pixel states cross-referenced to NEEDS_HARDWARE_TEST.md — NOT claimed validated.
+- [x] Energy sanity section (§18): pure-CSS/no-JS/no-timers/no-keyframes confirmed by grep (keyframes only in comments userChrome.css:216-217; no @-rules per gate test-firefox-chrome.py:157); transitions limited to opacity+background-color 120ms (allowlist-enforced).
+- [x] Phase delivery recorded (§14): S1a toolbar + S1b unified field (28220a1), S1c tabs + S1d bookmarks + S1e typography (190fb2b), S2a newtab userContent.css + inventory + gate (f4ea0e6), S2b downloads/findbar/loading (e1ed62b), S2c sidebar/menus/private/focus (769590e), S2d appMenu + urlbar popups (8184883), S2e icons + borders/gradients/textures (4a23570).
+- [x] Gate: test-firefox-chrome.py 221 checks, 0 failures (112 selectors, 191 !important). Docs-only phase — zero chrome CSS changes.
+- [x] Power baseline untouched; no new daemons; no polling added
+
 ### Фаза 0.69 — Final narrow audit: System Settings + Browser/YouTube readiness for first boot (2026-09-28, без железа)
 - [x] Cmd-layer collision audit: 3 real collisions found + fixed (Super+C→Super+Shift+C, Super+F→Super+Shift+F, Super+N→Ctrl+Alt+N). Remaining Cmd-layer shortcuts (T/W/Q/1..9/[/]) documented as app-level (Ctrl equivalents in Firefox), NOT globally bound to avoid breaking other apps. KEYBOARD.md + SAFARI_SPEC.md updated.
 - [x] mv-ytplayer Firefox handoff: protocol handler (mv-ytplayer://) + Firefox bookmarklet ("Watch efficiently") + --url intake. One user action from YouTube page → mv-ytplayer → mpv one-shot → full exit. No manual URL copy, no terminal. Tests: 19→30 (+11 handoff tests).

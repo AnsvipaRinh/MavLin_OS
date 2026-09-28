@@ -1,5 +1,29 @@
 # NEEDS_HARDWARE_TEST — Items requiring real MacBook10,1 hardware
 
+## Browser chrome visual checklist (phase 0.70, pixel validation on HW)
+All states below are covered-by-CSS (gate-validated, see docs/SAFARI_SPEC.md §17)
+but NOT pixel-validated. Screenshot each on MacBook10,1 at 2304×1440:
+- [ ] Fresh launch: toolbar gradient, 38px height, button spacing, inset sheen
+- [ ] Empty tab: light #f9f9fb background, wordmark, search field
+- [ ] 1 tab / N tabs: rounded top corners, active gradient + toolbar connection, inactive dimming
+- [ ] Tab hover/active states: opacity 0.9 / bg 0.12
+- [ ] Focused urlbar: blue ring 3px
+- [ ] Typed URL: urlbarView popup panel, row selected blue, one-offs
+- [ ] Loading: urlbar[busy] tint + 2px blue bottom border
+- [ ] Bookmarks bar (newtab): gradient, item hover
+- [ ] Top Sites: tile grid spacing, white tiles, hover
+- [ ] Downloads: panel + button + [progress] fill + badge
+- [ ] Findbar: banner gradient, textbox, focus ring
+- [ ] Sidebar: container, header, title, switcher/close buttons
+- [ ] Private: purple-tinted toolbar + bookmarks + indicator
+- [ ] Context menu: panel, item hover gray, separator, disabled
+- [ ] appMenu popup + urlbar popup: panel styling, subviewbutton rows
+- [ ] Error page: native chrome acceptable (no CSS covers error pages)
+- [ ] History sidebar: native rows acceptable
+- [ ] Fullscreen: native behavior acceptable
+- [ ] Maximized: window controls (GTK/xfwm4) coherent
+- [ ] 2304×1440: HiDPI rendering of all above
+
 ## Browser / Video — hardware validation (phase 0.67)
 - [ ] vainfo on HD 615 Gen9.5 — confirm H.264/VP8/VP9/HEVC VAAPI profiles
 - [ ] Real YouTube playback via Firefox+uBO — measure CPU/RSS with uBO blocking ON
