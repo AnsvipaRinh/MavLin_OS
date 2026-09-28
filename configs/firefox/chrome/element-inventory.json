@@ -162,6 +162,122 @@
       "confidence": "verified-ESR",
       "provenance": "browser.xhtml — busy attribute + Proton urlbar background element"
     },
+    "#sidebar-box": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/browser-box.inc.xhtml (ESR 128) — sidebar container vbox"
+    },
+    "#sidebar-header": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/browser-box.inc.xhtml (ESR 128) — sidebar header box"
+    },
+    "#sidebar-title": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/browser-box.inc.xhtml (ESR 128) — sidebar title label"
+    },
+    "#sidebar-switcher-target": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/browser-box.inc.xhtml (ESR 128) — sidebar switcher toolbarbutton"
+    },
+    "#sidebar-close": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/browser-box.inc.xhtml (ESR 128) — sidebar close toolbarbutton"
+    },
+    "#sidebar-switcher-target:not([disabled=\"true\"]):hover": {
+      "confidence": "verified-ESR",
+      "provenance": "browser-box.inc.xhtml (ESR 128) — disabled attribute + :hover pseudo-class"
+    },
+    "#sidebar-close:not([disabled=\"true\"]):hover": {
+      "confidence": "verified-ESR",
+      "provenance": "browser-box.inc.xhtml (ESR 128) — disabled attribute + :hover pseudo-class"
+    },
+    "#sidebar-switcher-target:not([disabled=\"true\"]):active": {
+      "confidence": "verified-ESR",
+      "provenance": "browser-box.inc.xhtml (ESR 128) — disabled attribute + :active pseudo-class"
+    },
+    "#sidebar-close:not([disabled=\"true\"]):active": {
+      "confidence": "verified-ESR",
+      "provenance": "browser-box.inc.xhtml (ESR 128) — disabled attribute + :active pseudo-class"
+    },
+    "menupopup": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/main-popupset.inc.xhtml (ESR 128) — chrome popup element; content documents cannot create menupopup"
+    },
+    "menuitem": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/main-popupset.inc.xhtml (ESR 128) — chrome menu item element"
+    },
+    "menu": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/main-popupset.inc.xhtml (ESR 128) — chrome submenu element"
+    },
+    "menuitem:hover": {
+      "confidence": "verified-ESR",
+      "provenance": "main-popupset.inc.xhtml (ESR 128) — :hover pseudo-class on menuitem"
+    },
+    "menuitem[_moz-menuactive=\"true\"]": {
+      "confidence": "verified-ESR",
+      "provenance": "main-popupset.inc.xhtml (ESR 128) — _moz-menuactive attribute set by chrome menu bindings on hover/keyboard selection"
+    },
+    "menu:hover": {
+      "confidence": "verified-ESR",
+      "provenance": "main-popupset.inc.xhtml (ESR 128) — :hover pseudo-class on menu"
+    },
+    "menu[_moz-menuactive=\"true\"]": {
+      "confidence": "verified-ESR",
+      "provenance": "main-popupset.inc.xhtml (ESR 128) — _moz-menuactive attribute on submenu"
+    },
+    "menuitem[disabled=\"true\"]": {
+      "confidence": "verified-ESR",
+      "provenance": "main-popupset.inc.xhtml (ESR 128) — disabled attribute on menuitem"
+    },
+    "menu[disabled=\"true\"]": {
+      "confidence": "verified-ESR",
+      "provenance": "main-popupset.inc.xhtml (ESR 128) — disabled attribute on menu"
+    },
+    "menuseparator": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/main-popupset.inc.xhtml (ESR 128) — chrome menu separator element"
+    },
+    "[privatebrowsingmode=\"temporary\"] #navigator-toolbox": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/browser.js (ESR 128) — privatebrowsingmode attribute set on documentElement for private windows"
+    },
+    "[privatebrowsingmode=\"temporary\"] #PersonalToolbar": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.js (ESR 128) — privatebrowsingmode attribute + bookmarks toolbar"
+    },
+    "#private-browsing-indicator-with-label": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/navigator-toolbox.inc.xhtml (ESR 128) — inline private browsing indicator hbox in TabsToolbar"
+    },
+    "#nav-bar .toolbarbutton-1:focus-visible": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml (ESR 128) — :focus-visible pseudo-class supported in Firefox chrome since FF 85"
+    },
+    "#PersonalToolbar .toolbarbutton-1:focus-visible": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml (ESR 128) — :focus-visible pseudo-class on bookmarks bar button"
+    },
+    "#PersonalToolbar .bookmark-item:focus-visible": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml (ESR 128) — :focus-visible pseudo-class on bookmark item"
+    },
+    "#sidebar-switcher-target:focus-visible": {
+      "confidence": "verified-ESR",
+      "provenance": "browser-box.inc.xhtml (ESR 128) — :focus-visible pseudo-class on sidebar switcher"
+    },
+    "#sidebar-close:focus-visible": {
+      "confidence": "verified-ESR",
+      "provenance": "browser-box.inc.xhtml (ESR 128) — :focus-visible pseudo-class on sidebar close"
+    },
+    "#nav-bar .toolbarbutton-1[checked=\"true\"]": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml (ESR 128) — checked attribute on toggle toolbarbutton"
+    },
+    "#PersonalToolbar .toolbarbutton-1[checked=\"true\"]": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml (ESR 128) — checked attribute on bookmarks bar toggle button"
+    },
     "body.activity-stream": {
       "confidence": "verified-ESR",
       "provenance": "activity-stream newtab document — body class, shared by about:home and about:newtab"

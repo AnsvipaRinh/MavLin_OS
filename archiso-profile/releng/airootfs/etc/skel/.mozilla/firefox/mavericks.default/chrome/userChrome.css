@@ -224,3 +224,110 @@
 #urlbar[busy="true"] #urlbar-background {
   border-bottom: 2px solid #4285f4 !important;
 }
+
+/* --- (i) sidebar: Mavericks light panel + toggle states ------------------- */
+#sidebar-box {
+  background: #f6f6f6 !important;
+  box-shadow: inset -1px 0 0 0 #c6c6c6 !important;
+}
+
+#sidebar-header {
+  background: linear-gradient(to bottom, #f0f0f0 0%, #e4e4e4 100%) !important;
+  border-bottom: 1px solid #c6c6c6 !important;
+  padding: 2px 4px !important;
+}
+
+#sidebar-title {
+  font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
+  font-size: 13px !important;
+  color: #1a1a1a !important;
+}
+
+#sidebar-switcher-target,
+#sidebar-close {
+  padding: 3px 6px !important;
+  border-radius: 4px !important;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+#sidebar-switcher-target:not([disabled="true"]):hover,
+#sidebar-close:not([disabled="true"]):hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+#sidebar-switcher-target:not([disabled="true"]):active,
+#sidebar-close:not([disabled="true"]):active {
+  background-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* --- (j) context menus / popups: Mavericks chrome ------------------------ */
+/* menupopup/menuitem/menuseparator only exist in XUL/HTML chrome documents,
+ * so these rules are inherently scoped to browser chrome popups. */
+menupopup {
+  background: #f6f6f6 !important;
+  border: 1px solid #c6c6c6 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
+  padding: 4px !important;
+}
+
+menuitem,
+menu {
+  padding: 4px 16px 4px 24px !important;
+  border-radius: 4px !important;
+  color: #1a1a1a !important;
+  font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
+  font-size: 13px !important;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+menuitem:hover,
+menuitem[_moz-menuactive="true"],
+menu:hover,
+menu[_moz-menuactive="true"] {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+menuitem[disabled="true"],
+menu[disabled="true"] {
+  color: #9a9a9a !important;
+  opacity: 0.6 !important;
+}
+
+menuseparator {
+  border-bottom: 1px solid #d4d4d4 !important;
+  margin: 4px 8px !important;
+  padding: 1px 0 !important;
+}
+
+/* --- (k) private browsing: tinted toolbar + indicator -------------------- */
+[privatebrowsingmode="temporary"] #navigator-toolbox {
+  background: linear-gradient(to bottom, #e8e4f0 0%, #d9d2e4 100%) !important;
+  border-bottom: 1px solid #b8aecb !important;
+}
+
+[privatebrowsingmode="temporary"] #PersonalToolbar {
+  background: linear-gradient(to bottom, #e0dbe9 0%, #d2c9dd 100%) !important;
+  border-bottom: 1px solid #b8aecb !important;
+}
+
+#private-browsing-indicator-with-label {
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  background: rgba(120, 80, 180, 0.12) !important;
+  color: #5a3d8a !important;
+}
+
+/* --- (l) focus + selection states for toolbar controls -------------------- */
+#nav-bar .toolbarbutton-1:focus-visible,
+#PersonalToolbar .toolbarbutton-1:focus-visible,
+#PersonalToolbar .bookmark-item:focus-visible,
+#sidebar-switcher-target:focus-visible,
+#sidebar-close:focus-visible {
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.55) !important;
+}
+
+#nav-bar .toolbarbutton-1[checked="true"],
+#PersonalToolbar .toolbarbutton-1[checked="true"] {
+  background-color: rgba(66, 133, 244, 0.18) !important;
+}
