@@ -231,3 +231,50 @@ For each state: which code paths are ACTIVE (from source), expected wakeup/inter
 - No `powertop --auto-tune` (banned).
 - No `thermald`, `ananicy-cpp`, random sysctl tuning.
 - No driver code patches.
+
+---
+
+## 5. D2 — NM scan wakeup + backend A/B HW measurement plan
+
+> Audit date: 2026-09-28. Userspace path: NM → wpa_supplicant → nl80211 → cfg80211 → brcmfmac.
+> All items below are HARDWARE VALIDATION REQUIRED (no hardware yet).
+
+### 5.1 NM scan wakeup measurement
+
+Goal: quantify scan-induced wakeups and confirm the D2 config changes reduce them.
+
+| Step | Command | Expected after D2 changes |
+|---|---|---|
+| 1. Baseline idle-connected | `cat /proc/interrupts \| grep brcmf` over 60s | low event rate (keepalive only) |
+| 2. Control Center open (mv-control) | open CC, wait 60s, count `brcmf_pcie_intr` | **no 30s scan spikes** (was: scan every ~30s before `--rescan no`) |
+| 3. Explicit refresh | click Refresh in CC | one scan, then quiet |
+| 4. Disconnected periodic scan | `nmcli dev disconnect wlan0`, count scans over 60s | NM periodic scan 3s→120s backoff (by design) |
+| 5. Connect | `nmcli dev connect wlan0` | scan suppressed when ACTIVATED (supplicant bgscan) |
+
+Counters: `/proc/interrupts` (`brcmf_pcie_intr`), `iw dev wlan0 get power_save`, `iw dev wlan0 survey dump`, `powertop` wakeup lines, `dmesg` (quiet).
+
+### 5.2 Backend A/B procedure (wpa_supplicant vs iwd)
+
+Goal: determine if iwd offers a measurable advantage for BCM43602 on MacBook10,1.
+
+| Step | wpa_supplicant (baseline) | iwd (experiment) |
+|---|---|---|
+| 1. Select backend | `[device] wifi.backend=wpa_supplicant` (default) | `nmcli` / edit `99-mavericks.conf` → `wifi.backend=iwd` |
+| 2. Restart NM | `systemctl restart NetworkManager` | same |
+| 3. Connect | `nmcli dev wifi connect <ssid>` | same |
+| 4. Idle wakeups | `/proc/interrupts` over 60s | same |
+| 5. Scan behavior | `nmcli dev wifi list` (note: iwd has no P2P; 802.1X needs provisioning) | same |
+| 6. Roaming | walk between APs, `dmesg`, reconnect time | same (iwd does own roaming) |
+| 7. Powersave | `iw dev wlan0 get power_save` | same (identical in NM 1.58.1) |
+| 8. SAE/WPA3 | connect to WPA3 AP | connect to WPA3 AP |
+| 9. Suspend/resume | `systemctl suspend`, resume, reconnect | same |
+| 10. Decision | KEEP wpa_supplicant unless iwd shows measurable wakeup/energy win AND no feature regression | — |
+
+**Decision criteria:** iwd is only adopted if it shows a measurable idle-wakeup or energy advantage AND no feature regression (P2P not needed; 802.1X not needed for home use). Otherwise wpa_supplicant stays (mature, full features). Record result in DECISIONS.md.
+
+### 5.3 Powersave lever (HW validation)
+
+The `[connection] wifi.powersave=3` (enable) lever would make NM send `NL80211_CMD_SET_POWER_SAVE` (PS_ENABLED) → `PM_FAST` for all connections. This is a battery-vs-latency trade-off:
+- **Before:** measure idle interrupt rate + `iw dev wlan0 get power_save` with default (`ignore` → firmware default).
+- **After:** set `wifi.powersave=3`, reconnect, measure again.
+- **Decision:** adopt only if idle wakeups drop AND no disconnects/latency regression (D1 hypothesis O6). Otherwise keep `ignore` (firmware default). PM_FAST stability on BCM43602 is unverified.

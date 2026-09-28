@@ -316,3 +316,75 @@
 | LOCAL-CANDIDATE | 0 | — |
 | FALSE-POSITIVE | 1 | 14 (feature_disable=0x82000) |
 | **Total** | **18** | |
+
+---
+
+## D2 — Userspace path findings (NetworkManager / wpa_supplicant / iwd)
+
+> Audit date: 2026-09-28. Source: NetworkManager 1.58.1, wpa_supplicant 2.12, iwd 3.12 sources + Arch package file lists.
+> Focus: periodic activity, scan triggers, backend trade-off, config levers. No daemon rewrites.
+
+### U1 — NM periodic scan schedule (by design, not a defect)
+
+| Field | Value |
+|---|---|
+| Component | NM Wi-Fi scan scheduler |
+| Source | `src/core/devices/wifi/nm-device-wifi.c` (`_scan_notify_allowed`, `_scan_kickoff`) |
+| Finding | Periodic scans are **DISCONNECTED/FAILED-only**. When ACTIVATED, `periodic_allowed=FALSE` — NM relies on supplicant background scans. Disconnected interval: `SCAN_INTERVAL_SEC_MIN 3` → `SCAN_INTERVAL_SEC_MAX 120` (×1.5 backoff, step via `SCAN_INTERVAL_SEC_STEP 20`). Rate limit 1.5s disconnected / 8s activated for explicit scans. |
+| Evidence | `SCAN_INTERVAL_SEC_MIN/STEP/MAX` (nm-device-wifi.c:30-32); `_scan_notify_allowed` state machine (nm-device-wifi.c:462-491); `_scan_kickoff` rate limit (nm-device-wifi.c:1793-1797) |
+| Risk | none — by design |
+| Proposed action | **KEEP** — no change. Documented in DRIVER_OPTIMIZATION_CANDIDATES.md HW plan. |
+
+### U2 — mv-control 30s fallback poll triggers a scan every ~30s (FIXED)
+
+| Field | Value |
+|---|---|
+| Component | mv-control Wi-Fi list refresh |
+| Source | `packages/mavericks-apps/src/mavericks-apps/bin/mv-control` (`refresh_wifi_list`, `_wifi_fallback_tick`) |
+| Finding | The 30s fallback poll calls `nmcli dev wifi list`, which per nmcli(1) "ensures that the access point list is no older than 30 seconds and triggers a network scan if necessary." With a 30s poll interval, the cache is always borderline → **a firmware scan every ~30s while Control Center is open**. Each scan = `NL80211_CMD_TRIGGER_SCAN` → `escan` iovar → MPC disabled. |
+| Evidence | nmcli(1) man page; mv-control `WIFI_FALLBACK_POLL_S = 30` (mv-control:21); `refresh_wifi_list` nmcli call (mv-control:187) |
+| Risk | **Medium** — unnecessary scan wakeups + MPC-off while Control Center open |
+| Proposed action | **FIXED** — `refresh_wifi_list` now passes `--rescan no` by default (cached AP list, no scan). NM D-Bus signals (already subscribed) refresh on AP changes. Explicit Refresh button passes `--rescan yes`. Test added (test-mv-control.py). |
+
+### U3 — Connectivity check: Arch ships a 300s HTTP poll (CONFIG-CANDIDATE → APPLIED)
+
+| Field | Value |
+|---|---|
+| Component | NM connectivity check |
+| Source | `nm-config.h` (`NM_CONFIG_DEFAULT_CONNECTIVITY_INTERVAL 300`), Arch `/usr/lib/NetworkManager/conf.d/20-connectivity.conf` |
+| Finding | Arch ships `uri=http://ping.archlinux.org/nm-check.txt`. NM defaults: `enabled=true`, `interval=300s`, `timeout=20s`. So stock Arch NM polls an HTTP endpoint every 5 min whenever a connection exists — a periodic network wakeup. |
+| Evidence | `nm-config.h:38` (`NM_CONFIG_DEFAULT_CONNECTIVITY_INTERVAL 300`); Arch package file list + extracted `20-connectivity.conf`; `man/NetworkManager.conf.xml` (`enabled` default true, `interval` default 300) |
+| Risk | **Low-Medium** — 5-min HTTP poll; battery/wakeup cost; no captive-portal need in our discipline |
+| Proposed action | **APPLIED** — `configs/network/99-mavericks.conf` `[connectivity] enabled=false` shadows the Arch default. |
+
+### U4 — Powersave: identical for both backends in NM 1.58.1 (informational)
+
+| Field | Value |
+|---|---|
+| Component | 802.11 powersave |
+| Source | `nm-device-wifi.c:3412`, `nm-device-iwd.c:2274`, `nm-wifi-utils-nl80211.c:260` |
+| Finding | NM 1.58.1 sets 802.11 PS via `NL80211_CMD_SET_POWER_SAVE` **directly via nl80211** for BOTH backends (not through wpa_supplicant). Default `802-11-wireless.powersave=0` → falls back to `[connection] wifi.powersave` (default `ignore`=1) → NM does not touch PS; firmware default applies. |
+| Evidence | `set_powersave()` in both device backends; `wifi_nl80211_set_powersave` (nm-wifi-utils-nl80211.c:260-272); `NM_CON_DEFAULT_NOP("wifi.powersave")` (nm-device.c:20720) |
+| Risk | none — by design |
+| Proposed action | **KEEP** — no change. Lever documented (`[connection] wifi.powersave=3` to enable); PM_FAST stability is a HW-validation item (D1 hypothesis O6). |
+
+### U5 — Backend trade-off: wpa_supplicant vs iwd for BCM43602 FullMAC (informational)
+
+| Field | Value |
+|---|---|
+| Component | NM Wi-Fi backend selection |
+| Source | `nm-wifi-factory.c:126`, `nm-device-iwd.c`, wpa_supplicant 2.12 + iwd 3.12 sources |
+| Finding | **wpa_supplicant** (active): full feature support (P2P/AP/hidden/ad-hoc), NM-controlled roaming with supplicant settle wait, mature NM integration. **iwd** (alternative): no P2P, 802.1X needs iwd provisioning files, hidden SSIDs infra-only, iwd-controlled roaming/autoconnect (network ranking), native `PowerSaveDisable` config. Powersave identical (U4). SAE/WPA3 supported by both (wpa_supplicant `CONFIG_SAE=y`; iwd WPA3 since 1.0). |
+| Evidence | `nm-wifi-factory.c:126` (backend selection); `nm-device-iwd.c` capability checks; wpa_supplicant 2.12 `defconfig` (`CONFIG_SAE=y`); iwd/Arch package versions; NM commit 5838c38 (iwd powersave added) |
+| Risk | none — wpa_supplicant is the safer default |
+| Proposed action | **KEEP** — wpa_supplicant pinned explicitly in `99-mavericks.conf`. |
+
+### D2 userspace finding summary
+
+| Outcome class | Count | Findings |
+|---|---|---|
+| KEEP | 3 | U1 (NM scan schedule), U4 (powersave identical), U5 (backend trade-off) |
+| CONFIG-CANDIDATE (APPLIED) | 1 | U3 (connectivity check disabled) |
+| LOCAL-FIX (APPLIED) | 1 | U2 (mv-control --rescan no) |
+| UPSTREAM-CANDIDATE | 0 | — |
+| **Total** | **5** | |

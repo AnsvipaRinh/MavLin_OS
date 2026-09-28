@@ -95,7 +95,47 @@ Process/module boundaries:
 - **nl80211/cfg80211**: kernel; no persistent process.
 - **brcmfmac**: kernel module; no userspace daemon. All 802.11 state machine in firmware.
 
-NM per-connection powersave: `nmcli c modify <ssid> 802-11-wireless.powersave 2|3` → wpa_supplicant → `NL80211_CMD_SET_POWER_SAVE` → `brcmf_cfg80211_set_power_mgmt` (cfg80211.c:3305) → `BRCMF_C_SET_PM` iovar.
+Powersave (NM 1.58.1, D2 correction): NM sets 802.11 PS **directly via nl80211**, not through wpa_supplicant. `set_powersave()` (nm-device-wifi.c:3412) reads `802-11-wireless.powersave` (default 0 → falls back to `[connection] wifi.powersave`, default `ignore`=1 → no touch) and calls `nm_platform_wifi_set_powersave` → `wifi_nl80211_set_powersave` (nm-wifi-utils-nl80211.c:260) → `NL80211_CMD_SET_POWER_SAVE` → `brcmf_cfg80211_set_power_mgmt` (cfg80211.c:3305) → `BRCMF_C_SET_PM` iovar. Identical for the iwd backend (nm-device-iwd.c:2274).
+
+---
+
+## 4.1. Userspace path audit (D2, 2026-09-28)
+
+### 4.1.1 Active backend + versions
+
+| Component | Version (Arch) | License | Repo | Role |
+|---|---|---|---|---|
+| NetworkManager | 1.58.1-1 | GPL-2.0-or-later, LGPL-2.1-or-later | extra | connection manager daemon |
+| wpa_supplicant | 2:2.12-1 | BSD-3-Clause | core | NM Wi-Fi backend (active) |
+| iwd | 3.12-2 | LGPL-2.1-or-later | extra | NM Wi-Fi backend (alternative, disabled on installed system) |
+
+**Active backend: wpa_supplicant.** NM compile-time default is `wpa_supplicant` (meson.build:430-436: `config_wifi_backend_default='default'` → `'wpa_supplicant'`). Our packaging ships NO NM config that selects a backend, so the default applies. firstboot disables iwd on the installed system (`systemctl disable --now iwd.service`). Pinned explicitly in `configs/network/99-mavericks.conf` (`[device] wifi.backend=wpa_supplicant`).
+
+### 4.1.2 D-Bus API surface
+
+| Backend | D-Bus name | NM manager | Key objects |
+|---|---|---|---|
+| wpa_supplicant | `fi.w1.wpa_supplicant1` | `src/core/supplicant/nm-supplicant-manager.c` | Interface, BSS, Network, Group |
+| iwd | `net.connman.iwd` | `src/core/devices/wifi/nm-iwd-manager.c` | Device, Station, Network, KnownNetwork, Manager |
+
+### 4.1.3 NM config state (our packaging)
+
+| Setting | Location | Value | Effect |
+|---|---|---|---|
+| `wifi.backend` | `configs/network/99-mavericks.conf` `[device]` | `wpa_supplicant` | explicit backend (no behavior change; pins default) |
+| `connectivity.enabled` | `configs/network/99-mavericks.conf` `[connectivity]` | `false` | disables Arch's 300s HTTP check |
+| `connectivity.uri` | Arch `/usr/lib/NetworkManager/conf.d/20-connectivity.conf` | `http://ping.archlinux.org/nm-check.txt` | shadowed by our `enabled=false` |
+| `wifi.powersave` | (unset) | default `ignore` (1) | NM does not touch 802.11 PS; firmware default applies |
+
+### 4.1.4 nl80211 command flow per NM operation
+
+| NM operation | nl80211 command | brcmfmac handler |
+|---|---|---|
+| Scan (explicit/periodic) | `NL80211_CMD_TRIGGER_SCAN` | `brcmf_cfg80211_scan` (cfg80211.c:1531) → `escan` iovar |
+| Connect | `NL80211_CMD_CONNECT` / auth | `brcmf_cfg80211_connect` (cfg80211.c:2381) |
+| Powersave set | `NL80211_CMD_SET_POWER_SAVE` | `brcmf_cfg80211_set_power_mgmt` (cfg80211.c:3305) |
+| Disconnect | `NL80211_CMD_DISCONNECT` | `brcmf_cfg80211_disconnect` (cfg80211.c:2627) |
+| Signal/station | `NL80211_CMD_GET_STATION` | `brcmf_cfg80211_get_station` |
 
 ---
 

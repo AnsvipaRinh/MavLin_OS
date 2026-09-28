@@ -187,3 +187,44 @@ fi
 ## Config changes applied
 
 Only F1 and F2 have proposed config changes (to `extract-brcmfmac-nvram.sh`). Both are in our own packaging, evidence-backed, and do not touch the frozen power baseline or driver code. See the proposed patches in F1/F2 above. These will be applied in a follow-up commit if approved.
+
+---
+
+## D2 — Userspace backend audit (NetworkManager / wpa_supplicant / iwd)
+
+> Audit date: 2026-09-28. Source: NM 1.58.1, wpa_supplicant 2.12, iwd 3.12 sources + Arch package file lists.
+> Companion to RUNTIME_SOURCE_AUDIT.md §D2 (U1-U5) and RUNTIME_COMPONENT_MAP.md §4.1.
+
+### F10 — Active backend is wpa_supplicant (by default, now pinned)
+
+| Field | Value |
+|---|---|
+| Severity | Informational |
+| Component | NM Wi-Fi backend selection |
+| Source | `meson.build:430-436`, `nm-wifi-factory.c:126` |
+| Finding | NM compile-time default backend is `wpa_supplicant` (`config_wifi_backend_default='default'` → `'wpa_supplicant'`). Our packaging shipped no backend selection → default applied implicitly. iwd is installed in the ISO but disabled on the installed system by firstboot. |
+| Evidence | `meson.build:430-436`; `nm-wifi-factory.c:126` (`backend = "" NM_CONFIG_DEFAULT_WIFI_BACKEND`); firstboot `systemctl disable --now iwd.service` |
+| Risk | Low — implicit default; a future NM default flip could silently change backend |
+| Proposed action | **APPLIED** — `configs/network/99-mavericks.conf` `[device] wifi.backend=wpa_supplicant` pins it explicitly. No behavior change. |
+
+### F11 — wpa_supplicant vs iwd trade-off for BCM43602 FullMAC
+
+| Field | Value |
+|---|---|
+| Severity | Informational |
+| Component | NM Wi-Fi backend |
+| Source | `nm-device-iwd.c`, wpa_supplicant 2.12 + iwd 3.12 sources |
+| Finding | **wpa_supplicant** (active): full features (P2P/AP/hidden/ad-hoc), NM-controlled roaming (supplicant settle wait, nm-device-wifi.c:2611), mature. **iwd**: no P2P, 802.1X needs iwd provisioning files, hidden SSIDs infra-only, iwd-controlled roaming/autoconnect (network ranking). Powersave identical in NM 1.58.1 (both via `NL80211_CMD_SET_POWER_SAVE` directly). SAE/WPA3: both support. |
+| Evidence | `nm-device-iwd.c` capability checks; wpa_supplicant 2.12 `defconfig` `CONFIG_SAE=y`; NM commit 5838c38 (iwd powersave); RUNTIME_SOURCE_AUDIT.md U5 |
+| Risk | none — wpa_supplicant is the safer default for our feature set |
+| Proposed action | **KEEP** — wpa_supplicant pinned. iwd remains available as a future A/B option (see DRIVER_OPTIMIZATION_CANDIDATES.md). |
+
+### D2 config changes applied
+
+| Change | File | Evidence | Baseline impact |
+|---|---|---|---|
+| Pin `wifi.backend=wpa_supplicant` | `configs/network/99-mavericks.conf` `[device]` | NM default is wpa_supplicant (meson.build:430-436) | none (pins existing default) |
+| Disable connectivity check (`enabled=false`) | `configs/network/99-mavericks.conf` `[connectivity]` | Arch ships `uri=http://ping.archlinux.org/nm-check.txt`; NM default interval 300s | removes 5-min HTTP poll |
+| mv-control `--rescan no` default | `packages/.../mv-control` `refresh_wifi_list` | nmcli(1): 30s-old cache triggers scan | removes 30s scan while CC open |
+
+All three are in our own packaging, evidence-backed, no NM/supplicant source patches, frozen power baseline untouched.

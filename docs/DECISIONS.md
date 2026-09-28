@@ -1341,3 +1341,27 @@ OVMF firmware запускается (PI/UEFI), но не обнаруживае
 **Verification:** lifecycle test 12/12; full suite 21/21 test-*.py + check-sync.sh green; no lingering editor after suite; 15-min process-tree watch clean.
 
 **Status:** Resolved (no respawner existed; orphan removed; regression guard added). Power baseline untouched.
+
+---
+
+## 2026-09-28 — Phase D2: NM userspace path — backend pin, connectivity-check off, mv-control scan fix
+
+**Date:** 2026-09-28
+**Context:** Deep Runtime Track D2 — audit of the NetworkManager → wpa_supplicant/iwd → nl80211 → cfg80211 userspace path for BCM43602 FullMAC on MacBook10,1. Config/packaging changes only; no daemon rewrites; frozen power baseline untouched.
+
+**Findings (evidence-backed):**
+- **Active backend = wpa_supplicant.** NM compile-time default is `wpa_supplicant` (meson.build:430-436). Our packaging shipped no backend selection → default applied implicitly. iwd installed in ISO, disabled on installed system by firstboot.
+- **Connectivity check was active by default.** Arch ships `/usr/lib/NetworkManager/conf.d/20-connectivity.conf` with `uri=http://ping.archlinux.org/nm-check.txt`; NM defaults `enabled=true`, `interval=300s` (nm-config.h:38). Stock Arch NM polls an HTTP endpoint every 5 min whenever a connection exists.
+- **mv-control 30s fallback poll triggered a scan every ~30s.** `refresh_wifi_list` called `nmcli dev wifi list`, which per nmcli(1) "ensures that the access point list is no older than 30 seconds and triggers a network scan if necessary." With a 30s poll interval → a firmware scan every ~30s while Control Center open.
+- **Powersave is identical for both backends in NM 1.58.1.** NM sets 802.11 PS via `NL80211_CMD_SET_POWER_SAVE` directly (nm-device-wifi.c:3412, nm-device-iwd.c:2274 → nm-wifi-utils-nl80211.c:260), not through wpa_supplicant. Default `ignore` → firmware default applies.
+- **Backend trade-off:** wpa_supplicant = full features (P2P/AP/hidden/ad-hoc), NM-controlled roaming, mature. iwd = no P2P, 802.1X needs provisioning, iwd-controlled roaming. SAE/WPA3: both.
+
+**Decisions:**
+1. **Pin `wifi.backend=wpa_supplicant`** in `configs/network/99-mavericks.conf` `[device]`. No behavior change (pins existing default); protects against future NM default flip. wpa_supplicant chosen over iwd (full features, mature NM integration, NM-controlled roaming).
+2. **Disable connectivity check** (`[connectivity] enabled=false`) in `99-mavericks.conf`. Shadows Arch's `20-connectivity.conf` (etc > usr/lib precedence). Removes the 5-min HTTP poll. Captive-portal detection not required in our offline discipline. Re-enable by deleting the file if ever needed.
+3. **mv-control `--rescan no` default.** `refresh_wifi_list` now passes `--rescan no` (cached AP list, no scan) by default; explicit Refresh button passes `--rescan yes`. NM D-Bus signals (already subscribed) refresh on AP changes. Removes the 30s scan wakeup. Test added (test-mv-control.py).
+4. **Powersave left at default (`ignore`).** Enabling (`[connection] wifi.powersave=3` → PM_FAST) is a battery-vs-latency trade-off; PM_FAST stability on BCM43602 is unverified (D1 hypothesis O6). Documented as HW-validation candidate, not applied.
+
+**Verification:** mv-control test 34/34 (was 32; +2 rescan tests). check-sync.sh ALL CHECKS PASSED (new mirror pair added). No NM/supplicant source patches. Frozen power baseline untouched.
+
+**Status:** D2 config changes applied. HW measurement plan (NM scan wakeups, backend A/B, powersave lever) in DRIVER_OPTIMIZATION_CANDIDATES.md §5. Upstream patch search: NONE (see UPSTREAM_PATCH_TRACKER.md).

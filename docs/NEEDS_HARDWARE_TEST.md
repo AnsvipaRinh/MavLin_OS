@@ -404,3 +404,32 @@ Remaining items are HW-only by construction (no GPU on host; `vainfo` finds no V
       off to quantify the HW-decode win on the fanless chassis
 - [ ] Firefox VA-API: `media.ffmpeg.vaapi.enabled` experiment (commented in
       `configs/firefox/user.js`) — validate on hardware, measure before/after
+
+---
+
+## Network (NM userspace path) — hardware validation (Phase D2, 2026-09-28)
+
+Pre-hardware state: NM 1.58.1 + wpa_supplicant 2.12 + iwd 3.12 audited from source;
+active backend = wpa_supplicant (pinned); connectivity check disabled; mv-control
+`--rescan no` applied. Remaining items are HW-only (no BCM43602 on host):
+
+- [ ] **NM scan wakeup measurement** (DRIVER_OPTIMIZATION_CANDIDATES.md §5.1):
+      idle-connected interrupt rate; confirm NO 30s scan spikes with Control Center
+      open (D2 fix); explicit Refresh = one scan; disconnected = NM periodic 3s→120s
+      backoff; connected = scan suppressed (supplicant bgscan). Counters:
+      `/proc/interrupts` (brcmf_pcie_intr), `iw dev wlan0 survey dump`, powertop.
+- [ ] **Backend A/B** (DRIVER_OPTIMIZATION_CANDIDATES.md §5.2): wpa_supplicant vs
+      iwd on BCM43602 — idle wakeups, scan, roaming, powersave, SAE, suspend/resume.
+      Adopt iwd only if measurable wakeup/energy win AND no feature regression.
+- [ ] **Powersave lever** (DRIVER_OPTIMIZATION_CANDIDATES.md §5.3): measure idle
+      wakeups with default (`ignore` → firmware default) vs `[connection]
+      wifi.powersave=3` (PM_FAST). Adopt only if wakeups drop AND no
+      disconnects/latency regression (D1 hypothesis O6 — PM_FAST stability unverified).
+- [ ] **Connectivity check off — confirm no regression**: with `enabled=false`,
+      confirm NM still connects/resumes normally and no captive-portal false-negative
+      matters (we don't rely on portal detection). Confirm no NM errors in journal.
+- [ ] **Supplicant D-Bus chatter**: `dbus-monitor` on `fi.w1.wpa_supplicant1` during
+      idle — confirm no periodic control-interface polling (event-driven expected).
+- [ ] **iwd not active on installed system**: confirm `systemctl status iwd` = inactive
+      and NM uses wpa_supplicant (`nmcli dev wifi` works, `journalctl -u NetworkManager`
+      shows supplicant backend).

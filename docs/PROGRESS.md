@@ -1,5 +1,15 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза D2 — NM userspace path audit: backend pin + connectivity off + mv-control scan fix (2026-09-28, без железа)
+- [x] Active backend = wpa_supplicant (NM default, meson.build:430-436); versions: NM 1.58.1-1 (GPL-2.0/LGPL-2.1, extra), wpa_supplicant 2:2.12-1 (BSD-3-Clause, core), iwd 3.12-2 (LGPL-2.1, extra); our packaging had NO NM config → defaults applied
+- [x] Periodic-activity table: NM scan (DISCONNECTED-only 3s→120s backoff; ACTIVATED = supplicant bgscan), connectivity check (Arch ships uri → 300s HTTP), mv-control 30s poll (triggered scan every ~30s — FIXED), powersave (default ignore → firmware default)
+- [x] Config changes (evidence-backed, our packaging only): `configs/network/99-mavericks.conf` `[device] wifi.backend=wpa_supplicant` (pin, no behavior change) + `[connectivity] enabled=false` (shadows Arch 300s HTTP poll); mirrored to airootfs + firstboot install + check-sync pair
+- [x] mv-control: `refresh_wifi_list` `--rescan no` default (cached AP list, no scan); Refresh button `--rescan yes`; NM D-Bus signals still drive refresh; test +2 (34/34)
+- [x] Backend trade-off documented: wpa_supplicant (full features, NM-controlled roaming) vs iwd (no P2P, 802.1X provisioning, iwd roaming); powersave identical (NL80211_CMD_SET_POWER_SAVE direct); SAE both
+- [x] docs: RUNTIME_COMPONENT_MAP §4.1 (userspace audit), RUNTIME_SOURCE_AUDIT §D2 (U1-U5), DRIVER_AUDIT §D2 (F10-F11 + config changes), DRIVER_OPTIMIZATION_CANDIDATES §5 (NM scan wakeup plan, backend A/B procedure, powersave lever), UPSTREAM_PATCH_TRACKER (NONE + search), DECISIONS (D2 entry)
+- [x] Gate: mv-control 34/34; check-sync ALL CHECKS PASSED; power baseline untouched; no NM/supplicant source patches
+- [ ] HW validation (NEEDS_HARDWARE_TEST.md): NM scan wakeup measurement, backend A/B, powersave lever, PM_FAST stability
+
 ### Фаза D1 — Network deep audit: brcmfmac/BCM43602 runtime map + source audit + HW plan (2026-09-28, без железа)
 - [x] docs/RUNTIME_COMPONENT_MAP.md: brcmfmac module structure (PCIe bus, MSGBUF protocol, FullMAC → cfg80211 no mac80211), firmware interface (bin/txt/clm/txcap + board-specific OTP/ACPI/DMI selection), NM→wpa_supplicant→nl80211→cfg80211→brcmfmac chain, wakeup sources (threaded MSI IRQ, fweh events, scan, roam), timers (escan 10s, btcoex DHCP, p2p listen — no idle timers), runtime PM (D3 hot-resume), sysfs/debugfs, PCI IDs (14e4:43ba), firmware set
 - [x] docs/RUNTIME_SOURCE_AUDIT.md: 18 findings across event/RX/TX/scan/roam/powersave/suspend/logging/NVRAM paths — 16 KEEP, 2 CONFIG-CANDIDATE (NVRAM file>EFI precedence, ccode=X0), 1 FALSE-POSITIVE (feature_disable=0x82000 = SAE|MONITOR_FMT_HW_RX_HDR cargo-cult)
