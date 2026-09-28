@@ -131,6 +131,7 @@ in phases B–D remains GUI-tier or call-frequency (see phase-B note above).
 | E-12 | all apps | `while True` loops | **IGNORE** | Only mv-notes:65 (string search) + mv-photos:101 (JPEG parser). One-shot algorithmic. |
 | E-13 | all apps | GFileMonitor/inotify | **IGNORE** | None found in custom code. |
 | E-14 | autostart | Autostart entries | **IGNORE** | Only plank (KEEP — dock). mv-notify-send removed in S-09. |
+| E-15 | `mv-ytplayer` | Video playback | **IGNORE** | One-shot process (mpv + yt-dlp): no timer, no daemon, no autostart; nothing resident after playback ends. Verified by grep sweep 2026-09-28: zero timeout_add/while-True/GFileMonitor in script. |
 
 ### GUI-tier measurements (G01-G05, X server on :0)
 

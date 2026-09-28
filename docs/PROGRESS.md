@@ -1,5 +1,17 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.68 — Video pipeline: codec benchmark + selector verification + docs (2026-09-28, без железа)
+- [x] Codec benchmark COMPLETE: scripts/bench/video_codec.py + results/video-codecs.json — real measurements, 1080p/720p × h264/vp9/hevc/av1, 120 frames, 3 repeats median. Ranking (cost/frame): h264 4.20 ms > vp9 5.57 ms > hevc 7.99 ms > av1 5.38 ms (SW-only on Gen9.5). All meet 41.67 ms deadline in host SW.
+- [x] Tiers recorded: host-SW=MEASURABLE; VA-API=HW-ONLY (vainfo: no driver on host); power/thermal=HW-ONLY.
+- [x] mv-ytplayer verified: bash -n clean; scripts/test-mv-ytplayer.py 19/19 pass (3 buggy test assertions fixed — plain-string mismatches, not script bugs); desktop-file-validate clean. Real bug fixed: build_chain branch5 was duplicate of branch4 (non-av01) — now true unconditional fallback (AV1 reachable only via branch 5).
+- [x] Firefox mirror sync: configs/firefox/user.js edit had dropped the cache/downloads/history/extensions baseline block (lossy) — merged both blocks; policies.json (SponsorBlocker@ajay.app force_installed) + user.js mirrored to archiso-profile. check-sync.sh: ALL CHECKS PASSED.
+- [x] SponsorBlock disposition: CONFIRMED ADDED — configs/firefox/policies.json Extensions.Install + ExtensionSettings.sponsorBlocker@ajay.app force_installed; mirrored to archiso-profile/releng/airootfs/usr/lib/firefox/distribution/policies.json.
+- [x] docs/VIDEO_PIPELINE.md created: ranking table, tier labels, per-codec Gen9.5 feasibility, selector rule (real --explain chain), optimized-mode enumeration (no page JS/DOM/ads/tracking/polling/network-page; audio separate stream; one-shot).
+- [x] docs/BENCHMARKS.md: video codec section with real numbers + run metadata (Ryzen 7 5800HS, 2 cores, ffmpeg n9.0.2, WSL2).
+- [x] docs/NEEDS_HARDWARE_TEST.md: VA-API HW decode validation + power/thermal per-codec measurements added.
+- [x] P0/P1 sweep: timeout_add/while-True/GFileMonitor grep across mv-* apps — all hits match existing Phase-E labels (P2/IGNORE); mv-ytplayer one-shot (no timer) = IGNORE-class. Phase-E verdict stands: 0 P0, 0 P1.
+- [x] Power baseline untouched; no new daemons; no polling added; one-shot processes only
+
 ### Фаза 0.67 — Safari-Mavericks UX spec + Firefox optimized config + mpv video-only + B01-B09 workloads (2026-09-28, без железа)
 - [x] docs/SAFARI_SPEC.md: full Safari 7 / Mavericks UX spec — toolbar, tabs, unified address/search, bookmarks bar+sidebar, Top Sites grid, downloads popover, history, find bar, private browsing, context menus, keyboard (Cmd-layer mapping to KEYBOARD.md), dialogs, typography/spacing/icons/loading states. Implementation surface: userChrome.css notes + Firefox prefs. No engine fork.
 - [x] Firefox optimized config: user.js extended (drawInTitlebar, closeButtons=1, firefox-view off, tabmanager off, sharepane off, Top Sites prefs, download.useDownloadDir, findbar prefs). AV1 pref commented-out (E-AV1). EXPERIMENT prefs unchanged (VAAPI, WebRender, processCount, unloadOnLowMemory). sessionstore 60s preserved.

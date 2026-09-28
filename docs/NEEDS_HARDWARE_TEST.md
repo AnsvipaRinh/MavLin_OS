@@ -335,3 +335,25 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] Battery/thermal: power readings sane, no immediate throttling
 - [ ] Display: 2304×1440 panel at correct resolution, HiDPI scaling acceptable
 - [ ] USB-C: data + video output through single port
+
+## Video codec HW validation — hardware validation (Phase 0.68, 2026-09-28)
+
+Pre-hardware state: codec ranking measured host-SW (`scripts/bench/results/video-codecs.json`);
+selector chain implemented in `mv-ytplayer` (avc1 > vp09 > hev1 > non-av01 > best).
+Remaining items are HW-only by construction (no GPU on host; `vainfo` finds no VA driver):
+
+- [ ] VA-API probe on MacBook10,1: `vainfo` lists Gen9.5 (HD 615) engines —
+      confirm H.264, VP9, HEVC Main decode profiles present; confirm AV1 absent
+      (expected: no AV1 engine on Gen9.5)
+- [ ] `mpv --hwdec=auto` end-to-end on YouTube via `mv-ytplayer`: verify chosen
+      format is avc1/vp09/hev1 (not av01) and `mpv --hwdec=auto` reports HW decode
+      active (mpv OSD/stats: `hwdec: vaapi`); verify no SW fallback during playback
+- [ ] AV1 fallback path: force an AV1-only stream, confirm branch-5 fallback works
+      and SW decode is flagged (expected heavy on Core M — document actual cost)
+- [ ] Power/thermal per codec on battery: h264 vs vp9 vs hevc 1080p playback —
+      battery discharge rate, package energy (RAPL), surface temperature, fanless
+      throttling behavior; compare against host-SW baseline (4.20/5.57/7.99 ms/frame)
+- [ ] VA-API vs SW power delta: measure whole-system power with HW decode on vs
+      off to quantify the HW-decode win on the fanless chassis
+- [ ] Firefox VA-API: `media.ffmpeg.vaapi.enabled` experiment (commented in
+      `configs/firefox/user.js`) — validate on hardware, measure before/after

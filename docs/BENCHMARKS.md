@@ -486,3 +486,31 @@ emulator can be fitted to match by adjusting the phase intensities.
   control on MacBook10,1 → NEEDS_HARDWARE_TEST.md
 - BT-pairing-real: BlueZ D-Bus calls verified; actual pairing with
   real devices → NEEDS_HARDWARE_TEST.md
+
+## VIDEO CODEC — 2026-09-28 (host-SW tier, MEASURABLE)
+
+- Harness: `scripts/bench/video_codec.py` (fixture clips, 120 frames, 3 repeats, median)
+- Raw JSON: `scripts/bench/results/video-codecs.json`
+- Run metadata: AMD Ryzen 7 5800HS, 2 cores, ffmpeg n9.0.2, WSL2 (Linux 6.18.33.2),
+  2026-09-28 05:01:58. Deadline 41.67 ms/frame (24 fps).
+- Tiers: host-SW = MEASURABLE (this run); VA-API = HW-ONLY (vainfo: no driver on
+  host); power/thermal = HW-ONLY (needs MacBook10,1 instrumentation).
+
+### 1080p ranking (cost per frame, median of 3 repeats)
+
+| Rank | Codec | cost/frame | ffmpeg fps | wall (120f) | CPU% | RSS | HW Gen9.5 |
+|---|---|---|---|---|---|---|---|
+| 1 | H.264 (avc1) | 4.20 ms | 238.2 | 0.504 s | 107.0 | 65.3 MB | YES |
+| 2 | VP9 (vp09) | 5.57 ms | 179.7 | 0.668 s | 102.2 | 73.6 MB | YES |
+| 3 | HEVC (hev1) | 7.99 ms | 125.2 | 0.959 s | 111.0 | 97.8 MB | YES |
+| 4 | AV1 (av01) | 5.38 ms | 185.8 | 0.646 s | 100.2 | 103.8 MB | NO (SW-only) |
+
+All codecs meet the 41.67 ms deadline in host SW (max 7.99 ms). Ranking is by Gen9.5
+HW-engine availability, not raw SW speed. 720p reference: h264 2.37 / vp9 2.70 /
+hevc 4.00 / av1(SVT) 2.80 ms per frame.
+
+### HW-only remainder
+
+- VA-API decode on HD 615 (h264/vp9/hevc offload, av1 absence) → NEEDS_HARDWARE_TEST.md
+- Power/thermal per codec (battery discharge, package vs whole-system, fanless
+  throttling) → NEEDS_HARDWARE_TEST.md
