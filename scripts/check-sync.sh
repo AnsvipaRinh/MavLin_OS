@@ -44,6 +44,7 @@ PAIRS=(
   "packages/mavericks-apps/src/mavericks-apps/config/thunar-uca.xml:archiso-profile/releng/airootfs/etc/skel/.config/Thunar/uca.xml"
   "packages/mavericks-apps/src/mavericks-apps/config/xfce4-keyboard-shortcuts.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml"
   "configs/desktop/skippy-xd/skippy-xd.rc:archiso-profile/releng/airootfs/etc/skel/.config/skippy-xd/skippy-xd.rc"
+  "configs/network/99-mavericks.conf:archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks.conf"
 )
 for pair in "${PAIRS[@]}"; do
   a="${pair%%:*}"; b="${pair##*:}"

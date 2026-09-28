@@ -47,6 +47,9 @@ systemctl enable systemd-zram-setup@zram0.service
 rm -f /etc/sysctl.d/99-mavericks.conf
 
 log "5/7 network: NetworkManager owns Wi-Fi on installed system"
+# NM tuning: explicit wpa_supplicant backend + connectivity-check off (D2).
+# Shadows Arch's /usr/lib/NetworkManager/conf.d/20-connectivity.conf (300s HTTP poll).
+install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks.conf" /etc/NetworkManager/conf.d/99-mavericks.conf
 systemctl disable --now iwd.service 2>/dev/null || true
 systemctl disable --now systemd-networkd.service 2>/dev/null || true
 # NOTE: keep systemd-resolved enabled — /etc/resolv.conf points at its stub;
