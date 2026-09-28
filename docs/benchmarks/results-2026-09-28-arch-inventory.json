@@ -1,0 +1,324 @@
+{
+  "date": "2026-09-28 18:34:59",
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_count": 2,
+    "container": "unknown"
+  },
+  "per_app": {
+    "mv-about": {
+      "wall_s": 0.3833,
+      "peak_rss_kb": 45912,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-activity": {
+      "wall_s": 0.363,
+      "peak_rss_kb": 46080,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-airdrop": {
+      "wall_s": 0.3943,
+      "peak_rss_kb": 48024,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-calculator": {
+      "wall_s": 0.3477,
+      "peak_rss_kb": 47180,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-calendar": {
+      "wall_s": 0.3991,
+      "peak_rss_kb": 50448,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-colormeter": {
+      "wall_s": 0.3562,
+      "peak_rss_kb": 47628,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-console": {
+      "wall_s": 0.3621,
+      "peak_rss_kb": 47056,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-control": {
+      "wall_s": 0.4234,
+      "peak_rss_kb": 46944,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-dictionary": {
+      "wall_s": 0.4068,
+      "peak_rss_kb": 51720,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-diskutil": {
+      "wall_s": 0.3532,
+      "peak_rss_kb": 47072,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-eject": {
+      "wall_s": 0.2562,
+      "peak_rss_kb": 29308,
+      "rc": 1,
+      "class": "cli-gtk-import",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-fontbook": {
+      "wall_s": 0.3841,
+      "peak_rss_kb": 47488,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-getinfo": {
+      "wall_s": 0.353,
+      "peak_rss_kb": 46160,
+      "rc": 1,
+      "class": "cli-gtk-import",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-keychain": {
+      "wall_s": 0.3581,
+      "peak_rss_kb": 49136,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-launchpad": {
+      "wall_s": 0.3795,
+      "peak_rss_kb": 45824,
+      "rc": 1,
+      "class": "cli-gtk-import",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-mail": {
+      "wall_s": 0.3315,
+      "peak_rss_kb": 45620,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-mission-control": {
+      "wall_s": 0.0666,
+      "peak_rss_kb": 12752,
+      "rc": 0,
+      "class": "cli-pure",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-music": {
+      "wall_s": 0.3761,
+      "peak_rss_kb": 51196,
+      "rc": 3,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-newfolder": {
+      "wall_s": 3.0153,
+      "peak_rss_kb": 11920,
+      "rc": 1,
+      "class": "cli-pure",
+      "shebang": "#!/usr/bin/env bash"
+    },
+    "mv-notes": {
+      "wall_s": 0.3504,
+      "peak_rss_kb": 47804,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-notification-center": {
+      "wall_s": 0.3558,
+      "peak_rss_kb": 46372,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-notify-send": {
+      "wall_s": 0.1432,
+      "peak_rss_kb": 16548,
+      "rc": 0,
+      "class": "cli-pure",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-openwith": {
+      "wall_s": 0.3369,
+      "peak_rss_kb": 46140,
+      "rc": 1,
+      "class": "cli-gtk-import",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-photos": {
+      "wall_s": 0.3756,
+      "peak_rss_kb": 49112,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-power-ui": {
+      "wall_s": 0.3838,
+      "peak_rss_kb": 47552,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-preview": {
+      "wall_s": 0.3689,
+      "peak_rss_kb": 46060,
+      "rc": 2,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-quicklook": {
+      "wall_s": 0.3376,
+      "peak_rss_kb": 45708,
+      "rc": 2,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-quicklook-thunar": {
+      "wall_s": 2.3426,
+      "peak_rss_kb": 44812,
+      "rc": 1,
+      "class": "cli-gtk-import",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-reminders": {
+      "wall_s": 0.354,
+      "peak_rss_kb": 47456,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-rename": {
+      "wall_s": 0.3787,
+      "peak_rss_kb": 44736,
+      "rc": 1,
+      "class": "cli-gtk-import",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-settings": {
+      "wall_s": 0.3331,
+      "peak_rss_kb": 45720,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-shot": {
+      "wall_s": 0.4347,
+      "peak_rss_kb": 46908,
+      "rc": 1,
+      "class": "cli-gtk-import",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-spotlight": {
+      "wall_s": 0.0876,
+      "peak_rss_kb": 14460,
+      "rc": 1,
+      "class": "cli-pure",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-stickies": {
+      "wall_s": 0.3596,
+      "peak_rss_kb": 47060,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-textedit": {
+      "wall_s": 0.3826,
+      "peak_rss_kb": 47132,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-timemachine": {
+      "wall_s": 0.3676,
+      "peak_rss_kb": 48672,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-voice": {
+      "wall_s": 0.3874,
+      "peak_rss_kb": 48752,
+      "rc": 1,
+      "class": "gui-mainloop",
+      "shebang": "#!/usr/bin/env python3"
+    },
+    "mv-ytplayer": {
+      "wall_s": 0.0078,
+      "peak_rss_kb": 11952,
+      "rc": 1,
+      "class": "cli-pure",
+      "shebang": "#!/usr/bin/env bash"
+    }
+  },
+  "c_binaries": {
+    "mv-hud": {
+      "wall_s": 0.0024,
+      "peak_rss_kb": 11824,
+      "rc": 0,
+      "class": "c-oneshot"
+    }
+  },
+  "baselines": {
+    "bash-true": {
+      "wall_s": 0.0068,
+      "peak_rss_kb": 11944,
+      "rc": 0
+    },
+    "python-pass": {
+      "wall_s": 0.0285,
+      "peak_rss_kb": 11792,
+      "rc": 0
+    },
+    "python-import-gi": {
+      "wall_s": 0.1977,
+      "peak_rss_kb": 24528,
+      "rc": 0
+    },
+    "python-import-gtk": {
+      "wall_s": 0.3313,
+      "peak_rss_kb": 44632,
+      "rc": 0
+    },
+    "python-import-gio": {
+      "wall_s": 0.2418,
+      "peak_rss_kb": 29048,
+      "rc": 0
+    },
+    "python-import-gdkpixbuf": {
+      "wall_s": 0.2622,
+      "peak_rss_kb": 30136,
+      "rc": 0
+    },
+    "python-import-glib": {
+      "wall_s": 0.204,
+      "peak_rss_kb": 25960,
+      "rc": 0
+    }
+  },
+  "c_sources": [
+    "mv-hud.c"
+  ]
+}
