@@ -400,3 +400,96 @@ cat /sys/class/backlight/intel_backlight/max_brightness
 # Forcewake
 cat /sys/kernel/debug/dri/0/i915_forcewake_count 2>/dev/null
 ```
+
+---
+
+## 8. AUDIO component map — HDA / Cirrus CS4208 / PipeWire (D4, 2026-09-28)
+
+> Deep Runtime Track D4. Target: MacBook10,1, Cirrus CS4208 codec on Intel HDA (PCI 00:1f.3).
+> Source basis: driver source (leifliddy/macbook12-audio-driver r108.g4cdfcdb, vendored in
+> packages/macbook12-audio-driver/src/), linux-7.2.6 source (kernel.org tarball), PipeWire 1.6.9 /
+> WirePlumber 0.5.17 (Arch repos). Build behavior empirically verified in the build container
+> (§8.4). No driver modifications — map + audit only.
+
+### 8.1 Hardware path
+
+| Layer | Device | Driver | Notes |
+|---|---|---|---|
+| HDA controller | Intel Sunrise Point-LP HDA, PCI 00:1f.3 | snd-hda-intel (in-tree) | power_save + runtime PM (TLP-owned) |
+| Codec | Cirrus CS4208 (vendor NID 0x24) | snd-hda-codec-cs420x (DKMS, replaces in-tree) | A1534 init unconditional in patch_cs4208() |
+| Speaker path | digital: converter 0x0a → pin 0x1d, amp via GPIO | codec driver verbs | no hardware volume → software mixer required |
+| Headphone path | analog DAC: converter 0x02 → pin 0x10 | codec driver verbs | hardware amp lives on this path |
+| Mic path | internal mic ADC | codec driver | — |
+| Jack detection | GPIO interrupt | codec driver (cs_4208_playback_pcm_hook) | re-points stream on plug/unplug |
+
+### 8.2 Driver structure (snd-hda-codec-cs420x, 6.17+ layout)
+
+| File | Role |
+|---|---|
+| patch_cirrus/cs420x.c | CS420x codec driver: fixups, patch_cs4208() with unconditional setup_a1534/play_a1534, cs_4208_playback_pcm_hook (jack switching), amp cap overrides |
+| patch_cirrus/patch_cirrus.c | pre-6.17 layout (old patch_cirrus path) — not built on 6.17+ |
+| patch_cirrus/patch_cirrus_a1534_setup.h | macOS-init verb sequence (1678 lines) + coef helpers |
+| patch_cirrus/patch_cirrus_a1534_pcm.h | PCM hook: jack detect → re-point stream, speaker pin disable (444 lines) |
+| patch_cirrus/Makefile_cs420x | in-tree kbuild Makefile (subdir-ccflags -I../../common) |
+
+### 8.3 ALSA / UCM / PipeWire graph
+
+- **UCM:** no UCM for CS4208 exists upstream (alsa-ucm-conf has no cs4208/Cirrus
+  entry — verified via GitHub API, ucm2/ tree listing) and we ship none. The card
+  uses the generic HiFi UCM profile / fallback; mixer setup is done by the codec
+  driver itself. Consistent — no UCM gap to fill.
+- **Software volume:** the speaker path has no hardware volume control (the only
+  analog amp is on the headphone path). WirePlumber rule
+  `api.alsa.soft-mixer=true` for `alsa_card.pci-0000_00_1f.3` (installed by the
+  macbook12-audio-driver package since D4, 888e0ff) makes PipeWire apply volume
+  in software. Without it the volume slider does nothing on speakers (driver
+  README, "required" step).
+- **PipeWire graph at idle:** pipewire daemon + wireplumber run always
+  (event-driven, epoll). With zero streams both idle — no per-stream nodes
+  exist, no polling. WirePlumber Lua scripts run on graph changes only.
+- **pactl sites:** all on-demand (see RUNTIME_AUDIT.md AUDIO section). No audio
+  polling anywhere in our stack.
+
+### 8.4 Build verification (empirical, build container)
+
+| Test | Result |
+|---|---|
+| `dkms install` flow (dkms.conf MAKE[0], M=<srcroot>) | **FAIL** — no root Makefile in DKMS source tree |
+| External build vs linux-zen-headers only | **FAIL** — internal HDA headers not shipped in headers package (0 .h under sound/hda) |
+| Driver source vs linux-7.2.6 source + headers (external, -I sound/hda/common) | **PASS** — snd-hda-codec-cs420x.ko builds (1.75MB, GPL, alias hdaudio:v10134208) |
+
+### 8.5 Wakeup sources, timers, runtime PM
+
+| Source | Type | Expectation |
+|---|---|---|
+| HDA controller runtime PM | power_save=1 (1s) + controller PM (TLP defaults) | controller in D3hot ~1s after stream end |
+| Jack GPIO interrupt | edge wake from D3hot | wakes controller on plug/unplug only |
+| pipewire daemon | epoll idle | no wakeups at zero streams |
+| wireplumber | graph-change events | no wakeups at zero streams |
+| mv-control / mv-voice | on-demand processes | zero idle presence |
+
+### 8.6 Re-verification commands (on target)
+
+```
+# driver loaded (DKMS module, not the in-tree stub)
+modinfo snd_hda_codec_cs420x | grep filename   # → .../updates/... or dkms path
+# controller power
+cat /sys/bus/pci/devices/0000:00:1f.3/power/runtime_status   # suspended at idle (TLP)
+cat /sys/module/snd_hda_intel/parameters/power_save           # 1 (TLP default)
+# codec power state
+grep -A2 "Power:" /proc/asound/card0/codec#0                  # D0/D3 + clock gate
+# graph idle
+pw-top                                                        # no RUNNING nodes with zero streams
+pw-dump | grep soft-mixer                                     # api.alsa.soft-mixer on the card
+# jack switching
+wpctl status                                                  # sink follows plug/unplug
+```
+
+### 8.7 Codec + driver summary
+
+| Item | Status |
+|---|---|
+| Driver source compiles on target kernel (7.2.6) | VERIFIED (build container) |
+| DKMS packaging buildable | BROKEN (no root Makefile; internal headers not in headers package) |
+| ISO inclusion | NO (would break pacstrap) — see DECISIONS D4 |
+| Recommended path forward | track tanisperez fork (working DKMS PRE_BUILD) — separate track |

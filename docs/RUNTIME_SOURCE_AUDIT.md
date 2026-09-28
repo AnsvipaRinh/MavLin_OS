@@ -477,3 +477,57 @@ correct hardware coordination — no change needed.
 | LOCAL-FIX | 0 | — |
 | UPSTREAM-CANDIDATE | 0 | — |
 | **Total** | **10** | |
+
+---
+
+# AUDIO SOURCE AUDIT — HDA / Cirrus CS4208 / PipeWire (D4, 2026-09-28)
+
+> Deep Runtime Track D4. Source basis: linux-7.2.6 (kernel.org tarball),
+> leifliddy/macbook12-audio-driver r108.g4cdfcdb (vendored), PipeWire 1.6.9 /
+> WirePlumber 0.5.17 (Arch repos), TLP 1.9.1 docs. Build behavior empirically
+> verified in the build container (RUNTIME_COMPONENT_MAP.md §8.4).
+
+## A1. HDA controller power path (snd-hda-intel / azx)
+
+| Question | Answer | Evidence |
+|---|---|---|
+| How does the controller power down at idle? | `power_save=N` module param → azx runtime suspend after N seconds of stream inactivity; `power_save_controller=Y` → PCI runtime PM for the controller itself | sound/hda/hda_intel.c (azx runtime PM); TLP writes the same sysfs params |
+| Who owns power_save in our stack? | TLP (frozen baseline). TLP 1.9.1 defaults: SOUND_POWER_SAVE_ON_AC=1, SOUND_POWER_SAVE_ON_BAT=1, SOUND_POWER_SAVE_CONTROLLER=Y | TLP 1.9.1 docs (linrunner.de) + defaults.conf |
+| Wakeup sources at idle? | stream start (DMA ring), jack GPIO interrupt, power_save timeout re-entry | azx interrupt + runtime PM |
+| Any polling in azx? | No — interrupt + runtime PM only | hda_intel.c |
+
+## A2. Codec PM / jack detection (CS4208 via DKMS snd-hda-codec-cs420x)
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Does the codec have its own runtime PM? | No — the codec powers with the HDA controller; controller D3hot covers the codec | HDA spec behavior; driver has no codec PM |
+| Jack detection wakeup? | GPIO interrupt from the codec (headphone sense) → wakes controller from D3hot → driver re-points the stream (cs_4208_playback_pcm_hook) | patch_cirrus_a1534_pcm.h; cs420x.c patch_cs4208() |
+| DSP on this path? | No — CS4208 init is a verb sequence (setup_a1534/play_a1534), streams are HDA-link DMA, codec DSP core unused | patch_cirrus_a1534_setup.h; driver README |
+| Clock gating? | HDA link clock stops with controller power_save; no independent codec clock gating | HDA spec behavior |
+
+## A3. ALSA UCM presence for CS4208
+
+| Question | Answer | Evidence |
+|---|---|---|
+| UCM for CS4208 upstream? | **No** — alsa-ucm-conf has no cs4208/Cirrus entry (verified via GitHub API ucm2/ tree listing; only generic HDA HiFi profiles) | api.github.com/repos/alsa-project/alsa-ucm-conf/contents/ucm2 |
+| Do we ship UCM? | No — and none is needed: the codec driver does its own mixer setup; the card uses the generic HiFi UCM profile / fallback | driver README; RUNTIME_COMPONENT_MAP.md §8.3 |
+| Verdict | No UCM gap — consistent with the audio-driver package (which also ships no UCM) | — |
+
+## A4. PipeWire graph idle behavior
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Which nodes run with zero streams? | None — nodes are created per stream/card and destroyed on stream end; pipewire daemon + wireplumber remain, idle on epoll | PipeWire 1.6.9 architecture |
+| WirePlumber polling? | No — Lua scripts run on graph changes only (no timers in the default scripts we use) | wireplumber 0.5.17; RUNTIME_AUDIT.md persistent-daemons table |
+| pactl-per-poll sites? | **None** — all pactl usage is event-driven (keypress/user action/window open); mv-control 30s refresh_all never touches sound | verified in current tree (RUNTIME_AUDIT.md AUDIO §pactl sites) |
+| Soft-volume rule | api.alsa.soft-mixer=true on alsa_card.pci-0000_00_1f.3 — installed by macbook12-audio-driver since D4 (888e0ff) | contrib/wireplumber/wireplumber.conf.d/51-macbook-cs4208-softvol.conf |
+
+## A5. D4 source audit summary
+
+| Outcome class | Count | Findings |
+|---|---|---|
+| KEEP | 4 | A1 (azx power path by design), A2 (codec PM by design), A3 (no UCM needed), A4 (graph idle by design) |
+| CONFIG-CANDIDATE | 0 | — |
+| LOCAL-FIX | 3 | softvol conf install (888e0ff), udev rule removal (888e0ff), modprobe conf cleanup (888e0ff) |
+| UPSTREAM-CANDIDATE | 0 | — |
+| **Total** | **7** | |

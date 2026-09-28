@@ -313,3 +313,121 @@ package (verified in packages.x86_64).
 | PROVISIONAL-CONFIG | 1 | F14 (xfwm4 vblank/unredirect) |
 | KEEP | 1 | F15 (DMC firmware packaging) |
 | **Total** | **4** | |
+
+---
+
+# DRIVER AUDIT — AUDIO (Cirrus CS4208 / HDA) (D4, 2026-09-28)
+
+> Deep Runtime Track D4. Target: MacBook10,1, Cirrus CS4208 on Intel HDA
+> (PCI 00:1f.3). Driver: DKMS snd-hda-codec-cs420x (leifliddy
+> r108.g4cdfcdb, vendored in packages/macbook12-audio-driver/src/).
+> All findings empirically verified in the build container
+> (linux-zen-headers 7.2.6.zen2-1 + linux-7.2.6 source) unless noted.
+
+### F16 — DKMS build broken: no root Makefile (PACKAGING, documented)
+
+**Finding:** `dkms install` runs `make -C /usr/lib/modules/<ver>/build
+M=<srcroot> modules` (dkms.conf MAKE[0]). The DKMS source tree has **no
+root Makefile** — Makefile_cirrus/Makefile_cs420x are in-tree kbuild files,
+not external-module Makefiles.
+
+**Evidence:** empirical — replicated the exact dkms.conf MAKE[0] command in
+the build container: `Makefile: No such file or directory` (build fails).
+
+**Verdict: DOCUMENTED DEFECT** — the package cannot install via DKMS as
+shipped. Not fixed in D4 (fix requires either a PRE_BUILD kernel-source
+download flow or tracking the tanisperez fork — both are separate packaging
+tracks). Package kept in the local repo for the manual build flow; NOT added
+to ISO packages.x86_64 (post_install would fail and break pacstrap).
+
+### F17 — Internal HDA headers not in linux-zen-headers (ENVIRONMENT)
+
+**Finding:** the driver needs kernel-internal HDA headers
+(sound/hda/common/hda_local.h, hda_auto_parser.h, hda_jack.h,
+sound/hda/codecs/generic.h). The linux-zen-headers build tree ships
+**zero .h files under sound/hda/** (verified: 0 headers found).
+
+**Evidence:** empirical — `find /usr/lib/modules/7.2.6-zen2-1-zen/build/sound
+-name "*.h"` → empty; external build fails with `hda_local.h: No such file
+or directory` until the full kernel source tree is supplied via -I.
+
+**Verdict: DOCUMENTED** — external-module builds of this driver are
+impossible against the headers package alone; the working install path
+(upstream prepare.cirrus.driver.sh) downloads the kernel source tarball.
+This is why the DKMS flow needs a PRE_BUILD step (see F16 disposition).
+
+### F18 — Driver source compiles on the target kernel (VERIFIED)
+
+**Finding:** the leifliddy r108 driver source (patch_cirrus/cs420x.c +
+A1534 headers) compiles cleanly against the target kernel.
+
+**Evidence:** empirical — external build against linux-7.2.6 source +
+linux-zen-headers 7.2.6.zen2-1 with `-I<src>/sound/hda/common`:
+`snd-hda-codec-cs420x.ko` builds (1.75MB, GPL, alias hdaudio:v10134208,
+depends: snd-hda-codec, snd-hda-codec-generic, snd-hda-core).
+
+**Verdict: VERIFIED** — the driver code is viable on our target kernel
+(linux-zen 7.2.6); only the DKMS packaging is broken (F16/F17).
+
+### F19 — Dangling udev rule (FIXED in D4)
+
+**Finding:** the package installed a udev rule running
+`/usr/bin/alsa-ucm-awake` — a script shipped nowhere (not in the repo, not
+in the driver source). Every sound-card change event produced a udev
+execution-failure log.
+
+**Evidence:** repo-wide grep for alsa-ucm-awake → only the PKGBUILD (and
+the gitignored pkg/ build artifact) reference it.
+
+**Fix (888e0ff):** udev rule removed from package().
+
+### F20 — WirePlumber softvol conf never installed (FIXED in D4)
+
+**Finding:** the driver README marks the WirePlumber soft-volume rule as
+**required** ("Without this step the volume slider appears to do nothing on
+the speakers") — the CS4208 speaker path has no hardware volume control.
+The contrib file shipped in the source tree, but package() never installed
+it → speaker volume would have been dead on any install.
+
+**Fix (888e0ff):** package() now installs
+contrib/wireplumber/wireplumber.conf.d/51-macbook-cs4208-softvol.conf →
+/etc/wireplumber/wireplumber.conf.d/ (WirePlumber 0.5+ variant; Arch ships
+0.5.17).
+
+### F21 — Dead model=macbook12 modprobe line (FIXED in D4)
+
+**Finding:** `options snd-hda-intel model=macbook12` was a no-op: the A1534
+initialization is unconditional in patch_cs4208() (setup_a1534/play_a1534
+called for every CS4208), and the driver's model fixup tables
+(gpio0/mba6/mbp11/macmini) contain no "macbook12" entry.
+
+**Evidence:** patch_cirrus/patch_cirrus.c:793-794 (unconditional A1534
+calls); cs420x_models/cs4208_models tables (no macbook12).
+
+**Fix (888e0ff):** line removed; 99-macbook12-audio.conf kept as
+comment-only documentation.
+
+### F22 — Redundant power_save modprobe lines (FIXED in D4)
+
+**Finding:** `power_save=1 power_save_controller=Y` duplicated TLP, which
+owns audio PM in the frozen baseline. TLP 1.9.1 defaults:
+SOUND_POWER_SAVE_ON_AC=1, SOUND_POWER_SAVE_ON_BAT=1,
+SOUND_POWER_SAVE_CONTROLLER=Y — identical values, no conflict, pure
+redundancy.
+
+**Evidence:** TLP 1.9.1 docs (linrunner.de/settings/audio) + TLP
+defaults.conf; our /etc/tlp.d/99-mavericks.conf sets no sound keys (TLP
+defaults apply).
+
+**Fix (888e0ff):** lines removed; TLP remains the single audio-PM
+mechanism. HW item: validate power_save=1 for audio glitches on CS4208
+(NEEDS_HARDWARE_TEST.md §Audio power/idle).
+
+### D4 driver audit summary
+
+| Outcome class | Count | Findings |
+|---|---|---|
+| VERIFIED | 1 | F18 (driver compiles on target kernel) |
+| DOCUMENTED-DEFECT | 2 | F16 (DKMS build broken), F17 (headers not in headers package) |
+| FIXED | 4 | F19 (udev rule), F20 (softvol conf), F21 (dead model=), F22 (redundant power_save) |
+| **Total** | **7** | |

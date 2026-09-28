@@ -374,3 +374,60 @@ If no tearing and PSR entry improves (vblank can be disabled), keep as-is.
 - No driver rewrites
 - No new daemons or polling
 - Power baseline untouched (see DECISIONS.md Phase 0.5)
+
+---
+
+## 7. D4 — AUDIO path HW measurement plan (Cirrus CS4208 / HDA, 2026-09-28)
+
+> Deep Runtime Track D4. All items require the real MacBook10,1. Speaker/mic
+> functional validation already lives in NEEDS_HARDWARE_TEST.md §Audio —
+> this section adds power/idle counters and the DKMS build prerequisite.
+
+### 7.1 DKMS build on target kernel (pre-HW prerequisite)
+
+The DKMS packaging is broken (DRIVER_AUDIT.md F16/F17). Before hardware
+validation, decide the packaging track:
+
+| Option | Description | Cost |
+|---|---|---|
+| A (recommended) | Track tanisperez/macbook12-audio-driver: 6.17+ support + working DKMS (PRE_BUILD downloads kernel source, patches in-tree, builds) | install-time network (~160MB kernel source); separate pin change |
+| B | Keep leifliddy r108 + document; users install via the manual flow (prepare.cirrus.driver.sh — also network-dependent) | manual step, easy to get wrong |
+| C | Write our own PRE_BUILD in dkms.conf (equivalent to A without the fork) | maintenance burden duplicates upstream work |
+
+**Decision needed:** A vs B vs C (DECISIONS.md D4-4). Until then the driver
+is NOT in the ISO and audio on the target is HW-blocked-by-packaging.
+
+### 7.2 HDA controller idle power (power_save A/B)
+
+| Step | Command | Metric |
+|---|---|---|
+| 1. Baseline (TLP defaults) | battery discharge rate at idle, 30 min | expect: controller D3hot ~1s after last stream |
+| 2. A/B | `SOUND_POWER_SAVE_ON_AC=0` vs `=1` (TLP conf, restart tlp) | discharge rate delta |
+| 3. Counter check | `cat /sys/bus/pci/devices/0000:00:1f.3/power/runtime_status` | `suspended` at idle with power_save=1 |
+| 4. Glitch check | play audio at low volume, listen for pops/clicks after 1s silence | power_save=1 can pop on some codecs |
+| 5. Decision | keep power_save=1 if no glitches AND idle power lower; else raise timeout (e.g. 10) or disable on BAT with evidence | — |
+
+### 7.3 Codec power state + jack wakeups
+
+| Step | Command | Metric |
+|---|---|---|
+| 1. Codec power | `grep -A2 "Power:" /proc/asound/card0/codec#0` | D3 + clock gate at idle |
+| 2. Jack wakeups | `cat /proc/interrupts \| grep -i hda` delta over 60s idle | expect: 0 (no jack events at idle) |
+| 3. Jack switching | plug/unplug headphones during playback | stream follows, no speaker bleed, no crash |
+| 4. Suspend/resume | `systemctl suspend` → resume → play audio | audio survives (logind hooks) |
+
+### 7.4 PipeWire graph idle verification
+
+| Step | Command | Metric |
+|---|---|---|
+| 1. Zero-stream idle | `pw-top` (5s observation) | no RUNNING nodes; only the card/sink nodes idle |
+| 2. Softvol rule | `pw-dump \| grep soft-mixer` | api.alsa.soft-mixer=true on alsa_card.pci-0000_00_1f.3 |
+| 3. Volume sanity | mv-control slider + XF86Audio keys | speaker volume actually changes (softvol path) |
+| 4. Process audit | `pgrep -af "pipewire\|wireplumber\|mv-control\|mv-voice"` at idle | only pipewire + wireplumber |
+
+### 7.5 What NOT to change (frozen baseline)
+
+- No ALSA/PipeWire source patches
+- No new audio daemons or polling (mv-control/mv-voice stay on-demand)
+- No TLP sound-key changes without evidence (7.2 step 4/5)
+- Power baseline untouched (see DECISIONS.md Phase 0.5)
