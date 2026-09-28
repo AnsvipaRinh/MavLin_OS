@@ -163,7 +163,7 @@ class ControlCenter(Gtk.Window):
         box.pack_start(self.wifi_listbox, False, False, 0)
 
         refresh_btn = Gtk.Button(label="Refresh")
-        refresh_btn.connect("clicked", lambda _: self.refresh_wifi_list())
+        refresh_btn.connect("clicked", lambda _: self.refresh_wifi_list(rescan=True))
         box.pack_start(refresh_btn, False, False, 0)
 
         self._subscribe_nm_wifi_signals()
@@ -178,13 +178,21 @@ class ControlCenter(Gtk.Window):
         run_async(["nmcli", "radio", "wifi", "on" if switch.get_active() else "off"])
         GLib.timeout_add_seconds(2, self.refresh_wifi_list)
 
-    def refresh_wifi_list(self):
+    def refresh_wifi_list(self, rescan=False):
         # Clear existing
         for child in self.wifi_listbox.get_children():
             self.wifi_listbox.remove(child)
 
-        # Get networks
-        result = sh(["nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL,ACTIVE", "dev", "wifi", "list"])
+        # Get networks. Default: use NM's cached AP list (--rescan no) so the 30s
+        # fallback poll does not trigger a firmware scan every 30s. nmcli(1):
+        # "ensures that the access point list is no older than 30 seconds and
+        # triggers a network scan if necessary" -- with a 30s poll interval that
+        # means a scan every ~30s while Control Center is open. NM D-Bus signals
+        # (subscribed above) already refresh on AP changes; the explicit Refresh
+        # button passes rescan=True to force a fresh scan.
+        cmd = ["nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL,ACTIVE", "dev", "wifi", "list",
+               "--rescan", "yes" if rescan else "no"]
+        result = sh(cmd)
         if not result:
             self.add_info_row(self.wifi_listbox, "NetworkManager not available or no networks found", "network-wireless-offline")
             self.wifi_listbox.show_all()

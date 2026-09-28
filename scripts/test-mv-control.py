@@ -126,6 +126,26 @@ def test_pure(m):
     w2._wifi_fallback_tick()
     check("fallback tick refreshes list", w2.refresh_wifi_list.call_count == 1)
 
+    # D2: fallback poll must NOT trigger a firmware scan. nmcli(1) triggers a
+    # scan when the AP list is >30s old; the 30s fallback poll would scan every
+    # ~30s. Default refresh uses --rescan no; explicit Refresh forces rescan.
+    class FakeLB2:
+        def get_children(self):
+            return []
+        def remove(self, _c):
+            pass
+    for rescan, expect in ((False, ["--rescan", "no"]), (True, ["--rescan", "yes"])):
+        w2b = bare_window(m)
+        w2b.wifi_listbox = FakeLB2()
+        w2b.add_info_row = mock.Mock()
+        w2b.wifi_listbox.show_all = mock.Mock()
+        with mock.patch.object(m, "sh", return_value="") as msh:
+            w2b.refresh_wifi_list(rescan=rescan)
+        cmd = msh.call_args[0][0]
+        check("refresh rescan=%s uses %s" % (rescan, " ".join(expect)),
+              all(a in cmd for a in expect) and "dev" in cmd and "wifi" in cmd,
+              cmd)
+
     w3 = bare_window(m)
     w3.wifi_switch = mock.Mock()
     w3.bt_switch = mock.Mock()
