@@ -55,12 +55,16 @@ package() {
     # Install DKMS config
     install -Dm644 ../dkms.conf "${pkgdir}/usr/src/${pkgname}-${pkgver}/dkms.conf"
 
-    # Install modprobe config for proper codec initialization
+    # Install modprobe config (comment-only: documents why no options are set)
     install -Dm644 ../99-macbook12-audio.conf "${pkgdir}/etc/modprobe.d/99-macbook12-audio.conf"
 
-    # Install udev rule for headphone jack detection
-    install -Dm644 /dev/stdin "${pkgdir}/usr/lib/udev/rules.d/99-macbook12-audio.rules" <<'EOF'
-# MacBook 12" audio jack detection
-ACTION=="change", SUBSYSTEM=="sound", KERNEL=="card*", ATTR{id}=="CS42L83", RUN+="/usr/bin/alsa-ucm-awake %k"
-EOF
+    # Install WirePlumber soft-volume rule (REQUIRED for speaker volume).
+    # The internal speaker has no usable hardware volume control (the codec's
+    # only analog amp is wired to the headphone path), so PipeWire must apply
+    # volume in software for this card. Without this the volume slider does
+    # nothing on the speakers (driver README, "Speaker volume (required)").
+    # WirePlumber 0.5+ conf.d variant (Arch ships 0.5.x); matches the HDA
+    # controller at PCI 00:1f.3 on MacBook9,1/MacBook10,1.
+    install -Dm644 contrib/wireplumber/wireplumber.conf.d/51-macbook-cs4208-softvol.conf \
+        "${pkgdir}/etc/wireplumber/wireplumber.conf.d/51-macbook-cs4208-softvol.conf"
 }
