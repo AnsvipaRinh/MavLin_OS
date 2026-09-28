@@ -66,6 +66,18 @@ measurement commands. Run on target hardware only.
 - [ ] Test broadcom-wl-dkms (AUR) vs brcmfmac in-kernel
 - [ ] Verify firmware loading and connection to AP
 - [ ] Test suspend/resume Wi-Fi behavior
+- [ ] **D1 audit HW items** (see docs/DRIVER_OPTIMIZATION_CANDIDATES.md §2):
+  - [ ] Confirm EFI NVRAM path: `dmesg | grep "Using nvram EFI variable"` — if present, placeholder .txt is NOT needed (F1/F6)
+  - [ ] Confirm ACPI board detection: `dmesg | grep -iE "ACPI module-instance|Apple board"` — determines NVRAM file selection (F5)
+  - [ ] Confirm DMI fallback: `dmesg | grep -i "Board:"` — expect "Apple Inc.-MacBook10,1" if no ACPI (F4)
+  - [ ] Verify 5GHz channels available: `iw dev wlan0 scan | grep -c "freq 5"` — confirms NVRAM calibration loaded
+  - [ ] Verify signal strength: `iw dev wlan0 station dump | grep signal` — should be reasonable (>-70 dBm)
+  - [ ] Measure idle interrupt rate: `cat /proc/interrupts | grep brcmf` over 60 s — expect <10/s (H1)
+  - [ ] Measure powersave: `iw dev wlan0 get power_save` — confirm PM_FAST/PM_OFF (H1/O6)
+  - [ ] Measure scan duration: `iw dev wlan0 scan` — expect <5 s, no 10 s timeout (H6/O7)
+  - [ ] Measure suspend/resume: `systemctl suspend` — confirm hot resume, no re-probe (H7/O8)
+  - [ ] Measure throughput: `iperf3 -c <server> -t 60` — RX/TX rate, errors (C/D states)
+  - [ ] Confirm no per-packet logging: `dmesg | grep brcmf` — should be silent at default debug (H8)
 
 ### Audio (Cirrus codec)
 - [ ] Test macbook12-audio-driver (github.com/leifliddy/macbook12-audio-driver)

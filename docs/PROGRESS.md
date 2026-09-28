@@ -1,5 +1,15 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза D1 — Network deep audit: brcmfmac/BCM43602 runtime map + source audit + HW plan (2026-09-28, без железа)
+- [x] docs/RUNTIME_COMPONENT_MAP.md: brcmfmac module structure (PCIe bus, MSGBUF protocol, FullMAC → cfg80211 no mac80211), firmware interface (bin/txt/clm/txcap + board-specific OTP/ACPI/DMI selection), NM→wpa_supplicant→nl80211→cfg80211→brcmfmac chain, wakeup sources (threaded MSI IRQ, fweh events, scan, roam), timers (escan 10s, btcoex DHCP, p2p listen — no idle timers), runtime PM (D3 hot-resume), sysfs/debugfs, PCI IDs (14e4:43ba), firmware set
+- [x] docs/RUNTIME_SOURCE_AUDIT.md: 18 findings across event/RX/TX/scan/roam/powersave/suspend/logging/NVRAM paths — 16 KEEP, 2 CONFIG-CANDIDATE (NVRAM file>EFI precedence, ccode=X0), 1 FALSE-POSITIVE (feature_disable=0x82000 = SAE|MONITOR_FMT_HW_RX_HDR cargo-cult)
+- [x] docs/DRIVER_AUDIT.md: 9 findings — F1 placeholder shadows EFI NVRAM (firmware.c:559-561), F2 ccode=X0 invalid (driver fixup only handles ALL/XV→X2), F3 0x82000 decodes to SAE|MONITOR_FMT_HW_RX_HDR (no 5GHz link), F4 DMI board_type="Apple Inc.-MacBook10,1" (space), F5 Apple ACPI module-instance/RWCV unknown on MacBook10,1, F6 EFI NVRAM may provide real calibration, F7 default MAC randomization, F8 43602 download-state, F9 ISO packaging consistent
+- [x] docs/DRIVER_OPTIMIZATION_CANDIDATES.md: idle-state analysis A-G (idle-connected/light/download/upload/scan/reconnect/suspend-resume), HW measurement plan (counters, dmesg patterns, procedure), 10 hypotheses (all PROPOSED-HW-MEASUREMENT), 8 optimization candidates
+- [x] extract-brcmfmac-nvram.sh: F1 skip placeholder when EFI NVRAM detected in dmesg, F2 ccode=X0→X2 (driver's documented worldwide code), F3 remove cargo-cult feature_disable=0x82000 value; synced to archiso profile copy
+- [x] Source basis: Linux 7.3.0-rc5 (torvalds) brcmfmac + linux-firmware WHENCE, fetched from git.kernel.org; every claim cites file:line; re-verify commands in RUNTIME_COMPONENT_MAP.md §6
+- [x] Gate: check-sync.sh 221 checks 0 failures; bash -n clean; power baseline untouched; no driver modifications
+- [x] Commit: ab10a5e
+
 ### Фаза 0.71 — Full regression after Safari-chrome track + respawn fix (2026-09-28, без железа)
 - [x] No-change regression: 22/22 suites green (1,269+ checks incl. firefox-chrome 221, theme-css 9); bench 24 scenarios 0 failed (5 skipped, host-load variance); check-sync --check-repos ALL CHECKS PASSED. Zero code changes; gate green.
 
