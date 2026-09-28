@@ -433,3 +433,35 @@ active backend = wpa_supplicant (pinned); connectivity check disabled; mv-contro
 - [ ] **iwd not active on installed system**: confirm `systemctl status iwd` = inactive
       and NM uses wpa_supplicant (`nmcli dev wifi` works, `journalctl -u NetworkManager`
       shows supplicant backend).
+
+---
+
+## Display (i915) — hardware validation (Phase D3, 2026-09-28)
+
+Pre-hardware state: i915 display path audited from source (RUNTIME_COMPONENT_MAP.md §5,
+RUNTIME_SOURCE_AUDIT.md §D3, DRIVER_AUDIT.md §D3). Baseline judged (DECISIONS.md D3).
+Remaining items are HW-only (no HD 615 panel on host):
+
+- [ ] **PSR on/off A/B** (DRIVER_OPTIMIZATION_CANDIDATES.md §6.1): idle power with
+      `i915.enable_psr=0` vs `=1`; PSR status via `/sys/kernel/debug/dri/0/i915_edp_psr_status`;
+      flicker test (cursor bottom quarter, 5 min); DC state via `/sys/kernel/debug/dri/0/i915_dc_state`.
+      Adopt PSR on only if no flicker AND idle power drops.
+- [ ] **ASPM A/B** (DRIVER_OPTIMIZATION_CANDIDATES.md §6.2): idle power with
+      `pcie_port_pm=off` vs without; resume test (`systemctl suspend` → resume →
+      `dmesg | grep nvme`); pm_test matrix. Keep `pcie_port_pm=off` if resume fails
+      without it (confirms F13).
+- [ ] **Resume-cycle matrix** (DRIVER_OPTIMIZATION_CANDIDATES.md §6.3): 8-row matrix
+      (s2idle/deep × pcie_port_pm on/off × enable_psr on/off). Each row: reboot →
+      suspend → resume → check NVMe + display. Record in BENCHMARKS.md.
+- [ ] **xfwm4 compositor settings** (DRIVER_OPTIMIZATION_CANDIDATES.md §6.4): tearing
+      test with `vblank_mode=off` vs `=on`; PSR interaction check. Keep `vblank_mode=off`
+      if no tearing AND PSR entry improves.
+- [ ] **Backlight PWM** (DRIVER_OPTIMIZATION_CANDIDATES.md §6.5): brightness range,
+      dim/bright test, low-brightness flicker check. Consider `invert_brightness` quirk
+      if PWM flicker at low brightness.
+- [ ] **DMC firmware**: confirm `i915/kbl_dmc.bin` loads (`dmesg | grep dmc`) and
+      DC5/6 entry works (`cat /sys/kernel/debug/dri/0/i915_dc_state`).
+- [ ] **FBC status**: confirm FBC active (`cat /sys/kernel/debug/dri/0/i915_fbc_status`)
+      and no underruns (`dmesg | grep -i underrun`).
+- [ ] **Forcewake**: confirm no forcewake leaks (`cat /sys/kernel/debug/dri/0/i915_forcewake_count`
+      returns to 0 after idle).

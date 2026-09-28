@@ -1,5 +1,18 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза D3 — Intel HD 615 display path audit: i915 → DRM/KMS → X11 → xfwm4/Xfce (2026-09-28, без железа)
+- [x] Runtime map: i915 power domains (DISPLAY_CORE/PIPE/TRANSCODER/DDI/AUX/GMBUS/DC_OFF), Gen9 power wells (PW1/PW2/MISC_IO/DC_OFF), DC5/6 states, DMC firmware (kbl_dmc.bin), PSR1/PSR2 entry/exit path, FBC (Gen9 FBC1, nuke on flip), forcewake model, GEM/fence activity, backlight PWM (BXT_BLC_PWM_DUTY), DPST absent on Gen9.5 eDP, vblank/pageflip under xfwm4 — RUNTIME_COMPONENT_MAP.md §5
+- [x] Source audit: 10 findings (S1-S10) — all KEEP; PSR entry (idle_frames + sync latency), PSR2 Y-coord gate, PSR exit on vblank, FBC nuke on flip, FBC+PSR1 coexistence on Gen9, backlight PWM from VBT, DC5/6 blocked by vblank, DMC firmware required, forcewake for register access, PSR+DC5/6 mutual exclusion — RUNTIME_SOURCE_AUDIT.md §D3
+- [x] Driver audit: 4 findings — F12 (PSR flicker Gen9, BASELINE-JUSTIFIED), F13 (Apple S3X resume, BASELINE-JUSTIFIED provisional), F14 (xfwm4 vblank/unredirect PROVISIONAL), F15 (DMC firmware packaging KEEP) — DRIVER_AUDIT.md §D3
+- [x] Baseline judgment: pcie_port_pm=off = JUSTIFIED (provisional, LKML Sep 2026, S3X resume fix, battery cost unmeasured); i915.enable_psr=0 = JUSTIFIED (diagnostic-safe, Gen9 flicker LP#2086587/2062951, upstream fix landed 6.8.0-53 but panel-specific) — DECISIONS.md D3
+- [x] X11-side cost table: xfwm4 compositing (use_compositing=true, vblank_mode=off PROVISIONAL, unredirect_overlays=true PROVISIONAL, shadows), PSR+vblank mutual exclusion, cursor plane PSR exit, DPMS not configured, screensaver timeout=60 — DECISIONS.md D3
+- [x] HW measurement plan: PSR on/off A/B, ASPM A/B, resume-cycle matrix (8 rows), xfwm4 compositor validation, backlight PWM validation — DRIVER_OPTIMIZATION_CANDIDATES.md §6
+- [x] Upstream tracker: PSR2 flicker fixes LANDED (Jouni Högander 8-patch series, mainline 6.8.0-53); Apple S3X resume NO fix yet (LKML open); DMC/FBC stable — UPSTREAM_PATCH_TRACKER.md §D3
+- [x] NEEDS_HARDWARE_TEST.md: 8 HW validation items (PSR A/B, ASPM A/B, resume matrix, xfwm4, backlight, DMC, FBC, forcewake)
+- [x] Gate: docs-only phase — zero code changes; power baseline untouched; no driver modifications
+- [x] D4 proposal: PipeWire/audio path audit (HDAudio Cirrus codec, PipeWire graph, ALSA UCM, D-Bus media session, power audio)
+- [ ] HW validation (NEEDS_HARDWARE_TEST.md): PSR on/off A/B, ASPM A/B, resume-cycle matrix, xfwm4 tearing, backlight PWM, DMC firmware, FBC status, forcewake leaks
+
 ### Фаза D2 — NM userspace path audit: backend pin + connectivity off + mv-control scan fix (2026-09-28, без железа)
 - [x] Active backend = wpa_supplicant (NM default, meson.build:430-436); versions: NM 1.58.1-1 (GPL-2.0/LGPL-2.1, extra), wpa_supplicant 2:2.12-1 (BSD-3-Clause, core), iwd 3.12-2 (LGPL-2.1, extra); our packaging had NO NM config → defaults applied
 - [x] Periodic-activity table: NM scan (DISCONNECTED-only 3s→120s backoff; ACTIVATED = supplicant bgscan), connectivity check (Arch ships uri → 300s HTTP), mv-control 30s poll (triggered scan every ~30s — FIXED), powersave (default ignore → firmware default)

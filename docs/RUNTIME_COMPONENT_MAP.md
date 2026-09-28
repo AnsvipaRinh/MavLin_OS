@@ -251,3 +251,152 @@ Firmware set expected on target:
 - `/usr/lib/firmware/brcm/brcmfmac43602-pcie.bin` (linux-firmware)
 - `/usr/lib/firmware/brcm/brcmfmac43602-pcie.ap.bin` (linux-firmware)
 - `/usr/lib/firmware/brcm/brcmfmac43602-pcie.txt` (provisioned by firstboot — NOT in linux-firmware)
+
+---
+
+## 5. i915 display path runtime map (D3, 2026-09-28)
+
+> Deep Runtime Track D3. Target: MacBook10,1, Intel HD 615 (Gen9.5, Kaby Lake, device ID 591e).
+> Source: Linux master (torvalds) i915 display code, fetched via codebrowser.dev.
+
+### 5.1 i915 power domains and power wells
+
+**Power domains** (intel_display_power.c:47-206): The i915 display engine is divided into
+fine-grained power domains — `DISPLAY_CORE`, `PIPE_A/B/C`, `TRANSCODER_A/B/C/EDP`,
+`PORT_DDI_LANES_*`, `PORT_DDI_IO_*`, `AUX_IO_*`, `AUX_*`, `GMBUS`, `DC_OFF`, `GT_IRQ`.
+Each domain maps to one or more hardware power wells. Domains are reference-counted
+(`domain_use_count[]`); the async-put mechanism (`__intel_display_power_put_async`,
+intel_display_power.c:742-785) schedules power-down after a 100ms delay when the last
+reference is dropped.
+
+**Gen9 power wells** (intel_display_power_well.c, skl_power_wells[]):
+- `SKL_DISP_PW_1` (PG1): display core, always-on dependency for most domains
+- `SKL_DISP_PW_2` (PG2): pipe/transcoder/DDI/AUX power; disabling triggers DC5/6 entry
+- `SKL_DISP_PW_MISC_IO`: misc I/O (firmware, DMC communication)
+- `SKL_DISP_DC_OFF`: controls DC state target; disabling allows DC5/6 entry
+
+**DC states** (intel_display_power.c:951-1019): Gen9 (DISPLAY_VER=9) supports
+`max_dc=2` → `DC_STATE_EN_UPTO_DC6`. The `allowed_dc_mask` is set from `enable_dc`
+module param (default -1 → max). DC5/DC6 entry is asynchronous; exit is synchronous
+(DC_STATE_EN write blocks until HW restores). DMC firmware coordinates entry/exit.
+
+**DMC firmware** (intel_dmc.c:45-51): From Gen9 onwards, the Display Microcontroller
+(DMC) saves/restores display engine state during DC transitions. Kaby Lake uses
+`i915/kbl_dmc.bin` (intel_dmc.c:235-239). DMC is loaded on resume
+(`skl_display_core_init` → `intel_dmc_load_program`, intel_display_power.c:1486).
+Without DMC firmware, DC5/6 entry is blocked (display stays in DC0).
+
+### 5.2 PSR (Panel Self Refresh) entry/exit path
+
+**PSR1 vs PSR2** (intel_psr.c:190-205):
+- PSR1: full-frame self-refresh; panel RFB caches entire framebuffer
+- PSR2: selective update; only dirty regions sent (requires Y-coordinate support)
+- Gen9 (DISPLAY_VER=9): PSR2 supported if `sink_psr2_support` (DPCD PSR version ≥ 03h
+  + Y-coord + ALPM aux wake) — intel_psr.c:704-724
+
+**PSR entry** (intel_psr.c:948-984, hsw_activate_psr1):
+1. `psr_compute_idle_frames()`: min 6 idle frames + sink sync latency
+2. TP1/TP2/TP3 timing from VBT (panel-specific)
+3. `EDP_PSR_CTL` write → HW starts entry sequence
+4. Entry takes ~2 vblanks (PSR2: `EDP_PSR2_CTL` + `PSR2_MAN_TRK_CTL`)
+5. Frontbuffer tracking: `intel_psr_invalidate()` called on FB dirty → PSR exit triggered
+
+**PSR exit** (intel_psr.c:432-481, intel_psr_irq_handler):
+- Triggers: frontbuffer modification, vblank/vsync interrupt, register writes,
+  cursor move (CURPOS), HDCP enable, KVMR session
+- `PSR_EVENT` register logs exit reason (intel_psr.c:394-430)
+- Exit completes asynchronously; `last_exit` timestamp recorded
+
+**PSR + DC5/6 interaction** (intel_psr.c:935-946, is_dc5_dc6_blocked):
+- PSR entry blocked if `current_dc_state < DC5` OR `vblank->enabled` OR
+  `active_non_psr_pipes` — PSR and DC5/6 are mutually exclusive on Gen9
+
+### 5.3 FBC (Frame Buffer Compression)
+
+**Gen9 FBC** (intel_fbc.c:25-39): FBC compresses the display framebuffer in stolen
+memory, reducing memory bandwidth. Transparent to userspace.
+- Compression limit: 1:1 to 1:4 (intel_fbc.c:823-834)
+- CFB allocated from stolen memory (intel_fbc.c:861-900)
+- Gen9 stride: 512-byte aligned (intel_fbc.c:199-200)
+- Nuke on flip: `intel_fbc_nuke()` writes DSPADDR to trigger re-compress
+- FBC + PSR1: mutually exclusive on Gen12+ (Wa_14016291713, intel_fbc.c:1561-1566);
+  on Gen9 they can coexist
+
+### 5.4 Forcewake model
+
+**Forcewake** (intel_display_power.c:1347, 1377): Register access in low-power states
+requires `intel_uncore_forcewake_get(FORCEWAKE_ALL)`. The forcewake mechanism
+temporarily powers the GT (graphics) domain to allow MMIO reads/writes. Released
+via `intel_uncore_forcewake_put()`. Needed during LCPLL disable/restore (PC8+).
+
+### 5.5 GEM/fence activity
+
+**Legacy fencing** (intel_fbc.c:268-273): Gen9 uses legacy fencing
+(`intel_gt_support_legacy_fencing`). FBC uses `fence_id` to detect scanout writes.
+`i915_vma_fence_id()` returns the fence associated with a GEM object's PPGTT mapping.
+FBC nuke is triggered when the fence is re-written (new flip).
+
+### 5.6 Backlight PWM control path
+
+**Gen9 backlight** (intel_backlight.c:195-201, bxt_get_backlight):
+- Register: `BXT_BLC_PWM_DUTY(controller)` — PWM duty cycle
+- PWM frequency: from VBT (`pwm_freq_hz`, default 200Hz) — intel_backlight.c:1162-1179
+- `pwm_level_max`: 16-bit value written to `BXT_BLC_PWM_FREQ`
+- Enable: `BXT_BLC_PWM_CTL` → `BXT_BLC_PWM_ENABLE` bit
+- Controller 1 uses utility pin (`UTIL_PIN_CTL`) — intel_backlight.c:689-705
+- Brightness scaling: user [0..255] → hw [pwm_level_min..pwm_level_max] via `scale()`
+
+### 5.7 DPST (Display Power Saving Technology)
+
+**DPST is NOT present on Gen9.5 eDP.** DPST is a DisplayPort link-layer power-saving
+feature (reduces link rate/lanes during idle). It applies to external DP outputs,
+not to the internal eDP panel. The internal panel uses PSR (panel self-refresh) +
+DC5/6 (display power wells) for power saving. No DPST code path exists in the
+i915 eDP driver for Gen9. Our stance: DPST is irrelevant for the MacBook10,1
+internal display; PSR + DC5/6 + FBC are the relevant power-saving mechanisms.
+
+### 5.8 vblank/pageflip path under xfwm4
+
+**xfwm4 compositing** (configs/desktop/xfce/xfwm4.xml):
+- `use_compositing=true` — compositor active
+- `vblank_mode=off` — PROVISIONAL: no vsync wait; pageflips at render rate
+- `unredirect_overlays=true` — PROVISIONAL: fullscreen windows bypass compositor
+- Shadows: `show_dock_shadow=true`, `show_popup_shadow=true`, `shadow_opacity=50`
+
+**Pageflip flow**: xfwm4 → X11 Present extension → DRM_IOCTL_MODE_PAGE_FLIP →
+i915 `intel_crtc_page_flip()` → plane flip → vblank interrupt. With `vblank_mode=off`,
+the compositor renders immediately without waiting for vblank → higher CPU/GPU
+load but lower latency. PSR entry is blocked while vblank is enabled
+(intel_psr.c:945: `READ_ONCE(vblank->enabled)`).
+
+**Cursor plane**: Gen9 has a hardware cursor plane (CURBASE). Cursor moves trigger
+PSR exit (intel_psr.c:139-144: `PIPE_MISC_PSR_MASK_CURSOR_MOVE`). The compositor
+can use the hardware cursor plane to avoid full-frame updates on cursor movement.
+
+### 5.9 Re-verification commands (on target)
+
+```bash
+# Power wells
+cat /sys/kernel/debug/dri/0/i915_power_well_count 2>/dev/null
+cat /sys/kernel/debug/dri/0/i915_display_power 2>/dev/null
+
+# DC state
+cat /sys/kernel/debug/dri/0/i915_dc_state 2>/dev/null
+
+# PSR status
+cat /sys/kernel/debug/dri/0/i915_edp_psr_status 2>/dev/null
+cat /sys/kernel/debug/dri/0/i915_edp_psr_sink_status 2>/dev/null
+
+# FBC status
+cat /sys/kernel/debug/dri/0/i915_fbc_status 2>/dev/null
+
+# DMC firmware
+cat /sys/kernel/debug/dri/0/i915_dmc_info 2>/dev/null
+
+# Backlight
+cat /sys/class/backlight/intel_backlight/brightness
+cat /sys/class/backlight/intel_backlight/max_brightness
+
+# Forcewake
+cat /sys/kernel/debug/dri/0/i915_forcewake_count 2>/dev/null
+```

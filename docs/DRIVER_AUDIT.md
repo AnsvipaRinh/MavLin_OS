@@ -228,3 +228,88 @@ Only F1 and F2 have proposed config changes (to `extract-brcmfmac-nvram.sh`). Bo
 | mv-control `--rescan no` default | `packages/.../mv-control` `refresh_wifi_list` | nmcli(1): 30s-old cache triggers scan | removes 30s scan while CC open |
 
 All three are in our own packaging, evidence-backed, no NM/supplicant source patches, frozen power baseline untouched.
+
+---
+
+## D3 — i915 display path driver audit (Gen9.5, 2026-09-28)
+
+> Companion to RUNTIME_SOURCE_AUDIT.md §D3 (S1-S10) and RUNTIME_COMPONENT_MAP.md §5.
+> Source: Linux master (torvalds) i915 display code via codebrowser.dev.
+
+### F12 — PSR flicker on Gen9 (KBL/CML/SKL) with kernel 6.8+ (BASELINE ITEM)
+
+**Finding:** Random panel flickering on Gen9 GPUs (Kaby Lake, Comet Lake, Skylake)
+with kernel 6.8+. Correlated with `CONFIG_INTEL_IOMMU_DEFAULT_ON` and
+`CONFIG_INTEL_IOMMU_SCALABLE_MODE_DEFAULT_ON` changes. Fixed by `i915.enable_psr=0`
+or `intel_iommu=igfx_off`. Flicker occurs when cursor is in bottom quarter of screen;
+stops when cursor leaves that area. Accompanied by `CPU pipe A FIFO underrun` in dmesg.
+
+**Evidence:**
+- LP#2086587: "Random flickering with Intel i915 (Comet Lake and Kaby Lake) on Linux 6.8+"
+- LP#2062951: "Random flickering with Intel i915 (Gen9 GPUs in 6th-8th gen CPUs) on Linux 6.8"
+- Both fixed by `i915.enable_psr=0` or `intel_iommu=igfx_off`
+- Upstream fix: Jouni Högander 8-patch series (ALPM wake lines calculation) —
+  landed in mainline 6.8.0-53 (Ubuntu SRU)
+
+**Our baseline:** `i915.enable_psr=0` — diagnostic-safe. Our panel (2304×1440 eDP,
+likely LP125WF2 or similar) may or may not be affected. The flicker is panel-specific.
+With PSR disabled, the display continuously refreshes from DDR — higher idle power.
+**Verdict: JUSTIFIED** — see DECISIONS.md D3 entry for full judgment.
+
+### F13 — Apple S3X NVMe resume failure (BASELINE ITEM)
+
+**Finding:** Apple S3X NVMe controller (106b:2003) becomes unresponsive after
+S3/s2idle resume on MacBook10,1. Root port 00:1c.0 (Sunrise Point-LP PCH) D3
+entry/exit leaves the device unreachable. `pcie_port_pm=off` fixes it.
+Without the workaround, the root filesystem goes read-only after ~60s.
+
+**Evidence:**
+- LKML Sep 2026: "nvme: Apple S3X (106b:2003) unresponsive after resume on
+  MacBook10,1, fixed by pcie_port_pm=off" (lists.openwall.net/linux-kernel/2026/09/21/161)
+- `pcie_aspm=off` and `nvme_core.default_ps_max_latency_us=0` did NOT help
+- `pcie_port_pm=off` passes all pm_test levels + real suspend + lid close/open
+- Root port: Intel Sunrise Point-LP PCH root port #1 (00:1c.0), L1 PM Substates capable
+
+**Our baseline:** `pcie_port_pm=off` — provisional workaround. Disables ALL PCIe
+root port runtime PM → battery life impact (unmeasured). The LKML thread asks
+if a PCI quirk for 00:1c.0 is possible instead of global disable.
+**Verdict: JUSTIFIED (provisional)** — see DECISIONS.md D3 entry for full judgment.
+
+### F14 — xfwm4 vblank_mode=off + unredirect_overlays=true (PROVISIONAL CONFIG)
+
+**Finding:** Our xfwm4 config sets `vblank_mode=off` and `unredirect_overlays=true`
+as PROVISIONAL optimizations for the fanless Core M. These reduce compositor work
+but may cause tearing on the real panel. Marked as requiring hardware validation.
+
+**Evidence:**
+- `configs/desktop/xfce/xfwm4.xml:25-26` — both settings with PROVISIONAL comment
+- `vblank_mode=off`: xfwm4 renders without waiting for vblank → pageflips at render rate
+- `unredirect_overlays=true`: fullscreen windows bypass compositor → no compositor overhead
+- PSR entry is blocked while vblank is enabled (intel_psr.c:945) — so vblank_mode=off
+  actually HELPS PSR entry (vblank can be disabled when compositor doesn't need it)
+
+**Our baseline:** No change — these are our own config settings, not kernel params.
+**Verdict: NEUTRAL** — provisional, requires HW validation for tearing.
+
+### F15 — DMC firmware dependency for DC5/6 (PACKAGING)
+
+**Finding:** DC5/6 entry requires DMC firmware (`i915/kbl_dmc.bin`). Without it,
+the display stays in DC0 (no power saving). The firmware is in `linux-firmware`
+package (verified in packages.x86_64).
+
+**Evidence:**
+- intel_dmc.c:235-239 — KBL_DMC_PATH = "i915/kbl_dmc.bin"
+- intel_display_power.c:1486 — `intel_dmc_load_program()` called on resume
+- `gen9_dc_off_power_well_disable` checks `intel_dmc_has_payload` before DC entry
+
+**Our baseline:** `linux-firmware` in packages.x86_64 — DMC firmware present.
+**Verdict: KEEP** — packaging correct, no change needed.
+
+### D3 driver audit summary
+
+| Outcome class | Count | Findings |
+|---|---|---|
+| BASELINE-JUSTIFIED | 2 | F12 (PSR off), F13 (pcie_port_pm off) |
+| PROVISIONAL-CONFIG | 1 | F14 (xfwm4 vblank/unredirect) |
+| KEEP | 1 | F15 (DMC firmware packaging) |
+| **Total** | **4** | |

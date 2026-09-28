@@ -29,3 +29,59 @@ No upstream patches required for the D2 userspace path. All findings are
 either (a) by-design NM behavior, (b) Arch packaging defaults worked around
 from our own config, or (c) our own app behavior fixed locally. No NM /
 wpa_supplicant / iwd source patches are needed or proposed.
+
+---
+
+## D3 — i915 display path upstream status (Gen9.5, 2026-09-28)
+
+### PSR flicker fixes (Gen9 KBL/CML/SKL)
+
+**Status: LANDED upstream (mainline 6.8.0-53+).**
+
+Jouni Högander's 8-patch series "Fix panel flickering issue when i915.psr2 is enabled"
+landed in mainline. The series improves ALPM (Active Link Power Management) wake
+lines calculation for PSR2, fixing flicker on affected panels. Ubuntu SRU patches
+applied to Noble (6.8.0-53) and later.
+
+**Relevance to us:** The upstream fix addresses PSR2 flicker on Gen9. However,
+our baseline is `i915.enable_psr=0` (diagnostic-safe). The upstream fix may allow
+re-enabling PSR1 (not PSR2) on our panel if it is not in the affected quirk list.
+HW validation (§6.1) will determine if PSR1 can be safely enabled.
+
+**References:**
+- Ubuntu SRU: lists.ubuntu.com/archives/kernel-team/2024-May/151052.html
+- Upstream bug: gitlab.freedesktop.org/drm/intel/-/issues/9739
+- LP#2086587, LP#2062951 (Gen9 flicker reports)
+
+### Apple S3X NVMe resume fix
+
+**Status: NO upstream fix yet — LKML thread open (Sep 2026).**
+
+The LKML thread "nvme: Apple S3X (106b:2003) unresponsive after resume on
+MacBook10,1, fixed by pcie_port_pm=off" (Sep 2026) documents the issue and
+the workaround. No upstream patch has been proposed or merged. The thread asks
+if a PCI quirk for root port 00:1c.0 is possible instead of the global
+`pcie_port_pm=off` disable.
+
+**Relevance to us:** Our baseline uses `pcie_port_pm=off` as a provisional
+workaround. If an upstream quirk or fix lands, we can switch to the narrower
+fix and restore PCIe root port runtime PM (saving battery). Monitor the LKML
+thread for updates.
+
+**References:**
+- LKML: lists.openwall.net/linux-kernel/2026/09/21/161
+- Root port: Intel Sunrise Point-LP PCH 00:1c.0 (L1 PM Substates capable)
+
+### DMC firmware (KBL)
+
+**Status: STABLE — no upstream issues.**
+
+The KBL DMC firmware (`i915/kbl_dmc.bin`) is in linux-firmware and loads
+correctly. No known issues with DMC on Gen9.5.
+
+### FBC on Gen9
+
+**Status: STABLE — no upstream issues.**
+
+FBC on Gen9 is mature and stable. No known flicker or corruption issues.
+FBC + PSR1 coexistence on Gen9 is correct (mutual exclusion only on Gen12+).

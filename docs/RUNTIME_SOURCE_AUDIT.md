@@ -388,3 +388,92 @@
 | LOCAL-FIX (APPLIED) | 1 | U2 (mv-control --rescan no) |
 | UPSTREAM-CANDIDATE | 0 | — |
 | **Total** | **5** | |
+
+---
+
+## D3 — i915 display path source audit (Gen9.5, 2026-09-28)
+
+> Source: Linux master (torvalds) i915 display code via codebrowser.dev.
+> Every claim cites file:line. Re-verify commands in RUNTIME_COMPONENT_MAP.md §5.9.
+
+### S1 — PSR entry path: idle_frames + sync latency (KEEP)
+
+**Finding:** `psr_compute_idle_frames()` (intel_psr.c:917-933) computes the minimum
+idle frames before PSR entry as `max(6, vbt.idle_frames, sink_sync_latency + 1)`.
+The `sink_sync_latency` is read from DPCD `DP_SYNCHRONIZATION_LATENCY_IN_SINK`
+(intel_psr.c:483-495). If DPCD read fails, assumes 8 frames (worst case).
+This is correct and panel-appropriate — no change needed.
+
+### S2 — PSR2 Y-coordinate support gate (KEEP)
+
+**Finding:** PSR2 selective update on Gen9 requires `sink_psr2_support` which is
+gated on: DPCD PSR version ≥ 03h AND `DP_PSR2_SU_Y_COORDINATE_REQUIRED` AND
+`intel_alpm_aux_wake_supported()` (intel_psr.c:704-724). If any condition fails,
+PSR2 is disabled and PSR1 is used instead. This is correct — no change needed.
+
+### S3 — PSR exit on vblank/vsync interrupt (KEEP)
+
+**Finding:** PSR entry is blocked while `vblank->enabled` (intel_psr.c:945,
+`is_dc5_dc6_blocked()`). The vblank interrupt is unmasked during PSR to allow
+exit on frontbuffer modification. This means PSR and vblank are mutually
+exclusive — PSR entry requires vblank to be disabled first. This is by design.
+
+### S4 — FBC nuke on flip (KEEP)
+
+**Finding:** `intel_fbc_nuke()` (intel_fbc.c:750-760) writes `DSPADDR` to trigger
+a re-compress of the framebuffer. Called from `intel_fbc_activate()` on every
+plane flip. The nuke is a single MMIO write — negligible cost. Correct behavior.
+
+### S5 — FBC + PSR1 coexistence on Gen9 (KEEP)
+
+**Finding:** On Gen9 (DISPLAY_VER=9), FBC and PSR1 can coexist. The mutual
+exclusion (`Wa_14016291713`) only applies to Gen12+ (intel_fbc.c:1561-1566).
+On Gen9, FBC compresses the framebuffer while PSR caches it in the panel RFB.
+No conflict — both can be active simultaneously.
+
+### S6 — Backlight PWM frequency from VBT (KEEP)
+
+**Finding:** `get_vbt_pwm_freq()` (intel_backlight.c:1162-1179) reads the PWM
+frequency from VBT (Video BIOS Table). If VBT doesn't specify, defaults to 200Hz.
+The `pwm_level_max` is computed from this frequency and the display raw clock.
+This is panel-specific and correct — no change needed.
+
+### S7 — DC5/6 entry blocked by active vblank (KEEP)
+
+**Finding:** `is_dc5_dc6_blocked()` (intel_psr.c:935-946) returns true if
+`current_dc_state < DC5` OR `active_non_psr_pipes` OR `vblank->enabled`.
+This means DC5/6 entry requires all pipes to be in PSR (or disabled) and
+vblank to be disabled. This is the hardware coordination mechanism — correct.
+
+### S8 — DMC firmware required for DC5/6 (KEEP)
+
+**Finding:** `skl_display_core_init()` (intel_display_power.c:1456-1487) calls
+`intel_dmc_load_program()` on resume. Without DMC firmware, DC5/6 entry is
+blocked (the `gen9_dc_off_power_well_disable` path checks `intel_dmc_has_payload`).
+The KBL DMC firmware (`i915/kbl_dmc.bin`) must be present in `/usr/lib/firmware`.
+This is a packaging dependency — verified in packages.x86_64 (linux-firmware).
+
+### S9 — Forcewake for register access in low-power (KEEP)
+
+**Finding:** `hsw_restore_lcpll()` (intel_display_power.c:1331-1381) calls
+`intel_uncore_forcewake_get(FORCEWAKE_ALL)` before accessing LCPLL registers,
+and `intel_uncore_forcewake_put()` after. This is required because the GT
+domain may be powered down during PC8+. Correct — no change needed.
+
+### S10 — PSR + DC5/6 mutual exclusion (KEEP)
+
+**Finding:** PSR entry requires DC5/6 to be blocked (intel_psr.c:935-946), and
+DC5/6 entry requires PSR to be inactive (all pipes must be in PSR or disabled).
+This means PSR and DC5/6 are mutually exclusive power-saving states. The driver
+coordinates this via the `DC_OFF` power well and `target_dc_state`. This is
+correct hardware coordination — no change needed.
+
+### D3 source audit summary
+
+| Outcome class | Count | Findings |
+|---|---|---|
+| KEEP | 10 | S1-S10 — all display power management paths are correct by design |
+| CONFIG-CANDIDATE | 0 | — |
+| LOCAL-FIX | 0 | — |
+| UPSTREAM-CANDIDATE | 0 | — |
+| **Total** | **10** | |

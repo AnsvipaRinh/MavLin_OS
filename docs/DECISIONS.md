@@ -255,6 +255,88 @@
 
 ---
 
+## D3 — i915 display path baseline judgment (2026-09-28)
+
+**Date:** 2026-09-28 (Deep Runtime Track D3)
+**Scope:** Judge (do NOT change) the frozen baseline items `pcie_port_pm=off` and
+`i915.enable_psr=0` for the Intel HD 615 (Gen9.5) display path. No driver rewrites.
+**Evidence:** RUNTIME_COMPONENT_MAP.md §5, RUNTIME_SOURCE_AUDIT.md §D3, DRIVER_AUDIT.md §D3,
+DRIVER_OPTIMIZATION_CANDIDATES.md §6, UPSTREAM_PATCH_TRACKER.md §D3.
+
+### Verdict 1: `pcie_port_pm=off` — JUSTIFIED (provisional workaround)
+
+**Evidence:**
+- LKML Sep 2026: Apple S3X (106b:2003) unresponsive after S3/s2idle resume on
+  MacBook10,1. Root port 00:1c.0 (Sunrise Point-LP PCH) D3 entry/exit leaves
+  device unreachable. `pcie_port_pm=off` fixes it (all pm_test levels + real
+  suspend + lid close/open pass). `pcie_aspm=off` and `nvme_core` params did NOT help.
+  (lists.openwall.net/linux-kernel/2026/09/21/161)
+- The workaround is GLOBAL — disables runtime PM for ALL PCIe root ports.
+  Battery cost unmeasured (thread author: "it probably costs some battery life;
+  I have not measured that").
+
+**Why JUSTIFIED:** Without it, the root filesystem goes read-only after ~60s
+post-resume (NVMe admin timeout). This is a data-loss risk — unacceptable.
+The workaround is the only known fix. No upstream patch exists yet.
+
+**HW measurement to confirm/refute:**
+- Battery discharge rate with/without `pcie_port_pm=off` (A/B)
+- Resume-cycle matrix (DRIVER_OPTIMIZATION_CANDIDATES.md §6.3)
+- If an upstream PCI quirk for 00:1c.0 lands, switch to the narrower fix
+
+**Upstream status:** LKML thread open (Sep 2026). No patch proposed yet.
+Monitor for quirk or fix.
+
+### Verdict 2: `i915.enable_psr=0` — JUSTIFIED (diagnostic-safe, with caveat)
+
+**Evidence:**
+- LP#2086587, LP#2062951: Gen9 (KBL/CML/SKL) PSR flicker on kernel 6.8+.
+  Fixed by `i915.enable_psr=0` or `intel_iommu=igfx_off`. Flicker occurs when
+  cursor in bottom quarter; accompanied by `CPU pipe A FIFO underrun`.
+- Upstream fix: Jouni Högander 8-patch series (ALPM wake lines calculation)
+  landed in mainline 6.8.0-53. Fixes PSR2 flicker on affected panels.
+- Our panel: 2304×1440 eDP (likely LP125WF2 or similar). PSR2 support unknown
+  without DPCD/VBT readout. May or may not be in the affected quirk list.
+
+**Why JUSTIFIED:** PSR flicker is a visible defect that affects user experience.
+The upstream fix addresses PSR2 but not all panels. Our baseline is diagnostic-safe
+(no PSR → no flicker risk). The cost is higher idle power (display continuously
+refreshes from DDR instead of self-refreshing).
+
+**Caveat:** If HW validation (§6.1) shows no flicker with PSR1 enabled AND
+idle power drops significantly, consider enabling PSR1 (not PSR2) as a
+measured optimization. This would be a baseline change with evidence.
+
+**HW measurement to confirm/refute:**
+- PSR on/off A/B: idle power, flicker observation, dmesg PSR events
+- If no flicker with PSR1: measure power savings → consider enabling
+- If flicker: keep PSR off (baseline confirmed)
+
+### X11-side costs (no changes this phase)
+
+| Component | Setting | Cost | Evidence |
+|---|---|---|---|
+| xfwm4 compositing | `use_compositing=true` | GPU compositing load | xfwm4.xml:17 |
+| xfwm4 vblank | `vblank_mode=off` | no vsync wait → tearing risk | xfwm4.xml:25 (PROVISIONAL) |
+| xfwm4 unredirect | `unredirect_overlays=true` | fullscreen bypasses compositor | xfwm4.xml:26 (PROVISIONAL) |
+| xfwm4 shadows | `show_dock_shadow=true`, `show_popup_shadow=true` | GPU render for shadows | xfwm4.xml:10-11 |
+| PSR + vblank | mutually exclusive | PSR entry requires vblank disabled | intel_psr.c:945 |
+| Cursor plane | hardware cursor | PSR exit on cursor move | intel_psr.c:139-144 |
+| DPMS | not configured in xfwm4 | default (no DPMS) | — |
+| Screensaver | `xfce4-screensaver` timeout=60 | wake on timeout | lightdm-gtk-greeter.conf:15 |
+
+**Our-config changes:** NONE — D3 is judgment-only. xfwm4 settings are PROVISIONAL
+and require HW validation (§6.4) for tearing. No i915 param changes.
+
+### D4 proposal
+
+Next deep runtime track: **PipeWire/audio path audit** — HDAudio codec (Cirrus
+CS4207/CS4208 on MacBook10,1), PipeWire graph, ALSA UCM, D-Bus media session,
+power audio (DSP idle, clock gating). Follows same structure: runtime map →
+source audit → driver audit → optimization candidates → HW measurement plan.
+
+---
+
 ## Power management: TLP only (thermald + ananicy-cpp REMOVED)
 
 **Date:** 2026-09-25 (corrected Phase 0.5)

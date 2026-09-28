@@ -278,3 +278,99 @@ The `[connection] wifi.powersave=3` (enable) lever would make NM send `NL80211_C
 - **Before:** measure idle interrupt rate + `iw dev wlan0 get power_save` with default (`ignore` → firmware default).
 - **After:** set `wifi.powersave=3`, reconnect, measure again.
 - **Decision:** adopt only if idle wakeups drop AND no disconnects/latency regression (D1 hypothesis O6). Otherwise keep `ignore` (firmware default). PM_FAST stability on BCM43602 is unverified.
+
+---
+
+## 6. D3 — i915 display path HW measurement plan (Gen9.5, 2026-09-28)
+
+> Companion to DRIVER_AUDIT.md §D3 (F12-F15) and RUNTIME_COMPONENT_MAP.md §5.
+> All items are PROPOSED-HW-MEASUREMENT — no changes until measured on MacBook10,1.
+
+### 6.1 PSR on/off A/B measurement
+
+**Goal:** quantify the power cost of `i915.enable_psr=0` and confirm/refute PSR flicker
+on our specific panel.
+
+| Step | Command | Metric |
+|---|---|---|
+| 1. Baseline (PSR off) | boot with `i915.enable_psr=0` | idle power (battery discharge rate), `cat /sys/class/power_supply/BAT0/power_now` |
+| 2. PSR on | boot with `i915.enable_psr=1` (or remove param) | same metrics |
+| 3. PSR status | `cat /sys/kernel/debug/dri/0/i915_edp_psr_status` | confirm PSR1/PSR2 active |
+| 4. Flicker test | move cursor to bottom quarter of screen for 5 min | visual observation + `dmesg \| grep -i "fifo underrun\|psr"` |
+| 5. DC state | `cat /sys/kernel/debug/dri/0/i915_dc_state` | confirm DC5/6 entry with PSR on |
+| 6. Decision | adopt PSR on only if: no flicker AND idle power drops | — |
+
+**Expected:** PSR on saves ~0.5-1W idle (display refresh from DDR eliminated).
+If flicker occurs on our panel, keep PSR off (baseline). If no flicker and power
+saves, consider enabling PSR1 (not PSR2 — PSR2 has more flicker reports).
+
+### 6.2 ASPM A/B measurement (pcie_port_pm=off judgment)
+
+**Goal:** quantify the battery cost of `pcie_port_pm=off` and confirm it is still
+required (S3X resume fix).
+
+| Step | Command | Metric |
+|---|---|---|
+| 1. Baseline (pcie_port_pm=off) | boot with `pcie_port_pm=off` | idle power, resume works |
+| 2. pcie_port_pm=on | boot without `pcie_port_pm=off` | idle power, resume test |
+| 3. Resume test | `systemctl suspend` → resume → `dmesg \| grep -i nvme` | S3X resume success/failure |
+| 4. pm_test | `echo platform > /sys/power/pm_test` → suspend → resume | which pm_test level fails |
+| 5. Decision | keep `pcie_port_pm=off` if resume fails without it | — |
+
+**Expected:** `pcie_port_pm=off` costs some battery (root ports stay in D0).
+If resume works without it (e.g., kernel fix landed), remove it. If resume
+fails, keep it (JUSTIFIED). The LKML thread notes "it probably costs some
+battery life; I have not measured that" — this measurement fills that gap.
+
+### 6.3 Resume-cycle matrix
+
+**Goal:** validate the frozen baseline across suspend/resume cycles.
+
+| # | mem_sleep | pcie_port_pm | enable_psr | Expected | Pass criteria |
+|---|---|---|---|---|---|
+| 1 | s2idle | off | off | resume works | NVMe alive, display on |
+| 2 | deep (S3) | off | off | resume works | NVMe alive, display on |
+| 3 | s2idle | on | off | resume fails (S3X) | confirms F13 |
+| 4 | deep (S3) | on | off | resume fails (S3X) | confirms F13 |
+| 5 | s2idle | off | on | resume works + no flicker | confirms F12 |
+| 6 | deep (S3) | off | on | resume works + no flicker | confirms F12 |
+| 7 | s2idle | off | off | resume works (repeat) | stability |
+| 8 | deep (S3) | off | off | resume works (repeat) | stability |
+
+**Procedure:** for each row: set cmdline → reboot → `echo <mode> > /sys/power/mem_sleep`
+→ `systemctl suspend` → resume → check `dmesg | grep -i "nvme\|i915\|drm"` →
+check `/dev/nvme0n1` readable → check display on. Record in BENCHMARKS.md.
+
+### 6.4 xfwm4 compositor settings validation
+
+**Goal:** validate `vblank_mode=off` + `unredirect_overlays=true` on the real panel.
+
+| Step | Command | Metric |
+|---|---|---|
+. 1. Tearing test | `vblank_mode=off` → scroll window, video playback | visual tearing observation |
+| 2. Baseline | `vblank_mode=on` (or `glx`) → same test | visual tearing observation |
+| 3. PSR interaction | `vblank_mode=off` → check PSR entry | `cat /sys/kernel/debug/dri/0/i915_edp_psr_status` |
+| 4. Decision | keep `vblank_mode=off` if no tearing AND PSR entry improves | — |
+
+**Expected:** `vblank_mode=off` may cause tearing on the real panel (no vsync).
+If tearing observed, switch to `vblank_mode=glx` or `vblank_mode=xpresent`.
+If no tearing and PSR entry improves (vblank can be disabled), keep as-is.
+
+### 6.5 Backlight PWM validation
+
+**Goal:** validate backlight control path on the real panel.
+
+| Step | Command | Metric |
+|---|---|---|
+| 1. Brightness range | `cat /sys/class/backlight/intel_backlight/{brightness,max_brightness}` | expected: 0..max |
+| 2. Dim test | `echo 10 > /sys/class/backlight/intel_backlight/brightness` | panel dims visibly |
+| 3. Bright test | `echo <max> > .../brightness` | panel full brightness |
+| 4. Flicker test | low brightness (1-10) | PWM flicker visible? |
+| 5. Decision | if PWM flicker at low brightness, consider `invert_brightness` quirk | — |
+
+### 6.6 What NOT to change (frozen baseline)
+
+- No i915 param changes in this phase (D3 is judgment-only)
+- No driver rewrites
+- No new daemons or polling
+- Power baseline untouched (see DECISIONS.md Phase 0.5)
