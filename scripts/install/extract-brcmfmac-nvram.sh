@@ -18,7 +18,12 @@ if [[ -f "$TXT" ]]; then
   echo "OK: $TXT exists ($(wc -c < "$TXT") bytes). Verify 5GHz + signal on hardware."
   exit 0
 fi
-echo "MISSING: $TXT — installing placeholder template (REPLACE with extracted Apple NVRAM)."
+echo "MISSING: $TXT"
+if dmesg 2>/dev/null | grep -q "Using nvram EFI variable"; then
+    echo "EFI NVRAM detected in dmesg — driver uses EFI NVRAM, skipping placeholder."
+    exit 0
+fi
+echo "Installing placeholder template (REPLACE with extracted Apple NVRAM)."
 mkdir -p "$FW_DIR"
 cat > "$TXT" <<EOF
 # PLACEHOLDER — replace with Apple-extracted brcmfmac43602-pcie.txt for MacBook10,1
@@ -26,9 +31,9 @@ cat > "$TXT" <<EOF
 # See: https://github.com/Dunedan/mbp-2016-linux (NVRAM extraction docs)
 # Status: UNVALIDATED
 macaddr=$MAC
-ccode=X0
+ccode=X2
 EOF
 chmod 644 "$TXT"
-echo "Wrote placeholder $TXT. Next: brcmfmac feature_disable/roamoff are EXPERIMENTS (E10 family), not baseline."
+echo "Wrote placeholder $TXT. Next: brcmfmac roamoff is an EXPERIMENT (E10 family), not baseline."
 echo "If 5GHz missing or signal weak after replacing with real NVRAM, test:"
-echo "  options brcmfmac feature_disable=0x82000 roamoff=1"
+echo "  options brcmfmac roamoff=1"

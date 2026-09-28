@@ -1,0 +1,213 @@
+# RUNTIME COMPONENT MAP — NETWORK (BCM43602 / brcmfmac)
+
+> Deep Runtime Track D1. Audit date: 2026-09-28. Target: MacBook10,1, Broadcom BCM43602 (PCIe FullMAC/D11).
+> Source basis: Linux 7.3.0-rc5 (torvalds) `drivers/net/wireless/broadcom/brcm80211/brcmfmac/` + `linux-firmware` WHENCE.
+> Host had no kernel `.c` source; all references verified against upstream git.kernel.org plain fetches. Re-verify on target with the commands in §6.
+> NO driver modifications. This is a map + audit only.
+
+---
+
+## 1. brcmfmac module structure (PCIe path)
+
+brcmfmac is a **FullMAC** driver: it implements `struct cfg80211_ops` directly and does **not** use mac80211. Kconfig: `BRCMFMAC depends on CFG80211` (brcmfmac/Kconfig:3-6). PCIe selects the MSGBUF protocol: `BRCMFMAC_PCIE select BRCMFMAC_PROTO_MSGBUF` (brcmfmac/Kconfig:52-58).
+
+| Layer | File | Role |
+|---|---|---|
+| Bus: PCIe | `pcie.c` | probe/remove, firmware download, ring buffers, IRQ (threaded MSI), mailbox, OTP, shared RAM, suspend/resume |
+| Bus: SDIO | `sdio.c`, `bcmsdh.c` | not used for BCM43602 |
+| Bus: USB | `usb.c` | not used for BCM43602 |
+| Bus core | `bus.c`, `bus.h` | `brcmf_bus` struct, bus state machine |
+| Common | `common.c`, `common.h` | `brcmf_if`, preinit dcmds, module params, DMI/ACPI/OF probe |
+| Core | `core.c` | attach/detach, netdev ops, `brcmf_bus_started`, xmit entry |
+| Protocol: MSGBUF | `msgbuf.c`, `msgbuf.h` | PCIe protocol: TX flowrings, RX, events, ioctl |
+| Protocol: BCDC | `bcdc.c`, `fwsignal.c` | SDIO/USB protocol — **not used for PCIe** |
+| FW event handler | `fweh.c`, `fweh.h` | firmware event queue + worker (system_wq) |
+| FW interface | `fwil.c`, `fwil.h` | iovar/cmd helpers (`brcmf_fil_iovar_data_set`, etc.) |
+| FW vendor | `fwvid.c` | firmware vendor detection (WCC/BCA/CYW) |
+| Firmware | `firmware.c`, `firmware.h` | `brcmf_fw_alloc_request`, board-specific path fallback, EFI NVRAM |
+| NVRAM parse | `nvram.c` | NVRAM txt parsing (via `nvram_parser` in firmware.c) |
+| Chip | `chip.c`, `chip.h` | chip info table, RAM info, core access |
+| cfg80211 | `cfg80211.c`, `cfg80211.h` | wiphy ops: scan, connect, powersave, roam, wowlan, p2p, reg |
+| P2P | `p2p.c`, `p2p.h` | P2P vif, listen timer |
+| PNO | `pno.c`, `pno.h` | preferred network offload (firmware scheduled scan) |
+| Feature | `feature.c`, `feature.h` | feature flags, `feature_disable` parsing |
+| BT coex | `btcoex.c`, `btcoex.h` | Bluetooth coexistence state machine |
+| Vendor | `vendor.c` | Broadcom OUI vendor command (DCMD diagnostics) |
+| Flowring | `flowring.c`, `flowring.h` | TX flow control, queue blocking |
+| Commonring | `commonring.c`, `commonring.h` | common ring buffer management |
+| XTLV | `xtlv.c`, `xtlv.h` | TLV parsing |
+| DMI | `dmi.c` | DMI quirk table → board_type |
+| ACPI | `acpi.c` | ACPI module-instance/RWCV → board_type/antenna_sku (Asahi) |
+
+---
+
+## 2. cfg80211 / mac80211 involvement
+
+**FullMAC → mac80211 is bypassed entirely.** The driver registers a `struct cfg80211_ops` (`brcmf_cfg80211_ops`, cfg80211.c:6007+) with handlers: `.scan`, `.connect`, `.disconnect`, `.set_power_mgmt`, `.join_ibss`, `.leave_ibss`, `.get_station`, `.set_wiphy_params`, `.set_tx_power`, `.get_tx_power`, `.dump_survey`, `.remain_on_channel`, `.cancel_remain_on_channel`, `.mgmt_tx`, `.mgmt_tx_cancel`, `.scan`, etc. There is no `ieee80211_ops` and no mac80211 TX/RX path. All 802.11 management is handled in firmware; the driver exchanges ethernet frames with the netdev and iovar/cmd messages with firmware.
+
+---
+
+## 3. Firmware interface
+
+### 3.1 Firmware files (BCM43602, PCIe)
+
+| File | Required | Source | Notes |
+|---|---|---|---|
+| `brcm/brcmfmac43602-pcie.bin` | **yes** | linux-firmware | main firmware binary |
+| `brcm/brcmfmac43602-pcie.ap.bin` | no | linux-firmware | AP-mode variant |
+| `brcm/brcmfmac43602-pcie.txt` | no (but radio calibration needed) | **NOT in linux-firmware** | per-board NVRAM; must be provisioned |
+| `brcm/brcmfmac43602-pcie.clm_blob` | no | **NOT in linux-firmware** | CLM limits blob |
+| `brcm/brcmfmac43602-pcie.txcap_blob` | no | **NOT in linux-firmware** | TX capability blob |
+
+Evidence: linux-firmware WHENCE lists only `brcmfmac43602-pcie.bin` and `brcmfmac43602-pcie.ap.bin` (WHENCE:2976-2977). No `.txt`, `.clm_blob`, or `.txcap_blob` for 43602.
+
+### 3.2 Firmware request flow
+
+`brcmf_pcie_prepare_fw_request` (pcie.c:2239-2299) builds a `brcmf_fw_request` with items: `.bin` (required), `.txt` (NVRAM, `BRCMF_FW_REQF_OPTIONAL`), `.clm_blob` (optional), `.txcap_blob` (optional). `brcmf_fw_get_firmwares` (firmware.c:760-800) first tries board-specific path (`brcm_alt_fw_path` → `brcmfmac43602-pcie.<board_type>.txt`), then falls back to canonical `brcmfmac43602-pcie.txt`.
+
+### 3.3 Board-specific NVRAM selection (Apple)
+
+- **OTP path** (pcie.c:2267-2293): if `settings->board_type && settings->antenna_sku && otp.valid`, builds board type strings like `apple,<module>-<vendor>-<version>-<antenna_sku>` (example in comment: `apple,shikoku-RASP-m-6.11-X3`). OTP read via `brcmf_pcie_read_otp` (pcie.c:2049).
+- **ACPI path** (acpi.c:11-51, Asahi): `module-instance` property → `board_type = "apple,<module-instance>"`; `RWCV` buffer → `antenna_sku` (2 chars).
+- **DMI path** (dmi.c:199-228): if no DMI quirk match, `board_type = "<sys_vendor>-<product_name>"` → for MacBook10,1: `"Apple Inc.-MacBook10,1"` (note: contains a space).
+- **EFI NVRAM** (firmware.c:488-518): if file NVRAM missing, driver reads EFI variable `nvram` (GUID `74b00bd9-805a-4d61-b51f-43268123d13`) — this is the macOS NVRAM blob. Logs `"Using nvram EFI variable"`.
+
+### 3.4 Event channel
+
+Firmware events arrive as MSGBUF event frames on the RX event ring → `brcmf_msgbuf_process_event` (msgbuf.c:1131-1168) → `brcmf_fweh_process_skb` (fweh.c) → `brcmf_fweh_queue_event` → `schedule_work(&fweh->event_work)` (fweh.c:94) → `brcmf_fweh_event_worker` (fweh.c:361) on the **system workqueue** (not a dedicated wq). Event mask set via `event_msgs` iovar (fweh.c:460-466). Event codes: `BRCMF_E_*` (fweh.h:104+).
+
+---
+
+## 4. NM → wpa_supplicant → nl80211 → cfg80211 → brcmfmac chain
+
+```
+NetworkManager (process, C)
+  └─ D-Bus ─→ wpa_supplicant (process, C)   [or iwd — both installed in ISO]
+       └─ nl80211 (generic netlink, kernel)
+            └─ cfg80211 (kernel)
+                 └─ brcmfmac (kernel, FullMAC)
+                      └─ MSGBUF protocol ─→ firmware (BCM43602)
+```
+
+Process/module boundaries:
+- **NetworkManager**: userspace daemon; talks to wpa_supplicant via D-Bus (`fi.w1.wpa_supplicant1`). Not a kernel component.
+- **wpa_supplicant**: userspace daemon; sends `NL80211_CMD_*` commands via netlink. ISO also ships `iwd` (packages.x86_64:46) as an alternative NM backend.
+- **nl80211/cfg80211**: kernel; no persistent process.
+- **brcmfmac**: kernel module; no userspace daemon. All 802.11 state machine in firmware.
+
+NM per-connection powersave: `nmcli c modify <ssid> 802-11-wireless.powersave 2|3` → wpa_supplicant → `NL80211_CMD_SET_POWER_SAVE` → `brcmf_cfg80211_set_power_mgmt` (cfg80211.c:3305) → `BRCMF_C_SET_PM` iovar.
+
+---
+
+## 5. Wakeup sources, timers, workqueues, runtime PM
+
+### 5.1 Interrupts
+
+- **MSI** (not MSI-X): `pci_enable_msi(pdev)` (pcie.c:978). `IRQF_SHARED`.
+- **Threaded IRQ**: `brcmf_pcie_quick_check_isr` (hard IRQ, pcie.c:928-939) reads `mailboxint`; if set → disable interrupts, return `IRQ_WAKE_THREAD`; else `IRQ_NONE` (shared IRQ optimization). `brcmf_pcie_isr_thread` (pcie.c:941-966) ACKs, handles mailbox (FN0) and D2H doorbell → `brcmf_proto_msgbuf_rx_trigger`.
+- Interrupt masking: `brcmf_pcie_intr_enable/disable` (pcie.c:908-918) via `mailboxmask` register.
+
+### 5.2 Firmware events
+
+- Scan results, connect done, roam, disconnect, etc. → fweh worker (system_wq). Event-driven, no polling.
+
+### 5.3 Scan
+
+- Triggered by cfg80211 (NM/wpa_supplicant `NL80211_CMD_TRIGGER_SCAN`) → `brcmf_cfg80211_scan` (cfg80211.c:1531) → `brcmf_do_escan` → `brcmf_run_escan` (cfg80211.c:1443) → `escan` iovar → firmware.
+- MPC (minimum power consumption) disabled during scan: `brcmf_scan_config_mpc(ifp, 0)` (cfg80211.c:1518).
+- Scan timeout timer: `cfg->escan_timeout`, 10 s (`BRCMF_ESCAN_TIMER_INTERVAL_MS`, cfg80211.h:49), armed at scan start (cfg80211.c:1587).
+
+### 5.4 Roaming
+
+- Firmware-driven. `BRCMF_E_ROAM` event → `brcmf_notify_roaming_status` (cfg80211.c:6655-6672). `roamoff` module param (common.c:63) disables roaming.
+
+### 5.5 Powersave
+
+- 802.11 PS: `brcmf_cfg80211_set_power_mgmt` (cfg80211.c:3305-3345) → `BRCMF_C_SET_PM` with `PM_FAST`/`PM_OFF`. P2P clients always `PM_OFF`.
+- No `pm_block` usage. No PM-QOS usage. Powersave is firmware-managed.
+
+### 5.6 Timers (complete list)
+
+| Timer | File | Active when |
+|---|---|---|
+| `escan_timeout` | cfg80211.c:3756 | only during scan (10 s timeout) |
+| `btcoex` timer | btcoex.c:374 | only during DHCP opportunity windows (BT coex active) |
+| `listen_timer` | p2p.h:127 | only during P2P listen |
+
+**No periodic idle timers.** The driver is fully event-driven at idle.
+
+### 5.7 Workqueues
+
+| Workqueue | File | Nature |
+|---|---|---|
+| system_wq (`fweh->event_work`) | fweh.c:361 | firmware event processing; schedule_work per event batch |
+| system_wq (`flowring_work`) | msgbuf.c:1667 | flowring creation; schedule_work |
+| `msgbuf_txflow` (dedicated singlethread) | msgbuf.c:1581 | TX flow processing; queue_work per TX batch; **idle when no TX** |
+| system_wq (`escan_timeout_work`) | cfg80211.c:3580 | scan timeout handler |
+| btcoex work | btcoex.c | BT coex state machine |
+
+### 5.8 Runtime PM / suspend-resume
+
+- `dev_pm_ops brcmf_pciedevr_pm` (pcie.c:2708-2712): `.suspend = brcmf_pcie_pm_enter_D3`, `.resume = brcmf_pcie_pm_leave_D3`.
+- Suspend: `brcmf_pcie_pm_enter_D3` (pcie.c:2636-2662) — sends `BRCMF_H2D_HOST_D3_INFORM` mailbox, waits for response (2 s timeout `BRCMF_PCIE_MBDATA_TIMEOUT`).
+- Resume: `brcmf_pcie_pm_leave_D3` (pcie.c:2666-2706) — hot resume (`BRCMF_H2D_HOST_D0_INFORM`) if device still alive, else full re-probe (`brcmf_pcie_remove` + `brcmf_pcie_probe`).
+- `device_wakeup_enable(&devinfo->pdev->dev)` (pcie.c:725).
+- `bus->wowl_supported = pci_pme_capable(pdev, PCI_D3hot)` (pcie.c:2522).
+- WoWLAN: `brcmf_wowlan_support` (cfg80211.c:7619-7625): `WIPHY_WOWLAN_MAGIC_PKT | WIPHY_WOWLAN_DISCONNECT` (+ `NET_DETECT`, `GTK_REKEY` if features enabled).
+
+### 5.9 sysfs / debugfs surfaces
+
+- debugfs: `/sys/kernel/debug/brcmfmac/` — entries: `revinfo`, `reset`, `msgbuf_stats` (msgbuf.c:1557), `feat` (feature.c:370). Not mounted by default → no runtime cost.
+- sysfs: standard netdev attributes (`/sys/class/net/wlan0/`). No custom polling sysfs entries.
+
+---
+
+## 6. Re-verification commands (on target)
+
+```bash
+# PCI ID
+lspci -nn | grep -i network
+# Expected: 14e4:43ba (BCM43602)
+
+# Firmware files present
+ls -la /usr/lib/firmware/brcm/brcmfmac43602-pcie.*
+# Expected: .bin, .ap.bin (from linux-firmware); .txt only if provisioned
+
+# Driver loaded + firmware source
+dmesg | grep -iE "brcmfmac|nvram|EFI variable"
+# Look for: "Using nvram EFI variable" (EFI path) or firmware file load
+
+# Module params
+systool -m brcmfmac -av 2>/dev/null || modinfo brcmfmac
+
+# Interrupt
+cat /proc/interrupts | grep brcmf
+
+# Powersave state
+iw dev wlan0 get power_save
+
+# Scan activity
+iw dev wlan0 scan dump | head
+
+# debugfs
+mount -t debugfs none /sys/kernel/debug 2>/dev/null
+ls /sys/kernel/debug/brcmfmac/
+```
+
+---
+
+## 7. PCI IDs + firmware set (summary)
+
+| PCI ID | Device | Notes |
+|---|---|---|
+| `14e4:43ba` | BCM43602 | **MacBook10,1 target** |
+| `14e4:43bb` | BCM43602 2G | 2.4 GHz variant |
+| `14e4:43bc` | BCM43602 5G | 5 GHz variant |
+| `14e4:43602` | BCM43602 RAW | raw device |
+
+Chip ID: `BRCM_CC_43602_CHIP_ID = 43602` (brcm_hw_ids.h:48). TCM rambase: `0x180000` (chip.c:725). Firmware vendor: WCC (pcie.c:2746-2749).
+
+Firmware set expected on target:
+- `/usr/lib/firmware/brcm/brcmfmac43602-pcie.bin` (linux-firmware)
+- `/usr/lib/firmware/brcm/brcmfmac43602-pcie.ap.bin` (linux-firmware)
+- `/usr/lib/firmware/brcm/brcmfmac43602-pcie.txt` (provisioned by firstboot — NOT in linux-firmware)
