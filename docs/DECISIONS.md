@@ -1321,3 +1321,23 @@ OVMF firmware запускается (PI/UEFI), но не обнаруживае
 7. **YouTube-like UI minimum: ACCEPT-MINIMAL.** mpv-native OSD covers play-pause/seek/volume/fullscreen/quality/metadata (press 'i' for stats). Thumbnail/channel/duration/next-video NOT provided by mpv natively — recorded as accepted-minimal (no SPA clone, no new daemon per audit scope).
 
 **Status:** All P0/P1 items fixed. Full suite 20 files, 1199 tests, all pass. Power baseline untouched.
+
+## Text Editor "self-respawn" investigation — root cause: orphaned Wayland process, NO respawner (Phase 0.70)
+
+**Date:** 2026-09-28
+**Context:** User reported a self-respawning Text Editor (mv-textedit) window on the WSLg desktop — closing/killing made it reappear; other smoke-test apps closed correctly. Prior investigation returned empty (no commits).
+
+**Root-cause chain (with PIDs/evidence):**
+- **Launcher:** a prior interactive bash session launched mv-textedit detached via `setsid` (last instance PID 543249, started 12:51:38, cmdline `/usr/sbin/python3 packages/mavericks-apps/src/mavericks-apps/bin/mv-textedit`, launched by `/tmp/opencode/close-test.sh`). The launching shell exited without killing the child.
+- **Reason it persisted:** the child was reparented to init (PPID 4771) and kept running as a session leader with a live window. No session/terminal owned it.
+- **Relauncher:** NONE. Exhaustive sweep found no systemd user units/timers, no system cron, no user crontab, no at jobs, no autostart entries, no Xfce session restore, no D-Bus activation files, no watchdog/retry/relaunch loops, no opencode background tasks, and no repo harness (test-*.py, bench) that launches mv-textedit as a GUI app. A 5-min kill-watch and a 15-min process-tree watch showed zero relaunch after kill.
+- **Why it *looked* like a respawn:** (1) the app runs on **Wayland** (WSLg native — confirmed by `/memfd:wayland-cursor` fd, no X11 socket, xdotool sees no window), so X11 management tools (xdotool/wmctrl) cannot see or close it — close/kill attempts via X11 silently fail; (2) the draft-restore feature (`~/.local/share/mv-textedit/drafts/autosave.json`) makes every fresh launch reproduce the same "Untitled (Recovered)" window; (3) orphaned instances from repeated launches can accumulate.
+
+**Fix:**
+1. Killed the orphan (PID 543249) — the immediate cause of the persistent window.
+2. Cleared the stale draft (test data "тест\nну окс" from the prior investigation) so the next launch is clean.
+3. Added `scripts/test-mv-textedit.py` — a lifecycle regression test encoding the acceptance criteria (launch works, terminate→exits, kill→stays dead, no respawn, repeat, no lingering process). Locks in correct lifecycle and fails if any future watchdog/timer/retry-loop respawner is introduced.
+
+**Verification:** lifecycle test 12/12; full suite 21/21 test-*.py + check-sync.sh green; no lingering editor after suite; 15-min process-tree watch clean.
+
+**Status:** Resolved (no respawner existed; orphan removed; regression guard added). Power baseline untouched.
