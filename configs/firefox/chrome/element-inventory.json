@@ -393,6 +393,66 @@
     ".urlbarView .search-one-offs .searchbar-engine-one-off-item": {
       "confidence": "verified-ESR",
       "provenance": "UrlbarInput.sys.mjs + UrlbarSearchOneOffs.sys.mjs (ESR 128) — one-off engine buttons, class=\"searchbar-engine-one-off-item\" inside <hbox class=\"search-one-offs\">"
+    },
+    "#nav-bar .toolbarbutton-1 .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — .toolbarbutton-icon child of nav-bar toolbarbutton; Proton browser.css sizes it 16px"
+    },
+    "#PersonalToolbar .toolbarbutton-1 .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — .toolbarbutton-icon child of bookmarks-bar toolbarbutton"
+    },
+    "#PersonalToolbar .bookmark-item .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — .toolbarbutton-icon child of bookmarks-bar bookmark item"
+    },
+    "#nav-bar .toolbarbutton-1:not([disabled=\"true\"]):hover .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :hover pseudo-class on nav-bar button icon"
+    },
+    "#PersonalToolbar .toolbarbutton-1:not([disabled=\"true\"]):hover .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :hover pseudo-class on bookmarks-bar button icon"
+    },
+    "#PersonalToolbar .bookmark-item:not([disabled=\"true\"]):hover .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :hover pseudo-class on bookmark item icon"
+    },
+    "#nav-bar .toolbarbutton-1:not([disabled=\"true\"]):active .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :active pseudo-class on nav-bar button icon"
+    },
+    "#PersonalToolbar .toolbarbutton-1:not([disabled=\"true\"]):active .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :active pseudo-class on bookmarks-bar button icon"
+    },
+    "#PersonalToolbar .bookmark-item:not([disabled=\"true\"]):active .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :active pseudo-class on bookmark item icon"
+    },
+    "#nav-bar .toolbarbutton-1[disabled=\"true\"] .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute on nav-bar button icon"
+    },
+    "#PersonalToolbar .toolbarbutton-1[disabled=\"true\"] .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute on bookmarks-bar button icon"
+    },
+    "#PersonalToolbar .bookmark-item[disabled=\"true\"] .toolbarbutton-icon": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute on bookmark item icon"
+    },
+    "#downloads-button[progress] .toolbarbutton-badge": {
+      "confidence": "best-effort",
+      "provenance": "browser.xhtml — .toolbarbutton-badge child of downloads button while [progress]; badge class verified in Proton chrome (extension/download badges), progress-badge contrast specifics vary by point release"
+    },
+    "#nav-bar toolbarseparator": {
+      "confidence": "best-effort",
+      "provenance": "browser.xhtml — <toolbarseparator> group dividers in nav-bar; engine width/height defaults vary by point release"
+    },
+    ".panel-arrowcontent": {
+      "confidence": "verified-ESR",
+      "provenance": "shared panel XHTML (ESR 128) — content wrapper of type=\"arrow\" panels (appMenu-popup, downloadsPanel); class stable since Photon"
     }
   }
 }

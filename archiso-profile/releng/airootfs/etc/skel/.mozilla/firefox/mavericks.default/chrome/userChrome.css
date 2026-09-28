@@ -425,3 +425,74 @@ panelview .panel-header h1 {
   font-size: 13px !important;
   transition: opacity 120ms ease, background-color 120ms ease;
 }
+
+/* --- (o) toolbarbutton icon treatment ------------------------------------ */
+/* Stock Proton glyphs are already monochrome dark gray; the Mavericks tint
+ * is expressed as slight opacity softening (0.92). `filter` tints and SVG
+ * `fill` recolors are outside the validation allowlist — a true glyph
+ * recolor would need an SVG skin (documented here; no binary assets
+ * invented). Height-only 16px sizing: `width` is outside the allowlist;
+ * the engine preserves aspect ratio for the icon box. */
+#nav-bar .toolbarbutton-1 .toolbarbutton-icon,
+#PersonalToolbar .toolbarbutton-1 .toolbarbutton-icon,
+#PersonalToolbar .bookmark-item .toolbarbutton-icon {
+  height: 16px !important;
+  opacity: 0.92 !important;
+  transition: opacity 120ms ease;
+}
+
+#nav-bar .toolbarbutton-1:not([disabled="true"]):hover .toolbarbutton-icon,
+#PersonalToolbar .toolbarbutton-1:not([disabled="true"]):hover .toolbarbutton-icon,
+#PersonalToolbar .bookmark-item:not([disabled="true"]):hover .toolbarbutton-icon {
+  opacity: 1 !important;
+}
+
+#nav-bar .toolbarbutton-1:not([disabled="true"]):active .toolbarbutton-icon,
+#PersonalToolbar .toolbarbutton-1:not([disabled="true"]):active .toolbarbutton-icon,
+#PersonalToolbar .bookmark-item:not([disabled="true"]):active .toolbarbutton-icon {
+  opacity: 0.8 !important;
+}
+
+#nav-bar .toolbarbutton-1[disabled="true"] .toolbarbutton-icon,
+#PersonalToolbar .toolbarbutton-1[disabled="true"] .toolbarbutton-icon,
+#PersonalToolbar .bookmark-item[disabled="true"] .toolbarbutton-icon {
+  opacity: 0.45 !important;
+}
+
+/* downloads progress badge: white on attention blue for contrast */
+#downloads-button[progress] .toolbarbutton-badge {
+  background-color: #4285f4 !important;
+  color: #ffffff !important;
+}
+
+/* --- (p) borders / gradients / textures consistency ----------------------- */
+/* Unified chrome tokens: 1px borders #c6c6c6, separators #d4d4d4, inset
+ * top highlight rgba(255,255,255,0.8), toolbar gradient #f6f6f6->#eaeaea. */
+
+/* inset top highlight: Mavericks toolbar sheen */
+#navigator-toolbox {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+/* nav-bar group separators: 1px divider (engine sets width; best-effort) */
+#nav-bar toolbarseparator {
+  background-color: #d4d4d4 !important;
+  height: 20px !important;
+  margin: 0 4px !important;
+}
+
+/* active tab connects to the toolbar below: background extends 1px past
+ * the tab strip edge so no gap or line breaks the junction */
+.tabbrowser-tab[selected] .tab-background {
+  margin-bottom: -1px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+/* arrow panels: border the content box so appMenu/downloads arrow panels
+ * match menupopup/urlbarView (1px #c6c6c6). The arrow glyph itself
+ * (.panel-arrow) is SVG fill/stroke-driven — outside the allowlist;
+ * recoloring it needs an SVG skin. */
+.panel-arrowcontent {
+  background: #f6f6f6 !important;
+  border: 1px solid #c6c6c6 !important;
+}
