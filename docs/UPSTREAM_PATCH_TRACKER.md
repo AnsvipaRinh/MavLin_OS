@@ -85,3 +85,37 @@ correctly. No known issues with DMC on Gen9.5.
 
 FBC on Gen9 is mature and stable. No known flicker or corruption issues.
 FBC + PSR1 coexistence on Gen9 is correct (mutual exclusion only on Gen12+).
+
+---
+
+## D4 — Audio path upstream status (Cirrus CS4208 / HDA, 2026-09-28)
+
+**Result: NO upstream patches required from our side. One community-driver
+tracking decision (tanisperez fork) is recommended.**
+
+### Search performed
+
+| # | Question | Where searched | Outcome |
+|---|---|---|---|
+| 1 | Is CS4208 MacBook support upstreamed in the kernel? | mainline sound/hda (patch_cirrus.c history), leifliddy/tanisperez driver READMEs | **No.** Mainline has no working CS4208 configuration for MacBook9,1/10,1: the codec is detected but the speaker amplifier is never enabled → speakers stay silent. The community DKMS driver (leifliddy, based on davidjo's snd_hda_macbookpro) is the only working implementation. No upstream patch proposed or merged. |
+| 2 | Does alsa-ucm-conf have UCM for CS4208? | GitHub API: alsa-project/alsa-ucm-conf ucm2/ tree listing | **No.** No cs4208/Cirrus entry; only generic HDA HiFi profiles. No UCM gap — the codec driver does its own mixer setup. |
+| 3 | Is the leifliddy driver maintained? | github.com/leifliddy/macbook12-audio-driver (README: "WIP") | **Stale.** README marks the project WIP; does not compile on modern kernels per community reports. The tanisperez fork adds 6.17+ support and a working DKMS flow (PRE_BUILD kernel-source download). |
+| 4 | Does the tanisperez fork fix the DKMS build? | github.com/tanisperez/macbook12-audio-driver dkms.conf | **Yes.** dkms.conf uses `PRE_BUILD="install.cirrus.driver.sh -k $kernelver"` + plain `make` with a restructured `build/hda/codecs/cirrus` layout — the install script downloads the kernel source, patches it in-tree, and builds. Requires network at install time. |
+| 5 | Does TLP need a fix for audio power save? | TLP 1.9.1 docs (linrunner.de/settings/audio), TLP defaults.conf | **No defect.** TLP 1.9.1 defaults (SOUND_POWER_SAVE_ON_AC=1, ON_BAT=1, CONTROLLER=Y) already enable audio power save on AC+BAT. Our former modprobe lines were redundant (removed in D4). |
+| 6 | Do PipeWire / WirePlumber need fixes for this card? | PipeWire 1.6.9 / WirePlumber 0.5.17 behavior + driver README | **No defect.** The soft-volume rule (api.alsa.soft-mixer) is a supported WirePlumber device property; installed by our package since D4. No upstream issue. |
+
+### Conclusion
+
+No upstream patches are needed or proposed for the D4 audio path. All D4
+fixes are our own packaging (888e0ff). The one tracking decision: the
+recommended replacement pin for the DKMS driver is
+**tanisperez/macbook12-audio-driver** (active maintenance, 6.17+ support,
+working DKMS via PRE_BUILD) — to be executed as a separate packaging track
+with its own validation (DECISIONS D4-4, DRIVER_OPTIMIZATION_CANDIDATES §7.1).
+Monitor the leifliddy and tanisperez repos for changes.
+
+**References:**
+- Driver: github.com/leifliddy/macbook12-audio-driver (WIP, pinned r108.g4cdfcdb)
+- Fork: github.com/tanisperez/macbook12-audio-driver (6.17+, working DKMS)
+- UCM: github.com/alsa-project/alsa-ucm-conf (no CS4208 entry)
+- TLP audio: linrunner.de/tlp/settings/audio (1.9.1 defaults)

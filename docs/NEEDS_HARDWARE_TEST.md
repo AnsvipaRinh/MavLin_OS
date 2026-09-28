@@ -80,10 +80,23 @@ measurement commands. Run on target hardware only.
   - [ ] Confirm no per-packet logging: `dmesg | grep brcmf` — should be silent at default debug (H8)
 
 ### Audio (Cirrus codec)
+- [ ] **Packaging prerequisite (D4):** decide DKMS track (DECISIONS D4-4 / DRIVER_OPTIMIZATION_CANDIDATES §7.1: tanisperez fork vs manual flow) — driver is NOT in the ISO until the DKMS build defect is resolved
 - [ ] Test macbook12-audio-driver (github.com/leifliddy/macbook12-audio-driver)
 - [ ] Verify built-in speakers work (not just headphone jack)
 - [ ] Test microphone input
 - [ ] Check audio after suspend/resume
+
+### Audio power/idle counters (D4, 2026-09-28)
+- [ ] Controller runtime PM: `cat /sys/bus/pci/devices/0000:00:1f.3/power/runtime_status` → `suspended` at idle (TLP power_save=1, 1s timeout)
+- [ ] Codec power state: `grep -A2 "Power:" /proc/asound/card0/codec#0` → D3 + clock gate at idle
+- [ ] TLP audio params active: `cat /sys/module/snd_hda_intel/parameters/power_save` → 1; `power_save_controller` → Y (TLP 1.9.1 defaults)
+- [ ] Jack wakeups at idle: `cat /proc/interrupts | grep -i hda` delta over 60 s → expect 0
+- [ ] PipeWire graph idle: `pw-top` 5 s observation → no RUNNING nodes with zero streams; `pgrep -af "mv-control|mv-voice"` → empty
+- [ ] Softvol rule active: `pw-dump | grep soft-mixer` → api.alsa.soft-mixer=true on alsa_card.pci-0000_00_1f.3; speaker volume slider actually changes volume
+- [ ] power_save A/B: battery discharge rate with SOUND_POWER_SAVE_ON_AC=0 vs =1 (TLP conf) — keep =1 only if no glitches AND idle power lower
+- [ ] Audio glitch check: low-volume playback, listen for pops/clicks ~1 s after silence (power_save=1 can pop on some codecs)
+- [ ] Jack switching during playback: plug/unplug → stream follows, no speaker bleed, no crash
+- [ ] Suspend/resume: audio survives `systemctl suspend` → resume (logind hooks)
 
 ### Bluetooth
 - [ ] Test macbook12-bluetooth-driver (AUR)

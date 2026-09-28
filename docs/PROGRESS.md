@@ -1,5 +1,23 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза D4 — Audio path audit: HDA/Cirrus CS4208 + ALSA + PipeWire/WirePlumber + pactl usage (2026-09-28, без железа)
+- [x] Runtime map: HDA controller (snd-hda-intel, PCI 00:1f.3, power_save + runtime PM), CS4208 codec (DKMS snd-hda-codec-cs420x, A1534 init unconditional), speaker path (digital 0x0a→0x1d, no HW volume → softvol), headphone path (analog 0x02→0x10), jack GPIO interrupt, ALSA (no UCM for CS4208), PipeWire 1.6.9 + WirePlumber 0.5.17 (event-driven, zero-stream idle), mv-control/mv-voice pactl+pw one-shot — RUNTIME_AUDIT.md §AUDIO
+- [x] Idle-component table: pipewire + wireplumber run at idle (epoll, no wakeups at zero streams); HDA controller D3hot (TLP power_save=1); codec powers with controller; jack GPIO wakes from D3hot; mv-control/mv-voice zero idle presence — RUNTIME_AUDIT.md §AUDIO idle table
+- [x] DSP/clock-gating: none on this path (HDA not DSP-based; verb-sequence init; HDA-link DMA; controller-level gating only) — RUNTIME_AUDIT.md §AUDIO
+- [x] Source audit: 7 findings (A1-A5) — 4 KEEP (azx power path, codec PM, no UCM needed, graph idle — all by design), 3 LOCAL-FIX — RUNTIME_SOURCE_AUDIT.md §A1-A5
+- [x] Driver audit: 7 findings — F16 (DKMS build broken: no root Makefile, DOCUMENTED), F17 (internal HDA headers not in linux-zen-headers, DOCUMENTED), F18 (driver source COMPILES on target kernel 7.2.6 — VERIFIED in build container), F19 (dangling udev rule, FIXED), F20 (softvol conf never installed, FIXED), F21 (dead model=macbook12, FIXED), F22 (redundant power_save lines, FIXED) — DRIVER_AUDIT.md §D4
+- [x] Packaging changes (888e0ff): wireplumber softvol conf installed to /etc/wireplumber/wireplumber.conf.d/; dangling udev rule removed; 99-macbook12-audio.conf cleaned (comment-only)
+- [x] DKMS defect disposition: package kept in local repo (manual build flow); NOT added to ISO (would break pacstrap); tanisperez fork recommended as replacement pin — separate packaging track — DECISIONS.md D4-4
+- [x] UCM verdict: none needed (no upstream UCM for CS4208; driver does own mixer setup) — DECISIONS.md D4-5
+- [x] pactl sites: R1/R2 flag CLOSED — all sites event-driven, no audio polling (re-verified after 14c8009/143e9b2) — DECISIONS.md D4-6
+- [x] TLP interaction: no double-tuning — TLP 1.9.1 defaults (AC=1/BAT=1/controller=Y) cover audio PM; our redundant modprobe lines removed — DECISIONS.md D4-3
+- [x] HW measurement plan: DKMS track decision (tanisperez vs manual), power_save A/B + glitch check, codec power_state, jack wakeups, pw-top idle, softvol rule validation — DRIVER_OPTIMIZATION_CANDIDATES.md §7
+- [x] Upstream tracker: NO upstream patches required; CS4208 not upstreamed (community driver only); alsa-ucm-conf has no CS4208 entry; TLP/PipeWire/WirePlumber no defects; tanisperez fork tracked as replacement candidate — UPSTREAM_PATCH_TRACKER.md §D4
+- [x] NEEDS_HARDWARE_TEST.md: audio power/idle counters added (controller runtime_status, codec power_state, TLP params, jack wakeups, pw-top idle, softvol rule, power_save A/B, glitch check, jack switching, suspend/resume)
+- [x] Gate: check-sync ALL CHECKS PASSED (221 checks, 0 failures); all test-*.py green; PKGBUILD parse OK
+- [x] D5 proposal: SPI/input (applespi, best-effort 3-strategy limit) + NVMe/storage (Apple S3X, pcie_port_pm=off validation)
+- [ ] HW validation (NEEDS_HARDWARE_TEST.md §Audio power/idle): DKMS track decision, power_save A/B, glitch check, codec power_state, jack wakeups, pw-top idle, softvol, speaker/mic functional
+
 ### Фаза D3 — Intel HD 615 display path audit: i915 → DRM/KMS → X11 → xfwm4/Xfce (2026-09-28, без железа)
 - [x] Runtime map: i915 power domains (DISPLAY_CORE/PIPE/TRANSCODER/DDI/AUX/GMBUS/DC_OFF), Gen9 power wells (PW1/PW2/MISC_IO/DC_OFF), DC5/6 states, DMC firmware (kbl_dmc.bin), PSR1/PSR2 entry/exit path, FBC (Gen9 FBC1, nuke on flip), forcewake model, GEM/fence activity, backlight PWM (BXT_BLC_PWM_DUTY), DPST absent on Gen9.5 eDP, vblank/pageflip under xfwm4 — RUNTIME_COMPONENT_MAP.md §5
 - [x] Source audit: 10 findings (S1-S10) — all KEEP; PSR entry (idle_frames + sync latency), PSR2 Y-coord gate, PSR exit on vblank, FBC nuke on flip, FBC+PSR1 coexistence on Gen9, backlight PWM from VBT, DC5/6 blocked by vblank, DMC firmware required, forcewake for register access, PSR+DC5/6 mutual exclusion — RUNTIME_SOURCE_AUDIT.md §D3

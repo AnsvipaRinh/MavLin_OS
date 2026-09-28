@@ -337,6 +337,102 @@ source audit → driver audit → optimization candidates → HW measurement pla
 
 ---
 
+## D4 — Audio path audit: packaging fixes + DKMS defect + UCM/pactl verdicts (2026-09-28)
+
+**Date:** 2026-09-28 (Deep Runtime Track D4)
+**Scope:** HDA/Cirrus CS4208 + ALSA + PipeWire/WirePlumber + our pactl usage.
+Config/packaging only with evidence; no DSP work, no ALSA/PipeWire source
+patches. Evidence: RUNTIME_AUDIT.md §AUDIO, RUNTIME_COMPONENT_MAP.md §8,
+RUNTIME_SOURCE_AUDIT.md §A1-A5, DRIVER_AUDIT.md §D4 (F16-F22),
+DRIVER_OPTIMIZATION_CANDIDATES.md §7, UPSTREAM_PATCH_TRACKER.md §D4.
+All build findings empirically verified in the build container
+(linux-zen-headers 7.2.6.zen2-1 + linux-7.2.6 source).
+
+### D4-1: WirePlumber softvol conf now installed by the package (APPLIED)
+
+**Problem:** the driver README marks the soft-volume rule as required — the
+CS4208 speaker path has no hardware volume control (the only analog amp is on
+the headphone path), so without `api.alsa.soft-mixer` the volume slider does
+nothing on the speakers. The contrib file shipped in the source tree but
+package() never installed it.
+
+**Decision:** package() installs
+contrib/wireplumber/wireplumber.conf.d/51-macbook-cs4208-softvol.conf →
+/etc/wireplumber/wireplumber.conf.d/ (WirePlumber 0.5+ variant; Arch ships
+0.5.17). Commit 888e0ff.
+
+### D4-2: Dangling udev rule removed (APPLIED)
+
+**Problem:** the package installed a udev rule running /usr/bin/alsa-ucm-awake —
+a script shipped nowhere (repo-wide grep: only the PKGBUILD referenced it).
+Every sound-card change event produced a udev execution-failure log.
+
+**Decision:** rule removed from package(). Commit 888e0ff.
+
+### D4-3: modprobe conf cleaned — dead model= + TLP-redundant power_save (APPLIED)
+
+**Problem:** 99-macbook12-audio.conf carried two dead/redundant options:
+`model=macbook12` (no-op — A1534 init is unconditional in patch_cs4208();
+no such model in the driver's fixup tables) and
+`power_save=1 power_save_controller=Y` (redundant with TLP 1.9.1 defaults
+SOUND_POWER_SAVE_ON_AC=1 / ON_BAT=1 / CONTROLLER=Y; frozen baseline: TLP
+owns audio PM).
+
+**Decision:** both lines removed; file kept as comment-only documentation.
+Commit 888e0ff. No double-tuning remains: TLP is the single audio-PM
+mechanism.
+
+### D4-4: DKMS build defect documented; driver NOT added to ISO (DEFERRED packaging track)
+
+**Problem:** the package's DKMS build is broken at install time (empirically
+verified): (1) no root Makefile in the DKMS source tree → `dkms install`
+fails; (2) the driver needs kernel-internal HDA headers that linux-zen-headers
+does not ship (0 .h under sound/hda) → external builds impossible without the
+full kernel source. The driver SOURCE compiles cleanly on the target kernel
+(verified: snd-hda-codec-cs420x.ko builds against linux-7.2.6 source +
+linux-zen-headers 7.2.6.zen2-1) — the defect is purely in the DKMS packaging.
+
+**Decision:** package kept in the local repo for the manual build flow; NOT
+added to ISO packages.x86_64 (post_install would fail `dkms install` and break
+pacstrap). Follow-up packaging track (A/B/C in DRIVER_OPTIMIZATION_CANDIDATES.md
+§7.1): recommended = track tanisperez/macbook12-audio-driver (6.17+ support +
+working DKMS via PRE_BUILD kernel-source download). Until that track lands,
+target audio is HW-blocked-by-packaging (not a driver-code problem).
+
+### D4-5: UCM verdict — none needed for CS4208 (CLOSED)
+
+No UCM for CS4208 exists upstream (alsa-ucm-conf has no cs4208/Cirrus entry —
+verified via GitHub API) and we ship none. The codec driver does its own mixer
+setup; the card uses the generic HiFi UCM profile / fallback. Consistent with
+the audio-driver package (which also ships no UCM). No UCM gap to fill.
+
+### D4-6: pactl sites — R1/R2 flag CLOSED (verified, no changes needed)
+
+All pactl usage is event-driven (keypress, user action, window open).
+Re-verified in the current tree after 14c8009/143e9b2: the mv-control 30s
+refresh_all touches only Wi-Fi/Bluetooth/power-mode/DND — never the sound
+section. Sites: mv-control get_volume/get_mute/refresh_output_devices
+(window open), set-sink-volume/mute/set-default-sink (user action),
+XF86Audio* keys (keypress), mv-about `pactl info` (window open), mv-voice
+pw-record/pw-play (one-shot). No audio polling exists or is planned.
+
+### D4-7: DSP/clock-gating — none on this path (documented)
+
+HDAudio is not DSP-based: CS4208 init is a verb sequence, streams are HDA-link
+DMA, codec DSP core unused. Power gating is at the HDA controller level only
+(power_save + controller runtime PM, TLP-owned). Codec powers with the
+controller; jack detection is a GPIO interrupt waking the controller from
+D3hot. No DSP work items.
+
+### D5 proposal
+
+Next deep runtime track: **SPI/input (applespi keyboard/trackpad, best-effort
+3-strategy limit) + NVMe/storage (Apple S3X, pcie_port_pm=off validation)**.
+Follows the same structure: runtime map → source audit → driver audit →
+optimization candidates → HW measurement plan.
+
+---
+
 ## Power management: TLP only (thermald + ananicy-cpp REMOVED)
 
 **Date:** 2026-09-25 (corrected Phase 0.5)
