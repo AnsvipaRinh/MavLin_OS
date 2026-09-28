@@ -1,5 +1,8 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.71 — Full regression after Safari-chrome track + respawn fix (2026-09-28, без железа)
+- [x] No-change regression: 22/22 suites green (1,269+ checks incl. firefox-chrome 221, theme-css 9); bench 24 scenarios 0 failed (5 skipped, host-load variance); check-sync --check-repos ALL CHECKS PASSED. Zero code changes; gate green.
+
 ### Фаза 0.70 — Safari chrome fidelity rewrite: spec → actual implementation (2026-09-28, без железа)
 - [x] docs/SAFARI_SPEC.md fidelity rewrite: all "userChrome.css notes" spec-only prose replaced with actual implementation citations (file:line). 20 priority items classified: 9 implemented / 9 partially-implemented / 2 Firefox-native / 0 impossible-without-fork / 0 intentionally-different (item-level); 4 sub-aspects intentionally-different documented (tabs trapezoid transform, Top Sites light bg, menu gray hover, private light purple tint).
 - [x] Validation checklist added (§17): 23 browser-chrome states — 17 covered-by-CSS / 4 needs-pixel-validation-on-HW (error, history, fullscreen, maximized) / 2 untestable-headless (keyboard nav, 2304×1440). Pixel states cross-referenced to NEEDS_HARDWARE_TEST.md — NOT claimed validated.
