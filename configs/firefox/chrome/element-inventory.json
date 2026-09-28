@@ -321,6 +321,78 @@
     ".icon": {
       "confidence": "best-effort",
       "provenance": "activity-stream newtab — tile icon wrapper; exact class list varies (icon-top-site / icon-letter-fallback / icon-with-background), screenshot variant uses .screenshot instead"
+    },
+    "#appMenu-popup": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/components/customizableui/content/panelUI.inc.xhtml (ESR 128) — <panel id=\"appMenu-popup\" class=\"cui-widget-panel panel-no-padding\" type=\"arrow\"> wrapping the appMenu panelmultiview"
+    },
+    "#PanelUI-menu-button": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/navigator-toolbox.inc.xhtml (ESR 128) — hamburger <toolbarbutton id=\"PanelUI-menu-button\" class=\"toolbarbutton-1\"> inside #PanelUI-button"
+    },
+    "#PanelUI-menu-button:not([disabled=\"true\"]):hover": {
+      "confidence": "verified-ESR",
+      "provenance": "navigator-toolbox.inc.xhtml (ESR 128) — disabled attribute + :hover pseudo-class on the appMenu button"
+    },
+    "panelview .panel-subview-body": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/appmenu-viewcache.inc.xhtml (ESR 128) — <panelview id=\"appMenu-mainView\"> body <vbox class=\"panel-subview-body\">; lockpanelvertical makes the appMenu body unscrollable"
+    },
+    "panelview .panel-subview-body .subviewbutton": {
+      "confidence": "verified-ESR",
+      "provenance": "appmenu-viewcache.inc.xhtml (ESR 128) — row <toolbarbutton class=\"subviewbutton\"> (e.g. #appMenu-new-tab-button2)"
+    },
+    "panelview .panel-subview-body .subviewbutton:hover": {
+      "confidence": "verified-ESR",
+      "provenance": "appmenu-viewcache.inc.xhtml (ESR 128) — :hover pseudo-class on .subviewbutton rows"
+    },
+    "panelview .panel-subview-body .subviewbutton[disabled=\"true\"]": {
+      "confidence": "verified-ESR",
+      "provenance": "appmenu-viewcache.inc.xhtml (ESR 128) — disabled=\"true\" present on subviewbuttons (e.g. #PanelUI-fxa-menu-connect-device-button)"
+    },
+    "panelview .panel-subview-body > toolbarseparator": {
+      "confidence": "verified-ESR",
+      "provenance": "appmenu-viewcache.inc.xhtml (ESR 128) — <toolbarseparator/> rows dividing appMenu sections"
+    },
+    "panelview .panel-header": {
+      "confidence": "verified-ESR",
+      "provenance": "panelUI.inc.xhtml unified-extensions-panel-template + appmenu-viewcache.inc.xhtml PanelUI-profiler (ESR 128) — <box class=\"panel-header\"> subview title bar"
+    },
+    "panelview .panel-header h1": {
+      "confidence": "best-effort",
+      "provenance": "panelUI.inc.xhtml unified-extensions-panel-template (ESR 128) — <html:h1> title inside .panel-header; plain h1 type selector matches html-namespace h1 in Firefox chrome per CSS default-namespace rule (not runtime-tested)"
+    },
+    ".urlbarView": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/components/urlbar/UrlbarInput.sys.mjs (ESR 128) — popup panel <vbox class=\"urlbarView\"> created by the UrlbarInput constructor (input.panel)"
+    },
+    "#urlbar-results": {
+      "confidence": "verified-ESR",
+      "provenance": "UrlbarInput.sys.mjs (ESR 128) — results listbox <html:div id=\"urlbar-results\" class=\"urlbarView-results\" role=\"listbox\">; also referenced by aria-owns in navigator-toolbox.inc.xhtml"
+    },
+    "#urlbar-results .urlbarView-row": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/components/urlbar/UrlbarView.sys.mjs (ESR 128) — result row div, item.className = \"urlbarView-row\""
+    },
+    "#urlbar-results .urlbarView-row[selected]": {
+      "confidence": "verified-ESR",
+      "provenance": "UrlbarView.sys.mjs (ESR 128) — row-selectable rows get selected attribute via toggleAttribute in #selectElement"
+    },
+    "#urlbar-results .urlbarView-title": {
+      "confidence": "verified-ESR",
+      "provenance": "UrlbarView.sys.mjs (ESR 128) — title span, classList.add(\"urlbarView-title\", \"urlbarView-overflowable\")"
+    },
+    "#urlbar-results .urlbarView-url": {
+      "confidence": "verified-ESR",
+      "provenance": "UrlbarView.sys.mjs (ESR 128) — url span, url.className = \"urlbarView-url\""
+    },
+    "#urlbar-results .urlbarView-row[type=\"top_site\"] .urlbarView-url": {
+      "confidence": "verified-ESR",
+      "provenance": "UrlbarView.sys.mjs + UrlbarUtils.sys.mjs searchEngagementTelemetryType (ESR 128) — UrlbarProviderTopSites URL results get row type=\"top_site\""
+    },
+    ".urlbarView .search-one-offs .searchbar-engine-one-off-item": {
+      "confidence": "verified-ESR",
+      "provenance": "UrlbarInput.sys.mjs + UrlbarSearchOneOffs.sys.mjs (ESR 128) — one-off engine buttons, class=\"searchbar-engine-one-off-item\" inside <hbox class=\"search-one-offs\">"
     }
   }
 }

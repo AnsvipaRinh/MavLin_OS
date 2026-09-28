@@ -331,3 +331,97 @@ menuseparator {
 #PersonalToolbar .toolbarbutton-1[checked="true"] {
   background-color: rgba(66, 133, 244, 0.18) !important;
 }
+
+/* --- (m) appMenu popup: Mavericks light panel (ESR 128 verified) ---------- */
+#appMenu-popup {
+  background: #f6f6f6 !important;
+  border: 1px solid #c6c6c6 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
+}
+
+#PanelUI-menu-button {
+  padding: 4px 6px !important;
+  border-radius: 4px !important;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+#PanelUI-menu-button:not([disabled="true"]):hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+panelview .panel-subview-body {
+  padding: 4px !important;
+}
+panelview .panel-subview-body .subviewbutton {
+  padding: 4px 16px 4px 24px !important;
+  border-radius: 4px !important;
+  color: #1a1a1a !important;
+  font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
+  font-size: 13px !important;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+panelview .panel-subview-body .subviewbutton:hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+panelview .panel-subview-body .subviewbutton[disabled="true"] {
+  color: #9a9a9a !important;
+  opacity: 0.6 !important;
+}
+panelview .panel-subview-body > toolbarseparator {
+  border-bottom: 1px solid #d4d4d4 !important;
+  margin: 4px 8px !important;
+  padding: 1px 0 !important;
+}
+panelview .panel-header {
+  border-bottom: 1px solid #d4d4d4 !important;
+  padding: 4px 8px !important;
+}
+panelview .panel-header h1 {
+  color: #1a1a1a !important;
+  font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
+  font-size: 13px !important;
+}
+
+/* --- (n) urlbar results popup: Mavericks light panel + rows (ESR 128) ------ */
+.urlbarView {
+  background: #f6f6f6 !important;
+  border: 1px solid #c6c6c6 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
+  font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
+  font-size: 13px !important;
+}
+
+#urlbar-results {
+  padding: 4px !important;
+  border-bottom: 1px solid #d4d4d4 !important;
+}
+#urlbar-results .urlbarView-row {
+  border-radius: 4px !important;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+#urlbar-results .urlbarView-row[selected] {
+  background-color: rgba(66, 133, 244, 0.18) !important;
+}
+#urlbar-results .urlbarView-title {
+  color: #1a1a1a !important;
+  font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
+  font-size: 13px !important;
+}
+#urlbar-results .urlbarView-url {
+  color: #6a6a6a !important;
+  font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
+  font-size: 13px !important;
+}
+#urlbar-results .urlbarView-row[type="top_site"] .urlbarView-url {
+  color: #8a8a8a !important;
+}
+
+.urlbarView .search-one-offs .searchbar-engine-one-off-item {
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  color: #1a1a1a !important;
+  font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
+  font-size: 13px !important;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
