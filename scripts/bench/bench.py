@@ -373,6 +373,120 @@ def scenario_return_to_idle(ctx):
                 "KEY metric: desktop return-to-idle speed"}
 
 
+def _measure_return_to_idle(t0, window_s=30, idle_thresh=95.0, sustain_s=0.6):
+    """Seconds from t0 until CPU idle >idle_thresh sustained for sustain_s."""
+    idle_since = None
+    while time.monotonic() - t0 < window_s:
+        pct = cpu_idle_pct(0.3)
+        if pct > idle_thresh:
+            if idle_since is None:
+                idle_since = time.monotonic()
+            elif time.monotonic() - idle_since >= sustain_s:
+                break
+        else:
+            idle_since = None
+    return round(time.monotonic() - t0, 2)
+
+
+def scenario_app_cycle_return_to_idle(ctx):
+    """S19: open/close an mv-app x5 (headless import proxy), then return-to-idle."""
+    cpu_idle_pct(1.0)
+    app = str(APPS_BIN / "mv-settings")
+    burst_cpu = 0.0
+    t_burst0 = time.monotonic()
+    for _ in range(5):
+        p = subprocess.Popen([sys.executable, app],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(2.0)
+        p.kill()
+        p.wait()
+    burst_wall = time.monotonic() - t_burst0
+    i0, t0s = proc_cpu_times()
+    rt = _measure_return_to_idle(time.monotonic())
+    i1, t1s = proc_cpu_times()
+    dt = t1s - t0s
+    burst_cpu = 100.0 * (1.0 - (i1 - i0) / dt) if dt else 0.0
+    return {"burst_wall_s": round(burst_wall, 2), "burst_cpu_pct": round(burst_cpu, 1),
+            "return_idle_s": rt}, {
+        "note": "5x mv-settings open/close (headless import+init proxy, 2s each); "
+                "CPU burst + seconds until idle >95% sustained"}
+
+
+def scenario_browser_youtube_return_to_idle(ctx):
+    """S20: browser_emu B07 (YouTube-idle) then return-to-idle."""
+    cpu_idle_pct(1.0)
+    emu_path = Path(__file__).resolve().parent / "browser_emu.py"
+    wall, rc, out, _ = run_cmd(
+        [sys.executable, str(emu_path), "--repeats", "1", "--workload", "B07"],
+        timeout=120, env=headless_env())
+    if rc != 0:
+        raise RuntimeError("browser emulator B07 failed")
+    data = json.loads(out)
+    scenarios = data.get("scenarios", {})
+    entry = scenarios.get("B07-workload_b07") or scenarios.get("S14E-browser-emulator")
+    if entry is None:
+        raise RuntimeError(f"browser emulator B07: no scenario key in {list(scenarios)}")
+    metrics = entry["metrics"]
+    rt = _measure_return_to_idle(time.monotonic())
+    if "total_wall_s" in metrics:
+        emu_wall = metrics["total_wall_s"]["median"]
+    else:
+        emu_wall = (metrics.get("startup", {}).get("wall_s", 0)
+                    + metrics.get("network_wait", {}).get("wall_s", 0))
+    return {"emu_wall_s": round(emu_wall, 3),
+            "tab_alloc_peak_rss_kb": metrics.get("tab_alloc", {}).get("peak_rss_kb", 0),
+            "return_idle_s": rt}, {
+        "note": "B07 YouTube-idle emulator + return-to-idle; synthetic, "
+                "not a real browser (CALIBRATION: docs/BENCHMARKS.md)"}
+
+
+def scenario_finder_scan_return_to_idle(ctx):
+    """S21: mv-music library scan (Finder/Music transition) then return-to-idle."""
+    cpu_idle_pct(1.0)
+    scan = ("import sys, time; sys.path.insert(0, %r)\n"
+            "import importlib.util as iu\n"
+            "from importlib.machinery import SourceFileLoader as SFL\n"
+            "ld = SFL('mv_music', %r)\n"
+            "sp = iu.spec_from_loader('mv_music', ld)\n"
+            "m = iu.module_from_spec(sp); ld.exec_module(m)\n"
+            "t0=time.monotonic(); m.scan_library(%r)\n"
+            "print(round(time.monotonic()-t0,3))" % (
+                str(APPS_BIN), str(APPS_BIN / "mv-music"),
+                str(FIXTURES / "music")))
+    wall, rc, out, _ = run_cmd([sys.executable, "-c", scan], timeout=60)
+    scan_wall = float(out.strip().splitlines()[-1]) if out.strip() else -1.0
+    rt = _measure_return_to_idle(time.monotonic())
+    return {"scan_wall_s": scan_wall, "return_idle_s": rt}, {
+        "note": "mv-music scan_library on 2000-track fixture + return-to-idle; "
+                "models Finder/Music open transition (backend tier)"}
+
+
+def scenario_notification_burst_return_to_idle(ctx):
+    """S22: 100 dbus round-trips (notification transport proxy) then return-to-idle."""
+    cpu_idle_pct(1.0)
+    import gi
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gio
+    t0 = time.monotonic()
+    ok = 0
+    try:
+        conn = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        for _ in range(100):
+            conn.call_sync(
+                "org.freedesktop.DBus", "/org/freedesktop/DBus",
+                "org.freedesktop.DBus", "ListNames", None, None,
+                Gio.DBusCallFlags.NONE, 5000, None)
+            ok += 1
+    except Exception:
+        pass
+    burst_wall = time.monotonic() - t0
+    rt = _measure_return_to_idle(time.monotonic())
+    return {"burst_wall_s": round(burst_wall, 3), "calls": ok,
+            "return_idle_s": rt}, {
+        "note": "100x dbus round-trip + return-to-idle; notification transport "
+                "proxy (notifyd processing is GUI/HW tier)"}
+
+
 def scenario_nmcli_wifi_list(ctx):
     wall, rc, _, _ = run_cmd(
         ["nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL,ACTIVE", "dev", "wifi", "list"],
@@ -669,6 +783,10 @@ SCENARIOS = {
     "S16-cpu-burst-sustained": (lambda c: scenario_cpu_burst(c, 2, 3.0), 3),
     "S17-return-to-idle": (scenario_return_to_idle, 5),
     "S18-nmcli-wifi-list": (scenario_nmcli_wifi_list, 5),
+    "S19-app-cycle-return-to-idle": (scenario_app_cycle_return_to_idle, 3),
+    "S20-browser-youtube-return-to-idle": (scenario_browser_youtube_return_to_idle, 3),
+    "S21-finder-scan-return-to-idle": (scenario_finder_scan_return_to_idle, 3),
+    "S22-notification-burst-return-to-idle": (scenario_notification_burst_return_to_idle, 3),
     "S06-launchpad-open": (lambda c: scenario_skipped(
         c, no_x_reason("rofi render tier")), 1),
     "S07-mission-control": (lambda c: scenario_skipped(
