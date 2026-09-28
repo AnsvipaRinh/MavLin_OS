@@ -67,6 +67,7 @@ class ControlCenter(Gtk.Window):
         self._wifi_fallback_id = None
         self._wifi_pending = None
         self._wifi_last_refresh = 0.0
+        self._refresh_all_id = None
 
         self.build_wifi_section()
         self.build_bluetooth_section()
@@ -80,7 +81,7 @@ class ControlCenter(Gtk.Window):
         self.connect("destroy", self.on_destroy)
 
         # Refresh data periodically (30s: battery, power mode, DND change externally)
-        GLib.timeout_add_seconds(REFRESH_ALL_INTERVAL_S, self.refresh_all)
+        self._refresh_all_id = GLib.timeout_add_seconds(REFRESH_ALL_INTERVAL_S, self.refresh_all)
 
         self.show_all()
 
@@ -353,6 +354,9 @@ class ControlCenter(Gtk.Window):
         if self._wifi_pending is not None:
             GLib.source_remove(self._wifi_pending)
             self._wifi_pending = None
+        if self._refresh_all_id is not None:
+            GLib.source_remove(self._refresh_all_id)
+            self._refresh_all_id = None
 
     # ==================== Bluetooth ====================
 

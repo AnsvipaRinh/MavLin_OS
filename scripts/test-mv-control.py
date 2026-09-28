@@ -182,13 +182,14 @@ def test_pure(m):
     w5._wifi_signal_subs = [11, 12]
     w5._wifi_fallback_id = 99
     w5._wifi_pending = 50
+    w5._refresh_all_id = 77
     with mock.patch.object(m.GLib, "source_remove") as sr:
         w5.on_destroy(None)
     check("destroy unsubscribes nm signals",
           w5._nm_bus.signal_unsubscribe.call_count == 2)
     removed = {c[0][0] for c in sr.call_args_list}
-    check("destroy removes fallback + pending timers",
-          {99, 50} <= removed, removed)
+    check("destroy removes fallback + pending + refresh_all timers",
+          {99, 50, 77} <= removed, removed)
 
     w6 = bare_window(m)
     fake_bus = mock.Mock()
