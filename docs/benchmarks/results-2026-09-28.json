@@ -1,0 +1,906 @@
+{
+  "schema": 1,
+  "host": {
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "cpu_count": 2,
+    "mem_total_mb": 7643,
+    "container": "WSL2",
+    "display": ":0",
+    "date": "2026-09-28 17:56:27"
+  },
+  "profile": "unconstrained",
+  "scenarios": {
+    "S01-idle-residual": {
+      "status": "ok",
+      "repeats_planned": 1,
+      "metrics": {
+        "rss_top10_bytes": {
+          "median": 778051584,
+          "min": 778051584,
+          "max": 778051584,
+          "samples": [
+            778051584
+          ]
+        },
+        "process_count": {
+          "median": 45,
+          "min": 45,
+          "max": 45,
+          "samples": [
+            45
+          ]
+        },
+        "ctx_switches_per_s": {
+          "median": 3.3,
+          "min": 3.3,
+          "max": 3.3,
+          "samples": [
+            3.3
+          ]
+        },
+        "cpu_idle_pct": {
+          "median": 94.41117764471058,
+          "min": 94.41117764471058,
+          "max": 94.41117764471058,
+          "samples": [
+            94.41117764471058
+          ]
+        }
+      },
+      "notes": {
+        "window_s": 10.0,
+        "top_cpu_procs": [
+          {
+            "name": "opencode",
+            "cpu_ticks": 51650,
+            "rss_kb": 680680
+          },
+          {
+            "name": "python3",
+            "cpu_ticks": 210,
+            "rss_kb": 37892
+          },
+          {
+            "name": "systemd-udevd",
+            "cpu_ticks": 155,
+            "rss_kb": 12912
+          },
+          {
+            "name": "systemd",
+            "cpu_ticks": 144,
+            "rss_kb": 16012
+          },
+          {
+            "name": "systemd",
+            "cpu_ticks": 40,
+            "rss_kb": 12320
+          }
+        ],
+        "note": "host has no desktop running; residual = host baseline, NOT target idle"
+      }
+    },
+    "S02-py-framework-startup": {
+      "status": "ok",
+      "repeats_planned": 10,
+      "metrics": {
+        "wall_s": {
+          "median": 0.2956435729997793,
+          "min": 0.2789521739996417,
+          "max": 0.374741764999726,
+          "samples": [
+            0.374741764999726,
+            0.3216795700000148,
+            0.2824610729999222,
+            0.2956435729997793,
+            0.2951830719998725,
+            0.2884677729998657,
+            0.2863225730002341,
+            0.35377546699965023,
+            0.3038738719997127,
+            0.2789521739996417
+          ]
+        }
+      },
+      "notes": {
+        "note": "proxy for GTK app framework import cost; window creation not included"
+      }
+    },
+    "S03-app-import-proxy": {
+      "status": "ok",
+      "repeats_planned": 1,
+      "metrics": {
+        "max_wall_s": {
+          "median": 3.0523,
+          "min": 3.0523,
+          "max": 3.0523,
+          "samples": [
+            3.0523
+          ]
+        },
+        "apps_measured": {
+          "median": 38,
+          "min": 38,
+          "max": 38,
+          "samples": [
+            38
+          ]
+        },
+        "apps_mainloop_reached": {
+          "median": 0,
+          "min": 0,
+          "max": 0,
+          "samples": [
+            0
+          ]
+        },
+        "median_wall_s": {
+          "median": 0.3556,
+          "min": 0.3556,
+          "max": 0.3556,
+          "samples": [
+            0.3556
+          ]
+        }
+      },
+      "notes": {
+        "note": "no X on host: non-GTK apps give real startup wall; GTK apps reach Gtk.main() and are killed at 5s (startup succeeded, latency tier is GUI). rc=None => mainloop-reached.",
+        "per_app": {
+          "mv-about": {
+            "wall_s": 0.3177,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-activity": {
+            "wall_s": 0.2864,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-airdrop": {
+            "wall_s": 0.3283,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-calculator": {
+            "wall_s": 0.3471,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-calendar": {
+            "wall_s": 0.3454,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-colormeter": {
+            "wall_s": 0.3329,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-console": {
+            "wall_s": 0.3424,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-control": {
+            "wall_s": 0.3266,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-dictionary": {
+            "wall_s": 0.3519,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-diskutil": {
+            "wall_s": 0.3319,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-eject": {
+            "wall_s": 0.2155,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-fontbook": {
+            "wall_s": 0.3122,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-getinfo": {
+            "wall_s": 0.3878,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-keychain": {
+            "wall_s": 0.3572,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-launchpad": {
+            "wall_s": 0.3667,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-mail": {
+            "wall_s": 0.3318,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-mission-control": {
+            "wall_s": 0.0581,
+            "rc": 0,
+            "class": "exited-ok"
+          },
+          "mv-music": {
+            "wall_s": 0.3184,
+            "rc": 3,
+            "class": "exited-error"
+          },
+          "mv-newfolder": {
+            "wall_s": 3.0523,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-notes": {
+            "wall_s": 0.4464,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-notification-center": {
+            "wall_s": 0.6947,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-notify-send": {
+            "wall_s": 0.1934,
+            "rc": 0,
+            "class": "exited-ok"
+          },
+          "mv-openwith": {
+            "wall_s": 0.3574,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-photos": {
+            "wall_s": 0.401,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-power-ui": {
+            "wall_s": 0.3837,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-preview": {
+            "wall_s": 0.3606,
+            "rc": 2,
+            "class": "exited-error"
+          },
+          "mv-quicklook": {
+            "wall_s": 0.5741,
+            "rc": 2,
+            "class": "exited-error"
+          },
+          "mv-quicklook-thunar": {
+            "wall_s": 2.5337,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-reminders": {
+            "wall_s": 0.438,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-rename": {
+            "wall_s": 0.4499,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-settings": {
+            "wall_s": 0.368,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-shot": {
+            "wall_s": 0.5195,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-spotlight": {
+            "wall_s": 0.1024,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-stickies": {
+            "wall_s": 0.4217,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-textedit": {
+            "wall_s": 0.3556,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-timemachine": {
+            "wall_s": 0.3554,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-voice": {
+            "wall_s": 0.3585,
+            "rc": 1,
+            "class": "exited-error"
+          },
+          "mv-ytplayer": {
+            "wall_s": 0.0069,
+            "rc": 1,
+            "class": "exited-error"
+          }
+        }
+      }
+    },
+    "S04-spotlight-query": {
+      "status": "ok",
+      "repeats_planned": 10,
+      "metrics": {
+        "wall_s": {
+          "median": 0.10172415800025192,
+          "min": 0.09492585999987568,
+          "max": 0.12940784600004918,
+          "samples": [
+            0.12940784600004918,
+            0.09741085899986501,
+            0.0973588589999963,
+            0.1037611570000081,
+            0.10172415800025192,
+            0.09492585999987568,
+            0.09650515900011669,
+            0.09666156000002957,
+            0.10774115399999573,
+            0.11684555100009675
+          ]
+        }
+      },
+      "notes": {
+        "note": "rofi script-mode query; plocate absent on host -> file search tier partial"
+      }
+    },
+    "S05-finder-browse-large": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 0.004799998000180494,
+          "min": 0.004508798000188108,
+          "max": 0.010234295999907772,
+          "samples": [
+            0.010234295999907772,
+            0.0069349969999166206,
+            0.004799998000180494,
+            0.004508798000188108,
+            0.004707798000254115
+          ]
+        }
+      },
+      "notes": {
+        "files": 5000,
+        "note": "os.scandir+sort backend proxy; Thunar GUI tier skipped (no DISPLAY)"
+      }
+    },
+    "S09-file-copy": {
+      "status": "ok",
+      "repeats_planned": 3,
+      "metrics": {
+        "wall_s": {
+          "median": 0.5236150800001269,
+          "min": 0.5093363860000863,
+          "max": 0.9237643129999924,
+          "samples": [
+            0.9237643129999924,
+            0.5093363860000863,
+            0.5236150800001269
+          ]
+        }
+      },
+      "notes": {
+        "bytes": 524288000,
+        "note": "host virtual disk; page-cached source; target SSD behavior HW-ONLY"
+      }
+    },
+    "S11-preview-render": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 0.11271175199999561,
+          "min": 0.09918045900030847,
+          "max": 0.14439143999970838,
+          "samples": [
+            0.12918674599995938,
+            0.09918045900030847,
+            0.11271175199999561,
+            0.1049610559998655,
+            0.14439143999970838
+          ]
+        }
+      },
+      "notes": {
+        "pixels": 12000000,
+        "note": "GdkPixbuf decode only; render/composite tier skipped (no DISPLAY)"
+      }
+    },
+    "S12-music-library-scan": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 0.006385296999724233,
+          "min": 0.004532398000264948,
+          "max": 0.016225992999807204,
+          "samples": [
+            0.0053239980002217635,
+            0.004532398000264948,
+            0.006385296999724233,
+            0.016225992999807204,
+            0.00992649599993456
+          ]
+        }
+      },
+      "notes": {
+        "files": 500,
+        "note": "walk+stat enumeration proxy; mv-music GUI scan tier skipped (no DISPLAY)"
+      }
+    },
+    "S13-notification-burst": {
+      "status": "ok",
+      "repeats_planned": 3,
+      "metrics": {
+        "wall_s": {
+          "median": 0.060350575000029494,
+          "min": 0.04187858300019798,
+          "max": 0.0644910730002266,
+          "samples": [
+            0.0644910730002266,
+            0.04187858300019798,
+            0.060350575000029494
+          ]
+        }
+      },
+      "notes": {
+        "calls": 100,
+        "note": "100x dbus method round-trip on system bus = transport proxy; notifyd processing is GUI/HW tier"
+      }
+    },
+    "S15-cpu-burst-short": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 2.030041294000057,
+          "min": 2.0292457450000256,
+          "max": 2.037784544999795,
+          "samples": [
+            2.037784544999795,
+            2.030041294000057,
+            2.03435509000019,
+            2.0292457450000256,
+            2.029966615000376
+          ]
+        }
+      },
+      "notes": {
+        "threads": 1,
+        "target_s": 2.0,
+        "note": "busy-loop CPU burst; host vCPU shared/burstable"
+      }
+    },
+    "S16-cpu-burst-sustained": {
+      "status": "ok",
+      "repeats_planned": 3,
+      "metrics": {
+        "wall_s": {
+          "median": 3.0344497930000216,
+          "min": 3.0329049289998693,
+          "max": 3.036281162999785,
+          "samples": [
+            3.0329049289998693,
+            3.0344497930000216,
+            3.036281162999785
+          ]
+        }
+      },
+      "notes": {
+        "threads": 2,
+        "target_s": 3.0,
+        "note": "busy-loop CPU burst; host vCPU shared/burstable"
+      }
+    },
+    "S17-return-to-idle": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 30.08699320599999,
+          "min": 2.4057609890001004,
+          "max": 30.100753207999787,
+          "samples": [
+            2.4057609890001004,
+            30.088501340999755,
+            30.08699320599999,
+            15.640700716000083,
+            30.100753207999787
+          ]
+        }
+      },
+      "notes": {
+        "note": "seconds from burst end until CPU idle >95% sustained 0.6s; KEY metric: desktop return-to-idle speed"
+      }
+    },
+    "S18-nmcli-wifi-list": {
+      "status": "ok",
+      "repeats_planned": 5,
+      "metrics": {
+        "wall_s": {
+          "median": 0.019205397999940033,
+          "min": 0.017674797999916336,
+          "max": 0.02280949799978771,
+          "samples": [
+            0.02280949799978771,
+            0.018669898999633006,
+            0.019205397999940033,
+            0.017674797999916336,
+            0.02165339800012589
+          ]
+        }
+      },
+      "notes": {
+        "note": "each call triggers a Wi-Fi rescan; quantifies mv-control refresh_wifi_list polling cost (docs/PERF_AUDIT.md suspect S-01)"
+      }
+    },
+    "S06-launchpad-open": {
+      "status": "skipped",
+      "repeats_planned": 1,
+      "reason": "no-x-display: DISPLAY=':0' set but no X server reachable in this environment; rofi render tier requires a real display"
+    },
+    "S07-mission-control": {
+      "status": "skipped",
+      "repeats_planned": 1,
+      "reason": "no-x-display: DISPLAY=':0' set but no X server reachable in this environment; overview render tier requires a real display"
+    },
+    "S08-window-switch": {
+      "status": "skipped",
+      "repeats_planned": 1,
+      "reason": "no-x-display: DISPLAY=':0' set but no X server reachable in this environment; compositor tier requires a real display"
+    },
+    "S10-quicklook-open": {
+      "status": "skipped",
+      "repeats_planned": 1,
+      "reason": "no-x-display: DISPLAY=':0' set but no X server reachable in this environment; preview window tier requires a real display"
+    },
+    "S14-browser-workload": {
+      "status": "skipped",
+      "repeats_planned": 1,
+      "reason": "deferred: no browser on host (checked 2026-09-27: firefox, firefox-esr, epiphany, icecat, chromium, google-chrome, brave, edge, web \u2014 none found; offline discipline, no install); headless page-load + HD615 behavior HW-only"
+    },
+    "G01-window-cycles": {
+      "status": "ok",
+      "repeats_planned": 1,
+      "metrics": {
+        "cycles": {
+          "median": 10,
+          "min": 10,
+          "max": 10,
+          "samples": [
+            10
+          ]
+        }
+      },
+      "notes": {
+        "note": "synthetic window create/show/hide/destroy cycles; measures widget construction cost (GUI tier)",
+        "per_app": {
+          "mv-music": {
+            "median_s": 0.004415,
+            "min_s": 0.003407,
+            "max_s": 0.005478
+          },
+          "mv-control": {
+            "median_s": 0.004294,
+            "min_s": 0.003852,
+            "max_s": 0.00563
+          },
+          "mv-dictionary": {
+            "median_s": 0.00439,
+            "min_s": 0.00359,
+            "max_s": 0.005208
+          },
+          "mv-preview": {
+            "median_s": 0.004238,
+            "min_s": 0.00373,
+            "max_s": 0.007806
+          },
+          "mv-diskutil": {
+            "median_s": 0.005339,
+            "min_s": 0.004044,
+            "max_s": 0.008192
+          }
+        }
+      }
+    },
+    "G02-memory-growth": {
+      "status": "ok",
+      "repeats_planned": 1,
+      "metrics": {
+        "cycles": {
+          "median": 20,
+          "min": 20,
+          "max": 20,
+          "samples": [
+            20
+          ]
+        }
+      },
+      "notes": {
+        "note": "RSS delta over N create/destroy cycles; leak/growth detector (GUI tier)",
+        "per_app": {
+          "mv-music": {
+            "rss_delta_kb": 4,
+            "cycles": 20
+          },
+          "mv-control": {
+            "rss_delta_kb": -188,
+            "cycles": 20
+          },
+          "mv-dictionary": {
+            "rss_delta_kb": 252,
+            "cycles": 20
+          },
+          "mv-preview": {
+            "rss_delta_kb": -144,
+            "cycles": 20
+          },
+          "mv-diskutil": {
+            "rss_delta_kb": 44,
+            "cycles": 20
+          }
+        }
+      }
+    },
+    "G03-event-loop-latency": {
+      "status": "ok",
+      "repeats_planned": 3,
+      "metrics": {
+        "n": {
+          "median": 100,
+          "min": 100,
+          "max": 100,
+          "samples": [
+            100,
+            100,
+            100
+          ]
+        },
+        "p50_ms": {
+          "median": 1.354,
+          "min": 1.042,
+          "max": 1.59,
+          "samples": [
+            1.042,
+            1.59,
+            1.354
+          ]
+        },
+        "p99_ms": {
+          "median": 2.557,
+          "min": 2.082,
+          "max": 2.913,
+          "samples": [
+            2.082,
+            2.913,
+            2.557
+          ]
+        }
+      },
+      "notes": {
+        "note": "idle_add round-trip latency; mainloop responsiveness (GUI tier)"
+      }
+    },
+    "G04-notification-burst": {
+      "status": "ok",
+      "repeats_planned": 3,
+      "metrics": {
+        "wall_s": {
+          "median": 0.4687,
+          "min": 0.4641,
+          "max": 0.4713,
+          "samples": [
+            0.4713,
+            0.4641,
+            0.4687
+          ]
+        },
+        "count": {
+          "median": 50,
+          "min": 50,
+          "max": 50,
+          "samples": [
+            50,
+            50,
+            50
+          ]
+        }
+      },
+      "notes": {
+        "note": "notification logging cost (no notify-send transport); measures JSON store write path (GUI tier)"
+      }
+    },
+    "G05-startup-first-draw": {
+      "status": "ok",
+      "repeats_planned": 1,
+      "metrics": {},
+      "notes": {
+        "note": "startup-to-first-draw; X11 window detection (GUI tier)",
+        "per_app": {
+          "mv-music": 0.2694,
+          "mv-control": 0.2555,
+          "mv-dictionary": 0.3219,
+          "mv-preview": 0.3267,
+          "mv-diskutil": 0.255
+        }
+      }
+    },
+    "S14E-browser-emulator": {
+      "status": "ok",
+      "repeats_planned": 3,
+      "metrics": {
+        "total_wall_s": {
+          "median": 14.812800155000332,
+          "min": 11.869494383000074,
+          "max": 17.46078829599992,
+          "samples": [
+            17.46078829599992,
+            14.812800155000332,
+            11.869494383000074
+          ]
+        },
+        "scroll_tick_ms_median": {
+          "median": 17.15449900029853,
+          "min": 17.15088699984335,
+          "max": 17.20759999989241,
+          "samples": [
+            17.15449900029853,
+            17.15088699984335,
+            17.20759999989241
+          ]
+        },
+        "js_churn_wall_s": {
+          "median": 0.041941667000173766,
+          "min": 0.04110689600020123,
+          "max": 0.04651039899999887,
+          "samples": [
+            0.04110689600020123,
+            0.041941667000173766,
+            0.04651039899999887
+          ]
+        },
+        "startup_wall_s": {
+          "median": 0.004707799999778217,
+          "min": 0.004696599999988393,
+          "max": 0.0072144939999816415,
+          "samples": [
+            0.004707799999778217,
+            0.0072144939999816415,
+            0.004696599999988393
+          ]
+        },
+        "return_idle_wall_s": {
+          "median": 8.124566614999821,
+          "min": 5.415898919000028,
+          "max": 10.833339628999965,
+          "samples": [
+            10.833339628999965,
+            8.124566614999821,
+            5.415898919000028
+          ]
+        },
+        "media_burst_wall_s": {
+          "median": 2.9258059210001193,
+          "min": 2.8732036840001456,
+          "max": 3.0109926460004317,
+          "samples": [
+            2.9258059210001193,
+            3.0109926460004317,
+            2.8732036840001456
+          ]
+        },
+        "tab_alloc_peak_rss_kb": {
+          "median": 345548,
+          "min": 345528,
+          "max": 345564,
+          "samples": [
+            345564,
+            345528,
+            345548
+          ]
+        }
+      },
+      "notes": {
+        "note": "synthetic browser-workload emulator; NOT a real browser. Calibration map: docs/BENCHMARKS.md phase-E CALIBRATION.",
+        "raw": {
+          "note": "synthetic browser-workload emulator; NOT a real browser. Calibration map: docs/BENCHMARKS.md phase-E CALIBRATION section.",
+          "params": {
+            "tabs": 4,
+            "scroll_ticks": 30,
+            "media_burst": true
+          },
+          "seed": 42,
+          "per_repeat": [
+            {
+              "startup": {
+                "wall_s": 0.004696599999988393,
+                "cpu_s": 0.004671999999999982,
+                "matches": 525,
+                "classes": 7
+              },
+              "tab_alloc": {
+                "tabs": 4,
+                "per_tab_rss_kb": [
+                  {
+                    "tab": 0,
+                    "rss_kb": 81924
+                  },
+                  {
+                    "tab": 1,
+                    "rss_kb": 163848
+                  },
+                  {
+                    "tab": 2,
+                    "rss_kb": 245772
+                  },
+                  {
+                    "tab": 3,
+                    "rss_kb": 327696
+                  }
+                ],
+                "peak_rss_kb": 345548,
+                "rss_delta_kb": 327696
+              },
+              "scroll": {
+                "ticks": 30,
+                "tick_ms_median": 17.20759999989241,
+                "tick_ms_p99": 17.752700000073673,
+                "tick_ms_max": 17.752700000073673
+              },
+              "media_burst": {
+                "images": 20,
+                "wall_s": 2.8732036840001456,
+                "cpu_s": 2.868703,
+                "bytes_processed": 5242880
+              },
+              "js_churn": {
+                "iterations": 50000,
+                "wall_s": 0.04651039899999887,
+                "cpu_s": 0.04649100000000006,
+                "result": 155507134.20499998
+              },
+              "network_wait": {
+                "waits": 5,
+                "wall_s": 2.501234186000147
+              },
+              "return_idle": {
+                "wall_s": 5.415898919000028
+              },
+              "total_wall_s": 11.869494383000074,
+              "peak_rss_kb": 345480,
+              "seed": 42,
+              "params": {
+                "tabs": 4,
+                "scroll_ticks": 30,
+                "media_burst": true
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
