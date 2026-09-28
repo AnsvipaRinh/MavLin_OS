@@ -493,3 +493,312 @@ wpctl status                                                  # sink follows plu
 | DKMS packaging buildable | BROKEN (no root Makefile; internal headers not in headers package) |
 | ISO inclusion | NO (would break pacstrap) — see DECISIONS D4 |
 | Recommended path forward | track tanisperez fork (working DKMS PRE_BUILD) — separate track |
+
+---
+
+## 9. INPUT component map — Apple SPI / HID / libinput (D5, 2026-09-28)
+
+> Deep Runtime Track D5. Target: MacBook10,1, Apple SPI keyboard + Force Touch trackpad.
+> Source basis: applespi driver (roadrunner2/macbook12-spi-driver, GPL-2.0), fetched from
+> GitHub raw. Linux 7.3.0-rc5 (torvalds) input subsystem. libinput 1.27+ (Arch).
+> NO driver modifications. This is a map + audit only.
+
+### 9.1 Hardware path
+
+| Layer | Device | Driver | Notes |
+|---|---|---|---|
+| SPI controller | Intel Sunrise Point-LP SPI (rev3+) | spi_pxa2xx_platform (in-tree) | rev3+ has SPI transfer timeout bug on 6.15+ |
+| SPI device | Apple keyboard + trackpad controller | applespi (AUR DKMS) | ACPI GPE interrupt, not SPI IRQ |
+| Keyboard input | "Apple SPI Keyboard" | applespi → input_dev | EV_KEY + EV_LED, 6KRO |
+| Trackpad input | "Apple SPI Touchpad" | applespi → input_dev | INPUT_PROP_POINTER \| INPUT_PROP_BUTTONPAD, MT slots |
+| X11 input | evdev/libinput | xorg-server | libinput handles multitouch |
+| Window manager | xfwm4 | xfwm4 | standard X11 window management |
+
+### 9.2 applespi driver structure
+
+| File | Role |
+|---|---|
+| `applespi.c` | SPI protocol driver: probe/remove, GPE handler, read/write async, input dev registration |
+| `applespi.h` | (not fetched — header-only, included by .c) |
+| `appleacpi.c` | ACPI driver: matches "topcase" class, registers SPI slave when master appears |
+
+### 9.3 Interrupt model — ACPI GPE (NOT SPI IRQ)
+
+**Critical finding:** The applespi driver does NOT use a traditional SPI interrupt. Instead it uses
+an **ACPI GPE (General Purpose Event)** — a level-triggered ACPI event.
+
+| Aspect | Detail |
+|---|---|
+| GPE installation | `acpi_install_gpe_handler(NULL, gpe, ACPI_GPE_LEVEL_TRIGGERED, applespi_notify, applespi)` (applespi.c:1860-1865) |
+| GPE enable | `acpi_enable_gpe(NULL, gpe)` (applespi.c:1870) |
+| GPE handler | `applespi_notify()` (applespi.c:1690-1710) — queues async SPI read |
+| GPE re-enable | `acpi_finish_gpe(NULL, gpe)` in `applespi_async_read_complete()` (applespi.c:1740) |
+| Trigger type | Level-triggered (ACPI_GPE_LEVEL_TRIGGERED) |
+| Wake from suspend | **NO** — `applespi_suspend()` calls `acpi_disable_gpe()` (applespi.c:1765) |
+
+**Implication:** The keyboard does NOT wake the system from suspend. This is a known
+limitation of the applespi driver. External USB keyboard can wake via USB resume.
+
+### 9.4 Timeout-retry behavior (source-level)
+
+**Critical finding:** The applespi driver has **NO retry loop** for failed SPI transfers.
+
+| Scenario | Behavior | Source |
+|---|---|---|
+| SPI read fails | `applespi_async_read_complete()` logs `pr_warn("Error reading from device: %d\n", status)` and calls `acpi_finish_gpe()` — GPE re-enabled, but NO retry | applespi.c:1735-1740 |
+| SPI write fails | `applespi_async_write_complete()` logs `pr_warn("Error writing to device: %d\n", sts)` or `pr_warn("Error writing to device: %x %x %x %x\n", ...)` — NO retry | applespi.c:1560-1575 |
+| CRC mismatch | `applespi_verify_crc()` returns false → `dev_warn_ratelimited("Received corrupted packet (crc mismatch)")` → packet dropped, NO retry | applespi.c:1620-1630 |
+| Invalid packet length | `dev_warn_ratelimited("Received corrupted packet (invalid packet length)")` → dropped | applespi.c:1655-1660 |
+| Invalid message length | `dev_warn_ratelimited("Received corrupted packet (invalid message length)")` → dropped | applespi.c:1690-1695 |
+
+**Root cause of 6.15+ failure:** The SPI controller (spi_pxa2xx_platform) on MacBook10,1
+(rev3+) has a hardware/firmware bug where SPI transfers timeout. The applespi driver
+sees this as a failed `spi_async()` call — it logs the error and moves on. There is
+no mechanism to recover the lost keyboard/trackpad event. The result is intermittent
+or complete input failure.
+
+**dmesg signature of SPI timeout:**
+```
+applespi: Error reading from device: -110   (ETIMEDOUT)
+applespi: Error writing to device: -110
+```
+
+### 9.5 Polling vs interrupt
+
+**Pure interrupt-driven (GPE).** No polling. No timers. No workqueues for input processing.
+The driver is completely event-driven: GPE fires → async SPI read → input event → done.
+
+### 9.6 Power management
+
+| Aspect | Detail |
+|---|---|
+| Runtime PM | **NONE** — no `runtime_suspend`/`runtime_resume` in `applespi_pm_ops` |
+| System suspend | `applespi_suspend()` — drains outstanding writes/reads, disables GPE |
+| System resume | `applespi_resume()` — re-enables GPE, re-initializes touchpad (sends init command) |
+| PM ops | `UNIVERSAL_DEV_PM_OPS(applespi_pm_ops, applespi_suspend, applespi_resume, NULL)` (applespi.c:1828) |
+| Keyboard backlight | LED classdev `spi::kbd_backlight` — `applespi_set_bl_level()` sends SPI command |
+| Autosuspend | N/A — SPI slave device, no runtime PM |
+
+**Power implication:** The applespi device stays powered as long as the system is in S0.
+There is no runtime power management for the SPI controller or the input device.
+The only power saving is at system suspend (S3/s2idle).
+
+### 9.7 External USB-C HID path (reference-good)
+
+| Aspect | Detail |
+|---|---|
+| Interrupt | USB interrupt endpoint (HID) |
+| Driver | hid-generic / hid-apple (in-tree) |
+| Runtime PM | USB autosuspend (TLP `USB_AUTOSUSPEND=1`) |
+| Wake from suspend | YES — USB remote wakeup |
+| libinput | Standard evdev device, full multitouch + acceleration |
+
+**This is the bring-up interface.** External USB-C keyboard/mouse works out of the box
+with zero configuration. All keyboard shortcuts, trackpad gestures, and media keys
+function through this path.
+
+### 9.8 libinput configuration (our packaging)
+
+| Setting | Location | Value | Effect |
+|---|---|---|---|
+| Quirks | NONE shipped | — | No Apple-specific libinput quirks |
+| hwdb | NONE shipped | — | No Apple-specific hwdb entries |
+| Accel profile | libinput default | `adaptive` | Standard pointer acceleration |
+| Tap-to-click | libinput default | enabled for trackpad | Standard tap-to-click |
+| Scroll method | libinput default | two-finger | Standard two-finger scroll |
+
+**Verdict:** No libinput configuration needed. The applespi touchpad is a standard
+multitouch device (INPUT_PROP_POINTER | INPUT_PROP_BUTTONPAD) and libinput handles
+it with default settings. Force Touch pressure is NOT reported (no ABS_MT_PRESSURE
+in the driver) — this is a driver limitation, not a libinput issue.
+
+### 9.9 Re-verification commands (on target)
+
+```bash
+# SPI controller + driver loaded
+lsmod | grep -E "applespi|spi_pxa"
+dmesg | grep -iE "applespi|spi"
+
+# Input devices
+libinput list-devices | grep -A5 "Apple SPI"
+cat /proc/bus/input/devices | grep -A10 "Apple SPI"
+
+# GPE status
+cat /proc/interrupts | grep -i gpe
+
+# SPI timeout check
+dmesg | grep -i "Error reading from device\|Error writing to device"
+
+# Touchpad capabilities
+cat /sys/class/input/event*/device/name  # find Apple SPI Touchpad event
+evtest /dev/input/eventXX  # test raw events
+
+# External USB HID (reference)
+lsusb -t
+libinput list-devices | grep -A5 "USB"
+```
+
+### 9.10 Input summary
+
+| Item | Status |
+|---|---|
+| Driver source | VERIFIED — applespi.c (GPL-2.0, roadrunner2) |
+| Interrupt model | ACPI GPE (level-triggered), NOT SPI IRQ |
+| Timeout behavior | NO retry — logs error, drops event |
+| Runtime PM | NONE — device stays powered in S0 |
+| Wake from suspend | NO — GPE disabled in suspend |
+| Polling | NONE — pure interrupt-driven |
+| libinput config | NONE needed — standard multitouch device |
+| External USB-C HID | Reference-good — full functionality |
+| 6.15+ compatibility | BROKEN — SPI controller rev3+ timeout bug |
+| AUR package | macbook12-spi-driver-dkms (strategy A) |
+| 3-strategy limit | A: AUR DKMS, B: linux-macbook patches, C: linux-lts |
+
+---
+
+## 10. STORAGE component map — Apple S3X NVMe / btrfs / zram (D5, 2026-09-28)
+
+> Deep Runtime Track D5. Target: MacBook10,1, Apple S3X NVMe (106b:2003), btrfs root.
+> Source basis: Linux 7.3.0-rc5 (torvalds) nvme core, btrfs, systemd zram-generator.
+> NO driver modifications. This is a map + audit only.
+
+### 10.1 Hardware path
+
+| Layer | Device | Driver | Notes |
+|---|---|---|---|
+| PCIe root port | Intel Sunrise Point-LP PCH 00:1c.0 | pcieport | L1 PM Substates capable |
+| NVMe controller | Apple S3X (106b:2003) | nvme (in-tree) | Apple proprietary, no APST |
+| Block device | /dev/nvme0n1 | block layer | — |
+| Filesystem | btrfs (subvol @) | btrfs (in-tree) | rootflags=subvol=@ |
+| Swap | zram0 (zstd) | zram-generator | zram-size = ram/2 |
+
+### 10.2 S3X NVMe controller behavior
+
+| Aspect | Detail |
+|---|---|
+| PCI ID | 106b:2003 (Apple S3X) |
+| APST | **NOT exposed** — S3X does not support APST (Autonomous Power State Transition) |
+| ASPM | Supported but problematic — `pcie_port_pm=off` disables root port runtime PM |
+| Resume bug | S3X becomes unresponsive after S3/s2idle resume without `pcie_port_pm=off` |
+| LKML status | Thread open (Sep 2026) — no upstream fix yet |
+| Workaround | `pcie_port_pm=off` (global, disables ALL PCIe root port PM) |
+
+### 10.3 APST states
+
+**S3X does NOT expose APST.** The `nvme_core.default_ps_max_latency_us` module parameter
+controls APST for standard NVMe controllers, but S3X ignores it. The controller stays
+in D0 (active) at all times. There is no autonomous power state transition.
+
+**Implication:** The NVMe controller is always powered. The only power saving comes
+from PCIe ASPM (L0s/L1 link states) and system suspend (S3/s2idle).
+
+### 10.4 ASPM interplay with pcie_port_pm=off
+
+| Setting | Effect | Power cost |
+|---|---|---|
+| `pcie_port_pm=off` (our baseline) | Disables ALL PCIe root port runtime PM | NVMe stays in D0 — higher idle power |
+| `pcie_port_pm=on` (default) | Enables root port runtime PM | NVMe can enter D3hot — lower idle power |
+| `pcie_aspm=off` | Disables ASPM entirely | Highest idle power |
+| `pcie_aspm=powersave` (TLP) | Enables ASPM L0s/L1 | Lower idle power |
+
+**Cost statement:** With `pcie_port_pm=off`, we leave PCIe root port runtime PM on the
+table. The NVMe controller cannot enter D3hot, so it stays in D0 at idle. The exact
+power cost is unmeasured (requires hardware). The LKML thread (Sep 2026) asks if a
+PCI quirk for 00:1c.0 is possible instead of the global disable.
+
+**Counters that prove it on HW:**
+- `/sys/bus/pci/devices/0000:00:1c.0/power/runtime_status` → `active` (with pcie_port_pm=off) vs `suspended` (without)
+- `/sys/bus/pci/devices/0000:01:00.0/power/runtime_status` → `active` vs `suspended`
+- `nvme smart-log /dev/nvme0` → power state transitions
+- Battery discharge rate with/without `pcie_port_pm=off`
+
+### 10.5 btrfs mount options (our packaging)
+
+| Option | Location | Value | Effect |
+|---|---|---|---|
+| subvol=@ | kernel cmdline | `rootflags=subvol=@` | Root subvolume |
+| noatime | NOT set | kernel default `relatime` | atime updated on read if older than mtime |
+| discard | NOT set | kernel default (no discard) | No real-time TRIM |
+| commit | NOT set | kernel default 30s | btrfs commit interval |
+| ssd | NOT set | kernel default | No SSD-specific optimizations |
+| space_cache | NOT set | kernel default | v1 space cache |
+
+**Verdict:** Our btrfs mount options are minimal. The kernel defaults are mostly fine
+for SSD (relatime is frugal, no discard is correct). The main gap is **no `noatime`**
+— but `relatime` only updates atime if the file was modified since the last atime
+update, so the write amplification is minimal.
+
+### 10.6 fstrim timer state
+
+| Aspect | Detail |
+|---|---|
+| fstrim.timer | systemd timer, weekly |
+| Enabled in our ISO | **NO** — not explicitly enabled in firstboot |
+| Enabled on installed | **NO** — firstboot does not enable it |
+| Effect | No periodic TRIM — SSD performance may degrade over time |
+
+**Recommendation:** Enable `fstrim.timer` on the installed system. This is a one-line
+addition to the firstboot script. The cost is negligible (weekly oneshot, ~seconds).
+
+### 10.7 zram config sanity
+
+| Setting | Location | Value | Correct? |
+|---|---|---|---|
+| zram-size | zram-generator.conf.d/99-mavericks.conf | ram / 2 | YES — per baseline |
+| compression-algorithm | zram-generator.conf.d/99-mavericks.conf | zstd | YES — per baseline |
+| disk swap | NONE | — | YES — no disk swap per baseline |
+
+### 10.8 journald config
+
+| Setting | Location | Value | Effect |
+|---|---|---|---|
+| Storage | journald.conf.d/99-mavericks.conf | volatile | RAM-only, no disk writes |
+| RuntimeMaxUse | journald.conf.d/99-mavericks.conf | 50M | Cap on RAM journal |
+| SystemMaxUse | journald.conf.d/99-mavericks.conf | 100M | Cap on disk journal (if persistent) |
+| ForwardToSyslog | journald.conf.d/99-mavericks.conf | no | No syslog forwarding |
+
+**Note:** The firstboot script removes `volatile-storage.conf` on the installed system
+(line 90), making journald persistent. The `99-mavericks.conf` limits still apply.
+
+### 10.9 Re-verification commands (on target)
+
+```bash
+# NVMe controller
+lspci -nn | grep -i nvme
+nvme list
+nvme smart-log /dev/nvme0
+
+# PCIe power
+cat /sys/bus/pci/devices/0000:00:1c.0/power/runtime_status
+cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status
+
+# btrfs
+btrfs filesystem show /
+btrfs filesystem df /
+cat /proc/mounts | grep btrfs
+
+# fstrim
+systemctl status fstrim.timer
+fstrim -av /
+
+# zram
+zramctl
+cat /sys/block/zram0/comp_algorithm
+
+# journald
+journalctl --disk-usage
+cat /etc/systemd/journald.conf.d/99-mavericks.conf
+```
+
+### 10.10 Storage summary
+
+| Item | Status |
+|---|---|
+| S3X NVMe | VERIFIED — 106b:2003, no APST, resume bug |
+| APST | NOT exposed — S3X stays in D0 |
+| ASPM | `pcie_port_pm=off` disables root port PM — battery cost unmeasured |
+| btrfs mount | Minimal — kernel defaults, no noatime |
+| fstrim.timer | NOT enabled — should be enabled for SSD health |
+| zram | CORRECT — ram/2, zstd, no disk swap |
+| journald | CORRECT — volatile in ISO, persistent on install with limits |
+| LKML status | Thread open (Sep 2026) — no upstream fix yet |

@@ -431,3 +431,107 @@ mechanism. HW item: validate power_save=1 for audio glitches on CS4208
 | DOCUMENTED-DEFECT | 2 | F16 (DKMS build broken), F17 (headers not in headers package) |
 | FIXED | 4 | F19 (udev rule), F20 (softvol conf), F21 (dead model=), F22 (redundant power_save) |
 | **Total** | **7** | |
+
+---
+
+## D5 — INPUT + STORAGE driver audit (2026-09-28)
+
+> Deep Runtime Track D5. Target: MacBook10,1, Apple SPI keyboard + Force Touch trackpad,
+> Apple S3X NVMe (106b:2003). Source: applespi driver (roadrunner2/macbook12-spi-driver,
+> GPL-2.0), Linux 7.3.0-rc5 (torvalds) nvme core + btrfs.
+> NO driver modifications. Config changes only where a real inconsistency exists in our own
+> packaging (with evidence).
+
+### F23 — applespi SPI timeout on kernel 6.15+ (DOCUMENTED — 3-strategy limit)
+
+| Field | Value |
+|---|---|
+| Severity | High (input failure) |
+| Component | SPI controller (spi_pxa2xx_platform) rev3+ |
+| Source | applespi.c:1735-1740 (read), applespi.c:1560-1575 (write) |
+| Function | `applespi_async_read_complete`, `applespi_async_write_complete` |
+| Finding | The SPI controller on MacBook10,1 (rev3+) has a hardware/firmware bug where SPI transfers timeout on kernel 6.15+. The applespi driver sees ETIMEDOUT (-110) and logs it. There is NO retry mechanism — the input event is lost. This affects both keyboard and trackpad. |
+| Evidence | `pr_warn("Error reading from device: %d\n", status)` (applespi.c:1736); `pr_warn("Error writing to device: %d\n", sts)` (applespi.c:1562); dmesg: `applespi: Error reading from device: -110` |
+| Risk | **High** — intermittent or complete input failure on kernel 6.15+ |
+| Upstream status | **NO fix** — the bug is in the SPI controller driver (spi_pxa2xx_platform), not in applespi. The AUR macbook12-spi-driver-dkms package may have patches. |
+| Proposed action | **3-strategy best-effort limit** (AGENTS.md §2): Strategy A: AUR macbook12-spi-driver-dkms on linux-zen. Strategy B: linux-zen with applespi patches from linux-macbook kernel. Strategy C: linux-lts or different kernel version. If all 3 fail → mark as "not supported on this revision". External USB-C HID is the mandatory bring-up interface. |
+
+### F24 — applespi no runtime PM (DOCUMENTED — by design)
+
+| Field | Value |
+|---|---|
+| Severity | Informational |
+| Component | applespi power management |
+| Source | applespi.c:1828-1829 |
+| Function | `applespi_pm_ops` |
+| Finding | The applespi driver does NOT implement runtime PM. The device stays powered in S0. There is no autosuspend. The only power saving is at system suspend (S3/s2idle). |
+| Evidence | `UNIVERSAL_DEV_PM_OPS(applespi_pm_ops, applespi_suspend, applespi_resume, NULL)` (applespi.c:1828) — no `.runtime_suspend`/`.runtime_resume` |
+| Risk | Informational — the SPI controller and input device stay powered at idle |
+| Upstream status | By design — SPI slave devices typically don't have runtime PM |
+| Proposed action | **KEEP** — no change. Documented as known behavior. |
+
+### F25 — applespi keyboard does NOT wake from suspend (DOCUMENTED — by design)
+
+| Field | Value |
+|---|---|
+| Severity | Informational |
+| Component | applespi suspend/resume |
+| Source | applespi.c:1754-1785 |
+| Function | `applespi_suspend` |
+| Finding | The applespi driver disables the GPE in suspend. The keyboard does NOT wake the system from suspend. External USB keyboard can wake via USB resume. |
+| Evidence | `acpi_disable_gpe(NULL, applespi->gpe)` (applespi.c:1765) |
+| Risk | Informational — keyboard cannot wake the system |
+| Upstream status | By design — GPE disabled in suspend |
+| Proposed action | **KEEP** — no change. Documented as known behavior. External USB keyboard is the wake interface. |
+
+### F26 — fstrim.timer not enabled (CONFIG-CANDIDATE — should enable)
+
+| Field | Value |
+|---|---|
+| Severity | Low |
+| Component | SSD TRIM |
+| Source | mavericks-firstboot.sh (no fstrim) |
+| Function | firstboot script |
+| Finding | The `fstrim.timer` systemd timer is NOT enabled in our ISO or on the installed system. The firstboot script does not enable it. Without periodic TRIM, SSD performance may degrade over time. |
+| Evidence | mavericks-firstboot.sh — no `systemctl enable fstrim.timer` |
+| Risk | **Low** — SSD performance degradation over time |
+| Upstream status | N/A — our packaging |
+| Proposed action | **CONFIG-CANDIDATE** — add `systemctl enable fstrim.timer` to firstboot script. One-line addition. Cost is negligible (weekly oneshot, ~seconds). |
+
+### F27 — S3X NVMe resume bug (BASELINE ITEM — already documented in D3)
+
+| Field | Value |
+|---|---|
+| Severity | High (data loss) |
+| Component | Apple S3X NVMe (106b:2003) |
+| Source | LKML Sep 2026 |
+| Function | PCIe root port 00:1c.0 runtime PM |
+| Finding | S3X becomes unresponsive after S3/s2idle resume without `pcie_port_pm=off`. Root filesystem goes read-only after ~60s. |
+| Evidence | LKML: lists.openwall.net/linux-kernel/2026/09/21/161 |
+| Risk | **High** — data loss on resume |
+| Upstream status | **NO fix yet** — LKML thread open (Sep 2026) |
+| Proposed action | **BASELINE-JUSTIFIED** — `pcie_port_pm=off` is our provisional workaround. Already documented in D3 (F13). No change. |
+
+### F28 — btrfs mount options minimal (KEEP — by design)
+
+| Field | Value |
+|---|---|
+| Severity | Informational |
+| Component | btrfs mount options |
+| Source | kernel cmdline |
+| Function | `rootflags=subvol=@` |
+| Finding | Our btrfs mount options are minimal — only `subvol=@`. No `noatime`, no `discard`, no `ssd`. Kernel defaults apply. |
+| Evidence | kernel cmdline: `rootflags=subvol=@` |
+| Risk | Informational — kernel defaults are fine for SSD |
+| Upstream status | N/A — our packaging |
+| Proposed action | **KEEP** — no change. `relatime` (kernel default) is frugal, no `discard` is correct, 30s commit is fine. |
+
+### D5 driver audit summary
+
+| Outcome class | Count | Findings |
+|---|---|---|
+| DOCUMENTED | 3 | F23 (SPI timeout 6.15+), F24 (no runtime PM), F25 (no wake from suspend) |
+| CONFIG-CANDIDATE | 1 | F26 (fstrim.timer not enabled) |
+| BASELINE-JUSTIFIED | 1 | F27 (S3X resume bug — already in D3) |
+| KEEP | 1 | F28 (btrfs mount options) |
+| **Total** | **6** | |

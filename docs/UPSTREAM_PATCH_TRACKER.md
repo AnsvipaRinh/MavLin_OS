@@ -119,3 +119,58 @@ Monitor the leifliddy and tanisperez repos for changes.
 - Fork: github.com/tanisperez/macbook12-audio-driver (6.17+, working DKMS)
 - UCM: github.com/alsa-project/alsa-ucm-conf (no CS4208 entry)
 - TLP audio: linrunner.de/tlp/settings/audio (1.9.1 defaults)
+
+---
+
+## D5 — INPUT + STORAGE upstream status (2026-09-28)
+
+### Apple SPI (applespi) upstream status
+
+**Status: NO upstream fix for SPI timeout on kernel 6.15+.**
+
+The applespi driver (roadrunner2/macbook12-spi-driver) is a community driver, not
+mainlined. The SPI controller timeout bug on MacBook10,1 (rev3+) is in the
+spi_pxa2xx_platform driver, which IS mainlined, but the bug is hardware-specific
+and has no upstream fix.
+
+| # | Question | Where searched | Outcome |
+|---|---|---|---|
+| 1 | Is applespi mainlined? | Linux input subsystem (drivers/input/keyboard/) | **No.** applespi is a community driver (AUR macbook12-spi-driver-dkms). |
+| 2 | Is the SPI timeout bug fixed upstream? | Linux SPI subsystem (drivers/spi/spi-pxa2xx-platform.c) | **No.** The bug is hardware-specific (MacBook10,1 rev3+ SPI controller). No upstream patch. |
+| 3 | Does the AUR macbook12-spi-driver-dkms package fix it? | AUR package description | **Unknown.** The package may have patches, but compatibility with MacBook10,1 on 6.15+ is unverified. |
+| 4 | Does the linux-macbook kernel have patches? | linux-macbook kernel (GitHub) | **Unknown.** The linux-macbook kernel may have SPI controller patches, but compatibility is unverified. |
+| 5 | Does linux-lts avoid the bug? | Linux LTS kernel (6.6+) | **Unknown.** The bug may be 6.15+ only, but this is unverified. |
+
+**Conclusion:** No upstream fix is available. The 3-strategy best-effort limit applies.
+External USB-C HID is the mandatory bring-up interface.
+
+**References:**
+- Driver: github.com/roadrunner2/macbook12-spi-driver (GPL-2.0)
+- AUR: macbook12-spi-driver-dkms
+- SPI controller: drivers/spi/spi-pxa2xx-platform.c (mainlined)
+- linux-macbook kernel: github.com/torvalds/linux (no MacBook10,1-specific patches)
+
+### Apple S3X NVMe upstream status
+
+**Status: NO upstream fix yet — LKML thread open (Sep 2026).**
+
+The Apple S3X NVMe controller (106b:2003) becomes unresponsive after S3/s2idle
+resume on MacBook10,1. The workaround is `pcie_port_pm=off` (global, disables
+ALL PCIe root port runtime PM). The LKML thread asks if a PCI quirk for 00:1c.0
+is possible instead of the global disable.
+
+| # | Question | Where searched | Outcome |
+|---|---|---|---|
+| 1 | Is there an upstream NVMe fix for S3X? | Linux NVMe subsystem (drivers/nvme/) | **No.** No Apple S3X-specific patches. |
+| 2 | Is there an upstream PCIe quirk for 00:1c.0? | Linux PCIe subsystem (drivers/pci/) | **No.** No Apple-specific quirk. |
+| 3 | Is the LKML thread still open? | LKML (Sep 2026) | **Yes.** Thread open, no patch proposed. |
+| 4 | Does `pcie_aspm=off` help? | LKML thread | **No.** Did not fix the resume bug. |
+| 5 | Does `nvme_core.default_ps_max_latency_us=0` help? | LKML thread | **No.** Did not fix the resume bug. |
+
+**Conclusion:** No upstream fix is available. `pcie_port_pm=off` is our provisional
+workaround. Monitor the LKML thread for updates.
+
+**References:**
+- LKML: lists.openwall.net/linux-kernel/2026/09/21/161
+- Root port: Intel Sunrise Point-LP PCH 00:1c.0 (L1 PM Substates capable)
+- NVMe driver: drivers/nvme/host/core.c (mainlined, no S3X-specific code)

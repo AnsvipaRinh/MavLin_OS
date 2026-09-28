@@ -478,3 +478,102 @@ Remaining items are HW-only (no HD 615 panel on host):
       and no underruns (`dmesg | grep -i underrun`).
 - [ ] **Forcewake**: confirm no forcewake leaks (`cat /sys/kernel/debug/dri/0/i915_forcewake_count`
       returns to 0 after idle).
+
+---
+
+## INPUT (Apple SPI / HID) — hardware validation (Phase D5, 2026-09-28)
+
+Pre-hardware state: applespi driver audited from source (RUNTIME_COMPONENT_MAP.md §9,
+RUNTIME_SOURCE_AUDIT.md §D5, DRIVER_AUDIT.md §D5). 3-strategy best-effort limit.
+External USB-C HID is the mandatory bring-up interface.
+
+### External USB-C input (MANDATORY — bring-up first)
+- [ ] Verify USB-C hub + keyboard/mouse works out of box
+- [ ] Test all keyboard shortcuts (Super+Space, Super+L, Super+Tab, etc.)
+- [ ] Test trackpad multitouch (two-finger scroll, tap-to-click)
+- [ ] Test media keys (XF86AudioRaiseVolume, XF86AudioLowerVolume, XF86AudioMute)
+- [ ] Test USB-C power delivery while using hub
+- [ ] Verify USB keyboard can wake system from suspend
+
+### Internal keyboard/trackpad (applespi) — BEST EFFORT, limit 3 strategies
+- [ ] **Strategy A**: Install macbook12-spi-driver-dkms (AUR) on linux-zen
+  - [ ] Check `lsmod | grep applespi` — driver loaded
+  - [ ] Check `dmesg | grep applespi` — no timeout errors
+  - [ ] Test keyboard input (`evtest /dev/input/eventXX`)
+  - [ ] Test trackpad input (`evtest /dev/input/eventYY`)
+  - [ ] If timeouts → Strategy A failed, try Strategy B
+- [ ] **Strategy B**: linux-zen with applespi patches from linux-macbook kernel
+  - [ ] Apply patches, rebuild kernel
+  - [ ] Check `dmesg | grep applespi` — no timeout errors
+  - [ ] Test keyboard + trackpad input
+  - [ ] If timeouts → Strategy B failed, try Strategy C
+- [ ] **Strategy C**: Try linux-lts or different kernel version
+  - [ ] Install linux-lts
+  - [ ] Check `dmesg | grep applespi` — no timeout errors
+  - [ ] Test keyboard + trackpad input
+  - [ ] If timeouts → all 3 strategies failed, mark as "not supported on this revision"
+- [ ] Document which strategy (if any) works
+- [ ] If all 3 fail → mark as "not supported on this revision"
+
+### SPI timeout dmesg matrix (per strategy)
+- [ ] Strategy A: `dmesg | grep -i "Error reading from device\|Error writing to device"` → count
+- [ ] Strategy B: same
+- [ ] Strategy C: same
+- [ ] Record in BENCHMARKS.md
+
+### Input power/idle counters (D5)
+- [ ] GPE status: `cat /proc/interrupts | grep -i gpe` → GPE line (if visible)
+- [ ] Input devices: `libinput list-devices | grep -A5 "Apple SPI"` → keyboard + touchpad
+- [ ] Touchpad capabilities: `cat /sys/class/input/event*/device/name` → Apple SPI Touchpad
+- [ ] libinput accel: `libinput measure touchpad-pressure` (if available) → pressure range
+- [ ] Suspend/resume: `systemctl suspend` → resume → `dmesg | grep applespi` → messages
+- [ ] Wake from suspend: Close lid → open lid → `dmesg | grep -i wake` → wake source
+
+---
+
+## STORAGE (Apple S3X NVMe) — hardware validation (Phase D5, 2026-09-28)
+
+Pre-hardware state: S3X NVMe audited from source (RUNTIME_COMPONENT_MAP.md §10,
+RUNTIME_SOURCE_AUDIT.md §D5, DRIVER_AUDIT.md §D5). `pcie_port_pm=off` workaround
+documented. LKML thread open (Sep 2026).
+
+### S3X NVMe basic validation
+- [ ] `lspci -nn | grep -i nvme` → 106b:2003
+- [ ] `nvme list` → /dev/nvme0n1
+- [ ] `nvme smart-log /dev/nvme0` → temperature, power state, data written
+- [ ] `cat /sys/bus/pci/devices/0000:00:1c.0/power/runtime_status` → active (with pcie_port_pm=off)
+- [ ] `cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status` → active
+- [ ] `cat /sys/bus/pci/devices/0000:01:00.0/power/aspm` → L0s/L1 enabled
+
+### S3X NVMe resume validation
+- [ ] `systemctl suspend` → resume → `dmesg | grep nvme` → no errors
+- [ ] Root filesystem still writable after resume
+- [ ] Repeat 5x — all resume clean
+- [ ] If resume fails → confirms `pcie_port_pm=off` is required
+
+### ASPM A/B test (battery cost of pcie_port_pm=off)
+- [ ] Baseline (pcie_port_pm=off): measure idle battery discharge rate (10-min samples)
+- [ ] Remove pcie_port_pm=off: edit kernel cmdline, reboot
+- [ ] Test (pcie_port_pm=on): measure idle battery discharge rate (10-min samples)
+- [ ] Resume test: `systemctl suspend` → resume → `dmesg | grep nvme` → check for errors
+- [ ] If resume fails without pcie_port_pm=off → confirms F13 (S3X resume bug)
+- [ ] Record in BENCHMARKS.md
+
+### btrfs + SSD validation
+- [ ] `btrfs filesystem show /` → subvol @
+- [ ] `btrfs filesystem df /` → space usage
+- [ ] `cat /proc/mounts | grep btrfs` → mount options
+- [ ] `systemctl status fstrim.timer` → active (after enabling)
+- [ ] `fstrim -av /` → TRIM completion
+- [ ] `journalctl --disk-usage` → disk usage (should be 0 in volatile)
+
+### zram validation
+- [ ] `zramctl` → zram0 with zstd
+- [ ] `cat /sys/block/zram0/comp_algorithm` → zstd
+- [ ] No disk swap: `cat /proc/swaps` → only zram0
+
+### Storage power/idle counters (D5)
+- [ ] NVMe idle power: `nvme smart-log /dev/nvme0` → power state transitions (should be 0)
+- [ ] PCIe idle power: `cat /sys/bus/pci/devices/0000:00:1c.0/power/runtime_status` → active
+- [ ] Battery discharge rate at idle (10-min samples)
+- [ ] Compare with/without pcie_port_pm=off

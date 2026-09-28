@@ -1,5 +1,28 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза D5 — INPUT + STORAGE audit: Apple SPI/HID + libinput + NVMe/S3X (2026-09-28, без железа)
+- [x] INPUT runtime map: applespi driver (ACPI GPE interrupt, NOT SPI IRQ), no retry on timeout, no runtime PM, no wake from suspend, pure interrupt-driven — RUNTIME_COMPONENT_MAP.md §9
+- [x] Timeout behavior: NO retry loop — SPI transfer failure logs pr_warn and drops event; 6.15+ failure root cause is SPI controller rev3+ hardware bug — RUNTIME_SOURCE_AUDIT.md §I2
+- [x] Power: NO runtime PM — device stays powered in S0; only system suspend/resume; keyboard does NOT wake from suspend — RUNTIME_SOURCE_AUDIT.md §I3
+- [x] Touchpad: standard multitouch (INPUT_PROP_POINTER | INPUT_PROP_BUTTONPAD), no ABS_MT_PRESSURE (Force Touch pressure not reported) — RUNTIME_SOURCE_AUDIT.md §I4
+- [x] External USB-C HID: reference-good — USB interrupt, autosuspend, wake from suspend, full libinput — RUNTIME_SOURCE_AUDIT.md §I5
+- [x] libinput: NO quirks or hwdb needed — standard multitouch device, default settings — RUNTIME_SOURCE_AUDIT.md §I6
+- [x] STORAGE runtime map: S3X NVMe (106b:2003, no APST), ASPM interplay with pcie_port_pm=off, btrfs minimal mount options — RUNTIME_COMPONENT_MAP.md §10
+- [x] APST: S3X does NOT expose APST — stays in D0, no autonomous power transition — RUNTIME_SOURCE_AUDIT.md §S1
+- [x] ASPM cost: pcie_port_pm=off disables ALL PCIe root port PM — battery cost unmeasured, LKML thread open — RUNTIME_SOURCE_AUDIT.md §S2
+- [x] btrfs: minimal mount options (subvol=@ only), kernel defaults fine — RUNTIME_SOURCE_AUDIT.md §S3
+- [x] fstrim.timer: NOT enabled in our ISO — CONFIG-CANDIDATE, should enable — RUNTIME_SOURCE_AUDIT.md §S4
+- [x] zram: CORRECT — ram/2, zstd, no disk swap — RUNTIME_SOURCE_AUDIT.md §S5
+- [x] journald: CORRECT — volatile in ISO, persistent with limits on install — RUNTIME_SOURCE_AUDIT.md §S6
+- [x] Driver audit: 6 findings — F23 (SPI timeout 6.15+, DOCUMENTED, 3-strategy limit), F24 (no runtime PM, DOCUMENTED), F25 (no wake from suspend, DOCUMENTED), F26 (fstrim.timer, CONFIG-CANDIDATE), F27 (S3X resume, BASELINE-JUSTIFIED), F28 (btrfs mount, KEEP) — DRIVER_AUDIT.md §D5
+- [x] HW measurement plans: input (GPE status, evtest, suspend/resume, SPI timeout matrix), storage (NVMe SMART, PCIe power, ASPM A/B, btrfs, fstrim, zram) — DRIVER_OPTIMIZATION_CANDIDATES.md §8-9
+- [x] Upstream tracker: applespi NOT mainlined, NO upstream SPI timeout fix; S3X NVMe NO upstream fix, LKML thread open — UPSTREAM_PATCH_TRACKER.md §D5
+- [x] NEEDS_HARDWARE_TEST.md: input HW validation items (USB-C mandatory first, applespi 3-strategy, SPI timeout matrix, power/idle counters) + storage HW validation items (S3X basic, resume, ASPM A/B, btrfs/SSD, zram, power/idle counters)
+- [x] Gate: docs-only phase — zero code changes; power baseline untouched; no driver modifications
+- [x] fstrim.timer fix: added `systemctl enable fstrim.timer` to firstboot script
+- [x] D6 proposal: persistent desktop services + own persistent components final sweep
+- [ ] HW validation (NEEDS_HARDWARE_TEST.md): input (USB-C mandatory, applespi 3-strategy, SPI timeout matrix) + storage (S3X resume, ASPM A/B, btrfs/SSD, fstrim)
+
 ### Фаза D4 — Audio path audit: HDA/Cirrus CS4208 + ALSA + PipeWire/WirePlumber + pactl usage (2026-09-28, без железа)
 - [x] Runtime map: HDA controller (snd-hda-intel, PCI 00:1f.3, power_save + runtime PM), CS4208 codec (DKMS snd-hda-codec-cs420x, A1534 init unconditional), speaker path (digital 0x0a→0x1d, no HW volume → softvol), headphone path (analog 0x02→0x10), jack GPIO interrupt, ALSA (no UCM for CS4208), PipeWire 1.6.9 + WirePlumber 0.5.17 (event-driven, zero-stream idle), mv-control/mv-voice pactl+pw one-shot — RUNTIME_AUDIT.md §AUDIO
 - [x] Idle-component table: pipewire + wireplumber run at idle (epoll, no wakeups at zero streams); HDA controller D3hot (TLP power_save=1); codec powers with controller; jack GPIO wakes from D3hot; mv-control/mv-voice zero idle presence — RUNTIME_AUDIT.md §AUDIO idle table

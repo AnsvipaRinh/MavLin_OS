@@ -59,7 +59,10 @@ systemctl enable systemd-resolved.service 2>/dev/null || true
 systemctl mask ModemManager.service 2>/dev/null || true
 systemctl disable sshd.service reflector.service 2>/dev/null || true
 
-log "6/7 desktop + firefox skel for new users"
+log "6/7 fstrim timer + desktop/firefox skel"
+# SSD health: weekly TRIM (negligible cost, prevents performance degradation)
+systemctl enable fstrim.timer 2>/dev/null || true
+log "7/8 desktop + firefox skel for new users"
 cp -r "$REPO_DIR/archiso-profile/releng/airootfs/etc/skel/." /etc/skel/
 install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/lightdm/lightdm.conf" /etc/lightdm/lightdm.conf
 install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/lightdm/lightdm-gtk-greeter.conf" /etc/lightdm/lightdm-gtk-greeter.conf
@@ -89,7 +92,7 @@ systemctl enable plocate-updatedb.timer
 # journald: persistent on installed system (ISO uses volatile)
 rm -f /etc/systemd/journald.conf.d/volatile-storage.conf 2>/dev/null || true
 
-log "7/7 NVRAM placeholder check + local app/theme packages"
+log "8/8 NVRAM placeholder check + local app/theme packages"
 "$REPO_DIR/scripts/install/extract-brcmfmac-nvram.sh" || true
 # mavericks-apps/theme are NOT in upstream repos. Prefer nearby built package
 # files (ISO build output, checkout dir, live medium), then configured repo.

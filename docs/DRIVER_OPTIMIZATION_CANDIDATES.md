@@ -431,3 +431,182 @@ is NOT in the ISO and audio on the target is HW-blocked-by-packaging.
 - No new audio daemons or polling (mv-control/mv-voice stay on-demand)
 - No TLP sound-key changes without evidence (7.2 step 4/5)
 - Power baseline untouched (see DECISIONS.md Phase 0.5)
+
+---
+
+## 8. INPUT idle-state analysis + HW measurement plan (D5, 2026-09-28)
+
+> Deep Runtime Track D5. Target: MacBook10,1, Apple SPI keyboard + Force Touch trackpad.
+> All findings status: **PROPOSED-HW-MEASUREMENT** — none implemented. No driver modifications.
+
+### 8.1 Idle-state analysis
+
+#### A. Idle (system in S0, no input activity)
+
+**Active paths:**
+- ACPI GPE: level-triggered, armed but no events (no keypress/touch)
+- SPI controller: idle (no transfers)
+- Input devices: registered, no events
+- libinput: idle (epoll waiting for evdev events)
+- xfwm4: idle (no window management)
+
+**Expected wakeup profile:** Zero. No interrupts, no timers, no polling.
+
+**Measure on hardware:**
+- `/proc/interrupts` — no applespi GPE line (GPE is not a Linux IRQ)
+- `powertop` — no wakeups from applespi/spi_pxa
+- `dmesg` — no applespi messages at idle
+
+#### B. Input activity (keypress or trackpad touch)
+
+**Active paths:**
+- ACPI GPE fires → `applespi_notify()` → async SPI read → input event
+- SPI controller: active during transfer
+- Input subsystem: processes event
+- libinput: processes evdev event
+- xfwm4: may process window management
+
+**Expected wakeup profile:** One GPE per input event. SPI transfer ~1ms. No timers.
+
+**Measure on hardware:**
+- `/proc/interrupts` — GPE count (if visible)
+- `evtest` — raw event timing
+- `libinput debug-events` — processed event timing
+
+#### C. Suspend (S3 or s2idle)
+
+**Active paths:**
+- `applespi_suspend()` — drains outstanding writes/reads, disables GPE
+- SPI controller: suspended
+- Input devices: suspended
+- libinput: suspended
+
+**Expected wakeup profile:** Zero. GPE disabled. No wake from keyboard.
+
+**Measure on hardware:**
+- `cat /sys/power/mem_sleep` — s2idle or deep
+- `cat /sys/power/wakeup_count` — wake source count
+- `dmesg | grep applespi` — suspend/resume messages
+
+### 8.2 HW measurement plan
+
+| Step | Command | Metric |
+|---|---|---|
+| 1. Driver loaded | `lsmod \| grep applespi` | applespi + spi_pxa2xx_platform |
+| 2. Input devices | `libinput list-devices \| grep -A5 "Apple SPI"` | keyboard + touchpad present |
+| 3. GPE status | `cat /proc/interrupts \| grep -i gpe` | GPE line (if visible) |
+| 4. SPI timeout check | `dmesg \| grep -i "Error reading from device\|Error writing to device"` | count of timeout errors |
+| 5. Touchpad events | `evtest /dev/input/eventXX` | raw events on touch |
+| 6. Keyboard events | `evtest /dev/input/eventYY` | raw events on keypress |
+| 7. Suspend/resume | `systemctl suspend` → resume → `dmesg \| grep applespi` | suspend/resume messages |
+| 8. Wake from suspend | Close lid → open lid → `dmesg \| grep -i wake` | wake source |
+| 9. External USB HID | `lsusb -t` + `libinput list-devices \| grep USB` | USB keyboard/mouse present |
+| 10. libinput accel | `libinput measure touchpad-pressure` (if available) | pressure range |
+
+### 8.3 SPI timeout dmesg matrix (per strategy)
+
+| Strategy | Kernel | Expected dmesg | Verdict |
+|---|---|---|---|
+| A: AUR DKMS | linux-zen 6.15+ | `applespi: Error reading from device: -110` (if bug present) | BROKEN if timeouts |
+| B: linux-macbook patches | linux-zen 6.15+ | no timeout errors (if patches fix it) | WORKS if no timeouts |
+| C: linux-lts | linux-lts 6.6+ | no timeout errors (if bug is 6.15+ only) | WORKS if no timeouts |
+
+### 8.4 What NOT to change (frozen baseline)
+
+- No applespi driver patches (3-strategy limit)
+- No SPI controller driver patches
+- No libinput quirks or hwdb entries
+- No new input daemons or polling
+- Power baseline untouched
+
+---
+
+## 9. STORAGE idle-state analysis + HW measurement plan (D5, 2026-09-28)
+
+> Deep Runtime Track D5. Target: MacBook10,1, Apple S3X NVMe (106b:2003), btrfs root.
+> All findings status: **PROPOSED-HW-MEASUREMENT** — none implemented. No driver modifications.
+
+### 9.1 Idle-state analysis
+
+#### A. Idle (system in S0, no I/O)
+
+**Active paths:**
+- NVMe controller: D0 (active) — no APST, no autonomous power transition
+- PCIe root port: D0 (active) — `pcie_port_pm=off` prevents D3hot
+- ASPM: L0s/L1 link states (TLP `PCIE_ASPM_ON_AC/BAT=powersave`)
+- btrfs: idle (no commits, no background threads)
+- zram: idle (no compression/decompression)
+
+**Expected wakeup profile:** Zero. No I/O, no timers, no polling.
+
+**Measure on hardware:**
+- `/sys/bus/pci/devices/0000:00:1c.0/power/runtime_status` → `active` (with pcie_port_pm=off)
+- `/sys/bus/pci/devices/0000:01:00.0/power/runtime_status` → `active`
+- `nvme smart-log /dev/nvme0` → power state transitions (should be 0)
+- Battery discharge rate at idle
+
+#### B. I/O activity (file read/write)
+
+**Active paths:**
+- NVMe controller: D0, processing I/O
+- PCIe root port: D0, ASPM L0s/L1 transitions
+- btrfs: processing I/O, may commit
+- zram: compressing/decompressing (if swap needed)
+
+**Expected wakeup profile:** I/O interrupts, ASPM L0s/L1 transitions.
+
+**Measure on hardware:**
+- `/proc/interrupts` — NVMe interrupt count
+- `iostat -x 1` — I/O utilization
+- `btrfs filesystem df /` — space usage
+
+#### C. Suspend (S3 or s2idle)
+
+**Active paths:**
+- NVMe controller: D3hot (if pcie_port_pm=on) or D0 (if pcie_port_pm=off)
+- PCIe root port: D3hot (if pcie_port_pm=on) or D0 (if pcie_port_pm=off)
+- btrfs: suspended
+- zram: suspended
+
+**Expected wakeup profile:** Zero. No I/O, no timers, no polling.
+
+**Measure on hardware:**
+- `cat /sys/power/mem_sleep` — s2idle or deep
+- `cat /sys/power/wakeup_count` — wake source count
+- `dmesg | grep nvme` — suspend/resume messages
+- Resume test: `systemctl suspend` → resume → `dmesg | grep nvme` → check for errors
+
+### 9.2 HW measurement plan
+
+| Step | Command | Metric |
+|---|---|---|
+| 1. NVMe controller | `lspci -nn \| grep -i nvme` | 106b:2003 |
+| 2. NVMe SMART | `nvme smart-log /dev/nvme0` | temperature, power state, data written |
+| 3. PCIe power | `cat /sys/bus/pci/devices/0000:00:1c.0/power/runtime_status` | active (with pcie_port_pm=off) |
+| 4. PCIe power (NVMe) | `cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status` | active |
+| 5. ASPM status | `cat /sys/bus/pci/devices/0000:01:00.0/power/aspm` | L0s/L1 enabled |
+| 6. btrfs mount | `cat /proc/mounts \| grep btrfs` | mount options |
+| 7. fstrim status | `systemctl status fstrim.timer` | active (after enabling) |
+| 8. fstrim run | `fstrim -av /` | TRIM completion |
+| 9. zram | `zramctl` | zram0 with zstd |
+| 10. journald | `journalctl --disk-usage` | disk usage (should be 0 in volatile) |
+| 11. Suspend/resume | `systemctl suspend` → resume → `dmesg \| grep nvme` | resume success |
+| 12. Battery discharge | `cat /sys/class/power_supply/BAT0/uevent` | discharge rate |
+
+### 9.3 ASPM A/B test plan
+
+| Step | Command | Metric |
+|---|---|---|
+| 1. Baseline (pcie_port_pm=off) | `cat /sys/bus/pci/devices/0000:00:1c.0/power/runtime_status` | active |
+| 2. Remove pcie_port_pm=off | Edit kernel cmdline, reboot | — |
+| 3. Test (pcie_port_pm=on) | `cat /sys/bus/pci/devices/0000:00:1c.0/power/runtime_status` | suspended (if D3hot works) |
+| 4. Resume test | `systemctl suspend` → resume → `dmesg \| grep nvme` | resume success/failure |
+| 5. Battery A/B | Measure discharge rate with/without pcie_port_pm=off | battery life delta |
+
+### 9.4 What NOT to change (frozen baseline)
+
+- No NVMe driver patches
+- No btrfs mount options changes (kernel defaults are fine)
+- No zram config changes (already correct)
+- No journald config changes (already correct)
+- Power baseline untouched (pcie_port_pm=off stays until LKML fix lands)
