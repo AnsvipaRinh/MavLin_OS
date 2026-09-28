@@ -10,6 +10,7 @@ user_pref("browser.uidensity", 0);                    // normal density; compact
 // DEAD PREF (removed): browser.theme.color_scheme — not a real Firefox pref.
 // Light theme is default on Linux. Modern equivalent: browser.theme.toolbar-theme=0.
 user_pref("widget.non-native-theme.enabled", true);   // allow GTK theme to apply
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true); // load chrome/userChrome.css (Mavericks toolbar)
 
 // --- Tabs / Toolbar (Safari-Mavericks UX, see docs/SAFARI_SPEC.md) ---
 user_pref("browser.tabs.drawInTitlebar", true);       // tabs in title bar (compact)
