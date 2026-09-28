@@ -1,7 +1,7 @@
 # DRIVER OPTIMIZATION CANDIDATES — NETWORK (brcmfmac / BCM43602)
 
 > Deep Runtime Track D1. Audit date: 2026-09-28. Source: Linux 7.3.0-rc5 (torvalds) brcmfmac.
-> All findings status: **PROPOSED-HW-MEASUREMENT** — none implemented. No driver modifications.
+> Status update (track closure, 2026-09-28): D1 **config fixes applied** — F1 (EFI NVRAM check), F2 (ccode=X2), F3 (remove feature_disable=0x82000) in ab10a5e; U2 (`--rescan no`) in 0b0fcb6; U3 (connectivity off) in a0623c9. The H1–H10 hypotheses and O1–O8 candidates below remain **HW-PENDING** (hardware measurement required). No driver modifications.
 > Frozen power baseline (TLP-only, `pcie_port_pm=off`, `i915.enable_psr=0`) is NOT touched; D6 judges it separately.
 
 ---
@@ -196,31 +196,31 @@ For each state: which code paths are ACTIVE (from source), expected wakeup/inter
 
 | # | Hypothesis | Status |
 |---|---|---|
-| H1 | Idle interrupt rate is < 10/s with PM_FAST | PROPOSED-HW-MEASUREMENT |
-| H2 | No periodic timers fire at idle (only event-driven) | PROPOSED-HW-MEASUREMENT |
-| H3 | EFI NVRAM is used on MacBook10,1 (no file NVRAM) | PROPOSED-HW-MEASUREMENT |
-| H4 | ACPI module-instance/RWCV present on MacBook10,1 | PROPOSED-HW-MEASUREMENT |
-| H5 | DMI board_type = "Apple Inc.-MacBook10,1" (with space) | PROPOSED-HW-MEASUREMENT |
-| H6 | Scan completes in < 5 s (no 10 s timeout) | PROPOSED-HW-MEASUREMENT |
-| H7 | Suspend/resume works with hot resume (no re-probe) | PROPOSED-HW-MEASUREMENT |
-| H8 | No per-packet logging at default debug level | PROPOSED-HW-MEASUREMENT |
-| H9 | txflow wq is idle at idle (no TX) | PROPOSED-HW-MEASUREMENT |
-| H10 | PCIe ASPM L1 is entered at idle | PROPOSED-HW-MEASUREMENT |
+| H1 | Idle interrupt rate is < 10/s with PM_FAST | HW-PENDING |
+| H2 | No periodic timers fire at idle (only event-driven) | HW-PENDING |
+| H3 | EFI NVRAM is used on MacBook10,1 (no file NVRAM) | HW-PENDING |
+| H4 | ACPI module-instance/RWCV present on MacBook10,1 | HW-PENDING |
+| H5 | DMI board_type = "Apple Inc.-MacBook10,1" (with space) | HW-PENDING |
+| H6 | Scan completes in < 5 s (no 10 s timeout) | HW-PENDING |
+| H7 | Suspend/resume works with hot resume (no re-probe) | HW-PENDING |
+| H8 | No per-packet logging at default debug level | HW-PENDING |
+| H9 | txflow wq is idle at idle (no TX) | HW-PENDING |
+| H10 | PCIe ASPM L1 is entered at idle | HW-PENDING |
 
 ---
 
-## 3. Optimization candidates (all PROPOSED-HW-MEASUREMENT)
+## 3. Optimization candidates (all HW-PENDING)
 
 | # | Candidate | Source | Hypothesis | Risk | Status |
 |---|---|---|---|---|---|
-| O1 | Verify EFI NVRAM is used (not placeholder) | firmware.c:488-518 | If EFI NVRAM valid, remove placeholder → real calibration | Low | PROPOSED-HW-MEASUREMENT |
-| O2 | Verify ACPI board_type path | acpi.c, pcie.c:2267 | If ACPI properties present, provision Apple-specific NVRAM | Medium | PROPOSED-HW-MEASUREMENT |
-| O3 | Confirm no periodic idle timers | cfg80211.c, btcoex.c, p2p.h | Driver is event-driven at idle | None | PROPOSED-HW-MEASUREMENT |
-| O4 | Confirm txflow wq idle at idle | msgbuf.c:1581 | Dedicated wq is work-driven, not polling | None | PROPOSED-HW-MEASUREMENT |
-| O5 | Measure interrupt coalescing effectiveness | pcie.c:941-966 | Threaded IRQ + doorbell batches reduce wakeups | None | PROPOSED-HW-MEASUREMENT |
-| O6 | Verify powersave PM_FAST stability | cfg80211.c:3305 | PM_FAST does not cause disconnects | Low | PROPOSED-HW-MEASUREMENT |
-| O7 | Measure scan power cost | cfg80211.c:1506 | Scan is firmware-offloaded, host cost is low | None | PROPOSED-HW-MEASUREMENT |
-| O8 | Verify suspend/resume hot path | pcie.c:2636-2706 | Hot resume works, no re-probe | Low | PROPOSED-HW-MEASUREMENT |
+| O1 | Verify EFI NVRAM is used (not placeholder) | firmware.c:488-518 | If EFI NVRAM valid, remove placeholder → real calibration | Low | HW-PENDING |
+| O2 | Verify ACPI board_type path | acpi.c, pcie.c:2267 | If ACPI properties present, provision Apple-specific NVRAM | Medium | HW-PENDING |
+| O3 | Confirm no periodic idle timers | cfg80211.c, btcoex.c, p2p.h | Driver is event-driven at idle | None | HW-PENDING |
+| O4 | Confirm txflow wq idle at idle | msgbuf.c:1581 | Dedicated wq is work-driven, not polling | None | HW-PENDING |
+| O5 | Measure interrupt coalescing effectiveness | pcie.c:941-966 | Threaded IRQ + doorbell batches reduce wakeups | None | HW-PENDING |
+| O6 | Verify powersave PM_FAST stability | cfg80211.c:3305 | PM_FAST does not cause disconnects | Low | HW-PENDING |
+| O7 | Measure scan power cost | cfg80211.c:1506 | Scan is firmware-offloaded, host cost is low | None | HW-PENDING |
+| O8 | Verify suspend/resume hot path | pcie.c:2636-2706 | Hot resume works, no re-probe | Low | HW-PENDING |
 
 ---
 
@@ -284,7 +284,7 @@ The `[connection] wifi.powersave=3` (enable) lever would make NM send `NL80211_C
 ## 6. D3 — i915 display path HW measurement plan (Gen9.5, 2026-09-28)
 
 > Companion to DRIVER_AUDIT.md §D3 (F12-F15) and RUNTIME_COMPONENT_MAP.md §5.
-> All items are PROPOSED-HW-MEASUREMENT — no changes until measured on MacBook10,1.
+> Status update (track closure, 2026-09-28): all items **HW-PENDING** — no changes until measured on MacBook10,1.
 
 ### 6.1 PSR on/off A/B measurement
 
@@ -379,9 +379,7 @@ If no tearing and PSR entry improves (vblank can be disabled), keep as-is.
 
 ## 7. D4 — AUDIO path HW measurement plan (Cirrus CS4208 / HDA, 2026-09-28)
 
-> Deep Runtime Track D4. All items require the real MacBook10,1. Speaker/mic
-> functional validation already lives in NEEDS_HARDWARE_TEST.md §Audio —
-> this section adds power/idle counters and the DKMS build prerequisite.
+> Deep Runtime Track D4. Status update (track closure, 2026-09-28): D4 packaging fixes applied (F19–F22, 888e0ff). All items below remain **HW-PENDING** — they require the real MacBook10,1. Speaker/mic functional validation already lives in NEEDS_HARDWARE_TEST.md §Audio — this section adds power/idle counters and the DKMS build prerequisite.
 
 ### 7.1 DKMS build on target kernel (pre-HW prerequisite)
 
@@ -437,7 +435,7 @@ is NOT in the ISO and audio on the target is HW-blocked-by-packaging.
 ## 8. INPUT idle-state analysis + HW measurement plan (D5, 2026-09-28)
 
 > Deep Runtime Track D5. Target: MacBook10,1, Apple SPI keyboard + Force Touch trackpad.
-> All findings status: **PROPOSED-HW-MEASUREMENT** — none implemented. No driver modifications.
+> Status update (track closure, 2026-09-28): D5 config fix applied — F26 (fstrim.timer) in e5cfc06. Input items below remain **HW-PENDING** (3-strategy best-effort limit per AGENTS.md §2). No driver modifications.
 
 ### 8.1 Idle-state analysis
 
@@ -524,7 +522,7 @@ is NOT in the ISO and audio on the target is HW-blocked-by-packaging.
 ## 9. STORAGE idle-state analysis + HW measurement plan (D5, 2026-09-28)
 
 > Deep Runtime Track D5. Target: MacBook10,1, Apple S3X NVMe (106b:2003), btrfs root.
-> All findings status: **PROPOSED-HW-MEASUREMENT** — none implemented. No driver modifications.
+> Status update (track closure, 2026-09-28): D5 config fix applied — F26 (fstrim.timer) in e5cfc06. Storage items below remain **HW-PENDING** (S3X resume validation, ASPM A/B, power/idle counters). No driver modifications.
 
 ### 9.1 Idle-state analysis
 

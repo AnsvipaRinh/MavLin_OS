@@ -1,5 +1,15 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Track closure — Architecture Optimization R1–R2 + D1–D7 (2026-09-28, без железа)
+- [x] R2 proposal reconciled: 6 items → 3 SUPERSEDED (BlueZ signals, worker thread, pactl→D-Bus — all superseded by the 14c8009 signal-driven redesign + f2568dc dedup + measured P2 acceptance), 1 CLOSED (mv-eject/rename — already efficient), 2 STILL-OPEN accepted (mv-airdrop NM State, mv-diskutil ObjectManager — on-open only, P2) — ARCHITECTURE_OPTIMIZATION_AUDIT.md §R2
+- [x] D-candidate statuses finalized: 11 APPLIED (D1: F1/F2/F3/U2/U3, D2: F10, D4: F19–F22, D5: F26), 105 KEEP, 3 SUPERSEDED, 2 STILL-OPEN, 1 FALSE-POSITIVE, 2 UPSTREAM, 35 HW-PENDING — ARCHITECTURE_OPTIMIZATION_AUDIT.md §Track summary
+- [x] NATIVE_REWRITE_CANDIDATES.md finalized: all 48 components KEEP with measured verdict reasons (GTK-FLOOR / FAST-ENOUGH / NEAR-ZERO / NEGLIGIBLE / NOT-RUNTIME) — zero rewrites warranted; this IS the deliverable
+- [x] DRIVER_OPTIMIZATION_CANDIDATES.md: PROPOSED-HW-MEASUREMENT → HW-PENDING for all 18 H/O items; applied items (F1/F2/F3/U2/U3/F26) noted in headers
+- [x] Applied-change list with commits + measured deltas: 14c8009 (S-01 ≥83% rescan reduction), f2568dc (refresh_all 83% fewer ticks), 0b0fcb6 (--rescan no), a0623c9 (NM pin + connectivity off), ab10a5e (NVRAM F1/F2/F3), 888e0ff (audio F19–F22), e5cfc06 (fstrim), bfebe9b (S-02), 143e9b2 (S-03), 5330d93 (S-04), 8211b9f (S-09), b9d16ba (S-10), edd2eec (S-11)
+- [x] Suite counts: 22 test files, check-sync 221 checks, bench 24 scenarios — all green
+- [x] Gate: docs-only consolidation — zero code changes; power baseline untouched; no driver modifications
+- [ ] HW validation (NEEDS_HARDWARE_TEST.md): all remaining items are hardware measurements/validation — Wi-Fi counters (H1–H10, O1–O8), PSR/ASPM A/B, resume matrix, audio power/idle, applespi 3-strategy, S3X resume, boot chain. No pre-hardware software work remains open.
+
 ### Фаза D5 — INPUT + STORAGE audit: Apple SPI/HID + libinput + NVMe/S3X (2026-09-28, без железа)
 - [x] INPUT runtime map: applespi driver (ACPI GPE interrupt, NOT SPI IRQ), no retry on timeout, no runtime PM, no wake from suspend, pure interrupt-driven — RUNTIME_COMPONENT_MAP.md §9
 - [x] Timeout behavior: NO retry loop — SPI transfer failure logs pr_warn and drops event; 6.15+ failure root cause is SPI controller rev3+ hardware bug — RUNTIME_SOURCE_AUDIT.md §I2

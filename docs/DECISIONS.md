@@ -1,5 +1,36 @@
 # DECISIONS
 
+## Track closure: Architecture Optimization R1–R2 + D1–D7 (2026-09-28)
+
+**Date:** 2026-09-28
+**Context:** Consolidation of the full architecture-optimization track (R1 inventory + R2 proposal + D1–D7 runtime/driver audits) into final decisions and statuses. No new implementation — doc consolidation only.
+
+**Verdicts:**
+
+1. **R2 proposal — CLOSED.** 6 items reconciled: 3 SUPERSEDED (BlueZ signal subscription, Wi-Fi worker thread, pactl→D-Bus — all superseded by the 14c8009 signal-driven redesign + f2568dc dedup + measured P2 acceptance), 1 CLOSED (mv-eject/mv-rename — already efficient, no rewrite warranted), 2 STILL-OPEN accepted (mv-airdrop NM State→signal, mv-diskutil ObjectManager signals — on-open sync call only, ~1 ms per window open, P2 per AGENTS.md §7). See ARCHITECTURE_OPTIMIZATION_AUDIT.md §R2.
+
+2. **Native rewrites — NONE warranted.** All 48 own-code components confirmed KEEP. The GTK framework import (331 ms / 44.6 MB) is the floor for all 32 GUI apps, paid once per on-demand launch — not a continuously-paid persistent cost. Pure-Python one-shots are already 3–5× faster than the GTK path; the C one-shot (mv-hud) is 2.4 ms. No component meets both rewrite criteria (persistent/high-frequency hot path AND >10% measured saving). See NATIVE_REWRITE_CANDIDATES.md.
+
+3. **D1 config fixes — APPLIED.** F1 (EFI NVRAM check before placeholder), F2 (ccode=X0→X2), F3 (remove cargo-cult feature_disable=0x82000) in ab10a5e; U2 (mv-control `--rescan no`) in 0b0fcb6; U3 (NM connectivity check off) in a0623c9. All in our own packaging, evidence-backed, frozen power baseline untouched.
+
+4. **D4 audio packaging — APPLIED.** F19 (dangling udev rule removed), F20 (WirePlumber softvol conf installed), F21 (dead model=macbook12 removed), F22 (TLP-redundant power_save lines removed) in 888e0ff. DKMS build defect (F16/F17) documented; driver NOT in ISO; tanisperez fork tracked as replacement pin (separate packaging track, DECISIONS D4-4).
+
+5. **D5 fstrim.timer — APPLIED.** F26: firstboot enables fstrim.timer (e5cfc06). Weekly oneshot, negligible cost, SSD health.
+
+6. **D6 persistent services — CLOSED, all compliant.** 8 system services, 3 user timers, 7 panel plugins, 1 autostart, 40 mv-* apps — all event-driven/oneshot, zero persistent daemons beyond standard Xfce stack. Zero changes.
+
+7. **D7 boot + ISO packaging — CLOSED, all correct.** mkinitcpio, systemd-boot, profiledef, packages.x86_64, firstboot — all correct for MacBook10,1. Zero changes.
+
+8. **Demotion candidates — all KEEP.** genmon/mv-hud (wired, 2.4ms), timer-spawned oneshots (calendar/reminders/timemachine — background features), xfce4-notifyd (first-notification latency), plank (core UX). Confirmed by D6 sweep.
+
+9. **HW-PENDING items — 35 total.** All remaining open items are hardware measurements/validation: Wi-Fi counters (H1–H10, O1–O8), PSR/ASPM A/B, resume matrix, audio power/idle, applespi 3-strategy, S3X resume, boot chain. See NEEDS_HARDWARE_TEST.md. No pre-hardware software work remains open.
+
+**Power baseline:** untouched. No TLP/kernel/cmdline/sysctl changes. No driver modifications.
+
+**Status:** Architecture Optimization track (R1–R2 + D1–D7) CLOSED. All findings reconciled, all statuses final, all applied changes committed. Next: hardware validation (Phase 5).
+
+---
+
 ## D7: Boot + ISO packaging audit (mkinitcpio, systemd-boot, profiledef, packages.x86_64, firstboot)
 
 **Date:** 2026-09-28

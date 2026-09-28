@@ -7,6 +7,52 @@
 > Measurements: `docs/benchmarks/results-2026-09-28-arch-inventory.json`
 > Harness: `scripts/arch-inventory-measure.py`
 
+## Track summary (R1–R2 + D1–D7 closure, 2026-09-28)
+
+**Scope covered:**
+- **R1/R2 (own-code):** 39 bin/mv-* + 12 bash tools + 6 systemd user units + 27 .desktop + 3 rofi themes + 2 Thunar actions + 7 xfce configs — language/runtime inventory, per-component startup cost + RSS, D-Bus call-site inventory (52 own call sites), process graph, demotion candidates, native-rewrite verdicts.
+- **D1 network:** brcmfmac/BCM43602 runtime map, 18 source findings, 9 driver findings, NM/wpa_supplicant/iwd userspace path (U1–U5), 10 HW hypotheses (H1–H10), 8 optimization candidates (O1–O8).
+- **D2 NM userspace:** backend pin, connectivity check, mv-control scan fix, backend A/B plan.
+- **D3 display:** i915 Gen9.5 runtime map, 10 source findings (S1–S10), 4 driver findings (F12–F15), X11/xfwm4 cost table, HW plan (PSR A/B, ASPM A/B, resume matrix, compositor, backlight).
+- **D4 audio:** HDA/CS4208 runtime map, 5 source findings (A1–A5), 7 driver findings (F16–F22), pactl disposition, DKMS build verification, HW plan.
+- **D5 input/storage:** applespi + S3X NVMe runtime maps, 12 source findings (I1–I6, S1–S6), 6 driver findings (F23–F28), HW plans.
+- **D6:** persistent services + own components final sweep — all compliant, zero changes.
+- **D7:** boot + ISO packaging audit — all correct, zero changes.
+
+**Findings by outcome class (all tracks):**
+
+| Outcome class | Count | Where |
+|---|---|---|
+| KEEP (no change warranted) | 105 | D1: 23, D2: 1, D3: 13, D4: 4, D5: 14, R1: 48, D6/D7: 2 verdicts |
+| CONFIG/LOCAL-FIX APPLIED | 11 | D1: 5 (F1,F2,F3,U2,U3), D2: 1 (F10), D4: 4 (F19–F22), D5: 1 (F26) |
+| SUPERSEDED (R2 item not implemented, reason recorded) | 3 | R2-1 BlueZ signals, R2-2 worker thread, R2-3 pactl→D-Bus |
+| STILL-OPEN accepted (P2, on-open only) | 2 | R2-5 mv-airdrop NM State, R2-6 mv-diskutil ObjectManager |
+| FALSE-POSITIVE (finding disproven, fix applied) | 1 | D1 F3 (feature_disable=0x82000 cargo-cult — value removed in ab10a5e) |
+| UPSTREAM (landed or tracked) | 2 | D3 PSR2 flicker fix landed mainline 6.8.0-53; D4 tanisperez fork tracked as DKMS replacement |
+| HW-PENDING (measurement/validation) | 35 | D1: 20 (F5,F6,H1–H10,O1–O8), D3: 6, D4: 6, D5: 3 |
+
+**Applied changes with commits + measured deltas:**
+
+| Change | Commit | Measured delta |
+|---|---|---|
+| S-01 mv-control Wi-Fi → NM D-Bus signal-driven | 14c8009 | rescan while CC open 0.2 Hz → signals + 0.033 Hz fallback (≥83% reduction) |
+| mv-control refresh_all 5s→30s + BT dedup (2→1 D-Bus calls) | f2568dc | 83% fewer ticks |
+| mv-control `--rescan no` default | 0b0fcb6 | removes 30s scan while CC open |
+| NM backend pin + connectivity check off | a0623c9 | removes 5-min HTTP poll |
+| D1 NVRAM fixes (F1 EFI check, F2 ccode=X2, F3 remove 0x82000) | ab10a5e | — |
+| D4 audio packaging (softvol conf, udev rule, model=, power_save) | 888e0ff | — |
+| D5 fstrim.timer enable | e5cfc06 | — |
+| S-02 mv-console follow → journalctl -f + IO watch | bfebe9b | event-driven, 0 polling |
+| S-03 mv-music MPRIS off UI thread | 143e9b2 | import-path −20% (host) |
+| S-04 mv-colormeter tick 100ms→200ms | 5330d93 | 10 Hz → 5 Hz |
+| S-09 mv-notify-send autostart removed | 8211b9f | — |
+| S-10 mv-hud wired into panel genmon | b9d16ba | — |
+| S-11 7 startup crashes fixed | edd2eec | zero tracebacks post-fix |
+
+**Open HW items:** see `docs/NEEDS_HARDWARE_TEST.md` — all remaining items are hardware measurements/validation (Wi-Fi counters, PSR/ASPM A/B, resume matrix, audio power/idle, applespi 3-strategy, S3X resume, boot chain). No pre-hardware software work remains open.
+
+---
+
 ## 0. Scope and method
 
 Every own-code component in the repo was enumerated by language, then measured
@@ -350,18 +396,19 @@ mv-airdrop (on-open only), mv-notification-center (on-toggle only).
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.3 Demotion candidates (persistent → session → on-demand → one-shot)
+### 6.3 Demotion candidates (persistent → session → on-demand → one-shot) — CLOSED 2026-09-28
 
-| Candidate | Current | Proposed | Expected benefit | Risk | Decision |
+| Candidate | Current | Proposed | Expected benefit | Risk | Final decision |
 |---|---|---|---|---|---|
-| genmon/mv-hud | persistent 5s spawn | session plugin w/ internal timer | eliminate 0.2Hz process spawn | low — C one-shot already minimal | R2 |
-| mv-reminders timer | hourly one-shot | on-demand only | eliminate hourly spawn | medium — loses background reminder nudge | R2 |
-| mv-calendar timer | 5min one-shot | on-demand only | eliminate 12/hr spawn | medium — loses background calendar check | R2 |
-| mv-timemachine timer | hourly one-shot | on-demand only | eliminate hourly spawn | medium — loses background TM check | R2 |
-| xfce4-notifyd | persistent | on-demand (first notification) | save ~5MB RSS when no notifications | medium — adds latency to first notification | R2 |
-| plank | persistent | on-demand (first dock use) | save ~20-30MB RSS | high — dock is core UX, autostart expected | R2 |
+| genmon/mv-hud | persistent 5s spawn | session plugin w/ internal timer | eliminate 0.2Hz process spawn | low — C one-shot already minimal | **KEEP** — wired into panel genmon (b9d16ba); 2.4ms C one-shot is near-zero; demotion would lose the HUD surface |
+| mv-reminders timer | hourly one-shot | on-demand only | eliminate hourly spawn | medium — loses background reminder nudge | **KEEP** — background reminder nudge is a feature; hourly oneshot spawn is compliant (D6) |
+| mv-calendar timer | 5min one-shot | on-demand only | eliminate 12/hr spawn | medium — loses background calendar check | **KEEP** — background calendar check is a feature; 5min oneshot spawn is compliant (D6) |
+| mv-timemachine timer | hourly one-shot | on-demand only | eliminate hourly spawn | medium — loses background TM check | **KEEP** — background TM check is a feature; hourly oneshot spawn is compliant (D6) |
+| xfce4-notifyd | persistent | on-demand (first notification) | save ~5MB RSS when no notifications | medium — adds latency to first notification | **KEEP** — first-notification latency penalty not worth 5MB |
+| plank | persistent | on-demand (first dock use) | save ~20-30MB RSS | high — dock is core UX, autostart expected | **KEEP** — dock is core UX; autostart expected |
 
-**Note:** Demotion decisions deferred to R2 per phase directive. The
+**Note:** All demotion candidates confirmed KEEP by the D6 persistent-services
+sweep (PERSISTENT_SERVICES_AUDIT.md — all compliant, zero changes). The
 timer-spawned one-shots (calendar/reminders/timemachine) are already
 one-shot — they cannot be further demoted without losing functionality.
 The genmon 5s spawn is the highest-frequency persistent cost but is
@@ -392,37 +439,22 @@ Host: WSL2, 2 vCPU, 7.6 GB RAM, headless, kernel from `os.uname()`.
 
 ---
 
-## R2 proposal — implementation priority
+## R2 proposal — implementation priority (CLOSED 2026-09-28)
 
-R1 rows that deserve implementation first (by expected benefit / risk ratio):
+R1 rows that deserved implementation first (by expected benefit / risk ratio).
+Final status per item after the D1–D7 track:
 
-1. **mv-control BlueZ 5s poll → signal-driven** (§5.3) — eliminates 0.5 Hz
-   GetManagedObjects while Control Center open. BlueZ ObjectManager signals
-   are available. Pattern already proven for NM in the same file.
-   Expected: −0.5 Hz wakeups while CC open. Risk: low.
+| # | Item | Final status | Commit / Reason |
+|---|---|---|---|
+| 1 | mv-control BlueZ 5s poll → signal-driven | **SUPERSEDED** | 14c8009 made Wi-Fi signal-driven (NM D-Bus); BT kept on 5s poll with f2568dc dedup (2→1 GetManagedObjects calls). BlueZ signal subscription not implemented — 0.5 Hz D-Bus while window-open-only is P2 per AGENTS.md §7; expected saving below host drift band. |
+| 2 | mv-control Wi-Fi GetManagedObjects → worker thread | **SUPERSEDED** | 14c8009 signal-driven redesign removed the per-refresh sync D-Bus call from the hot path; `refresh_wifi_list` now uses an nmcli subprocess (0b0fcb6 `--rescan no`). Remaining sync call is only in the 30s fallback tick. UI-thread blocking risk eliminated by redesign, not by threading. |
+| 3 | mv-control pactl → Gio.DBus PipeWire calls | **SUPERSEDED** | f2568dc removed the no-op `pactl list` from `on_output_device_changed`. All remaining pactl sites are event-driven (keypress/user action/window open) — RUNTIME_AUDIT.md pactl disposition CLOSED (DECISIONS D4-6). Subprocess cost ~5–10 ms per on-demand call; D-Bus rewrite not justified. |
+| 4 | mv-eject / mv-rename Gio usage | **CLOSED** | No rewrite warranted — mv-eject already imports only Gio (256 ms / 29.3 MB vs full GTK 331 ms / 44.6 MB); mv-rename shows a Gtk dialog (justified). Documented as measured, not suspected. |
+| 5 | mv-airdrop NM State → StateChanged signal | **STILL-OPEN (accepted)** | On-open sync `call_sync` only (~1 ms per window open, mv-airdrop:149). Signal subscription would save one on-open call — negligible. Classified P2/accepted. |
+| 6 | mv-diskutil on-open GetManagedObjects → ObjectManager signals | **STILL-OPEN (accepted)** | On-open sync call only (mv-diskutil:107). Low priority per R1. Classified P2/accepted. |
 
-2. **mv-control Wi-Fi GetManagedObjects → worker thread** (§5.3) — moves
-   sync D-Bus call out of UI thread. Pattern proven in mv-music phase-B fix.
-   Expected: no UI blocking with many APs. Risk: low.
-
-3. **mv-control pactl → Gio.DBus PipeWire calls** (§5.2) — replaces 6
-   subprocess spawns with direct D-Bus. Expected: −6 subprocess spawns per
-   volume change. Risk: medium (PipeWire D-Bus API surface).
-
-4. **mv-eject / mv-eject Gio usage** (§1.4) — mv-eject already imports only
-   Gio (not Gtk): 256 ms / 29.3 MB vs full GTK 331 ms / 44.6 MB. This is
-   already the efficient path. mv-rename shows a Gtk dialog (justified).
-   **No rewrite warranted** — documented as measured, not suspected.
-
-5. **mv-airdrop NM State → StateChanged signal** (§5.3) — eliminates on-open
-   sync Get. Trivial: one signal subscription. Risk: low.
-
-6. **mv-diskutil on-open GetManagedObjects → ObjectManager signals** (§5.3)
-   — low priority (on-open only), but trivial to implement. Risk: low.
-
-**Not recommended for R2:**
-- genmon/mv-hud demotion — already 2.4ms C one-shot, near-zero cost.
-- Timer demotions (calendar/reminders/timemachine) — would lose background
-  functionality; the hourly/5min one-shot spawn is acceptable.
+**Not recommended for R2 (all confirmed by later tracks):**
+- genmon/mv-hud demotion — already 2.4ms C one-shot, near-zero cost; wired into panel genmon in b9d16ba (S-10).
+- Timer demotions (calendar/reminders/timemachine) — would lose background functionality; the hourly/5min one-shot spawn is acceptable (D6 confirmed all compliant).
 - xfce4-notifyd demotion — first-notification latency penalty not worth 5MB.
-- Any GTK app → native rewrite — see `docs/NATIVE_REWRITE_CANDIDATES.md`.
+- Any GTK app → native rewrite — see `docs/NATIVE_REWRITE_CANDIDATES.md` (final verdict: all 48 KEEP).
