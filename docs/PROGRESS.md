@@ -1,5 +1,22 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Phase 1 — Remote Lab Control Plane (2026-09-28, без железа)
+- [x] Agent: `lab/agent/mavericks-lab-agent` — single-file, python3 stdlib, zero-idle, SSH forced-command, NOT a daemon
+- [x] Protocol: NDJSON over stdin/stdout, 17 commands (status, inventory, collect, run-test, benchmark, deploy, verify, reboot, shutdown, select-boot, commit, rollback, snapshot, restore, logs, trace, ping)
+- [x] Idempotency: UUID job IDs, journal replay returns cached response without re-exec
+- [x] A/B state machine: UNKNOWN→BOOTING→NETWORK_READY→AGENT_READY→HEALTH_CHECK→HEALTHY→COMMITTED, FAIL→ROLLBACK, attempt counter, max_attempts=3, boot-loop protection
+- [x] Persistent state: atomic writes (temp+rename), survives crash/reboot/power-loss
+- [x] Event journal: append-only JSONL, job results cached for replay
+- [x] Deployment: HOST→inactive slot, deterministic deployment_id (img-<sha256[:16]>), SHA-256 + ed25519 signature verification, idempotent re-deploy
+- [x] Boot backend: QEMU simulation (files + systemd-boot entries), Mac backend documented (efibootmgr -n/-o, narrow sudoers)
+- [x] Identity: ed25519 machine key on DATA, openssl/ssh-keygen with graceful fallback
+- [x] Host CLI: `lab/host/mavericks-lab` — local mode (testing) + SSH mode (hardware)
+- [x] Host store: SQLite (jobs + events tables), queryable by scenario/result/limit
+- [x] Installer: `lab/agent/install.sh` — agent binary, identity, SSH forced-command, systemd oneshot, narrow sudoers
+- [x] Tests: 7 test files, 158 tests, all green (protocol, state, deploy, boot, identity, store, e2e)
+- [x] E2E: full A/B lifecycle (deploy→boot→health→test→commit), rollback, idempotency, crash recovery, snapshot/restore
+- [ ] Phase 2: QEMU full harness, failure injection, external scenario scripts, Mac backend, chunked deploy
+
 ### Track closure — Architecture Optimization R1–R2 + D1–D7 (2026-09-28, без железа)
 - [x] R2 proposal reconciled: 6 items → 3 SUPERSEDED (BlueZ signals, worker thread, pactl→D-Bus — all superseded by the 14c8009 signal-driven redesign + f2568dc dedup + measured P2 acceptance), 1 CLOSED (mv-eject/rename — already efficient), 2 STILL-OPEN accepted (mv-airdrop NM State, mv-diskutil ObjectManager — on-open only, P2) — ARCHITECTURE_OPTIMIZATION_AUDIT.md §R2
 - [x] D-candidate statuses finalized: 11 APPLIED (D1: F1/F2/F3/U2/U3, D2: F10, D4: F19–F22, D5: F26), 105 KEEP, 3 SUPERSEDED, 2 STILL-OPEN, 1 FALSE-POSITIVE, 2 UPSTREAM, 35 HW-PENDING — ARCHITECTURE_OPTIMIZATION_AUDIT.md §Track summary

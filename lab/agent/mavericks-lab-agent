@@ -1,0 +1,1062 @@
+#!/usr/bin/env python3
+"""mavericks-lab-agent — remote lab control plane agent (target side).
+
+Zero-idle, SSH forced-command activatable, NOT a resident daemon.
+NDJSON protocol over stdin/stdout. See lab/README.md for the protocol spec.
+
+Modes:
+  serve    — forced-command mode (default): read NDJSON requests from stdin,
+             write NDJSON responses to stdout. Activated by SSH forced command.
+  boot     — systemd oneshot mode: advance the A/B state machine at boot, run
+             health checks, exit. Zero idle cost.
+  identity — generate or report the ed25519 machine identity key.
+"""
+import base64
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+import uuid
+from pathlib import Path
+
+AGENT_VERSION = "1.0.0"
+
+# --- Paths ---
+
+
+def data_dir():
+    return Path(os.environ.get("MV_LAB_DATA", "/var/lib/mavericks-lab"))
+
+
+def state_path():
+    return data_dir() / "state.json"
+
+
+def journal_path():
+    return data_dir() / "journal.jsonl"
+
+
+def slots_dir():
+    return data_dir() / "slots"
+
+
+def slot_dir(slot):
+    return slots_dir() / slot
+
+
+def identity_path():
+    return data_dir() / "identity.pem"
+
+
+def identity_pub_path():
+    return data_dir() / "identity.pub.pem"
+
+
+def host_pub_path():
+    return data_dir() / "host.pub.pem"
+
+
+# --- Journal ---
+
+
+def journal_append(event_type, data=None):
+    entry = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "type": event_type,
+        "data": data or {},
+    }
+    data_dir().mkdir(parents=True, exist_ok=True)
+    with open(journal_path(), "a") as f:
+        f.write(json.dumps(entry) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+    return entry
+
+
+def journal_read(lines=None):
+    if not journal_path().exists():
+        return []
+    entries = []
+    with open(journal_path()) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+    if lines:
+        entries = entries[-lines:]
+    return entries
+
+
+def journal_find_job(job_id):
+    if not journal_path().exists():
+        return None
+    with open(journal_path()) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (
+                entry.get("type") == "job_result"
+                and entry.get("data", {}).get("job_id") == job_id
+            ):
+                return entry
+    return None
+
+
+# --- State machine ---
+
+VALID_STATES = [
+    "UNKNOWN",
+    "BOOTING",
+    "NETWORK_READY",
+    "AGENT_READY",
+    "HEALTH_CHECK",
+    "HEALTHY",
+    "COMMITTED",
+    "FAIL",
+    "ROLLBACK",
+]
+
+VALID_TRANSITIONS = {
+    "UNKNOWN": ["BOOTING"],
+    "BOOTING": ["NETWORK_READY", "FAIL", "ROLLBACK"],
+    "NETWORK_READY": ["AGENT_READY", "FAIL", "ROLLBACK"],
+    "AGENT_READY": ["HEALTH_CHECK", "FAIL", "ROLLBACK"],
+    "HEALTH_CHECK": ["HEALTHY", "FAIL", "ROLLBACK"],
+    "HEALTHY": ["COMMITTED", "BOOTING", "ROLLBACK"],
+    "COMMITTED": ["BOOTING", "ROLLBACK"],
+    "FAIL": ["ROLLBACK", "BOOTING"],
+    "ROLLBACK": ["BOOTING"],
+}
+
+DEFAULT_STATE = {
+    "version": 1,
+    "machine_id": None,
+    "state": "UNKNOWN",
+    "active_slot": None,
+    "next_slot": None,
+    "previous_slot": None,
+    "deployment_id": None,
+    "attempt": 0,
+    "max_attempts": 3,
+    "boot_id": None,
+    "last_health_check": None,
+    "updated_at": None,
+}
+
+
+def load_state():
+    if not state_path().exists():
+        return dict(DEFAULT_STATE)
+    try:
+        with open(state_path()) as f:
+            state = json.load(f)
+        merged = dict(DEFAULT_STATE)
+        merged.update(state)
+        return merged
+    except (json.JSONDecodeError, OSError):
+        return dict(DEFAULT_STATE)
+
+
+def save_state(state):
+    state["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    data_dir().mkdir(parents=True, exist_ok=True)
+    tmp = state_path().with_suffix(".tmp")
+    with open(tmp, "w") as f:
+        json.dump(state, f, indent=2)
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.rename(tmp, state_path())
+
+
+def transition_state(state, new_state):
+    current = state["state"]
+    if new_state not in VALID_TRANSITIONS.get(current, []):
+        return state, f"invalid transition {current} -> {new_state}"
+    state["state"] = new_state
+    save_state(state)
+    journal_append("state_change", {"from": current, "to": new_state})
+    return state, None
+
+
+# --- Boot backend ---
+
+
+class BootBackend:
+    def get_boot_state(self):
+        raise NotImplementedError
+
+    def select_boot(self, slot):
+        raise NotImplementedError
+
+    def reboot(self):
+        raise NotImplementedError
+
+    def shutdown(self):
+        raise NotImplementedError
+
+
+class QemuBootBackend(BootBackend):
+    """File-based simulation of systemd-boot A/B slot selection (Phase 1).
+
+    Layout:
+      root/current-boot.txt  — slot currently booted
+      root/next-boot.txt     — slot selected for next boot
+      root/entries/A.conf    — simulated systemd-boot entry for slot A
+      root/entries/B.conf    — simulated systemd-boot entry for slot B
+    """
+
+    def __init__(self, root):
+        self.root = Path(root)
+        self.entries_dir = self.root / "entries"
+        self._ensure()
+
+    def _ensure(self):
+        self.entries_dir.mkdir(parents=True, exist_ok=True)
+        for slot in ("A", "B"):
+            entry = self.entries_dir / f"{slot}.conf"
+            if not entry.exists():
+                entry.write_text(
+                    f"title   Mavericks Linux (slot {slot})\n"
+                    f"linux   /vmlinuz-linux-zen\n"
+                    f"initrd  /initramfs-linux-zen.img\n"
+                    f"options root=PARTUUID=%ROOT_PARTUUID% rw rootflags=subvol=@"
+                    f" quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0\n"
+                )
+        if not (self.root / "current-boot.txt").exists():
+            (self.root / "current-boot.txt").write_text("A\n")
+        if not (self.root / "next-boot.txt").exists():
+            (self.root / "next-boot.txt").write_text("A\n")
+
+    def get_boot_state(self):
+        current = (self.root / "current-boot.txt").read_text().strip()
+        nxt = (self.root / "next-boot.txt").read_text().strip()
+        return {"current_slot": current, "next_slot": nxt, "backend": "qemu"}
+
+    def select_boot(self, slot):
+        if slot not in ("A", "B"):
+            raise ValueError(f"invalid slot: {slot}")
+        tmp = self.root / "next-boot.txt.tmp"
+        tmp.write_text(slot + "\n")
+        os.rename(tmp, self.root / "next-boot.txt")
+        journal_append("boot_select", {"slot": slot})
+
+    def reboot(self):
+        nxt = (self.root / "next-boot.txt").read_text().strip()
+        tmp = self.root / "current-boot.txt.tmp"
+        tmp.write_text(nxt + "\n")
+        os.rename(tmp, self.root / "current-boot.txt")
+        journal_append("reboot_simulated", {"slot": nxt})
+
+    def shutdown(self):
+        journal_append("shutdown_simulated", {})
+
+
+def get_boot_backend():
+    return QemuBootBackend(data_dir() / "boot")
+
+
+# --- Identity ---
+
+
+def generate_identity():
+    data = data_dir()
+    data.mkdir(parents=True, exist_ok=True)
+    priv = identity_path()
+    pub = identity_pub_path()
+    if priv.exists() and pub.exists():
+        return identity_fingerprint(), True
+    try:
+        subprocess.run(
+            ["openssl", "genpkey", "-algorithm", "ed25519", "-out", str(priv)],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["openssl", "pkey", "-in", str(priv), "-pubout", "-out", str(pub)],
+            check=True,
+            capture_output=True,
+        )
+        os.chmod(priv, 0o600)
+        return identity_fingerprint(), True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    try:
+        subprocess.run(
+            ["ssh-keygen", "-t", "ed25519", "-f", str(priv), "-N", "", "-q"],
+            check=True,
+            capture_output=True,
+        )
+        with open(pub, "w") as out:
+            subprocess.run(
+                ["ssh-keygen", "-e", "-f", str(priv), "-m", "PEM"],
+                check=True,
+                capture_output=True,
+                stdout=out,
+            )
+        os.chmod(priv, 0o600)
+        return identity_fingerprint(), True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None, False
+
+
+def identity_fingerprint():
+    pub = identity_pub_path()
+    if not pub.exists():
+        return None
+    try:
+        result = subprocess.run(
+            ["openssl", "pkey", "-pubin", "-in", str(pub), "-outform", "DER"],
+            capture_output=True,
+            check=True,
+        )
+        return hashlib.sha256(result.stdout).hexdigest()[:16]
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return hashlib.sha256(pub.read_bytes()).hexdigest()[:16]
+
+
+# --- Health checks ---
+
+
+def run_health_checks():
+    checks = {}
+    try:
+        test_file = data_dir() / ".health_check"
+        test_file.write_text("ok")
+        test_file.unlink()
+        checks["fs_writable"] = True
+    except OSError:
+        checks["fs_writable"] = False
+    try:
+        stat = os.statvfs(data_dir())
+        free_mb = (stat.f_bavail * stat.f_frsize) / (1024 * 1024)
+        checks["disk_space_mb"] = round(free_mb, 1)
+        checks["disk_space_ok"] = free_mb > 100
+    except OSError:
+        checks["disk_space_ok"] = False
+    try:
+        with open("/proc/net/route") as f:
+            routes = f.readlines()
+        checks["network"] = len(routes) > 1
+    except OSError:
+        checks["network"] = False
+    try:
+        with open("/proc/loadavg") as f:
+            load = float(f.read().split()[0])
+        checks["load"] = load
+        checks["load_ok"] = load < 10.0
+    except (OSError, ValueError, IndexError):
+        checks["load_ok"] = False
+    checks["agent_responsive"] = True
+    passed = all(
+        v
+        for k, v in checks.items()
+        if k.endswith("_ok") or k in ("fs_writable", "network", "agent_responsive")
+    )
+    return passed, checks
+
+
+# --- Inventory ---
+
+
+def gather_inventory():
+    inv = {}
+    try:
+        u = os.uname()
+        inv["uname"] = {
+            "sysname": u.sysname,
+            "nodename": u.nodename,
+            "release": u.release,
+            "version": u.version,
+            "machine": u.machine,
+        }
+    except AttributeError:
+        inv["uname"] = None
+    try:
+        cpuinfo = Path("/proc/cpuinfo").read_text()
+        model = ""
+        cores = 0
+        for line in cpuinfo.splitlines():
+            if line.startswith("model name"):
+                model = line.split(":", 1)[1].strip()
+            if line.startswith("processor"):
+                cores += 1
+        inv["cpu"] = {"model": model, "cores": cores}
+    except OSError:
+        inv["cpu"] = None
+    try:
+        meminfo = Path("/proc/meminfo").read_text()
+        for line in meminfo.splitlines():
+            if line.startswith("MemTotal:"):
+                inv["mem_total_kb"] = int(line.split()[1])
+                break
+    except OSError:
+        pass
+    try:
+        inv["os"] = dict(
+            line.split("=", 1)
+            for line in Path("/etc/os-release").read_text().splitlines()
+            if "=" in line
+        )
+    except OSError:
+        inv["os"] = None
+    try:
+        result = subprocess.run(
+            ["df", "-h", str(data_dir())], capture_output=True, text=True
+        )
+        inv["disk"] = (
+            result.stdout.strip().splitlines()[-1] if result.stdout else None
+        )
+    except FileNotFoundError:
+        inv["disk"] = None
+    try:
+        result = subprocess.run(["lspci"], capture_output=True, text=True)
+        inv["pci"] = result.stdout.strip().splitlines()
+    except FileNotFoundError:
+        inv["pci"] = []
+    try:
+        result = subprocess.run(["lsusb"], capture_output=True, text=True)
+        inv["usb"] = result.stdout.strip().splitlines()
+    except FileNotFoundError:
+        inv["usb"] = []
+    try:
+        result = subprocess.run(["ip", "-o", "addr"], capture_output=True, text=True)
+        inv["network"] = result.stdout.strip().splitlines()
+    except FileNotFoundError:
+        inv["network"] = []
+    return inv
+
+
+# --- Collect ---
+
+
+def collect_logs(lines=200):
+    result = {}
+    try:
+        proc = subprocess.run(
+            ["dmesg"], capture_output=True, text=True, timeout=10
+        )
+        result["dmesg"] = proc.stdout.strip().splitlines()[-lines:]
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        result["dmesg"] = []
+    try:
+        proc = subprocess.run(
+            ["journalctl", "-n", str(lines), "--no-pager"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        result["journal"] = proc.stdout.strip().splitlines()[-lines:]
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        result["journal"] = []
+    result["agent_journal"] = journal_read(lines)
+    return result
+
+
+# --- Built-in tests/benchmarks ---
+
+
+def run_builtin_test(name, args=None):
+    start = time.time()
+    args = args or {}
+    if name == "echo":
+        result = "pass"
+        metrics = {"echo": args.get("text", "hello")}
+    elif name == "disk-write":
+        test_file = data_dir() / ".test_disk_write"
+        data = os.urandom(1024 * 1024)
+        t0 = time.time()
+        test_file.write_bytes(data)
+        write_ms = (time.time() - t0) * 1000
+        t0 = time.time()
+        read_back = test_file.read_bytes()
+        read_ms = (time.time() - t0) * 1000
+        test_file.unlink()
+        result = "pass" if read_back == data else "fail"
+        metrics = {
+            "write_ms": round(write_ms, 2),
+            "read_ms": round(read_ms, 2),
+            "size_bytes": len(data),
+        }
+    elif name == "cpu-load":
+        duration = args.get("duration", 1.0)
+        t0 = time.time()
+        x = 0
+        while time.time() - t0 < duration:
+            x += 1
+        elapsed = time.time() - t0
+        result = "pass"
+        metrics = {"duration_s": round(elapsed, 2), "iterations": x}
+    elif name == "memory":
+        size = args.get("size_mb", 10)
+        data = bytearray(size * 1024 * 1024)
+        for i in range(0, len(data), 4096):
+            data[i] = 1
+        del data
+        result = "pass"
+        metrics = {"size_mb": size}
+    else:
+        result = "fail"
+        metrics = {"error": f"unknown test: {name}"}
+    duration_ms = (time.time() - start) * 1000
+    return result, metrics, round(duration_ms, 2)
+
+
+# --- Deploy ---
+
+
+def deploy_image(version, slot, sha256_expected, image_b64, signature_b64):
+    if slot not in ("A", "B"):
+        return None, f"invalid slot: {slot}"
+    sdir = slot_dir(slot)
+    sdir.mkdir(parents=True, exist_ok=True)
+    deployment_id = f"img-{sha256_expected[:16]}"
+    meta_path = sdir / "image.json"
+    if meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text())
+            if meta.get("deployment_id") == deployment_id and meta.get("verified"):
+                return deployment_id, None
+        except json.JSONDecodeError:
+            pass
+    partial = sdir / "image.tar.partial"
+    final = sdir / "image.tar"
+    try:
+        image_data = base64.b64decode(image_b64)
+    except Exception as e:
+        return None, f"base64 decode error: {e}"
+    tmp = sdir / "image.tar.partial.tmp"
+    with open(tmp, "wb") as f:
+        f.write(image_data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.rename(tmp, partial)
+    sha256_actual = hashlib.sha256(image_data).hexdigest()
+    if sha256_actual != sha256_expected:
+        partial.unlink(missing_ok=True)
+        return None, f"sha256 mismatch: expected {sha256_expected}, got {sha256_actual}"
+    if signature_b64 and host_pub_path().exists():
+        sig_path = sdir / "image.sig"
+        sig_path.write_bytes(base64.b64decode(signature_b64))
+        try:
+            result = subprocess.run(
+                [
+                    "openssl",
+                    "dgst",
+                    "-sha256",
+                    "-verify",
+                    str(host_pub_path()),
+                    "-signature",
+                    str(sig_path),
+                    str(partial),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                partial.unlink(missing_ok=True)
+                return None, f"signature verification failed: {result.stderr.strip()}"
+        except FileNotFoundError:
+            pass
+    os.rename(partial, final)
+    meta = {
+        "deployment_id": deployment_id,
+        "version": version,
+        "slot": slot,
+        "sha256": sha256_actual,
+        "size": len(image_data),
+        "deployed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "verified": True,
+    }
+    meta_tmp = sdir / "image.json.tmp"
+    meta_tmp.write_text(json.dumps(meta, indent=2) + "\n")
+    os.rename(meta_tmp, meta_path)
+    journal_append(
+        "deploy",
+        {
+            "deployment_id": deployment_id,
+            "slot": slot,
+            "version": version,
+            "sha256": sha256_actual,
+        },
+    )
+    return deployment_id, None
+
+
+def verify_slot(slot):
+    if slot not in ("A", "B"):
+        return None, f"invalid slot: {slot}"
+    sdir = slot_dir(slot)
+    meta_path = sdir / "image.json"
+    image_path = sdir / "image.tar"
+    if not meta_path.exists() or not image_path.exists():
+        return None, f"slot {slot} has no image"
+    try:
+        meta = json.loads(meta_path.read_text())
+    except json.JSONDecodeError as e:
+        return None, f"corrupt metadata: {e}"
+    sha256_actual = hashlib.sha256(image_path.read_bytes()).hexdigest()
+    sha256_valid = sha256_actual == meta.get("sha256")
+    sig_path = sdir / "image.sig"
+    sig_valid = None
+    if sig_path.exists() and host_pub_path().exists():
+        try:
+            result = subprocess.run(
+                [
+                    "openssl",
+                    "dgst",
+                    "-sha256",
+                    "-verify",
+                    str(host_pub_path()),
+                    "-signature",
+                    str(sig_path),
+                    str(image_path),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            sig_valid = result.returncode == 0
+        except FileNotFoundError:
+            sig_valid = None
+    return {
+        "slot": slot,
+        "deployment_id": meta.get("deployment_id"),
+        "version": meta.get("version"),
+        "sha256_valid": sha256_valid,
+        "signature_valid": sig_valid,
+        "size": meta.get("size"),
+    }, None
+
+
+# --- Snapshot/Restore ---
+
+
+def create_snapshot(name):
+    snapshots_dir = data_dir() / "snapshots"
+    snapshots_dir.mkdir(parents=True, exist_ok=True)
+    dest = snapshots_dir / name
+    if dest.exists():
+        return None, f"snapshot {name} already exists"
+    save_state(load_state())
+    shutil.copytree(
+        data_dir(), dest, ignore=shutil.ignore_patterns("snapshots", "slots")
+    )
+    journal_append("snapshot", {"name": name})
+    return {"name": name, "path": str(dest)}, None
+
+
+def restore_snapshot(name):
+    snapshots_dir = data_dir() / "snapshots"
+    src = snapshots_dir / name
+    if not src.exists():
+        return None, f"snapshot {name} not found"
+    for item in src.iterdir():
+        if item.name == "snapshots":
+            continue
+        dest = data_dir() / item.name
+        if dest.exists():
+            if dest.is_dir():
+                shutil.rmtree(dest)
+            else:
+                dest.unlink()
+        if item.is_dir():
+            shutil.copytree(item, dest)
+        else:
+            shutil.copy2(item, dest)
+    journal_append("restore", {"name": name})
+    return {"name": name, "status": "restored"}, None
+
+
+# --- Protocol commands ---
+
+
+def cmd_status(args):
+    state = load_state()
+    boot = get_boot_backend().get_boot_state()
+    uptime = None
+    try:
+        with open("/proc/uptime") as f:
+            uptime = round(float(f.read().split()[0]), 1)
+    except (OSError, ValueError):
+        pass
+    return {
+        "state": state["state"],
+        "active_slot": state["active_slot"],
+        "next_slot": state["next_slot"],
+        "previous_slot": state["previous_slot"],
+        "deployment_id": state["deployment_id"],
+        "attempt": state["attempt"],
+        "max_attempts": state["max_attempts"],
+        "boot_id": state["boot_id"],
+        "machine_id": state["machine_id"],
+        "uptime_s": uptime,
+        "agent_version": AGENT_VERSION,
+        "boot_backend": boot,
+    }
+
+
+def cmd_inventory(args):
+    return gather_inventory()
+
+
+def cmd_collect(args):
+    return collect_logs(args.get("lines", 200))
+
+
+def cmd_run_test(args):
+    name = args.get("name", "")
+    result, metrics, duration_ms = run_builtin_test(name, args.get("args"))
+    return {
+        "name": name,
+        "result": result,
+        "metrics": metrics,
+        "duration_ms": duration_ms,
+    }
+
+
+def cmd_benchmark(args):
+    name = args.get("name", "")
+    result, metrics, duration_ms = run_builtin_test(name, args.get("args"))
+    return {
+        "name": name,
+        "result": result,
+        "metrics": metrics,
+        "duration_ms": duration_ms,
+    }
+
+
+def cmd_deploy(args):
+    version = args.get("version", "unknown")
+    slot = args.get("slot")
+    if not slot:
+        state = load_state()
+        slot = "B" if state["active_slot"] == "A" else "A"
+    sha256 = args.get("sha256", "")
+    image_b64 = args.get("image_b64", "")
+    signature_b64 = args.get("signature_b64", "")
+    host_pub = args.get("host_pub", "")
+    if host_pub:
+        host_pub_path().write_text(host_pub)
+    deployment_id, error = deploy_image(
+        version, slot, sha256, image_b64, signature_b64
+    )
+    if error:
+        return {"error": error}
+    return {
+        "deployment_id": deployment_id,
+        "slot": slot,
+        "version": version,
+        "verified": True,
+    }
+
+
+def cmd_verify(args):
+    slot = args.get("slot", "")
+    result, error = verify_slot(slot)
+    if error:
+        return {"error": error}
+    return result
+
+
+def cmd_reboot(args):
+    boot = get_boot_backend()
+    boot.reboot()
+    return {"status": "rebooting"}
+
+
+def cmd_shutdown(args):
+    boot = get_boot_backend()
+    boot.shutdown()
+    return {"status": "shutting_down"}
+
+
+def cmd_select_boot(args):
+    slot = args.get("slot", "")
+    if slot not in ("A", "B"):
+        return {"error": f"invalid slot: {slot}"}
+    boot = get_boot_backend()
+    boot.select_boot(slot)
+    return {"slot": slot, "status": "selected"}
+
+
+def cmd_commit(args):
+    state = load_state()
+    if state["state"] not in ("HEALTHY", "COMMITTED"):
+        return {"error": f"cannot commit from state {state['state']}"}
+    state, err = transition_state(state, "COMMITTED")
+    if err:
+        return {"error": err}
+    return {
+        "deployment_id": state["deployment_id"],
+        "slot": state["active_slot"],
+        "state": "COMMITTED",
+    }
+
+
+def cmd_rollback(args):
+    state = load_state()
+    prev = state.get("previous_slot") or (
+        "B" if state["active_slot"] == "A" else "A"
+    )
+    boot = get_boot_backend()
+    boot.select_boot(prev)
+    state["next_slot"] = prev
+    state["previous_slot"] = state["active_slot"]
+    save_state(state)
+    state, err = transition_state(state, "ROLLBACK")
+    if err:
+        return {"error": err}
+    return {"slot": prev, "state": "ROLLBACK"}
+
+
+def cmd_snapshot(args):
+    name = args.get("name", "")
+    if not name:
+        return {"error": "name required"}
+    result, error = create_snapshot(name)
+    if error:
+        return {"error": error}
+    return result
+
+
+def cmd_restore(args):
+    name = args.get("name", "")
+    if not name:
+        return {"error": "name required"}
+    result, error = restore_snapshot(name)
+    if error:
+        return {"error": error}
+    return result
+
+
+def cmd_logs(args):
+    lines = args.get("lines", 100)
+    return {"entries": journal_read(lines)}
+
+
+def cmd_trace(args):
+    lines = args.get("lines", 100)
+    return {"entries": journal_read(lines)}
+
+
+def cmd_ping(args):
+    return {"pong": True, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+
+
+COMMANDS = {
+    "status": cmd_status,
+    "inventory": cmd_inventory,
+    "collect": cmd_collect,
+    "run-test": cmd_run_test,
+    "benchmark": cmd_benchmark,
+    "deploy": cmd_deploy,
+    "verify": cmd_verify,
+    "reboot": cmd_reboot,
+    "shutdown": cmd_shutdown,
+    "select-boot": cmd_select_boot,
+    "commit": cmd_commit,
+    "rollback": cmd_rollback,
+    "snapshot": cmd_snapshot,
+    "restore": cmd_restore,
+    "logs": cmd_logs,
+    "trace": cmd_trace,
+    "ping": cmd_ping,
+}
+
+
+# --- Serve mode ---
+
+
+def serve():
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            req = json.loads(line)
+        except json.JSONDecodeError as e:
+            resp = {"ok": False, "error": f"invalid JSON: {e}"}
+            print(json.dumps(resp), flush=True)
+            continue
+        job_id = req.get("id") or str(uuid.uuid4())
+        cmd = req.get("cmd", "")
+        args = req.get("args", {})
+        cached = journal_find_job(job_id)
+        if cached:
+            resp = {
+                "id": job_id,
+                "ok": True,
+                "result": cached["data"].get("result"),
+                "replayed": True,
+            }
+            print(json.dumps(resp), flush=True)
+            continue
+        handler = COMMANDS.get(cmd)
+        if not handler:
+            resp = {"id": job_id, "ok": False, "error": f"unknown command: {cmd}"}
+            print(json.dumps(resp), flush=True)
+            continue
+        try:
+            result = handler(args)
+            if "error" in result:
+                resp = {"id": job_id, "ok": False, "error": result["error"]}
+            else:
+                resp = {"id": job_id, "ok": True, "result": result}
+        except Exception as e:
+            resp = {
+                "id": job_id,
+                "ok": False,
+                "error": f"{type(e).__name__}: {e}",
+            }
+        journal_append(
+            "job_result",
+            {
+                "job_id": job_id,
+                "cmd": cmd,
+                "result": result if "error" not in result else None,
+                "error": resp.get("error"),
+            },
+        )
+        print(json.dumps(resp), flush=True)
+
+
+# --- Boot mode ---
+
+
+def boot():
+    state = load_state()
+    boot_backend = get_boot_backend()
+    boot_state = boot_backend.get_boot_state()
+    current_slot = boot_state["current_slot"]
+    boot_id = str(uuid.uuid4())
+    state["boot_id"] = boot_id
+
+    slot_changed = (
+        state["active_slot"] is not None
+        and current_slot != state["active_slot"]
+    )
+
+    if state["state"] in ("UNKNOWN", "ROLLBACK") or slot_changed:
+        state["previous_slot"] = state["active_slot"]
+        state["active_slot"] = current_slot
+        meta_path = slot_dir(current_slot) / "image.json"
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text())
+                state["deployment_id"] = meta.get("deployment_id")
+            except json.JSONDecodeError:
+                pass
+        save_state(state)
+        journal_append(
+            "boot", {"boot_id": boot_id, "slot": current_slot, "reason": "fresh_boot"}
+        )
+        for target in ("BOOTING", "NETWORK_READY", "AGENT_READY", "HEALTH_CHECK"):
+            state, err = transition_state(state, target)
+            if err:
+                break
+    elif state["state"] == "BOOTING":
+        journal_append(
+            "boot", {"boot_id": boot_id, "slot": current_slot, "reason": "resume"}
+        )
+        if state["state"] == "BOOTING":
+            state, _ = transition_state(state, "NETWORK_READY")
+        if state["state"] == "NETWORK_READY":
+            state, _ = transition_state(state, "AGENT_READY")
+        if state["state"] == "AGENT_READY":
+            state, _ = transition_state(state, "HEALTH_CHECK")
+    else:
+        journal_append(
+            "boot", {"boot_id": boot_id, "slot": current_slot, "reason": "verify"}
+        )
+
+    if state["state"] == "HEALTH_CHECK":
+        passed, checks = run_health_checks()
+        state["last_health_check"] = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+        )
+        if passed:
+            state["attempt"] = 0
+            save_state(state)
+            state, _ = transition_state(state, "HEALTHY")
+            journal_append("health_check", {"result": "pass", "checks": checks})
+        else:
+            state["attempt"] = state.get("attempt", 0) + 1
+            save_state(state)
+            state, _ = transition_state(state, "FAIL")
+            journal_append(
+                "health_check",
+                {
+                    "result": "fail",
+                    "checks": checks,
+                    "attempt": state["attempt"],
+                },
+            )
+            if state["attempt"] < state.get("max_attempts", 3):
+                prev = state.get("previous_slot") or (
+                    "B" if current_slot == "A" else "A"
+                )
+                boot_backend.select_boot(prev)
+                state["next_slot"] = prev
+                save_state(state)
+                state, _ = transition_state(state, "ROLLBACK")
+                boot_backend.reboot()
+            else:
+                journal_append(
+                    "boot_loop_protection",
+                    {"attempt": state["attempt"], "action": "halt"},
+                )
+
+
+# --- Identity mode ---
+
+
+def identity_mode():
+    fp, ok = generate_identity()
+    if ok:
+        pub = identity_pub_path().read_text() if identity_pub_path().exists() else ""
+        return {
+            "fingerprint": fp,
+            "public_key": pub,
+            "path": str(identity_path()),
+        }
+    return {
+        "error": "failed to generate identity (openssl/ssh-keygen unavailable)"
+    }
+
+
+# --- Main ---
+
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(description="mavericks-lab-agent")
+    parser.add_argument(
+        "mode",
+        nargs="?",
+        default="serve",
+        choices=["serve", "boot", "identity"],
+    )
+    args = parser.parse_args()
+    if args.mode == "serve":
+        serve()
+    elif args.mode == "boot":
+        boot()
+    elif args.mode == "identity":
+        result = identity_mode()
+        print(json.dumps(result))
+
+
+if __name__ == "__main__":
+    main()

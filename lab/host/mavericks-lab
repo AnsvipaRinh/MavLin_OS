@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""mavericks-lab — host controller CLI for the remote lab control plane.
+
+Usage: mavericks-lab <command> [args]
+
+Commands:
+  status              Show target machine status
+  inventory           Collect hardware/software inventory
+  ping                Connectivity check
+  deploy <image>      Deploy image to inactive slot
+  verify <slot>       Verify slot image (sha256 + signature)
+  select-boot <slot>  Select boot slot (A/B)
+  reboot              Reboot target
+  shutdown            Shutdown target
+  commit              Commit current deployment
+  rollback            Rollback to previous slot
+  test <scenario>     Run full A/B test scenario
+  benchmark <name>    Run benchmark on target
+  collect [lines]     Collect logs from target
+  logs [lines]        Show agent journal
+  trace [lines]       Show event trace
+  snapshot <name>     Create state snapshot
+  restore <name>      Restore state snapshot
+  results [query]     Query SQLite result store
+  init-host           Generate host signing keypair
+  list-scenarios      List available test scenarios
+
+Environment:
+  MAVERICKS_LAB_AGENT   Path to agent script (local mode)
+  MAVERICKS_LAB_DATA    Data dir (local mode)
+  MAVERICKS_LAB_SSH_HOST  SSH target host
+  MAVERICKS_LAB_SSH_USER  SSH user
+  MAVERICKS_LAB_SSH_KEY   SSH private key path
+  MAVERICKS_LAB_STORE   SQLite store path
+  MAVERICKS_LAB_HOSTKEY  Host signing key dir
+"""
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from lib.client import LocalTransport, SSHTransport
+from lib.controller import LabController
+from lib.store import LabStore
+from lib.scenarios import list_scenarios
+
+
+def get_transport():
+    agent = os.environ.get("MAVERICKS_LAB_AGENT")
+    data = os.environ.get("MV_LAB_DATA")
+    ssh_host = os.environ.get("MAVERICKS_LAB_SSH_HOST")
+    if ssh_host:
+        user = os.environ.get("MAVERICKS_LAB_SSH_USER", "root")
+        key = os.environ.get("MAVERICKS_LAB_SSH_KEY", str(Path.home() / ".ssh/id_ed25519"))
+        return SSHTransport(ssh_host, user, key)
+    if not agent:
+        repo = Path(__file__).resolve().parent.parent.parent
+        agent = str(repo / "lab/agent/mavericks-lab-agent")
+    if not data:
+        data = str(Path(tempfile.gettempdir()) / "mavericks-lab-data")
+    return LocalTransport(agent, data)
+
+
+def get_store():
+    store_path = os.environ.get(
+        "MAVERICKS_LAB_STORE",
+        str(Path(tempfile.gettempdir()) / "mavericks-lab.sqlite"),
+    )
+    return LabStore(store_path)
+
+
+def get_controller():
+    transport = get_transport()
+    store = get_store()
+    hostkey = os.environ.get("MAVERICKS_LAB_HOSTKEY")
+    return LabController(transport, store, hostkey)
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__)
+        sys.exit(1)
+    cmd = sys.argv[1]
+    args = sys.argv[2:]
+    if cmd == "list-scenarios":
+        for s in list_scenarios():
+            print(s)
+        return
+    if cmd == "init-host":
+        key_dir = Path(
+            os.environ.get("MAVERICKS_LAB_HOSTKEY", str(Path.home() / ".mavericks-lab"))
+        )
+        key_dir.mkdir(parents=True, exist_ok=True)
+        priv = key_dir / "host.pem"
+        pub = key_dir / "host.pub.pem"
+        if priv.exists() and pub.exists():
+            print(f"host key already exists at {priv}")
+            return
+        import subprocess
+
+        subprocess.run(
+            ["openssl", "genpkey", "-algorithm", "ed25519", "-out", str(priv)],
+            check=True,
+        )
+        subprocess.run(
+            ["openssl", "pkey", "-in", str(priv), "-pubout", "-out", str(pub)],
+            check=True,
+        )
+        os.chmod(priv, 0o600)
+        print(f"host key generated: {priv}")
+        print(f"public key: {pub}")
+        print("install public key on target: mavericks-lab-agent deploy --host-pub")
+        return
+    ctl = get_controller()
+    if cmd == "status":
+        resp = ctl.status()
+    elif cmd == "inventory":
+        resp = ctl.inventory()
+    elif cmd == "ping":
+        resp = ctl.ping()
+    elif cmd == "deploy":
+        if not args:
+            print("usage: mavericks-lab deploy <image-path> [slot]")
+            sys.exit(1)
+        slot = args[1] if len(args) > 1 else None
+        resp = ctl.deploy(args[0], slot)
+    elif cmd == "verify":
+        if not args:
+            print("usage: mavericks-lab verify <slot>")
+            sys.exit(1)
+        resp = ctl.verify(args[0])
+    elif cmd == "select-boot":
+        if not args or args[0] not in ("A", "B"):
+            print("usage: mavericks-lab select-boot <A|B>")
+            sys.exit(1)
+        resp = ctl.select_boot(args[0])
+    elif cmd == "reboot":
+        resp = ctl.reboot()
+    elif cmd == "shutdown":
+        resp = ctl.shutdown()
+    elif cmd == "commit":
+        resp = ctl.commit()
+    elif cmd == "rollback":
+        resp = ctl.rollback()
+    elif cmd == "test":
+        if not args:
+            print("usage: mavericks-lab test <scenario> [image-path]")
+            sys.exit(1)
+        image = args[1] if len(args) > 1 else None
+        resp = ctl.test_scenario(args[0], image)
+    elif cmd == "benchmark":
+        if not args:
+            print("usage: mavericks-lab benchmark <name>")
+            sys.exit(1)
+        resp = ctl.benchmark(args[0])
+    elif cmd == "collect":
+        lines = int(args[0]) if args else 200
+        resp = ctl.collect(lines)
+    elif cmd == "logs":
+        lines = int(args[0]) if args else 100
+        resp = ctl.logs(lines)
+    elif cmd == "trace":
+        lines = int(args[0]) if args else 100
+        resp = ctl.trace(lines)
+    elif cmd == "snapshot":
+        if not args:
+            print("usage: mavericks-lab snapshot <name>")
+            sys.exit(1)
+        resp = ctl.snapshot(args[0])
+    elif cmd == "restore":
+        if not args:
+            print("usage: mavericks-lab restore <name>")
+            sys.exit(1)
+        resp = ctl.restore(args[0])
+    elif cmd == "results":
+        store = get_store()
+        scenario = None
+        result = None
+        limit = 50
+        i = 0
+        while i < len(args):
+            if args[i] == "--scenario" and i + 1 < len(args):
+                scenario = args[i + 1]
+                i += 2
+            elif args[i] == "--result" and i + 1 < len(args):
+                result = args[i + 1]
+                i += 2
+            elif args[i] == "--limit" and i + 1 < len(args):
+                limit = int(args[i + 1])
+                i += 2
+            else:
+                i += 1
+        rows = store.query_jobs(scenario=scenario, result=result, limit=limit)
+        for r in rows:
+            print(
+                f"{r['start_ts']}  {r['result']:6s}  {r['scenario']:20s}  "
+                f"slot={r['slot']}  deploy={r['deployment_id']}  "
+                f"{r.get('failure_reason') or ''}"
+            )
+        return
+    else:
+        print(f"unknown command: {cmd}")
+        print(__doc__)
+        sys.exit(1)
+    print(json.dumps(resp, indent=2, default=str))
+
+
+if __name__ == "__main__":
+    main()

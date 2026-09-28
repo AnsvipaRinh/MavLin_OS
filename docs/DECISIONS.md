@@ -1,5 +1,36 @@
 # DECISIONS
 
+## Phase 1: Remote Lab Control Plane (2026-09-28)
+
+**Date:** 2026-09-28
+**Context:** Phase 1 of the remote lab control plane for MacBook10,1 bring-up. Implements the A/B deployment lifecycle, NDJSON protocol, boot selection abstraction, and host-side orchestration. No hardware required — QEMU simulation backend + local transport for testing.
+
+**Decisions:**
+
+1. **Agent architecture: single-file, python3 stdlib, zero-idle.** The agent (`lab/agent/mavericks-lab-agent`) is a single self-contained Python file with no external dependencies. It runs in two modes: `serve` (SSH forced-command, NDJSON over stdin/stdout) and `boot` (systemd oneshot, advances state machine at boot then exits). No resident daemon, no idle processes. Matches repo convention of single-file mv-* apps.
+
+2. **Protocol: NDJSON over stdin/stdout.** One JSON object per line. Requests carry a UUID `id` for idempotency. The agent journals all job results and replays cached responses for duplicate IDs without re-executing. This survives agent crashes, host crashes, and network interruptions.
+
+3. **A/B state machine: 9 states with explicit transitions.** UNKNOWN→BOOTING→NETWORK_READY→AGENT_READY→HEALTH_CHECK→HEALTHY→COMMITTED, with FAIL→ROLLBACK for failure recovery. Attempt counter (max 3) with boot-loop protection. ROLLBACK reachable from any active state for emergency recovery. State persisted atomically (temp+rename) on DATA partition.
+
+4. **Deployment: content-deterministic IDs, inactive-slot-only writes.** Deployment ID = `img-<sha256[:16]>` (no timestamp — same image always gets same ID). Images written to inactive slot only, verified (SHA-256 + ed25519 signature) before activation. Re-deploy of same image is idempotent. Active slot never modified during deploy.
+
+5. **Boot backend: QEMU simulation now, Mac documented.** Phase 1 implements file-based QEMU simulation (current-boot.txt, next-boot.txt, systemd-boot entry files). `reboot()` updates simulation state. Phase 2 will trigger actual QEMU reboot. Mac backend documented: `efibootmgr -n <bootnum>` with fallback to loader.conf default-entry rewrite, narrow sudoers for efibootmgr only.
+
+6. **Security: SSH forced-command + ed25519 identity + signed images.** Machine identity (ed25519 keypair) generated at install on DATA partition. Host auth via SSH key + forced-command restriction (no shell, no port forwarding). Image signing via openssl ed25519. Idempotency via job IDs. Narrow sudoers: `efibootmgr -n *` and `efibootmgr -o *` only.
+
+7. **Host store: SQLite with jobs + events tables.** Records machine_id, boot_id, image_version, slot, deployment_id, job_id, scenario, timestamps, result, failure_reason, log_paths. Queryable by scenario, result, limit. Events table for audit trail.
+
+8. **Transport: Local (testing) + SSH (hardware).** LocalTransport spawns agent process directly with MV_LAB_DATA env — enables full e2e testing without QEMU or SSH. SSHTransport uses ssh forced-command for real hardware. Same interface, seamless switch.
+
+9. **Testing: 7 test files, 158 tests, all green.** Unit tests for protocol, state machine, deploy, boot backend, identity, store. E2E test covers full A/B lifecycle, rollback, idempotency, crash recovery, snapshot/restore.
+
+**Power baseline:** untouched. No TLP/kernel/cmdline/sysctl changes. No driver modifications. Lab control plane is additive infrastructure, not a baseline change.
+
+**Status:** Phase 1 complete. All pre-hardware lab infrastructure implemented and tested. Phase 2 (QEMU harness + failure injection + external scenarios) is the next track.
+
+---
+
 ## Track closure: Architecture Optimization R1–R2 + D1–D7 (2026-09-28)
 
 **Date:** 2026-09-28
