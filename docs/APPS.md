@@ -2,11 +2,57 @@
 # Statuses: IMPLEMENTED | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | EXPERIMENT READY | DEFERRED | EXCLUDED
 # All custom code: packages/mavericks-apps/ (GPL-2.0-or-later). No Apple assets.
 
+## Final classification — System Settings + Browser/YouTube tracks (phase 0.69)
+
+### CLOSED — validated pre-hardware
+
+| Item | Evidence |
+|---|---|
+| Cmd-layer collisions (Super+C/F/N) | Rebound to Super+Shift+C/F + Ctrl+Alt+N; KEYBOARD.md + SAFARI_SPEC.md updated |
+| mv-ytplayer Firefox handoff | Protocol handler (mv-ytplayer://) + bookmarklet + --url intake; 30/30 tests pass |
+| Codec policy layer | configs/mv-ytplayer/codec-policy.conf + doc table in VIDEO_PIPELINE.md |
+| Browser background audit | Session restore prefs added (restore_on_demand, max_tabs_on_startup=10, max_windows_on_startup=3) |
+| Settings audit (mv-control) | refresh_all timer leak fixed (stored ID + source_remove on destroy); 32/32 tests pass |
+| HW browser matrix | docs/HW_BROWSER_MATRIX.md — 4-mode plan with identical workload + metrics + commands |
+
+### HW-only (validation required)
+
+| Item | What to validate |
+|---|---|
+| VA-API HW decode on Gen9.5 | vainfo profiles + mpv --hwdec=auto reports HW active |
+| Codec power/thermal per mode | 4-mode matrix (M1-M4) on battery: discharge, temp, freq, throttling |
+| Firefox HiDPI rendering | uidensity=0 at 2304×1440, 2x scaling |
+| WebRender vs basic compositor | gfx.webrender.all experiment on HD 615 |
+| dom.ipc.processCount tuning | 4 vs 6 vs 8 on 8-16GB RAM |
+| Tab thrashing on fanless Core M | Many tabs, memory pressure, unload behavior |
+| Return-to-idle per mode | M4 < 2s, M3 < 5s, M1/M2 < 10s |
+
+### Intentionally deferred
+
+| Item | Reason |
+|---|---|
+| YouTube thumbnail/channel/duration UI | mpv doesn't provide natively; no SPA clone per audit scope |
+| YouTube next-video affordance | mpv doesn't provide natively; no SPA clone per audit scope |
+| AV1 as positive preference | Gen9.5 has no AV1 HW engine; SW-only on fanless Core M |
+| media.av1.enabled=false | E-AV1: test site compat on HW before disabling |
+| dom.ipc.processCount=6 | E-PROC: test 4 vs 6 vs 8 on HW |
+| gfx.webrender.all=true | E-WR: test WebRender vs basic on HW |
+| media.ffmpeg.vaapi.enabled=true | E-VIDEO: test VAAPI on HD 615 |
+
+### Known limitations
+
+| Item | Limitation |
+|---|---|
+| mpv OSD metadata | Press 'i' for stats; no persistent thumbnail/channel/duration overlay |
+| Firefox app-level shortcuts | Use Ctrl (not Super) to avoid global conflicts; documented in KEYBOARD.md |
+| mv-ytplayer protocol handler | Requires Firefox bookmarklet click (one user action); no native Firefox integration |
+| Codec policy | Starting point based on Gen9.5 HW availability; final choice from HW measurements |
+
 ## P0 — core surface
 
 | Name | State | Backend reused (license) | UI | Deps added | Runtime | HW dep | Next action |
 |---|---|---|---|---|---|---|---|
-| Finder | PARTIALLY IMPLEMENTED | Thunar 4.x (GPL-2.0+) + GVfs/GIO + trash-cli (GPL-2.0) | themed + uca.xml (Quick Look, Put Back, Get Info, Open With, Rename, Eject, Empty Trash, mv-newfolder auto-numbered, Compress, Terminal) + bookmarks + keyboard shortcuts (Super+N/Shift+N New Folder, Super+I Get Info, Super+O Open With) | trash-cli | on-demand | none | no Space key binding for Quick Look (Thunar limitation); no column view; no recursive search toolbar; Space binding documented as accepted delta |
+| Finder | PARTIALLY IMPLEMENTED | Thunar 4.x (GPL-2.0+) + GVfs/GIO + trash-cli (GPL-2.0) | themed + uca.xml (Quick Look, Put Back, Get Info, Open With, Rename, Eject, Empty Trash, mv-newfolder auto-numbered, Compress, Terminal) + bookmarks + keyboard shortcuts (Ctrl+Alt+N/Super+Shift+N New Folder, Super+I Get Info, Super+O Open With) | trash-cli | on-demand | none | no Space key binding for Quick Look (Thunar limitation); no column view; no recursive search toolbar; Space binding documented as accepted delta |
 | System Settings | IMPLEMENTED | xfce4-settings, nm-connection-editor, pavucontrol, blueman*, gnome-disks (their licenses) | custom mv-settings launcher (Python/GTK3, exits on close) | — (backend pkgs) | on-demand | BT manager pkg | install blueman on HW test |
 | About / System Report | IMPLEMENTED | /proc /sys / DMI + lspci/lsusb/nmcli (cached) | custom mv-about | — | on-demand | values real on HW | validate fields |
 | Spotlight | PARTIALLY IMPLEMENTED | rofi 2.0 (MIT) + mv-spotlight script + plocate (GPL-2.0) | rofi-mavericks.rasi (categorized, Mavericks-style) | rofi, plocate | on-demand + daily updatedb oneshot | index builds on installed system | calculator/conversion implemented; categorized file results (Folders, Documents, Images, Audio, Video, Archives, Code, etc.); recent items on empty query; ranking improved (exact/prefix/word/substring); system actions (Settings, Control Center, Activity Monitor, Disk Utility, Terminal); file open via xdg-open; error states (missing plocate, empty index, no results); no preview pane; test Super+Space on HW |

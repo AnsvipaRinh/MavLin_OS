@@ -11,6 +11,17 @@
 - [ ] Tab thrashing behavior with many tabs on fanless Core M
 - [ ] VAAPI video decode performance (H.264/VP9/HEVC) — media.ffmpeg.vaapi.enabled
 
+### 4-mode browser/video validation matrix (phase 0.69)
+See `docs/HW_BROWSER_MATRIX.md` for the full 4-mode measurement plan:
+- M1: Firefox-vanilla (baseline)
+- M2: Firefox+uBO+SB (general browsing with blocking)
+- M3: Firefox→ytplayer hybrid (recommended daily workflow)
+- M4: ytplayer-direct (video-only, minimal overhead)
+
+All modes use identical workload (3 clips × 5 min), identical metrics
+(CPU/GPU/RSS/dropped/wakeups/temp/freq/discharge/time-to-idle), and identical
+measurement commands. Run on target hardware only.
+
 ## Dictionary — hardware validation
 - [ ] WebKit2 tab rendering on the 2304×1440 panel (web process cannot start in the build container — load-changed never fires even with sandbox disabled; all load paths verified at call level + local mode fully tested)
 - [ ] Mavericks paper/leather/serif CSS appearance under the Mavericks GTK theme at 2304×1440 (build env has no WM; pixel verification was GTK-level only)

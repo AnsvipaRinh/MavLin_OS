@@ -1305,3 +1305,19 @@ OVMF firmware запускается (PI/UEFI), но не обнаруживае
 **Why Firefox wins:** uBlock Origin is decisive (Chromium MV2 + WebKitGTK no support). Suspend/resume reliability is critical for a laptop. Already integrated. Fewer deps. 16GB RAM makes WebKitGTK's RSS advantage marginal.
 
 **Status:** Research complete. No code changes. Step 2 (implementation) = Safari-Mavericks UX spec + optimized-mode implementation (user.js additions, mpv integration, blocking policy config, AV1 mitigation).
+
+## Final narrow audit: System Settings + Browser/YouTube readiness (Phase 0.69)
+
+**Date:** 2026-09-28
+**Context:** Pre-first-boot readiness audit. Bounded scope: fix only real functional/architectural defects (P0/P1). No micro-cosmetics, no new features beyond closing real workflow gaps.
+
+**Decisions:**
+1. **Cmd-layer collisions: FIX.** Super+C → mv-control, Super+F → thunar, Super+N → mv-newfolder conflicted with Firefox app-level shortcuts (Copy/Find/New Window). Rebound to Super+Shift+C, Super+Shift+F, Ctrl+Alt+N. Remaining Cmd-layer shortcuts (T/W/Q/1..9/[/]) are app-level (Ctrl equivalents in Firefox), NOT globally bound — correct Mavericks-like separation.
+2. **mv-ytplayer Firefox handoff: IMPLEMENT.** Protocol handler (mv-ytplayer://) + Firefox bookmarklet ("Watch efficiently") + --url intake. One user action from YouTube page → mv-ytplayer → mpv one-shot → full exit. No manual URL copy, no terminal. Lightest mature gap-closer.
+3. **Codec policy layer: EXTRACT.** Codec ranking moved to configs/mv-ytplayer/codec-policy.conf (easily editable). Policy doc table in VIDEO_PIPELINE.md with explicit NO-CONCLUSION note: final choice from measured power/thermal on MacBook, not host bench.
+4. **HW browser matrix: PREPARE.** docs/HW_BROWSER_MATRIX.md — 4-mode validation plan (M1: Firefox-vanilla / M2: Firefox+uBO+SB / M3: Firefox→ytplayer hybrid / M4: ytplayer-direct). Identical workload, metrics, commands per mode. NOT run (no hardware).
+5. **Browser background audit: FIX P1.** Session restore prefs added (restore_on_demand, restore_pinned_tabs_on_demand, max_tabs_on_startup=10, max_windows_on_startup=3) — reduces startup cost + memory on 8-16GB RAM. Background tab throttling prefs verified (already at defaults).
+6. **Settings audit (mv-control): FIX P1.** refresh_all 30s timer was not removed on destroy (kept firing after window close). Fixed: stored timer ID + GLib.source_remove in on_destroy.
+7. **YouTube-like UI minimum: ACCEPT-MINIMAL.** mpv-native OSD covers play-pause/seek/volume/fullscreen/quality/metadata (press 'i' for stats). Thumbnail/channel/duration/next-video NOT provided by mpv natively — recorded as accepted-minimal (no SPA clone, no new daemon per audit scope).
+
+**Status:** All P0/P1 items fixed. Full suite 20 files, 1199 tests, all pass. Power baseline untouched.

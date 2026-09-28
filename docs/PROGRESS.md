@@ -1,5 +1,16 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Фаза 0.69 — Final narrow audit: System Settings + Browser/YouTube readiness for first boot (2026-09-28, без железа)
+- [x] Cmd-layer collision audit: 3 real collisions found + fixed (Super+C→Super+Shift+C, Super+F→Super+Shift+F, Super+N→Ctrl+Alt+N). Remaining Cmd-layer shortcuts (T/W/Q/1..9/[/]) documented as app-level (Ctrl equivalents in Firefox), NOT globally bound to avoid breaking other apps. KEYBOARD.md + SAFARI_SPEC.md updated.
+- [x] mv-ytplayer Firefox handoff: protocol handler (mv-ytplayer://) + Firefox bookmarklet ("Watch efficiently") + --url intake. One user action from YouTube page → mv-ytplayer → mpv one-shot → full exit. No manual URL copy, no terminal. Tests: 19→30 (+11 handoff tests).
+- [x] Codec policy layer: extracted to configs/mv-ytplayer/codec-policy.conf (easily editable). Policy doc table in VIDEO_PIPELINE.md with codec/resolution/HW-SW/expected-CPU/GPU/fallback + explicit NO-CONCLUSION note (final choice from measured power/thermal on MacBook, not host bench).
+- [x] docs/HW_BROWSER_MATRIX.md: 4-mode validation plan (M1: Firefox-vanilla / M2: Firefox+uBO+SB / M3: Firefox→ytplayer hybrid / M4: ytplayer-direct). Identical workload (3 clips × 5 min), identical metrics (CPU/GPU/RSS/dropped/wakeups/temp/freq/discharge/time-to-idle), exact commands per mode. Return-to-idle emphasized.
+- [x] Browser background audit: session restore prefs added (restore_on_demand, restore_pinned_tabs_on_demand, max_tabs_on_startup=10, max_windows_on_startup=3) — P1: reduces startup cost + memory on 8-16GB RAM. Background tab throttling prefs verified (already at defaults).
+- [x] Settings audit (mv-control): P1 fix — refresh_all 30s timer was not removed on destroy (kept firing after window close). Fixed: stored timer ID + GLib.source_remove in on_destroy. Test updated (+1 assertion).
+- [x] YouTube-like UI minimum: mpv-native OSD covers play-pause/seek/volume/fullscreen/quality/metadata (press 'i' for stats). Thumbnail/channel/duration/next-video NOT provided by mpv natively — recorded as accepted-minimal (no SPA clone, no new daemon per audit scope).
+- [x] Full suite: 20 files, 1199 tests, all pass. check-sync ALL CHECKS PASSED.
+- [x] Power baseline untouched; no new daemons; no polling added; one-shot processes only
+
 ### Фаза 0.68 — Video pipeline: codec benchmark + selector verification + docs (2026-09-28, без железа)
 - [x] Codec benchmark COMPLETE: scripts/bench/video_codec.py + results/video-codecs.json — real measurements, 1080p/720p × h264/vp9/hevc/av1, 120 frames, 3 repeats median. Ranking (cost/frame): h264 4.20 ms > vp9 5.57 ms > hevc 7.99 ms > av1 5.38 ms (SW-only on Gen9.5). All meet 41.67 ms deadline in host SW.
 - [x] Tiers recorded: host-SW=MEASURABLE; VA-API=HW-ONLY (vainfo: no driver on host); power/thermal=HW-ONLY.
