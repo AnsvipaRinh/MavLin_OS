@@ -9,13 +9,13 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Super+Space | Spotlight (search files/apps) | rofi + mv-spotlight + plocate |
 | Super+L | Launchpad (app grid) | rofi + mv-launchpad |
 | Super+Tab | Mission Control (window overview) | rofi + mv-mission-control |
-| Super+F | Finder (Thunar) | Thunar 4.x |
+| Super+Shift+F | Finder (Thunar) | Thunar 4.x |
 
 ## File Operations
 
 | Shortcut | Action | Backend |
 |---|---|---|
-| Super+N | New Folder on Desktop | mv-newfolder |
+| Ctrl+Alt+N | New Folder on Desktop | mv-newfolder |
 | Super+Shift+N | New Folder in Home | mv-newfolder |
 | Super+I | Get Info (Home) | mv-getinfo |
 | Super+O | Open With (Home) | mv-openwith |
@@ -25,7 +25,7 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Shortcut | Action | Backend |
 |---|---|---|
 | Super+Comma | System Settings | mv-settings |
-| Super+C | Control Center | mv-control |
+| Super+Shift+C | Control Center | mv-control |
 | Super+Shift+V | Notification Center | mv-notification-center |
 | Super+Shift+Space | Quick Look (Thunar selection) | mv-quicklook-thunar |
 | Ctrl+Alt+Escape | Power dialog (Sleep/Restart/Shut Down/Log Out) | mv-power-ui |
@@ -58,16 +58,24 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Super+Alt+Right | Next workspace | xfwm4 |
 | Super+Alt+Left | Previous workspace | xfwm4 |
 
-## Mavericks-like Mappings (not yet implemented)
+## Mavericks-like Mappings (app-level, handled by apps internally)
 
-| Shortcut | Action | Status |
-|---|---|---|
-| Super+Q | Quit application | NOT BOUND |
-| Super+M | Minimize window | NOT BOUND |
-| Super+H | Hide application | NOT BOUND |
-| Super+W | Close window | NOT BOUND |
-| Super+E | Finder | NOT BOUND |
-| Super+T | New Terminal | NOT BOUND |
+These shortcuts are NOT globally bound. They are handled by individual applications
+using their Ctrl-key equivalents (Firefox, Thunar, terminal, etc.) to avoid
+global conflicts. This is the correct Mavericks-like separation: app shortcuts
+don't steal global shortcuts.
+
+| Shortcut | Action | App-Level Equivalent | Status |
+|---|---|---|---|
+| Super+Q | Quit application | Ctrl+Q in Firefox | App-level |
+| Super+M | Minimize window | xfwm4 Super+Down | App-level |
+| Super+H | Hide application | — | App-level |
+| Super+W | Close window/tab | Ctrl+W in Firefox | App-level |
+| Super+E | Finder | Super+Shift+F | App-level |
+| Super+T | New tab | Ctrl+T in Firefox | App-level |
+| Super+N | New window | Ctrl+N in Firefox | App-level |
+| Super+C | Copy | Ctrl+C in Firefox/terminal | App-level |
+| Super+F | Find | Ctrl+F in Firefox | App-level |
 
 ## Notes (mv-notes app-level accelerators)
 

@@ -210,30 +210,40 @@ Maps to existing KEYBOARD.md Super (Cmd) bindings:
 
 | Safari Action | macOS Shortcut | Linux/Super Equivalent | Status |
 |---|---|---|---|
-| New Tab | Cmd+T | Super+T | NOT BOUND (see KEYBOARD.md) |
-| Close Tab | Cmd+W | Super+W | NOT BOUND |
-| Next Tab | Cmd+Option+Right | Super+Alt+Right | CONFLICT (workspace) |
-| Previous Tab | Cmd+Option+Left | Super+Alt+Left | CONFLICT (workspace) |
-| New Window | Cmd+N | Super+N | CONFLICT (New Folder) |
-| New Private Window | Cmd+Shift+N | Super+Shift+N | CONFLICT (New Folder Home) |
-| Find | Cmd+F | Super+F | CONFLICT (Finder) |
-| Find Again | Cmd+G | — | app-level only |
-| Address Field | Cmd+L | — | app-level only |
-| Reload | Cmd+R | — | app-level only |
-| Stop | Cmd+. | — | app-level only |
-| Downloads | Cmd+Option+L | — | app-level only |
-| Bookmarks Sidebar | Cmd+Option+B | — | app-level only |
-| History | Cmd+Y | — | app-level only |
-| Zoom In | Cmd+Plus | — | app-level only |
-| Zoom Out | Cmd+Minus | — | app-level only |
-| Zoom Reset | Cmd+0 | — | app-level only |
-| Toggle Toolbar | Cmd+Option+T | — | app-level only |
-| Reader View | Cmd+Shift+R | — | app-level only |
+| New Tab | Cmd+T | Ctrl+T (app-level) | App-level — not globally bound |
+| Close Tab | Cmd+W | Ctrl+W (app-level) | App-level — not globally bound |
+| Next Tab | Cmd+Option+Right | Ctrl+Tab (app-level) | App-level — not globally bound |
+| Previous Tab | Cmd+Option+Left | Ctrl+Shift+Tab (app-level) | App-level — not globally bound |
+| New Window | Cmd+N | Ctrl+N (app-level) | App-level — not globally bound |
+| New Private Window | Cmd+Shift+N | Ctrl+Shift+N (app-level) | App-level — not globally bound |
+| Find | Cmd+F | Ctrl+F (app-level) | App-level — not globally bound |
+| Find Again | Cmd+G | Ctrl+G (app-level) | App-level — not globally bound |
+| Address Field | Cmd+L | Ctrl+L (app-level) | App-level — not globally bound |
+| Reload | Cmd+R | Ctrl+R (app-level) | App-level — not globally bound |
+| Stop | Cmd+. | Escape (app-level) | App-level — not globally bound |
+| Downloads | Cmd+Option+L | Ctrl+J (app-level) | App-level — not globally bound |
+| Bookmarks Sidebar | Cmd+Option+B | Ctrl+B (app-level) | App-level — not globally bound |
+| History | Cmd+Y | Ctrl+H (app-level) | App-level — not globally bound |
+| Zoom In | Cmd+Plus | Ctrl+Plus (app-level) | App-level — not globally bound |
+| Zoom Out | Cmd+Minus | Ctrl+Minus (app-level) | App-level — not globally bound |
+| Zoom Reset | Cmd+0 | Ctrl+0 (app-level) | App-level — not globally bound |
+| Toggle Toolbar | Cmd+Option+T | — | Not applicable on Linux |
+| Reader View | Cmd+Shift+R | — | Not applicable on Linux |
 
 **Resolution**: Firefox app-level shortcuts use Ctrl layer (not Super) to avoid
 global conflicts. Super layer remains for global desktop actions (Spotlight,
 Launchpad, Finder, etc.). This is the correct Mavericks-like separation: app
 shortcuts don't steal global shortcuts.
+
+**Cmd-layer collision fixes (2026-09-28)**: Three global Super bindings conflicted
+with Firefox app-level shortcuts and were rebound:
+- Super+C → mv-control (Control Center) → **Super+Shift+C** (was killing Cmd+C = Copy)
+- Super+F → thunar (Finder) → **Super+Shift+F** (was killing Cmd+F = Find)
+- Super+N → mv-newfolder → **Ctrl+Alt+N** (was killing Cmd+N = New Window)
+
+Remaining Cmd-layer shortcuts (Cmd+T/W/Q/1..9/[/]) are app-level and handled
+by Firefox internally with Ctrl equivalents — NOT globally bound to avoid
+breaking other apps. See docs/KEYBOARD.md for the full mapping.
 
 ---
 
