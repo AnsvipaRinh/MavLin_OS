@@ -36,6 +36,18 @@
 - [x] D7 proposal: boot/ISO packaging audit (mkinitcpio, systemd-boot, profiledef, packages.x86_64 consistency)
 - [ ] HW validation (NEEDS_HARDWARE_TEST.md): input (USB-C mandatory, applespi 3-strategy, SPI timeout matrix) + storage (S3X resume, ASPM A/B, btrfs/SSD, fstrim)
 
+### Фаза D7 — BOOT + ISO packaging audit: mkinitcpio, systemd-boot, profiledef, packages.x86_64, firstboot (2026-09-28, без железа)
+- [x] mkinitcpio.conf: MODULES=(applespi spi_pxa2xx_platform intel_lpss_pci intel_lpss_acpi) — all 4 correct for MacBook10,1; HOOKS=(base udev autodetect microcode modconf kms keyboard keymap block filesystems fsck) — no encrypted root, no btrfs hook needed (in-kernel); COMPRESSION=zstd -T0 --long -19 — CORRECT — BOOT_AUDIT.md §1
+- [x] systemd-boot entries: mavericks-linux-zen.conf + fallback — cmdline correct (quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0); loader.conf timeout 3, default mavericks-linux-zen.conf, editor 1 — CORRECT — BOOT_AUDIT.md §2
+- [x] profiledef.sh: bootmodes=('uefi.systemd-boot') — UEFI-only, no grub; all settings correct — BOOT_AUDIT.md §3
+- [x] packages.x86_64: 142 packages (140 Arch + 2 local); NO AUR in default list (localsend-bin/skippy-xd opt-in); all new deps from chrome/ytplayer/policy phases present — CORRECT — BOOT_AUDIT.md §4
+- [x] firstboot: 8-step idempotent script — hostname/locale, bootloader cmdline, TLP baseline, zram, NM config, fstrim.timer (D5 fix), desktop/firefox skel, NVRAM check, local pkgs — CORRECT — BOOT_AUDIT.md §5
+- [x] Cold-start decomposition: necessary (zram, tlp, resolved, networkd, lightdm), lazy-startable (bluetooth, NM), parallelizable (most), removable (ModemManager, hv_*, vbox/vmware, livecd-talk, reflector, sshd, iwd, pacman-init), replaceable-lightweight (iwd↔wpa_supplicant) — BOOT_AUDIT.md §6
+- [x] ISO size: 2.7G, 737 pkgs — all top grows justified by applications — BOOT_AUDIT.md §7
+- [x] NEEDS_HARDWARE_TEST.md: first-boot HW procedure refreshed (boot chain validation, live ISO boot, installed system first boot) — BOOT_AUDIT.md §9
+- [x] Gate: docs-only phase — zero code changes; power baseline untouched; no driver modifications
+- [ ] HW validation (NEEDS_HARDWARE_TEST.md): boot chain, input, storage, audio, display, network
+
 ### Фаза D4 — Audio path audit: HDA/Cirrus CS4208 + ALSA + PipeWire/WirePlumber + pactl usage (2026-09-28, без железа)
 - [x] Runtime map: HDA controller (snd-hda-intel, PCI 00:1f.3, power_save + runtime PM), CS4208 codec (DKMS snd-hda-codec-cs420x, A1534 init unconditional), speaker path (digital 0x0a→0x1d, no HW volume → softvol), headphone path (analog 0x02→0x10), jack GPIO interrupt, ALSA (no UCM for CS4208), PipeWire 1.6.9 + WirePlumber 0.5.17 (event-driven, zero-stream idle), mv-control/mv-voice pactl+pw one-shot — RUNTIME_AUDIT.md §AUDIO
 - [x] Idle-component table: pipewire + wireplumber run at idle (epoll, no wakeups at zero streams); HDA controller D3hot (TLP power_save=1); codec powers with controller; jack GPIO wakes from D3hot; mv-control/mv-voice zero idle presence — RUNTIME_AUDIT.md §AUDIO idle table

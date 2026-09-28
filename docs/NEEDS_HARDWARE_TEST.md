@@ -382,12 +382,37 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] App-launch stderr sample on hardware: confirm zero Gtk-WARNING theme-parse lines per app start (pre-fix: ~90; gate: scripts/test-theme-css.py)
 - [ ] HiDPI: theme proportions at 2304×1440 (titlebutton 14px circles, scale/switch slider min-sizes, scrollbar min-slider lengths)
 
-## Fresh-ISO hardware checklist (Phase 0.62, 2026-09-27)
-- [ ] Boot mavericks-linux-2026.09.27-x86_64.iso on MacBook10,1 via USB-C (write with dd or balenaEtcher)
-- [ ] systemd-boot menu appears → select "Arch Linux install medium"
+## Fresh-ISO hardware checklist (Phase D7 refresh, 2026-09-28)
+
+### Boot chain validation (D7 audit — all CORRECT pre-hardware)
+- [ ] **systemd-boot menu appears** → select "Mavericks Linux (linux-zen)" (default entry, timeout 3s)
+- [ ] **Cmdline correct:** `quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0` visible in `journalctl -k` or `/proc/cmdline`
+- [ ] **Fallback entry works:** reboot, select "Mavericks Linux (linux-zen fallback)" → boots successfully
+- [ ] **mkinitcpio modules loaded:** `lsmod | grep -E "applespi|spi_pxa|intel_lpss"` → all 4 modules present
+- [ ] **No encrypted root:** confirm no `encrypt` hook needed (btrfs root, no LUKS)
+- [ ] **zram active:** `zramctl` → zram0 with zstd, size = RAM/2
+- [ ] **TLP active:** `systemctl status tlp` → active
+- [ ] **fstrim timer:** `systemctl status fstrim.timer` → active (enabled by firstboot)
+- [ ] **plocate timer:** `systemctl status plocate-updatedb.timer` → active (enabled by firstboot)
+
+### Live ISO boot
+- [ ] Boot mavericks-linux-*.iso on MacBook10,1 via USB-C (write with dd or balenaEtcher)
 - [ ] airootfs loads → archiso hook runs → /run/archiso/bootmnt mounted
 - [ ] lightdm starts → Xfce session starts → Mavericks theme applies (panel, wallpaper, GTK theme name)
 - [ ] Spot-check: panel visible, wallpaper set, gtk theme = Mavericks (xfconf-query -c xsettings -p /Net/ThemeName)
+
+### Installed system first boot
+- [ ] Run `mavericks-firstboot.sh` as root → all 8 steps complete
+- [ ] Reboot → systemd-boot menu → select "Mavericks Linux (linux-zen)"
+- [ ] lightdm starts → Xfce session starts → Mavericks theme applies
+- [ ] **NetworkManager:** `systemctl status NetworkManager` → active; Wi-Fi scan works
+- [ ] **Bluetooth:** `systemctl status bluetooth` → active (if enabled)
+- [ ] **Audio:** `pactl info` → PipeWire running; `wpctl status` → sinks present
+- [ ] **Desktop:** panel, dock (plank), wallpaper all visible
+- [ ] **First app:** open Finder (Thunar) → Mavericks theme applied
+- [ ] **Spotlight:** Super+Space → overlay appears (after plocate-updatedb.timer runs)
+
+### Hardware validation (from previous phases)
 - [ ] applespi: keyboard + trackpad work (known risk — may not work on kernel 6.15+; external USB-C keyboard is fallback)
 - [ ] Wi-Fi: broadcom-wl-dkms or brcmfmac loads → BCM43602 associated
 - [ ] Audio: Cirrus codec patch → sound output works

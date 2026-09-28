@@ -1,5 +1,32 @@
 # DECISIONS
 
+## D7: Boot + ISO packaging audit (mkinitcpio, systemd-boot, profiledef, packages.x86_64, firstboot)
+
+**Date:** 2026-09-28
+**Context:** Deep Runtime Track D7. Audit of boot chain and ISO packaging consistency for MacBook10,1. No driver modifications, no power baseline changes, no init-system redesign.
+
+**Verdicts:**
+
+1. **mkinitcpio.conf → CORRECT.** MODULES=(applespi spi_pxa2xx_platform intel_lpss_pci intel_lpss_acpi) — all 4 correct for MacBook10,1. HOOKS=(base udev autodetect microcode modconf kms keyboard keymap block filesystems fsck) — no encrypted root (no encrypt hook), no btrfs hook needed (btrfs in-kernel). COMPRESSION=zstd -T0 --long -19 — optimal for boot speed. No changes needed.
+
+2. **systemd-boot entries → CORRECT.** mavericks-linux-zen.conf + fallback — cmdline correct (quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0). loader.conf timeout 3, default mavericks-linux-zen.conf, editor 1. Speech entry in efiboot/ (live ISO only, not installed). No changes needed.
+
+3. **profiledef.sh → CORRECT.** bootmodes=('uefi.systemd-boot') — UEFI-only, no grub. All settings correct for MacBook10,1 UEFI firmware. No changes needed.
+
+4. **packages.x86_64 → CORRECT.** 142 packages (140 Arch + 2 local). NO AUR in default list (localsend-bin/skippy-xd opt-in). All new deps from chrome/ytplayer/policy phases present. No changes needed.
+
+5. **firstboot → CORRECT.** 8-step idempotent script. fstrim.timer enabled (D5 fix). plocate-updatedb.timer enabled. All profile seeding present. No changes needed.
+
+6. **Cold-start decomposition → CORRECT.** Necessary: zram, tlp, resolved, networkd, lightdm. Lazy-startable: bluetooth, NM. Removable: ModemManager, hv_*, vbox/vmware, livecd-talk, reflector, sshd, iwd, pacman-init. Replaceable-lightweight: iwd↔wpa_supplicant. No changes needed.
+
+7. **ISO size → CORRECT.** 2.7G, 737 pkgs. All top grows justified by applications. No unjustified weight found.
+
+**Power baseline:** untouched. No TLP/kernel/cmdline/sysctl changes. No driver modifications.
+
+**Status:** D7 audit complete. All boot chain and ISO packaging components are CORRECT for MacBook10,1. No changes needed. Next: hardware validation (Phase 5).
+
+---
+
 ## Phase B: performance-track verdicts (S-01..S-11 dispositions, interval choices, follow-mode design, HUD wire-vs-drop)
 
 **Date:** 2026-09-27
