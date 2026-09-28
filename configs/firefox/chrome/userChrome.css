@@ -1,6 +1,6 @@
 /* userChrome.css — Mavericks chrome for Firefox ESR (Proton UI)
- * Scope: toolbar gradient + unified address field only.
- * Tabs / bookmarks bar / Top Sites: intentionally out of scope (later tasks).
+ * Scope: toolbar gradient + unified address field + Safari-era tabs
+ * + bookmarks bar + typography.
  * Transitions limited to opacity + background-color (energy/perf rule). */
 
 /* --- (a) Mavericks gray toolbar -------------------------------------- */
@@ -74,4 +74,90 @@
 #reload-button:not([disabled="true"]):hover,
 #stop-button:not([disabled="true"]):hover {
   background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* --- (c) Safari-era Mavericks tabs ------------------------------------ */
+/* Rounded top corners, no transform (perf rule). Active tab connects to
+ * the toolbar: bottom border removed, lighter fill. Inactive tabs dimmed. */
+
+#TabsToolbar {
+  background: transparent !important;
+}
+
+.tabbrowser-tab {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.tabbrowser-tab .tab-background {
+  border-radius: 5px 5px 0 0 !important;
+  border: 1px solid transparent !important;
+  border-bottom: none !important;
+  margin: 2px 2px 0 2px !important;
+  background-color: rgba(0, 0, 0, 0.04) !important;
+  opacity: 0.75;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.tabbrowser-tab:hover .tab-background {
+  opacity: 0.9;
+  background-color: rgba(0, 0, 0, 0.07) !important;
+}
+
+.tabbrowser-tab:active .tab-background {
+  background-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+.tabbrowser-tab[selected] .tab-background {
+  background: linear-gradient(to bottom, #f6f6f6 0%, #eaeaea 100%) !important;
+  border-color: #c6c6c6 !important;
+  border-bottom: none !important;
+  opacity: 1;
+}
+
+.tabbrowser-tab[selected] .tab-content {
+  color: #1a1a1a !important;
+}
+
+.tabbrowser-tab:not([selected]) .tab-content {
+  color: #555555 !important;
+}
+
+/* --- (d) bookmarks bar ------------------------------------------------ */
+#PersonalToolbar {
+  background: linear-gradient(to bottom, #f0f0f0 0%, #e4e4e4 100%) !important;
+  border-bottom: 1px solid #c6c6c6 !important;
+  padding: 2px 4px !important;
+}
+
+#PersonalToolbar .toolbarbutton-1,
+#PersonalToolbar .bookmark-item {
+  border-radius: 4px !important;
+  padding: 3px 6px !important;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+#PersonalToolbar .toolbarbutton-1:hover,
+#PersonalToolbar .bookmark-item:hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+#PersonalToolbar .toolbarbutton-1:active,
+#PersonalToolbar .bookmark-item:active {
+  background-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* --- (e) typography ---------------------------------------------------- */
+/* macOS system fonts (SF Pro, Menlo) are proprietary and absent on Linux.
+ * Lucida Grande is the Mavericks-era UI font; fall back to Cantarell
+ * (GNOME default), Noto Sans, then generic sans-serif. Base size 13px
+ * matches Mavericks system text. */
+
+#navigator-toolbox,
+#TabsToolbar,
+#PersonalToolbar,
+#nav-bar,
+#urlbar {
+  font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
+  font-size: 13px !important;
 }
