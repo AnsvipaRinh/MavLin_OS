@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
 # mv-ytplayer — video-only playback via mpv + yt-dlp.
 # One-shot process; nothing resident. Graceful no-backend states.
+# Supports: direct URL, --url <URL>, --explain <URL>, mv-ytplayer:// protocol handler
 set -euo pipefail
 
-# CODEC_RANK: avc1 > vp09 > hev1, AV1 excluded-from-preference
+# CODEC_RANK: read from policy config file (easily editable)
+# Default: avc1 > vp09 > hev1, AV1 excluded-from-preference
 # Based on MacBook10,1 Gen9.5 hardware availability (AVC/VP9/HEVC HW, AV1 SW-only)
-CODEC_RANK=(
-  "avc1"   # H.264 — HW decode on Gen9.5 (Intel HD 615)
-  "vp09"   # VP9 — HW decode on Gen9.5 (Intel HD 615)  
-  "hev1"   # HEVC/H.265 — HW decode on Gen9.5 (Intel HD 615)
-)
+CODEC_POLICY_FILE="${MV_YT_CODEC_POLICY:-/etc/mv-ytplayer/codec-policy.conf}"
+CODEC_RANK=()
+if [[ -f "$CODEC_POLICY_FILE" ]]; then
+  while IFS= read -r line; do
+    line="${line%%#*}"
+    line="${line## }"
+    [[ -n "$line" ]] && CODEC_RANK+=("$line")
+  done < "$CODEC_POLICY_FILE"
+fi
+if [[ ${#CODEC_RANK[@]} -eq 0 ]]; then
+  CODEC_RANK=("avc1" "vp09" "hev1")
+fi
 
 # Quality cap from environment (default 1080p)
 MV_YT_MAX_HEIGHT="${MV_YT_MAX_HEIGHT:-1080}"
@@ -157,8 +166,23 @@ if [[ "${1:-}" == "--explain" ]]; then
   exit 0
 fi
 
+# Handle --url flag (explicit URL intake for protocol handler / clipboard)
+if [[ "${1:-}" == "--url" ]]; then
+  if [[ -n "${2:-}" ]]; then
+    URL="${2:-}"
+  else
+    echo "Usage: mv-ytplayer --url <URL>" >&2
+    exit 1
+  fi
+fi
+
+# Strip mv-ytplayer:// protocol prefix if present
+if [[ "$URL" == mv-ytplayer://* ]]; then
+  URL="${URL#mv-ytplayer://}"
+fi
+
 if [[ -z "$URL" ]]; then
-  echo "Usage: mv-ytplayer [--explain <URL>] <URL>" >&2
+  echo "Usage: mv-ytplayer [--explain <URL>] [--url <URL>] <URL>" >&2
   exit 1
 fi
 

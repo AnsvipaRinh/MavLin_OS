@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=mv-ytplayer Protocol Handler
+Comment=Handle mv-ytplayer:// URLs (Firefox bookmarklet handoff)
+Exec=mv-ytplayer --url %u
+MimeType=x-scheme-handler/mv-ytplayer;
+NoDisplay=true
+Terminal=false

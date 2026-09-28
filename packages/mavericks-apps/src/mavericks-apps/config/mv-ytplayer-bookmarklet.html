@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><title>mv-ytplayer — Firefox Bookmarklet</title></head>
+<body>
+<h2>mv-ytplayer — Firefox Bookmarklet</h2>
+<p>Drag the link below to your Firefox bookmarks bar. When on a YouTube page,
+click it to send the current URL to mv-ytplayer for optimized video-only playback.</p>
+<p><a href="javascript:void(location.href='mv-ytplayer://'+encodeURIComponent(location.href))">Watch efficiently</a></p>
+<p>Alternative (copy URL to clipboard, then run <code>mv-ytplayer --url "$(xclip -o)"</code>):</p>
+<p><a href="javascript:void(navigator.clipboard.writeText(location.href))">Copy YouTube URL</a></p>
+</body>
+</html>

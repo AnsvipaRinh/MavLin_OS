@@ -142,9 +142,48 @@ def test_play_mode():
 def test_usage_errors():
     """Test that usage errors are handled correctly"""
     app_content = load_app()
-    
+
     check("usage error without URL", 'Usage: mv-ytplayer' in app_content)
     check("usage error with --explain flag", 'Usage: mv-ytplayer [--explain <URL>] <URL>' in app_content)
+
+
+def test_url_flag():
+    """Test --url flag intake"""
+    app_content = load_app()
+
+    check("--url flag handled", '--url' in app_content)
+    check("--url flag in usage", '[--url <URL>]' in app_content)
+
+
+def test_protocol_handler():
+    """Test mv-ytplayer:// protocol handler support"""
+    app_content = load_app()
+
+    check("protocol prefix stripped", 'mv-ytplayer://' in app_content)
+    check("protocol prefix removal", '${URL#mv-ytplayer://}' in app_content)
+
+
+def test_protocol_desktop_file():
+    """Test protocol handler .desktop file exists and is valid"""
+    desktop_path = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/config/mv-ytplayer-protocol.desktop")
+    check("protocol .desktop exists", os.path.exists(desktop_path))
+    if os.path.exists(desktop_path):
+        with open(desktop_path) as f:
+            content = f.read()
+        check("protocol .desktop has MimeType", 'x-scheme-handler/mv-ytplayer' in content)
+        check("protocol .desktop has Exec", 'mv-ytplayer --url %u' in content)
+        check("protocol .desktop NoDisplay", 'NoDisplay=true' in content)
+
+
+def test_bookmarklet():
+    """Test Firefox bookmarklet HTML exists"""
+    html_path = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/config/mv-ytplayer-bookmarklet.html")
+    check("bookmarklet HTML exists", os.path.exists(html_path))
+    if os.path.exists(html_path):
+        with open(html_path) as f:
+            content = f.read()
+        check("bookmarklet has protocol URL", "mv-ytplayer://" in content)
+        check("bookmarklet has javascript:", "javascript:" in content)
 
 
 def main():
@@ -160,6 +199,10 @@ def main():
     test_explain_with_url_mock()
     test_play_mode()
     test_usage_errors()
+    test_url_flag()
+    test_protocol_handler()
+    test_protocol_desktop_file()
+    test_bookmarklet()
     
     # Summary
     if FAILURES:
