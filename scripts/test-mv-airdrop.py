@@ -178,6 +178,18 @@ def test_gui(m):
         while Gtk.events_pending():
             Gtk.main_iteration()
 
+    def pump_until(label, needle, tries=200):
+        # discovery is async: start_discovery runs via idle_add and the worker
+        # thread queues _discovery_done as a second idle — a single pump() can
+        # drain the queue before the thread queues its idle. Sleep between
+        # pumps: a hot pump loop starves the worker thread of the GIL.
+        for _ in range(tries):
+            pump()
+            if needle in label.get_text():
+                return True
+            time.sleep(0.005)
+        return False
+
     def no_devices():
         return [], None
 
@@ -194,7 +206,7 @@ def test_gui(m):
     check("gui: receive disabled without backend",
           not win.receive_btn.get_sensitive())
     check("gui: no-devices guidance shown",
-          "No nearby devices" in win.empty_label.get_text())
+          pump_until(win.empty_label, "No nearby devices"))
 
     win2 = m.AirDropWindow(files=["/tmp/a.pdf"], net_checker=lambda: False,
                            discover_fn=no_devices)
