@@ -3,10 +3,162 @@
 # One-shot process; nothing resident. Graceful no-backend states.
 set -euo pipefail
 
+# CODEC_RANK: avc1 > vp09 > hev1, AV1 excluded-from-preference
+# Based on MacBook10,1 Gen9.5 hardware availability (AVC/VP9/HEVC HW, AV1 SW-only)
+CODEC_RANK=(
+  "avc1"   # H.264 — HW decode on Gen9.5 (Intel HD 615)
+  "vp09"   # VP9 — HW decode on Gen9.5 (Intel HD 615)  
+  "hev1"   # HEVC/H.265 — HW decode on Gen9.5 (Intel HD 615)
+)
+
+# Quality cap from environment (default 1080p)
+MV_YT_MAX_HEIGHT="${MV_YT_MAX_HEIGHT:-1080}"
+
+# Build yt-dlp format chain based on CODEC_RANK
+build_chain() {
+  local cap="${MV_YT_MAX_HEIGHT}"
+  
+  # Positive branches for each codec in preference order
+  local branch1="bestvideo[height<=$cap][vcodec^=avc1]+bestaudio/best"
+  local branch2="bestvideo[height<=$cap][vcodec^=vp09]+bestaudio/best"
+  local branch3="bestvideo[height<=$cap][vcodec^=hev1]+bestaudio/best"
+  
+  # Last resort: any video except AV1, then any video at all (AV1 included)
+  local branch4="bestvideo[height<=$cap][vcodec!=av01]+bestaudio/best"
+  local branch5="bestvideo[height<=$cap]+bestaudio/best"
+  
+  # Compose the chain
+  echo "$branch1,$branch2,$branch3,$branch4,$branch5"
+}
+
+# Get HW decode status via vaintoptional
+check_hw_decode() {
+  if command -v vainfo >/dev/null 2>&1; then
+    # Parse vainfo output for Gen9.5 capabilities
+    local vainfo_output
+    vainfo_output=$(vainfo 2>/dev/null || true)
+    
+    local avc1_hw="NO"
+    local vp09_hw="NO" 
+    local hev1_hw="NO"
+    local av1_hw="NO"
+    
+    # Check for Gen9.5 profiles
+    if echo "$vainfo_output" | grep -q "VP9 profile 0" && echo "$vainfo_output" | grep -q "Intel(R) HD Graphics \(Gen9\.5\)"; then
+      vp09_hw="YES"
+    fi
+    
+    if echo "$vainfo_output" | grep -q "HEVC Main" && echo "$vainfo_output" | grep -q "Intel(R) HD Graphics \(Gen9\.5\)"; then
+      hev1_hw="YES"
+    fi
+    
+    # AVC is always available on Gen9.5
+    avc1_hw="YES"
+    
+    # AV1 is NOT available on Gen9.5 (SW-only)
+    
+    echo "AVC (avc1): $avc1_hw HW"
+    echo "VP9 (vp09): $vp09_hw HW"
+    echo "HEVC (hev1): $hev1_hw HW"
+    echo "AV1 (av01): NO (SW-only on Gen9.5)"
+  else
+    echo "vainfo not installed or no driver"
+    echo "Assumed on MacBook10,1 Gen9.5: AVC/VP9/HEVC HW, AV1 SW-only"
+  fi
+}
+
+# Print explanation
+explain() {
+  local url="$1"
+  
+  echo "=== mv-ytplayer Explanation ==="
+  echo
+  
+  echo "1. Hardware Decode Status:"
+  check_hw_decode
+  echo
+  
+  echo "2. Built Format Chain:"
+  local chain
+  chain=$(build_chain)
+  echo "$chain"
+  echo
+  
+  echo "3. Branch Rationale:"
+  local idx=0
+  for codec in "${CODEC_RANK[@]}"; do
+    idx=$((idx + 1))
+    local branch="bestvideo[height<=$MV_YT_MAX_HEIGHT][vcodec^=$codec]+bestaudio/best"
+    local hw_status=""
+    
+    case $codec in
+      "avc1") hw_status="HW (Gen9.5 AVC engine)" ;;
+      "vp09") hw_status="HW (Gen9.5 VP9 engine)" ;;
+      "hev1") hw_status="HW (Gen9.5 HEVC engine)" ;;
+    esac
+    
+    echo "   Branch $idx: $codec (Hardware decode: $hw_status)"
+    echo "     Priority $idx in CODEC_RANK (AV1 excluded from preference)"
+    echo
+  done
+  
+  # Last resort branches
+  echo "   Branch 4: Any codec except AV1"
+  echo "     Last resort if no preferred codec available"
+  echo
+  echo "   Branch 5: Fallback to any video"
+  echo "     Ultimate fallback (AV1-safe)"
+  echo
+  
+  if [[ -n "$url" ]]; then
+    echo "4. Live yt-dlp Query:"
+    echo "   URL: $url"
+    echo "   Command: yt-dlp --print \"\%(format_id)s|\\%(vcodec)s|\\%(height)s\" --format \"$chain\" --no-playlist \"$url\""
+    echo
+    
+    if command -v yt-dlp >/dev/null 2>&1; then
+      local result
+      result=$(yt-dlp --print "%(format_id)s|%(vcodec)s|%(height)s" --format "$chain" --no-playlist "$url" 2>/dev/null || echo "error")
+      if [[ "$result" != "error" ]]; then
+        echo "   Chosen format: $result"
+        
+        local format_id vcodec height
+        IFS='|' read -r format_id vcodec height <<< "$result"
+        
+        if [[ "$vcodec" == "av01" ]]; then
+          echo "   ⚠️  WARNING: AV1 selected - will use software decode"
+        fi
+      else
+        echo "   ⚠️  WARNING: yt-dlp query failed (possibly network or unavailable format)"
+      fi
+    else
+      echo "   ⚠️  yt-dlp not available for live query"
+    fi
+    echo
+    echo "5. Playback:"
+    echo "   Proceeding with mpv playback..."
+  else
+    echo "4. No URL provided - will check for URL on command line or exit"
+  fi
+}
+
 URL="${1:-}"
 
+# Handle --explain flag
+if [[ "${1:-}" == "--explain" ]]; then
+  if [[ -n "${2:-}" ]]; then
+    explain "$2"
+  else
+    explain ""
+    echo "Usage: mv-ytplayer [--explain <URL>] <URL>"
+    echo "  --explain: print codec chain and HW status"
+    echo "  <URL>: YouTube URL to analyze"
+  fi
+  exit 0
+fi
+
 if [[ -z "$URL" ]]; then
-  echo "Usage: mv-ytplayer <URL>" >&2
+  echo "Usage: mv-ytplayer [--explain <URL>] <URL>" >&2
   exit 1
 fi
 
@@ -20,9 +172,11 @@ if ! command -v yt-dlp >/dev/null 2>&1; then
   exit 1
 fi
 
+CHAIN=$(build_chain)
+
 mpv \
   --hwdec=auto \
-  --ytdl-format='bestvideo[height<=1080][vcodec!=av01]+bestaudio/best' \
+  --ytdl-format="$CHAIN" \
   --force-window=yes \
   --keep-open=no \
   "$URL"
