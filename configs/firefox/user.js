@@ -70,3 +70,17 @@ user_pref("extensions.autoDisableScopes", 0);
 // user_pref("media.hardware-video-decoding.force-enabled", true); // E-VIDEO2
 // user_pref("dom.ipc.processCount", 6);              // E-PROC: test 4 vs 6 vs 8 on 8-16GB
 // user_pref("browser.tabs.unloadOnLowMemory", false); // E-MEM: test on 8GB
+
+// Background-tab throttling prefs (MDN Page Visibility API + Firefox source modules/libpref/init/all.js)
+// dom.min_background_timeout_value (default 1000)
+// dom.min_tracking_background_timeout_value (default 10000)
+// dom.timeout.tracking_throttling_delay (default 30000)
+// dom.timeout.throttling_delay (default 30000)
+// dom.timeout.enable_budget_timer_throttling (default true)
+// Values = verified defaults (intent: pin against default drift; background-wakeup-class P0 guard)
+// Do NOT invent other prefs.
+user_pref("dom.min_background_timeout_value", 1000);
+user_pref("dom.min_tracking_background_timeout_value", 10000);
+user_pref("dom.timeout.tracking_throttling_delay", 30000);
+user_pref("dom.timeout.throttling_delay", 30000);
+user_pref("dom.timeout.enable_budget_timer_throttling", true);
