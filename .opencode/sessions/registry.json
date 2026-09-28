@@ -4,5 +4,46 @@
     "reusableAboveRemaining": 0.5,
     "note": "Session with >50% context remaining = REUSABLE, else RETIRE. Context = last assistant tokens.input / model limit.context (both from live server API; never store transcripts here)."
   },
-  "sessions": {}
+  "sessions": {
+    "ses_f1b004c75ffeGzROfQ9Bq59mjG": {
+      "agent": "build",
+      "objective": "P0+ track2 step3: codec bench + ytplayer selector + optimized playback + P0/P1 sweep",
+      "task": "video_codec.py + mv-ytplayer selector/--explain + firefox prefs/SponsorBlock + docs/commits",
+      "model": "opencode/longcat-2.5-preview-free",
+      "state": "retired",
+      "lastResult": "HUNG: busy 60+min, no tool progress; aborted"
+    },
+    "ses_f1ac6cf6affe82318i1YlE9I2k": {
+      "agent": "build",
+      "objective": "P0+ track2 step3: codec bench + ytplayer selector + optimized playback + P0/P1 sweep",
+      "task": "video_codec.py + mv-ytplayer selector/--explain + firefox prefs/SponsorBlock + docs/commits",
+      "model": "opencode/longcat-2.5-preview-free",
+      "state": "retired",
+      "lastResult": "HUNG again after package install; aborted"
+    },
+    "ses_f1a8c3e5effe0HJvpNucEKk7C9": {
+      "agent": "build",
+      "objective": "P0+ track2 step3: codec bench + ytplayer selector + optimized playback + P0/P1 sweep",
+      "task": "video_codec.py + mv-ytplayer selector/--explain + firefox prefs/SponsorBlock + docs/commits",
+      "model": "openrouter/cohere/north-mini-code:free",
+      "state": "retired",
+      "lastResult": "HUNG after 55 msgs (video_codec.py + test + firefox edits done); aborted"
+    },
+    "ses_f1a51198affedCGLOSsJWTvRsk": {
+      "agent": "build",
+      "objective": "P0+ track2 step3: codec bench + ytplayer selector + optimized playback + P0/P1 sweep",
+      "task": "CONTINUATION: run benchmark + VIDEO_PIPELINE.md + docs + suite + commits",
+      "model": "opencode/longcat-2.5-preview-free",
+      "state": "retired",
+      "lastResult": "HUNG 58min on benchmark run (ffmpeg died, empty log); aborted"
+    },
+    "ses_f1a08fb3effe1g5OhEl1pKZ7HF": {
+      "agent": "build",
+      "objective": "P0+ track2 step3: codec bench + ytplayer selector + optimized playback + P0/P1 sweep",
+      "task": "VIDEO_PIPELINE.md + BENCHMARKS/NEEDS_HARDWARE/PROGRESS + suite + commits",
+      "model": "opencode/longcat-2.5-preview-free",
+      "state": "retired",
+      "lastResult": "COMPLETE: codec bench real numbers (h264 4.20/vp9 5.57/hevc 7.99/av1 5.38 ms per frame 1080p); mv-ytplayer 19/19 tests + branch5 fallback fix; firefox mirrors synced (SponsorBlock confirmed); VIDEO_PIPELINE.md + BENCHMARKS/NEEDS_HARDWARE_TEST/PROGRESS/PERF_AUDIT updated; full suite 20 files 1258 checks pass; P0/P1 sweep 0/0; commits clean"
+    }
+  }
 }
