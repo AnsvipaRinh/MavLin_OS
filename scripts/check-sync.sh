@@ -29,6 +29,7 @@ PAIRS=(
   "configs/firefox/user.js:archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox/mavericks.default/user.js"
   "configs/firefox/policies.json:archiso-profile/releng/airootfs/usr/lib/firefox/distribution/policies.json"
   "configs/firefox/chrome/userChrome.css:archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox/mavericks.default/chrome/userChrome.css"
+  "configs/firefox/chrome/userContent.css:archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox/mavericks.default/chrome/userContent.css"
   "configs/desktop/xfce/xsettings.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml"
   "configs/desktop/xfce/xfwm4.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml"
   "configs/desktop/xfce/xfce4-panel.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml"
@@ -128,6 +129,9 @@ for path in ["configs/firefox/policies.json", "archiso-profile/releng/airootfs/u
     assert "*" in es and es["*"]["installation_mode"] == "blocked", f"missing * block in {path}"
     assert "uBlock0@raymondhill.net" in es, f"missing uBO allow in {path}"
 PYEOF
+
+echo "--- firefox chrome css ---"
+python3 scripts/test-firefox-chrome.py && ok "firefox chrome css" || bad "firefox chrome css"
 
 if [[ $FAIL -eq 0 ]]; then echo "ALL CHECKS PASSED"; else echo "CHECKS FAILED"; fi
 exit $FAIL

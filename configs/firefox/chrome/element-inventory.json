@@ -1,0 +1,170 @@
+{
+  "description": "Selector inventory for configs/firefox/chrome/{userChrome,userContent}.css. Confidence: verified-ESR = present in Firefox ESR 115/128 Proton UI + activity-stream newtab DOM; best-effort = class composition varies across ESR point releases.",
+  "firefox_target": "ESR 115/128 (Proton UI, activity-stream newtab)",
+  "css_files": [
+    "configs/firefox/chrome/userChrome.css",
+    "configs/firefox/chrome/userContent.css"
+  ],
+  "selectors": {
+    "#navigator-toolbox": {
+      "confidence": "verified-ESR",
+      "provenance": "browser/base/content/browser.xhtml — root chrome toolbox"
+    },
+    "#nav-bar": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — Proton navigation bar"
+    },
+    "#nav-bar .toolbarbutton-1": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — toolbarbutton-1 class on nav-bar buttons"
+    },
+    "#nav-bar .toolbarbutton-1:not([disabled=\"true\"]):hover": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :hover pseudo-class"
+    },
+    "#nav-bar .toolbarbutton-1:not([disabled=\"true\"]):active": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :active pseudo-class"
+    },
+    "#urlbar": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — Proton urlbar wrapper"
+    },
+    "#urlbar-background": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — Proton urlbar background element"
+    },
+    "#urlbar[focused=\"true\"] #urlbar-background": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — focused attribute set by urlbar binding"
+    },
+    "#urlbar[breakout][breakout-extend] #urlbar-background": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — megabar breakout attributes"
+    },
+    "#stop-reload-button": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — combined stop/reload toolbarbutton"
+    },
+    "#reload-button": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — reload toolbarbutton"
+    },
+    "#stop-button": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — stop toolbarbutton"
+    },
+    "#reload-button:not([disabled=\"true\"]):hover": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :hover pseudo-class"
+    },
+    "#stop-button:not([disabled=\"true\"]):hover": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :hover pseudo-class"
+    },
+    "#TabsToolbar": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — tabs toolbar"
+    },
+    ".tabbrowser-tab": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — tab element class"
+    },
+    ".tabbrowser-tab .tab-background": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — tab background child element"
+    },
+    ".tabbrowser-tab:hover .tab-background": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — :hover pseudo-class on tab"
+    },
+    ".tabbrowser-tab:active .tab-background": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — :active pseudo-class on tab"
+    },
+    ".tabbrowser-tab[selected] .tab-background": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — selected attribute on tab"
+    },
+    ".tabbrowser-tab[selected] .tab-content": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — tab content child element"
+    },
+    ".tabbrowser-tab:not([selected]) .tab-content": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — negated selected attribute"
+    },
+    "#PersonalToolbar": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — bookmarks toolbar"
+    },
+    "#PersonalToolbar .toolbarbutton-1": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — toolbar buttons on bookmarks bar"
+    },
+    "#PersonalToolbar .bookmark-item": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — bookmark items on bookmarks bar"
+    },
+    "#PersonalToolbar .toolbarbutton-1:hover": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — :hover on bookmarks bar button"
+    },
+    "#PersonalToolbar .bookmark-item:hover": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — :hover on bookmarks bar item"
+    },
+    "#PersonalToolbar .toolbarbutton-1:active": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — :active on bookmarks bar button"
+    },
+    "#PersonalToolbar .bookmark-item:active": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — :active on bookmarks bar item"
+    },
+    "body.activity-stream": {
+      "confidence": "verified-ESR",
+      "provenance": "activity-stream newtab document — body class, shared by about:home and about:newtab"
+    },
+    ".outer-wrapper": {
+      "confidence": "verified-ESR",
+      "provenance": "activity-stream newtab — root wrapper div"
+    },
+    ".logo-and-wordmark": {
+      "confidence": "verified-ESR",
+      "provenance": "activity-stream newtab — search row container"
+    },
+    ".wordmark": {
+      "confidence": "verified-ESR",
+      "provenance": "activity-stream newtab — Firefox wordmark text"
+    },
+    ".search-inner-wrapper input": {
+      "confidence": "verified-ESR",
+      "provenance": "activity-stream newtab — search text input"
+    },
+    ".top-site-outer": {
+      "confidence": "verified-ESR",
+      "provenance": "activity-stream newtab — single tile wrapper"
+    },
+    ".top-site-inner": {
+      "confidence": "verified-ESR",
+      "provenance": "activity-stream newtab — tile inner wrapper"
+    },
+    ".tile": {
+      "confidence": "verified-ESR",
+      "provenance": "activity-stream newtab — tile link element"
+    },
+    ".tile:hover": {
+      "confidence": "verified-ESR",
+      "provenance": "activity-stream newtab — :hover pseudo-class on tile"
+    },
+    ".title": {
+      "confidence": "verified-ESR",
+      "provenance": "activity-stream newtab — tile title label"
+    },
+    ".icon": {
+      "confidence": "best-effort",
+      "provenance": "activity-stream newtab — tile icon wrapper; exact class list varies (icon-top-site / icon-letter-fallback / icon-with-background), screenshot variant uses .screenshot instead"
+    }
+  }
+}
