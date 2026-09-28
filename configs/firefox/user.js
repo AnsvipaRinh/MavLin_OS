@@ -51,6 +51,12 @@ user_pref("browser.cache.disk.enable", true);
 user_pref("browser.cache.disk.capacity", 102400);     // 100MB cap; memory cache handles rest
 user_pref("browser.sessionstore.interval", 60000);    // 60s (default 15s) — fewer SSD writes
 
+// --- Session restore (P1: reduce startup cost + memory on 8-16GB RAM) ---
+user_pref("browser.sessionstore.restore_on_demand", true);        // restore tabs on demand, not all at once
+user_pref("browser.sessionstore.restore_pinned_tabs_on_demand", true); // pinned tabs too
+user_pref("browser.sessionstore.max_tabs_on_startup", 10);        // cap tabs restored on startup
+user_pref("browser.sessionstore.max_windows_on_startup", 3);       // cap windows restored on startup
+
 // --- Downloads (Mavericks behavior: save to default dir) ---
 user_pref("browser.download.useDownloadDir", true);
 user_pref("browser.download.start_downloads_in_tmp_dir", false);
