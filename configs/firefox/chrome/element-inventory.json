@@ -122,6 +122,46 @@
       "confidence": "verified-ESR",
       "provenance": "browser.xhtml — :active on bookmarks bar item"
     },
+    "#downloadsPanel": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — downloads arrow panel container"
+    },
+    "#downloads-button": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — downloads toolbar button"
+    },
+    "#downloads-button:not([disabled=\"true\"]):hover": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — disabled attribute + :hover pseudo-class"
+    },
+    "#downloads-button[progress] .toolbarbutton-icon": {
+      "confidence": "best-effort",
+      "provenance": "browser.xhtml — progress attribute set by DownloadsView while downloads run; .toolbarbutton-icon child class stable in Proton"
+    },
+    ".browserContainer findbar": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — findbar element inside browser container"
+    },
+    ".browserContainer findbar .findbar-textbox": {
+      "confidence": "best-effort",
+      "provenance": "browser.xhtml — findbar search textbox; class stable since pre-Quantum, not re-verified against ESR 128 point release"
+    },
+    ".browserContainer findbar .findbar-textbox:focus": {
+      "confidence": "best-effort",
+      "provenance": "browser.xhtml — :focus pseudo-class on findbar textbox"
+    },
+    ".browserContainer findbar .findbar-highlight": {
+      "confidence": "best-effort",
+      "provenance": "browser.xhtml — highlight-all checkbox class"
+    },
+    "#urlbar[busy=\"true\"] .urlbar-input-container": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — busy attribute set by urlbar binding during page load"
+    },
+    "#urlbar[busy=\"true\"] #urlbar-background": {
+      "confidence": "verified-ESR",
+      "provenance": "browser.xhtml — busy attribute + Proton urlbar background element"
+    },
     "body.activity-stream": {
       "confidence": "verified-ESR",
       "provenance": "activity-stream newtab document — body class, shared by about:home and about:newtab"

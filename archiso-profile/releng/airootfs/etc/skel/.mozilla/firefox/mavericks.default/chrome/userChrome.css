@@ -161,3 +161,66 @@
   font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
   font-size: 13px !important;
 }
+
+/* --- (f) downloads panel + button -------------------------------------- */
+#downloadsPanel {
+  background: #f6f6f6 !important;
+  border: 1px solid #c6c6c6 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
+}
+
+#downloads-button {
+  padding: 4px 6px !important;
+  border-radius: 4px !important;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+#downloads-button:not([disabled="true"]):hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* in-progress fill: engine sets [progress] while downloads run */
+#downloads-button[progress] .toolbarbutton-icon {
+  background-color: rgba(66, 133, 244, 0.30) !important;
+  border-radius: 3px !important;
+}
+
+/* --- (g) findbar: Mavericks banner ------------------------------------ */
+.browserContainer findbar {
+  background: linear-gradient(to bottom, #f6f6f6 0%, #eaeaea 100%) !important;
+  box-shadow: inset 0 1px 0 #c6c6c6 !important;
+  color: #1a1a1a !important;
+  font-family: "Lucida Grande", Cantarell, "Noto Sans", sans-serif !important;
+  font-size: 13px !important;
+}
+
+.browserContainer findbar .findbar-textbox {
+  background: #ffffff !important;
+  border: 1px solid #c9c9c9 !important;
+  border-radius: 4px !important;
+  color: #1a1a1a !important;
+}
+
+.browserContainer findbar .findbar-textbox:focus {
+  border-color: #6ea8e8 !important;
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.35) !important;
+}
+
+.browserContainer findbar .findbar-highlight {
+  color: #1a1a1a !important;
+}
+
+/* --- (h) urlbar loading/progress -------------------------------------- */
+/* Cost class: zero idle — rules match only while the urlbar binding sets
+ * [busy] during page load. Pure opacity/background: no keyframes, no
+ * pseudo-elements, no repaint loops (animation prop is outside the
+ * validation allowlist by design). */
+
+#urlbar[busy="true"] .urlbar-input-container {
+  background-image: linear-gradient(to right, rgba(66, 133, 244, 0.10), rgba(66, 133, 244, 0.02)) !important;
+}
+
+#urlbar[busy="true"] #urlbar-background {
+  border-bottom: 2px solid #4285f4 !important;
+}
