@@ -21,6 +21,19 @@
 - [x] Gate: docs-only phase — zero code changes; power baseline untouched; no driver modifications
 - [x] fstrim.timer fix: added `systemctl enable fstrim.timer` to firstboot script
 - [x] D6 proposal: persistent desktop services + own persistent components final sweep
+- [x] D6: persistent services + own components final sweep — ALL compliant, zero changes — PERSISTENT_SERVICES_AUDIT.md
+- [ ] HW validation (NEEDS_HARDWARE_TEST.md): input (USB-C mandatory, applespi 3-strategy, SPI timeout matrix) + storage (S3X resume, ASPM A/B, btrfs/SSD, fstrim)
+
+### Фаза D6 — Persistent desktop services + own persistent components final sweep (2026-09-28, без железа)
+- [x] System services audit: 8 services (tlp, zram-setup, NM, resolved, lightdm, bluetooth, fstrim.timer, plocate-updatedb.timer) — all event-driven or oneshot, no polling — PERSISTENT_SERVICES_AUDIT.md §1
+- [x] User timers audit: 3 timers (mv-reminders-check hourly, mv-calendar-check 5min, mv-timemachine-check hourly) — all oneshot, no polling — PERSISTENT_SERVICES_AUDIT.md §2
+- [x] Panel plugins audit: 7 plugins (applicationsmenu, tasklist, separator, systray, clock, actions, genmon) — genmon is only polling plugin (5s, one-shot C tool) — PERSISTENT_SERVICES_AUDIT.md §3
+- [x] Autostart audit: 1 entry (Plank Dock) — no other autostart — PERSISTENT_SERVICES_AUDIT.md §4
+- [x] mv-* timer/poll audit: 15 timers across 14 apps — all window-open-only or one-shot, classified P2/IGNORE per §7 — PERSISTENT_SERVICES_AUDIT.md §5
+- [x] mv-* persistent process audit: 40 apps — zero persistent processes, zero autostart, zero daemons — PERSISTENT_SERVICES_AUDIT.md §6
+- [x] Final verdict: ALL persistent services and own components are power-baseline compliant — no new daemons, no new polling, no persistent processes beyond standard Xfce stack — PERSISTENT_SERVICES_AUDIT.md §7
+- [x] Gate: docs-only phase — zero code changes; power baseline untouched; no driver modifications
+- [x] D7 proposal: boot/ISO packaging audit (mkinitcpio, systemd-boot, profiledef, packages.x86_64 consistency)
 - [ ] HW validation (NEEDS_HARDWARE_TEST.md): input (USB-C mandatory, applespi 3-strategy, SPI timeout matrix) + storage (S3X resume, ASPM A/B, btrfs/SSD, fstrim)
 
 ### Фаза D4 — Audio path audit: HDA/Cirrus CS4208 + ALSA + PipeWire/WirePlumber + pactl usage (2026-09-28, без железа)
