@@ -573,6 +573,47 @@ def scenario_ui_resource_load(ctx):
                 "manually: ~12-15 ms, see COMPLETENESS_C2.md axis L)"}
 
 
+def scenario_desktop_parse_cache(ctx):
+    """S25: shared .desktop parse cache cold vs warm (P1-L1).
+
+    Cold = cache miss (full parse + write); warm = hit (fingerprint +
+    JSON read only). Before: every Launchpad/Spotlight open re-parsed all
+    .desktop files in Python (~12-15 ms, C2 axis L).
+    """
+    import importlib.machinery
+    import importlib.util
+    import shutil
+    import tempfile
+    mod_path = REPO / "packages/mavericks-apps/src/mavericks-apps/bin/mv_desktop_cache.py"
+    loader = importlib.machinery.SourceFileLoader("mv_desktop_cache", str(mod_path))
+    spec = importlib.util.spec_from_loader("mv_desktop_cache", loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    tmp = tempfile.mkdtemp()
+    old_home = os.environ.get("HOME")
+    os.environ["HOME"] = tmp
+    try:
+        t0 = time.monotonic()
+        entries = mod.load_desktop_entries()
+        cold_ms = (time.monotonic() - t0) * 1000
+        ts = []
+        for _ in range(11):
+            t0 = time.monotonic()
+            mod.load_desktop_entries()
+            ts.append((time.monotonic() - t0) * 1000)
+        ts.sort()
+        warm_ms = ts[len(ts) // 2]
+        return {"cold_ms": round(cold_ms, 2), "warm_ms": round(warm_ms, 2),
+                "entries": len(entries)}, {
+            "note": "mv_desktop_cache load_desktop_entries; cold=miss "
+                    "(full parse+write), warm=hit (fingerprint+JSON read); "
+                    "before P1-L1 every open paid the cold cost"}
+    finally:
+        if old_home is not None:
+            os.environ["HOME"] = old_home
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def scenario_skipped(ctx, reason):
     return None, {"reason": reason}
 
@@ -866,6 +907,7 @@ SCENARIOS = {
     "S22-notification-burst-return-to-idle": (scenario_notification_burst_return_to_idle, 3),
     "S23-cold-warm-distortion": (scenario_cold_warm_distortion, 1),
     "S24-ui-resource-load": (scenario_ui_resource_load, 1),
+    "S25-desktop-parse-cache": (scenario_desktop_parse_cache, 1),
     "S06-launchpad-open": (lambda c: scenario_skipped(
         c, no_x_reason("rofi render tier")), 1),
     "S07-mission-control": (lambda c: scenario_skipped(
