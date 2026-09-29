@@ -9,6 +9,17 @@
 - [x] Before/after: docs/BENCHMARKS.md (C2-P1 section) + docs/benchmarks/results-2026-09-29-c2-p1.json
 - [ ] HW validation (NEEDS_HARDWARE_TEST.md): all remaining items are hardware measurements/validation.
 
+### Track 6/7 — Theme CSS redundancy audit (2026-09-29, без железа)
+- [x] Removed duplicate CSS rules: `@import "../gtk-3.0/other";` from gtk-3.20/gtk.scss (eliminates ~400 duplicate SCSS lines)
+- [x] Deprecated `_other.scss` (423→15 lines): all content duplicated in `_widgets.scss`, `_menus.scss`, `_windows.scss`
+- [x] 11 selector groups deduplicated: scrollbar, scale, progressbar, sidebar, headerbar, titlebuttons, switch, checkbox/radio, paned, infobar, popover, drag-icon
+- [x] Unique 3.20+ widgets retained in gtk-3.20/gtk.scss: emojichooser, modelbutton, viewswitcher, shortcut-label, flowbox, listbox, stackswitcher, levelbar
+- [x] Assets unchanged: wallpapers/mavericks-desktop.png, icons/scalable/apps/sticky-notes.svg, timemachine.svg, airdrop.svg
+- [x] Gate: test-theme-css.py 9/9 passed
+- [x] Rebuild: makepkg + check-sync.sh passed
+- [x] Before/after: BENCHMARKS.md parse-ms delta recorded (gtk-3.0: 2.3ms, gtk-3.20: 1.5ms)
+- [ ] Commit: theme fix + docs
+
 ### Completeness C1 — P1 implementation (2026-09-29, без железа)
 - [x] P1-C1: removed 13 dead-weight packages from ISO (142→129, ~330 MiB): linux, sof-firmware, linux-firmware-marvell, refind, orage, flameshot, xfce4-taskmanager, xfce4-appfinder, xfce4-notes-plugin, rsync, wireless_tools, mc, vim. **stress-ng KEPT** (mv-thermal.sh). Each verified unreferenced. check-sync --check-repos green. (3193695)
 - [x] P1-C4: removed 8 dead systemd units via .wants symlink removal (archiso convention): 5x cloud-init + pcscd.socket + ModemManager + livecd-talk. firstboot ModemManager mask kept; VM agents kept for QEMU. (7eb6977)

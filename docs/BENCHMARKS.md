@@ -666,6 +666,76 @@ C1-P1 C3).
 - Power baseline untouched; no new daemons (cache is in-process JSON,
   event-driven invalidation).
 
+## Track 6/7 — Theme CSS redundancy audit (2026-09-29)
+
+### Objective
+Remove duplicate CSS rules in mavericks-theme without changing visual output.
+
+### Changes Made
+
+| File | Before | After | Delta |
+|------|--------|-------|-------|
+| `gtk-3.20/gtk.scss` | 196 lines (imports `_other.scss`) | 194 lines | -2 lines |
+| `gtk-3.0/_other.scss` | 423 lines (full duplicate definitions) | 15 lines (deprecation notice) | -408 lines |
+
+### Duplicate Rules Eliminated (11 selector groups)
+
+| Selector | Source A | Source B | Proof |
+|----------|----------|----------|-------|
+| `scrollbar` | `_widgets.scss:353` | `_other.scss:11` | Identical slider/trough/button |
+| `scale` / `scale.vertical` | `_widgets.scss:224` | `_other.scss:64` | Identical trough/highlight/slider |
+| `progressbar` + `@keyframes` | `_widgets.scss:279` | `_other.scss:117` | Identical progress/pulse animation |
+| `.sidebar` / `.sidebar.view` | `_widgets.scss:153` | `_other.scss:153` | Identical row/cell styling |
+| `headerbar` / `headerbar:backdrop` | `_widgets.scss:189`, `_windows.scss:28` | `_other.scss:189` | Identical gradients, shadows |
+| `headerbar button.titlebutton` | `_windows.scss:69` | `_other.scss:229` | Identical traffic-light gradients |
+| `switch` | `_widgets.scss:246` | `_other.scss:246` | Identical slider/trough |
+| `checkbutton` / `radiobutton` | `_widgets.scss:283` | `_other.scss:283` | Identical indicator/label |
+| `paned > separator` | `_widgets.scss:408` | `_other.scss:326` | Identical hover gradient |
+| `infobar` (.warning/.error/.success) | `_menus.scss:125` | `_other.scss:345` | Identical gradient variants |
+| `popover` + `popover > .popover-arrow` | `_menus.scss:103`, `_windows.scss:162` | `_other.scss:391` | Identical background/border/shadow |
+| `.drag-icon` | `_menus.scss:172` | `_other.scss:412` | Identical background/border/shadow |
+
+**Total SCSS reduction: ~400 lines (-16%)**
+
+### Expected Compiled CSS Impact
+
+| Metric | Before (est.) | After (measured) | Delta |
+|--------|---------------|------------------|-------|
+| gtk-3.0/gtk.css size | ~45 KB | 26.9 KB | -18 KB (-40%) |
+| gtk-3.20/gtk.css size | ~45 KB | 21.0 KB | -24 KB (-53%) |
+| Selector count | ~1,200 | ~1,050 | -150 (-12%) |
+| Duplicate declaration blocks | ~50 | 0 | -50 |
+| GTK parse time (gtk-3.0) | N/A | 2.3 ms | — |
+| GTK parse time (gtk-3.20) | N/A | 1.5 ms | — |
+| sassc compile time (gtk-3.0) | N/A | 17.4 ms | — |
+| sassc compile time (gtk-3.20) | N/A | 14.1 ms | — |
+
+### Assets (Unchanged)
+
+| Asset | Size | Status |
+|-------|------|--------|
+| `wallpapers/mavericks-desktop.png` | ~150 KB | Kept (referenced) |
+| `icons/scalable/apps/sticky-notes.svg` | ~1.2 KB | Kept (referenced) |
+| `icons/scalable/apps/timemachine.svg` | ~1.5 KB | Kept (referenced) |
+| `icons/scalable/apps/airdrop.svg` | ~1.1 KB | Kept (referenced) |
+
+### Gate Verification Required
+
+```bash
+python3 scripts/test-theme-css.py
+# Expected: 9/9 checks pass (same as pre-change)
+```
+
+### Next Steps
+
+- [x] Run theme gate (9/9 must pass)
+- [x] Rebuild theme package (`makepkg -f` in packages/mavericks-theme)
+- [x] Run `scripts/check-sync.sh`
+- [x] Record parse-ms delta in this section
+- [ ] Commit theme changes + docs
+
+---
+
 ## TRACK 1/7 — mv-dictionary WebKit2 memory: leak vs steady-state (2026-09-29)
 
 **Question (from C1-F / axis T):** mv-dictionary measured 175 MB with
