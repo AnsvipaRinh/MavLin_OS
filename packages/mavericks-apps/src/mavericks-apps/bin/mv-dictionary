@@ -53,7 +53,8 @@ BOOKMARKS_FILE = os.path.join(CACHE_DIR, "bookmarks.json")
 HISTORY_LIMIT = 50
 SEARCH_DELAY_MS = 300
 WORDLIST_PATHS = ("/usr/share/dict/american-english",
-                  "/usr/share/dict/british-english")
+                   "/usr/share/dict/british-english")
+WEB_RSS_BUDGET_MB = int(os.environ.get("MV_DICT_WEB_BUDGET_MB", "500"))
 
 GLOSSARY = {
     "apple": "A round fruit with red, green, or yellow skin and crisp white flesh.",
@@ -390,6 +391,9 @@ class DictionaryWindow(Gtk.Window):
         self.current_word = ""
         self._search_timeout = 0
         self._search_gen = 0
+        self._online_disabled = False
+        self._scrolled = {}
+        self._budget_warned = False
 
         hb = Gtk.HeaderBar(title="Dictionary", show_close_button=True)
         self.set_titlebar(hb)
@@ -414,11 +418,13 @@ class DictionaryWindow(Gtk.Window):
                 view = LocalView()
                 scrolled.add(view.tv)
             self.source_stack.add_titled(scrolled, page_id, title)
+            self._scrolled[attr] = scrolled
             setattr(self, attr + "_view", view)
 
+        self.source_stack.connect("notify::visible-child",
+                                  self._on_visible_child)
         self.stack_switcher = Gtk.StackSwitcher()
         self.stack_switcher.set_stack(self.source_stack)
-        hb.pack_end(self.stack_switcher)
 
         self.bookmark_btn = Gtk.ToggleButton()
         self.bookmark_btn.set_image(Gtk.Image.new_from_icon_name(
@@ -464,6 +470,7 @@ class DictionaryWindow(Gtk.Window):
         toolbar.pack_start(self.search_entry, True, True, 0)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.vbox = vbox
         vbox.pack_start(toolbar, False, False, 0)
         vbox.pack_start(self.wod_banner, False, False, 0)
         vbox.pack_start(self.source_stack, True, True, 0)
@@ -526,32 +533,107 @@ class DictionaryWindow(Gtk.Window):
         if not word:
             return
         self._cancel_search()
-        self.current_word = word
         self.load_definitions(word)
         self.add_to_history(word)
         self.update_bookmark_button()
 
     def load_definitions(self, word):
+        self.current_word = word
+        self._load_tab(self.source_stack.get_visible_child_name(), word)
+        self._check_web_budget()
+
+    def _load_tab(self, page_id, word):
+        if self._online_disabled and page_id != "apple":
+            return
         encoded = urllib.parse.quote(word)
+        if page_id == "dictionary":
+            local = local_definition(word)
+            if local:
+                source, text = local
+                online_url = "https://en.wiktionary.org/wiki/" + encoded
+                self.dict_view.load_html(
+                    definition_html(word, text, source, online_url),
+                    "about:blank")
+            else:
+                self.dict_view.load_uri(
+                    "https://en.wiktionary.org/wiki/" + encoded)
+        elif page_id == "thesaurus":
+            self.thes_view.load_uri(
+                "https://www.thesaurus.com/browse/" + encoded)
+        elif page_id == "wikipedia":
+            self.wiki_view.load_uri(
+                "https://en.wikipedia.org/wiki/" + encoded)
+        elif page_id == "apple":
+            self.apple_view.load_html(apple_definition(word), "file://")
 
-        local = local_definition(word)
-        if local:
-            source, text = local
-            online_url = "https://en.wiktionary.org/wiki/" + encoded
-            self.dict_view.load_html(
-                definition_html(word, text, source, online_url),
-                "about:blank")
-        else:
-            self.dict_view.load_uri(
-                "https://en.wiktionary.org/wiki/" + encoded)
+    def _on_visible_child(self, stack, pspec):
+        if self.current_word:
+            self._load_tab(stack.get_visible_child_name(), self.current_word)
+            self._check_web_budget()
 
-        self.thes_view.load_uri(
-            "https://www.thesaurus.com/browse/" + encoded)
-        self.wiki_view.load_uri(
-            "https://en.wikipedia.org/wiki/" + encoded)
+    def _web_process_rss_kb(self):
+        total = 0
+        try:
+            with open("/proc/%d/task/%d/children"
+                      % (os.getpid(), os.getpid())) as f:
+                pids = f.read().split()
+        except OSError:
+            return 0
+        for pid in pids:
+            try:
+                with open("/proc/%s/cmdline" % pid, "rb") as f:
+                    exe = f.read().split(b"\0")[0].decode(errors="replace")
+                if "WebKitWebProcess" not in exe:
+                    continue
+                with open("/proc/%s/status" % pid) as f:
+                    for line in f:
+                        if line.startswith("VmRSS:"):
+                            total += int(line.split()[1])
+                            break
+            except (OSError, ValueError, IndexError):
+                continue
+        return total
 
-        apple_html = apple_definition(word)
-        self.apple_view.load_html(apple_html, "file://")
+    def _check_web_budget(self):
+        if self._online_disabled or self._budget_warned:
+            return
+        if not WEB_RSS_BUDGET_MB:
+            return
+        rss_mb = self._web_process_rss_kb() / 1024.0
+        if rss_mb <= WEB_RSS_BUDGET_MB:
+            return
+        self._budget_warned = True
+        bar = Gtk.InfoBar()
+        bar.set_message_type(Gtk.MessageType.WARNING)
+        lbl = Gtk.Label()
+        lbl.set_markup(
+            "<b>Memory:</b> the Dictionary web process is using %.0f MB. "
+            "You can disable the online tabs to save memory." % rss_mb)
+        lbl.set_line_wrap(True)
+        bar.get_content_area().add(lbl)
+        bar.add_button("Disable online tabs", Gtk.ResponseType.YES)
+        bar.add_button("Keep online tabs", Gtk.ResponseType.NO)
+        bar.connect("response", self._on_memory_warning)
+        self.vbox.pack_start(bar, False, False, 0)
+        self.vbox.reorder_child(bar, 1)
+        bar.show_all()
+
+    def _on_memory_warning(self, bar, response):
+        bar.hide()
+        if response == Gtk.ResponseType.YES:
+            self._disable_online_tabs()
+
+    def _disable_online_tabs(self):
+        self._online_disabled = True
+        for attr in ("dict", "thes", "wiki"):
+            scrolled = self._scrolled[attr]
+            child = scrolled.get_child()
+            if child is not None:
+                scrolled.remove(child)
+            local = LocalView()
+            scrolled.add(local.tv)
+            local.tv.show()
+            setattr(self, attr + "_view", local)
 
     def add_to_history(self, word):
         if word in self.history:

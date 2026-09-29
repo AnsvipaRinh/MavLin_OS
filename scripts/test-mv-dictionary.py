@@ -183,9 +183,17 @@ def test_gui(m):
             app.on_search(app.search_entry)
             Gtk.main_iteration_do(False)
             check("search sets current word", app.current_word == "finder")
-            check("search loads apple tab",
-                  app.apple_view.load_html.called)
+            check("search loads visible dictionary tab",
+                  app.dict_view.load_uri.called)
+            check("search does not preload hidden tabs",
+                  not app.thes_view.load_uri.called
+                  and not app.wiki_view.load_uri.called
+                  and not app.apple_view.load_html.called)
             check("search records history", app.history == ["finder"])
+
+            app._load_tab("dictionary", "apple")
+            check("glossary hit loads local html",
+                  app.dict_view.load_html.called)
             check("history persisted", m.load_history() == ["finder"])
             check("bookmark button sensitive",
                   app.bookmark_btn.get_sensitive())
@@ -203,6 +211,24 @@ def test_gui(m):
                   app.history_revealer.get_reveal_child())
             check("history row populated",
                   len(app.history_list.get_children()) == 1)
+
+            app.source_stack.set_visible_child_name("wikipedia")
+            Gtk.main_iteration_do(False)
+            check("tab switch loads wikipedia",
+                  app.wiki_view.load_uri.called)
+            app.source_stack.set_visible_child_name("thesaurus")
+            Gtk.main_iteration_do(False)
+            check("tab switch loads thesaurus",
+                  app.thes_view.load_uri.called)
+            app.source_stack.set_visible_child_name("apple")
+            Gtk.main_iteration_do(False)
+            check("tab switch loads apple",
+                  app.apple_view.load_html.called)
+            app.source_stack.set_visible_child_name("dictionary")
+            Gtk.main_iteration_do(False)
+            check("tab switch back to dictionary",
+                  app.dict_view.load_uri.call_count >= 2,
+                  str(app.dict_view.load_uri.call_count))
 
             app.search_entry.set_text("dock")
             app.on_search(app.search_entry)
@@ -325,6 +351,68 @@ def test_gui(m):
                       not noespeak.speak_btn.get_visible())
                 noespeak.destroy()
                 m.WebKit2 = real_webkit
+
+            appb = m.DictionaryWindow()
+            Gtk.main_iteration_do(False)
+            for view in (appb.dict_view, appb.thes_view,
+                         appb.wiki_view, appb.apple_view):
+                view.load_html = mock.MagicMock()
+                view.load_uri = mock.MagicMock()
+
+            with mock.patch.object(appb, "_web_process_rss_kb",
+                                   return_value=100 * 1024):
+                appb._budget_warned = False
+                appb._check_web_budget()
+                bars = [c for c in appb.vbox.get_children()
+                        if isinstance(c, Gtk.InfoBar)
+                        and c is not appb.wod_banner]
+                check("no budget warning under budget", len(bars) == 0,
+                      str(len(bars)))
+
+            with mock.patch.object(appb, "_web_process_rss_kb",
+                                   return_value=600 * 1024):
+                appb._budget_warned = False
+                appb._check_web_budget()
+                bars = [c for c in appb.vbox.get_children()
+                        if isinstance(c, Gtk.InfoBar)
+                        and c is not appb.wod_banner]
+                check("budget warning shown over budget", len(bars) == 1,
+                      str(len(bars)))
+                appb._on_memory_warning(bars[0], Gtk.ResponseType.YES)
+                check("fallback disables online tabs", appb._online_disabled)
+                check("fallback replaces online views with LocalView",
+                      type(appb.dict_view).__name__ == "LocalView"
+                      and type(appb.thes_view).__name__ == "LocalView"
+                      and type(appb.wiki_view).__name__ == "LocalView")
+                check("fallback keeps apple web view",
+                      type(appb.apple_view).__name__ != "LocalView")
+
+            appb._load_tab("thes", "finder")
+            check("online disabled skips thes load",
+                  appb.thes_view.buf.get_text(
+                      appb.thes_view.buf.get_start_iter(),
+                      appb.thes_view.buf.get_end_iter(), False) == "")
+            appb.destroy()
+
+            appc = m.DictionaryWindow()
+            Gtk.main_iteration_do(False)
+            for view in (appc.dict_view, appc.thes_view,
+                         appc.wiki_view, appc.apple_view):
+                view.load_html = mock.MagicMock()
+                view.load_uri = mock.MagicMock()
+            with mock.patch.object(appc, "_web_process_rss_kb",
+                                   return_value=600 * 1024):
+                appc._check_web_budget()
+                bars = [c for c in appc.vbox.get_children()
+                        if isinstance(c, Gtk.InfoBar)
+                        and c is not appc.wod_banner]
+                check("keep-online path shows warning", len(bars) == 1,
+                      str(len(bars)))
+                appc._on_memory_warning(bars[0], Gtk.ResponseType.NO)
+                check("keep online tabs keeps web views",
+                      not appc._online_disabled
+                      and type(appc.dict_view).__name__ != "LocalView")
+            appc.destroy()
 
             app4 = m.run("apple")
             Gtk.main_iteration_do(False)
