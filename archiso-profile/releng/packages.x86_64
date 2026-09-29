@@ -27,7 +27,6 @@ firefox-ublock-origin
 intel-media-driver
 mpv
 yt-dlp
-flameshot
 fontconfig
 fsarchiver
 galculator
@@ -50,9 +49,7 @@ libnotify
 libsecret
 lightdm
 lightdm-gtk-greeter
-linux
 linux-firmware
-linux-firmware-marvell
 linux-zen
 linux-zen-headers
 lollypop
@@ -62,7 +59,6 @@ man-db
 man-pages
 mavericks-apps
 mavericks-theme
-mc
 mdadm
 mesa-utils
 mkinitcpio
@@ -75,7 +71,6 @@ networkmanager
 nfs-utils
 nvme-cli
 openssh
-orage
 partclone
 parted
 pavucontrol
@@ -85,15 +80,12 @@ pipewire-pulse
 plank
 plocate
 powertop
-refind
 reflector
 rofi
-rsync
 sdparm
 seahorse
 sg3_utils
 smartmontools
-sof-firmware
 squashfs-tools
 stress-ng
 sudo
@@ -110,19 +102,15 @@ turbostat
 udftools
 upower
 usbutils
-vim
 webkit2gtk-4.1
 wireless-regdb
-wireless_tools
 wireplumber
 wpa_supplicant
 xarchiver
 xdg-user-dirs
 xdg-utils
 xdotool
-xfce4-appfinder
 xfce4-genmon-plugin
-xfce4-notes-plugin
 xfce4-notifyd
 xfce4-panel
 xfce4-power-manager
@@ -130,7 +118,6 @@ xfce4-screensaver
 xfce4-screenshooter
 xfce4-session
 xfce4-settings
-xfce4-taskmanager
 xfce4-terminal
 xfdesktop
 xfsprogs
