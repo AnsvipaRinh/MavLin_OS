@@ -7,18 +7,16 @@
   //   NEVER inherits the orchestrator session model;
   // - background-plane (title/summary/compaction): small_model below,
   //   chain model so auto "cheaper model" pick stays in-chain.
+  // Worker pool (2026-09-29, protocol v3, see DECISIONS.md): build is the
+  // primary worker; build-b/build-c are HIDDEN subagent fallbacks pinned to
+  // other chain entries. Runtime agent rotation = Task subagent_type switch
+  // (no server restart, no config paste). mode=subagent + hidden=true keeps
+  // them out of the Tab picker and @-menu; they are invokable ONLY via the
+  // Task tool when the orchestrator's task allow-list permits. NEVER pin any
+  // worker to a model outside .opencode/model-fallback.json (Muse Spark is
+  // banned as a worker). Workers must NEVER delegate (task: deny).
   "small_model": "openrouter/cohere/north-mini-code:free",
   "agent": {
-    // Two-plane topology (2026-09-26, see DECISIONS.md):
-    // orchestrator-plane = OpenRouter (orchestrator.md frontmatter, chain head),
-    // worker-plane = Zen (this pin, chain #3). Build NEVER inherits the
-    // orchestrator session model, so a stale/off-list session model can never
-    // leak into workers. NEVER pin here a model outside
-    // .opencode/model-fallback.json (Muse Spark is banned as a worker).
-    // Quota-death of this pin needs a one-line rotation to the next chain
-    // entry: run `scripts/session-reuse.py models --exclude <dead>` and apply
-    // its `rotate:` line, then restart the server. No autonomy beyond that
-    // exists on this platform (agents cannot switch models at runtime).
     "build": {
       "model": "opencode/nemotron-3-ultra-free",
       "description": "Implementation worker: executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
@@ -27,6 +25,30 @@
         // with zero invokable agents the Task tool offers nothing, so no
         // nested-delegation attempts (not even build->orchestrator self-invoke).
         // Orchestrator's own task allow-list (its .md) is unaffected.
+        "task": {
+          "*": "deny"
+        }
+      }
+    },
+    // Fallback workers (protocol v3): hidden subagents, chain #1 and #3.
+    // Same description/permissions as build; only the model pin differs.
+    "build-b": {
+      "mode": "subagent",
+      "hidden": true,
+      "model": "openrouter/cohere/north-mini-code:free",
+      "description": "Implementation worker (fallback B): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
+      "permission": {
+        "task": {
+          "*": "deny"
+        }
+      }
+    },
+    "build-c": {
+      "mode": "subagent",
+      "hidden": true,
+      "model": "opencode/longcat-2.5-preview-free",
+      "description": "Implementation worker (fallback C): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
+      "permission": {
         "task": {
           "*": "deny"
         }
@@ -45,19 +67,6 @@
   "permission": {
     "task": {
       "*": "allow"
-    },
-    "bash": {
-      "*": "deny",
-      "git status*": "allow",
-      "git log*": "allow",
-      "git diff*": "allow",
-      "scripts/session-reuse.py status*": "allow",
-      "scripts/session-reuse.py children*": "allow",
-      "scripts/session-reuse.py context*": "allow",
-      "scripts/session-reuse.py decide*": "allow",
-      "scripts/session-reuse.py list*": "allow",
-      "scripts/session-reuse.py models*": "allow",
-      "scripts/session-reuse.py register*": "allow"
     }
   }
 }

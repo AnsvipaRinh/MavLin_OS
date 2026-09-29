@@ -987,24 +987,27 @@ Do not return a "final summary" merely because the audit is complete. The audit 
 
 > Two user roles only: **Build** (the built-in full agent: files, bash,
 > research, planning, implementation) and **Orchestrator** (manages work,
-> never implements). Orchestrator delegates ALL work to Build via the Task
-> tool and manages session continuation/reuse/retire. A Task completion,
+> never implements). Orchestrator delegates ALL work to the worker pool
+> (`build` + hidden `build-b`/`build-c` fallbacks) via the Task tool and
+> manages session continuation/reuse/retire/migrate. A Task completion,
 > commit, validation pass, audit, or phase completion is a checkpoint,
 > not a stop condition.
 >
 > Orchestrator is defined in `.opencode/agents/orchestrator.md` (also
 > exposed globally, see 14.6) and restricted by OpenCode permission
 > configuration, not only by prompt text. Build is the stock built-in
-> agent, untouched. Extra roles (custom builder/scout/planner; built-in
-> plan/explore/general) are removed/disabled so the picker shows only
-> Build + Orchestrator.
+> agent, untouched. Fallback workers are mode=subagent + hidden (invisible
+> in the Tab picker and @-menu, invokable only via Task). Extra roles
+> (custom builder/scout/planner; built-in plan/explore/general) are
+> removed/disabled so the picker shows only Build + Orchestrator.
 
 ### 14.1 Role capabilities
 
 | Role | Mode | Edit/Write | Bash | Task (invoke) | Purpose |
 |---|---|---|---|---|---|
-| Orchestrator | primary | DENY | DENY except `git status/log/diff` | only `build` | read state, choose objective, delegate, verify, continue loop |
+| Orchestrator | primary | DENY | DENY except `git status/log/diff` | `build`, `build-b`, `build-c` | read state, choose objective, delegate, verify, continue loop |
 | Build | primary (built-in) | ALLOW | ALLOW | ALLOW | research, plan, implement, test, docs, commit, short result |
+| build-b / build-c | subagent (hidden) | ALLOW | ALLOW | DENY (no nesting) | fallback workers, other chain pins, runtime rotation |
 
 Residual limitation (documented, not hidden): OpenCode permissions cannot
 deny `read`, and Orchestrator keeps read/search/web/skill tools — that is
@@ -1027,12 +1030,16 @@ READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.m
 ```
 
 TASK LIFECYCLE (binding, full text in `.opencode/agents/orchestrator.md`):
-protocol check `version` (need v2; unknown = STALE-AGENT, stop) →
+protocol check `version` (need v3; unknown = STALE-AGENT, stop) →
 `stuck --threshold 600` gate before EVERY Task (exit 2 = migrate, no Task call) →
-single-flight (max ONE active build Task per objective; `decide` WAIT = no new
-Task) → continuation = Task `task_id=<prior>` + short "Продолжай" (re-issuing
-the initial prompt as a fresh Task is FORBIDDEN) → fresh Task only on
-objective change, completed/retired prior, or post-migrate rotation.
+single-flight (max ONE active worker Task per objective; `decide` WAIT = no new
+Task) → continuation = Task SAME worker + `task_id=<prior>` + short "Продолжай"
+(re-issuing the initial prompt as a fresh Task is FORBIDDEN; checker-Tasks
+"to see if the old task can continue" are FORBIDDEN — decide via bash signals)
+→ STUCK/dead = `migrate --delay <sec>` → NEW Task on printed `subagent_type`
+(no `task_id`, same task) → fresh Task only on objective change or
+completed/retired prior. Cooldown memory (`health`/`mark-dead`/`mark-alive`,
+3h default) tracks dead models; runtime rotation needs no restart.
 
 "Next objective is X" = START X now. "Ready to continue" = continue now.
 Sections 0.1 and 13.8 apply to the Orchestrator loop one level up: it is
@@ -1047,15 +1054,19 @@ research or architecture need = delegate to `build` (as a research,
 decomposition, or implementation Task), NOT stop.
 Single-model quota/rate-limit exhaustion is NOT a blocker — follow
 MODEL FALLBACK in `.opencode/agents/orchestrator.md` (chain:
-`.opencode/model-fallback.json`, resolver: `scripts/session-reuse.py models`).
+`.opencode/model-fallback.json`, resolver: `scripts/session-reuse.py models`,
+memory: `scripts/session-reuse.py health`). Rotation is a runtime
+`subagent_type` switch (`build` → `build-b` → `build-c`), no restart, no paste.
 A sub-agent stuck in provider retry/unavailable backoff longer than 600s
 (10 min, e.g. the observed 8800s "agent unavailable" hang) is NOT waited
 out — it is a STUCK-TASK failover: pause the task in the registry
 (`state=paused-stuck`, same objective+task preserved) and continue the SAME
-task on the next chain agent via `scripts/session-reuse.py stuck` (detect)
-→ `scripts/session-reuse.py migrate <id> --objective <O>` (pause + rotate
-one-liner + continuation prompt). Full procedure: STUCK-TASK FAILOVER in
-`.opencode/agents/orchestrator.md`. `migrate` printing `next-available: NONE`
+task on the next healthy worker via `scripts/session-reuse.py stuck` (detect)
+→ `scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>`
+(pause + cooldown record + next-worker Task block). The dead model cools down
+for the observed delay (or 3h default when the provider gave no time) and is
+retried automatically after expiry. Full procedure: STUCK-TASK FAILOVER in
+`.opencode/agents/orchestrator.md`. `migrate` printing `next-worker: NONE`
 is the only genuine stop-and-wait in this path.
 
 ### 14.4 Manual role use (preserved)
@@ -1120,8 +1131,10 @@ scripts/session-reuse.py context <session-id>      # used_input, limit, REUSABLE
 scripts/session-reuse.py decide <id> --objective <O> --agent build  # RESUME or NEW
 scripts/session-reuse.py register <id> --agent build --objective <O> --task "<T>"  # track new
 scripts/session-reuse.py stuck --threshold 600     # STUCK watchdog (>600s retry = migrate, exit 2)
-scripts/session-reuse.py migrate <id> --objective <O>  # pause stuck + rotate pin + SAME-task prompt
-scripts/session-reuse.py version                       # need orchestrator-protocol: 2 (else STALE-AGENT)
+scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>  # pause stuck + SAME task on next-worker
+scripts/session-reuse.py health                    # cooldown memory (dead models + retry-in)
+scripts/session-reuse.py mark-alive <model>        # clear cooldown after good result
+scripts/session-reuse.py version                   # need orchestrator-protocol: 3 (else STALE-AGENT)
 ```
 
 ### 14.6 Agent visibility (why global symlinks exist)
@@ -1143,10 +1156,11 @@ Machine equivalent of "visible in UI": fresh `GET /agent` (or
 
 ### 14.7 Workers never delegate (no nested sub-agents)
 
-`agent.build.permission.task` = deny-all in project `opencode.jsonc`, so the
-Task tool offers a worker zero invokable agents (not even `orchestrator` —
-this also kills the build→orchestrator self-invoke). The stock Build role is
-untouched (no custom role file; picker still shows only Build + Orchestrator).
-`subagent_depth` stays default: orchestrator(primary)→build is the single
-allowed level. Prompts state it too, but enforcement is the permission, not
-discipline.
+`agent.build*.permission.task` = deny-all in project `opencode.jsonc` (build,
+build-b, build-c), so the Task tool offers a worker zero invokable agents
+(not even `orchestrator` — this also kills the worker→orchestrator
+self-invoke). The stock Build role is untouched (no custom role file; hidden
+fallback workers never enter the picker, which still shows only
+Build + Orchestrator). `subagent_depth` stays default:
+orchestrator(primary)→worker is the single allowed level. Prompts state it
+too, but enforcement is the permission, not discipline.

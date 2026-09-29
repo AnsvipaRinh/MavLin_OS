@@ -13,21 +13,26 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
   status                    live status of all sessions (idle/busy/retry)
   children <id>             list child (sub-agent) sessions
   list                      registry contents
-  version                   print orchestrator protocol version (v2 required
+  version                   print orchestrator protocol version (v3 required
                             by the current orchestrator prompt; unknown
                             subcommand = stale agent file -> STALE-AGENT)
+  health                    show model cooldown memory (dead models + retry-in)
+  mark-dead <model> [--in Sec] [--reason R]
+                            record a model as dead: skip it for Sec seconds
+                            (default 10800 = 3h when the provider gave no
+                            explicit retry time)
+  mark-alive <model>        clear a model's cooldown (call after a good result)
   stuck [--threshold 600] [--format text|json]
                             stuck-task watchdog: parse live /session/status
                             retry/unavailable delays; any non-idle session
                             with delay > threshold (default 600s = 10min)
                             is STUCK -> must be paused + migrated.
-  migrate <id> --objective O [--task T] [--exclude M,...] [--threshold 600]
-                            pause a STUCK task in the registry
-                            (state=paused-stuck), resolve the next chain
-                            model, and print the resume plan for the SAME
-                            task on the new agent pin (rotate: one-liner +
-                            continuation prompt). Never deletes transcripts.
-  models [--exclude M,...] [--all] [--format text|json]
+  migrate <id> --objective O [--task T] [--exclude M,...] [--delay Sec]
+                            pause a STUCK task and continue the SAME task on
+                            the next HEALTHY worker (runtime subagent_type
+                            switch, no restart). Records the dead model with
+                            cooldown = delay when known, else 3h default.
+  models [--exclude M,...] [--all] [--ignore-cooldown] [--format text|json]
                             ordered fallback candidates, CHAIN-ONLY by default
                             (user chain matched live vs GET /provider).
                             --all adds config pins, registry last-good,
@@ -73,7 +78,15 @@ CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-ORCHESTRATOR_PROTOCOL = 2
+ORCHESTRATOR_PROTOCOL = 3
+
+# Cooldown memory for dead models (.opencode/sessions/model-health.json).
+# A model observed dead (provider retry/unavailable > stuck threshold, or
+# QUOTA/CONTEXT Task failure) is skipped for COOLDOWN_SEC unless the provider
+# gave an explicit retry delay (then that delay is used). Default 3h per user
+# spec when no explicit time is known; after expiry the model is retried.
+HEALTH = os.path.join(BASE, "..", ".opencode", "sessions", "model-health.json")
+DEFAULT_COOLDOWN_SEC = 10800
 
 HOST = os.environ.get("OPENCODE_SERVER_HOST", "localhost")
 PORT = os.environ.get("OPENCODE_SERVER_PORT", "4096")
@@ -270,6 +283,190 @@ def cmd_version(args):
           "by re-issuing the initial prompt as a fresh Task.")
 
 
+# ---- Model health memory (2026-09-29 v3; cooldowns with 3h default) ----
+
+def load_health():
+    try:
+        with open(HEALTH) as f:
+            h = json.load(f)
+        if isinstance(h, dict) and isinstance(h.get("models"), dict):
+            return h
+    except (OSError, ValueError):
+        pass
+    return {"$schema": "model-health v1",
+            "defaultCooldownSec": DEFAULT_COOLDOWN_SEC, "models": {}}
+
+
+def save_health(h):
+    with open(HEALTH, "w") as f:
+        json.dump(h, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
+def cooldown_remaining(model):
+    """Seconds until a dead model may be retried; 0 = healthy/unknown."""
+    h = load_health()
+    entry = h.get("models", {}).get((model or "").lower())
+    if not isinstance(entry, dict):
+        return 0
+    try:
+        return max(0.0, float(entry.get("retryAfter", 0)) - time.time())
+    except (TypeError, ValueError):
+        return 0
+
+
+def fmt_dur(sec):
+    sec = max(0, int(sec))
+    h, sec = divmod(sec, 3600)
+    m, s = divmod(sec, 60)
+    if h:
+        return f"{h}h{m:02d}m"
+    if m:
+        return f"{m}m{s:02d}s"
+    return f"{s}s"
+
+
+def cmd_health(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Show model cooldown memory (dead models + retry-in).")
+    p.add_argument("--format", choices=("text", "json"), default="text")
+    a = p.parse_args(args)
+    h = load_health()
+    rows = []
+    for model, e in h.get("models", {}).items():
+        rem = cooldown_remaining(model)
+        rows.append({"model": model, "reason": (e or {}).get("reason", ""),
+                     "state": "COOLDOWN" if rem > 0 else "eligible",
+                     "retryInSec": rem})
+    if a.format == "json":
+        print(json.dumps(rows, indent=1))
+    else:
+        if not rows:
+            print("health: no dead models recorded (all eligible)")
+        for r in rows:
+            extra = f" retry-in {fmt_dur(r['retryInSec'])}" \
+                if r["retryInSec"] > 0 else ""
+            print(f"{r['state']} {r['model']}{extra} "
+                  f"reason={r['reason'] or '?'}")
+        print(f"default-cooldown: {fmt_dur(h.get('defaultCooldownSec', DEFAULT_COOLDOWN_SEC))} "
+              f"(used when the provider gave no explicit retry time)")
+
+
+def cmd_mark_dead(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Record a model as dead for --in seconds "
+                    f"(default {DEFAULT_COOLDOWN_SEC} = 3h).")
+    p.add_argument("model")
+    p.add_argument("--in", dest="cd", type=float, default=0,
+                   help="Cooldown seconds (provider retry delay when known, "
+                        "else default 3h)")
+    p.add_argument("--reason", default="")
+    a = p.parse_args(args)
+    cd = a.cd if a.cd and a.cd > 0 else DEFAULT_COOLDOWN_SEC
+    h = load_health()
+    h["models"][a.model.lower()] = {
+        "model": a.model, "state": "dead",
+        "deadAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "retryAfter": time.time() + cd,
+        "cooldownSec": cd, "reason": a.reason or "marked dead",
+    }
+    save_health(h)
+    print(f"marked-dead {a.model} (retry-in {fmt_dur(cd)}) reason={a.reason or '?'}")
+
+
+def cmd_mark_alive(args):
+    m = args[0] if args else ""
+    if not m:
+        sys.exit("usage: mark-alive <model>")
+    h = load_health()
+    if h["models"].pop(m.lower(), None) is not None:
+        save_health(h)
+        print(f"marked-alive {m} (cooldown cleared)")
+    else:
+        print(f"already-eligible {m} (nothing recorded)")
+
+
+def worker_pins():
+    """[(role, model)] for runtime worker pool: build + build-* pins.
+
+    Parsed DIRECTLY from project opencode.jsonc/json agent.* (never via the
+    deduped config_models(): a fallback worker may share its model with
+    small_model or another pin and must still be listed). Never hardcoded, so
+    a pin edit is picked up without touching this script. Requires one server
+    restart to take effect (agents are read at server start, no hot-reload).
+    """
+    import os as _os
+    out = []
+    root = _os.path.dirname(BASE)
+    for name in ("opencode.jsonc", "opencode.json"):
+        cfg = load_jsonc(_os.path.join(root, name))
+        if not isinstance(cfg, dict):
+            continue
+        agents = cfg.get("agent") or {}
+        if not isinstance(agents, dict):
+            continue
+        for role, spec in agents.items():
+            if not isinstance(spec, dict):
+                continue
+            if role != "build" and not role.startswith("build-"):
+                continue
+            if spec.get("disable"):
+                continue
+            m = spec.get("model")
+            if isinstance(m, str) and "/" in m and (role, m) not in out:
+                out.append((role, m))
+        break  # project file found; do not merge a second one
+    # Stable order: build first, then build-b, build-c, ...
+    out.sort(key=lambda rm: (0 if rm[0] == "build" else 1, rm[0]))
+    return out
+
+
+def chain_order_index():
+    """{model-lower: order} for chain entries (for worker ranking)."""
+    idx = {}
+    for e in load_chain():
+        w = (e.get("want") or "").lower()
+        if w and w not in idx:
+            idx[w] = e.get("order", 99)
+    return idx
+
+
+def resolve_next_worker(excluded_models=()):
+    """Next healthy worker (role, model): chain order minus cooldown/dead.
+
+    Returns (role, model, earliest_retry) where earliest_retry is None when a
+    worker is available, else (None, None, seconds-until-first-eligible).
+    """
+    excl = {e.strip().lower() for e in excluded_models if e.strip()}
+    never = load_never()
+    order = chain_order_index()
+    cands = []
+    for role, model in worker_pins():
+        low = model.lower()
+        if low in excl or low.split("/", 1)[-1] in excl \
+                or is_never(model, never):
+            continue
+        rem = cooldown_remaining(model)
+        if rem > 0:
+            continue
+        # Primary `build` first when eligible (no gratuitous rotation);
+        # fallbacks ranked by chain order.
+        cands.append((0 if role == "build" else 1, order.get(low, 50),
+                      role, model))
+    if cands:
+        cands.sort()
+        return cands[0][2], cands[0][3], None
+    # All workers cooling down: report nearest retry (genuine wait, not silent).
+    soonest, soonest_m = None, ""
+    for role, model in worker_pins():
+        rem = cooldown_remaining(model)
+        if rem > 0 and (soonest is None or rem < soonest):
+            soonest, soonest_m = rem, model
+    return None, None, (soonest, soonest_m)
+
+
 # ---- Model fallback helpers (2026-09-26; chain lives in CHAIN file) ----
 
 QUOTA_PATTERNS = [
@@ -315,10 +512,25 @@ def cmd_classify_error(args):
         description="Classify a Task/agent error: quota/rate-limit (fallback) "
                     "vs ordinary project error (no fallback).")
     p.add_argument("text", nargs="*", help="Error text (else read stdin)")
+    p.add_argument("--record-model", default="",
+                   help="When given WITH a QUOTA/CONTEXT verdict, record this "
+                        "model as dead (3h cooldown) in health memory")
     a = p.parse_args(args)
     text = " ".join(a.text) if a.text else sys.stdin.read()
     verdict, matched = classify_text(text)
     print(f"{verdict} (matched: {matched})")
+    if a.record_model and verdict in ("QUOTA_EXHAUSTED", "CONTEXT_EXHAUSTED"):
+        h = load_health()
+        h["models"][a.record_model.lower()] = {
+            "model": a.record_model, "state": "dead",
+            "deadAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "retryAfter": time.time() + DEFAULT_COOLDOWN_SEC,
+            "cooldownSec": DEFAULT_COOLDOWN_SEC,
+            "reason": f"{verdict} ({matched})",
+        }
+        save_health(h)
+        print(f"marked-dead {a.record_model} "
+              f"(retry-in {fmt_dur(DEFAULT_COOLDOWN_SEC)})")
     raise SystemExit({"QUOTA_EXHAUSTED": 10, "CONTEXT_EXHAUSTED": 12,
                       "AUTH_ERROR": 40,
                       "UNKNOWN": 30}.get(verdict, 20))
@@ -489,6 +701,9 @@ def cmd_models(args):
     p.add_argument("--all", action="store_true",
                    help="Include ambient sources (config pins, registry, "
                         "rest of live). Default: chain entries only.")
+    p.add_argument("--ignore-cooldown", action="store_true",
+                   help="Include models currently in cooldown "
+                        "(default: auto-excluded from next-available)")
     p.add_argument("--format", choices=("text", "json"), default="text")
     a = p.parse_args(args)
     excluded = {e.strip().lower() for e in a.exclude.split(",") if e.strip()}
@@ -504,7 +719,8 @@ def cmd_models(args):
     def add(full, source):
         if full not in seen:
             seen.add(full)
-            ordered.append((full, source, is_excluded(full)))
+            ordered.append((full, source, is_excluded(full),
+                            cooldown_remaining(full)))
 
     live = live_provider_models()
     if live is None:
@@ -551,17 +767,35 @@ def cmd_models(args):
         pass  # chain want-ids already added above; nothing ambient offline
     if a.format == "json":
         print(json.dumps(
-            [{"model": m, "source": s, "excluded": e}
-             for m, s, e in ordered], indent=1))
+            [{"model": m, "source": s, "excluded": e,
+              "cooldownSec": c}
+             for m, s, e, c in ordered], indent=1))
     else:
-        for m, s, e in ordered:
+        for m, s, e, c in ordered:
             tag = ""
             if e:
                 tag = ("  [FORBIDDEN-never-list]" if is_never(m, never)
                        else "  [EXHAUSTED-skip]")
+            elif c > 0 and not a.ignore_cooldown:
+                tag = f"  [COOLDOWN retry-in {fmt_dur(c)}]"
             print(f"{m}  source={s}" + tag)
-        avail = [m for m, _s, e in ordered if not e]
-        pins = [m for m, s in config_models()
+        avail = [m for m, _s, e, c in ordered
+                 if not e and (a.ignore_cooldown or c <= 0)]
+        workers = worker_pins()
+        if workers and not a.all:
+            # Runtime worker pool: rotation = subagent_type switch, no restart.
+            excl = [e for e in a.exclude.split(",") if e.strip()]
+            role, model, wait = resolve_next_worker(excl)
+            if role:
+                print(f"next-worker: {role} ({model}) — NO server restart needed "
+                      f"(Task subagent_type={role})")
+            else:
+                soon, soon_m = wait if wait else (0, "?")
+                print(f"next-worker: NONE (all workers in cooldown, "
+                      f"earliest {soon_m} in {fmt_dur(soon)})")
+            return
+        pins = [m for _r, m in workers] or \
+               [m for m, s in config_models()
                 if s.startswith("project:") and s.endswith("agent.build")]
         if avail:
             if pins and not is_excluded(pins[0]) \
@@ -810,15 +1044,18 @@ def cmd_migrate(args):
     import argparse
     p = argparse.ArgumentParser(
         description="Pause a STUCK task and continue the SAME task on the "
-                    "next chain model. Marks registry state=paused-stuck "
-                    "(objective+task preserved), resolves next-available, "
-                    "prints the rotate one-liner + continuation Task prompt. "
+                    "next HEALTHY worker (runtime subagent_type switch — no "
+                    "server restart). Records the dead model in cooldown "
+                    "memory (provider delay when known, else 3h default). "
                     "Never deletes transcripts.")
     p.add_argument("id")
     p.add_argument("--objective", required=True)
     p.add_argument("--task", default="")
     p.add_argument("--exclude", default="",
                    help="Comma-separated exhausted models to skip")
+    p.add_argument("--delay", type=float, default=0,
+                   help="Observed retry/unavailable delay in seconds "
+                        "(used as the dead-model cooldown; default: 3h)")
     p.add_argument("--threshold", type=float, default=STUCK_THRESHOLD_SEC)
     a = p.parse_args(args)
     reg = load_reg()
@@ -826,45 +1063,62 @@ def cmd_migrate(args):
     task = a.task or meta.get("task", "<TASK>")
     objective = a.objective or meta.get("objective", "")
     old_model = meta.get("model", "")
+    old_worker = meta.get("agent", "build")
     excluded = [e for e in a.exclude.split(",") if e.strip()]
     if old_model:
         excluded.append(old_model)
+    # 1. Cooldown memory: provider-known delay wins, else 3h default.
+    cd = a.delay if a.delay and a.delay > 0 else DEFAULT_COOLDOWN_SEC
+    if old_model:
+        h = load_health()
+        h["models"][old_model.lower()] = {
+            "model": old_model, "state": "dead",
+            "deadAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "retryAfter": time.time() + cd,
+            "cooldownSec": cd,
+            "reason": f"stuck {a.id} delay>{a.threshold:g}s",
+        }
+        save_health(h)
     reg["sessions"][a.id] = {
-        "agent": "build", "objective": objective, "task": task,
+        "agent": old_worker, "objective": objective, "task": task,
         "model": old_model, "state": "paused-stuck",
         "lastUsed": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "lastResult": (meta.get("lastResult", "") or "") +
                       f" [PAUSED-STUCK delay>{a.threshold:g}s, migrating]",
         "migrateTo": "",
     }
-    nxt, pin, rotate, _ = _resolve_next_model(excluded)
-    reg["sessions"][a.id]["migrateTo"] = nxt
     save_reg(reg)
     print(f"paused {a.id} (state=paused-stuck, objective={objective})")
-    print(f"old-model: {old_model or '?'}")
-    if nxt:
-        print(f"next-available: {nxt}")
+    print(f"old-worker: {old_worker} old-model: {old_model or '?'} "
+          f"(cooldown {fmt_dur(cd)})")
+    # 2. Runtime rotation: next healthy worker, no restart.
+    role, model, wait = resolve_next_worker(excluded)
+    if role:
+        reg = load_reg()
+        reg["sessions"][a.id]["migrateTo"] = f"{role} ({model})"
+        save_reg(reg)
+        print(f"next-worker: {role} ({model}) — NO server restart needed")
+        print("--- Task call (SAME task, different worker; paste as next Task) ---")
+        print(f"subagent_type={role} (do NOT pass task_id: the old session "
+              f"is stuck on a dead model, re-attaching would wait again)")
+        print(f"description: {objective[:60] or task[:60]}")
+        print(f"prompt: SAME task as paused session {a.id}: {task}. "
+              f"Prior result where available (do not repeat finished work); "
+              f"continue only the remaining gaps. "
+              f"Do not invoke subagents, do the work directly.")
+        print(f"after result: register the returned task_id, then retire {a.id}")
     else:
-        print("next-available: NONE (all candidates exhausted)")
-        print("genuine blocker: no live chain model — report and wait.")
-        return
-    if rotate:
-        print(f"rotate: {rotate}")
-    else:
-        print(f"keep-pin: {pin or nxt} (already points at next-available)")
-    print("--- continuation (SAME task, new agent pin; paste as next Task) ---")
-    print(f"Objective: {objective}")
-    print(f"Task: {task}")
-    print(f"Context to carry: prior session {a.id} is paused-stuck "
-          f"(delay>{a.threshold:g}s); do NOT resume it; start a NEW build "
-          f"session with the same objective, reusing prior result where "
-          f"available, and continue only the remaining gaps. Register the "
-          f"new session, then retire {a.id} after the result is processed.")
+        soon, soon_m = wait if wait else (0, "?")
+        print("next-worker: NONE (all workers in cooldown)")
+        print(f"genuine wait: earliest retry {soon_m} in {fmt_dur(soon)} — "
+              f"do NOT spin fresh Tasks until then; report and wait.")
 
 
 CMDS = {"register": cmd_register, "context": cmd_context, "decide": cmd_decide,
         "retire": cmd_retire, "delete": cmd_delete, "status": cmd_status,
         "children": cmd_children, "list": cmd_list, "version": cmd_version,
+        "health": cmd_health, "mark-dead": cmd_mark_dead,
+        "mark-alive": cmd_mark_alive,
         "stuck": cmd_stuck, "migrate": cmd_migrate,
         "models": cmd_models, "classify-error": cmd_classify_error}
 

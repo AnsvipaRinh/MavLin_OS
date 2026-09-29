@@ -1,5 +1,24 @@
 # DECISIONS
 
+## 2026-09-29 — Protocol v3: worker pool + cooldown memory (fixes duplicate sessions + no agent switch)
+
+**Date:** 2026-09-29
+**Context:** User report after v2 (7ffdf11): behavior improved (new session was at least for continuation-check, not a new task) but two defects remain: (1) still a NEW session instead of sending "Продолжай" into the old unfinished session; (2) 7000s+ wait still does not switch the agent. User spec: the agent must REMEMBER what does not work (dead model + until-when; unknown-until = 3h; retry after expiry), and "Продолжай" must message the OLD session, not spawn a new agent.
+
+**Where what was (honest map — cooldown memory did NOT exist):**
+- v1/v2 had a chain (static order) + manual `--exclude`, but NO timestamps, NO memory: every "Продолжай" re-resolved from scratch, so the same dead model was picked again. Admitted, now built.
+- Resume mechanic (Task `task_id`, verified against upstream `task.ts`: `task_id` reuses the SAME subagent session with prior messages; fresh Task = fresh context; unknown `task_id` silently becomes fresh) was described but the prompt never FORBADE the two wrong paths the model kept taking: re-issuing the initial prompt as fresh, and launching a "checker" Task to decide about continuation. Both are now explicitly FORBIDDEN.
+- Rotation required a config paste + server restart (v1/v2 `rotate:` line) because only ONE worker (`build`, one pin) existed — the orchestrator literally had no other agent to switch to at runtime. That is why 7000s never switched anything.
+
+**Fix (protocol v3):**
+1. Worker pool in `opencode.jsonc`: `build` (untouched primary, chain #4) + hidden `build-b` (chain #1 north-mini) + `build-c` (chain #3 longcat), all `task: deny`, `mode=subagent` + `hidden=true` (no picker/@-menu pollution). Runtime rotation = Task `subagent_type` switch — no restart, no paste. `migrate` prints the exact Task block.
+2. Cooldown memory (`.opencode/sessions/model-health.json`, commands `health`/`mark-dead`/`mark-alive`): dead model + `retryAfter` = provider-known delay (e.g. 7000s observed) else 3h default; `models` auto-skips cooling entries; after expiry the model is eligible again. `migrate` records automatically; `classify-error --record-model` records on QUOTA/CONTEXT; `mark-alive` clears after every terminal success (orchestrator duty).
+3. RESUME vs MIGRATE split in the prompt: idle+incomplete → SAME worker + `task_id` + short "Продолжай" (context preserved — this is the user's required behavior); stuck/dead → NEW session on next healthy worker, NO `task_id` (re-attaching would wait on the same dead model). Single-flight + stuck-gate + no-checker-Tasks kept and hardened.
+4. Orchestrator task allow-list extended to `build-b`/`build-c`; bash allow-list extended to `health`/`mark-dead`/`mark-alive`. Version bumped to 3 (stale servers report STALE-AGENT instead of silently running v2).
+
+**Verified:** py_compile OK; workers resolve `[build, build-b, build-c]`; healthy→`build`, build-dead→`build-b`; `migrate --delay 7000` records 1h56m cooldown + prints `subagent_type=build-b` block; `models` shows `[COOLDOWN retry-in …]` and skips it; test artifacts removed (registry restored, health file deleted).
+**User action REQUIRED once:** restart `opencode serve` / desktop app (agents + new worker definitions load only at server start). After that, no more pastes/restarts for rotation.
+
 ## 2026-09-29 — TASK LIFECYCLE v2: resume-via-task_id + single-flight + stale-agent (fixes duplicate sessions + ignored 8300s)
 
 **Date:** 2026-09-29
