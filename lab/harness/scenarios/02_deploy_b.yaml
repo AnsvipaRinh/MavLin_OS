@@ -1,0 +1,19 @@
+name: 02_deploy_b
+description: Deploy image to slot B while running A
+backends:
+- sim
+- qemu
+fixture:
+  slot_a_image: v1
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+- deploy:
+    slot: B
+    image: v2
+    version: v2
+expected:
+  state: HEALTHY
+  journal_contains:
+  - deploy

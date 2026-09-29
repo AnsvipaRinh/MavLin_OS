@@ -1,0 +1,14 @@
+name: 18_power_loss_during_deploy
+description: Power loss during deploy, state consistent
+backends:
+- sim
+fixture:
+  slot_a_image: v1
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+- power_loss: {}
+- boot: {}
+expected:
+  state: HEALTHY

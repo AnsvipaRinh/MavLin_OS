@@ -1,0 +1,25 @@
+name: 25_stale_journal
+description: Pre-populated stale journal entries are handled gracefully
+backends:
+- sim
+- qemu
+fixture:
+  slot_a_image: v1
+  network: up
+  pre_journal:
+  - ts: '2020-01-01T00:00:00Z'
+    type: stale_entry
+    data:
+      old: true
+  - ts: '2020-01-01T00:00:01Z'
+    type: another_stale
+    data:
+      old: true
+steps:
+- boot:
+    expect_state: HEALTHY
+expected:
+  state: HEALTHY
+  journal_contains:
+  - stale_entry
+  - health_check

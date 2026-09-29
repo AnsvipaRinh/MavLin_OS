@@ -1,0 +1,16 @@
+name: 11_agent_never_starts
+description: Agent disabled, boot skips agent stage
+backends:
+- sim
+- qemu
+fixture:
+  slot_a_image: v1
+  network: up
+  agent: 'off'
+steps:
+- boot: {}
+expected:
+  serial_contains:
+  - AGENT_SKIP
+  serial_not_contains:
+  - AGENT_BOOT

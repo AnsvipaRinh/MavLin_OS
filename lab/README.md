@@ -263,13 +263,50 @@ python3 lab/tests/test_host_store.py       # SQLite store
 python3 lab/tests/test_e2e.py              # Full lifecycle end-to-end
 ```
 
-## Phase 2 Seam
+## Phase 2 — QEMU/OVMF Test Harness
+
+Phase 2 implements a deterministic A/B test harness with 25 failure-injection
+scenarios. See `docs/LAB_HARNESS.md` for full documentation.
+
+### Layout
+
+```
+lab/harness/
+├── harness.py              # driver: scenario loader, step interpreter, assertions
+├── backends/
+│   ├── base.py             # TargetBackend ABC (narrow API)
+│   ├── sim_backend.py      # virtual-target simulation (rootless, always works)
+│   ├── qemu_backend.py     # real QEMU guest boot (virtio-blk + ext4)
+│   └── mac_backend.py      # documented stub for MacBook10,1
+├── fixtures/
+│   ├── builder.py          # builds ESP/DATA/rootfs + initramfs
+│   └── guest_init.py       # guest init (python, PID 1)
+├── scenarios/*.yaml        # 25 declarative scenarios
+├── tests/test_harness.py   # harness tests (110 checks)
+└── run via: python3 lab/harness/harness.py --backend sim --all
+```
+
+### Results
+
+- **Sim backend**: 25/25 scenarios pass (rootless, deterministic)
+- **QEMU backend**: real guest boot works; network-up is a known limitation
+  (virtio-net module fails — virtio_ring not exported in this kernel)
+- **Existing tests**: 158/158 pass (lab/tests/)
+
+### Key Design Decisions
+
+- **Direct kernel boot** for QEMU (EFI stub cmdline patching doesn't produce
+  serial output for kernel 7.2.6-zen in this QEMU/OVMF config — documented)
+- **virtio-blk + ext4** for DATA disk (both built-in; vfat is a module)
+- **Loopback ioctl** for network (no route created — network-up limitation)
+- **Declarative YAML** scenarios separate SCENARIO from TARGET BACKEND
+- **Narrow boot API**: get_boot_state / select_boot / reboot / shutdown
+
+## Phase 2 Seam (remaining)
 
 The following are intentionally deferred:
 
-- **QEMU harness**: `QemuBootBackend.reboot()` will trigger actual QEMU reboot
-- **Failure injection**: scenario scripts in `lab/host/scenarios/`
-- **Full scenarios**: real test/benchmark scripts (not just built-ins)
-- **Mac backend**: `MacBootBackend` with efibootmgr
 - **Chunked deploy**: for large images (currently base64 in single NDJSON message)
 - **Raw stream deploy**: separate SCP channel for image transfer
+- **QEMU network-up**: requires working route creation (virtio-net module issue)
+- **Mac backend**: documented stub, not wired to production bootloader

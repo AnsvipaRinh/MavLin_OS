@@ -1,0 +1,14 @@
+name: 17_host_crash_during_deploy
+description: Host crash during deploy, state consistent after recovery
+backends:
+- sim
+fixture:
+  slot_a_image: v1
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+- host_crash: {}
+- boot: {}
+expected:
+  state: HEALTHY

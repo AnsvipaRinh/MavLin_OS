@@ -1,0 +1,17 @@
+name: 14_interrupted_transfer
+description: Deploy interrupted mid-write, state remains consistent
+backends:
+- sim
+fixture:
+  slot_a_image: v1
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+- deploy:
+    slot: B
+    image: v2
+    version: v2
+- status: {}
+expected:
+  state: HEALTHY

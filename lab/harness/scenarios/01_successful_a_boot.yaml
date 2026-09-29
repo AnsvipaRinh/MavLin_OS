@@ -1,0 +1,23 @@
+name: 01_successful_a_boot
+description: Fresh fixture, boot slot A, agent reaches HEALTHY
+backends:
+- sim
+- qemu
+fixture:
+  slot_a_image: v1
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+expected:
+  serial_contains:
+  - BOOT slot=A
+  - ROOTFS_MOUNT ok
+  - SYSTEMD ok
+  - NETWORK up
+  - AGENT_BOOT state=HEALTHY
+  state: HEALTHY
+  active_slot: A
+  journal_contains:
+  - boot
+  - health_check

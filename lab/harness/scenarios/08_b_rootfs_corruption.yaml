@@ -1,0 +1,19 @@
+name: 08_b_rootfs_corruption
+description: Boot B with corrupted rootfs fails
+backends:
+- sim
+- qemu
+fixture:
+  slot_a_image: v1
+  slot_b_image: v2
+  network: up
+  rootfs_b_ok: false
+steps:
+- boot:
+    expect_state: HEALTHY
+- select_boot: B
+- reboot: {}
+expected:
+  serial_contains:
+  - BOOT slot=B
+  - ROOTFS_FAIL

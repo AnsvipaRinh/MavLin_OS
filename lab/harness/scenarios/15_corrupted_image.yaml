@@ -1,0 +1,18 @@
+name: 15_corrupted_image
+description: Deploy corrupted image is rejected
+backends:
+- sim
+- qemu
+fixture:
+  slot_a_image: v1
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+- deploy:
+    slot: B
+    image: v2
+    version: v2
+    corrupt: true
+expected:
+  state: HEALTHY

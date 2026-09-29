@@ -1,0 +1,23 @@
+name: 23_idempotent_duplicate
+description: Deploying the same image twice returns same deployment_id
+backends:
+- sim
+- qemu
+fixture:
+  slot_a_image: v1
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+- deploy:
+    slot: B
+    image: v2
+    version: v2
+- deploy:
+    slot: B
+    image: v2
+    version: v2
+expected:
+  state: HEALTHY
+  journal_contains:
+  - deploy

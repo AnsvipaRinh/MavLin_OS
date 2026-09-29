@@ -1,0 +1,24 @@
+name: 04_b_health_pass
+description: B boots and health check passes
+backends:
+- sim
+- qemu
+fixture:
+  slot_a_image: v1
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+- deploy:
+    slot: B
+    image: v2
+    version: v2
+- select_boot: B
+- reboot: {}
+expected:
+  serial_contains:
+  - BOOT slot=B
+  - AGENT_BOOT state=HEALTHY
+  state: HEALTHY
+  journal_contains:
+  - health_check

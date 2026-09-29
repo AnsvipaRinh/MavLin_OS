@@ -1,0 +1,21 @@
+name: 05_b_commit
+description: B boots healthy and commits
+backends:
+- sim
+- qemu
+fixture:
+  slot_a_image: v1
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+- deploy:
+    slot: B
+    image: v2
+    version: v2
+- select_boot: B
+- reboot: {}
+- commit: {}
+expected:
+  state: COMMITTED
+  active_slot: B

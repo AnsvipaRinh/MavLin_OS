@@ -1,0 +1,20 @@
+name: 10_b_network_fail
+fixture:
+  slot_a_image: v1
+  slot_b_image: v2
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+- inject: network_down
+- select_boot: B
+- reboot: {}
+expected:
+  serial_contains:
+  - BOOT slot=B
+  - NETWORK down
+  - AGENT_BOOT state=ROLLBACK
+  state: ROLLBACK
+backends:
+- sim
+- qemu

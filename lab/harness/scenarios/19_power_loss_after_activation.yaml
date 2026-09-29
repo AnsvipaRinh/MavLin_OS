@@ -1,0 +1,18 @@
+name: 19_power_loss_after_activation
+description: Power loss after activation before commit, state HEALTHY not COMMITTED
+backends:
+- sim
+fixture:
+  slot_a_image: v1
+  slot_b_image: v2
+  network: up
+steps:
+- boot:
+    expect_state: HEALTHY
+- select_boot: B
+- reboot: {}
+- power_loss: {}
+- boot: {}
+expected:
+  state: HEALTHY
+  active_slot: B
