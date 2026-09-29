@@ -9,6 +9,13 @@ permission:
     "git status*": allow
     "git log*": allow
     "git diff*": allow
+    "scripts/session-reuse.py status*": allow
+    "scripts/session-reuse.py children*": allow
+    "scripts/session-reuse.py context*": allow
+    "scripts/session-reuse.py decide*": allow
+    "scripts/session-reuse.py list*": allow
+    "scripts/session-reuse.py models*": allow
+    "scripts/session-reuse.py register*": allow
   task:
     "*": deny
     "build": allow
