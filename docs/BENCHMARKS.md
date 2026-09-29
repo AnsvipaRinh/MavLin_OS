@@ -625,3 +625,81 @@ C1-P1 C3).
 - Bench: 31 scenarios, 5 skipped (GUI-tier), 0 failed.
 - Power baseline untouched; no new daemons (cache is in-process JSON,
   event-driven invalidation).
+
+## TRACK 1/7 — mv-dictionary WebKit2 memory: leak vs steady-state (2026-09-29)
+
+**Question (from C1-F / axis T):** mv-dictionary measured 175 MB with
+WebKit2 — 2× the next-heaviest app. Leak, steady-state, or artifact?
+
+**Method:** `scripts/bench-mv-dictionary.py` — full process-tree
+(RSS/PSS/fds) snapshots of the real app on Xvfb, fresh HOME per run,
+synchronized GO-protocol between driver and sampler (no sampling
+race). Roles classified by executable path (gst-plugin-scanner /
+bwrap / glycin helpers excluded from "web"). 80 sequential lookups
+per growth run; 20 launch/close cycles per plateau run.
+
+### Verdict: steady-state structural cost + per-search growth, both real — NOT an artifact, NOT an unbounded leak
+
+| Configuration | Baseline (no interaction) | After 80 lookups | Web procs | Slope | Tail behavior |
+|---|---|---|---|---|---|
+| before (load-all-tabs) | 485 MB | **1766 MB** | 4 | +6.2 MB/search | monotonic GROWTH |
+| after (load-visible-tab) | 482 MB | **657 MB** | 1 | +0.61 MB/search | PLATEAU ~650 MB, tail deltas ≈ 0 (−3.0..+0.3 MB) |
+| local mode (no webkit2gtk) | 123 MB | — | 0 | — | — |
+
+- **Not a measurement artifact:** page cache never appears in RSS; the
+  485 MB baseline is genuine process memory (UI 211 + web 226 +
+  network 46 MB). PSS ≈ 290 MB vs RSS 485 MB at baseline → ~40% is
+  shared file-backed mappings (WebKit code, fonts) — real but shared.
+- **Not an unbounded leak:** growth decelerates (6.2 → ~0 MB/search
+  tail, oscillating deltas) = allocator/cache retention approaching
+  plateau, not a linear leak. The single visible tab's web process
+  plateaus at ~400 MB and holds (tail deltas ≈ 0).
+- **The 175 MB C1-F number was a partial lower bound** (single process,
+  pre-init); the honest full-tree baseline is 485 MB.
+
+### Root cause of the growth
+
+`load_definitions()` loaded **all 4 tabs on every lookup** — 3 remote
+pages (Wiktionary/thesaurus.com/Wikipedia) + 1 local — even though
+only one tab is visible. webkit2gtk ≥ 2.26 forces process-per-view
+(site isolation): `set_process_model(SHARED_SECONDARY_PROCESS)` and
+`set_web_process_count_limit()` are **deprecated no-ops since 2.26**
+(verified against webkit2gtk 2.52.6 docs + runtime readback). So each
+used tab = 1 permanent WebKitWebProcess (~150–250 MB each), and 4
+concurrent page pipelines accumulated ~6 MB/search with no reclamation.
+
+### Fix (process-model tweaks available to embedders)
+
+1. **Load only the visible tab** on search; load a tab on first
+   activation (`notify::visible-child`). Remote tabs still render —
+   they load when selected (macOS Dictionary behaves the same way).
+   Cuts 80-lookup steady state 1766 → 657 MB (−63%), web processes
+   4 → 1, and flattens the growth to a plateau.
+2. **Web-RSS budget fallback** (`MV_DICT_WEB_BUDGET_MB`, default 500):
+   one-shot /proc-based check of WebKitWebProcess children after each
+   lookup; over budget → one-time InfoBar offering "Disable online
+   tabs" (replaces dict/thesaurus/wikipedia views with the existing
+   LocalView fallback; Apple tab and all offline sources keep working).
+   Bounds the all-tabs-used case (~1.6 GB, 4 processes) instead of
+   letting it grow unbounded.
+3. **Rejected with evidence:** `set_cache_model(DOCUMENT_VIEWER)` —
+   measured on the load-all prototype with the fixed harness:
+   485 → 1291 MB over 40 lookups (4 web procs, +4.4 MB/search) vs
+   ~1260 MB for the default cache model at the same point — no
+   improvement (slightly worse). The growth is per-process page
+   accumulation, not HTTP cache. Disk-cache / website-data-manager
+   dir changes: no RSS effect (page cache is not in RSS); not adopted.
+
+### Suite / gate
+
+- `scripts/test-mv-dictionary.py`: **84 passed, 0 failed** (was 70;
+  +14 new: load-only-visible, tab-switch loading, budget warning
+  show/hide, fallback view replacement, keep-online path). WebKit-absent
+  (local-mode) paths stay green.
+- No new daemons, no polling (budget check is one-shot per lookup,
+  /proc reads only); power baseline untouched.
+- Residual: single web process ~400 MB after use (genuine page
+  content — Wiktionary/Wikipedia are heavy pages); all-tabs-used case
+  still spawns 4 processes by design (process-per-view is forced) —
+  bounded by the budget fallback. Hardware validation: real page
+  rendering at 2304×1440, long-session (hours) growth on target.

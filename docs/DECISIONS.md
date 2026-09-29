@@ -1838,3 +1838,50 @@ beyond the four items.
 **Measurement:** see `docs/BENCHMARKS.md` (C1-P1 section) and
 `docs/benchmarks/results-2026-09-29-c1-p1.json`. All numbers are
 host-relative deltas, NOT MacBook predictions.
+
+## TRACK 1/7 — mv-dictionary WebKit2 memory (2026-09-29)
+
+**Finding 1 — process-control APIs are dead in webkit2gtk ≥ 2.26.**
+`webkit_web_context_set_process_model(SHARED_SECONDARY_PROCESS)` and
+`webkit_web_context_set_web_process_count_limit()` are deprecated
+no-ops since 2.26 (site isolation is forced; verified against
+webkit2gtk 2.52.6 docs AND runtime readback: set then get returns the
+old value). The only embedders' lever on web-process count is **how
+many WebViews load content**. Decision: control WebView *loading*, not
+the process model.
+
+**Finding 2 — the 175 MB C1-F number was a partial lower bound.**
+Full process-tree measurement (RSS/PSS/fds, synchronized sampler):
+baseline 485 MB (UI 211 + web 226 + network 46), PSS 290 MB (~40%
+shared file-backed). Page cache is not in RSS, so the footprint is
+genuine. After 80 lookups the load-all-tabs app reached 1766 MB across
+4 web processes (+6.2 MB/search, decelerating — allocator/cache
+retention, not an unbounded leak).
+
+**Decision 1 — load only the visible tab; load others on first
+activation.** `load_definitions()` no longer loads all 4 tabs per
+lookup (3 remote pages + 1 local); it loads the visible tab, and
+`notify::visible-child` loads a tab when first selected. Remote tabs
+still render — they load when the user selects them (same model as
+macOS Dictionary). Result: 80-lookup steady state 1766 → 657 MB,
+web processes 4 → 1, growth flattened to a plateau (tail deltas ≈ 0).
+
+**Decision 2 — web-RSS budget fallback instead of polling.**
+One-shot /proc-based check of WebKitWebProcess children after each
+lookup (no timer, no daemon — power rules). Over budget
+(`MV_DICT_WEB_BUDGET_MB`, default 500) → one-time InfoBar offering
+"Disable online tabs": replaces dict/thesaurus/wikipedia views with
+the existing LocalView fallback. Apple tab + all offline sources keep
+working. Bounds the all-tabs-used case (~1.6 GB, 4 processes —
+process-per-view is forced, so this is the worst case by design).
+
+**Rejected — cache-model / disk-cache changes.**
+`set_cache_model(DOCUMENT_VIEWER)` measured slightly WORSE (1291 vs
+~1260 MB at 40 lookups, load-all prototype): the growth is per-process
+page accumulation, not HTTP cache. Disk cache / website-data-manager
+dirs have no RSS effect (page cache is not process RSS). Not adopted.
+
+**Residual (documented, not hidden):** single web process ~400 MB
+after use (genuine page content); all-tabs-used still spawns 4
+processes (forced) — bounded by the budget fallback. Hardware
+validation: real rendering at 2304×1440, multi-hour session growth.

@@ -944,3 +944,15 @@
 - [x] QEMU+OVMF: BLOCKED — OVMF firmware runs ("Guest has not initialized the display (yet)") but does not detect bootable device from ISO CD-ROM; tried: -vga virtio, -vga std, direct kernel boot, EFI disk image, USB mass storage — all same result. Environment limitation (container lacks proper UEFI boot device emulation), NOT an ISO defect. ISO structure is valid per xorriso inspection.
 - [x] Note: first build attempt failed (tmpfs /tmp 3.8G 100% full → "Write failed" on kernel module extraction); fixed by moving work dir to /home/builder/mv-iso-work (937G free)
 - [x] Note: corrupted mavericks-* packages in /var/cache/pacman/pkg from first failed attempt; cleared with sudo rm, rebuild succeeded
+
+### TRACK 1/7 — mv-dictionary WebKit2 memory: leak vs steady-state (2026-09-29, без железа)
+- [x] Новый инструмент: `scripts/bench-mv-dictionary.py` — полное процесс-дерево (RSS/PSS/fds) реального приложения на Xvfb, свежий HOME на прогон, синхронизированный GO-протокол между драйвером и сэмплером (без гонок), роли по исполняемому пути (gst-plugin-scanner/bwrap/glycin не считаются web)
+- [x] Вердикт: НЕ артефакт и НЕ неограниченный leak — структурный steady-state + декelerирующий growth. Baseline 485 MB (UI 211 + web 226 + network 46; PSS 290 — ~40% shared file-backed). После 80 поисков load-all-вариант: 1766 MB / 4 web-процесса / +6.2 MB за поиск (монотонный GROWTH). C1-F 175 MB — частичная нижняя граница (один процесс, до инициализации)
+- [x] Корневая причина: `load_definitions()` грузил ВСЕ 4 вкладки на каждый поиск (3 remote + 1 local) — process-per-view форсирован с webkit2gtk 2.26 (`set_process_model(SHARED_SECONDARY_PROCESS)` и `set_web_process_count_limit()` — deprecated no-ops, проверено документацией 2.52.6 + runtime readback). Каждая использованная вкладка = 1 постоянный WebKitWebProcess (~150–250 MB)
+- [x] Фикс: грузить только видимую вкладку + загрузка при первой активации (`notify::visible-child`). Remote-вкладки рендерятся при выборе (как в macOS Dictionary). Результат: 80 поисков → 657 MB (−63%), 1 web-процесс, PLATEAU (tail deltas ≈ 0)
+- [x] Fallback: web-RSS бюджет (`MV_DICT_WEB_BUDGET_MB`, default 500) — одноразовая /proc-проверка после каждого поиска; при превышении → InfoBar "Disable online tabs" → LocalView для dict/thesaurus/wikipedia (Apple и offline-источники работают). Ограничивает all-tabs-случай (~1.6 GB, 4 процесса)
+- [x] Отклонено с замерами: `set_cache_model(DOCUMENT_VIEWER)` — 1291 vs ~1260 MB на 40 поисках (load-all прототип), growth от аккумуляции страниц в процессах, не от HTTP-кэша
+- [x] Тесты: `scripts/test-mv-dictionary.py` — 84 passed, 0 failed (было 70; +14: load-only-visible, tab-switch loading, budget warning, fallback replacement, keep-online). WebKit-absent пути зелёные
+- [x] Без демонов и polling (budget check — one-shot /proc); power baseline не тронут
+- [x] Residual: один web-процесс ~400 MB после использования (реальный контент страниц); all-tabs-случай — 4 процесса (форсировано), ограничен budget-fallback. HW: рендеринг на 2304×1440, многочасовая сессия
+- [x] Подробности: `docs/BENCHMARKS.md` (TRACK 1/7), `docs/DECISIONS.md`, `docs/APPS.md` (Dictionary)
