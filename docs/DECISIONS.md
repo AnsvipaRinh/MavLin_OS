@@ -1,5 +1,23 @@
 # DECISIONS
 
+## 2026-09-29 — STUCK-TASK FAILOVER: 600s watchdog + pause/migrate (fixes 8800s hang)
+
+**Date:** 2026-09-29
+**Context:** User report: a sub-agent hung with "agent unavailable" retry backoff ~8800s; the Orchestrator did nothing instead of replacing the agent in the sub-agent sessions.
+
+**A — Why it was ignored (three compounding causes, all verified in repo):**
+1. No watchdog parsed the delay. `scripts/session-reuse.py status` dumped raw `/session/status` JSON; `decide` treated ANY non-idle session as `WAIT` with no age/delay check, so a retry-backoff session waits forever.
+2. No threshold existed. MODEL FALLBACK only triggered on TERMINAL Task failure text via `classify-error` (quota/context). A provider retry never produces a terminal failure — the Task tool just blocks — so fallback never fired.
+3. `classify-error` (plus `retire`/`delete`) was documented in the fallback procedure but missing from the orchestrator's bash allow-list — the Orchestrator was technically denied the very commands the procedure told it to run.
+
+**B — Implemented mechanics (user spec: >600s timeout → pause task, change agent, continue SAME task):**
+1. `scripts/session-reuse.py stuck [--threshold 600]` — stuck-task watchdog. Parses live `/session/status` retry/unavailable delays across all known shapes (explicit `*Sec` fields, `*Ms` fields, absolute retry timestamps, nested dicts, free-form "8800 seconds" / "10 minutes" text; text numbers only trusted when waiting-words present) + falls back to registry `lastUsed` age for unparseable busy sessions. Exit 2 = STUCK present, exit 0 = clean. Pure `extract_delay_sec()` is unit-testable without a server (verified: 8800s text, retryAfterSec, nextRetryMs, "10 minutes", idle/busy-None).
+2. `scripts/session-reuse.py migrate <id> --objective <O>` — pause + rotate + SAME-task continuation. Marks registry `state=paused-stuck` (objective+task preserved, transcript never deleted), resolves next chain model via the shared `_resolve_next_model()` (same chain logic as `models`), prints `rotate:` sed one-liner + `keep-pin:` when no rotation needed + a ready-to-paste continuation prompt (SAME objective/task, remaining gaps only). `next-available: NONE` = the only genuine stop-and-wait in this path.
+3. `.opencode/agents/orchestrator.md` — new STUCK-TASK FAILOVER section (detect via `stuck`, failover via `migrate`, apply `rotate:` + server restart, re-issue SAME task as NEW build session, retire stuck id only after result); bash allow-list extended with `classify-error`, `retire`, `delete`, `stuck`, `migrate`.
+4. `AGENTS.md` §14.3 (blocker policy: >600s retry = failover, not waiting) + §14.5.1 cheatsheet (`stuck`/`migrate` lines).
+
+**Power baseline:** untouched (orchestration-plane only, no daemons/timers).
+
 ## 2026-09-29 — C2 P1 implementation: Firefox profiles.ini, package removal verify-first, shared .desktop cache
 
 **Date:** 2026-09-29

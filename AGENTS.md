@@ -1040,6 +1040,15 @@ decomposition, or implementation Task), NOT stop.
 Single-model quota/rate-limit exhaustion is NOT a blocker — follow
 MODEL FALLBACK in `.opencode/agents/orchestrator.md` (chain:
 `.opencode/model-fallback.json`, resolver: `scripts/session-reuse.py models`).
+A sub-agent stuck in provider retry/unavailable backoff longer than 600s
+(10 min, e.g. the observed 8800s "agent unavailable" hang) is NOT waited
+out — it is a STUCK-TASK failover: pause the task in the registry
+(`state=paused-stuck`, same objective+task preserved) and continue the SAME
+task on the next chain agent via `scripts/session-reuse.py stuck` (detect)
+→ `scripts/session-reuse.py migrate <id> --objective <O>` (pause + rotate
+one-liner + continuation prompt). Full procedure: STUCK-TASK FAILOVER in
+`.opencode/agents/orchestrator.md`. `migrate` printing `next-available: NONE`
+is the only genuine stop-and-wait in this path.
 
 ### 14.4 Manual role use (preserved)
 
@@ -1102,6 +1111,8 @@ scripts/session-reuse.py status                    # all sessions live state
 scripts/session-reuse.py context <session-id>      # used_input, limit, REUSABLE/RETIRE
 scripts/session-reuse.py decide <id> --objective <O> --agent build  # RESUME or NEW
 scripts/session-reuse.py register <id> --agent build --objective <O> --task "<T>"  # track new
+scripts/session-reuse.py stuck --threshold 600     # STUCK watchdog (>600s retry = migrate, exit 2)
+scripts/session-reuse.py migrate <id> --objective <O>  # pause stuck + rotate pin + SAME-task prompt
 ```
 
 ### 14.6 Agent visibility (why global symlinks exist)

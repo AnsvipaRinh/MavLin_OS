@@ -16,6 +16,11 @@ permission:
     "scripts/session-reuse.py list*": allow
     "scripts/session-reuse.py models*": allow
     "scripts/session-reuse.py register*": allow
+    "scripts/session-reuse.py classify-error*": allow
+    "scripts/session-reuse.py retire*": allow
+    "scripts/session-reuse.py delete*": allow
+    "scripts/session-reuse.py stuck*": allow
+    "scripts/session-reuse.py migrate*": allow
   task:
     "*": deny
     "build": allow
@@ -105,5 +110,36 @@ SESSION REUSE (registry: `.opencode/sessions/registry.json`, helper: `scripts/se
 - NEW session when: objective changed (Calendar → Disk Utility), verdict RETIRE (≤50%), error state, or context unverifiable.
 - DELETE/retire sessions that finished their objective, one-shot research, or hit RETIRE — only after the result is received and processed. Never accumulate dead sessions.
 - Live signals (all real, OpenCode 1.18.x): `status` (idle/busy/retry), `children <id>` (sub-agent sessions via parentID), per-message tokens, DELETE /session/:id, plugin `event` bus. No transcript is stored in the registry — the runtime owns it.
+
+STUCK-TASK FAILOVER (mandatory, 2026-09-29 — fixes the "8800s agent unavailable" hang):
+
+- Root cause it fixes: the old loop only reacted to TERMINAL Task failures
+  (via `classify-error`) and treated any non-idle session as WAIT in `decide`.
+  A sub-agent stuck in provider retry/backoff (e.g. "agent unavailable,
+  retry in 8800s") never produces a terminal failure — the Task tool blocks,
+  `decide` prints WAIT forever, and nothing rotates the model. That is why
+  the 8800s hang was ignored: no watchdog parsed the delay, no threshold
+  existed, and `classify-error` was not even in the bash allow-list.
+- Rule: any busy/retry sub-agent session whose live retry/unavailable delay
+  exceeds 600s (10 min) is STUCK. Never wait it out — pause it and continue
+  the SAME task on the next chain agent.
+- Watchdog cadence: before launching a new Task AND whenever a Task seems
+  hung (no result, UI shows retry/unavailable with seconds), run:
+  `scripts/session-reuse.py stuck --threshold 600` (exit 2 = STUCK present).
+  It parses all known delay shapes (retryAfterSec, nextRetryMs, absolute
+  retry timestamps, free-form "8800 seconds" text) so UI wording changes do
+  not silently disable it; unparseable-but-old busy sessions (>600s since
+  registry lastUsed) also count as STUCK.
+- Failover: for each STUCK session run:
+  `scripts/session-reuse.py migrate <id> --objective "<O>" [--task "<T>"]`
+  This marks the registry `state=paused-stuck` (objective+task preserved,
+  transcript untouched), resolves next-available along the chain (same
+  resolver as `models`), and prints the `rotate:` one-liner + continuation
+  prompt for the SAME task. Apply the `rotate:` line to `opencode.jsonc`,
+  restart the server, then issue the printed continuation as a NEW build
+  Task (same objective, remaining gaps only — never repeat finished work),
+  register it, and retire the stuck id only after the result is processed.
+- `migrate` printing `next-available: NONE` is the ONLY genuine stop-and-wait
+  in this path (all chain models exhausted) — report it as the blocker.
 
 DEFINITION OF DONE per objective: AGENTS.md sections 13.3/13.6. Never mark IMPLEMENTED for a mere .desktop rename or an existing binary.

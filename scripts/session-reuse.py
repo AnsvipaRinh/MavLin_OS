@@ -13,6 +13,17 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
   status                    live status of all sessions (idle/busy/retry)
   children <id>             list child (sub-agent) sessions
   list                      registry contents
+  stuck [--threshold 600] [--format text|json]
+                            stuck-task watchdog: parse live /session/status
+                            retry/unavailable delays; any non-idle session
+                            with delay > threshold (default 600s = 10min)
+                            is STUCK -> must be paused + migrated.
+  migrate <id> --objective O [--task T] [--exclude M,...] [--threshold 600]
+                            pause a STUCK task in the registry
+                            (state=paused-stuck), resolve the next chain
+                            model, and print the resume plan for the SAME
+                            task on the new agent pin (rotate: one-liner +
+                            continuation prompt). Never deletes transcripts.
   models [--exclude M,...] [--all] [--format text|json]
                             ordered fallback candidates, CHAIN-ONLY by default
                             (user chain matched live vs GET /provider).
@@ -34,11 +45,19 @@ blocker. Resolve next model via `models --exclude <dead,...>`, ping it with a
 trivial Task, continue the SAME objective there (RESUME if `decide` allows,
 else NEW session carrying prior result + remaining gaps). Chain order lives in
 .opencode/model-fallback.json, never in this script.
+
+Stuck-task failover (2026-09-29): a provider retry/unavailable backoff longer
+than STUCK_THRESHOLD_SEC (default 600 = 10 min, e.g. the observed 8800s
+"agent unavailable" hang) is never waited out. The task is paused in the
+registry (state=paused-stuck, same objective+task preserved) and continued
+on the next chain model: `stuck` detects, `migrate` pauses + prints the
+rotate one-liner + continuation prompt for the SAME task.
 """
 import json
 import os
 import re
 import sys
+import time
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
@@ -541,9 +560,294 @@ def cmd_models(args):
             print("next-available: NONE (all candidates exhausted)")
 
 
+# ---- Stuck-task watchdog + failover (2026-09-29; threshold default 600s) ----
+
+STUCK_THRESHOLD_SEC = 600
+
+DELAY_TEXT_PATTERNS = [
+    # "agent unavailable ... 8800 seconds", "retry in 8800s", "retry after 600 sec"
+    (re.compile(r"(\d[\d,]*)\s*(?:seconds?|secs?|s)\b", re.I), 1.0),
+    (re.compile(r"(\d[\d,]*)\s*(?:minutes?|mins?|m)\b", re.I), 60.0),
+    (re.compile(r"(\d[\d,]*)\s*(?:hours?|hrs?|h)\b", re.I), 3600.0),
+]
+
+
+def _num(s):
+    try:
+        return float(str(s).replace(",", "").strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def extract_delay_sec(entry):
+    """Best-effort retry/unavailable delay in seconds from a status entry.
+
+    Handles every shape observed or plausible from GET /session/status
+    (flat int/str fields, nested dicts, ms timestamps, free-form error
+    text like "agent unavailable for 8800 seconds"). Returns float or None.
+    Pure function — unit-testable without a live server.
+    """
+    if entry is None:
+        return None
+    if isinstance(entry, (int, float)):
+        v = float(entry)
+        return v if v > 0 else None
+    if isinstance(entry, str):
+        return extract_delay_sec({"error": entry})
+    if not isinstance(entry, dict):
+        return None
+    # 1. Explicit second-fields (most reliable).
+    for key in ("delaySec", "delay_sec", "retryAfterSec", "retry_after_sec",
+                "retryAfter", "retry_after", "retryInSec", "retry_in_sec",
+                "retryIn", "retry_in", "unavailableSec", "unavailable_sec",
+                "waitSec", "wait_sec", "backoffSec", "backoff_sec",
+                "seconds", "secs", "delay", "wait"):
+        if key in entry:
+            v = _num(entry[key])
+            if v is not None and v > 0:
+                # Heuristic: values > 1e6 are ms-epoch, not delays; skip here.
+                if v < 1000000:
+                    return float(v)
+    # 2. Millisecond fields.
+    for key in ("retryAfterMs", "retry_after_ms", "nextRetryMs",
+                "next_retry_ms", "retryInMs", "retry_in_ms", "delayMs",
+                "delay_ms", "waitMs", "wait_ms", "backoffMs", "backoff_ms"):
+        if key in entry:
+            v = _num(entry[key])
+            if v is not None and v > 0 and v < 1000000000000:
+                return float(v) / 1000.0
+    # 3. Absolute timestamps (ms or s epoch): delay = ts - now.
+    now_ms = time.time() * 1000.0
+    for key in ("nextRetry", "next_retry", "retryAt", "retry_at",
+                "retryTime", "retry_time", "availableAt", "available_at",
+                "nextAttempt", "next_attempt", "resetAt", "reset_at"):
+        if key in entry:
+            v = _num(entry[key])
+            if v is not None and v > 0:
+                ts_ms = v * 1000.0 if v < 10000000000 else v  # s vs ms epoch
+                d = (ts_ms - now_ms) / 1000.0
+                if d > 0:
+                    return float(d)
+    # 4. Nested dicts (one level): {"retry": {"afterSec": 8800}, ...}.
+    for key in ("retry", "status", "error", "detail", "details", "info"):
+        sub = entry.get(key)
+        if isinstance(sub, dict):
+            d = extract_delay_sec(sub)
+            if d is not None:
+                return d
+    # 5. Free-form text: scan error/message/type strings for N seconds.
+    texts = []
+    for key in ("error", "message", "reason", "type", "statusText",
+                "status_text", "description", "title"):
+        v = entry.get(key)
+        if isinstance(v, str) and v.strip():
+            texts.append(v)
+    # Also scan the whole JSON dump as a last resort (catches unknown keys).
+    blob = " ".join(texts)
+    if not blob:
+        try:
+            blob = json.dumps(entry)[:2000]
+        except (TypeError, ValueError):
+            blob = ""
+    best = None
+    low = blob.lower()
+    # Only trust time-like numbers when the text actually talks about
+    # waiting/retry/unavailability — avoids mistaking attempt counts.
+    if any(w in low for w in ("retry", "unavailable", "available in",
+                              "wait", "backoff", "rate", "quota", "limit",
+                              "try again", "seconds", "minutes", "hours")):
+        for pat, mult in DELAY_TEXT_PATTERNS:
+            for m in pat.finditer(blob):
+                v = _num(m.group(1))
+                if v is not None and v > 0:
+                    cand = v * mult
+                    # Ignore epoch-looking numbers; keep plausible backoffs.
+                    if 1 <= cand <= 7 * 24 * 3600:
+                        best = cand if best is None else max(best, cand)
+    return best
+
+
+def _busy_age_sec(meta):
+    """Seconds since registry lastUsed (None when unparseable)."""
+    try:
+        ts = datetime.fromisoformat(str(meta.get("lastUsed", "")).replace(
+            "Z", "+00:00"))
+        return max(0.0, (datetime.now(timezone.utc) - ts).total_seconds())
+    except (ValueError, TypeError):
+        return None
+
+
+def cmd_stuck(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Stuck-task watchdog: list non-idle sessions whose "
+                    "retry/unavailable delay exceeds --threshold seconds "
+                    f"(default {STUCK_THRESHOLD_SEC}). Exit 0 when clean, "
+                    "exit 2 when at least one STUCK session exists.")
+    p.add_argument("--threshold", type=float, default=STUCK_THRESHOLD_SEC,
+                   help="Delay in seconds above which a busy/retry session "
+                        "counts as STUCK (default 600 = 10 min)")
+    p.add_argument("--format", choices=("text", "json"), default="text")
+    a = p.parse_args(args)
+    try:
+        st = api("GET", "/session/status") or {}
+    except SystemExit as e:
+        print(f"status unreachable: {e}")
+        raise SystemExit(3)
+    reg = {}
+    try:
+        reg = load_reg().get("sessions", {})
+    except (OSError, ValueError):
+        pass
+    rows = []
+    for sid, entry in (st.items() if isinstance(st, dict) else []):
+        etype = entry.get("type", "?") if isinstance(entry, dict) else "?"
+        if etype == "idle":
+            continue
+        delay = extract_delay_sec(entry) if isinstance(entry, dict) else None
+        meta = reg.get(sid, {})
+        age = _busy_age_sec(meta) if meta else None
+        stuck = (delay is not None and delay > a.threshold) or \
+                (delay is None and age is not None and age > a.threshold
+                 and etype in ("busy", "retry", "running", "waiting"))
+        rows.append({"session": sid, "status": etype,
+                     "delaySec": delay, "busyAgeSec": age,
+                     "objective": meta.get("objective", ""),
+                     "verdict": "STUCK" if stuck else "WAIT"})
+    stuck_rows = [r for r in rows if r["verdict"] == "STUCK"]
+    if a.format == "json":
+        print(json.dumps({"threshold": a.threshold, "sessions": rows,
+                          "stuck": len(stuck_rows)}, indent=1))
+    else:
+        if not rows:
+            print(f"OK (all sessions idle, threshold={a.threshold:g}s)")
+        for r in rows:
+            d = f"{r['delaySec']:.0f}s" if r["delaySec"] is not None else "?"
+            age = f"{r['busyAgeSec']:.0f}s" if r["busyAgeSec"] is not None else "?"
+            print(f"{r['verdict']} {r['session']} status={r['status']} "
+                  f"delay={d} busyAge={age} objective={r['objective'] or '?'}")
+            if r["verdict"] == "STUCK":
+                print(f"  -> migrate: scripts/session-reuse.py migrate "
+                      f"{r['session']} --objective \"{r['objective'] or '<OBJECTIVE>'}\"")
+        if stuck_rows and not rows == stuck_rows:
+            pass
+    raise SystemExit(2 if stuck_rows else 0)
+
+
+def _resolve_next_model(excluded):
+    """Shared chain resolution returning (avail, pins, rotate_line)."""
+    excluded_l = {e.strip().lower() for e in excluded if e.strip()}
+    never = load_never()
+
+    def is_excluded(full):
+        low = full.lower()
+        return low in excluded_l or low.split("/", 1)[-1] in excluded_l \
+            or is_never(full, never)
+
+    ordered, seen = [], set()
+
+    def add(full, source):
+        if full not in seen:
+            seen.add(full)
+            ordered.append((full, source, is_excluded(full)))
+
+    live = live_provider_models()
+    live_index = {}
+    if live is not None:
+        for pid, mid in live:
+            live_index.setdefault((pid, mid.lower()), f"{pid}/{mid}")
+    for entry in sorted(load_chain(), key=lambda e: e.get("order", 99)):
+        prov = (entry.get("provider") or "").lower()
+        match = (entry.get("match") or "").lower()
+        want = entry.get("want") or ""
+        resolved = ""
+        if live is not None:
+            for (pid, mid_low), full in sorted(live_index.items()):
+                if prov and pid.lower() != prov:
+                    continue
+                if match and match in mid_low:
+                    resolved = full
+                    if want and full.lower() == want.lower():
+                        break
+            if not resolved and want:
+                wl = want.lower()
+                for (_pid, _mid), full in sorted(live_index.items()):
+                    if full.lower() == wl:
+                        resolved = full
+                        break
+        add(resolved or want, f"fallback-chain:{entry.get('order', '?')}")
+    avail = [m for m, _s, e in ordered if not e]
+    pins = [m for m, s in config_models()
+            if s.startswith("project:") and s.endswith("agent.build")]
+    rotate = ""
+    if avail and pins and pins[0].lower() != avail[0].lower():
+        rotate = (f"sed -i 's#\"model\": \"{pins[0]}\""
+                  f"#\"model\": \"{avail[0]}\"#' opencode.jsonc"
+                  "  # then restart server (no hot-reload)")
+    return (avail[0] if avail else "", pins[0] if pins else "", rotate,
+            [m for m, _s, _e in ordered])
+
+
+def cmd_migrate(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Pause a STUCK task and continue the SAME task on the "
+                    "next chain model. Marks registry state=paused-stuck "
+                    "(objective+task preserved), resolves next-available, "
+                    "prints the rotate one-liner + continuation Task prompt. "
+                    "Never deletes transcripts.")
+    p.add_argument("id")
+    p.add_argument("--objective", required=True)
+    p.add_argument("--task", default="")
+    p.add_argument("--exclude", default="",
+                   help="Comma-separated exhausted models to skip")
+    p.add_argument("--threshold", type=float, default=STUCK_THRESHOLD_SEC)
+    a = p.parse_args(args)
+    reg = load_reg()
+    meta = reg["sessions"].get(a.id, {})
+    task = a.task or meta.get("task", "<TASK>")
+    objective = a.objective or meta.get("objective", "")
+    old_model = meta.get("model", "")
+    excluded = [e for e in a.exclude.split(",") if e.strip()]
+    if old_model:
+        excluded.append(old_model)
+    reg["sessions"][a.id] = {
+        "agent": "build", "objective": objective, "task": task,
+        "model": old_model, "state": "paused-stuck",
+        "lastUsed": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "lastResult": (meta.get("lastResult", "") or "") +
+                      f" [PAUSED-STUCK delay>{a.threshold:g}s, migrating]",
+        "migrateTo": "",
+    }
+    nxt, pin, rotate, _ = _resolve_next_model(excluded)
+    reg["sessions"][a.id]["migrateTo"] = nxt
+    save_reg(reg)
+    print(f"paused {a.id} (state=paused-stuck, objective={objective})")
+    print(f"old-model: {old_model or '?'}")
+    if nxt:
+        print(f"next-available: {nxt}")
+    else:
+        print("next-available: NONE (all candidates exhausted)")
+        print("genuine blocker: no live chain model — report and wait.")
+        return
+    if rotate:
+        print(f"rotate: {rotate}")
+    else:
+        print(f"keep-pin: {pin or nxt} (already points at next-available)")
+    print("--- continuation (SAME task, new agent pin; paste as next Task) ---")
+    print(f"Objective: {objective}")
+    print(f"Task: {task}")
+    print(f"Context to carry: prior session {a.id} is paused-stuck "
+          f"(delay>{a.threshold:g}s); do NOT resume it; start a NEW build "
+          f"session with the same objective, reusing prior result where "
+          f"available, and continue only the remaining gaps. Register the "
+          f"new session, then retire {a.id} after the result is processed.")
+
+
 CMDS = {"register": cmd_register, "context": cmd_context, "decide": cmd_decide,
         "retire": cmd_retire, "delete": cmd_delete, "status": cmd_status,
         "children": cmd_children, "list": cmd_list,
+        "stuck": cmd_stuck, "migrate": cmd_migrate,
         "models": cmd_models, "classify-error": cmd_classify_error}
 
 if __name__ == "__main__":
