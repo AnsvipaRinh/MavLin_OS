@@ -1,47 +1,44 @@
 # Maintainer: Mavericks Linux Agent <agent@mavericks-linux.local>
 pkgname=macbook12-audio-driver
-pkgver=1.0.0.r108.g4cdfcdb
+pkgver=1.0.0.r94.g75884e2
 pkgrel=1
-pkgdesc="Cirrus Logic CS42L83 audio driver patch for MacBook 12\" (2015-2017) - enables built-in speakers"
+pkgdesc="Cirrus Logic CS42L83 audio driver patch for MacBook 12\" (2015-2017) - enables built-in speakers (tanisperez fork with 6.17+ DKMS support)"
 arch=('x86_64')
-url="https://github.com/leifliddy/macbook12-audio-driver"
-license=('GPL2')
+url="https://github.com/tanisperez/macbook12-audio-driver"
+license=('GPL')
 depends=('linux-zen' 'alsa-lib')
 makedepends=('linux-zen-headers' 'dkms')
 install=macbook12-audio-driver.install
 source=(
-    "macbook12-audio-driver::git+https://github.com/leifliddy/macbook12-audio-driver.git#commit=HEAD"
+    "macbook12-audio-driver::git+https://github.com/tanisperez/macbook12-audio-driver.git#commit=75884e2b685c8c4ca249f66e23b921d8f69a98f9"
     "dkms.conf"
     "99-macbook12-audio.conf"
+    "install.cirrus.driver.sh"
+    "51-macbook-cs4208-softvol.conf"
 )
 sha256sums=('SKIP'
-            'ec8af1f14e8df0aa1f8888084fe47cee4a6df9212bbc2c2d210fc70d119897b2'
-            '7ca275b4ed04d70a107f9bf8789173cc13ce2d64a3b3ff088612513ca61e8bec')
+            '9005bf5b78003b1b3745850c9af0cac3a93bb683d8f906a3828fdc9c794a17aa'
+            '6fcc8aed08116ebca0023d503ff3efec1030071ca9892032a9a2c1be415d686b'
+            '3765ea8ab0f2019e32854c973fee11f11368a151ffb9420738e40ddfd5011055'
+            'cd04e30bf2eca1ecfd4b218704065762d1c92eedfa0447776196e7033ae96b29')
 
 pkgver() {
     cd macbook12-audio-driver
-    # NOTE: do NOT use `git describe ... | sed ... || fallback` — without
-    # pipefail the fallback never triggers when describe fails (upstream has
-    # no tags) but sed succeeds on empty input, yielding an empty pkgver.
-    local desc
-    if desc=$(git describe --long --tags 2>/dev/null); then
-        printf '%s\n' "$desc" | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
-    else
-        echo "1.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
-    fi
+    # tanisperez fork has no tags; use commit-based version
+    echo "1.0.0.r$(git rev-list --count HEAD).g$(git rev-parse --short HEAD)"
 }
 
 prepare() {
     cd macbook12-audio-driver
-    # Ensure we have the right kernel headers for linux-zen
-    sed -i "s|KERNEL_VERSION=.*|KERNEL_VERSION=$(pacman -Q linux-zen | cut -d' ' -f2 | sed 's/-.*//')-zen|" dkms.conf 2>/dev/null || true
+    # No kernel version sed needed — PRE_BUILD in dkms.conf handles kernel matching
+    # by downloading the exact matching kernel source from kernel.org
 }
 
 build() {
     cd macbook12-audio-driver
-    # The driver is built via DKMS at install time
-    # Just verify source compiles
-    make -C /usr/lib/modules/$(pacman -Q linux-zen | cut -d' ' -f2 | sed 's/-.*//')-zen/build M=$(pwd) modules 2>/dev/null || true
+    # The driver is built via DKMS at install time (PRE_BUILD + MAKE)
+    # Just verify source compiles against current kernel headers
+    make -C /usr/lib/modules/$(pacman -Q linux-zen | cut -d' ' -f2 | sed 's/-.*//')-zen/build M=$(pwd)/patch_cirrus modules 2>/dev/null || true
 }
 
 package() {
@@ -52,8 +49,11 @@ package() {
     cp -r * "${pkgdir}/usr/src/${pkgname}-${pkgver}/"
     rm -f "${pkgdir}/usr/src/${pkgname}-${pkgver}/.git" "${pkgdir}/usr/src/${pkgname}-${pkgver}/.gitignore"
 
-    # Install DKMS config
+    # Install DKMS config (with PRE_BUILD for kernel-source download)
     install -Dm644 ../dkms.conf "${pkgdir}/usr/src/${pkgname}-${pkgver}/dkms.conf"
+
+    # Install PRE_BUILD script (downloads kernel source, patches HDA, writes Makefile)
+    install -Dm755 ../install.cirrus.driver.sh "${pkgdir}/usr/src/${pkgname}-${pkgver}/install.cirrus.driver.sh"
 
     # Install modprobe config (comment-only: documents why no options are set)
     install -Dm644 ../99-macbook12-audio.conf "${pkgdir}/etc/modprobe.d/99-macbook12-audio.conf"
@@ -65,6 +65,7 @@ package() {
     # nothing on the speakers (driver README, "Speaker volume (required)").
     # WirePlumber 0.5+ conf.d variant (Arch ships 0.5.x); matches the HDA
     # controller at PCI 00:1f.3 on MacBook9,1/MacBook10,1.
-    install -Dm644 contrib/wireplumber/wireplumber.conf.d/51-macbook-cs4208-softvol.conf \
+    # tanisperez fork doesn't include this — we vendor it in the package.
+    install -Dm644 ../51-macbook-cs4208-softvol.conf \
         "${pkgdir}/etc/wireplumber/wireplumber.conf.d/51-macbook-cs4208-softvol.conf"
 }

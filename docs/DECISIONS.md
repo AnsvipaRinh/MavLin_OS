@@ -635,6 +635,42 @@ pacstrap). Follow-up packaging track (A/B/C in DRIVER_OPTIMIZATION_CANDIDATES.md
 working DKMS via PRE_BUILD kernel-source download). Until that track lands,
 target audio is HW-blocked-by-packaging (not a driver-code problem).
 
+---
+
+### D4-4-FOLLOWUP: tanisperez fork evaluation + pin switch (2026-09-29)
+
+**Evaluation of tanisperez/macbook12-audio-driver (fork of leifliddy):**
+
+| Criterion | leifliddy (current pin) | tanisperez (candidate) |
+|---|---|---|
+| DKMS root Makefile | **NO** — missing, `dkms install` fails | **NO** — same structure, but... |
+| DKMS PRE_BUILD | **NO** | **YES** — `install.cirrus.driver.sh -k $kernelver` downloads matching kernel source from kernel.org, extracts HDA subsystem, patches it, writes root Makefile |
+| HDA headers strategy | Requires full kernel source installed externally (not in linux-zen-headers) | **Self-contained**: PRE_BUILD downloads + extracts `sound/hda` or `sound/pci/hda` from kernel.org tarball (verified checksums) |
+| Kernel coverage | Up to ~6.6 (patch_cirrus path only) | **5.0 – 6.16** (patch_cirrus) + **6.17+** (cs420x path, sound/hda/codecs/cirrus) — explicit 6.17+ support |
+| Target kernel (7.2.6) | Compiles but DKMS broken | **Supported** (6.17+ path) |
+| License | GPL2 (inherited from Linux HDA) | **GPL** (inherited from Linux HDA) — compatible |
+| Maintenance signs | Last merge 4cdfcdb (Sep 2025), sporadic PRs | Active 2024-2025: 5708035 "Fix compilation on kernel 6.17+ (Arch Linux)", 75884e2 "Add comprehensive installation guide", faa9173 "Add capture PCM stream support for internal microphone" |
+| DKMS build flow | Manual `prepare.cirrus.driver.sh` + make (not DKMS-native) | **DKMS-native**: PRE_BUILD sets up build tree, MAKE="make" uses root Makefile written by PRE_BUILD |
+| Network requirement at DKMS build time | No (but needs kernel source pre-installed) | **YES** — PRE_BUILD downloads kernel tarball from cdn.kernel.org (wget/curl) |
+
+**Verdict:** **SWITCH PIN to tanisperez/macbook12-audio-driver.**
+
+**Evidence:**
+1. PRE_BUILD mechanism is the canonical DKMS solution for out-of-tree drivers needing kernel-internal headers — it downloads the exact matching kernel source, extracts only the needed HDA subsystem, applies patches, and writes a root Makefile. This solves both D4-4 defects (no root Makefile + missing HDA headers) in a DKMS-native way.
+2. Explicit 6.17+ support (cs420x codec path) matches our target kernel 7.2.6; leifliddy only has the older patch_cirrus path.
+3. Active maintenance with recent Arch-specific fixes (5708035).
+4. License compatible (GPL, inherited from Linux kernel HDA subsystem).
+5. The network fetch during PRE_BUILD is acceptable because: (a) package is NOT in ISO (D4-4 decision stands), (b) manual post-install flow on target hardware has internet via USB-C ethernet/wifi dongle, (c) same pattern as linux-firmware / broadcom-wl-dkms source downloads.
+
+**Changes to PKGBUILD:**
+- Source URL: `https://github.com/tanisperez/macbook12-audio-driver.git`
+- pkgver(): adapted to tanisperez tag/commit scheme (no tags → commit-based)
+- prepare(): removed kernel version sed (PRE_BUILD handles kernel matching)
+- package(): install PRE_BUILD script + patched dkms.conf from fork
+- Documented fetch procedure for offline ISO build: `git clone` the fork + vendor kernel tarball if needed (but package remains ISO-excluded)
+
+**Status:** Pin switched. Package remains ISO-excluded. Manual install procedure documented. Next: rebuild local package + update NEEDS_HARDWARE_TEST.md with Cirrus validation procedure.
+
 ### D4-5: UCM verdict — none needed for CS4208 (CLOSED)
 
 No UCM for CS4208 exists upstream (alsa-ucm-conf has no cs4208/Cirrus entry —

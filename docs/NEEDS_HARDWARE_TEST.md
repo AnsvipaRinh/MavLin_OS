@@ -80,11 +80,19 @@ measurement commands. Run on target hardware only.
   - [ ] Confirm no per-packet logging: `dmesg | grep brcmf` — should be silent at default debug (H8)
 
 ### Audio (Cirrus codec)
-- [ ] **Packaging prerequisite (D4):** decide DKMS track (DECISIONS D4-4 / DRIVER_OPTIMIZATION_CANDIDATES §7.1: tanisperez fork vs manual flow) — driver is NOT in the ISO until the DKMS build defect is resolved
-- [ ] Test macbook12-audio-driver (github.com/leifliddy/macbook12-audio-driver)
-- [ ] Verify built-in speakers work (not just headphone jack)
-- [ ] Test microphone input
+- [ ] **Packaging resolved (D4-4-FOLLOWUP):** pin switched to tanisperez/macbook12-audio-driver (PRE_BUILD downloads kernel source, DKMS-native). Package is NOT in ISO — manual post-install required.
+- [ ] **Manual install procedure:**
+    1. Boot installed system with external USB-C network (ethernet dongle or Wi-Fi via phone tether)
+    2. `git clone https://github.com/tanisperez/macbook12-audio-driver.git`
+    3. `cd macbook12-audio-driver && sudo ./install.cirrus.driver.sh -i`
+    4. Reboot
+  Or if using local repo: `cd /path/to/macbook12-macos-linux/packages/macbook12-audio-driver && sudo pacman -U macbook12-audio-driver-*.pkg.tar.zst` then `sudo dkms install -m macbook12-audio-driver -v <pkgver>` (PRE_BUILD fetches kernel source)
+- [ ] Verify DKMS status: `dkms status` → `macbook12-audio/0.1, <kernel>, x86_64: installed`
+- [ ] Verify module loaded: `lsmod | grep snd_hda_codec_cs420x`
+- [ ] Verify built-in speakers work (not just headphone jack) — test `speaker-test -c 2`
+- [ ] Test microphone input (internal mic)
 - [ ] Check audio after suspend/resume
+- [ ] Verify WirePlumber softvol rule active: `pw-dump | grep soft-mixer` → `api.alsa.soft-mixer=true` on `alsa_card.pci-0000_00_1f.3`; speaker volume slider actually changes volume
 
 ### Audio power/idle counters (D4, 2026-09-28)
 - [ ] Controller runtime PM: `cat /sys/bus/pci/devices/0000:00:1f.3/power/runtime_status` → `suspended` at idle (TLP power_save=1, 1s timeout)
