@@ -186,6 +186,48 @@ def test_bookmarklet():
         check("bookmarklet has javascript:", "javascript:" in content)
 
 
+def test_sponsorblock_config():
+    """Test SponsorBlock configuration support"""
+    app_content = load_app()
+    
+    # Check config file path
+    check("SB config file path", '/etc/mv-ytplayer/sponsorblock.conf' in app_content)
+    
+    # Check environment variable override
+    check("SB env override MV_YT_SPONSORBLOCK", 'MV_YT_SPONSORBLOCK' in app_content)
+    
+    # Check categories config
+    check("SB categories config", 'MV_YT_SPONSORBLOCK_CATEGORIES' in app_content)
+    
+    # Check API config
+    check("SB API config", 'MV_YT_SPONSORBLOCK_API' in app_content)
+    
+    # Check default disabled
+    check("SB default disabled", 'SB_ENABLED="0"' in app_content)
+    check("SB default categories", 'SB_CATEGORIES="default"' in app_content)
+    check("SB default API", 'https://sponsor.ajay.app' in app_content)
+
+
+def test_sponsorblock_in_explain():
+    """Test SponsorBlock status appears in --explain output"""
+    app_content = load_app()
+    
+    check("explain shows SponsorBlock section", "SponsorBlock:" in app_content)
+    check("explain shows ENABLED state", "ENABLED" in app_content)
+    check("explain shows DISABLED state", "DISABLED" in app_content)
+    check("explain shows privacy notice", "Video ID sent to SponsorBlock API" in app_content)
+
+
+def test_sponsorblock_in_playback():
+    """Test SponsorBlock args passed to mpv/yt-dlp when enabled"""
+    app_content = load_app()
+    
+    check("SB args array", 'SB_ARGS' in app_content)
+    check("SB --sponsorblock-remove", '--sponsorblock-remove' in app_content)
+    check("SB --sponsorblock-api", '--sponsorblock-api' in app_content)
+    check("SB args passed to mpv", '"${SB_ARGS[@]}"' in app_content)
+
+
 def main():
     print("Testing mv-ytplayer")
     
@@ -203,6 +245,9 @@ def main():
     test_protocol_handler()
     test_protocol_desktop_file()
     test_bookmarklet()
+    test_sponsorblock_config()
+    test_sponsorblock_in_explain()
+    test_sponsorblock_in_playback()
     
     # Summary
     if FAILURES:

@@ -23,6 +23,31 @@ fi
 # Quality cap from environment (default 1080p)
 MV_YT_MAX_HEIGHT="${MV_YT_MAX_HEIGHT:-1080}"
 
+# SponsorBlock configuration
+# Config file: /etc/mv-ytplayer/sponsorblock.conf (MV_YT_SPONSORBLOCK=1 to enable)
+# Environment override: MV_YT_SPONSORBLOCK=1 / 0
+# Categories: default (all non-content), all, or comma-separated list
+SB_CONFIG_FILE="${MV_YT_SPONSORBLOCK_CONFIG:-/etc/mv-ytplayer/sponsorblock.conf}"
+SB_ENABLED="0"
+SB_CATEGORIES="default"
+SB_API="${MV_YT_SPONSORBLOCK_API:-https://sponsor.ajay.app}"
+if [[ -f "$SB_CONFIG_FILE" ]]; then
+  while IFS= read -r line; do
+    line="${line%%#*}"
+    line="${line## }"
+    [[ -n "$line" ]] || continue
+    case "$line" in
+      MV_YT_SPONSORBLOCK=*) SB_ENABLED="${line#*=}" ;;
+      MV_YT_SPONSORBLOCK_CATEGORIES=*) SB_CATEGORIES="${line#*=}" ;;
+      MV_YT_SPONSORBLOCK_API=*) SB_API="${line#*=}" ;;
+    esac
+  done < "$SB_CONFIG_FILE"
+fi
+# Environment takes precedence over config file
+[[ -n "${MV_YT_SPONSORBLOCK:-}" ]] && SB_ENABLED="${MV_YT_SPONSORBLOCK}"
+[[ -n "${MV_YT_SPONSORBLOCK_CATEGORIES:-}" ]] && SB_CATEGORIES="${MV_YT_SPONSORBLOCK_CATEGORIES}"
+[[ -n "${MV_YT_SPONSORBLOCK_API:-}" ]] && SB_API="${MV_YT_SPONSORBLOCK_API}"
+
 # Build yt-dlp format chain based on CODEC_RANK
 build_chain() {
   local cap="${MV_YT_MAX_HEIGHT}"
@@ -144,10 +169,30 @@ explain() {
       echo "   ⚠️  yt-dlp not available for live query"
     fi
     echo
-    echo "5. Playback:"
+    echo "5. SponsorBlock:"
+    if [[ "$SB_ENABLED" == "1" ]]; then
+      echo "   Status: ENABLED (categories: $SB_CATEGORIES)"
+      echo "   API: $SB_API"
+      echo "   Privacy: Video ID sent to SponsorBlock API"
+    else
+      echo "   Status: DISABLED (default)"
+      echo "   To enable: create /etc/mv-ytplayer/sponsorblock.conf with MV_YT_SPONSORBLOCK=1"
+    fi
+    echo
+    echo "6. Playback:"
     echo "   Proceeding with mpv playback..."
   else
     echo "4. No URL provided - will check for URL on command line or exit"
+    echo
+    echo "5. SponsorBlock:"
+    if [[ "$SB_ENABLED" == "1" ]]; then
+      echo "   Status: ENABLED (categories: $SB_CATEGORIES)"
+      echo "   API: $SB_API"
+      echo "   Privacy: Video ID sent to SponsorBlock API"
+    else
+      echo "   Status: DISABLED (default)"
+      echo "   To enable: create /etc/mv-ytplayer/sponsorblock.conf with MV_YT_SPONSORBLOCK=1"
+    fi
   fi
 }
 
@@ -198,9 +243,17 @@ fi
 
 CHAIN=$(build_chain)
 
+# Build yt-dlp SponsorBlock args if enabled
+SB_ARGS=()
+if [[ "$SB_ENABLED" == "1" ]]; then
+  SB_ARGS+=(--sponsorblock-remove "$SB_CATEGORIES")
+  SB_ARGS+=(--sponsorblock-api "$SB_API")
+fi
+
 mpv \
   --hwdec=auto \
   --ytdl-format="$CHAIN" \
   --force-window=yes \
   --keep-open=no \
+  "${SB_ARGS[@]}" \
   "$URL"
