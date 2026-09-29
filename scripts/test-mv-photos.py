@@ -262,6 +262,82 @@ def test_exif_date(m, tmp):
     check("missing file exif", m.read_exif_date(os.path.join(tmp, "n.jpg")) is None)
 
 
+def test_read_image_info(m, tmp):
+    """Track 2/7: combined single-open read returns dims + EXIF date."""
+    jpg = os.path.join(tmp, "info.jpg")
+    make_jpeg(jpg, 40, 25, exif_date="2024:07:04 12:00:00")
+    w, h, dt = m.read_image_info(jpg)
+    check("info jpeg dims", (w, h) == (40, 25), (w, h))
+    check("info jpeg exif", dt == "2024-07-04T12:00:00", dt)
+
+    png = os.path.join(tmp, "info.png")
+    make_png(png, 33, 17)
+    w, h, dt = m.read_image_info(png)
+    check("info png dims", (w, h) == (33, 17), (w, h))
+    check("info png no exif", dt is None, dt)
+
+    gif = os.path.join(tmp, "info.gif")
+    make_gif(gif, 11, 9)
+    w, h, dt = m.read_image_info(gif)
+    check("info gif dims", (w, h) == (11, 9), (w, h))
+
+    bmp = os.path.join(tmp, "info.bmp")
+    make_bmp(bmp, 22, 13)
+    w, h, dt = m.read_image_info(bmp)
+    check("info bmp dims", (w, h) == (22, 13), (w, h))
+
+    tiff = os.path.join(tmp, "info.tiff")
+    make_tiff(tiff, 19, 7)
+    w, h, dt = m.read_image_info(tiff)
+    check("info tiff dims", (w, h) == (19, 7), (w, h))
+
+    webp = os.path.join(tmp, "info.webp")
+    make_webp(webp, 15, 5)
+    w, h, dt = m.read_image_info(webp)
+    check("info webp dims", (w, h) == (15, 5), (w, h))
+
+    noexif = os.path.join(tmp, "info-noexif.jpg")
+    make_jpeg(noexif, 8, 8)
+    w, h, dt = m.read_image_info(noexif)
+    check("info jpeg no exif dims", (w, h) == (8, 8), (w, h))
+    check("info jpeg no exif date", dt is None, dt)
+
+    check("info missing file",
+          m.read_image_info(os.path.join(tmp, "nope.jpg")) == (None, None, None))
+    empty = os.path.join(tmp, "empty-info.png")
+    open(empty, "wb").close()
+    check("info empty file", m.read_image_info(empty) == (None, None, None))
+    txt = os.path.join(tmp, "x-info.txt")
+    with open(txt, "w") as f:
+        f.write("hello")
+    check("info unsupported ext", m.read_image_info(txt) == (None, None, None))
+
+
+def test_scan_single_open(m, tmp):
+    """Track 2/7: scan_library opens each image file exactly once."""
+    import builtins
+    root = make_library(os.path.join(tmp, "lib"))
+    cache_dir = os.path.join(tmp, "scan-cache-open")
+    m.scan_cache_dir = lambda: cache_dir
+    real_open = builtins.open
+    open_count = [0]
+
+    def counting_open(*args, **kwargs):
+        if args and isinstance(args[0], str) and args[0].startswith(root):
+            open_count[0] += 1
+        return real_open(*args, **kwargs)
+
+    builtins.open = counting_open
+    try:
+        photos, errors = m.scan_library(root)
+    finally:
+        builtins.open = real_open
+    check("scan opens each file once", open_count[0] == len(photos),
+          "%d opens for %d photos" % (open_count[0], len(photos)))
+    check("scan single-open no errors", errors == 0)
+    m.scan_cache_dir = lambda: os.path.expanduser("~/.cache/mv-photos")
+
+
 def test_scan_library(m, tmp):
     root = make_library(os.path.join(tmp, "lib"))
     photos, errors = m.scan_library(root)
@@ -546,6 +622,8 @@ def main():
         m = load_app()
         test_dimensions(m, tmp)
         test_exif_date(m, tmp)
+        test_read_image_info(m, tmp)
+        test_scan_single_open(m, tmp)
         test_scan_library(m, tmp)
         test_scan_cache(m, tmp)
         test_group_by_moment(m, tmp)

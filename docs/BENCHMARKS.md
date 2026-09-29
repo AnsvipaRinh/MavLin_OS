@@ -81,6 +81,46 @@ arg-validation path (exits rc=1 without args), not startup.
 
 ## Phase-B change log
 
+### 2026-09-29 — Track 2/7: mv-photos combined header read (3→1 opens/JPEG)
+
+- **Structural change:** `scan_library` now calls `read_image_info(path)` —
+  one `open()` + one bounded `read()` per image — instead of separate
+  `read_image_dimensions` + `read_exif_date` passes. All dimension parsing
+  (JPEG/PNG/GIF/BMP/TIFF/WebP) and EXIF DateTimeOriginal extraction now
+  operate on the same in-memory blob.
+- **Open-site elimination (before → after):**
+
+  | Site | File:line (before) | Pass | JPEG | Non-JPEG |
+  |---|---|---|---|---|
+  | `read_image_dimensions` 64 B sniff | `mv-photos:64` | format detect | ✓ | ✓ |
+  | `_jpeg_dimensions` full walk | `mv-photos:100` | SOF marker | ✓ | — |
+  | `read_exif_date` 512 KB read | `mv-photos:194` | EXIF APP1 | ✓ | — |
+  | **`_read_header` (combined)** | `mv-photos:64` (new) | all of above | ✓ | ✓ |
+
+- **Measured opens/image (strace -e openat, 80-image fixture: 60 JPEG + 20 PNG):**
+
+  | Version | JPEG | Non-JPEG | Total (80 img) | Reduction |
+  |---|---|---|---|---|
+  | Before | 3 | 1 | 200 | — |
+  | After | 1 | 1 | 80 | **2.5×** |
+
+- **Scan wall (80-image fixture, 3 runs each, median):**
+
+  | Version | Cold (cache miss) | Warm (cache hit) |
+  |---|---|---|
+  | Before | 6.51 ms | 0.57 ms |
+  | After | 5.33 ms | 0.53 ms |
+  | Delta | **-18%** | **-7%** |
+
+- **Format coverage preserved:** all 7 formats (JPEG/PNG/GIF/BMP/TIFF/WebP +
+  HEIC ext) still parse dimensions + EXIF dates — proven by 15 new tests
+  (`test_read_image_info`, `test_scan_single_open`). Suite: 106 passed
+  (was 91), 2 failed (pre-existing: gthumb installed in build env).
+- **Thumbnail path:** `ensure_thumb` now reads the file once into memory and
+  decodes via `Gio.MemoryInputStream` + `GdkPixbuf.Pixbuf.new_from_stream_at_scale`
+  (already-loaded pixbuf) instead of `new_from_file_at_scale` — same single
+  open, but data is explicitly in-memory before decode.
+
 ### 2026-09-27 — Phase B: audit fixes S-01..S-11 (commits 8211b9f..b9d16ba)
 
 - Before: `docs/benchmarks/results-2026-09-27.json` (baseline, 20:09)

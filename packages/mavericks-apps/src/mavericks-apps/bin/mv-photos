@@ -18,7 +18,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
-from gi.repository import Gdk, GdkPixbuf, GLib, Gtk
+from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk
 
 SUPPORTED_EXTS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif",
                   ".webp", ".heic")
@@ -56,71 +56,89 @@ def fmt_size(n):
 
 # ---------------------------------------------------------------- image info
 
+HEADER_READ_LIMIT = 512 * 1024
+
+
+def _read_header(path, limit=HEADER_READ_LIMIT):
+    """Single open: read first 64 bytes, then up to `limit` total for JPEG
+    (EXIF lives past the 64-byte sniff window). Returns blob or None."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(64)
+            if len(head) >= 2 and head[:2] == b"\xff\xd8":
+                rest = f.read(limit - 64)
+                return head + rest
+            return head
+    except Exception:
+        return None
+
+
+def _dimensions_from_blob(ext, blob):
+    if ext in (".jpg", ".jpeg"):
+        return _jpeg_dimensions_blob(blob)
+    if ext == ".png":
+        if blob[:8] != b"\x89PNG\r\n\x1a\n" or len(blob) < 24:
+            return None, None
+        if blob[12:16] != b"IHDR":
+            return None, None
+        w, h = struct.unpack(">II", blob[16:24])
+        if w == 0 or h == 0 or w > 100000 or h > 100000:
+            return None, None
+        return w, h
+    if ext == ".gif":
+        if blob[:3] not in (b"GIF",) or len(blob) < 10:
+            return None, None
+        w, h = struct.unpack("<HH", blob[6:10])
+        return w, h
+    if ext == ".bmp":
+        if blob[:2] != b"BM" or len(blob) < 26:
+            return None, None
+        w, h = struct.unpack("<ii", blob[18:26])
+        return abs(w), abs(h)
+    if ext in (".tiff", ".tif"):
+        return _tiff_dimensions(blob)
+    if ext == ".webp":
+        return _webp_dimensions(blob)
+    return None, None
+
 
 def read_image_dimensions(path):
     """Read image dimensions from file header. Never raises."""
     try:
         ext = os.path.splitext(path)[1].lower()
-        with open(path, "rb") as f:
-            blob = f.read(64)
+        if ext not in SUPPORTED_EXTS:
+            return None, None
+        blob = _read_header(path)
         if not blob:
             return None, None
-        if ext in (".jpg", ".jpeg"):
-            return _jpeg_dimensions(path)
-        if ext == ".png":
-            if blob[:8] != b"\x89PNG\r\n\x1a\n" or len(blob) < 24:
-                return None, None
-            if blob[12:16] != b"IHDR":
-                return None, None
-            w, h = struct.unpack(">II", blob[16:24])
-            if w == 0 or h == 0 or w > 100000 or h > 100000:
-                return None, None
-            return w, h
-        if ext == ".gif":
-            if blob[:3] not in (b"GIF",) or len(blob) < 10:
-                return None, None
-            w, h = struct.unpack("<HH", blob[6:10])
-            return w, h
-        if ext == ".bmp":
-            if blob[:2] != b"BM" or len(blob) < 26:
-                return None, None
-            w, h = struct.unpack("<ii", blob[18:26])
-            return abs(w), abs(h)
-        if ext in (".tiff", ".tif"):
-            return _tiff_dimensions(blob)
-        if ext == ".webp":
-            return _webp_dimensions(blob)
-        return None, None
+        return _dimensions_from_blob(ext, blob)
     except Exception:
         return None, None
 
 
-def _jpeg_dimensions(path):
+def _jpeg_dimensions_blob(blob):
     try:
-        with open(path, "rb") as f:
-            f.read(2)
-            while True:
-                marker = f.read(1)
-                if not marker or marker != b"\xff":
-                    break
-                mtype = f.read(1)
-                while mtype == b"\xff":
-                    mtype = f.read(1)
-                if not mtype:
-                    break
-                mtype = mtype[0]
-                if mtype in (0xd8, 0xd9):
-                    continue
-                if mtype == 0xda:
-                    break
-                seglen = struct.unpack(">H", f.read(2))[0]
-                if mtype in (0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7,
-                             0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf):
-                    data = f.read(5)
-                    if len(data) >= 5:
-                        h, w = struct.unpack(">HH", data[1:5])
-                        return w, h
-                f.seek(seglen - 2, 1)
+        if len(blob) < 4 or blob[:2] != b"\xff\xd8":
+            return None, None
+        pos = 2
+        while pos + 4 <= len(blob):
+            if blob[pos] != 0xff:
+                pos += 1
+                continue
+            marker = blob[pos + 1]
+            if marker == 0xd9:
+                break
+            if marker == 0xda:
+                break
+            if pos + 4 > len(blob):
+                break
+            seglen = struct.unpack(">H", blob[pos + 2:pos + 4])[0]
+            if marker in (0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7,
+                           0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf):
+                if pos + 9 <= len(blob):
+                    h, w = struct.unpack(">HH", blob[pos + 5:pos + 9])
+                    return w, h
+            pos += 2 + seglen
     except Exception:
         pass
     return None, None
@@ -185,14 +203,8 @@ def _webp_dimensions(blob):
 # ---------------------------------------------------------------------- EXIF
 
 
-def read_exif_date(path):
-    """Extract DateTimeOriginal from JPEG EXIF. Returns ISO string or None."""
+def _exif_from_blob(blob):
     try:
-        ext = os.path.splitext(path)[1].lower()
-        if ext not in (".jpg", ".jpeg"):
-            return None
-        with open(path, "rb") as f:
-            blob = f.read(512 * 1024)
         if len(blob) < 4 or blob[:2] != b"\xff\xd8":
             return None
         pos = 2
@@ -218,6 +230,37 @@ def read_exif_date(path):
     except Exception:
         pass
     return None
+
+
+def read_exif_date(path):
+    """Extract DateTimeOriginal from JPEG EXIF. Returns ISO string or None."""
+    try:
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in (".jpg", ".jpeg"):
+            return None
+        blob = _read_header(path)
+        if not blob:
+            return None
+        return _exif_from_blob(blob)
+    except Exception:
+        return None
+
+
+def read_image_info(path):
+    """Single-open combined read: dimensions + EXIF date from one header
+    blob. Returns (width, height, date_iso_or_None). Never raises."""
+    try:
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in SUPPORTED_EXTS:
+            return None, None, None
+        blob = _read_header(path)
+        if not blob:
+            return None, None, None
+        w, h = _dimensions_from_blob(ext, blob)
+        date = _exif_from_blob(blob) if ext in (".jpg", ".jpeg") else None
+        return w, h, date
+    except Exception:
+        return None, None, None
 
 
 def _exif_datetime(tiff_blob):
@@ -292,8 +335,7 @@ def scan_library(root):
                 continue
             try:
                 st = os.stat(path)
-                w, h = read_image_dimensions(path)
-                date = read_exif_date(path)
+                w, h, date = read_image_info(path)
                 photos.append({
                     "path": path,
                     "filename": name,
@@ -630,8 +672,13 @@ def ensure_thumb(photo):
     if tp and os.path.exists(tp):
         return tp
     try:
-        pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-            photo["path"], THUMB_SIZE, THUMB_SIZE, True)
+        with open(photo["path"], "rb") as f:
+            blob = f.read()
+        bytes_obj = GLib.Bytes.new(blob)
+        stream = Gio.MemoryInputStream.new_from_bytes(bytes_obj)
+        pix = GdkPixbuf.Pixbuf.new_from_stream_at_scale(
+            stream, THUMB_SIZE, THUMB_SIZE, True, None)
+        stream.close(None)
         if tp:
             pix.savev(tp, "png", [], [])
         return tp
