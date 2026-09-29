@@ -13,6 +13,15 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
   status                    live status of all sessions (idle/busy/retry)
   children <id>             list child (sub-agent) sessions
   list                      registry contents
+  exists <id>               authoritative existence + activity via
+                            GET /session/{id} + status: SESSION_EXISTS_IDLE/
+                            BUSY/RETRYING, SESSION_DOES_NOT_EXIST,
+                            SESSION_API_UNAVAILABLE
+  abort <id>                cancel a blocked generation
+                            (POST /session/{id}/abort); history survives
+  preflight [--exclude M]   offline worker/health decision BEFORE every Task:
+                            PRIMARY_READY/COOLDOWN + PREFLIGHT_OK/WAIT,
+                            zero API calls
   version                   print orchestrator protocol version (v4 required
                             by the current orchestrator prompt; unknown
                             subcommand = stale agent file -> STALE-AGENT)
@@ -88,7 +97,7 @@ CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-ORCHESTRATOR_PROTOCOL = 5
+ORCHESTRATOR_PROTOCOL = 6
 
 # Cooldown memory for dead models (.opencode/sessions/model-health.json).
 # A model observed dead (provider retry/unavailable > stuck threshold, or
@@ -121,6 +130,46 @@ def api(method, path, body=None):
         # Connection refused / DNS / offline: structured exit, never a
         # traceback — callers map this to UNKNOWN/VERIFY, never NEW.
         sys.exit(f"API {method} {path} -> unreachable: {e.reason}")
+
+
+def api_probe(method, path, body=None):
+    """Low-level call returning (http_code_or_None, parsed_or_None).
+
+    http_code None = server unreachable (refused/DNS/offline).
+    Used for existence checks where 404 is a VALID answer
+    (SESSION_DOES_NOT_EXIST), not an error.
+    """
+    import base64
+    req = urllib.request.Request(
+        f"http://{HOST}:{PORT}{path}", method=method,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={"Content-Type": "application/json",
+                  "Authorization": "Basic " + base64.b64encode(
+                      f"{USER}:{PASS}".encode()).decode()})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return r.status, json.loads(r.read().decode() or "null")
+    except urllib.error.HTTPError as e:
+        return e.code, None
+    except urllib.error.URLError:
+        return None, None
+
+
+def session_exists(session_id):
+    """Authoritative existence check via GET /session/{id} (1.18.32 SDK).
+
+    Returns ("exists", obj) / ("not-exist", None) / ("unavailable", None).
+    Persistent sessions survive server restart (local DB + UI-visible);
+    absence from /session/status means IDLE, never nonexistence.
+    """
+    code, obj = api_probe("GET", f"/session/{session_id}")
+    if code is None:
+        return "unavailable", None
+    if code == 404:
+        return "not-exist", None
+    if 200 <= code < 300:
+        return "exists", obj
+    return "unavailable", None
 
 
 def load_reg():
@@ -279,19 +328,38 @@ def cmd_find_objective(args):
         raise SystemExit(4)
     sid = hits[0]
     meta = reg["sessions"][sid]
-    try:
-        st = api("GET", "/session/status") or {}
-    except SystemExit as e:
-        print(f"VERIFY (status unreachable: {e}; session {sid} may still be "
+    # Authoritative existence first: post-restart sessions answer here
+    # even with no status entry (status absence = idle, never gone).
+    estate, _eobj = session_exists(sid)
+    if estate == "unavailable":
+        print(f"VERIFY (session API unreachable; session {sid} may still be "
               f"alive — do NOT create a duplicate)");
         raise SystemExit(3)
-    if sid not in st:
+    if estate == "not-exist":
+        if meta.get("state") != "stale":
+            meta["state"] = "stale"
+            save_reg(reg)
         print(f"SESSION_UNAVAILABLE (session {sid} for objective "
-              f"'{a.objective}' absent from live runtime: deleted or wiped "
-              f"by restart; start FRESH with minimal state transfer, then "
-              f"register the new task_id)");
+              f"'{a.objective}' genuinely absent from OpenCode store; "
+              f"start FRESH with minimal state transfer, then "
+              f"register the new task_id under the same oid)");
         raise SystemExit(2)
-    etype = (st.get(sid) or {}).get("type", "?")
+    if meta.get("state") == "stale":
+        meta["state"] = "reusable"
+        save_reg(reg)
+    try:
+        st = api("GET", "/session/status") or {}
+    except SystemExit:
+        print(f"WAIT (session {sid} proven to exist; activity unknown — "
+              f"WAIT, do NOT duplicate)");
+        return
+    entry = st.get(sid)
+    if entry is None:
+        etype = "idle"  # proven to exist, no status entry = idle
+    elif isinstance(entry, dict):
+        etype = entry.get("type", "?")
+    else:
+        etype = "?"
     if etype != "idle":
         print(f"WAIT (session {sid} status={etype}; previous Task still "
               f"active — wait or run stuck --threshold 600)");
@@ -315,7 +383,12 @@ def cmd_context(args):
     reg = load_reg()
     meta = reg["sessions"].get(a.id, {})
     model = a.model or meta.get("model", "")
-    used, _ = live_context(a.id)
+    try:
+        used, _ = live_context(a.id)
+    except SystemExit as e:
+        print(f"UNKNOWN (context unreadable for {a.id}: {e}; session may "
+              f"still exist — verify with exists, do NOT duplicate)")
+        return
     limit = a.limit or cached_limit(model)
     if not limit:
         print(f"used_input={used} limit=UNKNOWN(model '{model}' not resolvable) "
@@ -352,35 +425,60 @@ def cmd_decide(args):
     if a.agent and a.agent != meta.get("agent"):
         worker_note = (f" [failover {meta.get('agent')} -> {a.agent}, "
                        f"same session preserved]")
-    try:
-        st = api("GET", "/session/status") or {}
-    except SystemExit as e:
-        # Status endpoint down: the old session may still be alive.
+    # 1. AUTHORITATIVE EXISTENCE via GET /session/{id} (survives restart;
+    #    UI-visible sessions answer here even with no status entry).
+    estate, _eobj = session_exists(a.id)
+    if estate == "unavailable":
+        # API down: the session may still be alive.
         # NEVER answer NEW here (that would fork a duplicate).
-        print(f"UNKNOWN (status unreachable: {e}; verify before any Task call, "
+        print(f"UNKNOWN (session API unreachable for {a.id}; the session "
+              f"may still exist — verify before any Task call, "
               f"do NOT create a duplicate session)");
         return
-    if a.id not in st:
-        # Runtime does not know this id (deleted, or wiped by server restart).
-        # Structured verdict instead of an exception; caller maps this to
-        # fresh-with-minimal-transfer (restart) or SESSION_ERROR handling.
-        print(f"SESSION_UNAVAILABLE (id {a.id} absent from live runtime; "
-              f"transcript unrecoverable here; do NOT pass this task_id)");
+    if estate == "not-exist":
+        # Genuinely gone (deleted, or never existed). Only here is NEW safe.
+        # Mark stale but preserve all metadata for minimal-transfer rebuild.
+        if meta.get("state") != "stale":
+            meta["state"] = "stale"
+            save_reg(reg)
+        print(f"SESSION_UNAVAILABLE (id {a.id} absent from OpenCode store; "
+              f"replacement with minimal transfer allowed; do NOT pass "
+              f"this task_id)");
         return
-    s = st.get(a.id, {"type": "idle"})
-    if s.get("type") != "idle":
-        print(f"WAIT (session status={s.get('type')}: previous Task still "
-              f"active — do NOT launch a duplicate Task for this objective; "
-              f"wait for its result or run stuck --threshold 600)");
+    if meta.get("state") == "stale":
+        # Was marked stale, but the session is back/proven live: heal.
+        meta["state"] = "reusable"
+        save_reg(reg)
+    # 2. ACTIVITY via /session/status. Absent entry = IDLE (never nonexistence
+    #    — existence is already proven above).
+    try:
+        st = api("GET", "/session/status") or {}
+    except SystemExit:
+        print(f"UNKNOWN (activity unverifiable for live session {a.id}; "
+              f"WAIT, do NOT duplicate)");
         return
+    entry = st.get(a.id)
+    if entry is not None:
+        etype = entry.get("type", "?") if isinstance(entry, dict) else "?"
+        if etype != "idle":
+            print(f"WAIT (session status={etype}: previous Task still "
+                  f"active — do NOT launch a duplicate Task for this objective; "
+                  f"wait for its result or run stuck --threshold 600)");
+            return
+    # 3. CONTEXT budget. Unreadable history on a PROVEN-LIVE session must
+    #    NOT fork a duplicate: proceed resumable with short prompts.
     try:
         used, _ = live_context(a.id)
     except SystemExit as e:
-        print(f"SESSION_UNAVAILABLE (history unreadable for {a.id}: {e})");
+        print(f"RESUME {a.id} (history intact but token accounting "
+              f"unreadable: {e}; proceed with short prompts, "
+              f"do NOT duplicate){worker_note}");
         return
     limit = a.limit or cached_limit(meta.get("model", ""))
     if not limit:
-        print(f"NEW (context unverifiable, used_input={used})");
+        print(f"RESUME {a.id} (used_input={used}, model limit unknown; "
+              f"history intact — proceed with short prompts, "
+              f"do NOT duplicate){worker_note}");
         return
     if 1.0 - used / limit > 0.5:
         print(f"RESUME {a.id} (same objective, remaining={1.0 - used / limit:.1%})"
@@ -434,6 +532,101 @@ def cmd_version(args):
     print("task_id rule: Task output task_id == subagent session id. "
           "Register EXACTLY that id; resume via Task task_id=<id>, never "
           "by re-issuing the initial prompt as a fresh Task.")
+
+
+def cmd_exists(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Authoritative session existence + activity: "
+                    "GET /session/{id} (exists?) joined with /session/status "
+                    "(idle/busy/retry?). Exit 0 = exists, 2 = does not exist, "
+                    "3 = API unavailable.")
+    p.add_argument("id")
+    a = p.parse_args(args)
+    state, _obj = session_exists(a.id)
+    if state == "unavailable":
+        print("SESSION_API_UNAVAILABLE (cannot reach server; WAIT, "
+              "do NOT create a duplicate)");
+        raise SystemExit(3)
+    if state == "not-exist":
+        print(f"SESSION_DOES_NOT_EXIST ({a.id} genuinely absent; "
+              f"replacement session allowed)");
+        raise SystemExit(2)
+    try:
+        st = api("GET", "/session/status") or {}
+    except SystemExit:
+        # Exists (proven above) but activity unknown -> safe side is WAIT.
+        print(f"SESSION_EXISTS_IDLE ({a.id} exists; activity unverifiable, "
+              f"treat as idle-resumable, do NOT duplicate)");
+        return
+    entry = st.get(a.id)
+    if entry is None:
+        # Absent from status = idle, NEVER nonexistence (existence proven).
+        print(f"SESSION_EXISTS_IDLE ({a.id} exists, no status entry = idle; "
+              f"resume it)");
+        return
+    etype = entry.get("type", "?") if isinstance(entry, dict) else "?"
+    delay = extract_delay_sec(entry) if isinstance(entry, dict) else None
+    if etype == "idle":
+        print(f"SESSION_EXISTS_IDLE ({a.id} exists and idle; resume it)")
+    elif etype in ("busy", "running", "waiting"):
+        print(f"SESSION_EXISTS_BUSY ({a.id} active; WAIT, do NOT duplicate; "
+              f"stuck check if it outlasts 600s)")
+    else:
+        d = f" delay={delay:.0f}s" if delay else ""
+        print(f"SESSION_EXISTS_RETRYING ({a.id} status={etype}{d}; "
+              f"delay>600s -> abort + migrate same task_id, else WAIT)")
+
+
+def cmd_abort(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Abort a blocked generation on an existing session "
+                    "(POST /session/{id}/abort). The session and its history "
+                    "survive; the pending attempt is cancelled so the same "
+                    "task_id can be resumed on a healthy worker.")
+    p.add_argument("id")
+    a = p.parse_args(args)
+    code, _obj = api_probe("POST", f"/session/{a.id}/abort", {})
+    if code is None:
+        print(f"ABORT_FAILED ({a.id}: server unreachable; WAIT, retry abort)");
+        raise SystemExit(3)
+    if code == 404:
+        print(f"ABORT_FAILED ({a.id}: session does not exist)");
+        raise SystemExit(2)
+    print(f"ABORTED ({a.id}: pending attempt cancelled, history preserved; "
+          f"resume same task_id now)")
+    if not 200 <= code < 300:
+        print(f"  (server returned HTTP {code}; verify before resuming)")
+
+
+def cmd_preflight(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Preflight BEFORE every Task: offline worker/health "
+                    "decision, zero API calls. If the primary worker's model "
+                    "is in cooldown, the next healthy worker is chosen NOW — "
+                    "never launch-then-fail. Exit 0 = worker available, "
+                    "2 = all cooling (wait, do NOT launch).")
+    p.add_argument("--exclude", default="")
+    a = p.parse_args(args)
+    excl = [e for e in a.exclude.split(",") if e.strip()]
+    workers = worker_pins()
+    primary = workers[0] if workers else ("build", "?")
+    prem = cooldown_remaining(primary[1])
+    if prem > 0:
+        print(f"PRIMARY_COOLDOWN {primary[0]} ({primary[1]} retry-in "
+              f"{fmt_dur(prem)}): do NOT launch primary")
+    else:
+        print(f"PRIMARY_READY {primary[0]} ({primary[1]})")
+    role, model, wait = resolve_next_worker(excl)
+    if role:
+        print(f"PREFLIGHT_OK subagent_type={role} model={model}")
+    else:
+        soon, soon_m = wait if wait else (0, "?")
+        print(f"PREFLIGHT_WAIT no healthy worker; earliest {soon_m} in "
+              f"{fmt_dur(soon)} — do NOT launch any Task until then")
+        raise SystemExit(2)
 
 
 # ---- Model health memory (2026-09-29 v3; cooldowns with 3h default) ----
@@ -662,6 +855,10 @@ RATE_PATTERNS = [
     r"\b429\b", r"rate.?limit", r"too many requests",
     r"throttl", r"retry later", r"try again later",
 ]
+FREE_USAGE_PATTERNS = [
+    r"free usage exceeded", r"free tier.+(exceed|exhausted|depleted)",
+    r"usage exceeded.+free", r"free.+quota.+exceed",
+]
 QUOTA_PATTERNS = [
     r"quota", r"usage.?limit", r"limit.?exceeded",
     r"resource.?exhausted", r"capacity",
@@ -684,6 +881,7 @@ AGENT_PATTERNS = [
 VERDICTS = {
     "MODEL_QUOTA": (10, True, "failover: same session, another worker"),
     "MODEL_RATE_LIMIT": (11, True, "failover: same session, another worker"),
+    "FREE_USAGE_EXHAUSTED": (18, True, "failover: same session, another worker"),
     "CONTEXT_EXHAUSTED": (12, False, "session-level: replacement session, minimal transfer"),
     "MODEL_TIMEOUT": (13, True, "failover: same session, another worker"),
     "PROVIDER_ERROR": (14, True, "failover: same session, another worker"),
@@ -717,6 +915,9 @@ def classify_text(text):
     for pat in RATE_PATTERNS:
         if re.search(pat, low):
             return "MODEL_RATE_LIMIT", pat
+    for pat in FREE_USAGE_PATTERNS:
+        if re.search(pat, low):
+            return "FREE_USAGE_EXHAUSTED", pat
     for pat in QUOTA_PATTERNS:
         if re.search(pat, low):
             return "MODEL_QUOTA", pat
@@ -1276,6 +1477,7 @@ def cmd_migrate(args):
 CMDS = {"register": cmd_register, "context": cmd_context, "decide": cmd_decide,
         "retire": cmd_retire, "delete": cmd_delete, "status": cmd_status,
         "children": cmd_children, "list": cmd_list, "version": cmd_version,
+        "exists": cmd_exists, "abort": cmd_abort, "preflight": cmd_preflight,
         "health": cmd_health, "mark-dead": cmd_mark_dead,
         "mark-alive": cmd_mark_alive,
         "find-objective": cmd_find_objective,

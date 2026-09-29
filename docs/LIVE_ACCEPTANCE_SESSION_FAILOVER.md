@@ -1,9 +1,15 @@
-# LIVE ACCEPTANCE: same-session model failover (protocol v5)
+# LIVE ACCEPTANCE: same-session model failover (protocol v6)
 
 Goal: prove on the LIVE server that MODEL FAILURE ≠ SESSION FAILURE —
 `Task(task_id=S, subagent_type=<other worker>)` continues S with history
-intact. Run in the user environment (needs OpenCode server + providers).
-Cheap models only; no large contexts; do NOT provoke a real 7000s retry.
+intact — AND that sessions survive OpenCode restart (`GET /session/{id}`
+answers for pre-restart sessions). Run in the user environment (needs
+OpenCode server + providers). Cheap models only; no large contexts; do NOT
+provoke a real 7000s retry.
+
+Offline coverage first: `scripts/test-session-reuse.py` (35 checks, mock
+REST incl. post-restart idle shape, abort, preflight) must be green before
+the live run below.
 
 Conventions: `<oid>` = test objective id, e.g. `probe-a`. Every step prints
 its verdict; stop at the first FAIL and paste the output.
@@ -34,8 +40,23 @@ its verdict; stop at the first FAIL and paste the output.
 
 ## Test E — failure classification
 
-1. `classify-error` on samples: "429 rate limit" → MODEL_RATE_LIMIT(11); "socket hang up" → NETWORK_ERROR(15); "generation timed out" → MODEL_TIMEOUT(13); "no such session" → SESSION_ERROR(16); "test failed" → PROJECT_ERROR(20).
+1. `classify-error` on samples: "429 rate limit" → MODEL_RATE_LIMIT(11); "socket hang up" → NETWORK_ERROR(15); "generation timed out" → MODEL_TIMEOUT(13); "no such session" → SESSION_ERROR(16); "test failed" → PROJECT_ERROR(20); "Free usage exceeded" → FREE_USAGE_EXHAUSTED(18).
 2. **PASS:** distinct verdicts; MODEL_* with `--record-model` writes cooldown (`health` shows it); NETWORK/PROJECT write nothing.
+
+## Test G — restart persistence (the reported bug)
+
+1. Complete Test A (S1 with PROBE-ALPHA/BETA history, registered under `probe-a`).
+2. Restart OpenCode (server/UI).
+3. `exists S1` → must print SESSION_EXISTS_IDLE (not DOES_NOT_EXIST).
+4. `find-objective probe-a` → LIVE S1 + same `task_id`.
+5. Task `build`, `task_id=S1`, «Продолжай» → reply references old tokens.
+6. **PASS:** no session Y created; history intact across restart. If the model is in cooldown, `preflight` picks another worker first and the SAME S1 continues on it.
+
+## After live PASS
+
+Record results + date in `docs/DECISIONS.md` (which tests, which workers/models).
+The offline suite `scripts/test-session-reuse.py` (35 checks, mock server)
+covers the same logic offline and must stay green.
 
 ## Test F — stale session
 

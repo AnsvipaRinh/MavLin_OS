@@ -27,6 +27,9 @@ permission:
     "scripts/session-reuse.py mark-alive*": allow
     "scripts/session-reuse.py find-objective*": allow
     "scripts/session-reuse.py link-objective*": allow
+    "scripts/session-reuse.py exists*": allow
+    "scripts/session-reuse.py abort*": allow
+    "scripts/session-reuse.py preflight*": allow
   task:
     "*": deny
     "build": allow
@@ -49,7 +52,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 0. ENV PRE-CHECK (once per session, BEFORE anything else — both commands
    must succeed in the SAME session):
    `git status` AND `scripts/session-reuse.py version` (need
-   `orchestrator-protocol: 5`).
+   `orchestrator-protocol: 6`).
    - Either fails ("file not found", unknown subcommand, older version) →
      PROJECT-NOT-LOADED or STALE-AGENT: the server started outside the repo
      or cached an old agent file (no hot-reload — AGENTS.md 14.6). STOP and
@@ -69,21 +72,26 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
    result, unclassified failure, no next Task and no blocker report). Sitting
    idle with an unfinished objective and no blocker IS the failure mode.
 
-REBOOT RULE (server restart wipes runtime sessions — transcripts die with it):
-after ANY reboot/server restart, all pre-reboot task_ids are dead handles
-(resuming one silently becomes a fresh session anyway). So: NEVER pass
-pre-reboot task_ids; start a FRESH Task carrying context from git/docs/
-registry task text (that shape is CORRECT here, not a bug); run all gates
-normally; register the new task_id. Resume-via-task_id applies ONLY within
-one server lifetime.
+REBOOT RULE (verified 2026-09-30 against OpenCode 1.18.32 SDK: sessions are
+persistent — `GET /session` lists them, `GET /session/{id}` fetches history,
+the UI opens them after restart. A restart ends ACTIVE execution, it does NOT
+delete conversations):
+after ANY reboot/server restart, NEVER assume old task_ids are dead. Run
+`find-objective <oid>` (or `exists <id>`): session answers → resume the EXACT
+`task_id` with full history (migrate worker first if its model is in
+cooldown). Only a verified SESSION_DOES_NOT_EXIST (HTTP 404 on the session
+itself — never mere status absence) allows a fresh session, with minimal
+state transfer under the same oid. UI-visible session = exists. Proof:
+`@opencode-ai/sdk@1.18.32` (`session.list/get/children/message/abort/prompt`).
 
 BLOCKED-TASK RULE (a foreground Task that never returns):
 while a Task call is pending you cannot run gates — so do not let one hang
 forever. If the pending Task shows retry/unavailable seconds: under 600s =
-WAIT for its result; past 600s = STUCK → ABORT/cancel the pending Task call,
-then `migrate --delay <observed-sec>` + relaunch the SAME task on the printed
-worker. Aborting without an immediate migrate+relaunch (or an explicit wait
-report with the retry time) is forbidden — an aborted task that nobody
+WAIT for its result; past 600s = STUCK → `abort <task_id>`
+(`POST /session/{id}/abort`: cancels the blocked attempt, history survives),
+then `migrate --delay <observed-sec>` + resume the SAME `task_id` on the
+printed worker. Aborting without an immediate migrate+resume (or an explicit
+wait report with the retry time) is forbidden — an aborted task that nobody
 re-queues is lost work.
 
 TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a new session):
@@ -113,9 +121,11 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
     next healthy worker. A NEW session is created ONLY when the session itself
     is unrecoverable (SESSION_UNAVAILABLE after verification, CONTEXT_EXHAUSTED,
     SESSION_ERROR) — never merely because the worker changes.
-- BEFORE every Task call (fresh, resume, or migrate-target) run the stuck-gate:
-  `scripts/session-reuse.py stuck --threshold 600` (exit 2 = STUCK).
-  STUCK → do NOT call Task on the stuck worker; run `migrate` instead.
+- BEFORE every Task call run the preflight + stuck-gate, in this order:
+  `scripts/session-reuse.py preflight` (offline, zero API calls: skips workers
+  whose model is in cooldown — NEVER launch a known-dead model just to watch
+  it fail) → `scripts/session-reuse.py stuck --threshold 600` (exit 2 =
+  STUCK). STUCK → `abort` if still running, then `migrate` (same `task_id`).
 - SINGLE-FLIGHT: at most ONE active worker Task per objective. If the previous
   Task for this objective returned no terminal result yet (busy/retry, or
   `decide` says WAIT): do NOT launch a second Task for the same objective.
@@ -133,7 +143,7 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
      the printed worker, short continue prompt. Register keeps the same id.
   3. Prior session idle + INCOMPLETE (`decide` RESUME) → resume via `task_id`
      on the SAME worker with "Продолжай". Fresh Task here is FORBIDDEN.
-  4. Prior completed/retired, SESSION_UNAVAILABLE (verified, e.g. post-restart),
+  4. Prior completed/retired, verified SESSION_DOES_NOT_EXIST,
      CONTEXT_EXHAUSTED, or objective changed → fresh Task with MINIMAL state
      transfer (task text + lastResult + git diff — never a full replay), then
      register it under the same oid.
@@ -151,7 +161,7 @@ RECOVERY MATRIX (failure taxonomy — `classify-error` verdict → action):
 
 | Verdict (exit) | Meaning | Recovery: session? worker? |
 |---|---|---|
-| MODEL_QUOTA (10), MODEL_RATE_LIMIT (11), MODEL_TIMEOUT (13), PROVIDER_ERROR (14) | backend dead, session intact | SAME session, MIGRATE to next healthy worker |
+| MODEL_QUOTA (10), MODEL_RATE_LIMIT (11), MODEL_TIMEOUT (13), PROVIDER_ERROR (14), FREE_USAGE_EXHAUSTED (18) | backend dead, session intact | SAME session, MIGRATE to next healthy worker (preflight first) |
 | NETWORK_ERROR (15) | connectivity, model alive | SAME session, SAME worker when back; NO cooldown |
 | CONTEXT_EXHAUSTED (12) | session too full | REPLACEMENT session, minimal transfer (session-level, not model death) |
 | SESSION_ERROR (16) | conversation gone | REPLACEMENT session, minimal transfer |

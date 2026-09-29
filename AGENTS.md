@@ -1032,25 +1032,27 @@ READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.m
 TASK LIFECYCLE (binding, full text in `.opencode/agents/orchestrator.md`):
 ENV PRE-CHECK (`git status` + `version` must both succeed; else
 PROJECT-NOT-LOADED/STALE-AGENT = stop, no improvising) →
-protocol check `version` (need v5) →
-REBOOT RULE (post-restart: old task_ids are dead; fresh Task with carried
-context, gates still mandatory) →
-`stuck --threshold 600` gate before EVERY Task (exit 2 = migrate, no Task call) →
+protocol check `version` (need v6) →
+REBOOT RULE (sessions PERSIST across restart — verified vs 1.18.32 SDK:
+`GET /session/{id}` is authoritative; status absence = idle, never gone;
+fresh ONLY on verified 404) →
+`preflight` (offline: skip cooldown models BEFORE Task) +
+`stuck --threshold 600` gate before EVERY Task (exit 2 = abort + migrate, no fresh Task) →
 single-flight (max ONE active worker Task per objective; `decide` WAIT = no new
 Task) → Continue = `find-objective <oid>` → LIVE → Task SAME `task_id`
 (same worker, or migrated worker after MODEL_* failure — worker change NEVER
 means a new session; re-issuing the initial prompt as a fresh Task and
 checker-Tasks are FORBIDDEN) →
-STUCK/dead-model = abort if pending + `migrate --delay <sec>` → SAME `task_id`
+STUCK/dead-model = abort (`abort <id>`) + `migrate --delay <sec>` → SAME `task_id`
 on printed `subagent_type` → BLOCKED-TASK (pending Task past 600s retry =
-abort + migrate + relaunch, never sit) → fresh Task ONLY on objective change,
-verified SESSION_UNAVAILABLE, CONTEXT_EXHAUSTED, SESSION_ERROR, or
+abort + migrate + resume, never sit) → fresh Task ONLY on objective change,
+verified SESSION_DOES_NOT_EXIST, CONTEXT_EXHAUSTED, SESSION_ERROR, or
 completed/retired prior (minimal transfer, same oid). NEVER end a turn with
-an unprocessed Task outcome. Failure taxonomy (`classify-error`: MODEL_* =
-same-session failover, NETWORK = same session no cooldown, PROJECT = fix code
-no rotation, SESSION/CONTEXT = replacement). Cooldown memory
-(`health`/`mark-dead`/`mark-alive`, 3h default) tracks dead models; runtime
-rotation needs no restart.
+an unprocessed Task outcome. Failure taxonomy (`classify-error`: MODEL_* incl.
+FREE_USAGE_EXHAUSTED(18) = same-session failover, NETWORK = same session no
+cooldown, PROJECT = fix code no rotation, SESSION/CONTEXT = replacement).
+Cooldown memory (`health`/`mark-dead`/`mark-alive`, 3h default, provider delay
+wins) tracks dead models; runtime rotation needs no restart.
 
 "Next objective is X" = START X now. "Ready to continue" = continue now.
 Sections 0.1 and 13.8 apply to the Orchestrator loop one level up: it is
@@ -1151,7 +1153,10 @@ scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>  # same-sess
 scripts/session-reuse.py find-objective <oid>          # resume-first lookup: oid -> LIVE session + Task block
 scripts/session-reuse.py health                    # cooldown memory (dead models + retry-in)
 scripts/session-reuse.py mark-alive <model>        # clear cooldown after good result
-scripts/session-reuse.py version                   # need orchestrator-protocol: 5 (else STALE-AGENT)
+scripts/session-reuse.py version                   # need orchestrator-protocol: 6 (else STALE-AGENT)
+scripts/session-reuse.py exists <id>               # SESSION_EXISTS_IDLE/BUSY/RETRYING vs DOES_NOT_EXIST
+scripts/session-reuse.py abort <id>                # cancel blocked attempt, history survives
+scripts/session-reuse.py preflight                 # offline: skip cooldown models BEFORE Task
 ```
 
 ### 14.6 Agent visibility (why global symlinks exist)

@@ -1,5 +1,31 @@
 # DECISIONS
 
+## 2026-09-30 — Protocol v6: persistent sessions (restart does NOT kill them)
+
+**Date:** 2026-09-30
+**Context:** User's factual observation: after OpenCode restart, old child sessions remain openable in the UI with full history (100–200k tokens). Our v4 REBOOT RULE ("restart wipes transcripts, old task_ids are dead") is WRONG and caused the exact reported failure: fresh empty session → new session hits `Free usage exceeded` (~5600s retry) → orchestrator stuck.
+
+**SUPERSEDES:** v4 entry's REBOOT RULE (line "restart wipes runtime transcripts — pre-reboot task_ids are dead handles"). That claim was inferred, never verified. Correction below is verified against the installed `@opencode-ai/sdk@1.18.32` (`session.list/get/children/message/abort/prompt`).
+
+**Root cause (two layers):**
+1. Wrong existence oracle: `session-reuse.py` never called `GET /session/{id}` — only `/session/status` (activity map). Status absence was read as nonexistence; `decide` even defaulted unknown ids to idle then crashed on history fetch. Post-restart idle sessions (no status entry, full history) were classified dead → fresh duplicates.
+2. No preflight: primary `build` (Nemotron) launched while already in cooldown → `Free usage exceeded` → 5600s provider retry → foreground Task blocked → gates unreachable. "Launch primary → fail" instead of "check health → skip".
+
+**Verified OpenCode 1.18.32 session API (from installed SDK, no guessing):**
+- `GET /session` list all (persistent store); `GET /session/{id}` fetch one (404 = genuinely gone — the ONLY new-session condition); `GET /session/status` activity only; `GET /session/{id}/message` history (survives restart); `POST /session/{id}/abort` cancels a blocked attempt, history survives; `POST /session/{id}/message` appends to an existing session (= what Task resume does); Task = `sessions.get(task_id) ?? create` + per-prompt `model = agent.pin ?? parent.model` (same-session cross-worker resume is platform-native).
+
+**Changes:**
+1. `session_exists()` via `GET /session/{id}`: EXISTS_IDLE/BUSY/RETRYING vs DOES_NOT_EXIST vs API_UNAVAILABLE (`exists` command, exit 0/2/3). `decide`/`find-objective` check existence FIRST; status absence = idle; token-endpoint failure on a live session = RESUME (never duplicate); dead id = SESSION_UNAVAILABLE + registry `stale` mark (healed on proof-of-life).
+2. `abort <id>` (POST abort) + BLOCKED-TASK now uses it before same-session migrate.
+3. `preflight` (offline, zero API): PRIMARY_READY/COOLDOWN + PREFLIGHT_OK/WAIT — mandatory BEFORE every Task; known-dead models are never launched.
+4. Taxonomy: FREE_USAGE_EXHAUSTED(18) (previously fell through to PROJECT_ERROR = no failover — the 5600s trap's second half), recordable with cooldown.
+5. `URLError` → structured exit (test-caught crash fix).
+6. 24h model-limit cache; removed dead `_resolve_next_model`/`rotate:` machinery.
+7. Prompts/docs: REBOOT RULE rewritten (verify-then-resume, UI-visible = exists); recovery matrix + taxonomy updated; protocol v6 (new allow-list entries need one server restart to load).
+
+**Verified:** 35/35 green on mock REST (new: status-absent-but-exists→RESUME, broken-token-endpoint→RESUME, api-down→UNKNOWN/VERIFY, 404→SESSION_UNAVAILABLE, abort, preflight skip/wait, free-usage→18).
+**NOT verifiable here:** live cross-worker resume + live restart persistence (no server/provider in build container). Live proof = `docs/LIVE_ACCEPTANCE_SESSION_FAILOVER.md` A–F in user env.
+
 ## 2026-09-30 — Protocol v5: SESSION != MODEL (same-session failover)
 
 **Date:** 2026-09-30

@@ -30,14 +30,19 @@ spec.loader.exec_module(sr)
 
 
 class MockHandler(BaseHTTPRequestHandler):
+    # ses_QUIET: exists + has history, but ABSENT from /session/status
+    # (post-restart idle shape). ses_MSGBROKEN: exists, token endpoint 404.
     STATUS = {
         "ses_LIVE": {"type": "idle"},
         "ses_BUSY": {"type": "retry",
                      "error": "agent unavailable, retry in 7000 seconds"},
     }
+    SESSIONS = {"ses_LIVE", "ses_BUSY", "ses_QUIET", "ses_MSGBROKEN"}
     MSGS = {
         "ses_LIVE": [{"info": {"role": "assistant",
                                "tokens": {"input": 1000}}}],
+        "ses_QUIET": [{"info": {"role": "assistant",
+                                "tokens": {"input": 200000}}}],
     }
 
     def log_message(self, *a):
@@ -54,6 +59,21 @@ class MockHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/session/status":
             return self._send(200, MockHandler.STATUS)
+        if self.path == "/session":
+            return self._send(200, [{"id": s} for s in
+                                    sorted(MockHandler.SESSIONS)])
+        if self.path.startswith("/session/") and self.path.endswith("/message"):
+            sid = self.path.split("/")[2]
+            if sid in MockHandler.MSGS:
+                return self._send(200, MockHandler.MSGS[sid])
+            return self._send(404, {"error": "no such session"})
+        if self.path.startswith("/session/") and self.path.endswith("/children"):
+            return self._send(200, [])
+        if self.path.startswith("/session/"):
+            sid = self.path.split("/")[2]
+            if sid in MockHandler.SESSIONS:
+                return self._send(200, {"id": sid, "title": sid})
+            return self._send(404, {"error": "no such session"})
         if self.path == "/provider":
             return self._send(200, {"all": [
                 {"id": "opencode", "models": {
@@ -62,13 +82,14 @@ class MockHandler(BaseHTTPRequestHandler):
                 {"id": "openrouter", "models": {
                     "cohere/north-mini-code:free": {"limit": {"context": 256000}}}},
             ]})
-        if self.path.startswith("/session/") and self.path.endswith("/message"):
+        return self._send(404, {"error": "unknown"})
+
+    def do_POST(self):
+        if self.path.startswith("/session/") and self.path.endswith("/abort"):
             sid = self.path.split("/")[2]
-            if sid in MockHandler.MSGS:
-                return self._send(200, MockHandler.MSGS[sid])
+            if sid in MockHandler.SESSIONS:
+                return self._send(200, {"aborted": True})
             return self._send(404, {"error": "no such session"})
-        if self.path.startswith("/session/") and self.path.endswith("/children"):
-            return self._send(200, [])
         return self._send(404, {"error": "unknown"})
 
     def do_DELETE(self):
@@ -170,6 +191,12 @@ class TaxonomyTests(unittest.TestCase):
     def test_project_fallback(self):
         self.assertEqual(self.v("test failed: file not found"), "PROJECT_ERROR")
         self.assertEqual(sr.classify_text("   ")[0], "UNKNOWN")
+
+    def test_free_usage_exceeded(self):
+        self.assertEqual(self.v("Free usage exceeded, retry in 5600s"),
+                         "FREE_USAGE_EXHAUSTED")
+        self.assertEqual(sr.VERDICTS["FREE_USAGE_EXHAUSTED"][0], 18)
+        self.assertTrue(sr.VERDICTS["FREE_USAGE_EXHAUSTED"][1])
 
     def test_verdict_table(self):
         self.assertEqual(sr.VERDICTS["MODEL_QUOTA"][0], 10)
@@ -314,6 +341,101 @@ class ObjectiveTests(ScriptCase):
         with open(REG) as f:
             meta = json.load(f)["sessions"]["ses_LIVE"]
         self.assertEqual(meta["lastResult"], "had context")
+
+
+class ExistenceTests(ScriptCase):
+    """Acceptance: status absence != nonexistence; API down != NEW."""
+
+    def reg(self, sid, objective="Test Objective"):
+        r = self.run_script("register", sid, "--agent", "build",
+                            "--objective", objective, "--task", "do X")
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_status_absent_but_exists_resumes(self):
+        # ses_QUIET: GET /session works, /session/status has NO entry
+        # (post-restart idle shape). Must RESUME, never NEW.
+        self.reg("ses_QUIET")
+        r = self.run_script("decide", "ses_QUIET", "--objective",
+                            "Test Objective")
+        self.assertIn("RESUME ses_QUIET", r.stdout, r.stdout + r.stderr)
+        self.assertNotIn("SESSION_UNAVAILABLE", r.stdout)
+
+    def test_token_endpoint_down_no_duplicate(self):
+        # ses_MSGBROKEN: exists, history endpoint 404. Must NOT fork.
+        self.reg("ses_MSGBROKEN")
+        r = self.run_script("decide", "ses_MSGBROKEN", "--objective",
+                            "Test Objective")
+        self.assertIn("RESUME ses_MSGBROKEN", r.stdout, r.stdout + r.stderr)
+        self.assertNotIn("\nNEW", "\n" + r.stdout)
+
+    def test_exists_command_idle(self):
+        r = self.run_script("exists", "ses_LIVE")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("SESSION_EXISTS_IDLE", r.stdout)
+
+    def test_exists_command_retrying(self):
+        r = self.run_script("exists", "ses_BUSY")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("SESSION_EXISTS_RETRYING", r.stdout)
+        self.assertIn("7000s", r.stdout)
+
+    def test_exists_command_missing(self):
+        r = self.run_script("exists", "ses_NOPE")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("SESSION_DOES_NOT_EXIST", r.stdout)
+
+    def test_exists_command_unreachable(self):
+        r = self.run_script("exists", "ses_LIVE", port=1)
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn("SESSION_API_UNAVAILABLE", r.stdout)
+
+    def test_find_objective_status_absent(self):
+        self.run_script("register", "ses_QUIET", "--agent", "build",
+                        "--objective", "Quiet", "--task", "do X",
+                        "--oid", "quiet-o")
+        r = self.run_script("find-objective", "quiet-o")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("LIVE ses_QUIET", r.stdout)
+        self.assertIn("task_id=ses_QUIET", r.stdout)
+
+
+class AbortTests(ScriptCase):
+    def test_abort_live(self):
+        r = self.run_script("abort", "ses_BUSY")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("ABORTED (ses_BUSY", r.stdout)
+        self.assertIn("history preserved", r.stdout)
+
+    def test_abort_missing(self):
+        r = self.run_script("abort", "ses_NOPE")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("does not exist", r.stdout)
+
+
+class PreflightTests(ScriptCase):
+    def test_preflight_ready(self):
+        r = self.run_script("preflight")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("PRIMARY_READY build", r.stdout)
+        self.assertIn("PREFLIGHT_OK subagent_type=build", r.stdout)
+
+    def test_preflight_skips_cooldown_primary(self):
+        # Primary model in cooldown -> next healthy worker BEFORE any Task.
+        self.run_script("mark-dead", "opencode/nemotron-3-ultra-free",
+                        "--reason", "test")
+        r = self.run_script("preflight")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("PRIMARY_COOLDOWN build", r.stdout)
+        self.assertIn("PREFLIGHT_OK subagent_type=build-b", r.stdout)
+
+    def test_preflight_all_cooling_waits(self):
+        for m in ("opencode/nemotron-3-ultra-free",
+                  "openrouter/cohere/north-mini-code:free",
+                  "opencode/longcat-2.5-preview-free"):
+            self.run_script("mark-dead", m, "--reason", "test")
+        r = self.run_script("preflight")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("PREFLIGHT_WAIT", r.stdout)
 
 
 if __name__ == "__main__":
