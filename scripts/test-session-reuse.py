@@ -23,6 +23,8 @@ SCRIPT = os.path.join(BASE, "session-reuse.py")
 REG = os.path.join(BASE, "..", ".opencode", "sessions", "registry.json")
 HEALTH = os.path.join(BASE, "..", ".opencode", "sessions", "model-health.json")
 LIMITS = os.path.join(BASE, "..", ".opencode", "sessions", "model-limits.json")
+WDLOG = os.path.join(BASE, "..", ".opencode", "sessions", "watchdog.log")
+WATCHDOG = os.path.join(BASE, "task-watchdog.py")
 
 spec = importlib.util.spec_from_file_location("sr", SCRIPT)
 sr = importlib.util.module_from_spec(spec)
@@ -36,8 +38,15 @@ class MockHandler(BaseHTTPRequestHandler):
         "ses_LIVE": {"type": "idle"},
         "ses_BUSY": {"type": "retry",
                      "error": "agent unavailable, retry in 7000 seconds"},
+        "ses_WORKING": {"type": "busy"},
+        "ses_SOON": {"type": "retry", "attempt": 1,
+                     "message": "rate limited, retry in 60 seconds"},
+        "ses_NEXT": {"type": "retry", "attempt": 3,
+                     "message": "Free usage exceeded"},
     }
-    SESSIONS = {"ses_LIVE", "ses_BUSY", "ses_QUIET", "ses_MSGBROKEN"}
+    SESSIONS = {"ses_LIVE", "ses_BUSY", "ses_QUIET", "ses_MSGBROKEN",
+                "ses_WORKING", "ses_SOON", "ses_NEXT"}
+    ABORTS = []
     MSGS = {
         "ses_LIVE": [{"info": {"role": "assistant",
                                "tokens": {"input": 1000}}}],
@@ -92,6 +101,15 @@ class MockHandler(BaseHTTPRequestHandler):
             return self._send(404, {"error": "no such session"})
         return self._send(404, {"error": "unknown"})
 
+    def do_POST(self):
+        if self.path.startswith("/session/") and self.path.endswith("/abort"):
+            sid = self.path.split("/")[2]
+            if sid in MockHandler.SESSIONS:
+                MockHandler.ABORTS.append(sid)
+                return self._send(200, {"aborted": True})
+            return self._send(404, {"error": "no such session"})
+        return self._send(404, {"error": "unknown"})
+
     def do_DELETE(self):
         return self._send(200, None)
 
@@ -111,12 +129,13 @@ class ScriptCase(unittest.TestCase):
 
     def setUp(self):
         self.saved = {}
-        for p in (REG, HEALTH, LIMITS):
+        for p in (REG, HEALTH, LIMITS, WDLOG):
             try:
                 with open(p, "rb") as f:
                     self.saved[p] = f.read()
             except OSError:
                 self.saved[p] = None
+        MockHandler.ABORTS = []
 
     def tearDown(self):
         for p, data in self.saved.items():
@@ -137,6 +156,15 @@ class ScriptCase(unittest.TestCase):
         env["OPENCODE_SERVER_USERNAME"] = "u"
         env["OPENCODE_SERVER_PASSWORD"] = "p"
         return subprocess.run([sys.executable, SCRIPT, *args],
+                              capture_output=True, text=True, env=env)
+
+    def run_watchdog(self, *args):
+        env = dict(os.environ)
+        env["OPENCODE_SERVER_HOST"] = "127.0.0.1"
+        env["OPENCODE_SERVER_PORT"] = str(self.port)
+        env["OPENCODE_SERVER_USERNAME"] = "u"
+        env["OPENCODE_SERVER_PASSWORD"] = "p"
+        return subprocess.run([sys.executable, WATCHDOG, *args],
                               capture_output=True, text=True, env=env)
 
     def register_live(self, agent="build",
@@ -436,6 +464,103 @@ class PreflightTests(ScriptCase):
         r = self.run_script("preflight")
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("PREFLIGHT_WAIT", r.stdout)
+
+
+class NextFieldTests(unittest.TestCase):
+    """The 1.18.32 retry status is {type:retry, attempt, message, next}."""
+
+    def test_next_ms_epoch(self):
+        import time
+        nxt = int(time.time() * 1000) + 4500 * 1000
+        d = sr.extract_delay_sec({"type": "retry", "attempt": 3,
+                                  "message": "Free usage exceeded",
+                                  "next": nxt})
+        self.assertIsNotNone(d)
+        self.assertAlmostEqual(d, 4500, delta=120)
+
+    def test_next_seconds(self):
+        self.assertEqual(sr.extract_delay_sec({"type": "retry",
+                                               "next": 4500}), 4500.0)
+
+    def test_next_past(self):
+        import time
+        self.assertIsNone(sr.extract_delay_sec(
+            {"type": "retry", "next": int(time.time() * 1000) - 60000}))
+
+
+class WatchdogTests(ScriptCase):
+    def reg_busy(self):
+        r = self.run_script("register", "ses_BUSY", "--agent", "build",
+                            "--objective", "Busy Objective", "--task", "do Y",
+                            "--model", "opencode/nemotron-3-ultra-free",
+                            "--oid", "busy-o")
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def journal_lines(self):
+        try:
+            with open(WDLOG) as f:
+                return [json.loads(line) for line in f if line.strip()]
+        except OSError:
+            return []
+
+    def test_abort_dead_retry_over_threshold(self):
+        self.reg_busy()
+        r = self.run_watchdog("--once", "--session", "ses_BUSY",
+                              "--threshold", "600")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("aborted ses_BUSY", r.stdout)
+        self.assertIn("ses_BUSY", MockHandler.ABORTS)
+        # Cooldown recorded with observed delay (~7000s).
+        r2 = self.run_script("health")
+        self.assertIn("nemotron-3-ultra-free", r2.stdout)
+        self.assertIn("1h56m", r2.stdout)
+        # Registry lastAbort recorded, session NOT killed/replaced.
+        with open(REG) as f:
+            meta = json.load(f)["sessions"]["ses_BUSY"]
+        self.assertIn("lastAbort", meta)
+        self.assertAlmostEqual(meta["lastAbort"]["delaySec"], 7000, delta=60)
+        self.assertEqual(meta["state"], "reusable")
+        evs = self.journal_lines()
+        self.assertTrue(any(e.get("event") == "ABORTED" and
+                            e.get("session") == "ses_BUSY" for e in evs))
+
+    def test_no_abort_busy(self):
+        self.run_script("register", "ses_WORKING", "--agent", "build",
+                        "--objective", "W", "--task", "do W")
+        r = self.run_watchdog("--once", "--session", "ses_WORKING")
+        self.assertIn("ok ses_WORKING", r.stdout, r.stdout + r.stderr)
+        self.assertNotIn("ses_WORKING", MockHandler.ABORTS)
+
+    def test_no_abort_short_retry(self):
+        self.run_script("register", "ses_SOON", "--agent", "build",
+                        "--objective", "S", "--task", "do S")
+        r = self.run_watchdog("--once", "--session", "ses_SOON",
+                              "--threshold", "600")
+        self.assertIn("watch ses_SOON", r.stdout, r.stdout + r.stderr)
+        self.assertNotIn("ses_SOON", MockHandler.ABORTS)
+
+    def test_no_abort_idle(self):
+        self.register_live()
+        r = self.run_watchdog("--once", "--session", "ses_LIVE")
+        self.assertIn("ok ses_LIVE", r.stdout, r.stdout + r.stderr)
+        self.assertEqual(MockHandler.ABORTS, [])
+
+    def test_gone_session(self):
+        r = self.run_watchdog("--once", "--session", "ses_NOPE")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("gone ses_NOPE", r.stdout)
+
+    def test_migrate_uses_abort_delay(self):
+        # migrate without --delay picks up a fresh watchdog abort record.
+        self.reg_busy()
+        self.run_watchdog("--once", "--session", "ses_BUSY",
+                          "--threshold", "600")
+        r = self.run_script("migrate", "ses_BUSY", "--objective",
+                            "Busy Objective")
+        self.assertIn("task_id=ses_BUSY", r.stdout, r.stdout + r.stderr)
+        self.assertIn("subagent_type=build-b", r.stdout)
+        r2 = self.run_script("health")
+        self.assertIn("1h56m", r2.stdout)  # abort delay, not 3h default
 
 
 if __name__ == "__main__":

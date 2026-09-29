@@ -30,6 +30,8 @@ permission:
     "scripts/session-reuse.py exists*": allow
     "scripts/session-reuse.py abort*": allow
     "scripts/session-reuse.py preflight*": allow
+    "python3 scripts/task-watchdog.py*": allow
+    "scripts/task-watchdog.py*": allow
   task:
     "*": deny
     "build": allow
@@ -52,7 +54,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 0. ENV PRE-CHECK (once per session, BEFORE anything else — both commands
    must succeed in the SAME session):
    `git status` AND `scripts/session-reuse.py version` (need
-   `orchestrator-protocol: 6`).
+   `orchestrator-protocol: 7`).
    - Either fails ("file not found", unknown subcommand, older version) →
      PROJECT-NOT-LOADED or STALE-AGENT: the server started outside the repo
      or cached an old agent file (no hot-reload — AGENTS.md 14.6). STOP and
@@ -86,13 +88,30 @@ state transfer under the same oid. UI-visible session = exists. Proof:
 
 BLOCKED-TASK RULE (a foreground Task that never returns):
 while a Task call is pending you cannot run gates — so do not let one hang
-forever. If the pending Task shows retry/unavailable seconds: under 600s =
-WAIT for its result; past 600s = STUCK → `abort <task_id>`
-(`POST /session/{id}/abort`: cancels the blocked attempt, history survives),
-then `migrate --delay <observed-sec>` + resume the SAME `task_id` on the
-printed worker. Aborting without an immediate migrate+resume (or an explicit
-wait report with the retry time) is forbidden — an aborted task that nobody
-re-queues is lost work.
+forever. Two mechanisms, in order:
+  A. BACKGROUND-FIRST (verified in OpenCode 1.18.32 `task.ts`): the Task tool
+     accepts `background=true` (needs server flag
+     OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS). Attempt it ONCE per session:
+     if the tool rejects it, the flag is off — use (B) from then on and never
+     retry background. With background on, the call returns at once
+     (`state=running`); completion/failure arrives later as a notification,
+     and YOU keep your turns: run `stuck`/`exists`/`abort` via bash between
+     turns, `migrate` the same `task_id` on stuck/dead, resume on notice.
+     Same task_id + same workers — background changes NOTHING about session
+     identity or model failover.
+  B. WATCHDOG (mandatory for every foreground Task): BEFORE launching, ensure
+     `scripts/task-watchdog.py --daemon --all` is running (check fresh
+     HEARTBEAT in `.opencode/sessions/watchdog.log` via read; if stale/absent,
+     start it: `python3 scripts/task-watchdog.py --daemon --all
+     --interval 20 --threshold 600 &`). The watchdog is a dumb REST loop (no
+     LLM): it aborts provider-retry waits >600s, records model cooldowns and
+     `lastAbort`, and NEVER creates sessions or sends prompts. Your blocked
+     Task then fails fast — see ABORT-WAKEUP below.
+ABORT-WAKEUP RULE: a Task error arriving after a fresh `lastAbort` (registry)
+or ABORTED line (watchdog.log) for that session is a watchdog-confirmed STUCK,
+NOT a user cancel: skip re-waiting, `classify-error` the recorded reason,
+`migrate --delay <recorded-sec>` (auto-picked when omitted) and resume the
+SAME `task_id` on the printed worker at once.
 
 TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a new session):
 
@@ -121,11 +140,14 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
     next healthy worker. A NEW session is created ONLY when the session itself
     is unrecoverable (SESSION_UNAVAILABLE after verification, CONTEXT_EXHAUSTED,
     SESSION_ERROR) — never merely because the worker changes.
-- BEFORE every Task call run the preflight + stuck-gate, in this order:
-  `scripts/session-reuse.py preflight` (offline, zero API calls: skips workers
-  whose model is in cooldown — NEVER launch a known-dead model just to watch
-  it fail) → `scripts/session-reuse.py stuck --threshold 600` (exit 2 =
-  STUCK). STUCK → `abort` if still running, then `migrate` (same `task_id`).
+- BEFORE every Task call run preflight + watchdog-ensure + stuck-gate:
+  `scripts/session-reuse.py preflight` (offline: skips cooldown models —
+  NEVER launch a known-dead model just to watch it fail) → watchdog alive?
+  (fresh HEARTBEAT in watchdog.log via read; if stale/absent, start
+  `python3 scripts/task-watchdog.py --daemon --all &` — a foreground Task
+  without a watchdog has no runtime failover) →
+  `scripts/session-reuse.py stuck --threshold 600` (exit 2 = STUCK).
+  STUCK → `abort` if still running, then `migrate` (same `task_id`).
 - SINGLE-FLIGHT: at most ONE active worker Task per objective. If the previous
   Task for this objective returned no terminal result yet (busy/retry, or
   `decide` says WAIT): do NOT launch a second Task for the same objective.

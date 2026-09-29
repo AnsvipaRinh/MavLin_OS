@@ -1032,11 +1032,13 @@ READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.m
 TASK LIFECYCLE (binding, full text in `.opencode/agents/orchestrator.md`):
 ENV PRE-CHECK (`git status` + `version` must both succeed; else
 PROJECT-NOT-LOADED/STALE-AGENT = stop, no improvising) →
-protocol check `version` (need v6) →
+protocol check `version` (need v7) →
 REBOOT RULE (sessions PERSIST across restart — verified vs 1.18.32 SDK:
 `GET /session/{id}` is authoritative; status absence = idle, never gone;
 fresh ONLY on verified 404) →
 `preflight` (offline: skip cooldown models BEFORE Task) +
+watchdog-ensure (daemon alive via HEARTBEAT, else start it; foreground Tasks
+without a watchdog have no runtime failover) +
 `stuck --threshold 600` gate before EVERY Task (exit 2 = abort + migrate, no fresh Task) →
 single-flight (max ONE active worker Task per objective; `decide` WAIT = no new
 Task) → Continue = `find-objective <oid>` → LIVE → Task SAME `task_id`
@@ -1044,8 +1046,14 @@ Task) → Continue = `find-objective <oid>` → LIVE → Task SAME `task_id`
 means a new session; re-issuing the initial prompt as a fresh Task and
 checker-Tasks are FORBIDDEN) →
 STUCK/dead-model = abort (`abort <id>`) + `migrate --delay <sec>` → SAME `task_id`
-on printed `subagent_type` → BLOCKED-TASK (pending Task past 600s retry =
-abort + migrate + resume, never sit) → fresh Task ONLY on objective change,
+on printed `subagent_type` → BLOCKED-TASK (a foreground Task blocks the
+orchestrator for the whole provider retry — verified vs 1.18.32 task.ts.
+Two exits: BACKGROUND-FIRST (Task background=true when the server flag is
+on: call returns at once, gates run between turns) or WATCHDOG
+(`task-watchdog.py --daemon --all`: independent REST loop that aborts
+>600s provider-retry waits, records cooldowns + lastAbort; the blocked Task
+then fails fast and the orchestrator migrates the SAME session). Abort-wakeup
++ fresh lastAbort = confirmed STUCK, migrate at once, never re-wait) → fresh Task ONLY on objective change,
 verified SESSION_DOES_NOT_EXIST, CONTEXT_EXHAUSTED, SESSION_ERROR, or
 completed/retired prior (minimal transfer, same oid). NEVER end a turn with
 an unprocessed Task outcome. Failure taxonomy (`classify-error`: MODEL_* incl.
@@ -1153,10 +1161,12 @@ scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>  # same-sess
 scripts/session-reuse.py find-objective <oid>          # resume-first lookup: oid -> LIVE session + Task block
 scripts/session-reuse.py health                    # cooldown memory (dead models + retry-in)
 scripts/session-reuse.py mark-alive <model>        # clear cooldown after good result
-scripts/session-reuse.py version                   # need orchestrator-protocol: 6 (else STALE-AGENT)
+scripts/session-reuse.py version                   # need orchestrator-protocol: 7 (else STALE-AGENT)
 scripts/session-reuse.py exists <id>               # SESSION_EXISTS_IDLE/BUSY/RETRYING vs DOES_NOT_EXIST
 scripts/session-reuse.py abort <id>                # cancel blocked attempt, history survives
 scripts/session-reuse.py preflight                 # offline: skip cooldown models BEFORE Task
+python3 scripts/task-watchdog.py --daemon --all    # independent abort/cooldown loop (needs one start)
+# watchdog liveness: read tail of .opencode/sessions/watchdog.log (HEARTBEAT)
 ```
 
 ### 14.6 Agent visibility (why global symlinks exist)

@@ -1,5 +1,21 @@
 # DECISIONS
 
+## 2026-09-30 — Protocol v7: watchdog breaks the synchronous-Task deadlock
+
+**Date:** 2026-09-30
+**Context:** v6 fixed persistence, but the live chain still deadlocks: orchestrator resumes session X → child hits `Free usage exceeded` (~4500s retry) → foreground `Task(...)` blocks the orchestrator for the whole retry → no failover, no control. Roles unchanged (Spark = orchestrator-only, never a worker).
+
+**Root cause (verified vs 1.18.32 sources):** `task.ts` foreground path races `background.wait({id})` — the parent CANNOT act while the child prompt (incl. provider retry loop in `prompt.ts`) is pending. Prompt text alone ("if stuck, abort") cannot fire inside a blocked call. `SessionStatus` is in-memory (`status.ts`: absent = idle, restart wipes the map — never existence), retry shape is `{type:retry, attempt, message, next}` (SDK `types.gen`), `POST /session/{id}/abort` cancels the attempt with history surviving, per-prompt model comes from the agent pin (`createUserMessage` even persists agent/model on the session), and a `background=true` Task mode exists behind `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS` (returns at once, notifies on completion; same-task_id re-entry while running EXTENDS instead of duplicating).
+
+**Changes:**
+1. `scripts/task-watchdog.py` (new, stdlib-only, no LLM): independent REST loop over registry sessions (or --oid/--session). Aborts ONLY `retry` states whose message is a dead MODEL_* verdict or provider-wait wording AND whose parsed delay (incl. the `next` field: s/ms-epoch/seconds magnitudes) exceeds 600s. Busy/idle/short/transient retries never touched. On abort: POST abort → model cooldown (= observed delay) → registry `lastAbort` → journal line. Daemon + --once, heartbeat log, pid lock, wall-clock --timeout. `migrate` without --delay reuses a fresh `lastAbort.delaySec`.
+2. `extract_delay_sec` now parses the 1.18.32 `next` field.
+3. Orchestrator: BACKGROUND-FIRST (try `background=true` once; tool rejection = flag off → foreground+watchdog), watchdog-ensure before every Task, ABORT-WAKEUP rule (Task error + fresh lastAbort = confirmed STUCK → migrate at once). Roles untouched: Spark never a worker, `never` list unchanged, primary worker unchanged.
+4. Protocol v7 (new allow-list entries need one server restart).
+
+**Verified:** 44/44 tests green on mock REST (abort path, no-abort conservatism, next-field magnitudes, migrate-from-abort, preflight, taxonomy incl. FREE_USAGE_EXHAUSTED=18).
+**NOT verifiable here:** live abort-during-retry, background-flag presence on the user server, daemon lifetime on the user OS. Live proof = acceptance A–R in user env (`docs/LIVE_ACCEPTANCE_SESSION_FAILOVER.md`).
+
 ## 2026-09-30 — Protocol v6: persistent sessions (restart does NOT kill them)
 
 **Date:** 2026-09-30

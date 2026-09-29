@@ -97,7 +97,7 @@ CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-ORCHESTRATOR_PROTOCOL = 6
+ORCHESTRATOR_PROTOCOL = 7
 
 # Cooldown memory for dead models (.opencode/sessions/model-health.json).
 # A model observed dead (provider retry/unavailable > stuck threshold, or
@@ -1261,12 +1261,15 @@ def extract_delay_sec(entry):
         return extract_delay_sec({"error": entry})
     if not isinstance(entry, dict):
         return None
-    # 1. Explicit second-fields (most reliable).
+    # 1. Explicit second-fields (most reliable). `next` included: the
+    # 1.18.32 retry status is {type:retry, attempt, message, next}; `next`
+    # is a seconds delay when small, an epoch when large (branch 3 sorts
+    # out magnitudes — values >= 1e6 are skipped here, never misread).
     for key in ("delaySec", "delay_sec", "retryAfterSec", "retry_after_sec",
                 "retryAfter", "retry_after", "retryInSec", "retry_in_sec",
                 "retryIn", "retry_in", "unavailableSec", "unavailable_sec",
                 "waitSec", "wait_sec", "backoffSec", "backoff_sec",
-                "seconds", "secs", "delay", "wait"):
+                "seconds", "secs", "delay", "wait", "next"):
         if key in entry:
             v = _num(entry[key])
             if v is not None and v > 0:
@@ -1285,7 +1288,8 @@ def extract_delay_sec(entry):
     now_ms = time.time() * 1000.0
     for key in ("nextRetry", "next_retry", "retryAt", "retry_at",
                 "retryTime", "retry_time", "availableAt", "available_at",
-                "nextAttempt", "next_attempt", "resetAt", "reset_at"):
+                "nextAttempt", "next_attempt", "resetAt", "reset_at",
+                "next"):
         if key in entry:
             v = _num(entry[key])
             if v is not None and v > 0:
@@ -1427,8 +1431,19 @@ def cmd_migrate(args):
     excluded = [e for e in a.exclude.split(",") if e.strip()]
     if old_model:
         excluded.append(old_model)
-    # 1. Cooldown memory: provider-known delay wins, else 3h default.
-    cd = a.delay if a.delay and a.delay > 0 else DEFAULT_COOLDOWN_SEC
+    # 1. Cooldown memory: explicit --delay wins; else a fresh watchdog
+    # abort record on this session; else 3h default.
+    cd = 0
+    if a.delay and a.delay > 0:
+        cd = a.delay
+    else:
+        try:
+            abort_rec = (meta.get("lastAbort") or {})
+            cd = float(abort_rec.get("delaySec") or 0)
+        except (TypeError, ValueError):
+            cd = 0
+    if not cd or cd <= 0:
+        cd = DEFAULT_COOLDOWN_SEC
     if old_model:
         h = load_health()
         h["models"][old_model.lower()] = {

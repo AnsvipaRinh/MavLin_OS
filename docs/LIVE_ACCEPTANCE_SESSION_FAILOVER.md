@@ -52,6 +52,14 @@ its verdict; stop at the first FAIL and paste the output.
 5. Task `build`, `task_id=S1`, «Продолжай» → reply references old tokens.
 6. **PASS:** no session Y created; history intact across restart. If the model is in cooldown, `preflight` picks another worker first and the SAME S1 continues on it.
 
+## Test H — runtime failover without deadlock (watchdog path)
+
+1. S1 registered; start `python3 scripts/task-watchdog.py --daemon --all --interval 20` (one start; HEARTBEAT appears in `.opencode/sessions/watchdog.log`).
+2. Launch Task `build`, `task_id=S1` on a worker whose model is quota-exhausted (or wait for a real exhaustion).
+3. Provider enters retry (e.g. `Free usage exceeded`, thousands of seconds).
+4. **PASS (bounded, minutes not hours):** watchdog prints ABORTED + cooldown + `lastAbort`; the blocked Task call fails fast; orchestrator migrates and resumes SAME S1 on a healthy worker; history intact; no session Y; Spark stays orchestrator-only.
+5. Variant: if the server accepts `background=true`, the Task call returns at once and the orchestrator itself runs the gates between turns (no daemon needed for that Task).
+
 ## After live PASS
 
 Record results + date in `docs/DECISIONS.md` (which tests, which workers/models).
