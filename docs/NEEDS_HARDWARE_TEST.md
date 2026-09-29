@@ -624,3 +624,14 @@ documented. LKML thread open (Sep 2026).
 - [ ] PCIe idle power: `cat /sys/bus/pci/devices/0000:00:1c.0/power/runtime_status` → active
 - [ ] Battery discharge rate at idle (10-min samples)
 - [ ] Compare with/without pcie_port_pm=off
+
+## ISO validation — hardware validation (Track 5/7, 2026-09-29)
+- [ ] Boot ISO on real MacBook10,1 hardware (UEFI boot via systemd-boot)
+- [ ] Verify ISO loads to live desktop (LightDM → Xfce with Mavericks theme)
+- [ ] Verify mavericks-apps and mavericks-theme packages are installed in live system
+- [ ] Verify macbook12-audio-driver is NOT installed (ISO-excluded by design)
+- [ ] Verify sshd is disabled in live system (`systemctl is-enabled sshd` → disabled)
+- [ ] Verify root is locked in live system (`passwd -S root` → L)
+- [ ] Verify firstboot script works on installed system (applies baseline, enables services)
+- [ ] Verify fstrim.timer and plocate-updatedb.timer are enabled after firstboot
+- [ ] Verify snapshot hooks work on installed btrfs system

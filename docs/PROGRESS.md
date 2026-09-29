@@ -965,3 +965,15 @@
 - [x] check-sync.sh: added sync pair for mv-snapshot-take.sh (tools/diagnostics ↔ airootfs).
 - [x] Gate: check-sync ALL CHECKS PASSED (227 checks); test_mv_snapshot_take.py 7/7 pass; bash syntax clean.
 - [x] DECISIONS.md: hook policy entry added (snapshot-before-change = mandatory on btrfs, best-effort on non-btrfs; never blocks operation).
+
+### Track 5/7 — Rebuild local packages + ISO + QEMU smoke attempt (2026-09-29, без железа)
+- [x] build-local-pkgs.sh: mavericks-apps 0.1.0-1, mavericks-theme 1.0.0-2, macbook12-audio-driver 1.0.0.r94.g75884e2-1 — all rebuilt, repo-add OK at /home/builder/mavericks-repo
+- [x] packages.x86_64 coherence verified: mavericks-apps, mavericks-theme PRESENT; macbook12-audio-driver ABSENT (ISO-excluded as per P1-C1); openssh PRESENT but disabled (no sshd.service in multi-user.target.wants)
+- [x] P0-J1 verified in airootfs: sshd.service NOT in multi-user.target.wants; root locked in /etc/shadow (`root:!14871::::::`); sshd disabled in firstboot via `systemctl disable sshd.service reflector.service`
+- [x] mkarchiso: work dir /home/builder/mv-iso-work (not tmpfs), output /home/builder/out/mavericks-linux-2026.09.29-x86_64.iso — 2.0G (2,099,507,200 bytes), sha256=81d560d7db2a9e08be18942af285359726a4bbde461c8a91f4fbfcdfbadc9bb3
+- [x] ISO package count: 712 packages (pkglist.x86_64.txt)
+- [x] ISO structure verified via xorriso: UEFI bootable (El Torito EFI image at LBA 884846, 140288 blocks), MBR protective + GPT, systemd-boot entries present
+- [x] QEMU+OVMF attempt: BLOCKED at boot menu — OVMF firmware loads, shows UEFI boot menu with "UEFI QEMU DVD-ROM QM00003" entry, but times out at 120s waiting for kernel handoff. Container lacks KVM (no hardware acceleration) and proper UEFI CD-ROM emulation; NOT an ISO defect. ISO structure valid per xorriso.
+- [x] NEEDS_HARDWARE_TEST.md updated with ISO validation items
+- [x] All gates: check-sync.sh ALL CHECKS PASSED, py_compile clean, desktop-file-validate clean
+
