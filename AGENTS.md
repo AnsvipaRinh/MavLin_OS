@@ -1032,20 +1032,25 @@ READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.m
 TASK LIFECYCLE (binding, full text in `.opencode/agents/orchestrator.md`):
 ENV PRE-CHECK (`git status` + `version` must both succeed; else
 PROJECT-NOT-LOADED/STALE-AGENT = stop, no improvising) →
-protocol check `version` (need v4) →
+protocol check `version` (need v5) →
 REBOOT RULE (post-restart: old task_ids are dead; fresh Task with carried
 context, gates still mandatory) →
 `stuck --threshold 600` gate before EVERY Task (exit 2 = migrate, no Task call) →
 single-flight (max ONE active worker Task per objective; `decide` WAIT = no new
-Task) → continuation = Task SAME worker + `task_id=<prior>` + short "Продолжай"
-(re-issuing the initial prompt as a fresh Task is FORBIDDEN; checker-Tasks
-"to see if the old task can continue" are FORBIDDEN — decide via bash signals)
-→ STUCK/dead = `migrate --delay <sec>` → NEW Task on printed `subagent_type`
-(no `task_id`, same task) → BLOCKED-TASK (pending Task past 600s retry =
-abort + migrate + relaunch, never sit) → fresh Task only on objective change
-or completed/retired prior. NEVER end a turn with an unprocessed Task outcome.
-Cooldown memory (`health`/`mark-dead`/`mark-alive`, 3h default) tracks dead
-models; runtime rotation needs no restart.
+Task) → Continue = `find-objective <oid>` → LIVE → Task SAME `task_id`
+(same worker, or migrated worker after MODEL_* failure — worker change NEVER
+means a new session; re-issuing the initial prompt as a fresh Task and
+checker-Tasks are FORBIDDEN) →
+STUCK/dead-model = abort if pending + `migrate --delay <sec>` → SAME `task_id`
+on printed `subagent_type` → BLOCKED-TASK (pending Task past 600s retry =
+abort + migrate + relaunch, never sit) → fresh Task ONLY on objective change,
+verified SESSION_UNAVAILABLE, CONTEXT_EXHAUSTED, SESSION_ERROR, or
+completed/retired prior (minimal transfer, same oid). NEVER end a turn with
+an unprocessed Task outcome. Failure taxonomy (`classify-error`: MODEL_* =
+same-session failover, NETWORK = same session no cooldown, PROJECT = fix code
+no rotation, SESSION/CONTEXT = replacement). Cooldown memory
+(`health`/`mark-dead`/`mark-alive`, 3h default) tracks dead models; runtime
+rotation needs no restart.
 
 "Next objective is X" = START X now. "Ready to continue" = continue now.
 Sections 0.1 and 13.8 apply to the Orchestrator loop one level up: it is
@@ -1065,11 +1070,11 @@ memory: `scripts/session-reuse.py health`). Rotation is a runtime
 `subagent_type` switch (`build` → `build-b` → `build-c`), no restart, no paste.
 A sub-agent stuck in provider retry/unavailable backoff longer than 600s
 (10 min, e.g. the observed 8800s "agent unavailable" hang) is NOT waited
-out — it is a STUCK-TASK failover: pause the task in the registry
-(`state=paused-stuck`, same objective+task preserved) and continue the SAME
-task on the next healthy worker via `scripts/session-reuse.py stuck` (detect)
+out — it is a STUCK-TASK failover: keep the logical session, record the dead
+model, and continue the SAME `task_id` on the next healthy worker via
+`scripts/session-reuse.py stuck` (detect)
 → `scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>`
-(pause + cooldown record + next-worker Task block). The dead model cools down
+(cooldown record + same-session Task block). The dead model cools down
 for the observed delay (or 3h default when the provider gave no time) and is
 retried automatically after expiry. Full procedure: STUCK-TASK FAILOVER in
 `.opencode/agents/orchestrator.md`. `migrate` printing `next-worker: NONE`
@@ -1119,12 +1124,17 @@ fresh sessions, wasting ~100k tokens of redo.
    BEFORE deciding resume vs new.
 
 2. **Same objective + tokens show real progress + no error-state**
-   → RESUME via `task_id` with "continue", NEVER re-issue fresh.
-   `decide` subcommand automates this verdict.
+   → RESUME via `task_id` with "continue" (same worker, or migrated worker
+   after a MODEL_* failure — worker change NEVER means a new session),
+   NEVER re-issue fresh.
+   `decide` subcommand automates this verdict (worker difference no longer
+   forces NEW).
 
 3. **New session ONLY on:** objective change, RETIRE verdict (≤50%
    context remaining), verified-empty session (status shows no
-   assistant messages), or unrecoverable error state.
+   assistant messages), verified SESSION_UNAVAILABLE (dead id — fresh with
+   minimal transfer, same oid), CONTEXT_EXHAUSTED / SESSION_ERROR, or
+   unrecoverable error state. Unreachable status is UNKNOWN/WAIT, never NEW.
 
 4. **NEVER infer session emptiness from result text alone.** Result
    channel ≠ session state. A "Task cancelled" message with empty
@@ -1137,10 +1147,11 @@ scripts/session-reuse.py context <session-id>      # used_input, limit, REUSABLE
 scripts/session-reuse.py decide <id> --objective <O> --agent build  # RESUME or NEW
 scripts/session-reuse.py register <id> --agent build --objective <O> --task "<T>"  # track new
 scripts/session-reuse.py stuck --threshold 600     # STUCK watchdog (>600s retry = migrate, exit 2)
-scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>  # pause stuck + SAME task on next-worker
+scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>  # same-session migrate: SAME task_id on next-worker
+scripts/session-reuse.py find-objective <oid>          # resume-first lookup: oid -> LIVE session + Task block
 scripts/session-reuse.py health                    # cooldown memory (dead models + retry-in)
 scripts/session-reuse.py mark-alive <model>        # clear cooldown after good result
-scripts/session-reuse.py version                   # need orchestrator-protocol: 4 (else STALE-AGENT)
+scripts/session-reuse.py version                   # need orchestrator-protocol: 5 (else STALE-AGENT)
 ```
 
 ### 14.6 Agent visibility (why global symlinks exist)

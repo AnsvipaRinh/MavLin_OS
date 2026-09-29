@@ -13,7 +13,7 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
   status                    live status of all sessions (idle/busy/retry)
   children <id>             list child (sub-agent) sessions
   list                      registry contents
-  version                   print orchestrator protocol version (v3 required
+  version                   print orchestrator protocol version (v4 required
                             by the current orchestrator prompt; unknown
                             subcommand = stale agent file -> STALE-AGENT)
   health                    show model cooldown memory (dead models + retry-in)
@@ -28,20 +28,30 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
                             with delay > threshold (default 600s = 10min)
                             is STUCK -> must be paused + migrated.
   migrate <id> --objective O [--task T] [--exclude M,...] [--delay Sec]
-                            pause a STUCK task and continue the SAME task on
-                            the next HEALTHY worker (runtime subagent_type
-                            switch, no restart). Records the dead model with
-                            cooldown = delay when known, else 3h default.
+                            same-session model migration (SESSION != MODEL):
+                            keep task_id, record dead-model cooldown
+                            (= delay when known, else 3h), print a Task block
+                            resuming the SAME session on the next worker.
+  find-objective <oid-or-text>
+                            resume-first lookup: Objective -> live child
+                            session + ready Task invocation (one status call,
+                            no message download).
+  link-objective <id> --oid X [--objective T]
+                            attach a stable Objective ID to a session without
+                            wiping metadata (safe for old records).
   models [--exclude M,...] [--all] [--ignore-cooldown] [--format text|json]
                             ordered fallback candidates, CHAIN-ONLY by default
                             (user chain matched live vs GET /provider).
                             --all adds config pins, registry last-good,
                             remaining live models. Chain 'never' list is
                             always excluded. No hardcoding.
-  classify-error [TEXT...]  QUOTA_EXHAUSTED(10)/CONTEXT_EXHAUSTED(12) vs
-                            AUTH_ERROR(40, connect provider) vs
-                            ORDINARY_ERROR(20)/UNKNOWN(30). Only 10/12 trigger
-                            model fallback (reads stdin when no args).
+  classify-error [TEXT...]  failure taxonomy (SESSION != MODEL):
+                            MODEL_QUOTA(10)/RATE_LIMIT(11)/TIMEOUT(13)/
+                            PROVIDER(14) -> same-session failover;
+                            CONTEXT(12)/SESSION(16) -> replacement session;
+                            NETWORK(15) -> same session, no cooldown;
+                            AGENT(17)/PROJECT(20)/AUTH(40)/UNKNOWN(30).
+                            Only MODEL_* record dead models.
 
 Reuse rule: same agent role (`build`) + same objective + coherent + >50% context remaining.
 Objective boundary: Calendar -> Calendar refinement = SAME session;
@@ -54,12 +64,12 @@ trivial Task, continue the SAME objective there (RESUME if `decide` allows,
 else NEW session carrying prior result + remaining gaps). Chain order lives in
 .opencode/model-fallback.json, never in this script.
 
-Stuck-task failover (2026-09-29): a provider retry/unavailable backoff longer
-than STUCK_THRESHOLD_SEC (default 600 = 10 min, e.g. the observed 8800s
-"agent unavailable" hang) is never waited out. The task is paused in the
-registry (state=paused-stuck, same objective+task preserved) and continued
-on the next chain model: `stuck` detects, `migrate` pauses + prints the
-rotate one-liner + continuation prompt for the SAME task.
+Stuck-task failover (2026-09-29, corrected 2026-09-30: SESSION != MODEL).
+A provider retry/unavailable backoff longer than STUCK_THRESHOLD_SEC
+(default 600 = 10 min) is never waited out. The logical session is
+PRESERVED: `stuck` detects, `migrate` records the dead-model cooldown and
+prints a Task block resuming the SAME task_id on the next healthy worker
+(per-prompt model switch — no replacement session, no prompt replay).
 """
 import json
 import os
@@ -78,7 +88,7 @@ CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-ORCHESTRATOR_PROTOCOL = 4
+ORCHESTRATOR_PROTOCOL = 5
 
 # Cooldown memory for dead models (.opencode/sessions/model-health.json).
 # A model observed dead (provider retry/unavailable > stuck threshold, or
@@ -107,6 +117,10 @@ def api(method, path, body=None):
             return json.loads(r.read().decode() or "null")
     except urllib.error.HTTPError as e:
         sys.exit(f"API {method} {path} -> HTTP {e.code}: {e.read().decode()[:200]}")
+    except urllib.error.URLError as e:
+        # Connection refused / DNS / offline: structured exit, never a
+        # traceback — callers map this to UNKNOWN/VERIFY, never NEW.
+        sys.exit(f"API {method} {path} -> unreachable: {e.reason}")
 
 
 def load_reg():
@@ -139,6 +153,34 @@ def model_limit(model):
     return None
 
 
+LIMITS_CACHE = os.path.join(BASE, "..", ".opencode", "sessions",
+                             "model-limits.json")
+LIMITS_TTL_SEC = 24 * 3600
+
+
+def cached_limit(model):
+    """Model limit.context with a 24h file cache (avoids GET /provider per call)."""
+    try:
+        with open(LIMITS_CACHE) as f:
+            cache = json.load(f)
+    except (OSError, ValueError):
+        cache = {}
+    entry = cache.get(model or "")
+    if isinstance(entry, dict) and \
+            time.time() - float(entry.get("at", 0)) < LIMITS_TTL_SEC:
+        return entry.get("limit")
+    limit = model_limit(model)
+    if limit:
+        cache[model] = {"limit": limit, "at": time.time()}
+        try:
+            with open(LIMITS_CACHE, "w") as f:
+                json.dump(cache, f, indent=1)
+                f.write("\n")
+        except OSError:
+            pass
+    return limit
+
+
 def live_context(session_id):
     """Return (used_input_tokens, limit_or_None) from last assistant message."""
     msgs = api("GET", f"/session/{session_id}/message") or []
@@ -159,16 +201,108 @@ def cmd_register(args):
     p.add_argument("--objective", required=True)
     p.add_argument("--task", required=True)
     p.add_argument("--model", default="")
+    p.add_argument("--oid", default="",
+                   help="Stable logical Objective ID (find-objective key). "
+                        "Re-registering the same id preserves oid/lastResult "
+                        "unless explicitly overridden.")
+    p.add_argument("--failure", default="",
+                   help="Failure class of the last generation on this session "
+                        "(taxonomy verdict or empty). Preserved across calls.")
     a = p.parse_args(args)
     reg = load_reg()
+    prev = reg["sessions"].get(a.id, {})
     reg["sessions"][a.id] = {
         "agent": a.agent, "objective": a.objective, "task": a.task,
-        "model": a.model, "state": "reusable",
+        "model": a.model or prev.get("model", ""),
+        "oid": a.oid or prev.get("oid", ""),
+        "state": "reusable",
         "lastUsed": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "lastResult": "",
+        # Never wipe history metadata on re-register: task_id survival must
+        # not depend on whether the last generation succeeded.
+        "lastResult": prev.get("lastResult", ""),
+        "failure": a.failure or prev.get("failure", ""),
     }
+    # Preserve migration trail if present.
+    if "migratedFrom" in prev:
+        reg["sessions"][a.id]["migratedFrom"] = prev["migratedFrom"]
     save_reg(reg)
     print(f"registered {a.id} ({a.agent}/{a.objective})")
+
+
+def cmd_link_objective(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Attach a stable Objective ID (and optionally objective "
+                    "text) to an existing session WITHOUT wiping lastResult "
+                    "or other metadata. Safe for old records.")
+    p.add_argument("id")
+    p.add_argument("--oid", required=True)
+    p.add_argument("--objective", default="")
+    a = p.parse_args(args)
+    reg = load_reg()
+    meta = reg["sessions"].get(a.id)
+    if not meta:
+        sys.exit(f"unknown session {a.id} (register first)")
+    meta["oid"] = a.oid
+    if a.objective:
+        meta["objective"] = a.objective
+    meta["lastUsed"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    save_reg(reg)
+    print(f"linked {a.id} -> objective {a.oid}")
+
+
+def cmd_find_objective(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Resume-first lookup: Objective ID (or legacy objective "
+                    "text) -> live child session + ready Task invocation. "
+                    "One status call, no message download. Exit 0 = LIVE "
+                    "(resumable now), 2 = STALE/SESSION_UNAVAILABLE "
+                    "(needs fresh with minimal transfer), "
+                    "3 = status unreachable (verify, do NOT duplicate).")
+    p.add_argument("objective")
+    a = p.parse_args(args)
+    reg = load_reg()
+    q = (a.objective or "").strip().lower()
+    hits = [sid for sid, m in reg["sessions"].items()
+            if (m.get("oid", "") or "").lower() == q or
+            (not m.get("oid") and (m.get("objective", "") or "").lower() == q)]
+    if not hits:
+        print(f"FRESH (no session registered for objective '{a.objective}'; "
+              f"create one with a fresh Task, then register its task_id)");
+        return
+    if len(hits) > 1:
+        print(f"AMBIGUOUS ({len(hits)} sessions match '{a.objective}'; "
+              f"attach distinct --oid via link-objective, then retry)");
+        for sid in hits:
+            print(f"  - {sid} worker={reg['sessions'][sid].get('agent')}")
+        raise SystemExit(4)
+    sid = hits[0]
+    meta = reg["sessions"][sid]
+    try:
+        st = api("GET", "/session/status") or {}
+    except SystemExit as e:
+        print(f"VERIFY (status unreachable: {e}; session {sid} may still be "
+              f"alive — do NOT create a duplicate)");
+        raise SystemExit(3)
+    if sid not in st:
+        print(f"SESSION_UNAVAILABLE (session {sid} for objective "
+              f"'{a.objective}' absent from live runtime: deleted or wiped "
+              f"by restart; start FRESH with minimal state transfer, then "
+              f"register the new task_id)");
+        raise SystemExit(2)
+    etype = (st.get(sid) or {}).get("type", "?")
+    if etype != "idle":
+        print(f"WAIT (session {sid} status={etype}; previous Task still "
+              f"active — wait or run stuck --threshold 600)");
+        return
+    print(f"LIVE {sid} worker={meta.get('agent')} model={meta.get('model')} "
+          f"state={meta.get('state')}")
+    print("--- Task call (resume SAME session, full context preserved) ---")
+    print(f"subagent_type={meta.get('agent')}")
+    print(f"task_id={sid}")
+    print("prompt: Продолжай с места остановки (remaining gaps only). "
+          "Do not invoke subagents, do the work directly.")
 
 
 def cmd_context(args):
@@ -182,7 +316,7 @@ def cmd_context(args):
     meta = reg["sessions"].get(a.id, {})
     model = a.model or meta.get("model", "")
     used, _ = live_context(a.id)
-    limit = a.limit or model_limit(model)
+    limit = a.limit or cached_limit(model)
     if not limit:
         print(f"used_input={used} limit=UNKNOWN(model '{model}' not resolvable) "
               f"-> cannot prove >50% remaining: treat as RETIRE for substantial work")
@@ -208,30 +342,49 @@ def cmd_decide(args):
     if meta.get("state") == "retired":
         print("NEW (session retired)");
         return
-    if a.objective != meta.get("objective"):
+    if a.objective != meta.get("objective") and \
+            a.objective != meta.get("oid", ""):
         print(f"NEW (objective boundary: {meta.get('objective')} -> {a.objective})");
         return
+    # SESSION != MODEL: a different requested worker is a model failover,
+    # never a reason for a new session. It is noted, not punished.
+    worker_note = ""
     if a.agent and a.agent != meta.get("agent"):
-        print(f"NEW (role change: {meta.get('agent')} -> {a.agent})");
-        return
+        worker_note = (f" [failover {meta.get('agent')} -> {a.agent}, "
+                       f"same session preserved]")
     try:
         st = api("GET", "/session/status") or {}
-        s = st.get(a.id, {"type": "idle"})
-        if s.get("type") != "idle":
-            print(f"WAIT (session status={s.get('type')}: previous Task still "
-                  f"active — do NOT launch a duplicate Task for this objective; "
-                  f"wait for its result or run stuck --threshold 600)");
-            return
     except SystemExit as e:
-        print(f"NEW (status unreachable: {e})");
+        # Status endpoint down: the old session may still be alive.
+        # NEVER answer NEW here (that would fork a duplicate).
+        print(f"UNKNOWN (status unreachable: {e}; verify before any Task call, "
+              f"do NOT create a duplicate session)");
         return
-    used, _ = live_context(a.id)
-    limit = a.limit or model_limit(meta.get("model", ""))
+    if a.id not in st:
+        # Runtime does not know this id (deleted, or wiped by server restart).
+        # Structured verdict instead of an exception; caller maps this to
+        # fresh-with-minimal-transfer (restart) or SESSION_ERROR handling.
+        print(f"SESSION_UNAVAILABLE (id {a.id} absent from live runtime; "
+              f"transcript unrecoverable here; do NOT pass this task_id)");
+        return
+    s = st.get(a.id, {"type": "idle"})
+    if s.get("type") != "idle":
+        print(f"WAIT (session status={s.get('type')}: previous Task still "
+              f"active — do NOT launch a duplicate Task for this objective; "
+              f"wait for its result or run stuck --threshold 600)");
+        return
+    try:
+        used, _ = live_context(a.id)
+    except SystemExit as e:
+        print(f"SESSION_UNAVAILABLE (history unreadable for {a.id}: {e})");
+        return
+    limit = a.limit or cached_limit(meta.get("model", ""))
     if not limit:
         print(f"NEW (context unverifiable, used_input={used})");
         return
     if 1.0 - used / limit > 0.5:
-        print(f"RESUME {a.id} (same objective, remaining={1.0 - used / limit:.1%})")
+        print(f"RESUME {a.id} (same objective, remaining={1.0 - used / limit:.1%})"
+              f"{worker_note}")
     else:
         print(f"NEW (context pressure, remaining={1.0 - used / limit:.1%})")
 
@@ -467,26 +620,80 @@ def resolve_next_worker(excluded_models=()):
     return None, None, (soonest, soonest_m)
 
 
-# ---- Model fallback helpers (2026-09-26; chain lives in CHAIN file) ----
+# ---- Failure taxonomy (2026-09-30 v5; SESSION != MODEL) ----
+#
+# MODEL_* = execution backend failed, session usually intact -> same-session
+#   failover (resume task_id on another worker). PROJECT_ERROR = our code is
+#   wrong -> fix code, NO model rotation. SESSION_ERROR = the conversation
+#   itself is gone -> replacement session with minimal state transfer.
+#   NETWORK_ERROR = connectivity, not model death -> same session, NO cooldown.
+#   CONTEXT_EXHAUSTED = session too full -> replacement session (session-level).
+# Order matters: specific session/context/auth first, then network/timeout,
+# then rate/quota/provider, agent-platform, project fallback last.
 
-QUOTA_PATTERNS = [
-    r"429", r"rate.?limit", r"quota", r"usage.?limit", r"limit.?exceeded",
-    r"too many requests", r"resource.?exhausted", r"capacity",
-    r"over.?loaded", r"try again later", r"retry later",
-    r"payment required", r"\b402\b", r"billing",
-    r"insufficient.+(quota|credit|balance)", r"credit.+(exhausted|expired|depleted)",
-    r"throttl", r"throughput",
-]
 CONTEXT_PATTERNS = [
     r"context.+(length|limit|exceed|too.?long|full|exhausted|window)",
     r"token.+(limit|exceed|too many|maximum)",
     r"max(imum)?.+tokens",
+]
+SESSION_PATTERNS = [
+    r"no such session", r"session (not found|expired|deleted|missing|invalid)",
+    r"unknown session", r"session.+does not exist",
 ]
 AUTH_PATTERNS = [
     r"\b401\b", r"\b403\b", r"unauthorized", r"unauthenticated",
     r"invalid.+(api.?key|credential|token)", r"missing.+(api.?key|credential)",
     r"forbidden", r"/connect", r"sign.?in",
 ]
+NETWORK_PATTERNS = [
+    r"network.?error", r"network.?unavailable", r"socket hang up",
+    r"ECONNRESET", r"ECONNREFUSED", r"ECONNABORTED", r"EAI_AGAIN",
+    r"ENOTFOUND", r"ETIMEDOUT", r"EPIPE", r"ENETUNREACH", r"EHOSTUNREACH",
+    r"connection (reset|refused|aborted|lost|failed|closed)",
+    r"fetch failed", r"failed to fetch", r"offline", r"dns",
+    r"TLS.+error", r"SSL.+error", r"certificate",
+]
+TIMEOUT_PATTERNS = [
+    r"generation (timed out|timeout|stalled)",
+    r"request timed out", r"deadline exceeded",
+    r"timed out after", r"generation timeout",
+]
+RATE_PATTERNS = [
+    r"\b429\b", r"rate.?limit", r"too many requests",
+    r"throttl", r"retry later", r"try again later",
+]
+QUOTA_PATTERNS = [
+    r"quota", r"usage.?limit", r"limit.?exceeded",
+    r"resource.?exhausted", r"capacity",
+    r"over.?loaded", r"payment required", r"\b402\b", r"billing",
+    r"insufficient.+(quota|credit|balance)", r"credit.+(exhausted|expired|depleted)",
+]
+PROVIDER_PATTERNS = [
+    r"provider (error|unavailable|failed|overloaded)",
+    r"model (unavailable|not available|failed)",
+    r"bad gateway", r"\b502\b", r"service unavailable", r"\b503\b",
+    r"internal server error", r"\b500\b",
+]
+AGENT_PATTERNS = [
+    r"subagent depth limit", r"depth limit reached",
+    r"unknown agent type", r"agent (crashed|failed|errored)",
+    r"tool execution aborted",
+]
+
+# verdict -> (exit code, records model dead?, recovery)
+VERDICTS = {
+    "MODEL_QUOTA": (10, True, "failover: same session, another worker"),
+    "MODEL_RATE_LIMIT": (11, True, "failover: same session, another worker"),
+    "CONTEXT_EXHAUSTED": (12, False, "session-level: replacement session, minimal transfer"),
+    "MODEL_TIMEOUT": (13, True, "failover: same session, another worker"),
+    "PROVIDER_ERROR": (14, True, "failover: same session, another worker"),
+    "NETWORK_ERROR": (15, False, "recoverable: same session, same worker when back"),
+    "SESSION_ERROR": (16, False, "replacement session, minimal transfer"),
+    "AGENT_ERROR": (17, False, "fix platform/config, then same session if live"),
+    "PROJECT_ERROR": (20, False, "fix code, NO model rotation"),
+    "AUTH_ERROR": (40, False, "connect provider, not a blocker"),
+    "UNKNOWN": (30, False, "re-ping once, then decide by evidence"),
+}
 
 
 def classify_text(text):
@@ -495,45 +702,67 @@ def classify_text(text):
     for pat in CONTEXT_PATTERNS:
         if re.search(pat, low):
             return "CONTEXT_EXHAUSTED", pat
+    for pat in SESSION_PATTERNS:
+        if re.search(pat, low):
+            return "SESSION_ERROR", pat
     for pat in AUTH_PATTERNS:
         if re.search(pat, low):
             return "AUTH_ERROR", pat
+    for pat in NETWORK_PATTERNS:
+        if re.search(pat, low):
+            return "NETWORK_ERROR", pat
+    for pat in TIMEOUT_PATTERNS:
+        if re.search(pat, low):
+            return "MODEL_TIMEOUT", pat
+    for pat in RATE_PATTERNS:
+        if re.search(pat, low):
+            return "MODEL_RATE_LIMIT", pat
     for pat in QUOTA_PATTERNS:
         if re.search(pat, low):
-            return "QUOTA_EXHAUSTED", pat
+            return "MODEL_QUOTA", pat
+    for pat in PROVIDER_PATTERNS:
+        if re.search(pat, low):
+            return "PROVIDER_ERROR", pat
+    for pat in AGENT_PATTERNS:
+        if re.search(pat, low):
+            return "AGENT_ERROR", pat
     if not (text or "").strip():
         return "UNKNOWN", "empty error text"
-    return "ORDINARY_ERROR", "no quota/rate-limit signal"
+    return "PROJECT_ERROR", "no model/session failure signal"
 
 
 def cmd_classify_error(args):
     import argparse
     p = argparse.ArgumentParser(
-        description="Classify a Task/agent error: quota/rate-limit (fallback) "
-                    "vs ordinary project error (no fallback).")
+        description="Classify a Task/agent error into the failure taxonomy "
+                    "(SESSION != MODEL). MODEL_* -> same-session failover; "
+                    "PROJECT_ERROR -> fix code, no rotation.")
     p.add_argument("text", nargs="*", help="Error text (else read stdin)")
     p.add_argument("--record-model", default="",
-                   help="When given WITH a QUOTA/CONTEXT verdict, record this "
-                        "model as dead (3h cooldown) in health memory")
+                   help="Model to record dead on MODEL_* verdicts "
+                        "(cooldown --cooldown, default 3h)")
+    p.add_argument("--cooldown", type=float, default=0,
+                   help="Cooldown seconds for --record-model "
+                        "(provider retry delay when known, else 3h)")
     a = p.parse_args(args)
     text = " ".join(a.text) if a.text else sys.stdin.read()
     verdict, matched = classify_text(text)
-    print(f"{verdict} (matched: {matched})")
-    if a.record_model and verdict in ("QUOTA_EXHAUSTED", "CONTEXT_EXHAUSTED"):
+    code, recordable, recovery = VERDICTS[verdict]
+    print(f"{verdict} (matched: {matched}) recovery={recovery}")
+    if a.record_model and recordable:
+        cd = a.cooldown if a.cooldown and a.cooldown > 0 else DEFAULT_COOLDOWN_SEC
         h = load_health()
         h["models"][a.record_model.lower()] = {
             "model": a.record_model, "state": "dead",
             "deadAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "retryAfter": time.time() + DEFAULT_COOLDOWN_SEC,
-            "cooldownSec": DEFAULT_COOLDOWN_SEC,
+            "retryAfter": time.time() + cd,
+            "cooldownSec": cd,
             "reason": f"{verdict} ({matched})",
         }
         save_health(h)
         print(f"marked-dead {a.record_model} "
-              f"(retry-in {fmt_dur(DEFAULT_COOLDOWN_SEC)})")
-    raise SystemExit({"QUOTA_EXHAUSTED": 10, "CONTEXT_EXHAUSTED": 12,
-                      "AUTH_ERROR": 40,
-                      "UNKNOWN": 30}.get(verdict, 20))
+              f"(retry-in {fmt_dur(cd)})")
+    raise SystemExit(code)
 
 
 def strip_jsonc(s):
@@ -779,37 +1008,20 @@ def cmd_models(args):
             elif c > 0 and not a.ignore_cooldown:
                 tag = f"  [COOLDOWN retry-in {fmt_dur(c)}]"
             print(f"{m}  source={s}" + tag)
-        avail = [m for m, _s, e, c in ordered
-                 if not e and (a.ignore_cooldown or c <= 0)]
         workers = worker_pins()
-        if workers and not a.all:
-            # Runtime worker pool: rotation = subagent_type switch, no restart.
-            excl = [e for e in a.exclude.split(",") if e.strip()]
-            role, model, wait = resolve_next_worker(excl)
-            if role:
-                print(f"next-worker: {role} ({model}) — NO server restart needed "
-                      f"(Task subagent_type={role})")
-            else:
-                soon, soon_m = wait if wait else (0, "?")
-                print(f"next-worker: NONE (all workers in cooldown, "
-                      f"earliest {soon_m} in {fmt_dur(soon)})")
-            return
-        pins = [m for _r, m in workers] or \
-               [m for m, s in config_models()
-                if s.startswith("project:") and s.endswith("agent.build")]
-        if avail:
-            if pins and not is_excluded(pins[0]) \
-                    and pins[0].lower() in [m.lower() for m in avail]:
-                print(f"next-available: {pins[0]} "
-                      "(current build pin, alive — no rotation)")
-            else:
-                print(f"next-available: {avail[0]}")
-                if pins and pins[0].lower() != avail[0].lower():
-                    print(f"rotate: sed -i 's#\"model\": \"{pins[0]}\""
-                          f"#\"model\": \"{avail[0]}\"#' opencode.jsonc"
-                          "  # then restart server (no hot-reload)")
+        # Runtime worker pool: rotation = subagent_type switch on the SAME
+        # session, no restart, no config paste (SESSION != MODEL). The legacy
+        # pin-rotation (sed + restart) is retired and not printed anymore.
+        excl = [e for e in a.exclude.split(",") if e.strip()]
+        role, model, wait = resolve_next_worker(excl)
+        if role:
+            print(f"next-worker: {role} ({model}) — NO server restart needed "
+                  f"(Task subagent_type={role} on the SAME task_id)")
         else:
-            print("next-available: NONE (all candidates exhausted)")
+            soon, soon_m = wait if wait else (0, "?")
+            print(f"next-worker: NONE (all workers in cooldown, "
+                  f"earliest {soon_m} in {fmt_dur(soon)})")
+        return
 
 
 # ---- Stuck-task watchdog + failover (2026-09-29; threshold default 600s) ----
@@ -986,68 +1198,15 @@ def cmd_stuck(args):
     raise SystemExit(2 if stuck_rows else 0)
 
 
-def _resolve_next_model(excluded):
-    """Shared chain resolution returning (avail, pins, rotate_line)."""
-    excluded_l = {e.strip().lower() for e in excluded if e.strip()}
-    never = load_never()
-
-    def is_excluded(full):
-        low = full.lower()
-        return low in excluded_l or low.split("/", 1)[-1] in excluded_l \
-            or is_never(full, never)
-
-    ordered, seen = [], set()
-
-    def add(full, source):
-        if full not in seen:
-            seen.add(full)
-            ordered.append((full, source, is_excluded(full)))
-
-    live = live_provider_models()
-    live_index = {}
-    if live is not None:
-        for pid, mid in live:
-            live_index.setdefault((pid, mid.lower()), f"{pid}/{mid}")
-    for entry in sorted(load_chain(), key=lambda e: e.get("order", 99)):
-        prov = (entry.get("provider") or "").lower()
-        match = (entry.get("match") or "").lower()
-        want = entry.get("want") or ""
-        resolved = ""
-        if live is not None:
-            for (pid, mid_low), full in sorted(live_index.items()):
-                if prov and pid.lower() != prov:
-                    continue
-                if match and match in mid_low:
-                    resolved = full
-                    if want and full.lower() == want.lower():
-                        break
-            if not resolved and want:
-                wl = want.lower()
-                for (_pid, _mid), full in sorted(live_index.items()):
-                    if full.lower() == wl:
-                        resolved = full
-                        break
-        add(resolved or want, f"fallback-chain:{entry.get('order', '?')}")
-    avail = [m for m, _s, e in ordered if not e]
-    pins = [m for m, s in config_models()
-            if s.startswith("project:") and s.endswith("agent.build")]
-    rotate = ""
-    if avail and pins and pins[0].lower() != avail[0].lower():
-        rotate = (f"sed -i 's#\"model\": \"{pins[0]}\""
-                  f"#\"model\": \"{avail[0]}\"#' opencode.jsonc"
-                  "  # then restart server (no hot-reload)")
-    return (avail[0] if avail else "", pins[0] if pins else "", rotate,
-            [m for m, _s, _e in ordered])
-
-
 def cmd_migrate(args):
     import argparse
     p = argparse.ArgumentParser(
-        description="Pause a STUCK task and continue the SAME task on the "
-                    "next HEALTHY worker (runtime subagent_type switch — no "
-                    "server restart). Records the dead model in cooldown "
-                    "memory (provider delay when known, else 3h default). "
-                    "Never deletes transcripts.")
+        description="Same-session model migration (SESSION != MODEL): keep the "
+                    "existing child task_id, record the dead model in cooldown "
+                    "memory (provider delay when known, else 3h default), and "
+                    "print a Task block that resumes the SAME session on the "
+                    "next healthy worker. No replacement session, no prompt "
+                    "replay. Never deletes transcripts.")
     p.add_argument("id")
     p.add_argument("--objective", required=True)
     p.add_argument("--task", default="")
@@ -1076,42 +1235,42 @@ def cmd_migrate(args):
             "deadAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "retryAfter": time.time() + cd,
             "cooldownSec": cd,
-            "reason": f"stuck {a.id} delay>{a.threshold:g}s",
+            "reason": f"migrated from {a.id} delay>{a.threshold:g}s",
         }
         save_health(h)
+    # 2. Runtime rotation that PRESERVES the session: the next Task reuses
+    # this task_id with a different subagent_type (per-prompt model).
+    role, model, wait = resolve_next_worker(excluded)
+    if not role:
+        soon, soon_m = wait if wait else (0, "?")
+        print(f"paused {a.id} (no healthy worker; session preserved, "
+              f"retry {soon_m} in {fmt_dur(soon)})")
+        print("genuine wait: do NOT spin fresh Tasks until then; report and wait.")
+        return
     reg["sessions"][a.id] = {
-        "agent": old_worker, "objective": objective, "task": task,
-        "model": old_model, "state": "paused-stuck",
+        "agent": role, "objective": objective, "task": task,
+        "model": model,
+        "oid": meta.get("oid", ""),
+        "state": "reusable",
         "lastUsed": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "lastResult": (meta.get("lastResult", "") or "") +
-                      f" [PAUSED-STUCK delay>{a.threshold:g}s, migrating]",
-        "migrateTo": "",
+                      f" [MIGRATED {old_worker}/{old_model} -> {role}/{model}]",
+        "failure": meta.get("failure", ""),
+        "migratedFrom": {"worker": old_worker, "model": old_model,
+                         "at": datetime.now(timezone.utc).isoformat(
+                             timespec="seconds")},
     }
     save_reg(reg)
-    print(f"paused {a.id} (state=paused-stuck, objective={objective})")
-    print(f"old-worker: {old_worker} old-model: {old_model or '?'} "
-          f"(cooldown {fmt_dur(cd)})")
-    # 2. Runtime rotation: next healthy worker, no restart.
-    role, model, wait = resolve_next_worker(excluded)
-    if role:
-        reg = load_reg()
-        reg["sessions"][a.id]["migrateTo"] = f"{role} ({model})"
-        save_reg(reg)
-        print(f"next-worker: {role} ({model}) — NO server restart needed")
-        print("--- Task call (SAME task, different worker; paste as next Task) ---")
-        print(f"subagent_type={role} (do NOT pass task_id: the old session "
-              f"is stuck on a dead model, re-attaching would wait again)")
-        print(f"description: {objective[:60] or task[:60]}")
-        print(f"prompt: SAME task as paused session {a.id}: {task}. "
-              f"Prior result where available (do not repeat finished work); "
-              f"continue only the remaining gaps. "
-              f"Do not invoke subagents, do the work directly.")
-        print(f"after result: register the returned task_id, then retire {a.id}")
-    else:
-        soon, soon_m = wait if wait else (0, "?")
-        print("next-worker: NONE (all workers in cooldown)")
-        print(f"genuine wait: earliest retry {soon_m} in {fmt_dur(soon)} — "
-              f"do NOT spin fresh Tasks until then; report and wait.")
+    print(f"migrated {a.id}: session preserved, backend "
+          f"{old_worker}/{old_model or '?'} -> {role}/{model} "
+          f"(dead-model cooldown {fmt_dur(cd)})")
+    print("--- Task call (SAME session, different worker; history preserved) ---")
+    print(f"subagent_type={role}")
+    print(f"task_id={a.id}")
+    print("prompt: Continue the existing Objective from the current session "
+          "state. Inspect the current repository state and proceed from where "
+          "the previous generation stopped. Do not restart the task from scratch. "
+          "Do not invoke subagents, do the work directly.")
 
 
 CMDS = {"register": cmd_register, "context": cmd_context, "decide": cmd_decide,
@@ -1119,6 +1278,8 @@ CMDS = {"register": cmd_register, "context": cmd_context, "decide": cmd_decide,
         "children": cmd_children, "list": cmd_list, "version": cmd_version,
         "health": cmd_health, "mark-dead": cmd_mark_dead,
         "mark-alive": cmd_mark_alive,
+        "find-objective": cmd_find_objective,
+        "link-objective": cmd_link_objective,
         "stuck": cmd_stuck, "migrate": cmd_migrate,
         "models": cmd_models, "classify-error": cmd_classify_error}
 

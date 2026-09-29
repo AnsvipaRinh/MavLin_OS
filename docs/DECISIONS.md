@@ -1,5 +1,24 @@
 # DECISIONS
 
+## 2026-09-30 — Protocol v5: SESSION != MODEL (same-session failover)
+
+**Date:** 2026-09-30
+**Context:** Forensic audit accepted: the platform (OpenCode Task: `sessions.get(task_id) ?? create` + per-prompt `model = agent.pin ?? parent.model`) DECOUPLES session and model, but our v3/v4 prompt COUPLED them (`migrate` = new session, `decide --agent` = NEW). MODEL FAILURE MUST NOT MEAN SESSION FAILURE.
+
+**Changes (minimal correction, no redesign):**
+1. `migrate` keeps `task_id`: same session resumed on the next healthy worker (`subagent_type` switch = per-prompt model switch). Registry keeps the id (`state=reusable`, backend → new worker, `migratedFrom` trail); dead model → cooldown (observed delay else 3h). Retired `paused-stuck`/`migrateTo`/`rotate:` machinery and deleted dead `_resolve_next_model`.
+2. `decide --agent <other>` → RESUME (failover note), not NEW. Status-unreachable → UNKNOWN (never NEW/duplicates). Runtime-absent id → SESSION_UNAVAILABLE (structured, no traceback — also fixes the `URLError`-uncaught crash found by tests). `live_context` failure → SESSION_UNAVAILABLE.
+3. Failure taxonomy: MODEL_QUOTA(10)/RATE_LIMIT(11)/TIMEOUT(13)/PROVIDER(14) → same-session failover (record dead); NETWORK(15) → same session, same worker, NO cooldown; CONTEXT(12)/SESSION(16) → replacement with minimal transfer; AGENT(17)/PROJECT(20) → no rotation; AUTH(40)/UNKNOWN(30) unchanged. Only MODEL_* record cooldowns (`--record-model --cooldown`).
+4. Stable Objective IDs: `register --oid`, `link-objective` (non-wiping), `find-objective` (one status call, LIVE/WAIT/SESSION_UNAVAILABLE/VERIFY/FRESH/AMBIGUOUS) — Continue no longer scans `list` by eye; isolation by exact oid.
+5. `register` never wipes `lastResult`/`failure`/`oid` on re-register (task_id survives the failure path).
+6. Overhead: 24h model-limit cache (`model-limits.json`); `find-objective` avoids message download.
+7. Fallback config: chain entries now carry `worker` (build=#4 primary, build-b=#1, build-c=#3) or `worker_reason` for intentionally non-workers (#2 nondeterministic router, #5 unstable lightning). `never` (Muse/Spark) unchanged.
+8. 50% context rule KEPT (separate policy decision, per instruction).
+9. Restart rule KEPT: runtime wipe → old ids SESSION_UNAVAILABLE → fresh + minimal transfer (registry now distinguishes via runtime presence).
+
+**Verified offline:** `scripts/test-session-reuse.py` 22/22 green (mock REST server): taxonomy codes, worker-change RESUME, stale SESSION_UNAVAILABLE, unreachable UNKNOWN, busy WAIT, migrate same-`task_id` + cooldown 7000s→1h56m, oid isolation, metadata preservation.
+**NOT verifiable here:** live cross-worker resume (no server/provider/Task tool in build container — nothing listens on :4096, no binary). Upstream path verified by code only. Live proof = `docs/LIVE_ACCEPTANCE_SESSION_FAILOVER.md` tests A–F in the user environment.
+
 ## 2026-09-30 — Protocol v4: ENV PRE-CHECK + REBOOT + BLOCKED-TASK (post-reboot corpse behavior)
 
 **Date:** 2026-09-30

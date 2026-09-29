@@ -1,6 +1,7 @@
 {
   "$schema": "mavericks model-fallback-chain v1",
-  "note": "User-defined ordered fallback chain (2026-09-26). Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts.",
+  "note": "User-defined ordered fallback chain (2026-09-26). Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts. SESSION != MODEL (2026-09-29 v3/v4 protocol): failover switches the worker (subagent_type) on the SAME session, never a replacement session. Only entries with a 'worker' are runtime-reachable; entries with worker=null are intentionally NOT workers (reason given).",
+  "primaryWorker": "build",
   "execution": "chain-only",
   "never": [
     "muse-spark-1.3-contributor-free",
@@ -13,10 +14,11 @@
   "chain": [
     {
       "order": 1,
-      "role": "primary",
+      "role": "fallback",
       "provider": "openrouter",
       "match": "cohere/north-mini-code",
       "want": "openrouter/cohere/north-mini-code:free",
+      "worker": "build-b",
       "label": "North Mini Code (OpenRouter, free; Cohere agentic coding, 256K context)"
     },
     {
@@ -25,6 +27,8 @@
       "provider": "openrouter",
       "match": "openrouter/free",
       "want": "openrouter/openrouter/free",
+      "worker": null,
+      "worker_reason": "NOT a worker: random-model router is nondeterministic (different backend per call), unsuitable for session continuity",
       "label": "Free Model Router (OpenRouter; random free model with tool-calling filter)"
     },
     {
@@ -33,15 +37,18 @@
       "provider": "opencode",
       "match": "longcat",
       "want": "opencode/longcat-2.5-preview-free",
+      "worker": "build-c",
       "label": "LongCat 2.5 Preview Free (Zen; VERIFIED 2026-09-26 via models.dev: served by OpenCode Zen AND OpenCode Go as 'longcat-2.5-preview-free', $0, 1M context; confirm locally via `opencode models`)"
     },
     {
       "order": 4,
-      "role": "sub-agent",
+      "role": "primary-worker",
       "provider": "opencode",
       "match": "nemotron-3-ultra",
       "want": "opencode/nemotron-3-ultra-free",
-      "label": "Nemotron 3 Ultra Free (Zen; previous primary, quota-exhausted 2026-09-26)"
+      "worker": "build",
+      "worker_reason": "Primary worker: holds continuity of running sessions. Chain order governs FALLBACK preference (build-b #1 before build-c #3); it does not demote the primary.",
+      "label": "Nemotron 3 Ultra Free (Zen; primary worker pin; quota event 2026-09-26 handled via cooldown memory, not pin rotation)"
     },
     {
       "order": 5,
@@ -49,6 +56,8 @@
       "provider": "opencode",
       "match": "nemotron-3.5-lightning",
       "want": "opencode/nemotron-3.5-lightning-free",
+      "worker": null,
+      "worker_reason": "NOT a worker: known 2026-09-26 instability (stops generation mid-output, see DECISIONS.md TEMP entry); promoting it would trade model failure for session corruption",
       "label": "Nemotron 3.5 Lightning (Zen; LAST RESORT — known 2026-09-26 instability: stops generation mid-output, see DECISIONS.md TEMP entry)"
     }
   ],
