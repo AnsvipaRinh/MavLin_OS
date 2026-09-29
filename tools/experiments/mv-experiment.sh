@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # mv-experiment.sh — one-variable experiment runner with rollback
-# Usage: sudo ./mv-experiment.sh <E1..E12|list> [apply|revert|status]
+# Usage: sudo ./mv-experiment.sh <E1..E12|E-MC|list> [--no-snapshot] [apply|revert|status]
 # Profiles live in configs/profiles/experiments/. Kernel cmdline variants
 # require editing the bootloader entry + reboot; TLP/sysctl variants apply live.
 set -euo pipefail
+
+# Log function for safe output
+log() {
+    echo "[experiment] $*" >&2
+}
+
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 EXP_DIR="$REPO/configs/profiles/experiments"
 BACKUP_DIR="/var/lib/mavericks-experiments"
@@ -14,6 +20,18 @@ list() { ls "$EXP_DIR"; }
 
 apply() {
   local id="$1"
+  local no_snapshot="${NO_SNAPSHOT:-0}"
+  
+  # Pre-change snapshot hook
+  if [[ "$no_snapshot" != "1" ]]; then
+    # Check if we're on btrfs before attempting snapshot
+    if command -v btrfs >/dev/null 2>&1 && mountpoint -q "/@snapshots"; then
+      /usr/local/bin/mavericks/mv-snapshot-take "exp-$id-$(date +%Y%m%d%H%M%S)" "Experiment $id application" || log "WARN: snapshot creation failed for $id, continuing with experiment (safe)"
+    else
+      log "INFO: not on btrfs filesystem, skipping snapshot for experiment $id (logged)"
+    fi
+  fi
+  
   mkdir -p "$BACKUP_DIR"
   case "$id" in
     E1) echo "E1 needs reboot: append 'intel_pstate.no_turbo=1' to bootloader options, reboot, then run tools/diagnostics/mv-power.sh + mv-thermal.sh";;
@@ -44,12 +62,31 @@ revert() {
   esac
 }
 
+# Parse arguments
+NO_SNAPSHOT=0
+args=()
+for arg in "$@"; do
+  if [[ "$arg" == "--no-snapshot" ]]; then
+    NO_SNAPSHOT=1
+  else
+    args+=("$arg")
+  fi
+done
+
+set -- "${args[@]}"
+
 case "${1:-list}" in
   list) list;;
-  E-MC) case "${2:-status}" in
-    apply|revert|status) exec "$EXP_DIR/E-MC-skippy-xd.sh" "$2";;
-    *) echo "Usage: $0 E-MC [apply|revert|status]"; exit 1;;
-  esac;;
-  E*) case "${2:-apply}" in apply) apply "$1";; revert) revert "$1";; status) cat /proc/cmdline; tlp-stat -s -c -p 2>/dev/null | head -30;; esac;;
-  *) echo "Usage: $0 <E1..E12|E-MC|list> [apply|revert|status]"; exit 1;;
+  E-MC)
+    case "${2:-status}" in
+      apply|revert|status) exec "$EXP_DIR/E-MC-skippy-xd.sh" "$2";;
+      *) echo "Usage: $0 E-MC [apply|revert|status]"; exit 1;;
+    esac;;
+  E*)
+    case "${2:-apply}" in
+      apply) apply "$1";;
+      revert) revert "$1";;
+      status) cat /proc/cmdline; tlp-stat -s -c -p 2>/dev/null | head -30;;
+    esac;;
+  *) echo "Usage: $0 <E1..E12|E-MC|list> [--no-snapshot] [apply|revert|status]"; exit 1;;
 esac
