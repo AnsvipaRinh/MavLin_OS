@@ -27,6 +27,8 @@ PAIRS=(
   "configs/profiles/recovery.conf:archiso-profile/releng/airootfs/usr/local/share/mavericks/profiles/recovery.conf"
   "configs/firefox/user.js:archiso-profile/releng/airootfs/etc/firefox/user.js"
   "configs/firefox/user.js:archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox/mavericks.default/user.js"
+  "configs/firefox/profiles.ini:archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox/profiles.ini"
+  "configs/firefox/installs.ini:archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox/installs.ini"
   "configs/firefox/policies.json:archiso-profile/releng/airootfs/usr/lib/firefox/distribution/policies.json"
   "configs/firefox/chrome/userChrome.css:archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox/mavericks.default/chrome/userChrome.css"
   "configs/firefox/chrome/userContent.css:archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox/mavericks.default/chrome/userContent.css"
@@ -133,6 +135,25 @@ PYEOF
 
 echo "--- firefox chrome css ---"
 python3 scripts/test-firefox-chrome.py && ok "firefox chrome css" || bad "firefox chrome css"
+
+echo "--- P1-M1 firefox seed: profiles.ini activates mavericks.default ---"
+python3 - <<'PYEOF' && ok "firefox seed profiles.ini" || bad "firefox seed profiles.ini"
+import configparser, sys
+from pathlib import Path
+seed = Path("archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox")
+cp = configparser.ConfigParser()
+cp.read(seed / "profiles.ini")
+assert cp.has_section("Profile0"), "missing [Profile0]"
+p = cp["Profile0"]
+assert p.get("Path") == "mavericks.default", f"Path={p.get('Path')!r}"
+assert p.get("IsRelative") == "1", "IsRelative must be 1"
+assert p.get("Default") == "1", "Default=1 required for deterministic activation"
+assert (seed / "mavericks.default" / "user.js").is_file(), "seed profile missing user.js"
+ip = configparser.ConfigParser()
+ip.read(seed / "installs.ini")
+assert any(ip[s].get("Default") == "mavericks.default" for s in ip.sections()), \
+    "installs.ini has no Default=mavericks.default"
+PYEOF
 
 echo "--- P0-J1 security: sshd off + root locked + no permissive override ---"
 AIROOT="archiso-profile/releng/airootfs"
