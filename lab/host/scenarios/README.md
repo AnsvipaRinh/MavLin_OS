@@ -1,11 +1,16 @@
-# Lab Scenarios (Phase 2 seam)
+# Lab Scenarios
 
-This directory will contain external test/benchmark scenario scripts for the
-mavericks-lab control plane.
+Scenario inventory for the mavericks-lab control plane.
 
-## Phase 1
+## Current: Declarative YAML Harness (Phase 2, commit 1d56515)
 
-Built-in scenarios only (defined in `lab/host/lib/scenarios.py`):
+Failure-injection scenarios live in `lab/harness/scenarios/*.yaml` (25 scenarios)
+and run against pluggable backends (sim/qemu/mac-stub) via
+`python3 lab/harness/harness.py --backend <b> --all`. See `docs/LAB_HARNESS.md`.
+
+## Built-in Scenarios (host controller, `lab/host/lib/scenarios.py`)
+
+Run on-demand via `mavericks-lab test <name>`:
 
 - `echo` — connectivity test
 - `disk-write` — write/read/verify 1MB, measure latency
@@ -14,27 +19,13 @@ Built-in scenarios only (defined in `lab/host/lib/scenarios.py`):
 - `bench-disk` — benchmark disk I/O
 - `bench-cpu` — benchmark CPU
 
-## Phase 2
+## Superseded: External Scenario Scripts (Phase 2 seam — NOT implemented)
 
-External scenario scripts will be placed here. Each scenario is a shell or
-python script that:
-
-1. Receives the target's data dir as `$1`
-2. Performs the test/benchmark
-3. Exits 0 on pass, non-zero on fail
-4. Writes metrics to stdout as JSON
-
-The host controller's `test_scenario` will:
-1. Deploy image to inactive slot
-2. Select-boot + reboot
-3. Wait for HEALTHY
-4. Execute scenario script on target
-5. Collect results
-6. Commit or rollback
-
-Failure injection scenarios will simulate:
-- Network interruption during deploy
-- Agent crash mid-boot
-- Health check failure (disk full, network down)
-- Boot-loop (repeated failures)
-- Power-loss during state transition
+The original Phase 2 plan was external shell/python scripts in this directory
+(receive target data dir as `$1`, exit 0 on pass, JSON metrics on stdout).
+This was superseded by the declarative YAML harness, which separates scenario
+from target backend and covers failure injection (network down, agent crash,
+corrupted image, checksum failure, host crash, power loss, boot loop) that
+external scripts could not express. This directory is retained for future
+external scenario scripts only if a need arises that the YAML harness cannot
+express.

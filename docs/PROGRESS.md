@@ -12,7 +12,7 @@
 
 ### Phase 1 — Remote Lab Control Plane (2026-09-28, без железа)
 - [x] Agent: `lab/agent/mavericks-lab-agent` — single-file, python3 stdlib, zero-idle, SSH forced-command, NOT a daemon
-- [x] Protocol: NDJSON over stdin/stdout, 17 commands (status, inventory, collect, run-test, benchmark, deploy, verify, reboot, shutdown, select-boot, commit, rollback, snapshot, restore, logs, trace, ping)
+- [x] Protocol: NDJSON over stdin/stdout, 16 commands (status, inventory, collect, run-test, benchmark, deploy, verify, reboot, shutdown, select-boot, commit, rollback, snapshot, restore, logs, trace, ping)
 - [x] Idempotency: UUID job IDs, journal replay returns cached response without re-exec
 - [x] A/B state machine: UNKNOWN→BOOTING→NETWORK_READY→AGENT_READY→HEALTH_CHECK→HEALTHY→COMMITTED, FAIL→ROLLBACK, attempt counter, max_attempts=3, boot-loop protection
 - [x] Persistent state: atomic writes (temp+rename), survives crash/reboot/power-loss
@@ -25,7 +25,12 @@
 - [x] Installer: `lab/agent/install.sh` — agent binary, identity, SSH forced-command, systemd oneshot, narrow sudoers
 - [x] Tests: 7 test files, 158 tests, all green (protocol, state, deploy, boot, identity, store, e2e)
 - [x] E2E: full A/B lifecycle (deploy→boot→health→test→commit), rollback, idempotency, crash recovery, snapshot/restore
-- [ ] Phase 2: QEMU full harness, failure injection, external scenario scripts, Mac backend, chunked deploy
+- [x] Phase 2: QEMU/OVMF A/B test harness — 25 failure-injection scenarios, pluggable backends (sim/qemu/mac-stub), declarative YAML, result DB (1d56515)
+  - [x] Sim backend: 25/25 scenarios pass (rootless, deterministic)
+  - [x] Harness tests: 110/110 pass (lab/harness/tests/test_harness.py)
+  - [x] QEMU backend: real guest boot works; network-up scenarios fail health check → ROLLBACK (documented limitation: virtio-net module fails, no route creation)
+  - [x] Mac backend: documented stub (efibootmgr -n/-o), raises NotImplementedError, does NOT touch production bootloader
+  - [ ] Deferred seam: chunked deploy (large images), raw stream deploy, QEMU network-up fix, Mac backend wiring to production bootloader
 
 ### Track closure — Architecture Optimization R1–R2 + D1–D7 (2026-09-28, без железа)
 - [x] R2 proposal reconciled: 6 items → 3 SUPERSEDED (BlueZ signals, worker thread, pactl→D-Bus — all superseded by the 14c8009 signal-driven redesign + f2568dc dedup + measured P2 acceptance), 1 CLOSED (mv-eject/rename — already efficient), 2 STILL-OPEN accepted (mv-airdrop NM State, mv-diskutil ObjectManager — on-open only, P2) — ARCHITECTURE_OPTIMIZATION_AUDIT.md §R2

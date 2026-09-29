@@ -249,6 +249,10 @@ CREATE TABLE events (
     event_type TEXT,
     data TEXT
 );
+
+CREATE INDEX idx_jobs_scenario ON jobs(scenario);
+CREATE INDEX idx_jobs_result ON jobs(result);
+CREATE INDEX idx_jobs_ts ON jobs(start_ts);
 ```
 
 ## Testing
@@ -289,9 +293,16 @@ lab/harness/
 ### Results
 
 - **Sim backend**: 25/25 scenarios pass (rootless, deterministic)
-- **QEMU backend**: real guest boot works; network-up is a known limitation
-  (virtio-net module fails — virtio_ring not exported in this kernel)
+- **QEMU backend** (full run, 2026-09-29): 1 passed / 18 failed / 6 skipped.
+  - All 18 failures share one root cause: network-up health check fails in QEMU
+    (virtio-net module fails — virtio_ring not exported in this kernel →
+    no route → health check fails → ROLLBACK). Documented limitation;
+    the sim backend covers network-up paths (25/25).
+  - 6 skips are scenarios declaring `backends: [sim]` only (QEMU backend
+    does not support those injection types: 07, 12, 14, 17, 18, 19).
+  - 1 pass: 11_agent_never_starts (does not require network).
 - **Existing tests**: 158/158 pass (lab/tests/)
+- **Harness tests**: 110/110 pass (lab/harness/tests/test_harness.py)
 
 ### Key Design Decisions
 

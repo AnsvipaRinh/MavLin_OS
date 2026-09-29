@@ -38,6 +38,10 @@ Runs 25 failure-injection scenarios against pluggable target backends.
   netlink RTM_NEWROUTE/RTM_NEWADDR don't create routes for loopback).
   Network-down scenarios work correctly. Network-up scenarios are
   expected to fail the health check in QEMU mode (documented).
+- **Full QEMU run (2026-09-29)**: 1 passed / 18 failed / 6 skipped.
+  All 18 failures are this network-up limitation (health check fails →
+  ROLLBACK). The 6 skips declare `backends: [sim]` only. The sim backend
+  (primary) passes 25/25 and covers the network-up paths.
 
 ### MacBackend (documented stub)
 - Placeholder for future MacBook10,1 hardware validation
