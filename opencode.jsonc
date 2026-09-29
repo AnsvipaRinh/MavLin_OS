@@ -20,7 +20,7 @@
     // its `rotate:` line, then restart the server. No autonomy beyond that
     // exists on this platform (agents cannot switch models at runtime).
     "build": {
-      "model": "opencode/longcat-2.5-preview-free",
+      "model": "openrouter/cohere/north-mini-code:free",
       "description": "Implementation worker: executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
       "permission": {
         // Workers must NEVER delegate deeper (2026-09-26, see DECISIONS.md):
