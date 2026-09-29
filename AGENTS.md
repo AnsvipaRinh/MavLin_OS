@@ -59,6 +59,33 @@
   очевидными следующими техническими действиями, если выбор делается
   самостоятельно по приоритетам (разделы 3, 10).
 
+### 0.1.1 RESUME-FIRST discipline for sub-agent sessions (mandatory)
+
+The Orchestrator sees ONLY the Task result string; it CANNOT trust that
+channel for session state. Cancelled/failed sessions accumulated ~45k and
+~100k tokens of real reasoning, yet the Orchestrator concluded "zero output,
+nothing to resume" and re-issued fresh sessions, wasting ~100k tokens.
+
+**Enforced rules (query live metadata BEFORE deciding):**
+
+1. After ANY non-clean Task end (cancelled, timeout, error, or even
+   clean but short result text): run `scripts/session-reuse.py status`
+   AND `scripts/session-reuse.py context <id>` for that session id
+   BEFORE deciding resume vs new.
+
+2. Same objective + tokens show real progress + no error-state
+   → RESUME via `task_id` with "continue", NEVER re-issue fresh.
+   `decide` subcommand automates this verdict.
+
+3. New session ONLY on: objective change, RETIRE verdict (≤50%
+   context remaining), verified-empty session (status shows no
+   assistant messages), or unrecoverable error state.
+
+4. NEVER infer session emptiness from result text alone. Result
+   channel ≠ session state.
+
+See §14.5.1 for the full cheatsheet and technical details.
+
 ### Рабочий цикл
 
 1. Read persistent instructions.
@@ -1041,6 +1068,41 @@ after the result is processed); never resume on context pressure, error
 state, or objective change. A Build answer is NOT the end of that
 Build session — verify against DoD and continue the same session when work
 of the same objective remains.
+
+### 14.5.1 RESUME-FIRST discipline (mandatory, fixes "empty result text ≠ no work")
+
+The Orchestrator sees ONLY the Task result string; it CANNOT trust that
+channel for session state. Evidence: cancelled/failed sessions accumulated
+~45k and ~100k tokens of real reasoning (visible in session chats), yet
+the Orchestrator concluded "zero output, nothing to resume" and re-issued
+fresh sessions, wasting ~100k tokens of redo.
+
+**Enforced rules (query live metadata BEFORE deciding):**
+
+1. **After ANY non-clean Task end** (cancelled, timeout, error, or even
+   clean but short result text): run `scripts/session-reuse.py status`
+   AND `scripts/session-reuse.py context <id>` for that session id
+   BEFORE deciding resume vs new.
+
+2. **Same objective + tokens show real progress + no error-state**
+   → RESUME via `task_id` with "continue", NEVER re-issue fresh.
+   `decide` subcommand automates this verdict.
+
+3. **New session ONLY on:** objective change, RETIRE verdict (≤50%
+   context remaining), verified-empty session (status shows no
+   assistant messages), or unrecoverable error state.
+
+4. **NEVER infer session emptiness from result text alone.** Result
+   channel ≠ session state. A "Task cancelled" message with empty
+   output may hide 100k tokens of reasoning in the live session.
+
+**Cheatsheet:**
+```
+scripts/session-reuse.py status                    # all sessions live state
+scripts/session-reuse.py context <session-id>      # used_input, limit, REUSABLE/RETIRE
+scripts/session-reuse.py decide <id> --objective <O> --agent build  # RESUME or NEW
+scripts/session-reuse.py register <id> --agent build --objective <O> --task "<T>"  # track new
+```
 
 ### 14.6 Agent visibility (why global symlinks exist)
 
