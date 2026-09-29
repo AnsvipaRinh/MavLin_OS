@@ -564,3 +564,64 @@ pre-cache full scan is at 2 opens.
   (pre-existing respawn host artifacts). mv-music 117/0 (+9 cache
   tests), mv-calendar 64/0, mv-reminders 32/0, mv-timemachine 60/0.
 - Gate: `scripts/check-sync.sh --check-repos` → ALL CHECKS PASSED.
+
+## COMPLETENESS C2 — P1 implementation before/after — 2026-09-29
+
+- Raw JSON: `docs/benchmarks/results-2026-09-29-c2-p1.json` (31 scenarios,
+  5 skipped GUI-tier, 0 failed)
+- Host: WSL2 Arch (AMD R7 5800HS, 2 vCPU, 7.6 GB). All numbers are
+  host-relative deltas, NOT MacBook predictions (honesty contract).
+
+### J1 — security (P0-J1): sshd off + root locked + override removed
+
+| State | Before | After |
+|---|---|---|
+| sshd in ISO | ENABLED (`multi-user.target.wants/sshd.service`) | symlink removed (OFF) |
+| sshd_config.d/10-archiso.conf | `PasswordAuthentication yes` + `PermitRootLogin yes` | deleted (distro defaults) |
+| root password field (airootfs shadow) | `root::` (empty) | `root:!` (locked) |
+| firstboot root lock | — | `passwd -l root` (installed system) |
+| remote bring-up | open-by-default root-SSH surface | explicit opt-in: `lab/agent/install.sh` → `systemctl enable --now sshd` (key-based forced-command as mavericks-lab, never root) |
+
+No-boot-breakage: install is local (USB-C console); no `.wants/
+.requires` references sshd (explicit symlink walk in check-sync);
+lab agent needs no root SSH. sshd was idle-sleep ~5 MB — disabling
+removes a resident process (strictly less).
+
+### M1 — Firefox seed profiles.ini (P1-M1)
+
+| Seed state | Before | After |
+|---|---|---|
+| profiles.ini / installs.ini | absent (activation non-deterministic; seed could be orphaned) | present (`Default=1` → mavericks.default) |
+
+### O1/O2 — package removal (P1-O1/O2)
+
+| | Before | After |
+|---|---|---|
+| packages in ISO | 129 | 111 (−18 unreferenced) |
+| intel-gpu-tools | removal candidate (31.5 MiB) | **KEPT** — intel_gpu_top = GPU metric in HW_BROWSER_MATRIX 4-mode plan |
+| powertop / turbostat / ethtool / dmidecode / mesa-utils | candidates | **KEPT** — HW procedures / active code (evidence in NEEDS_HARDWARE_TEST.md) |
+| less / diffutils / hdparm / usbutils | candidates | **KEPT** — hard deps of man-db / mkinitcpio / tlp (pacman -Si verified) |
+
+### L1 — shared .desktop parse cache (P1-L1)
+
+| load_desktop_entries | Before (every open) | After cold (miss) | After warm (hit) |
+|---|---|---|---|
+| mv-launchpad + mv-spotlight raw parse | 15.5 / 12.1 ms (C2 axis L) | 15.98 ms | **1.15 ms** |
+
+Warm hit = fingerprint (stat walk) + JSON read only; zero .desktop file
+reads (test-verified). 13.9× vs the pre-cache full parse; the cold miss
+carries a one-time fingerprint + cache-write overhead per desktop-DB
+change. Break-even vs pre-cache full parse is at 2 opens (same class as
+C1-P1 C3).
+
+### Suite / gate
+
+- Test scripts: 23 test-*.py (+test-mv-desktop-cache.py, 41 tests).
+  21 pass clean; mv-photos 91/2 and mv-textedit 6/6 fail with the SAME
+  pre-existing host artifacts documented in C1 (gthumb installed on
+  host; respawn). NOT regressions.
+- Gate: `scripts/check-sync.sh --check-repos` → ALL CHECKS PASSED
+  (162 OK checks incl. 6 P0-J1 security + 1 P1-M1 seed validation).
+- Bench: 31 scenarios, 5 skipped (GUI-tier), 0 failed.
+- Power baseline untouched; no new daemons (cache is in-process JSON,
+  event-driven invalidation).

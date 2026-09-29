@@ -1,5 +1,14 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Completeness C2 — P1 implementation (2026-09-29, без железа)
+- [x] P0-J1 SECURITY (commit dfbd987): sshd disabled in ISO (.wants symlink removed), root locked (`root:!` in airootfs shadow + `passwd -l root` in firstboot), permissive sshd_config.d/10-archiso.conf deleted. Remote bring-up = explicit opt-in via lab/agent/install.sh (key-based forced-command as mavericks-lab, never root). Verified: install is local, no .wants/.requires references sshd, lab agent needs no root SSH. DECISIONS.md security entry. +6 check-sync security checks.
+- [x] P1-M1 (commit 77f6e15): Firefox seed profiles.ini + installs.ini added (configs/firefox/ source, mirrored to seed). Before: no profiles.ini → activation non-deterministic, seed could be orphaned. check-sync validates INI content + profile existence.
+- [x] P1-O1/O2 (commit 1409361): 18 unreferenced packages removed (129→111). intel-gpu-tools KEPT (intel_gpu_top = GPU metric in HW_BROWSER_MATRIX 4-mode plan) + 11 more KEEP with evidence (powertop/turbostat/ethtool/dmidecode/mesa-utils/openssh/stress-ng = HW procedures or code; less/diffutils/hdparm/usbutils = hard deps of man-db/mkinitcpio/tlp, pacman -Si verified). Reasons recorded in NEEDS_HARDWARE_TEST.md.
+- [x] P1-L1 (commit dc2df3f): shared .desktop parse cache IMPLEMENTED (condition met: airtight invalidation + corrupt-cache safety + tests). mv_desktop_cache module: per-dir (mtime_ns,count) + per-file (mtime_ns,size) fingerprint, quarantine-on-corrupt (mv-music family pattern). mv-launchpad/mv-spotlight consume raw entries, keep own dedup/sort/icon logic. S25: cold 15.98ms → warm 1.15ms (13.9×). +41 tests. Bench 31 scenarios 0 failed.
+- [x] Gate: check-sync --check-repos ALL CHECKS PASSED (227 checks); 23 test files (21 clean; mv-photos 2 + mv-textedit 6 = same pre-existing C1 host artifacts); bench 31 scenarios 0 failed; power baseline untouched.
+- [x] Before/after: docs/BENCHMARKS.md (C2-P1 section) + docs/benchmarks/results-2026-09-29-c2-p1.json
+- [ ] HW validation (NEEDS_HARDWARE_TEST.md): all remaining items are hardware measurements/validation.
+
 ### Completeness C1 — P1 implementation (2026-09-29, без железа)
 - [x] P1-C1: removed 13 dead-weight packages from ISO (142→129, ~330 MiB): linux, sof-firmware, linux-firmware-marvell, refind, orage, flameshot, xfce4-taskmanager, xfce4-appfinder, xfce4-notes-plugin, rsync, wireless_tools, mc, vim. **stress-ng KEPT** (mv-thermal.sh). Each verified unreferenced. check-sync --check-repos green. (3193695)
 - [x] P1-C4: removed 8 dead systemd units via .wants symlink removal (archiso convention): 5x cloud-init + pcscd.socket + ModemManager + livecd-talk. firstboot ModemManager mask kept; VM agents kept for QEMU. (7eb6977)

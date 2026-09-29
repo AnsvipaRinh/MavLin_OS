@@ -12,23 +12,23 @@
 
 | Axis | Status | Key number |
 |---|---|---|
-| J — Security/perf | PARTIALLY (1 real P0) | ISO: sshd ENABLED + PermitRootLogin yes + root EMPTY password |
+| J — Security/perf | **IMPLEMENTED (dfbd987)** | sshd disabled in ISO, root locked, override removed, opt-in gate |
 | K — Build/ELF optimization | PROVEN-COMPLETE | mv-hud: all flag variants 14320 B identical; runtime = spawn+/sys floor |
-| L — Resource/UI loading | PARTIALLY | theme CSS parse 4.1–4.5 ms/process; AppInfo.get_all 12–14 ms; typelib 163–324 ms |
-| M — Firefox startup/profile | PARTIALLY | profile seed 44 KB but NO profiles.ini (activation unverified); 9 uBO lists |
+| L — Resource/UI loading | **IMPLEMENTED (dc2df3f)** | shared .desktop cache: cold 15.98 ms → warm 1.15 ms (S25) |
+| M — Firefox startup/profile | **IMPLEMENTED (77f6e15)** | seed profiles.ini + installs.ini added; activation deterministic |
 | N — YouTube pipeline | PROVEN-COMPLETE | 3 processes/playback (bash→mpv→yt-dlp); 1 metadata resolution; no residue |
-| O — ISO minimalism | PARTIALLY | 129 pkgs classified; intel-gpu-tools 31.5 MiB top removal candidate |
+| O — ISO minimalism | **IMPLEMENTED (1409361)** | 18 pkgs removed (129→111); intel-gpu-tools KEPT (HW procedure) |
 | P — Service parallelism | PROVEN-COMPLETE | tlp/zram/NM/resolved/lightdm/BT all parallel; no artificial serialization |
 | Q — Logging/journal | PROVEN-COMPLETE | mv-timemachine 64 B/h only recurring noise; calendar/reminders silent |
 | R — Observability itself | PARTIALLY | S23: host drift ±20% within batch > cold-cache effect; S03 repeats=1 = cold |
 | S — Failure/recovery | DESIGN | 7 failure classes × rollback path; lab A/B + btrfs + restic + git |
 
 **New P0/P1 implementation proposals (with measurements):**
-- **P0-J1: Harden ISO SSH** — sshd.service is enabled in the ISO with `PermitRootLogin yes` + `PasswordAuthentication yes` and root has an EMPTY password (`root::` in airootfs shadow). sshd's default `PermitEmptyPasswords no` blocks empty-password login, but the config is wrong and the attack surface is real. Fix: disable sshd in ISO (firstboot already does on install), set root password to locked (`root:!`), or remove the permissive sshd_config.d override.
-- **P1-O1: Remove intel-gpu-tools from ISO** (31.5 MiB installed) — diagnostic-only, largest single removal candidate. Move to AUR/optional or a recovery-only profile.
-- **P1-O2: Evaluate ~25 OPTIONAL/P2 packages** (~60 MiB combined) — lvm2, xfsprogs, jfsutils, f2fs-tools, udftools, mdadm, sg3_utils, nfs-utils, etc. — no users on MacBook10,1 (btrfs target, NVMe, no RAID/LVM/NFS). Keep recovery-critical (testdisk, ddrescue, partclone, fsarchiver, gptfdisk, cryptsetup, smartmontools, nvme-cli).
-- **P1-M1: Add profiles.ini to Firefox seed** — the 44 KB seed (user.js + userChrome.css + userContent.css) has NO profiles.ini/installs.ini/times.json; Firefox may not auto-activate `mavericks.default`. Activation path unverified offline. Add profiles.ini for determinism.
-- **P1-L1: (optional) shared .desktop parse cache** — mv-launchpad (15.5 ms) + mv-spotlight (12.1 ms) re-parse the desktop DB manually on every open. A mtime-keyed cache would save ~12–15 ms per open. Low priority (small vs 300 ms startup).
+- **P0-J1: Harden ISO SSH** — sshd.service is enabled in the ISO with `PermitRootLogin yes` + `PasswordAuthentication yes` and root has an EMPTY password (`root::` in airootfs shadow). sshd's default `PermitEmptyPasswords no` blocks empty-password login, but the config is wrong and the attack surface is real. Fix: disable sshd in ISO (firstboot already does on install), set root password to locked (`root:!`), or remove the permissive sshd_config.d override. **IMPLEMENTED (dfbd987)** — all three fixes + explicit opt-in gate; see DECISIONS.md P0-J1 entry.
+- **P1-O1: Remove intel-gpu-tools from ISO** (31.5 MiB installed) — diagnostic-only, largest single removal candidate. Move to AUR/optional or a recovery-only profile. **KEEP (1409361)** — verify-first: `intel_gpu_top` is the GPU-usage metric source in the HW_BROWSER_MATRIX.md 4-mode HW validation plan. Reason recorded in NEEDS_HARDWARE_TEST.md.
+- **P1-O2: Evaluate ~25 OPTIONAL/P2 packages** (~60 MiB combined) — lvm2, xfsprogs, jfsutils, f2fs-tools, udftools, mdadm, sg3_utils, nfs-utils, etc. — no users on MacBook10,1 (btrfs target, NVMe, no RAID/LVM/NFS). Keep recovery-critical (testdisk, ddrescue, partclone, fsarchiver, gptfdisk, cryptsetup, smartmontools, nvme-cli). **IMPLEMENTED (1409361)** — 18 removed, 12 kept with evidence (incl. 4 hard-dep catches from pacman -Si reverse-dep sweep: less/diffutils/hdparm/usbutils).
+- **P1-M1: Add profiles.ini to Firefox seed** — the 44 KB seed (user.js + userChrome.css + userContent.css) has NO profiles.ini/installs.ini/times.json; Firefox may not auto-activate `mavericks.default`. Activation path unverified offline. Add profiles.ini for determinism. **IMPLEMENTED (77f6e15)** — profiles.ini + installs.ini added, check-sync-validated.
+- **P1-L1: (optional) shared .desktop parse cache** — mv-launchpad (15.5 ms) + mv-spotlight (12.1 ms) re-parse the desktop DB manually on every open. A mtime-keyed cache would save ~12–15 ms per open. Low priority (small vs 300 ms startup). **IMPLEMENTED (dc2df3f)** — condition met (airtight invalidation + quarantine + 41 tests); cold 15.98 ms → warm 1.15 ms (S25).
 
 **C3 handoff (ripest remaining axes):** T (per-app deep-dive: mv-dictionary WebKit2 175 MB memory), U (HiDPI/2304×1440 rendering calibration), V (real Firefox startup on hardware), W (applespi 3-strategy limit), X (S3X NVMe resume validation). Several are HW-REQUIRED — see NEEDS_HARDWARE_TEST.md.
 

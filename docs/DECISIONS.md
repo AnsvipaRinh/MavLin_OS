@@ -1,5 +1,61 @@
 # DECISIONS
 
+## 2026-09-29 — C2 P1 implementation: Firefox profiles.ini, package removal verify-first, shared .desktop cache
+
+**Date:** 2026-09-29
+**Context:** Implements P1-M1, P1-O1/O2, P1-L1 from
+`docs/COMPLETENESS_C2.md` with verify-first discipline. P0-J1 has its own
+entry above.
+
+**Decisions:**
+
+1. **P1-M1 — profiles.ini + installs.ini added to the Firefox seed.**
+   Seed layout verified first: `user.js` + `chrome/` live in
+   `airootfs/etc/skel/.mozilla/firefox/mavericks.default/`; NO
+   profiles.ini/installs.ini existed, so activation relied on Firefox
+   legacy auto-detection (needs prefs.js — absent) and could orphan the
+   seed. Added `profiles.ini` (`[Profile0] Path=mavericks.default,
+   Default=1, IsRelative=1`) + `installs.ini`, sourced from
+   `configs/firefox/` and mirrored per repo convention. check-sync
+   validates INI content + referenced profile existence.
+
+2. **P1-O1/O2 — 18 packages removed, 12 KEPT with evidence.** Every C2
+   OPTIONAL/P2 candidate grepped across docs/scripts/tools/packages/
+   configs/lab. Removed only provably-unreferenced: lvm2, xfsprogs,
+   jfsutils, f2fs-tools, udftools, mdadm, sg3_utils, nfs-utils,
+   mkinitcpio-nfs-utils, mmc-utils, sdparm, lsscsi, tcpdump, dosfstools,
+   exfatprogs, terminus-font, bash-completion, tmux (129→111).
+   **intel-gpu-tools KEPT** — `intel_gpu_top` is the GPU-usage metric
+   source in the HW_BROWSER_MATRIX.md 4-mode validation plan (also
+   DEPENDENCY_AUDIT.md:21). Also KEPT: powertop (read-only power
+   measurement, DECISIONS:566), turbostat (mv-power/mv-thermal/
+   mv-collect), ethtool (`ethtool -S wlan0` HW counters),
+   dmidecode (MacBook10,1 confirmation + mv-collect), mesa-utils
+   (DEPENDENCY_AUDIT:21 debug tooling), openssh (P0-J1 enable path),
+   stress-ng (mv-thermal.sh). **Dependency verify-first (pacman -Si
+   reverse-dep sweep):** less (man-db hard dep), diffutils (mkinitcpio
+   hard dep), hdparm + usbutils (tlp hard deps) — removed from the
+   removal list, kept. Reasons recorded in NEEDS_HARDWARE_TEST.md.
+
+3. **P1-L1 — shared .desktop parse cache IMPLEMENTED (not deferred).**
+   The user's condition was: implement only if invalidation is airtight
+   + corrupt-cache safety + tests. All three met: fingerprint =
+   per-dir (mtime_ns, count) + per-file (mtime_ns, size) — strictly
+   stronger than dirs-mtime+file-count (catches in-place edits);
+   corrupt cache quarantined per mv-music family pattern; 41 tests
+   (parse, fingerprint, hit-skips-reads, invalidation, corrupt
+   quarantine, app integration). Raw entries cached; per-app
+   post-processing preserved. Measured: cold 15.98 ms → warm 1.15 ms
+   (13.9×, S25).
+
+**Power baseline:** untouched. No TLP/kernel/cmdline/sysctl changes; no
+new daemons (the cache is in-process, on-disk JSON, event-driven
+invalidation).
+
+**Measurement:** `docs/BENCHMARKS.md` (C2-P1 section) +
+`docs/benchmarks/results-2026-09-29-c2-p1.json` (31 scenarios, 0
+failed). Host-relative deltas, NOT MacBook predictions.
+
 ## 2026-09-29 — P0-J1 SECURITY: ISO sshd disabled, root locked, permissive override removed (safe-optimization class)
 
 **Date:** 2026-09-29
