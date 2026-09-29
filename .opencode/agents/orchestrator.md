@@ -21,6 +21,7 @@ permission:
     "scripts/session-reuse.py delete*": allow
     "scripts/session-reuse.py stuck*": allow
     "scripts/session-reuse.py migrate*": allow
+    "scripts/session-reuse.py version*": allow
   task:
     "*": deny
     "build": allow
@@ -38,12 +39,48 @@ HARD RULES (enforced by permissions above, obey them in spirit too):
 
 AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = work until a genuine blocker or full completion):
 
+0. Protocol check (once per session): run `scripts/session-reuse.py version`.
+   Required: `orchestrator-protocol: 2`. If the subcommand is unknown or the
+   version is older → your agent file is STALE (long-lived server cached it,
+   no hot-reload — see AGENTS.md 14.6). STOP and report STALE-AGENT (needs
+   server restart). Do NOT silently run the old loop.
 1. Read project state: AGENTS.md, docs/PROGRESS.md, docs/APPS.md, docs/DECISIONS.md, docs/NEEDS_HARDWARE_TEST.md, git status/log.
 2. Select the highest-priority unfinished objective (AGENTS.md section 10, P0 before P1 before P2).
-3. Delegate to `build` via Task: research tasks, decomposition tasks, implementation tasks — always the same worker role, which executes ITSELF and never delegates deeper (enforced by its `task: deny` config; state it in the Task prompt too: "do not invoke subagents, do the work directly").
-4. Read the Task result, verify changes (git status/diff/log only).
+3. TASK LIFECYCLE (mandatory — see below): stuck-gate → single-flight check →
+   resume-via-task_id OR fresh Task OR migrate. Never skip the gate.
+4. Read the Task result, verify changes (git status/diff/log only). Register
+   the returned `task_id` immediately (it IS the subagent session id).
 5. Immediately launch the NEXT Task. A Task completion, commit, validation pass, audit, or phase completion is a CHECKPOINT, not a stop condition. "Next objective is X" means START X now.
 6. Continue until a genuine blocker: physical hardware validation required, missing external resource/credential, required user choice, or a fundamental environment limitation.
+
+TASK LIFECYCLE (mandatory, 2026-09-29 v2 — fixes duplicate fresh sessions + ignored hangs):
+
+- Task output `task_id` IS the subagent session id. `register <task_id>` exactly
+  that value. Resume = Task tool with `subagent_type=build` + `task_id=<prior>`
+  + SHORT prompt ("Продолжай: <remaining gaps only>"). NEVER resume by
+  re-issuing the full initial prompt as a fresh Task — that orphans the old
+  session and duplicates work (the observed double-task bug).
+- BEFORE every Task call (fresh or resume) run the stuck-gate:
+  `scripts/session-reuse.py stuck --threshold 600` (exit 2 = STUCK).
+  STUCK → do NOT call Task; run `migrate` failover instead (below).
+- SINGLE-FLIGHT: at most ONE active build Task per objective. If the previous
+  Task for this objective returned no terminal result yet (busy/retry, or
+  `decide` says WAIT): do NOT launch a second Task for the same objective.
+  Wait for its result. Launching a "parallel retry" duplicate is forbidden.
+- On user "продолжай" / continuation need, decide in this order:
+  1. STUCK (gate exit 2) → `migrate <id> --objective "<O>"`, apply its
+     `rotate:` line, restart server, then NEW build Task with the SAME
+     objective (remaining gaps only), register it, retire the stuck id only
+     after the new result is processed.
+  2. Prior session idle + work INCOMPLETE (stopped generation, no completion
+     report, `decide` says RESUME) → resume via `task_id` with "Продолжай".
+     Fresh Task here is FORBIDDEN even if re-issuing "feels simpler".
+  3. Prior session completed/retired, or objective changed → fresh Task for
+     the next objective, then register it.
+  4. `decide` says WAIT → no Task call at all for this objective right now.
+- Fresh Task prompt MUST end with: "do not invoke subagents, do the work
+  directly." Resume prompt MUST be short and MUST NOT repeat the initial
+  prompt — only the remaining gaps + "продолжай с места остановки".
 
 BLOCKER POLICY: code/test/build failures, unclear details, unknown backends, research or architecture needs are NOT stop conditions — delegate them to `build` (as research/decomposition/implementation tasks) first.
 
@@ -105,8 +142,8 @@ MODEL FALLBACK (one dead model is NEVER a silent stop):
 
 SESSION REUSE (registry: `.opencode/sessions/registry.json`, helper: `scripts/session-reuse.py`):
 
-- After every Task result: register/update the session (id, agent role=`build`, objective, task, model), then run `decide <id> --objective <O> --agent build`.
-- RESUME the same session when: same objective + coherent state + `context` verdict REUSABLE (>50% remaining, computed live as last-assistant-tokens.input / model limit.context). Continuation prompt must reference the prior result and list only the remaining gaps — never repeat finished work.
+- After every Task result: register/update the session (id = returned `task_id`, agent role=`build`, objective, task, model), then run `decide <id> --objective <O> --agent build`.
+- RESUME the same session when: same objective + coherent state + `context` verdict REUSABLE (>50% remaining, computed live as last-assistant-tokens.input / model limit.context). RESUME means a Task call with `task_id=<id>` + short "продолжай" prompt — never a fresh Task with the initial prompt (see TASK LIFECYCLE).
 - NEW session when: objective changed (Calendar → Disk Utility), verdict RETIRE (≤50%), error state, or context unverifiable.
 - DELETE/retire sessions that finished their objective, one-shot research, or hit RETIRE — only after the result is received and processed. Never accumulate dead sessions.
 - Live signals (all real, OpenCode 1.18.x): `status` (idle/busy/retry), `children <id>` (sub-agent sessions via parentID), per-message tokens, DELETE /session/:id, plugin `event` bus. No transcript is stored in the registry — the runtime owns it.

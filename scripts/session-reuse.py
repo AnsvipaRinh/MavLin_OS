@@ -13,6 +13,9 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
   status                    live status of all sessions (idle/busy/retry)
   children <id>             list child (sub-agent) sessions
   list                      registry contents
+  version                   print orchestrator protocol version (v2 required
+                            by the current orchestrator prompt; unknown
+                            subcommand = stale agent file -> STALE-AGENT)
   stuck [--threshold 600] [--format text|json]
                             stuck-task watchdog: parse live /session/status
                             retry/unavailable delays; any non-idle session
@@ -65,6 +68,12 @@ from datetime import datetime, timezone
 BASE = os.path.dirname(os.path.abspath(__file__))
 REG = os.path.join(BASE, "..", ".opencode", "sessions", "registry.json")
 CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
+
+# Orchestrator protocol version. The orchestrator prompt requires THIS version:
+# if `version` prints anything older (or the subcommand is unknown = stale
+# agent file cached by a long-lived server), the orchestrator must report
+# STALE-AGENT and stop instead of silently running the old loop.
+ORCHESTRATOR_PROTOCOL = 2
 
 HOST = os.environ.get("OPENCODE_SERVER_HOST", "localhost")
 PORT = os.environ.get("OPENCODE_SERVER_PORT", "4096")
@@ -196,7 +205,9 @@ def cmd_decide(args):
         st = api("GET", "/session/status") or {}
         s = st.get(a.id, {"type": "idle"})
         if s.get("type") != "idle":
-            print(f"WAIT (session status={s.get('type')}, do not send yet)");
+            print(f"WAIT (session status={s.get('type')}: previous Task still "
+                  f"active — do NOT launch a duplicate Task for this objective; "
+                  f"wait for its result or run stuck --threshold 600)");
             return
     except SystemExit as e:
         print(f"NEW (status unreachable: {e})");
@@ -250,6 +261,13 @@ def cmd_children(args):
 def cmd_list(args):
     reg = load_reg()
     print(json.dumps(reg["sessions"], indent=1, ensure_ascii=False))
+
+
+def cmd_version(args):
+    print(f"orchestrator-protocol: {ORCHESTRATOR_PROTOCOL}")
+    print("task_id rule: Task output task_id == subagent session id. "
+          "Register EXACTLY that id; resume via Task task_id=<id>, never "
+          "by re-issuing the initial prompt as a fresh Task.")
 
 
 # ---- Model fallback helpers (2026-09-26; chain lives in CHAIN file) ----
@@ -846,7 +864,7 @@ def cmd_migrate(args):
 
 CMDS = {"register": cmd_register, "context": cmd_context, "decide": cmd_decide,
         "retire": cmd_retire, "delete": cmd_delete, "status": cmd_status,
-        "children": cmd_children, "list": cmd_list,
+        "children": cmd_children, "list": cmd_list, "version": cmd_version,
         "stuck": cmd_stuck, "migrate": cmd_migrate,
         "models": cmd_models, "classify-error": cmd_classify_error}
 

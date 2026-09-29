@@ -1,5 +1,23 @@
 # DECISIONS
 
+## 2026-09-29 — TASK LIFECYCLE v2: resume-via-task_id + single-flight + stale-agent (fixes duplicate sessions + ignored 8300s)
+
+**Date:** 2026-09-29
+**Context:** User report after the 600s-watchdog fix (3fdd4b8): (1) a new "Продолжай" still launched a fresh sub-agent that hung at ~8300s with no agent switch; (2) worse — the Orchestrator created a NEW sub-agent session with the initial prompt instead of sending "Продолжай" to the old session, duplicating the unfinished task (two orchestrators even duplicated each other).
+
+**Diagnosis (why v1 did not fire):**
+1. Stale agent file. Fix 3fdd4b8 is IN the repo, but OpenCode servers do NOT hot-reload agents (§14.6) and the desktop server usually runs with cwd≠repo. The running Orchestrator never saw `stuck`/`migrate` — it executed the OLD loop that knows no watchdog. Silent by design gap: nothing told it to check its own version.
+2. No binding resume mechanic. The prompt said "RESUME" but never said HOW (Task `task_id=<prior>` + short prompt) and never FORBADE the easy wrong path (re-issuing the full initial prompt as a fresh Task). The model chose the familiar path — fresh Task — orphaning the old session. Verified against upstream: Task `task_id` resumes the SAME subagent session with prior messages; fresh Task always starts a fresh context (upstream `task.ts`/`task.txt`).
+3. No single-flight guard. Nothing forbade a second active build Task per objective, and `decide` WAIT was advisory ("do not send yet") without "do NOT launch a duplicate". So "Продолжай" while the old task was busy/retry spawned a parallel duplicate.
+
+**Fix (protocol v2):**
+1. `scripts/session-reuse.py version` → `orchestrator-protocol: 2` + task_id rule. Orchestrator loop step 0: version check; unknown/older = STALE-AGENT → STOP + report (needs server restart). Turns silent staleness into an explicit blocker.
+2. TASK LIFECYCLE in `orchestrator.md`: stuck-gate before EVERY Task → single-flight (one active build Task per objective; WAIT = no Task call) → continuation ONLY as Task `task_id=<prior>` + short "Продолжай: <remaining gaps>" (re-issuing the initial prompt as fresh = FORBIDDEN) → fresh Task only on objective change / completed-retired prior / post-migrate rotation. Fresh prompts must end with "do not invoke subagents, do the work directly".
+3. `decide` WAIT text hardened to "...do NOT launch a duplicate Task...; wait or run stuck --threshold 600". `register` documented: Task output `task_id` IS the session id.
+4. `AGENTS.md` §14.2 loop rewritten around the lifecycle + `version` in the cheatsheet. Power baseline untouched.
+
+**User action REQUIRED once:** restart `opencode serve` / desktop app so the running server re-reads the agent file (global symlink already points at the repo file — source of truth unchanged). Until then the orchestrator stays STALE by construction.
+
 ## 2026-09-29 — STUCK-TASK FAILOVER: 600s watchdog + pause/migrate (fixes 8800s hang)
 
 **Date:** 2026-09-29

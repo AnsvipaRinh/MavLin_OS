@@ -1020,11 +1020,19 @@ until a genuine blocker (14.3) or project-level completion (13.11):
 ```
 READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.md, git)
 → SELECT highest-priority unfinished executable objective (P0 → P1 → P2)
-→ DELEGATE (Task → build: research / decomposition / implementation)
-→ VERIFY result (git status/diff/log; state files)
+→ TASK LIFECYCLE (stuck-gate → single-flight → resume-via-task_id OR fresh OR migrate)
+→ VERIFY result (git status/diff/log; state files) + register returned task_id
 → IMMEDIATELY launch next Task
 → ... repeat ...
 ```
+
+TASK LIFECYCLE (binding, full text in `.opencode/agents/orchestrator.md`):
+protocol check `version` (need v2; unknown = STALE-AGENT, stop) →
+`stuck --threshold 600` gate before EVERY Task (exit 2 = migrate, no Task call) →
+single-flight (max ONE active build Task per objective; `decide` WAIT = no new
+Task) → continuation = Task `task_id=<prior>` + short "Продолжай" (re-issuing
+the initial prompt as a fresh Task is FORBIDDEN) → fresh Task only on
+objective change, completed/retired prior, or post-migrate rotation.
 
 "Next objective is X" = START X now. "Ready to continue" = continue now.
 Sections 0.1 and 13.8 apply to the Orchestrator loop one level up: it is
@@ -1113,6 +1121,7 @@ scripts/session-reuse.py decide <id> --objective <O> --agent build  # RESUME or 
 scripts/session-reuse.py register <id> --agent build --objective <O> --task "<T>"  # track new
 scripts/session-reuse.py stuck --threshold 600     # STUCK watchdog (>600s retry = migrate, exit 2)
 scripts/session-reuse.py migrate <id> --objective <O>  # pause stuck + rotate pin + SAME-task prompt
+scripts/session-reuse.py version                       # need orchestrator-protocol: 2 (else STALE-AGENT)
 ```
 
 ### 14.6 Agent visibility (why global symlinks exist)
