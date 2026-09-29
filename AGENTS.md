@@ -1030,16 +1030,22 @@ READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.m
 ```
 
 TASK LIFECYCLE (binding, full text in `.opencode/agents/orchestrator.md`):
-protocol check `version` (need v3; unknown = STALE-AGENT, stop) →
+ENV PRE-CHECK (`git status` + `version` must both succeed; else
+PROJECT-NOT-LOADED/STALE-AGENT = stop, no improvising) →
+protocol check `version` (need v4) →
+REBOOT RULE (post-restart: old task_ids are dead; fresh Task with carried
+context, gates still mandatory) →
 `stuck --threshold 600` gate before EVERY Task (exit 2 = migrate, no Task call) →
 single-flight (max ONE active worker Task per objective; `decide` WAIT = no new
 Task) → continuation = Task SAME worker + `task_id=<prior>` + short "Продолжай"
 (re-issuing the initial prompt as a fresh Task is FORBIDDEN; checker-Tasks
 "to see if the old task can continue" are FORBIDDEN — decide via bash signals)
 → STUCK/dead = `migrate --delay <sec>` → NEW Task on printed `subagent_type`
-(no `task_id`, same task) → fresh Task only on objective change or
-completed/retired prior. Cooldown memory (`health`/`mark-dead`/`mark-alive`,
-3h default) tracks dead models; runtime rotation needs no restart.
+(no `task_id`, same task) → BLOCKED-TASK (pending Task past 600s retry =
+abort + migrate + relaunch, never sit) → fresh Task only on objective change
+or completed/retired prior. NEVER end a turn with an unprocessed Task outcome.
+Cooldown memory (`health`/`mark-dead`/`mark-alive`, 3h default) tracks dead
+models; runtime rotation needs no restart.
 
 "Next objective is X" = START X now. "Ready to continue" = continue now.
 Sections 0.1 and 13.8 apply to the Orchestrator loop one level up: it is
@@ -1134,7 +1140,7 @@ scripts/session-reuse.py stuck --threshold 600     # STUCK watchdog (>600s retry
 scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>  # pause stuck + SAME task on next-worker
 scripts/session-reuse.py health                    # cooldown memory (dead models + retry-in)
 scripts/session-reuse.py mark-alive <model>        # clear cooldown after good result
-scripts/session-reuse.py version                   # need orchestrator-protocol: 3 (else STALE-AGENT)
+scripts/session-reuse.py version                   # need orchestrator-protocol: 4 (else STALE-AGENT)
 ```
 
 ### 14.6 Agent visibility (why global symlinks exist)

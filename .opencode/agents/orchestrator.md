@@ -44,21 +44,47 @@ HARD RULES (enforced by permissions above, obey them in spirit too):
 
 AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = work until a genuine blocker or full completion):
 
-0. Protocol check (once per session): run `scripts/session-reuse.py version`.
-   Required: `orchestrator-protocol: 3`. If the subcommand is unknown or the
-   version is older → your agent file is STALE (long-lived server cached it,
-   no hot-reload — see AGENTS.md 14.6). STOP and report STALE-AGENT (needs
-   server restart). Do NOT silently run the old loop.
+0. ENV PRE-CHECK (once per session, BEFORE anything else — both commands
+   must succeed in the SAME session):
+   `git status` AND `scripts/session-reuse.py version` (need
+   `orchestrator-protocol: 4`).
+   - Either fails ("file not found", unknown subcommand, older version) →
+     PROJECT-NOT-LOADED or STALE-AGENT: the server started outside the repo
+     or cached an old agent file (no hot-reload — AGENTS.md 14.6). STOP and
+     report it in one line (needs server restart with cwd=repo). Do NOT
+     improvise: no fresh subagents, no "prompt from scratch", no guessing.
+     An orchestrator without its gates is worse than no orchestrator.
 1. Read project state: AGENTS.md, docs/PROGRESS.md, docs/APPS.md, docs/DECISIONS.md, docs/NEEDS_HARDWARE_TEST.md, git status/log.
 2. Select the highest-priority unfinished objective (AGENTS.md section 10, P0 before P1 before P2).
 3. TASK LIFECYCLE (mandatory — see below): stuck-gate → single-flight check →
    resume-via-task_id OR fresh Task OR migrate. Never skip the gate.
 4. Read the Task result, verify changes (git status/diff/log only). Register
-   the returned `task_id` immediately (it IS the subagent session id).
+   the returned `task_id` immediately (it IS the subagent session id),
+   `mark-alive` its model.
 5. Immediately launch the NEXT Task. A Task completion, commit, validation pass, audit, or phase completion is a CHECKPOINT, not a stop condition. "Next objective is X" means START X now.
 6. Continue until a genuine blocker: physical hardware validation required, missing external resource/credential, required user choice, or a fundamental environment limitation.
+   NEVER end a turn with a worker Task outcome unprocessed (unregistered
+   result, unclassified failure, no next Task and no blocker report). Sitting
+   idle with an unfinished objective and no blocker IS the failure mode.
 
-TASK LIFECYCLE (mandatory, 2026-09-29 v3 — resume-via-task_id, worker rotation, no checker-Tasks):
+REBOOT RULE (server restart wipes runtime sessions — transcripts die with it):
+after ANY reboot/server restart, all pre-reboot task_ids are dead handles
+(resuming one silently becomes a fresh session anyway). So: NEVER pass
+pre-reboot task_ids; start a FRESH Task carrying context from git/docs/
+registry task text (that shape is CORRECT here, not a bug); run all gates
+normally; register the new task_id. Resume-via-task_id applies ONLY within
+one server lifetime.
+
+BLOCKED-TASK RULE (a foreground Task that never returns):
+while a Task call is pending you cannot run gates — so do not let one hang
+forever. If the pending Task shows retry/unavailable seconds: under 600s =
+WAIT for its result; past 600s = STUCK → ABORT/cancel the pending Task call,
+then `migrate --delay <observed-sec>` + relaunch the SAME task on the printed
+worker. Aborting without an immediate migrate+relaunch (or an explicit wait
+report with the retry time) is forbidden — an aborted task that nobody
+re-queues is lost work.
+
+TASK LIFECYCLE (mandatory, 2026-09-29 v4 — resume-via-task_id, worker rotation, no checker-Tasks):
 
 - WORKER POOL: `build` (primary) + `build-b` + `build-c` (hidden subagent
   fallbacks, different chain pins). All three do the same work; only the model

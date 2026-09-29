@@ -78,7 +78,7 @@ CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-ORCHESTRATOR_PROTOCOL = 3
+ORCHESTRATOR_PROTOCOL = 4
 
 # Cooldown memory for dead models (.opencode/sessions/model-health.json).
 # A model observed dead (provider retry/unavailable > stuck threshold, or

@@ -1,5 +1,23 @@
 # DECISIONS
 
+## 2026-09-30 — Protocol v4: ENV PRE-CHECK + REBOOT + BLOCKED-TASK (post-reboot corpse behavior)
+
+**Date:** 2026-09-30
+**Context:** User report after reboot: orchestrator "read the guide, created a new subagent session with a prompt from scratch, and sits doing nothing — no agent switch, no session restart, no old-session continuation. Corpse behavior."
+
+**Forensics (repo artifacts, no live server access from build env):**
+- Zero gate traces: registry unchanged (same 5 old retired ids, no new registrations, no paused-stuck), no `model-health.json` (no migrate/classify ever ran), zero commits after v3, zero file output from the fresh session. The orchestrator ran with NO guardrails at all.
+- Two compounding causes: (1) after reboot the server likely started outside the repo or with a cached agent (cwd problem, §14.6) — allow-listed bash gates would fail there, and the prompt had NO pre-check that fails closed, so the agent improvised "read guide → fresh subagent → wait"; (2) even in the good case, nothing bounded a pending foreground Task (gates run only BETWEEN Tasks) and nothing forbade ending a turn with an unprocessed Task outcome — so "sit" was a permitted state.
+
+**Fix (protocol v4):**
+1. ENV PRE-CHECK (step 0, fails closed): `git status` + `version` must BOTH succeed or STOP with PROJECT-NOT-LOADED/STALE-AGENT. An orchestrator without gates improvising fresh subagents is explicitly declared worse than stopping.
+2. REBOOT RULE: restart wipes runtime transcripts — pre-reboot task_ids are dead handles (resume would silently become fresh anyway, per upstream `task.ts`). Fresh Task with context carried from git/docs/registry is CORRECT here; resume-via-task_id applies only within one server lifetime.
+3. BLOCKED-TASK RULE: pending Task with retry/unavailable >600s = STUCK → abort + `migrate --delay` + relaunch on next worker. Never sit; never end a turn with an unprocessed Task outcome.
+4. Loop step 6 hardened: sitting idle with an unfinished objective and no blocker IS the failure mode.
+
+**Verified:** py_compile OK, protocol prints 4, workers unchanged, no stray state files.
+**User action REQUIRED once:** full restart of `opencode serve` / desktop app FROM the repo directory (loads v4 agent + worker pool). Then: «Продолжай».
+
 ## 2026-09-29 — Protocol v3: worker pool + cooldown memory (fixes duplicate sessions + no agent switch)
 
 **Date:** 2026-09-29
