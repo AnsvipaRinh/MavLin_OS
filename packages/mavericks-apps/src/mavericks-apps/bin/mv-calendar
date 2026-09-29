@@ -17,9 +17,16 @@ import sys
 import time
 import uuid
 from datetime import datetime, timedelta
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GLib, Gdk
+
+# Timer one-shots (--check-upcoming) are pure Python + notify-send; defining
+# the GUI classes only in GUI mode keeps the Gtk import (~150-400 ms) out of
+# the 5-min timer path.
+_GUI = len(sys.argv) <= 1 or sys.argv[1] != "--check-upcoming"
+
+if _GUI:
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, GLib, Gdk
 
 STORE = os.path.expanduser("~/.local/share/mv-calendar/calendars.json")
 REPEAT_MODES = ["none", "daily", "weekly", "monthly", "yearly"]
@@ -386,1104 +393,1105 @@ def read_ics(path):
 
 # ---------------------------------------------------------------- GUI
 
-class CalendarWindow(Gtk.Window):
-    def __init__(self):
-        super().__init__(title="Calendar")
-        self.store_warnings = []
-        self.data = load_store(STORE, self.store_warnings.append)
-        g = self.data.get("geometry", {})
-        if g.get("w") and g.get("h"):
-            self.set_default_size(g["w"], g["h"])
-            self.move(g.get("x", 100), g.get("y", 100))
-        else:
-            self.set_default_size(1050, 700)
-        self.calendars = self.data.get("calendars", DEFAULT_CALENDARS)
-        self.events = self.data.get("events", [])
-        self.current_date = datetime.now()
-        self.view_mode = "month"
-        self.query = ""
-        self.selected_id = None
-        self.apply_mavericks_css()
-
-        hb = Gtk.HeaderBar(title="Calendar", show_close_button=True)
-        self.set_titlebar(hb)
-
-        self.search = Gtk.SearchEntry(placeholder_text="Search")
-        self.search.connect("changed", self.on_search)
-        hb.pack_start(self.search)
-
-        nav = Gtk.Box(spacing=4)
-        for label, icon, cb in [("Today", None, self.go_today),
-                                ("‹", "go-previous", self.prev_period),
-                                ("›", "go-next", self.next_period)]:
-            if icon is None:
-                b = Gtk.Button(label=label)
+if _GUI:
+    class CalendarWindow(Gtk.Window):
+        def __init__(self):
+            super().__init__(title="Calendar")
+            self.store_warnings = []
+            self.data = load_store(STORE, self.store_warnings.append)
+            g = self.data.get("geometry", {})
+            if g.get("w") and g.get("h"):
+                self.set_default_size(g["w"], g["h"])
+                self.move(g.get("x", 100), g.get("y", 100))
             else:
-                b = Gtk.Button()
-                b.set_image(Gtk.Image.new_from_icon_name(
-                    icon, Gtk.IconSize.BUTTON))
-            b.get_style_context().add_class("mavericks-toolbar-btn")
-            b.connect("clicked", cb)
-            nav.pack_start(b, False, False, 0)
-        hb.pack_end(nav)
+                self.set_default_size(1050, 700)
+            self.calendars = self.data.get("calendars", DEFAULT_CALENDARS)
+            self.events = self.data.get("events", [])
+            self.current_date = datetime.now()
+            self.view_mode = "month"
+            self.query = ""
+            self.selected_id = None
+            self.apply_mavericks_css()
 
-        self.view_btns = {}
-        vbox = Gtk.Box(spacing=0)
-        for i, v in enumerate(["Month", "Week", "Day"]):
-            b = Gtk.ToggleButton(label=v)
-            b.get_style_context().add_class("mavericks-toolbar-btn")
-            b.set_active(i == 0)
-            b.connect("toggled", self.on_view_toggle, v.lower())
-            vbox.pack_start(b, False, False, 0)
-            self.view_btns[v.lower()] = b
-        hb.pack_end(vbox)
+            hb = Gtk.HeaderBar(title="Calendar", show_close_button=True)
+            self.set_titlebar(hb)
 
-        for label, icon, cb in [
-                ("New Event", "list-add", self.new_event),
-                ("Calendars", "preferences-system", self.show_calendars),
-                ("Import", "document-open", self.import_ics_gui),
-                ("Export", "document-save-as", self.export_ics_gui)]:
-            b = Gtk.Button()
-            b.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
-            b.set_tooltip_text(label)
-            b.get_style_context().add_class("mavericks-toolbar-btn")
-            b.connect("clicked", cb)
-            hb.pack_end(b)
+            self.search = Gtk.SearchEntry(placeholder_text="Search")
+            self.search.connect("changed", self.on_search)
+            hb.pack_start(self.search)
 
-        self.title_label = Gtk.Label()
-        self.title_label.set_margin_end(12)
-        hb.set_custom_title(self.title_label)
-
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
-
-        # === LEFT: leather sidebar (mini month + calendar list) ===
-        side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        side.set_border_width(8)
-        mini = Gtk.Calendar()
-        mini.get_style_context().add_class("cal-mini-month")
-        mini.set_size_request(210, -1)
-        mini.connect("day-selected", self.on_mini_day)
-        side.pack_start(mini, False, False, 0)
-        self.mini = mini
-
-        cal_header = Gtk.Label(label="Calendars")
-        cal_header.get_style_context().add_class("cal-sidebar-header")
-        cal_header.set_xalign(0)
-        side.pack_start(cal_header, False, False, 4)
-
-        self.cal_list = Gtk.ListBox()
-        self.cal_list.set_selection_mode(Gtk.SelectionMode.NONE)
-        side.pack_start(self.cal_list, True, True, 0)
-        sw = Gtk.ScrolledWindow()
-        sw.get_style_context().add_class("cal-sidebar")
-        sw.set_size_request(220, -1)
-        sw.add(side)
-        paned.add1(sw)
-
-        # === RIGHT: paper content ===
-        self.content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        csw = Gtk.ScrolledWindow()
-        csw.get_style_context().add_class("cal-content")
-        csw.add(self.content)
-        paned.add2(csw)
-
-        self.update_title()
-        self.refresh()
-        self.connect("key-press-event", self.on_key)
-        self.connect("destroy", self.on_destroy)
-        self.show_all()
-        self._warn_if_needed()
-
-    def apply_mavericks_css(self):
-        css = b"""
-        .cal-sidebar {
-            background: #e8dcc8;
-            background-image: linear-gradient(135deg, #e8dcc8 0%, #d4c4a8 100%);
-            border-right: 1px solid #c4b898;
-        }
-        .cal-sidebar > viewport { background: transparent; }
-        .cal-sidebar list { background: transparent; }
-        .cal-sidebar row { background: transparent; padding: 6px 8px; }
-        .cal-sidebar row:hover { background: rgba(0,122,255,0.12); }
-        .cal-sidebar-header {
-            color: #5a4a38; font-weight: bold; font-size: 9pt;
-            text-shadow: 0 1px 0 rgba(255,255,255,0.4);
-        }
-        .cal-content {
-            background: #f5f0e8;
-            background-image: linear-gradient(180deg, #f5f0e8 0%, #ece2d4 100%);
-        }
-        .cal-content > viewport { background: transparent; }
-        .mavericks-toolbar-btn {
-            border-radius: 4px;
-            padding: 6px 12px;
-            margin: 2px;
-            background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
-            border: 1px solid #d0c8b8;
-            color: #333;
-            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
-        }
-        .mavericks-toolbar-btn:checked {
-            background-image: linear-gradient(to bottom, #c8d8f0 0%, #a8c0e0 100%);
-            border: 1px solid #7898c0;
-        }
-        .mavericks-toolbar-btn:hover {
-            background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-        .mavericks-toolbar-btn:active {
-            background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%);
-        }
-        .cal-mini-month { font-size: 8pt; }
-        .cal-weekday-header {
-            font-weight: bold; font-size: 9pt; color: #5a4a38;
-            padding: 4px; text-shadow: 0 1px 0 rgba(255,255,255,0.4);
-        }
-        .cal-other-month { color: #b0a490; }
-        .cal-today {
-            background-image: linear-gradient(to bottom, #4a90d9 0%, #007aff 100%);
-            color: white; border-radius: 4px; font-weight: bold;
-        }
-        .cal-today-num { font-weight: bold; }
-        .cal-day-cell { border: 1px solid #ddd2c0; background: rgba(255,255,255,0.4); }
-        .cal-day-cell:hover { background: rgba(0,122,255,0.08); }
-        .cal-event-block {
-            border-radius: 3px;
-            border: 1px solid rgba(0,0,0,0.25);
-        }
-        .cal-event-block-selected {
-            border: 2px solid #007aff;
-            box-shadow: 0 1px 4px rgba(0,122,255,0.4);
-        }
-        .cal-day-header { font-weight: bold; font-size: 10pt; color: #4a4a4a; }
-        .cal-day-header-today { color: #007aff; }
-        .cal-hour-label { font-size: 8pt; color: #999088; }
-        .cal-all-day-label {
-            font-size: 8pt; color: #999088; font-style: italic;
-        }
-        .cal-empty { color: #998877; font-style: italic; font-size: 11pt; padding: 40px; }
-        """
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css)
-        screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(
-            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-
-    # ------------------------------------------------------------ plumbing
-
-    def _warn_if_needed(self):
-        if not self.store_warnings:
-            return
-        d = Gtk.MessageDialog(transient_for=self, modal=True,
-                             message_type=Gtk.MessageType.WARNING,
-                             buttons=Gtk.ButtonsType.OK,
-                             text="Calendar store warning")
-        d.format_secondary_text("\n".join(self.store_warnings))
-        d.run()
-        d.destroy()
-
-    def save(self):
-        save_store(STORE, self.data)
-
-    def update_title(self):
-        if self.view_mode == "month":
-            title = self.current_date.strftime("%B %Y")
-        elif self.view_mode == "week":
-            start = self.current_date - timedelta(days=self.current_date.weekday())
-            end = start + timedelta(days=6)
-            title = "%s – %s" % (start.strftime("%b %d"),
-                                  end.strftime("%b %d, %Y"))
-        else:
-            title = self.current_date.strftime("%A, %B %d, %Y")
-        self.title_label.set_markup("<b>%s</b>" % GLib.markup_escape_text(title))
-
-    def go_today(self, _):
-        self.current_date = datetime.now()
-        self.refresh()
-
-    def prev_period(self, _):
-        if self.view_mode == "month":
-            self.current_date = (self.current_date.replace(day=1)
-                                 - timedelta(days=1)).replace(day=1)
-        elif self.view_mode == "week":
-            self.current_date -= timedelta(weeks=1)
-        else:
-            self.current_date -= timedelta(days=1)
-        self.refresh()
-
-    def next_period(self, _):
-        if self.view_mode == "month":
-            nxt = self.current_date.replace(day=28) + timedelta(days=4)
-            self.current_date = nxt.replace(day=1)
-        elif self.view_mode == "week":
-            self.current_date += timedelta(weeks=1)
-        else:
-            self.current_date += timedelta(days=1)
-        self.refresh()
-
-    def on_view_toggle(self, btn, mode):
-        if not btn.get_active():
-            # clicking the already-current segment is a no-op
-            if mode == self.view_mode:
-                btn.handler_block_by_func(self.on_view_toggle)
-                btn.set_active(True)
-                btn.handler_unblock_by_func(self.on_view_toggle)
-            return
-        self.view_mode = mode
-        for m, b in self.view_btns.items():
-            if m != mode and b.get_active():
-                b.handler_block_by_func(self.on_view_toggle)
-                b.set_active(False)
-                b.handler_unblock_by_func(self.on_view_toggle)
-        self.refresh()
-
-    def on_search(self, _e):
-        self.query = self.search.get_text().strip()
-        self.refresh_view()
-
-    def on_mini_day(self, _cal):
-        y, m, d = self.mini.get_date()
-        self.current_date = self.current_date.replace(
-            year=y, month=m + 1, day=min(d, cal.monthrange(y, m + 1)[1]))
-        self.refresh()
-
-    def refresh(self):
-        self.calendars = self.data.get("calendars", DEFAULT_CALENDARS)
-        self.events = self.data.get("events", [])
-        self.update_title()
-        self.rebuild_calendar_list()
-        self.refresh_view()
-
-    def rebuild_calendar_list(self):
-        for child in self.cal_list.get_children():
-            self.cal_list.remove(child)
-        for name, c in self.cal_list_data().items():
-            row = Gtk.ListBoxRow()
-            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
-                           spacing=8)
-            hbox.set_border_width(4)
-            dot = Gtk.DrawingArea()
-            dot.set_size_request(14, 14)
-            dot.connect("draw", self.draw_dot, c["color"])
-            hbox.pack_start(dot, False, False, 0)
-            lbl = Gtk.Label(label=name, xalign=0)
-            hbox.pack_start(lbl, True, True, 0)
-            vis = Gtk.CheckButton()
-            vis.set_active(c.get("visible", True))
-            vis.connect("toggled", self.on_vis_toggle, name)
-            hbox.pack_start(vis, False, False, 0)
-            row.add(hbox)
-            self.cal_list.add(row)
-        self.cal_list.show_all()
-
-    def cal_list_data(self):
-        return self.calendars
-
-    @staticmethod
-    def draw_dot(area, cr, color):
-        rgba = Gdk.RGBA()
-        if not rgba.parse(color):
-            rgba.parse("#888888")
-        cr.set_source_rgba(rgba.red, rgba.green, rgba.blue, 1)
-        cr.arc(7, 7, 5, 0, 6.2832)
-        cr.fill()
-
-    def on_vis_toggle(self, btn, name):
-        self.calendars[name]["visible"] = btn.get_active()
-        self.save()
-        self.refresh_view()
-
-    def refresh_view(self):
-        for child in self.content.get_children():
-            self.content.remove(child)
-        if self.view_mode == "month":
-            self.content.pack_start(self.build_month_view(), True, True, 0)
-        elif self.view_mode == "week":
-            self.content.pack_start(self.build_week_view(), True, True, 0)
-        else:
-            self.content.pack_start(self.build_day_view(), True, True, 0)
-        self.mark_mini_month()
-        self.update_title()
-        self.content.show_all()
-
-    def mark_mini_month(self):
-        self.mini.clear_marks()
-        y, m = self.current_date.year, self.current_date.month
-        days_with_events = set()
-        for ev in self.events:
-            if not self.calendars.get(ev.get("calendar"),
-                                      {}).get("visible", True):
-                continue
-            for s in iter_event_dates(ev):
-                e = parse_dt(ev.get("end") or ev.get("start")) or s
-                if s.year == y and s.month == m:
-                    days_with_events.add(s.day)
-                if e.year == y and e.month == m:
-                    days_with_events.add(e.day)
-                if (s.year, s.month) < (y, m) < (e.year, e.month):
-                    days_with_events.update(
-                        range(1, cal.monthrange(y, m)[1] + 1))
-        for d in days_with_events:
-            try:
-                self.mini.mark_day(d)
-            except Exception:
-                pass
-
-    # ------------------------------------------------------------ month
-
-    def build_month_view(self):
-        grid = Gtk.Grid()
-        grid.set_row_spacing(1)
-        grid.set_column_spacing(1)
-        for i, day in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri",
-                                 "Sat", "Sun"]):
-            lbl = Gtk.Label(label=day)
-            lbl.get_style_context().add_class("cal-weekday-header")
-            grid.attach(lbl, i, 0, 1, 1)
-
-        first_day = self.current_date.replace(day=1)
-        start_weekday = first_day.weekday()
-        days_in_month = cal.monthrange(self.current_date.year,
-                                       self.current_date.month)[1]
-        prev_month = first_day - timedelta(days=1)
-        prev_days = cal.monthrange(prev_month.year, prev_month.month)[1]
-        weeks = (start_weekday + days_in_month + 6) // 7
-
-        day = 1 - start_weekday
-        for week in range(weeks):
-            for wd in range(7):
-                if day < 1:
-                    label = str(prev_days + day)
-                    cls = "cal-other-month"
-                elif day > days_in_month:
-                    label = str(day - days_in_month)
-                    cls = "cal-other-month"
+            nav = Gtk.Box(spacing=4)
+            for label, icon, cb in [("Today", None, self.go_today),
+                                    ("‹", "go-previous", self.prev_period),
+                                    ("›", "go-next", self.next_period)]:
+                if icon is None:
+                    b = Gtk.Button(label=label)
                 else:
-                    label = str(day)
-                    cls = "cal-day-cell"
-                    is_today = (self.current_date.year == datetime.now().year
-                                and self.current_date.month
-                                == datetime.now().month
-                                and day == datetime.now().day)
-                    if is_today:
-                        cls += " cal-today"
-                    btn = Gtk.Button()
-                    btn.get_style_context().add_class(cls)
-                    inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
-                                    spacing=2)
-                    inner.set_margin_top(2)
-                    num = Gtk.Label(label=label)
-                    num.get_style_context().add_class("cal-today-num"
-                                                      if is_today else "")
-                    num.set_xalign(0)
-                    inner.pack_start(num, False, False, 0)
-                    day_events = events_for_day(
-                        self.events, self.calendars,
-                        datetime(self.current_date.year,
-                                 self.current_date.month, day), self.query)
-                    for ev in day_events[:3]:
-                        t = fmt_time(parse_dt(ev["start"])) if not ev.get(
-                            "all_day") else "all-day"
-                        ev_lbl = Gtk.Label()
-                        ev_lbl.set_markup(
-                            '<span foreground="%s">%s %s</span>'
-                            % (GLib.markup_escape_text(
-                                self.calendars.get(ev["calendar"],
-                                                   {}).get("color", "#888")),
-                               "●", GLib.markup_escape_text(
-                                   "%s %s" % (t, ev["title"][:18]))))
-                        ev_lbl.set_xalign(0)
-                        ev_lbl.set_ellipsize(3)
-                        inner.pack_start(ev_lbl, False, False, 0)
-                    if len(day_events) > 3:
-                        more = Gtk.Label(label="+%d more"
-                                                % (len(day_events) - 3))
-                        more.get_style_context().add_class("cal-all-day-label")
-                        more.set_xalign(0)
-                        inner.pack_start(more, False, False, 0)
-                    btn.add(inner)
-                    btn.set_hexpand(True)
-                    btn.set_vexpand(True)
-                    btn.connect("clicked", self.on_day_click, day)
-                    grid.attach(btn, wd, week + 1, 1, 1)
-                    day += 1
+                    b = Gtk.Button()
+                    b.set_image(Gtk.Image.new_from_icon_name(
+                        icon, Gtk.IconSize.BUTTON))
+                b.get_style_context().add_class("mavericks-toolbar-btn")
+                b.connect("clicked", cb)
+                nav.pack_start(b, False, False, 0)
+            hb.pack_end(nav)
+
+            self.view_btns = {}
+            vbox = Gtk.Box(spacing=0)
+            for i, v in enumerate(["Month", "Week", "Day"]):
+                b = Gtk.ToggleButton(label=v)
+                b.get_style_context().add_class("mavericks-toolbar-btn")
+                b.set_active(i == 0)
+                b.connect("toggled", self.on_view_toggle, v.lower())
+                vbox.pack_start(b, False, False, 0)
+                self.view_btns[v.lower()] = b
+            hb.pack_end(vbox)
+
+            for label, icon, cb in [
+                    ("New Event", "list-add", self.new_event),
+                    ("Calendars", "preferences-system", self.show_calendars),
+                    ("Import", "document-open", self.import_ics_gui),
+                    ("Export", "document-save-as", self.export_ics_gui)]:
+                b = Gtk.Button()
+                b.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+                b.set_tooltip_text(label)
+                b.get_style_context().add_class("mavericks-toolbar-btn")
+                b.connect("clicked", cb)
+                hb.pack_end(b)
+
+            self.title_label = Gtk.Label()
+            self.title_label.set_margin_end(12)
+            hb.set_custom_title(self.title_label)
+
+            paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+            self.add(paned)
+
+            # === LEFT: leather sidebar (mini month + calendar list) ===
+            side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            side.set_border_width(8)
+            mini = Gtk.Calendar()
+            mini.get_style_context().add_class("cal-mini-month")
+            mini.set_size_request(210, -1)
+            mini.connect("day-selected", self.on_mini_day)
+            side.pack_start(mini, False, False, 0)
+            self.mini = mini
+
+            cal_header = Gtk.Label(label="Calendars")
+            cal_header.get_style_context().add_class("cal-sidebar-header")
+            cal_header.set_xalign(0)
+            side.pack_start(cal_header, False, False, 4)
+
+            self.cal_list = Gtk.ListBox()
+            self.cal_list.set_selection_mode(Gtk.SelectionMode.NONE)
+            side.pack_start(self.cal_list, True, True, 0)
+            sw = Gtk.ScrolledWindow()
+            sw.get_style_context().add_class("cal-sidebar")
+            sw.set_size_request(220, -1)
+            sw.add(side)
+            paned.add1(sw)
+
+            # === RIGHT: paper content ===
+            self.content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            csw = Gtk.ScrolledWindow()
+            csw.get_style_context().add_class("cal-content")
+            csw.add(self.content)
+            paned.add2(csw)
+
+            self.update_title()
+            self.refresh()
+            self.connect("key-press-event", self.on_key)
+            self.connect("destroy", self.on_destroy)
+            self.show_all()
+            self._warn_if_needed()
+
+        def apply_mavericks_css(self):
+            css = b"""
+            .cal-sidebar {
+                background: #e8dcc8;
+                background-image: linear-gradient(135deg, #e8dcc8 0%, #d4c4a8 100%);
+                border-right: 1px solid #c4b898;
+            }
+            .cal-sidebar > viewport { background: transparent; }
+            .cal-sidebar list { background: transparent; }
+            .cal-sidebar row { background: transparent; padding: 6px 8px; }
+            .cal-sidebar row:hover { background: rgba(0,122,255,0.12); }
+            .cal-sidebar-header {
+                color: #5a4a38; font-weight: bold; font-size: 9pt;
+                text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+            }
+            .cal-content {
+                background: #f5f0e8;
+                background-image: linear-gradient(180deg, #f5f0e8 0%, #ece2d4 100%);
+            }
+            .cal-content > viewport { background: transparent; }
+            .mavericks-toolbar-btn {
+                border-radius: 4px;
+                padding: 6px 12px;
+                margin: 2px;
+                background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
+                border: 1px solid #d0c8b8;
+                color: #333;
+                text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+            }
+            .mavericks-toolbar-btn:checked {
+                background-image: linear-gradient(to bottom, #c8d8f0 0%, #a8c0e0 100%);
+                border: 1px solid #7898c0;
+            }
+            .mavericks-toolbar-btn:hover {
+                background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%);
+                box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            }
+            .mavericks-toolbar-btn:active {
+                background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%);
+            }
+            .cal-mini-month { font-size: 8pt; }
+            .cal-weekday-header {
+                font-weight: bold; font-size: 9pt; color: #5a4a38;
+                padding: 4px; text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+            }
+            .cal-other-month { color: #b0a490; }
+            .cal-today {
+                background-image: linear-gradient(to bottom, #4a90d9 0%, #007aff 100%);
+                color: white; border-radius: 4px; font-weight: bold;
+            }
+            .cal-today-num { font-weight: bold; }
+            .cal-day-cell { border: 1px solid #ddd2c0; background: rgba(255,255,255,0.4); }
+            .cal-day-cell:hover { background: rgba(0,122,255,0.08); }
+            .cal-event-block {
+                border-radius: 3px;
+                border: 1px solid rgba(0,0,0,0.25);
+            }
+            .cal-event-block-selected {
+                border: 2px solid #007aff;
+                box-shadow: 0 1px 4px rgba(0,122,255,0.4);
+            }
+            .cal-day-header { font-weight: bold; font-size: 10pt; color: #4a4a4a; }
+            .cal-day-header-today { color: #007aff; }
+            .cal-hour-label { font-size: 8pt; color: #999088; }
+            .cal-all-day-label {
+                font-size: 8pt; color: #999088; font-style: italic;
+            }
+            .cal-empty { color: #998877; font-style: italic; font-size: 11pt; padding: 40px; }
+            """
+            provider = Gtk.CssProvider()
+            provider.load_from_data(css)
+            screen = Gdk.Screen.get_default()
+            Gtk.StyleContext.add_provider_for_screen(
+                screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        # ------------------------------------------------------------ plumbing
+
+        def _warn_if_needed(self):
+            if not self.store_warnings:
+                return
+            d = Gtk.MessageDialog(transient_for=self, modal=True,
+                                 message_type=Gtk.MessageType.WARNING,
+                                 buttons=Gtk.ButtonsType.OK,
+                                 text="Calendar store warning")
+            d.format_secondary_text("\n".join(self.store_warnings))
+            d.run()
+            d.destroy()
+
+        def save(self):
+            save_store(STORE, self.data)
+
+        def update_title(self):
+            if self.view_mode == "month":
+                title = self.current_date.strftime("%B %Y")
+            elif self.view_mode == "week":
+                start = self.current_date - timedelta(days=self.current_date.weekday())
+                end = start + timedelta(days=6)
+                title = "%s – %s" % (start.strftime("%b %d"),
+                                      end.strftime("%b %d, %Y"))
+            else:
+                title = self.current_date.strftime("%A, %B %d, %Y")
+            self.title_label.set_markup("<b>%s</b>" % GLib.markup_escape_text(title))
+
+        def go_today(self, _):
+            self.current_date = datetime.now()
+            self.refresh()
+
+        def prev_period(self, _):
+            if self.view_mode == "month":
+                self.current_date = (self.current_date.replace(day=1)
+                                     - timedelta(days=1)).replace(day=1)
+            elif self.view_mode == "week":
+                self.current_date -= timedelta(weeks=1)
+            else:
+                self.current_date -= timedelta(days=1)
+            self.refresh()
+
+        def next_period(self, _):
+            if self.view_mode == "month":
+                nxt = self.current_date.replace(day=28) + timedelta(days=4)
+                self.current_date = nxt.replace(day=1)
+            elif self.view_mode == "week":
+                self.current_date += timedelta(weeks=1)
+            else:
+                self.current_date += timedelta(days=1)
+            self.refresh()
+
+        def on_view_toggle(self, btn, mode):
+            if not btn.get_active():
+                # clicking the already-current segment is a no-op
+                if mode == self.view_mode:
+                    btn.handler_block_by_func(self.on_view_toggle)
+                    btn.set_active(True)
+                    btn.handler_unblock_by_func(self.on_view_toggle)
+                return
+            self.view_mode = mode
+            for m, b in self.view_btns.items():
+                if m != mode and b.get_active():
+                    b.handler_block_by_func(self.on_view_toggle)
+                    b.set_active(False)
+                    b.handler_unblock_by_func(self.on_view_toggle)
+            self.refresh()
+
+        def on_search(self, _e):
+            self.query = self.search.get_text().strip()
+            self.refresh_view()
+
+        def on_mini_day(self, _cal):
+            y, m, d = self.mini.get_date()
+            self.current_date = self.current_date.replace(
+                year=y, month=m + 1, day=min(d, cal.monthrange(y, m + 1)[1]))
+            self.refresh()
+
+        def refresh(self):
+            self.calendars = self.data.get("calendars", DEFAULT_CALENDARS)
+            self.events = self.data.get("events", [])
+            self.update_title()
+            self.rebuild_calendar_list()
+            self.refresh_view()
+
+        def rebuild_calendar_list(self):
+            for child in self.cal_list.get_children():
+                self.cal_list.remove(child)
+            for name, c in self.cal_list_data().items():
+                row = Gtk.ListBoxRow()
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                               spacing=8)
+                hbox.set_border_width(4)
+                dot = Gtk.DrawingArea()
+                dot.set_size_request(14, 14)
+                dot.connect("draw", self.draw_dot, c["color"])
+                hbox.pack_start(dot, False, False, 0)
+                lbl = Gtk.Label(label=name, xalign=0)
+                hbox.pack_start(lbl, True, True, 0)
+                vis = Gtk.CheckButton()
+                vis.set_active(c.get("visible", True))
+                vis.connect("toggled", self.on_vis_toggle, name)
+                hbox.pack_start(vis, False, False, 0)
+                row.add(hbox)
+                self.cal_list.add(row)
+            self.cal_list.show_all()
+
+        def cal_list_data(self):
+            return self.calendars
+
+        @staticmethod
+        def draw_dot(area, cr, color):
+            rgba = Gdk.RGBA()
+            if not rgba.parse(color):
+                rgba.parse("#888888")
+            cr.set_source_rgba(rgba.red, rgba.green, rgba.blue, 1)
+            cr.arc(7, 7, 5, 0, 6.2832)
+            cr.fill()
+
+        def on_vis_toggle(self, btn, name):
+            self.calendars[name]["visible"] = btn.get_active()
+            self.save()
+            self.refresh_view()
+
+        def refresh_view(self):
+            for child in self.content.get_children():
+                self.content.remove(child)
+            if self.view_mode == "month":
+                self.content.pack_start(self.build_month_view(), True, True, 0)
+            elif self.view_mode == "week":
+                self.content.pack_start(self.build_week_view(), True, True, 0)
+            else:
+                self.content.pack_start(self.build_day_view(), True, True, 0)
+            self.mark_mini_month()
+            self.update_title()
+            self.content.show_all()
+
+        def mark_mini_month(self):
+            self.mini.clear_marks()
+            y, m = self.current_date.year, self.current_date.month
+            days_with_events = set()
+            for ev in self.events:
+                if not self.calendars.get(ev.get("calendar"),
+                                          {}).get("visible", True):
                     continue
-                lbl = Gtk.Label(label=label)
-                lbl.get_style_context().add_class(cls)
-                lbl.set_sensitive(False)
-                grid.attach(lbl, wd, week + 1, 1, 1)
-                day += 1
-        return grid
+                for s in iter_event_dates(ev):
+                    e = parse_dt(ev.get("end") or ev.get("start")) or s
+                    if s.year == y and s.month == m:
+                        days_with_events.add(s.day)
+                    if e.year == y and e.month == m:
+                        days_with_events.add(e.day)
+                    if (s.year, s.month) < (y, m) < (e.year, e.month):
+                        days_with_events.update(
+                            range(1, cal.monthrange(y, m)[1] + 1))
+            for d in days_with_events:
+                try:
+                    self.mini.mark_day(d)
+                except Exception:
+                    pass
 
-    def on_day_click(self, _, day):
-        self.current_date = self.current_date.replace(day=day)
-        self.view_mode = "day"
-        self.view_btns["day"].set_active(True)
-        self.refresh_view()
+        # ------------------------------------------------------------ month
 
-    # ------------------------------------------------------------ week
+        def build_month_view(self):
+            grid = Gtk.Grid()
+            grid.set_row_spacing(1)
+            grid.set_column_spacing(1)
+            for i, day in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri",
+                                     "Sat", "Sun"]):
+                lbl = Gtk.Label(label=day)
+                lbl.get_style_context().add_class("cal-weekday-header")
+                grid.attach(lbl, i, 0, 1, 1)
 
-    def build_week_view(self):
-        start = self.current_date - timedelta(days=self.current_date.weekday())
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        outer.set_border_width(8)
+            first_day = self.current_date.replace(day=1)
+            start_weekday = first_day.weekday()
+            days_in_month = cal.monthrange(self.current_date.year,
+                                           self.current_date.month)[1]
+            prev_month = first_day - timedelta(days=1)
+            prev_days = cal.monthrange(prev_month.year, prev_month.month)[1]
+            weeks = (start_weekday + days_in_month + 6) // 7
 
-        # all-day strip
-        allday = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        lbl = Gtk.Label(label="all-day")
-        lbl.get_style_context().add_class("cal-all-day-label")
-        lbl.set_size_request(GUTTER_W, -1)
-        lbl.set_xalign(0)
-        allday.pack_start(lbl, False, False, 0)
-        for i in range(7):
-            day = start + timedelta(days=i)
-            cell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            cell.set_size_request(DAY_COL_W, -1)
-            cell.get_style_context().add_class("cal-day-cell")
+            day = 1 - start_weekday
+            for week in range(weeks):
+                for wd in range(7):
+                    if day < 1:
+                        label = str(prev_days + day)
+                        cls = "cal-other-month"
+                    elif day > days_in_month:
+                        label = str(day - days_in_month)
+                        cls = "cal-other-month"
+                    else:
+                        label = str(day)
+                        cls = "cal-day-cell"
+                        is_today = (self.current_date.year == datetime.now().year
+                                    and self.current_date.month
+                                    == datetime.now().month
+                                    and day == datetime.now().day)
+                        if is_today:
+                            cls += " cal-today"
+                        btn = Gtk.Button()
+                        btn.get_style_context().add_class(cls)
+                        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
+                                        spacing=2)
+                        inner.set_margin_top(2)
+                        num = Gtk.Label(label=label)
+                        num.get_style_context().add_class("cal-today-num"
+                                                          if is_today else "")
+                        num.set_xalign(0)
+                        inner.pack_start(num, False, False, 0)
+                        day_events = events_for_day(
+                            self.events, self.calendars,
+                            datetime(self.current_date.year,
+                                     self.current_date.month, day), self.query)
+                        for ev in day_events[:3]:
+                            t = fmt_time(parse_dt(ev["start"])) if not ev.get(
+                                "all_day") else "all-day"
+                            ev_lbl = Gtk.Label()
+                            ev_lbl.set_markup(
+                                '<span foreground="%s">%s %s</span>'
+                                % (GLib.markup_escape_text(
+                                    self.calendars.get(ev["calendar"],
+                                                       {}).get("color", "#888")),
+                                   "●", GLib.markup_escape_text(
+                                       "%s %s" % (t, ev["title"][:18]))))
+                            ev_lbl.set_xalign(0)
+                            ev_lbl.set_ellipsize(3)
+                            inner.pack_start(ev_lbl, False, False, 0)
+                        if len(day_events) > 3:
+                            more = Gtk.Label(label="+%d more"
+                                                    % (len(day_events) - 3))
+                            more.get_style_context().add_class("cal-all-day-label")
+                            more.set_xalign(0)
+                            inner.pack_start(more, False, False, 0)
+                        btn.add(inner)
+                        btn.set_hexpand(True)
+                        btn.set_vexpand(True)
+                        btn.connect("clicked", self.on_day_click, day)
+                        grid.attach(btn, wd, week + 1, 1, 1)
+                        day += 1
+                        continue
+                    lbl = Gtk.Label(label=label)
+                    lbl.get_style_context().add_class(cls)
+                    lbl.set_sensitive(False)
+                    grid.attach(lbl, wd, week + 1, 1, 1)
+                    day += 1
+            return grid
+
+        def on_day_click(self, _, day):
+            self.current_date = self.current_date.replace(day=day)
+            self.view_mode = "day"
+            self.view_btns["day"].set_active(True)
+            self.refresh_view()
+
+        # ------------------------------------------------------------ week
+
+        def build_week_view(self):
+            start = self.current_date - timedelta(days=self.current_date.weekday())
+            outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            outer.set_border_width(8)
+
+            # all-day strip
+            allday = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+            lbl = Gtk.Label(label="all-day")
+            lbl.get_style_context().add_class("cal-all-day-label")
+            lbl.set_size_request(GUTTER_W, -1)
+            lbl.set_xalign(0)
+            allday.pack_start(lbl, False, False, 0)
+            for i in range(7):
+                day = start + timedelta(days=i)
+                cell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+                cell.set_size_request(DAY_COL_W, -1)
+                cell.get_style_context().add_class("cal-day-cell")
+                for ev in events_for_day(self.events, self.calendars, day,
+                                         self.query):
+                    if ev.get("all_day"):
+                        cell.pack_start(self.make_event_block(ev, wide=True),
+                                        False, False, 0)
+                allday.pack_start(cell, False, False, 0)
+            outer.pack_start(allday, False, False, 0)
+
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+            gutter = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            gutter.set_size_request(GUTTER_W, -1)
+            for h in range(24):
+                gl = Gtk.Label(label=self._hour_label(h))
+                gl.get_style_context().add_class("cal-hour-label")
+                gl.set_size_request(GUTTER_W, ROW_H_WEEK)
+                gl.set_yalign(0)
+                gutter.pack_start(gl, False, False, 0)
+            row.pack_start(gutter, False, False, 0)
+
+            grid_sw = Gtk.ScrolledWindow()
+            grid_sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            grid_sw.set_size_request(-1, 24 * ROW_H_WEEK)
+            grid_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                               spacing=4)
+            for i in range(7):
+                day = start + timedelta(days=i)
+                grid_box.pack_start(self.make_day_column(day), False, False, 0)
+            grid_sw.add(grid_box)
+            row.pack_start(grid_sw, True, True, 0)
+            outer.pack_start(row, True, True, 0)
+            return outer
+
+        def make_day_column(self, day):
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            is_today = day.date() == datetime.now().date()
+            header = Gtk.Label()
+            header.set_markup("<b>%s</b>" % GLib.markup_escape_text(
+                day.strftime("%a %b %d")))
+            header.get_style_context().add_class(
+                "cal-day-header-today" if is_today else "cal-day-header")
+            header.set_size_request(DAY_COL_W, -1)
+            col.pack_start(header, False, False, 0)
+
+            fixed = Gtk.Fixed()
+            fixed.set_size_request(DAY_COL_W, 24 * ROW_H_WEEK)
+            bg = Gtk.DrawingArea()
+            bg.set_size_request(DAY_COL_W, 24 * ROW_H_WEEK)
+            bg.connect("draw", self.draw_hour_lines, 24, ROW_H_WEEK)
+            fixed.put(bg, 0, 0)
+
             for ev in events_for_day(self.events, self.calendars, day,
                                      self.query):
                 if ev.get("all_day"):
-                    cell.pack_start(self.make_event_block(ev, wide=True),
-                                    False, False, 0)
-            allday.pack_start(cell, False, False, 0)
-        outer.pack_start(allday, False, False, 0)
+                    continue
+                s = parse_dt(ev["start"])
+                e = parse_dt(ev.get("end") or ev["start"]) or s
+                y = (s.hour * 60 + s.minute) / 60.0 * ROW_H_WEEK
+                h = max((e - s).total_seconds() / 3600.0 * ROW_H_WEEK,
+                        ROW_H_WEEK // 2)
+                y = min(y, 24 * ROW_H_WEEK - h)
+                block = self.make_event_block(ev, wide=True)
+                block.set_size_request(DAY_COL_W - 6, int(h))
+                fixed.put(block, 3, int(y))
+            col.add(fixed)
+            return col
 
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        gutter = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        gutter.set_size_request(GUTTER_W, -1)
-        for h in range(24):
-            gl = Gtk.Label(label=self._hour_label(h))
-            gl.get_style_context().add_class("cal-hour-label")
-            gl.set_size_request(GUTTER_W, ROW_H_WEEK)
-            gl.set_yalign(0)
-            gutter.pack_start(gl, False, False, 0)
-        row.pack_start(gutter, False, False, 0)
+        @staticmethod
+        def draw_hour_lines(area, cr, hours, row_h):
+            w = area.get_allocated_width()
+            h = area.get_allocated_height()
+            cr.set_source_rgba(0.93, 0.90, 0.85, 1)
+            cr.rectangle(0, 0, w, h)
+            cr.fill()
+            cr.set_source_rgba(0.80, 0.76, 0.68, 1)
+            cr.set_line_width(1)
+            for i in range(hours + 1):
+                y = i * row_h + 0.5
+                cr.move_to(0, y)
+                cr.line_to(w, y)
+                cr.stroke()
 
-        grid_sw = Gtk.ScrolledWindow()
-        grid_sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        grid_sw.set_size_request(-1, 24 * ROW_H_WEEK)
-        grid_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
-                           spacing=4)
-        for i in range(7):
-            day = start + timedelta(days=i)
-            grid_box.pack_start(self.make_day_column(day), False, False, 0)
-        grid_sw.add(grid_box)
-        row.pack_start(grid_sw, True, True, 0)
-        outer.pack_start(row, True, True, 0)
-        return outer
+        @staticmethod
+        def _hour_label(h):
+            if h == 0:
+                return "12 AM"
+            if h < 12:
+                return "%d AM" % h
+            if h == 12:
+                return "12 PM"
+            return "%d PM" % (h - 12)
 
-    def make_day_column(self, day):
-        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        is_today = day.date() == datetime.now().date()
-        header = Gtk.Label()
-        header.set_markup("<b>%s</b>" % GLib.markup_escape_text(
-            day.strftime("%a %b %d")))
-        header.get_style_context().add_class(
-            "cal-day-header-today" if is_today else "cal-day-header")
-        header.set_size_request(DAY_COL_W, -1)
-        col.pack_start(header, False, False, 0)
+        # ------------------------------------------------------------ day
 
-        fixed = Gtk.Fixed()
-        fixed.set_size_request(DAY_COL_W, 24 * ROW_H_WEEK)
-        bg = Gtk.DrawingArea()
-        bg.set_size_request(DAY_COL_W, 24 * ROW_H_WEEK)
-        bg.connect("draw", self.draw_hour_lines, 24, ROW_H_WEEK)
-        fixed.put(bg, 0, 0)
+        def build_day_view(self):
+            day = self.current_date
+            outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+            outer.set_border_width(8)
+            gutter = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            gutter.set_size_request(GUTTER_W, -1)
+            for h in range(24):
+                gl = Gtk.Label(label=self._hour_label(h))
+                gl.get_style_context().add_class("cal-hour-label")
+                gl.set_size_request(GUTTER_W, ROW_H_DAY)
+                gl.set_yalign(0)
+                gutter.pack_start(gl, False, False, 0)
+            outer.pack_start(gutter, False, False, 0)
 
-        for ev in events_for_day(self.events, self.calendars, day,
-                                 self.query):
-            if ev.get("all_day"):
-                continue
-            s = parse_dt(ev["start"])
-            e = parse_dt(ev.get("end") or ev["start"]) or s
-            y = (s.hour * 60 + s.minute) / 60.0 * ROW_H_WEEK
-            h = max((e - s).total_seconds() / 3600.0 * ROW_H_WEEK,
-                    ROW_H_WEEK // 2)
-            y = min(y, 24 * ROW_H_WEEK - h)
-            block = self.make_event_block(ev, wide=True)
-            block.set_size_request(DAY_COL_W - 6, int(h))
-            fixed.put(block, 3, int(y))
-        col.add(fixed)
-        return col
+            evs = events_for_day(self.events, self.calendars, day, self.query)
+            if not evs:
+                lbl = Gtk.Label(label="No events"
+                                + (" match your search" if self.query else ""))
+                lbl.get_style_context().add_class("cal-empty")
+                lbl.set_justify(Gtk.Justification.CENTER)
+                outer.pack_start(lbl, True, True, 0)
+                return outer
 
-    @staticmethod
-    def draw_hour_lines(area, cr, hours, row_h):
-        w = area.get_allocated_width()
-        h = area.get_allocated_height()
-        cr.set_source_rgba(0.93, 0.90, 0.85, 1)
-        cr.rectangle(0, 0, w, h)
-        cr.fill()
-        cr.set_source_rgba(0.80, 0.76, 0.68, 1)
-        cr.set_line_width(1)
-        for i in range(hours + 1):
-            y = i * row_h + 0.5
-            cr.move_to(0, y)
-            cr.line_to(w, y)
-            cr.stroke()
-
-    @staticmethod
-    def _hour_label(h):
-        if h == 0:
-            return "12 AM"
-        if h < 12:
-            return "%d AM" % h
-        if h == 12:
-            return "12 PM"
-        return "%d PM" % (h - 12)
-
-    # ------------------------------------------------------------ day
-
-    def build_day_view(self):
-        day = self.current_date
-        outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        outer.set_border_width(8)
-        gutter = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        gutter.set_size_request(GUTTER_W, -1)
-        for h in range(24):
-            gl = Gtk.Label(label=self._hour_label(h))
-            gl.get_style_context().add_class("cal-hour-label")
-            gl.set_size_request(GUTTER_W, ROW_H_DAY)
-            gl.set_yalign(0)
-            gutter.pack_start(gl, False, False, 0)
-        outer.pack_start(gutter, False, False, 0)
-
-        evs = events_for_day(self.events, self.calendars, day, self.query)
-        if not evs:
-            lbl = Gtk.Label(label="No events"
-                            + (" match your search" if self.query else ""))
-            lbl.get_style_context().add_class("cal-empty")
-            lbl.set_justify(Gtk.Justification.CENTER)
-            outer.pack_start(lbl, True, True, 0)
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            col.get_style_context().add_class("cal-day-cell")
+            allday = [ev for ev in evs if ev.get("all_day")]
+            timed = [ev for ev in evs if not ev.get("all_day")]
+            timed.sort(key=lambda ev: ev["start"])
+            for ev in allday + timed:
+                col.pack_start(self.make_event_block(ev, wide=True, details=True),
+                               False, False, 0)
+            outer.pack_start(col, True, True, 0)
             return outer
 
-        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        col.get_style_context().add_class("cal-day-cell")
-        allday = [ev for ev in evs if ev.get("all_day")]
-        timed = [ev for ev in evs if not ev.get("all_day")]
-        timed.sort(key=lambda ev: ev["start"])
-        for ev in allday + timed:
-            col.pack_start(self.make_event_block(ev, wide=True, details=True),
-                           False, False, 0)
-        outer.pack_start(col, True, True, 0)
-        return outer
+        # ------------------------------------------------------------ events
 
-    # ------------------------------------------------------------ events
+        def make_event_block(self, ev, wide=False, details=False):
+            color = self.calendars.get(ev["calendar"], {}).get("color",
+                                                              "#888888")
+            rgba = Gdk.RGBA()
+            if not rgba.parse(color):
+                rgba.parse("#888888")
+            block = Gtk.Frame()
+            block.get_style_context().add_class("cal-event-block")
+            if ev.get("id") == self.selected_id:
+                block.get_style_context().add_class("cal-event-block-selected")
+            block.override_background_color(Gtk.StateFlags.NORMAL, rgba)
 
-    def make_event_block(self, ev, wide=False, details=False):
-        color = self.calendars.get(ev["calendar"], {}).get("color",
-                                                          "#888888")
-        rgba = Gdk.RGBA()
-        if not rgba.parse(color):
-            rgba.parse("#888888")
-        block = Gtk.Frame()
-        block.get_style_context().add_class("cal-event-block")
-        if ev.get("id") == self.selected_id:
-            block.get_style_context().add_class("cal-event-block-selected")
-        block.override_background_color(Gtk.StateFlags.NORMAL, rgba)
-
-        s = parse_dt(ev["start"])
-        if not ev.get("all_day") and s:
-            time_s = fmt_time(s)
-        else:
-            time_s = "all-day"
-        text = "%s  %s" % (GLib.markup_escape_text(time_s),
-                           GLib.markup_escape_text(ev["title"]))
-        if details:
-            e = parse_dt(ev.get("end") or ev["start"])
-            if not ev.get("all_day") and e:
-                text += " – %s" % GLib.markup_escape_text(fmt_time(e))
-            if ev.get("location"):
-                text += "\n@ %s" % GLib.markup_escape_text(ev["location"])
-            if ev.get("description"):
-                desc = ev["description"].split("\n")[0][:60]
-                text += "\n%s" % GLib.markup_escape_text(desc)
-        lbl = Gtk.Label(label=text)
-        lbl.set_xalign(0)
-        lbl.set_line_wrap(wide)
-        lbl.set_markup('<span foreground="white">%s</span>' % text)
-        block.add(lbl)
-        block.set_tooltip_text(ev["title"])
-        block.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
-        block.connect("button-press-event", self.on_event_button, ev)
-        return block
-
-    def on_event_button(self, block, ev, ev2):
-        if ev2.button == 1 and ev2.type == Gdk.EventType._2BUTTON_PRESS:
-            self.edit_event(ev["id"])
-            return True
-        if ev2.button == 3:
-            self.selected_id = ev["id"]
-            self.refresh_view()
-            menu = Gtk.Menu()
-            for label, cb in [("Edit", self.ctx_edit),
-                              ("Delete", self.ctx_delete)]:
-                item = Gtk.MenuItem(label=label)
-                item.connect("activate", cb)
-                menu.append(item)
-            menu.show_all()
-            menu.popup(None, None, None, None, 0, ev2.time)
-            return True
-        if ev2.button == 1:
-            self.selected_id = ev["id"]
-            self.refresh_view()
-            return True
-        return False
-
-    def find_event(self, eid):
-        return next((e for e in self.events if e.get("id") == eid), None)
-
-    def edit_event(self, eid):
-        ev = self.find_event(eid)
-        if ev is None:
-            return
-        dialog = EventDialog(self, self.calendars,
-                             parse_dt(ev["start"]) or datetime.now(), ev=ev)
-        if dialog.run() == Gtk.ResponseType.OK:
-            new = dialog.get_event()
-            if new is not None:
-                new["id"] = ev["id"]
-                new["notified"] = ev.get("notified", [])
-                idx = self.events.index(ev)
-                self.events[idx] = new
-                self.save()
-                self.refresh()
-        dialog.destroy()
-
-    def delete_event(self, eid):
-        ev = self.find_event(eid)
-        if ev is None:
-            return
-        d = Gtk.MessageDialog(transient_for=self, modal=True,
-                             message_type=Gtk.MessageType.WARNING,
-                             buttons=Gtk.ButtonsType.NONE,
-                             text="Delete event?")
-        d.format_secondary_text('"%s" will be permanently removed.'
-                                % ev["title"])
-        d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                      "Delete", Gtk.ResponseType.OK)
-        if d.run() == Gtk.ResponseType.OK:
-            self.events = [e for e in self.events if e["id"] != eid]
-            if self.selected_id == eid:
-                self.selected_id = None
-            self.save()
-            self.refresh()
-        d.destroy()
-
-    def ctx_edit(self, _it):
-        if self.selected_id:
-            self.edit_event(self.selected_id)
-
-    def ctx_delete(self, _it):
-        if self.selected_id:
-            self.delete_event(self.selected_id)
-
-    def new_event(self, _):
-        self.new_event_with_date(self.current_date)
-
-    def new_event_with_date(self, date):
-        dialog = EventDialog(self, self.calendars, date)
-        if dialog.run() == Gtk.ResponseType.OK:
-            ev = dialog.get_event()
-            if ev is not None:
-                self.events.append(ev)
-                self.save()
-                self.refresh()
-        dialog.destroy()
-
-    # ------------------------------------------------------------ ICS
-
-    def export_ics_gui(self, _):
-        dialog = Gtk.FileChooserDialog(
-            title="Export Calendar", transient_for=self,
-            action=Gtk.FileChooserAction.SAVE)
-        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "Export", Gtk.ResponseType.OK)
-        dialog.set_current_name("calendar.ics")
-        if dialog.run() == Gtk.ResponseType.OK:
-            path = dialog.get_filename()
-            try:
-                write_ics(path, self.events)
-                self.toast("Exported %d events to %s"
-                           % (len(self.events), os.path.basename(path)))
-            except OSError as e:
-                self.error_dialog("Export failed: %s" % e)
-        dialog.destroy()
-
-    def import_ics_gui(self, _):
-        dialog = Gtk.FileChooserDialog(
-            title="Import Calendar", transient_for=self,
-            action=Gtk.FileChooserAction.OPEN)
-        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "Import", Gtk.ResponseType.OK)
-        filter_ics = Gtk.FileFilter()
-        filter_ics.set_name("iCalendar Files")
-        filter_ics.add_pattern("*.ics")
-        dialog.add_filter(filter_ics)
-        if dialog.run() == Gtk.ResponseType.OK:
-            path = dialog.get_filename()
-            try:
-                imported, errors = read_ics(path)
-            except OSError as e:
-                self.error_dialog("Cannot read file: %s" % e)
-                dialog.destroy()
-                return
-            if not imported and errors:
-                self.error_dialog("No valid events found in file "
-                                  "(%d entries skipped)." % errors)
+            s = parse_dt(ev["start"])
+            if not ev.get("all_day") and s:
+                time_s = fmt_time(s)
             else:
-                default_cal = (list(self.calendars)[0]
-                               if self.calendars else "Personal")
-                for ev in imported:
-                    ev.setdefault("calendar", default_cal)
-                self.events.extend(imported)
-                self.save()
-                self.refresh()
-                msg = "Imported %d event(s)." % len(imported)
-                if errors:
-                    msg += " %d entr%s skipped." % (
-                        errors, "y" if errors == 1 else "ies")
-                self.toast(msg)
-        dialog.destroy()
+                time_s = "all-day"
+            text = "%s  %s" % (GLib.markup_escape_text(time_s),
+                               GLib.markup_escape_text(ev["title"]))
+            if details:
+                e = parse_dt(ev.get("end") or ev["start"])
+                if not ev.get("all_day") and e:
+                    text += " – %s" % GLib.markup_escape_text(fmt_time(e))
+                if ev.get("location"):
+                    text += "\n@ %s" % GLib.markup_escape_text(ev["location"])
+                if ev.get("description"):
+                    desc = ev["description"].split("\n")[0][:60]
+                    text += "\n%s" % GLib.markup_escape_text(desc)
+            lbl = Gtk.Label(label=text)
+            lbl.set_xalign(0)
+            lbl.set_line_wrap(wide)
+            lbl.set_markup('<span foreground="white">%s</span>' % text)
+            block.add(lbl)
+            block.set_tooltip_text(ev["title"])
+            block.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
+            block.connect("button-press-event", self.on_event_button, ev)
+            return block
 
-    def toast(self, text):
-        d = Gtk.MessageDialog(transient_for=self, modal=False,
-                             message_type=Gtk.MessageType.INFO,
-                             buttons=Gtk.ButtonsType.OK, text=text)
-        d.run()
-        d.destroy()
-
-    def error_dialog(self, text):
-        d = Gtk.MessageDialog(transient_for=self, modal=True,
-                             message_type=Gtk.MessageType.ERROR,
-                             buttons=Gtk.ButtonsType.OK, text=text)
-        d.run()
-        d.destroy()
-
-    # ------------------------------------------------------------ calendars
-
-    def show_calendars(self, _):
-        dialog = CalendarsDialog(self, self.calendars)
-        dialog.run()
-        dialog.destroy()
-        self.save()
-        self.refresh()
-
-    # ------------------------------------------------------------ keyboard
-
-    def on_key(self, _w, ev):
-        focus = self.get_focus()
-        in_text = isinstance(focus, (Gtk.Entry, Gtk.TextView))
-        ctrl = ev.state & Gdk.ModifierType.CONTROL_MASK
-        if ctrl and ev.keyval == Gdk.KEY_n and not in_text:
-            self.new_event(None)
-            return True
-        if ctrl and ev.keyval == Gdk.KEY_f:
-            self.search.grab_focus()
-            return True
-        if ctrl and ev.keyval == Gdk.KEY_e and not in_text:
-            self.export_ics_gui(None)
-            return True
-        if ctrl and ev.keyval == Gdk.KEY_i and not in_text:
-            self.import_ics_gui(None)
-            return True
-        if in_text:
-            return False
-        if ev.keyval in (Gdk.KEY_Left, Gdk.KEY_Right):
-            self.prev_period(None) if ev.keyval == Gdk.KEY_Left \
-                else self.next_period(None)
-            return True
-        if ev.keyval == Gdk.KEY_t:
-            self.go_today(None)
-            return True
-        if ev.keyval in (Gdk.KEY_1, Gdk.KEY_2, Gdk.KEY_3):
-            mode = ["month", "week", "day"][ev.keyval - Gdk.KEY_1]
-            self.view_btns[mode].set_active(True)
-            return True
-        if ev.keyval == Gdk.KEY_Delete:
-            if self.selected_id:
-                self.delete_event(self.selected_id)
-            return True
-        if ev.keyval == Gdk.KEY_Escape:
-            if self.search.get_text():
-                self.search.set_text("")
-                self.query = ""
+        def on_event_button(self, block, ev, ev2):
+            if ev2.button == 1 and ev2.type == Gdk.EventType._2BUTTON_PRESS:
+                self.edit_event(ev["id"])
+                return True
+            if ev2.button == 3:
+                self.selected_id = ev["id"]
+                self.refresh_view()
+                menu = Gtk.Menu()
+                for label, cb in [("Edit", self.ctx_edit),
+                                  ("Delete", self.ctx_delete)]:
+                    item = Gtk.MenuItem(label=label)
+                    item.connect("activate", cb)
+                    menu.append(item)
+                menu.show_all()
+                menu.popup(None, None, None, None, 0, ev2.time)
+                return True
+            if ev2.button == 1:
+                self.selected_id = ev["id"]
                 self.refresh_view()
                 return True
-        return False
+            return False
 
-    def on_destroy(self, _w):
-        try:
-            x, y = self.get_position()
-            w, h = self.get_size()
-            self.data["geometry"] = {"x": x, "y": y, "w": w, "h": h}
-            self.save()
-        except Exception:
-            pass
+        def find_event(self, eid):
+            return next((e for e in self.events if e.get("id") == eid), None)
 
+        def edit_event(self, eid):
+            ev = self.find_event(eid)
+            if ev is None:
+                return
+            dialog = EventDialog(self, self.calendars,
+                                 parse_dt(ev["start"]) or datetime.now(), ev=ev)
+            if dialog.run() == Gtk.ResponseType.OK:
+                new = dialog.get_event()
+                if new is not None:
+                    new["id"] = ev["id"]
+                    new["notified"] = ev.get("notified", [])
+                    idx = self.events.index(ev)
+                    self.events[idx] = new
+                    self.save()
+                    self.refresh()
+            dialog.destroy()
 
-class EventDialog(Gtk.Dialog):
-    def __init__(self, parent, calendars, date, ev=None):
-        editing = ev is not None
-        super().__init__(title="Edit Event" if editing else "New Event",
-                         transient_for=parent, modal=True)
-        self.set_default_size(380, 430)
-        self.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                         "Save" if editing else "Add", Gtk.ResponseType.OK)
-        self.calendars = calendars
-        self.set_response_sensitive(Gtk.ResponseType.OK, False)
-
-        grid = Gtk.Grid(column_spacing=12, row_spacing=10, margin=16)
-        self.get_content_area().add(grid)
-
-        grid.attach(Gtk.Label(label="Title:", xalign=0), 0, 0, 1, 1)
-        self.title_entry = Gtk.Entry(placeholder_text="Event title")
-        self.title_entry.connect("changed", self.on_title_changed)
-        grid.attach(self.title_entry, 1, 0, 1, 1)
-
-        grid.attach(Gtk.Label(label="Calendar:", xalign=0), 0, 1, 1, 1)
-        self.cal_combo = Gtk.ComboBoxText()
-        names = list(calendars)
-        for name in names:
-            self.cal_combo.append_text(name)
-        self.cal_combo.set_active(0)
-        grid.attach(self.cal_combo, 1, 1, 1, 1)
-
-        grid.attach(Gtk.Label(label="Starts:", xalign=0), 0, 2, 1, 1)
-        hb = Gtk.Box(spacing=6)
-        self.start_date = Gtk.Calendar()
-        self.start_date.select_month(date.month - 1, date.year)
-        self.start_date.select_day(date.day)
-        hb.pack_start(self.start_date, False, False, 0)
-        grid.attach(hb, 1, 2, 1, 1)
-
-        grid.attach(Gtk.Label(label="Time:", xalign=0), 0, 3, 1, 1)
-        hb = Gtk.Box(spacing=4)
-        self.start_hour = Gtk.SpinButton.new_with_range(0, 23, 1)
-        self.start_hour.set_value(date.hour)
-        self.start_min = Gtk.SpinButton.new_with_range(0, 59, 1)
-        self.start_min.set_value(0)
-        hb.pack_start(self.start_hour, True, True, 0)
-        hb.pack_start(Gtk.Label(label=":"), False, False, 0)
-        hb.pack_start(self.start_min, True, True, 0)
-        grid.attach(hb, 1, 3, 1, 1)
-
-        grid.attach(Gtk.Label(label="Ends:", xalign=0), 0, 4, 1, 1)
-        hb = Gtk.Box(spacing=6)
-        self.end_date = Gtk.Calendar()
-        end_d = date + timedelta(hours=1)
-        self.end_date.select_month(end_d.month - 1, end_d.year)
-        self.end_date.select_day(end_d.day)
-        hb.pack_start(self.end_date, False, False, 0)
-        grid.attach(hb, 1, 4, 1, 1)
-
-        grid.attach(Gtk.Label(label="Time:", xalign=0), 0, 5, 1, 1)
-        hb = Gtk.Box(spacing=4)
-        self.end_hour = Gtk.SpinButton.new_with_range(0, 23, 1)
-        self.end_hour.set_value(min(date.hour + 1, 23))
-        self.end_min = Gtk.SpinButton.new_with_range(0, 59, 1)
-        self.end_min.set_value(0)
-        hb.pack_start(self.end_hour, True, True, 0)
-        hb.pack_start(Gtk.Label(label=":"), False, False, 0)
-        hb.pack_start(self.end_min, True, True, 0)
-        grid.attach(hb, 1, 5, 1, 1)
-
-        self.all_day = Gtk.CheckButton(label="All day")
-        self.all_day.connect("toggled", self.on_all_day_toggled)
-        grid.attach(self.all_day, 1, 6, 1, 1)
-
-        grid.attach(Gtk.Label(label="Repeat:", xalign=0), 0, 7, 1, 1)
-        self.repeat_combo = Gtk.ComboBoxText()
-        for label, key in [("None", "none"), ("Daily", "daily"),
-                           ("Weekly", "weekly"), ("Monthly", "monthly"),
-                           ("Yearly", "yearly")]:
-            self.repeat_combo.append_text(label)
-        self.repeat_combo.set_active(0)
-        grid.attach(self.repeat_combo, 1, 7, 1, 1)
-
-        grid.attach(Gtk.Label(label="Location:", xalign=0), 0, 8, 1, 1)
-        self.location_entry = Gtk.Entry(placeholder_text="Location")
-        grid.attach(self.location_entry, 1, 8, 1, 1)
-
-        grid.attach(Gtk.Label(label="Notes:", xalign=0), 0, 9, 1, 1)
-        self.desc_buffer = Gtk.TextBuffer()
-        self.desc_view = Gtk.TextView(buffer=self.desc_buffer)
-        self.desc_view.set_wrap_mode(Gtk.WrapMode.WORD)
-        self.desc_view.set_size_request(-1, 70)
-        sw = Gtk.ScrolledWindow()
-        sw.add(self.desc_view)
-        grid.attach(sw, 1, 9, 1, 1)
-
-        if editing:
-            self.title_entry.set_text(ev.get("title", ""))
-            self.location_entry.set_text(ev.get("location", ""))
-            if ev.get("description"):
-                self.desc_buffer.set_text(ev["description"])
-            names = list(calendars)
-            if ev.get("calendar") in names:
-                self.cal_combo.set_active(names.index(ev["calendar"]))
-            self.all_day.set_active(bool(ev.get("all_day")))
-            self.repeat_combo.set_active(
-                REPEAT_MODES.index(ev.get("repeat", "none")))
-            if not ev.get("all_day") and parse_dt(ev["start"]):
-                s = parse_dt(ev["start"])
-                self.start_hour.set_value(s.hour)
-                self.start_min.set_value(s.minute)
-                e = parse_dt(ev.get("end")) or s
-                self.end_hour.set_value(e.hour)
-                self.end_min.set_value(e.minute)
-        self.on_all_day_toggled(None)
-        self.on_title_changed(None)
-        self.show_all()
-
-    def on_title_changed(self, _e):
-        self.set_response_sensitive(
-            Gtk.ResponseType.OK, bool(self.title_entry.get_text().strip()))
-
-    def on_all_day_toggled(self, _b):
-        timed = not self.all_day.get_active()
-        for w in (self.start_hour, self.start_min, self.end_hour,
-                  self.end_min):
-            w.set_sensitive(timed)
-
-    def get_datetimes(self):
-        sy, sm, sd = self.start_date.get_date()
-        ey, em, ed = self.end_date.get_date()
-        start = datetime(sy, sm + 1, sd,
-                         int(self.start_hour.get_value()),
-                         int(self.start_min.get_value()))
-        end = datetime(ey, em + 1, ed,
-                       int(self.end_hour.get_value()),
-                       int(self.end_min.get_value()))
-        return start, end
-
-    def get_event(self):
-        """Returns event dict, or None if invalid (error dialog shown)."""
-        title = self.title_entry.get_text().strip()
-        start, end = self.get_datetimes()
-        all_day = self.all_day.get_active()
-        if all_day:
-            start = datetime(start.year, start.month, start.day)
-            end = datetime(end.year, end.month, end.day)
-        err = validate_event(title, start, end, all_day)
-        if err:
+        def delete_event(self, eid):
+            ev = self.find_event(eid)
+            if ev is None:
+                return
             d = Gtk.MessageDialog(transient_for=self, modal=True,
                                  message_type=Gtk.MessageType.WARNING,
-                                 buttons=Gtk.ButtonsType.OK, text=err)
+                                 buttons=Gtk.ButtonsType.NONE,
+                                 text="Delete event?")
+            d.format_secondary_text('"%s" will be permanently removed.'
+                                    % ev["title"])
+            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                          "Delete", Gtk.ResponseType.OK)
+            if d.run() == Gtk.ResponseType.OK:
+                self.events = [e for e in self.events if e["id"] != eid]
+                if self.selected_id == eid:
+                    self.selected_id = None
+                self.save()
+                self.refresh()
+            d.destroy()
+
+        def ctx_edit(self, _it):
+            if self.selected_id:
+                self.edit_event(self.selected_id)
+
+        def ctx_delete(self, _it):
+            if self.selected_id:
+                self.delete_event(self.selected_id)
+
+        def new_event(self, _):
+            self.new_event_with_date(self.current_date)
+
+        def new_event_with_date(self, date):
+            dialog = EventDialog(self, self.calendars, date)
+            if dialog.run() == Gtk.ResponseType.OK:
+                ev = dialog.get_event()
+                if ev is not None:
+                    self.events.append(ev)
+                    self.save()
+                    self.refresh()
+            dialog.destroy()
+
+        # ------------------------------------------------------------ ICS
+
+        def export_ics_gui(self, _):
+            dialog = Gtk.FileChooserDialog(
+                title="Export Calendar", transient_for=self,
+                action=Gtk.FileChooserAction.SAVE)
+            dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                              "Export", Gtk.ResponseType.OK)
+            dialog.set_current_name("calendar.ics")
+            if dialog.run() == Gtk.ResponseType.OK:
+                path = dialog.get_filename()
+                try:
+                    write_ics(path, self.events)
+                    self.toast("Exported %d events to %s"
+                               % (len(self.events), os.path.basename(path)))
+                except OSError as e:
+                    self.error_dialog("Export failed: %s" % e)
+            dialog.destroy()
+
+        def import_ics_gui(self, _):
+            dialog = Gtk.FileChooserDialog(
+                title="Import Calendar", transient_for=self,
+                action=Gtk.FileChooserAction.OPEN)
+            dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                              "Import", Gtk.ResponseType.OK)
+            filter_ics = Gtk.FileFilter()
+            filter_ics.set_name("iCalendar Files")
+            filter_ics.add_pattern("*.ics")
+            dialog.add_filter(filter_ics)
+            if dialog.run() == Gtk.ResponseType.OK:
+                path = dialog.get_filename()
+                try:
+                    imported, errors = read_ics(path)
+                except OSError as e:
+                    self.error_dialog("Cannot read file: %s" % e)
+                    dialog.destroy()
+                    return
+                if not imported and errors:
+                    self.error_dialog("No valid events found in file "
+                                      "(%d entries skipped)." % errors)
+                else:
+                    default_cal = (list(self.calendars)[0]
+                                   if self.calendars else "Personal")
+                    for ev in imported:
+                        ev.setdefault("calendar", default_cal)
+                    self.events.extend(imported)
+                    self.save()
+                    self.refresh()
+                    msg = "Imported %d event(s)." % len(imported)
+                    if errors:
+                        msg += " %d entr%s skipped." % (
+                            errors, "y" if errors == 1 else "ies")
+                    self.toast(msg)
+            dialog.destroy()
+
+        def toast(self, text):
+            d = Gtk.MessageDialog(transient_for=self, modal=False,
+                                 message_type=Gtk.MessageType.INFO,
+                                 buttons=Gtk.ButtonsType.OK, text=text)
             d.run()
             d.destroy()
-            return None
-        return {
-            "id": uuid.uuid4().hex[:12],
-            "title": title,
-            "calendar": self.cal_combo.get_active_text() or "Personal",
-            "start": fmt_ics(start, all_day),
-            "end": fmt_ics(end, all_day),
-            "location": self.location_entry.get_text().strip(),
-            "description": self.desc_buffer.get_text(
-                self.desc_buffer.get_start_iter(),
-                self.desc_buffer.get_end_iter(), True).strip(),
-            "all_day": all_day,
-            "repeat": REPEAT_MODES[self.repeat_combo.get_active()],
-            "notified": [],
-        }
+
+        def error_dialog(self, text):
+            d = Gtk.MessageDialog(transient_for=self, modal=True,
+                                 message_type=Gtk.MessageType.ERROR,
+                                 buttons=Gtk.ButtonsType.OK, text=text)
+            d.run()
+            d.destroy()
+
+        # ------------------------------------------------------------ calendars
+
+        def show_calendars(self, _):
+            dialog = CalendarsDialog(self, self.calendars)
+            dialog.run()
+            dialog.destroy()
+            self.save()
+            self.refresh()
+
+        # ------------------------------------------------------------ keyboard
+
+        def on_key(self, _w, ev):
+            focus = self.get_focus()
+            in_text = isinstance(focus, (Gtk.Entry, Gtk.TextView))
+            ctrl = ev.state & Gdk.ModifierType.CONTROL_MASK
+            if ctrl and ev.keyval == Gdk.KEY_n and not in_text:
+                self.new_event(None)
+                return True
+            if ctrl and ev.keyval == Gdk.KEY_f:
+                self.search.grab_focus()
+                return True
+            if ctrl and ev.keyval == Gdk.KEY_e and not in_text:
+                self.export_ics_gui(None)
+                return True
+            if ctrl and ev.keyval == Gdk.KEY_i and not in_text:
+                self.import_ics_gui(None)
+                return True
+            if in_text:
+                return False
+            if ev.keyval in (Gdk.KEY_Left, Gdk.KEY_Right):
+                self.prev_period(None) if ev.keyval == Gdk.KEY_Left \
+                    else self.next_period(None)
+                return True
+            if ev.keyval == Gdk.KEY_t:
+                self.go_today(None)
+                return True
+            if ev.keyval in (Gdk.KEY_1, Gdk.KEY_2, Gdk.KEY_3):
+                mode = ["month", "week", "day"][ev.keyval - Gdk.KEY_1]
+                self.view_btns[mode].set_active(True)
+                return True
+            if ev.keyval == Gdk.KEY_Delete:
+                if self.selected_id:
+                    self.delete_event(self.selected_id)
+                return True
+            if ev.keyval == Gdk.KEY_Escape:
+                if self.search.get_text():
+                    self.search.set_text("")
+                    self.query = ""
+                    self.refresh_view()
+                    return True
+            return False
+
+        def on_destroy(self, _w):
+            try:
+                x, y = self.get_position()
+                w, h = self.get_size()
+                self.data["geometry"] = {"x": x, "y": y, "w": w, "h": h}
+                self.save()
+            except Exception:
+                pass
 
 
-class CalendarsDialog(Gtk.Dialog):
-    def __init__(self, parent, calendars):
-        super().__init__(title="Calendars", transient_for=parent, modal=True)
-        self.set_default_size(360, 320)
-        self.calendars = calendars
-        self.add_buttons("Close", Gtk.ResponseType.CLOSE)
+    class EventDialog(Gtk.Dialog):
+        def __init__(self, parent, calendars, date, ev=None):
+            editing = ev is not None
+            super().__init__(title="Edit Event" if editing else "New Event",
+                             transient_for=parent, modal=True)
+            self.set_default_size(380, 430)
+            self.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                             "Save" if editing else "Add", Gtk.ResponseType.OK)
+            self.calendars = calendars
+            self.set_response_sensitive(Gtk.ResponseType.OK, False)
 
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        vbox.set_border_width(16)
-        self.get_content_area().add(vbox)
+            grid = Gtk.Grid(column_spacing=12, row_spacing=10, margin=16)
+            self.get_content_area().add(grid)
 
-        self.listbox = Gtk.ListBox()
-        self.refresh_list()
-        vbox.pack_start(self.listbox, True, True, 0)
+            grid.attach(Gtk.Label(label="Title:", xalign=0), 0, 0, 1, 1)
+            self.title_entry = Gtk.Entry(placeholder_text="Event title")
+            self.title_entry.connect("changed", self.on_title_changed)
+            grid.attach(self.title_entry, 1, 0, 1, 1)
 
-        btn_box = Gtk.Box(spacing=8)
-        for label, cb in [("+ Add", self.add_calendar),
-                          ("Remove", self.remove_calendar)]:
-            b = Gtk.Button(label=label)
-            b.connect("clicked", cb)
-            btn_box.pack_start(b, False, False, 0)
-        vbox.pack_start(btn_box, False, False, 0)
-        self.show_all()
+            grid.attach(Gtk.Label(label="Calendar:", xalign=0), 0, 1, 1, 1)
+            self.cal_combo = Gtk.ComboBoxText()
+            names = list(calendars)
+            for name in names:
+                self.cal_combo.append_text(name)
+            self.cal_combo.set_active(0)
+            grid.attach(self.cal_combo, 1, 1, 1, 1)
 
-    def refresh_list(self):
-        for child in self.listbox.get_children():
-            self.listbox.remove(child)
-        for name, data in self.calendars.items():
-            row = Gtk.ListBoxRow()
-            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
-                           spacing=12)
-            hbox.set_border_width(8)
-            dot = Gtk.DrawingArea()
-            dot.set_size_request(16, 16)
-            dot.connect("draw", self.draw_dot, data["color"])
-            hbox.pack_start(dot, False, False, 0)
-            lbl = Gtk.Label(label=name, xalign=0)
-            hbox.pack_start(lbl, True, True, 0)
-            row.add(hbox)
-            self.listbox.add(row)
-        self.listbox.show_all()
+            grid.attach(Gtk.Label(label="Starts:", xalign=0), 0, 2, 1, 1)
+            hb = Gtk.Box(spacing=6)
+            self.start_date = Gtk.Calendar()
+            self.start_date.select_month(date.month - 1, date.year)
+            self.start_date.select_day(date.day)
+            hb.pack_start(self.start_date, False, False, 0)
+            grid.attach(hb, 1, 2, 1, 1)
 
-    @staticmethod
-    def draw_dot(area, cr, color):
-        rgba = Gdk.RGBA()
-        if not rgba.parse(color):
-            rgba.parse("#888888")
-        cr.set_source_rgba(rgba.red, rgba.green, rgba.blue, 1)
-        cr.arc(8, 8, 6, 0, 6.2832)
-        cr.fill()
+            grid.attach(Gtk.Label(label="Time:", xalign=0), 0, 3, 1, 1)
+            hb = Gtk.Box(spacing=4)
+            self.start_hour = Gtk.SpinButton.new_with_range(0, 23, 1)
+            self.start_hour.set_value(date.hour)
+            self.start_min = Gtk.SpinButton.new_with_range(0, 59, 1)
+            self.start_min.set_value(0)
+            hb.pack_start(self.start_hour, True, True, 0)
+            hb.pack_start(Gtk.Label(label=":"), False, False, 0)
+            hb.pack_start(self.start_min, True, True, 0)
+            grid.attach(hb, 1, 3, 1, 1)
 
-    def add_calendar(self, _):
-        dialog = Gtk.Dialog(title="New Calendar", transient_for=self,
-                            modal=True)
-        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "Add", Gtk.ResponseType.OK)
-        grid = Gtk.Grid(column_spacing=12, row_spacing=12, margin=16)
-        dialog.get_content_area().add(grid)
-        grid.attach(Gtk.Label(label="Name:", xalign=0), 0, 0, 1, 1)
-        name_entry = Gtk.Entry(placeholder_text="Calendar name")
-        grid.attach(name_entry, 1, 0, 1, 1)
-        grid.attach(Gtk.Label(label="Color:", xalign=0), 0, 1, 1, 1)
-        color_btn = Gtk.ColorButton()
-        grid.attach(color_btn, 1, 1, 1, 1)
-        if dialog.run() == Gtk.ResponseType.OK:
-            name = name_entry.get_text().strip()
-            if name and name not in self.calendars:
-                rgba = color_btn.get_rgba()
-                color = "#%02x%02x%02x" % (int(rgba.red * 255),
-                                           int(rgba.green * 255),
-                                           int(rgba.blue * 255))
-                self.calendars[name] = {"color": color, "visible": True}
-                self.refresh_list()
-        dialog.destroy()
+            grid.attach(Gtk.Label(label="Ends:", xalign=0), 0, 4, 1, 1)
+            hb = Gtk.Box(spacing=6)
+            self.end_date = Gtk.Calendar()
+            end_d = date + timedelta(hours=1)
+            self.end_date.select_month(end_d.month - 1, end_d.year)
+            self.end_date.select_day(end_d.day)
+            hb.pack_start(self.end_date, False, False, 0)
+            grid.attach(hb, 1, 4, 1, 1)
 
-    def remove_calendar(self, _):
-        row = self.listbox.get_selected_row()
-        if row is None:
-            return
-        hbox = row.get_child()
-        lbl = next(c for c in hbox.get_children()
-                   if isinstance(c, Gtk.Label))
-        name = lbl.get_text()
-        d = Gtk.MessageDialog(transient_for=self, modal=True,
-                             message_type=Gtk.MessageType.WARNING,
-                             buttons=Gtk.ButtonsType.NONE,
-                             text="Delete calendar?")
-        d.format_secondary_text('"%s" and its events will be permanently '
-                                "removed." % name)
-        d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                      "Delete", Gtk.ResponseType.OK)
-        if d.run() == Gtk.ResponseType.OK:
-            del self.calendars[name]
+            grid.attach(Gtk.Label(label="Time:", xalign=0), 0, 5, 1, 1)
+            hb = Gtk.Box(spacing=4)
+            self.end_hour = Gtk.SpinButton.new_with_range(0, 23, 1)
+            self.end_hour.set_value(min(date.hour + 1, 23))
+            self.end_min = Gtk.SpinButton.new_with_range(0, 59, 1)
+            self.end_min.set_value(0)
+            hb.pack_start(self.end_hour, True, True, 0)
+            hb.pack_start(Gtk.Label(label=":"), False, False, 0)
+            hb.pack_start(self.end_min, True, True, 0)
+            grid.attach(hb, 1, 5, 1, 1)
+
+            self.all_day = Gtk.CheckButton(label="All day")
+            self.all_day.connect("toggled", self.on_all_day_toggled)
+            grid.attach(self.all_day, 1, 6, 1, 1)
+
+            grid.attach(Gtk.Label(label="Repeat:", xalign=0), 0, 7, 1, 1)
+            self.repeat_combo = Gtk.ComboBoxText()
+            for label, key in [("None", "none"), ("Daily", "daily"),
+                               ("Weekly", "weekly"), ("Monthly", "monthly"),
+                               ("Yearly", "yearly")]:
+                self.repeat_combo.append_text(label)
+            self.repeat_combo.set_active(0)
+            grid.attach(self.repeat_combo, 1, 7, 1, 1)
+
+            grid.attach(Gtk.Label(label="Location:", xalign=0), 0, 8, 1, 1)
+            self.location_entry = Gtk.Entry(placeholder_text="Location")
+            grid.attach(self.location_entry, 1, 8, 1, 1)
+
+            grid.attach(Gtk.Label(label="Notes:", xalign=0), 0, 9, 1, 1)
+            self.desc_buffer = Gtk.TextBuffer()
+            self.desc_view = Gtk.TextView(buffer=self.desc_buffer)
+            self.desc_view.set_wrap_mode(Gtk.WrapMode.WORD)
+            self.desc_view.set_size_request(-1, 70)
+            sw = Gtk.ScrolledWindow()
+            sw.add(self.desc_view)
+            grid.attach(sw, 1, 9, 1, 1)
+
+            if editing:
+                self.title_entry.set_text(ev.get("title", ""))
+                self.location_entry.set_text(ev.get("location", ""))
+                if ev.get("description"):
+                    self.desc_buffer.set_text(ev["description"])
+                names = list(calendars)
+                if ev.get("calendar") in names:
+                    self.cal_combo.set_active(names.index(ev["calendar"]))
+                self.all_day.set_active(bool(ev.get("all_day")))
+                self.repeat_combo.set_active(
+                    REPEAT_MODES.index(ev.get("repeat", "none")))
+                if not ev.get("all_day") and parse_dt(ev["start"]):
+                    s = parse_dt(ev["start"])
+                    self.start_hour.set_value(s.hour)
+                    self.start_min.set_value(s.minute)
+                    e = parse_dt(ev.get("end")) or s
+                    self.end_hour.set_value(e.hour)
+                    self.end_min.set_value(e.minute)
+            self.on_all_day_toggled(None)
+            self.on_title_changed(None)
+            self.show_all()
+
+        def on_title_changed(self, _e):
+            self.set_response_sensitive(
+                Gtk.ResponseType.OK, bool(self.title_entry.get_text().strip()))
+
+        def on_all_day_toggled(self, _b):
+            timed = not self.all_day.get_active()
+            for w in (self.start_hour, self.start_min, self.end_hour,
+                      self.end_min):
+                w.set_sensitive(timed)
+
+        def get_datetimes(self):
+            sy, sm, sd = self.start_date.get_date()
+            ey, em, ed = self.end_date.get_date()
+            start = datetime(sy, sm + 1, sd,
+                             int(self.start_hour.get_value()),
+                             int(self.start_min.get_value()))
+            end = datetime(ey, em + 1, ed,
+                           int(self.end_hour.get_value()),
+                           int(self.end_min.get_value()))
+            return start, end
+
+        def get_event(self):
+            """Returns event dict, or None if invalid (error dialog shown)."""
+            title = self.title_entry.get_text().strip()
+            start, end = self.get_datetimes()
+            all_day = self.all_day.get_active()
+            if all_day:
+                start = datetime(start.year, start.month, start.day)
+                end = datetime(end.year, end.month, end.day)
+            err = validate_event(title, start, end, all_day)
+            if err:
+                d = Gtk.MessageDialog(transient_for=self, modal=True,
+                                     message_type=Gtk.MessageType.WARNING,
+                                     buttons=Gtk.ButtonsType.OK, text=err)
+                d.run()
+                d.destroy()
+                return None
+            return {
+                "id": uuid.uuid4().hex[:12],
+                "title": title,
+                "calendar": self.cal_combo.get_active_text() or "Personal",
+                "start": fmt_ics(start, all_day),
+                "end": fmt_ics(end, all_day),
+                "location": self.location_entry.get_text().strip(),
+                "description": self.desc_buffer.get_text(
+                    self.desc_buffer.get_start_iter(),
+                    self.desc_buffer.get_end_iter(), True).strip(),
+                "all_day": all_day,
+                "repeat": REPEAT_MODES[self.repeat_combo.get_active()],
+                "notified": [],
+            }
+
+
+    class CalendarsDialog(Gtk.Dialog):
+        def __init__(self, parent, calendars):
+            super().__init__(title="Calendars", transient_for=parent, modal=True)
+            self.set_default_size(360, 320)
+            self.calendars = calendars
+            self.add_buttons("Close", Gtk.ResponseType.CLOSE)
+
+            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            vbox.set_border_width(16)
+            self.get_content_area().add(vbox)
+
+            self.listbox = Gtk.ListBox()
             self.refresh_list()
-        d.destroy()
+            vbox.pack_start(self.listbox, True, True, 0)
+
+            btn_box = Gtk.Box(spacing=8)
+            for label, cb in [("+ Add", self.add_calendar),
+                              ("Remove", self.remove_calendar)]:
+                b = Gtk.Button(label=label)
+                b.connect("clicked", cb)
+                btn_box.pack_start(b, False, False, 0)
+            vbox.pack_start(btn_box, False, False, 0)
+            self.show_all()
+
+        def refresh_list(self):
+            for child in self.listbox.get_children():
+                self.listbox.remove(child)
+            for name, data in self.calendars.items():
+                row = Gtk.ListBoxRow()
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                               spacing=12)
+                hbox.set_border_width(8)
+                dot = Gtk.DrawingArea()
+                dot.set_size_request(16, 16)
+                dot.connect("draw", self.draw_dot, data["color"])
+                hbox.pack_start(dot, False, False, 0)
+                lbl = Gtk.Label(label=name, xalign=0)
+                hbox.pack_start(lbl, True, True, 0)
+                row.add(hbox)
+                self.listbox.add(row)
+            self.listbox.show_all()
+
+        @staticmethod
+        def draw_dot(area, cr, color):
+            rgba = Gdk.RGBA()
+            if not rgba.parse(color):
+                rgba.parse("#888888")
+            cr.set_source_rgba(rgba.red, rgba.green, rgba.blue, 1)
+            cr.arc(8, 8, 6, 0, 6.2832)
+            cr.fill()
+
+        def add_calendar(self, _):
+            dialog = Gtk.Dialog(title="New Calendar", transient_for=self,
+                                modal=True)
+            dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                              "Add", Gtk.ResponseType.OK)
+            grid = Gtk.Grid(column_spacing=12, row_spacing=12, margin=16)
+            dialog.get_content_area().add(grid)
+            grid.attach(Gtk.Label(label="Name:", xalign=0), 0, 0, 1, 1)
+            name_entry = Gtk.Entry(placeholder_text="Calendar name")
+            grid.attach(name_entry, 1, 0, 1, 1)
+            grid.attach(Gtk.Label(label="Color:", xalign=0), 0, 1, 1, 1)
+            color_btn = Gtk.ColorButton()
+            grid.attach(color_btn, 1, 1, 1, 1)
+            if dialog.run() == Gtk.ResponseType.OK:
+                name = name_entry.get_text().strip()
+                if name and name not in self.calendars:
+                    rgba = color_btn.get_rgba()
+                    color = "#%02x%02x%02x" % (int(rgba.red * 255),
+                                               int(rgba.green * 255),
+                                               int(rgba.blue * 255))
+                    self.calendars[name] = {"color": color, "visible": True}
+                    self.refresh_list()
+            dialog.destroy()
+
+        def remove_calendar(self, _):
+            row = self.listbox.get_selected_row()
+            if row is None:
+                return
+            hbox = row.get_child()
+            lbl = next(c for c in hbox.get_children()
+                       if isinstance(c, Gtk.Label))
+            name = lbl.get_text()
+            d = Gtk.MessageDialog(transient_for=self, modal=True,
+                                 message_type=Gtk.MessageType.WARNING,
+                                 buttons=Gtk.ButtonsType.NONE,
+                                 text="Delete calendar?")
+            d.format_secondary_text('"%s" and its events will be permanently '
+                                    "removed." % name)
+            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                          "Delete", Gtk.ResponseType.OK)
+            if d.run() == Gtk.ResponseType.OK:
+                del self.calendars[name]
+                self.refresh_list()
+            d.destroy()
 
 
 # ------------------------------------------------------------ CLI (timer)

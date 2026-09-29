@@ -14,6 +14,7 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -197,6 +198,19 @@ def main():
         finally:
             mv.subprocess = orig_sub
         check("check_due second run same day is quiet", calls == [], str(calls))
+
+    # P1-C2: timer one-shot must not import Gtk (lazy-import fix)
+    code = (
+        "import sys; sys.argv=['mv-reminders','--check-due'];"
+        "import importlib.machinery as im, importlib.util as iu;"
+        "ld=im.SourceFileLoader('app',%r); sp=iu.spec_from_loader('app',ld);"
+        "m=iu.module_from_spec(sp); ld.exec_module(m);"
+        "print('GTK' if any(k.startswith('gi.repository.Gtk') "
+        "for k in sys.modules) else 'NOGTK')" % APP_PATH)
+    p = subprocess.run([sys.executable, "-c", code],
+                       capture_output=True, text=True, timeout=60)
+    check("timer path skips Gtk import", p.stdout.strip() == "NOGTK",
+          (p.stdout + p.stderr).strip()[:200])
 
     print("\n%d passed, %d failed" % (PASSED, len(FAILURES)))
     return 1 if FAILURES else 0

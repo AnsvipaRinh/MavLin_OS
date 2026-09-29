@@ -326,6 +326,19 @@ def main():
     test_passphrase(m)
     test_check_due(m)
     test_gui(m)
+    # P1-C2: timer one-shot must not import Gtk (lazy-import fix).
+    # Secret (libsecret) IS imported in timer mode for passphrase lookup.
+    code = (
+        "import sys; sys.argv=['mv-timemachine','--check-due'];"
+        "import importlib.machinery as im, importlib.util as iu;"
+        "ld=im.SourceFileLoader('app',%r); sp=iu.spec_from_loader('app',ld);"
+        "m=iu.module_from_spec(sp); ld.exec_module(m);"
+        "print('GTK' if any(k.startswith('gi.repository.Gtk') "
+        "for k in sys.modules) else 'NOGTK')" % APP_PATH)
+    p = subprocess.run([sys.executable, "-c", code],
+                       capture_output=True, text=True, timeout=60)
+    check("timer path skips Gtk import", p.stdout.strip() == "NOGTK",
+          (p.stdout + p.stderr).strip()[:200])
     print("---")
     if bad.failures:
         print("%d FAILED, %d passed" % (len(bad.failures), ok.count))

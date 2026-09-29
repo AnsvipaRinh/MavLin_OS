@@ -34,15 +34,20 @@ import sys
 import time
 from datetime import datetime, timezone
 
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+# Timer one-shots (--check-due) are pure Python + libsecret; defining the GUI
+# class only in GUI mode keeps the Gtk import out of the hourly timer path.
+_GUI = len(sys.argv) <= 1 or sys.argv[1] != "--check-due"
 
+import gi
 try:
     gi.require_version("Secret", "1")
     from gi.repository import Secret
 except (ValueError, ImportError):
     Secret = None
+
+if _GUI:
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, Gdk, GLib
 
 RESTIC = "restic"
 BTRFS = "btrfs"
@@ -329,457 +334,458 @@ STARFIELD_CSS = """
 """
 
 
-class TimeMachineWindow(Gtk.Window):
-    def __init__(self):
-        super().__init__(title="Time Machine")
-        self.set_default_size(720, 560)
-        self.target = load_target()
-        self.snapshots = []
-        self.local_snaps = []
-        self.selected = None
-        self.backup_proc = None
-        self.apply_css()
-
-        self.connect("key-press-event", self.on_key_press)
-        self.connect("destroy", Gtk.main_quit)
-
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        self.add(root)
-
-        hb = Gtk.HeaderBar(title="Time Machine", show_close_button=True)
-        hb.set_subtitle("restic + btrfs snapshots")
-        self.set_titlebar(hb)
-
-        self.banner = Gtk.InfoBar()
-        self.banner.set_no_show_all(True)
-        root.pack_start(self.banner, False, False, 0)
-        self.banner_label = Gtk.Label(wrap=True, xalign=0)
-        self.banner_label.set_margin_start(12)
-        self.banner_label.set_margin_end(12)
-        self.banner_label.set_margin_top(6)
-        self.banner_label.set_margin_bottom(6)
-        self.banner.get_content_area().add(self.banner_label)
-
-        self.stack = Gtk.Stack()
-        root.pack_start(self.stack, True, True, 0)
-        self.build_setup_view()
-        self.build_main_view()
-        self.stack.connect("realize", self._on_stack_realize)
-
-        self.status = Gtk.Label(xalign=0)
-        self.status.get_style_context().add_class("mv-status")
-        self.status.set_margin_top(4)
-        root.pack_end(self.status, False, False, 0)
-
-        self.check_backends()
-        if not self.target:
-            self.set_status("Choose a backup destination to begin.")
-        self.refresh_sensitivity()
-        if self.target:
-            GLib.idle_add(self.refresh_snapshots)
-
-    def apply_css(self):
-        try:
-            provider = Gtk.CssProvider()
-            provider.load_from_data(STARFIELD_CSS.encode())
-            screen = Gdk.Screen.get_default()
-            Gtk.StyleContext.add_provider_for_screen(
-                screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-        except GLib.Error as e:
-            print("mv-timemachine: CSS failed, using default theme: %s" % e,
-                  file=sys.stderr)
-
-    def show_banner(self, kind, text):
-        self.banner.set_message_type(kind)
-        self.banner_label.set_text(text)
-        self.banner.show()
-
-    def hide_banner(self):
-        self.banner.hide()
-
-    def check_backends(self):
-        if not have(RESTIC):
-            self.show_banner(
-                Gtk.MessageType.ERROR,
-                "restic not found — backups are disabled.\n"
-                "Install it: sudo pacman -S restic")
-
-    def build_setup_view(self):
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        box.set_border_width(24)
-        box.get_style_context().add_class("mv-starfield")
-        head = Gtk.Label(label="<big><b>Set Up Time Machine</b></big>",
-                         use_markup=True)
-        box.pack_start(head, False, False, 0)
-        info = Gtk.Label(
-            label="Choose a backup destination: a folder on this Mac, or a "
-                  "USB-C disk. Snapshots are encrypted with restic and "
-                  "stored off-device.",
-            wrap=True, xalign=0)
-        box.pack_start(info, False, False, 0)
-
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        box.pack_start(row, False, False, 0)
-        self.target_entry = Gtk.Entry()
-        self.target_entry.set_placeholder_text("/Volumes/Backup or /mnt/usb")
-        self.target_entry.set_activates_default(True)
-        row.pack_start(self.target_entry, True, True, 0)
-        pick = Gtk.Button(label="Choose…")
-        pick.connect("clicked", self.on_pick_target)
-        row.pack_start(pick, False, False, 0)
-
-        self.setup_btn = Gtk.Button(label="Use This Destination")
-        self.setup_btn.get_style_context().add_class("suggested-action")
-        self.setup_btn.connect("clicked", self.on_setup_target)
-        box.pack_start(self.setup_btn, False, False, 0)
-
-        self.setup_status = Gtk.Label(xalign=0)
-        self.setup_status.get_style_context().add_class("mv-snapshot-sub")
-        box.pack_start(self.setup_status, False, False, 0)
-        self.setup_box = box
-        self.stack.add_named(box, "setup")
-
-    def build_main_view(self):
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        box.get_style_context().add_class("mv-starfield")
-
-        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        bar.set_border_width(12)
-        self.target_label = Gtk.Label(xalign=0)
-        self.target_label.get_style_context().add_class("mv-snapshot-time")
-        bar.pack_start(self.target_label, True, True, 0)
-        change = Gtk.Button(label="Change…")
-        change.connect("clicked", self.on_change_target)
-        bar.pack_start(change, False, False, 0)
-        box.pack_start(bar, False, False, 0)
-
-        self.snap_list = Gtk.ListBox()
-        self.snap_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        self.snap_list.connect("row-selected", self.on_row_selected)
-        sw = Gtk.ScrolledWindow()
-        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        sw.add(self.snap_list)
-        box.pack_start(sw, True, True, 0)
-
-        self.snap_empty = Gtk.Label(
-            label="No snapshots yet — click “Back Up Now” to create the "
-                  "first one.", wrap=True, xalign=0.5)
-        self.snap_empty.set_margin_top(24)
-        self.snap_empty.set_margin_bottom(24)
-        box.pack_start(self.snap_empty, False, False, 0)
-
-        local_head = Gtk.Label(label="<b>Local Snapshots (btrfs)</b>",
-                               use_markup=True, xalign=0)
-        local_head.set_margin_start(14)
-        local_head.set_margin_top(10)
-        box.pack_start(local_head, False, False, 0)
-        self.local_list = Gtk.ListBox()
-        self.local_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        lsw = Gtk.ScrolledWindow()
-        lsw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        lsw.set_min_content_height(120)
-        lsw.add(self.local_list)
-        box.pack_start(lsw, False, False, 0)
-
-        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        buttons.set_border_width(12)
-        self.backup_btn = Gtk.Button(label="Back Up Now")
-        self.backup_btn.get_style_context().add_class("suggested-action")
-        self.backup_btn.connect("clicked", self.on_backup_now)
-        buttons.pack_start(self.backup_btn, False, False, 0)
-        self.restore_btn = Gtk.Button(label="Restore…")
-        self.restore_btn.connect("clicked", self.on_restore)
-        buttons.pack_start(self.restore_btn, False, False, 0)
-        self.local_restore_btn = Gtk.Button(label="Restore Local Snapshot…")
-        self.local_restore_btn.set_tooltip_text(
-            "Destructive: replaces the current @/@home subvolumes from a "
-            "read-only btrfs snapshot. Always confirmed.")
-        self.local_restore_btn.connect("clicked", self.on_local_restore)
-        buttons.pack_start(self.local_restore_btn, False, False, 0)
-        box.pack_start(buttons, False, False, 0)
-        self.main_box = box
-        self.stack.add_named(box, "main")
-
-    def set_status(self, text):
-        self.status.set_text(text)
-
-    def _on_stack_realize(self, _stack):
-        self.stack.set_visible_child_name(
-            "setup" if not self.target else "main")
-
-    def on_pick_target(self, _btn):
-        dialog = Gtk.FileChooserDialog(
-            title="Choose Backup Destination", parent=self,
-            action=Gtk.FileChooserAction.SELECT_FOLDER)
-        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                         Gtk.STOCK_OPEN, Gtk.ResponseType.ACCEPT)
-        if dialog.run() == Gtk.ResponseType.ACCEPT:
-            self.target_entry.set_text(dialog.get_filename())
-        dialog.destroy()
-
-    def on_setup_target(self, _btn):
-        path = self.target_entry.get_text().strip()
-        if not path:
-            self.setup_status.set_text("Enter or choose a destination path.")
-            return
-        path = os.path.abspath(os.path.expanduser(path))
-        if not os.path.isdir(path):
-            self.setup_status.set_text(
-                "That folder does not exist: %s" % path)
-            return
-        pw = self.ask_passphrase()
-        if not pw:
-            self.setup_status.set_text("A passphrase is required.")
-            return
-        self.set_status("Initializing restic repository…")
-        try:
-            proc = restic_init(path, pw)
-        except (OSError, subprocess.SubprocessError) as e:
-            self.set_status("restic init failed: %s" % e)
-            return
-        if proc.returncode != 0:
-            err = (proc.stderr or b"").decode("utf-8", "replace").strip()
-            self.set_status("restic init failed: %s"
-                            % (err.splitlines()[-1] if err else ""))
-            return
-        save_target(path)
-        store_passphrase(pw)
-        self.target = path
-        self.stack.set_visible_child_name("main")
-        self.refresh_snapshots()
-        self.set_status("Backup destination ready: %s" % path)
-
-    def ask_passphrase(self):
-        dialog = Gtk.MessageDialog(
-            parent=self, modal=True, message_type=Gtk.MessageType.QUESTION,
-            buttons=Gtk.ButtonsType.OK_CANCEL,
-            text="Choose a backup passphrase")
-        dialog.format_secondary_text(
-            "This encrypts every snapshot. It is stored in the login "
-            "keychain when available, and never written to disk in "
-            "plaintext.")
-        box = dialog.get_content_area()
-        entry = Gtk.Entry()
-        entry.set_visibility(False)
-        entry.set_invisible_char("●")
-        box.pack_end(entry, False, False, 6)
-        box.show_all()
-        pw = None
-        if dialog.run() == Gtk.ResponseType.OK:
-            pw = entry.get_text()
-        dialog.destroy()
-        return pw or None
-
-    def on_change_target(self, _btn):
-        clear_target()
-        self.target = None
-        self.snapshots = []
-        self.rebuild_list()
-        self.stack.set_visible_child_name("setup")
-
-    def refresh_snapshots(self):
-        pw = load_passphrase()
-        if not pw:
-            self.set_status("Passphrase unavailable — open Time Machine "
-                            "and unlock the keychain to browse snapshots.")
-            return
-        try:
-            snaps, err = restic_snapshots(self.target, pw)
-        except (OSError, subprocess.SubprocessError) as e:
-            self.set_status("restic failed: %s" % e)
-            return
-        if err:
-            self.set_status("restic: %s"
-                            % (err.splitlines()[-1] if err else "failed"))
-            return
-        self.snapshots = snaps
-        self.rebuild_list()
-        self.refresh_local_snapshots()
-
-    def rebuild_list(self):
-        for child in self.snap_list.get_children():
-            self.snap_list.remove(child)
-        self.target_label.set_text("Destination: %s" % (self.target or "—"))
-        if not self.snapshots:
-            self.snap_empty.show()
-        else:
-            self.snap_empty.hide()
-        for s in self.snapshots:
-            row = Gtk.ListBoxRow()
-            row.get_style_context().add_class("mv-snapshot-row")
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            t = Gtk.Label(label=format_snapshot_time(s["time"]), xalign=0)
-            t.get_style_context().add_class("mv-snapshot-time")
-            sub = Gtk.Label(
-                label="%s · %s" % (s["hostname"] or "—",
-                                   ", ".join(s["paths"]) or "—"),
-                xalign=0)
-            sub.get_style_context().add_class("mv-snapshot-sub")
-            box.pack_start(t, False, False, 0)
-            box.pack_start(sub, False, False, 0)
-            row.add(box)
-            row.snapshot_id = s["id"]
-            self.snap_list.show_all()
-            self.snap_list.add(row)
-        self.refresh_sensitivity()
-
-    def refresh_local_snapshots(self):
-        for child in self.local_list.get_children():
-            self.local_list.remove(child)
-        if not have(BTRFS):
-            return
-        snaps, err = btrfs_list("/")
-        if err:
-            return
-        self.local_snaps = snaps
-        for s in snaps:
-            row = Gtk.ListBoxRow()
-            row.get_style_context().add_class("mv-snapshot-row")
-            lbl = Gtk.Label(label=s["path"], xalign=0)
-            lbl.get_style_context().add_class("mv-snapshot-time")
-            row.add(lbl)
-            row.snapshot_path = s["path"]
-            self.local_list.show_all()
-            self.local_list.add(row)
-
-    def refresh_sensitivity(self):
-        self.restore_btn.set_sensitive(
-            bool(self.snapshots) and self.backup_proc is None)
-        self.backup_btn.set_sensitive(
-            bool(self.target) and have(RESTIC) and self.backup_proc is None)
-        self.local_restore_btn.set_sensitive(bool(self.local_snaps))
-
-    def on_row_selected(self, _listbox, row):
-        self.selected = None
-        if row is not None:
-            self.selected = getattr(row, "snapshot_id", None)
-        self.refresh_sensitivity()
-
-    def on_backup_now(self, _btn):
-        if self.backup_proc is not None:
-            return
-        pw = load_passphrase()
-        if not pw:
-            self.set_status("Passphrase unavailable — unlock the keychain.")
-            return
-        self.set_status("Backing up…")
-        self.backup_btn.set_sensitive(False)
-        try:
-            self.backup_proc = popen_restic(
-                backup_command(self.target, extra_excludes=[self.target])[2:],
-                pw, self.target)
-        except OSError as e:
+if _GUI:
+    class TimeMachineWindow(Gtk.Window):
+        def __init__(self):
+            super().__init__(title="Time Machine")
+            self.set_default_size(720, 560)
+            self.target = load_target()
+            self.snapshots = []
+            self.local_snaps = []
+            self.selected = None
             self.backup_proc = None
+            self.apply_css()
+
+            self.connect("key-press-event", self.on_key_press)
+            self.connect("destroy", Gtk.main_quit)
+
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            self.add(root)
+
+            hb = Gtk.HeaderBar(title="Time Machine", show_close_button=True)
+            hb.set_subtitle("restic + btrfs snapshots")
+            self.set_titlebar(hb)
+
+            self.banner = Gtk.InfoBar()
+            self.banner.set_no_show_all(True)
+            root.pack_start(self.banner, False, False, 0)
+            self.banner_label = Gtk.Label(wrap=True, xalign=0)
+            self.banner_label.set_margin_start(12)
+            self.banner_label.set_margin_end(12)
+            self.banner_label.set_margin_top(6)
+            self.banner_label.set_margin_bottom(6)
+            self.banner.get_content_area().add(self.banner_label)
+
+            self.stack = Gtk.Stack()
+            root.pack_start(self.stack, True, True, 0)
+            self.build_setup_view()
+            self.build_main_view()
+            self.stack.connect("realize", self._on_stack_realize)
+
+            self.status = Gtk.Label(xalign=0)
+            self.status.get_style_context().add_class("mv-status")
+            self.status.set_margin_top(4)
+            root.pack_end(self.status, False, False, 0)
+
+            self.check_backends()
+            if not self.target:
+                self.set_status("Choose a backup destination to begin.")
             self.refresh_sensitivity()
-            self.set_status("Could not start restic: %s" % e)
-            return
-        GLib.child_watch_add(self.backup_proc.pid, self._on_backup_exit)
+            if self.target:
+                GLib.idle_add(self.refresh_snapshots)
 
-    def _on_backup_exit(self, _pid, status):
-        proc = self.backup_proc
-        self.backup_proc = None
-        rc = os.waitstatus_to_exitcode(status)
-        err = ""
-        try:
-            if proc is not None and proc.stderr is not None:
-                err = proc.stderr.read().decode("utf-8", "replace").strip()
-        except Exception:
-            pass
-        if rc == 0:
-            self.set_status("Backup complete.")
-        else:
-            self.set_status("Backup failed (exit %d)%s"
-                            % (rc, ": " + err.splitlines()[-1] if err else ""))
-        self.refresh_snapshots()
-        return False
+        def apply_css(self):
+            try:
+                provider = Gtk.CssProvider()
+                provider.load_from_data(STARFIELD_CSS.encode())
+                screen = Gdk.Screen.get_default()
+                Gtk.StyleContext.add_provider_for_screen(
+                    screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            except GLib.Error as e:
+                print("mv-timemachine: CSS failed, using default theme: %s" % e,
+                      file=sys.stderr)
 
-    def on_restore(self, _btn):
-        if not self.selected:
-            self.set_status("Select a snapshot to restore.")
-            return
-        dialog = Gtk.FileChooserDialog(
-            title="Restore Into Folder", parent=self,
-            action=Gtk.FileChooserAction.SELECT_FOLDER)
-        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                         Gtk.STOCK_OPEN, Gtk.ResponseType.ACCEPT)
-        if dialog.run() != Gtk.ResponseType.ACCEPT:
+        def show_banner(self, kind, text):
+            self.banner.set_message_type(kind)
+            self.banner_label.set_text(text)
+            self.banner.show()
+
+        def hide_banner(self):
+            self.banner.hide()
+
+        def check_backends(self):
+            if not have(RESTIC):
+                self.show_banner(
+                    Gtk.MessageType.ERROR,
+                    "restic not found — backups are disabled.\n"
+                    "Install it: sudo pacman -S restic")
+
+        def build_setup_view(self):
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+            box.set_border_width(24)
+            box.get_style_context().add_class("mv-starfield")
+            head = Gtk.Label(label="<big><b>Set Up Time Machine</b></big>",
+                             use_markup=True)
+            box.pack_start(head, False, False, 0)
+            info = Gtk.Label(
+                label="Choose a backup destination: a folder on this Mac, or a "
+                      "USB-C disk. Snapshots are encrypted with restic and "
+                      "stored off-device.",
+                wrap=True, xalign=0)
+            box.pack_start(info, False, False, 0)
+
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            box.pack_start(row, False, False, 0)
+            self.target_entry = Gtk.Entry()
+            self.target_entry.set_placeholder_text("/Volumes/Backup or /mnt/usb")
+            self.target_entry.set_activates_default(True)
+            row.pack_start(self.target_entry, True, True, 0)
+            pick = Gtk.Button(label="Choose…")
+            pick.connect("clicked", self.on_pick_target)
+            row.pack_start(pick, False, False, 0)
+
+            self.setup_btn = Gtk.Button(label="Use This Destination")
+            self.setup_btn.get_style_context().add_class("suggested-action")
+            self.setup_btn.connect("clicked", self.on_setup_target)
+            box.pack_start(self.setup_btn, False, False, 0)
+
+            self.setup_status = Gtk.Label(xalign=0)
+            self.setup_status.get_style_context().add_class("mv-snapshot-sub")
+            box.pack_start(self.setup_status, False, False, 0)
+            self.setup_box = box
+            self.stack.add_named(box, "setup")
+
+        def build_main_view(self):
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            box.get_style_context().add_class("mv-starfield")
+
+            bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            bar.set_border_width(12)
+            self.target_label = Gtk.Label(xalign=0)
+            self.target_label.get_style_context().add_class("mv-snapshot-time")
+            bar.pack_start(self.target_label, True, True, 0)
+            change = Gtk.Button(label="Change…")
+            change.connect("clicked", self.on_change_target)
+            bar.pack_start(change, False, False, 0)
+            box.pack_start(bar, False, False, 0)
+
+            self.snap_list = Gtk.ListBox()
+            self.snap_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+            self.snap_list.connect("row-selected", self.on_row_selected)
+            sw = Gtk.ScrolledWindow()
+            sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            sw.add(self.snap_list)
+            box.pack_start(sw, True, True, 0)
+
+            self.snap_empty = Gtk.Label(
+                label="No snapshots yet — click “Back Up Now” to create the "
+                      "first one.", wrap=True, xalign=0.5)
+            self.snap_empty.set_margin_top(24)
+            self.snap_empty.set_margin_bottom(24)
+            box.pack_start(self.snap_empty, False, False, 0)
+
+            local_head = Gtk.Label(label="<b>Local Snapshots (btrfs)</b>",
+                                   use_markup=True, xalign=0)
+            local_head.set_margin_start(14)
+            local_head.set_margin_top(10)
+            box.pack_start(local_head, False, False, 0)
+            self.local_list = Gtk.ListBox()
+            self.local_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+            lsw = Gtk.ScrolledWindow()
+            lsw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            lsw.set_min_content_height(120)
+            lsw.add(self.local_list)
+            box.pack_start(lsw, False, False, 0)
+
+            buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            buttons.set_border_width(12)
+            self.backup_btn = Gtk.Button(label="Back Up Now")
+            self.backup_btn.get_style_context().add_class("suggested-action")
+            self.backup_btn.connect("clicked", self.on_backup_now)
+            buttons.pack_start(self.backup_btn, False, False, 0)
+            self.restore_btn = Gtk.Button(label="Restore…")
+            self.restore_btn.connect("clicked", self.on_restore)
+            buttons.pack_start(self.restore_btn, False, False, 0)
+            self.local_restore_btn = Gtk.Button(label="Restore Local Snapshot…")
+            self.local_restore_btn.set_tooltip_text(
+                "Destructive: replaces the current @/@home subvolumes from a "
+                "read-only btrfs snapshot. Always confirmed.")
+            self.local_restore_btn.connect("clicked", self.on_local_restore)
+            buttons.pack_start(self.local_restore_btn, False, False, 0)
+            box.pack_start(buttons, False, False, 0)
+            self.main_box = box
+            self.stack.add_named(box, "main")
+
+        def set_status(self, text):
+            self.status.set_text(text)
+
+        def _on_stack_realize(self, _stack):
+            self.stack.set_visible_child_name(
+                "setup" if not self.target else "main")
+
+        def on_pick_target(self, _btn):
+            dialog = Gtk.FileChooserDialog(
+                title="Choose Backup Destination", parent=self,
+                action=Gtk.FileChooserAction.SELECT_FOLDER)
+            dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                             Gtk.STOCK_OPEN, Gtk.ResponseType.ACCEPT)
+            if dialog.run() == Gtk.ResponseType.ACCEPT:
+                self.target_entry.set_text(dialog.get_filename())
             dialog.destroy()
-            return
-        dest = dialog.get_filename()
-        dialog.destroy()
-        confirm = Gtk.MessageDialog(
-            parent=self, modal=True, message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.OK_CANCEL, text="Restore snapshot?")
-        confirm.format_secondary_text(
-            "Files from the selected snapshot will be copied into:\n%s\n"
-            "Existing files are not overwritten unless they differ."
-            % dest)
-        if confirm.run() != Gtk.ResponseType.OK:
-            confirm.destroy()
-            return
-        confirm.destroy()
-        pw = load_passphrase()
-        if not pw:
-            self.set_status("Passphrase unavailable — unlock the keychain.")
-            return
-        self.set_status("Restoring…")
-        try:
-            proc = subprocess.run(
-                restic_restore_cmd(self.target, self.selected, dest),
-                env=restic_env(self.target, pw),
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                timeout=7200)
-        except (OSError, subprocess.SubprocessError) as e:
-            self.set_status("Restore failed: %s" % e)
-            return
-        if proc.returncode != 0:
-            err = (proc.stderr or b"").decode("utf-8", "replace").strip()
-            self.set_status("Restore failed: %s"
-                            % (err.splitlines()[-1] if err else ""))
-            return
-        self.set_status("Restored into %s" % dest)
 
-    def on_local_restore(self, _btn):
-        rows = self.local_list.get_selected_rows()
-        if not rows:
-            self.set_status("Select a local snapshot to restore.")
-            return
-        path = getattr(rows[0], "snapshot_path", None)
-        if not path:
-            return
-        confirm = Gtk.MessageDialog(
-            parent=self, modal=True, message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.OK_CANCEL,
-            text="Restore local snapshot (destructive)?")
-        confirm.format_secondary_text(
-            "This replaces the current @ and @home subvolumes with:\n%s\n"
-            "A safety snapshot of the current state is taken first. "
-            "This cannot be undone." % path)
-        if confirm.run() != Gtk.ResponseType.OK:
-            confirm.destroy()
-            return
-        confirm.destroy()
-        self.set_status("Local snapshot restore requires the recovery "
-                        "environment — use `btrfs subvolume snapshot` from "
-                        "a live session for now.")
-        self.show_banner(
-            Gtk.MessageType.INFO,
-            "Destructive btrfs restore is intentionally not performed from "
-            "a running system. Boot the recovery environment and restore "
-            "from there.")
+        def on_setup_target(self, _btn):
+            path = self.target_entry.get_text().strip()
+            if not path:
+                self.setup_status.set_text("Enter or choose a destination path.")
+                return
+            path = os.path.abspath(os.path.expanduser(path))
+            if not os.path.isdir(path):
+                self.setup_status.set_text(
+                    "That folder does not exist: %s" % path)
+                return
+            pw = self.ask_passphrase()
+            if not pw:
+                self.setup_status.set_text("A passphrase is required.")
+                return
+            self.set_status("Initializing restic repository…")
+            try:
+                proc = restic_init(path, pw)
+            except (OSError, subprocess.SubprocessError) as e:
+                self.set_status("restic init failed: %s" % e)
+                return
+            if proc.returncode != 0:
+                err = (proc.stderr or b"").decode("utf-8", "replace").strip()
+                self.set_status("restic init failed: %s"
+                                % (err.splitlines()[-1] if err else ""))
+                return
+            save_target(path)
+            store_passphrase(pw)
+            self.target = path
+            self.stack.set_visible_child_name("main")
+            self.refresh_snapshots()
+            self.set_status("Backup destination ready: %s" % path)
 
-    def on_key_press(self, _widget, event):
-        key = Gdk.keyval_name(event.keyval)
-        if key == "Escape":
-            self.destroy()
-            return True
-        if key in ("b", "B") and event.state & Gdk.ModifierType.CONTROL_MASK:
-            self.on_backup_now(None)
-            return True
-        if key in ("r", "R") and event.state & Gdk.ModifierType.CONTROL_MASK:
-            self.on_restore(None)
-            return True
-        return False
+        def ask_passphrase(self):
+            dialog = Gtk.MessageDialog(
+                parent=self, modal=True, message_type=Gtk.MessageType.QUESTION,
+                buttons=Gtk.ButtonsType.OK_CANCEL,
+                text="Choose a backup passphrase")
+            dialog.format_secondary_text(
+                "This encrypts every snapshot. It is stored in the login "
+                "keychain when available, and never written to disk in "
+                "plaintext.")
+            box = dialog.get_content_area()
+            entry = Gtk.Entry()
+            entry.set_visibility(False)
+            entry.set_invisible_char("●")
+            box.pack_end(entry, False, False, 6)
+            box.show_all()
+            pw = None
+            if dialog.run() == Gtk.ResponseType.OK:
+                pw = entry.get_text()
+            dialog.destroy()
+            return pw or None
+
+        def on_change_target(self, _btn):
+            clear_target()
+            self.target = None
+            self.snapshots = []
+            self.rebuild_list()
+            self.stack.set_visible_child_name("setup")
+
+        def refresh_snapshots(self):
+            pw = load_passphrase()
+            if not pw:
+                self.set_status("Passphrase unavailable — open Time Machine "
+                                "and unlock the keychain to browse snapshots.")
+                return
+            try:
+                snaps, err = restic_snapshots(self.target, pw)
+            except (OSError, subprocess.SubprocessError) as e:
+                self.set_status("restic failed: %s" % e)
+                return
+            if err:
+                self.set_status("restic: %s"
+                                % (err.splitlines()[-1] if err else "failed"))
+                return
+            self.snapshots = snaps
+            self.rebuild_list()
+            self.refresh_local_snapshots()
+
+        def rebuild_list(self):
+            for child in self.snap_list.get_children():
+                self.snap_list.remove(child)
+            self.target_label.set_text("Destination: %s" % (self.target or "—"))
+            if not self.snapshots:
+                self.snap_empty.show()
+            else:
+                self.snap_empty.hide()
+            for s in self.snapshots:
+                row = Gtk.ListBoxRow()
+                row.get_style_context().add_class("mv-snapshot-row")
+                box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+                t = Gtk.Label(label=format_snapshot_time(s["time"]), xalign=0)
+                t.get_style_context().add_class("mv-snapshot-time")
+                sub = Gtk.Label(
+                    label="%s · %s" % (s["hostname"] or "—",
+                                       ", ".join(s["paths"]) or "—"),
+                    xalign=0)
+                sub.get_style_context().add_class("mv-snapshot-sub")
+                box.pack_start(t, False, False, 0)
+                box.pack_start(sub, False, False, 0)
+                row.add(box)
+                row.snapshot_id = s["id"]
+                self.snap_list.show_all()
+                self.snap_list.add(row)
+            self.refresh_sensitivity()
+
+        def refresh_local_snapshots(self):
+            for child in self.local_list.get_children():
+                self.local_list.remove(child)
+            if not have(BTRFS):
+                return
+            snaps, err = btrfs_list("/")
+            if err:
+                return
+            self.local_snaps = snaps
+            for s in snaps:
+                row = Gtk.ListBoxRow()
+                row.get_style_context().add_class("mv-snapshot-row")
+                lbl = Gtk.Label(label=s["path"], xalign=0)
+                lbl.get_style_context().add_class("mv-snapshot-time")
+                row.add(lbl)
+                row.snapshot_path = s["path"]
+                self.local_list.show_all()
+                self.local_list.add(row)
+
+        def refresh_sensitivity(self):
+            self.restore_btn.set_sensitive(
+                bool(self.snapshots) and self.backup_proc is None)
+            self.backup_btn.set_sensitive(
+                bool(self.target) and have(RESTIC) and self.backup_proc is None)
+            self.local_restore_btn.set_sensitive(bool(self.local_snaps))
+
+        def on_row_selected(self, _listbox, row):
+            self.selected = None
+            if row is not None:
+                self.selected = getattr(row, "snapshot_id", None)
+            self.refresh_sensitivity()
+
+        def on_backup_now(self, _btn):
+            if self.backup_proc is not None:
+                return
+            pw = load_passphrase()
+            if not pw:
+                self.set_status("Passphrase unavailable — unlock the keychain.")
+                return
+            self.set_status("Backing up…")
+            self.backup_btn.set_sensitive(False)
+            try:
+                self.backup_proc = popen_restic(
+                    backup_command(self.target, extra_excludes=[self.target])[2:],
+                    pw, self.target)
+            except OSError as e:
+                self.backup_proc = None
+                self.refresh_sensitivity()
+                self.set_status("Could not start restic: %s" % e)
+                return
+            GLib.child_watch_add(self.backup_proc.pid, self._on_backup_exit)
+
+        def _on_backup_exit(self, _pid, status):
+            proc = self.backup_proc
+            self.backup_proc = None
+            rc = os.waitstatus_to_exitcode(status)
+            err = ""
+            try:
+                if proc is not None and proc.stderr is not None:
+                    err = proc.stderr.read().decode("utf-8", "replace").strip()
+            except Exception:
+                pass
+            if rc == 0:
+                self.set_status("Backup complete.")
+            else:
+                self.set_status("Backup failed (exit %d)%s"
+                                % (rc, ": " + err.splitlines()[-1] if err else ""))
+            self.refresh_snapshots()
+            return False
+
+        def on_restore(self, _btn):
+            if not self.selected:
+                self.set_status("Select a snapshot to restore.")
+                return
+            dialog = Gtk.FileChooserDialog(
+                title="Restore Into Folder", parent=self,
+                action=Gtk.FileChooserAction.SELECT_FOLDER)
+            dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                             Gtk.STOCK_OPEN, Gtk.ResponseType.ACCEPT)
+            if dialog.run() != Gtk.ResponseType.ACCEPT:
+                dialog.destroy()
+                return
+            dest = dialog.get_filename()
+            dialog.destroy()
+            confirm = Gtk.MessageDialog(
+                parent=self, modal=True, message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.OK_CANCEL, text="Restore snapshot?")
+            confirm.format_secondary_text(
+                "Files from the selected snapshot will be copied into:\n%s\n"
+                "Existing files are not overwritten unless they differ."
+                % dest)
+            if confirm.run() != Gtk.ResponseType.OK:
+                confirm.destroy()
+                return
+            confirm.destroy()
+            pw = load_passphrase()
+            if not pw:
+                self.set_status("Passphrase unavailable — unlock the keychain.")
+                return
+            self.set_status("Restoring…")
+            try:
+                proc = subprocess.run(
+                    restic_restore_cmd(self.target, self.selected, dest),
+                    env=restic_env(self.target, pw),
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    timeout=7200)
+            except (OSError, subprocess.SubprocessError) as e:
+                self.set_status("Restore failed: %s" % e)
+                return
+            if proc.returncode != 0:
+                err = (proc.stderr or b"").decode("utf-8", "replace").strip()
+                self.set_status("Restore failed: %s"
+                                % (err.splitlines()[-1] if err else ""))
+                return
+            self.set_status("Restored into %s" % dest)
+
+        def on_local_restore(self, _btn):
+            rows = self.local_list.get_selected_rows()
+            if not rows:
+                self.set_status("Select a local snapshot to restore.")
+                return
+            path = getattr(rows[0], "snapshot_path", None)
+            if not path:
+                return
+            confirm = Gtk.MessageDialog(
+                parent=self, modal=True, message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.OK_CANCEL,
+                text="Restore local snapshot (destructive)?")
+            confirm.format_secondary_text(
+                "This replaces the current @ and @home subvolumes with:\n%s\n"
+                "A safety snapshot of the current state is taken first. "
+                "This cannot be undone." % path)
+            if confirm.run() != Gtk.ResponseType.OK:
+                confirm.destroy()
+                return
+            confirm.destroy()
+            self.set_status("Local snapshot restore requires the recovery "
+                            "environment — use `btrfs subvolume snapshot` from "
+                            "a live session for now.")
+            self.show_banner(
+                Gtk.MessageType.INFO,
+                "Destructive btrfs restore is intentionally not performed from "
+                "a running system. Boot the recovery environment and restore "
+                "from there.")
+
+        def on_key_press(self, _widget, event):
+            key = Gdk.keyval_name(event.keyval)
+            if key == "Escape":
+                self.destroy()
+                return True
+            if key in ("b", "B") and event.state & Gdk.ModifierType.CONTROL_MASK:
+                self.on_backup_now(None)
+                return True
+            if key in ("r", "R") and event.state & Gdk.ModifierType.CONTROL_MASK:
+                self.on_restore(None)
+                return True
+            return False
 
 
 def main():
