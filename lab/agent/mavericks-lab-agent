@@ -907,6 +907,7 @@ def serve():
             resp = {"id": job_id, "ok": False, "error": f"unknown command: {cmd}"}
             print(json.dumps(resp), flush=True)
             continue
+        result = None
         try:
             result = handler(args)
             if "error" in result:
@@ -924,7 +925,7 @@ def serve():
             {
                 "job_id": job_id,
                 "cmd": cmd,
-                "result": result if "error" not in result else None,
+                "result": result if result and "error" not in result else None,
                 "error": resp.get("error"),
             },
         )

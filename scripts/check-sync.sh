@@ -40,6 +40,7 @@ PAIRS=(
   "configs/desktop/xfce/settings.ini:archiso-profile/releng/airootfs/etc/skel/.config/gtk-3.0/settings.ini"
   "configs/desktop/thunar/thunarrc:archiso-profile/releng/airootfs/etc/skel/.config/Thunar/thunarrc"
   "configs/desktop/thunar/bookmarks:archiso-profile/releng/airootfs/etc/skel/.gtk-bookmarks.template"
+  "configs/desktop/xfce/xfce4-desktop.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
   "configs/desktop/lightdm/lightdm.conf:archiso-profile/releng/airootfs/etc/lightdm/lightdm.conf"
   "configs/desktop/lightdm/lightdm-gtk-greeter.conf:archiso-profile/releng/airootfs/etc/lightdm/lightdm-gtk-greeter.conf"
   "configs/desktop/plank/dock1-settings:archiso-profile/releng/airootfs/etc/skel/.config/plank/dock1/settings"

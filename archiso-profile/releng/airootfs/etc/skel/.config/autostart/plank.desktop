@@ -5,4 +5,4 @@ Comment=Mavericks-style dock
 Exec=plank
 Icon=plank
 Terminal=false
-X-GNOME-Autostart-enabled=true
+X-Mavericks-Autostart-enabled=true

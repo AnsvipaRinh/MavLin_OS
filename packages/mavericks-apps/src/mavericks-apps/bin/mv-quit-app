@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+"""mv-quit-app — Quit the currently focused application (Super+Q).
+
+Mavericks-like: sends a proper quit signal to the application (not kill).
+Uses xdotool to send WM_DELETE_WINDOW message.
+"""
+import subprocess
+import sys
+
+def main():
+    try:
+        # Get the active window
+        result = subprocess.run(
+            ["xdotool", "getactivewindow"],
+            capture_output=True, text=True, timeout=2
+        )
+        if result.returncode != 0:
+            return 1
+        win_id = result.stdout.strip()
+        if not win_id:
+            return 1
+        
+        # Send WM_DELETE_WINDOW (proper close request)
+        subprocess.run(
+            ["xdotool", "windowclose", win_id],
+            timeout=1
+        )
+        return 0
+    except Exception:
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())

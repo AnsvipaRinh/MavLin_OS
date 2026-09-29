@@ -1,7 +1,7 @@
 #!/usr/bin/env xdg-open
-# Thunar UCA: "Play video-only" — mpv + yt-dlp video-only playback.
+# Mavericks UCA: "Play video-only" — mpv + yt-dlp video-only playback.
 # OPT-IN action: does NOT steal default video/* handler.
-# This is a .desktop file wrapper for Thunar UCA integration.
+# This is a .desktop file wrapper for Mavericks integration.
 [Desktop Entry]
 Type=Application
 Name=Play video-only

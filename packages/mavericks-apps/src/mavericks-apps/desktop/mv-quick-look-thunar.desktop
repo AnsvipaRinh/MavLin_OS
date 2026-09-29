@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Quick Look (Thunar)
+Name=Quick Look
 GenericName=File Preview
-Comment=Preview selected files in Thunar (Space equivalent)
+Comment=Preview selected files (Space equivalent)
 Exec=mv-quicklook-thunar
 Icon=preview
 Terminal=false
