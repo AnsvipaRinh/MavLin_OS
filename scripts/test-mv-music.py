@@ -504,6 +504,59 @@ def test_gui_smoke(m, tmp):
         controller.close()
 
 
+def test_scan_cache(m, tmp):
+    """P1-C3: mtime+size+count-keyed scan-result cache.
+    Hit returns identical tracks without re-reading files; add/remove/
+    modify invalidates; corrupt cache is quarantined and rescanned."""
+    cache_dir = os.path.join(tmp, "scan-cache")
+    m.scan_cache_dir = lambda: cache_dir
+    lib = os.path.join(tmp, "cachelib")
+    os.makedirs(lib)
+    for i in range(4):
+        make_mp3(os.path.join(lib, "s%d.mp3" % i), title="T%d" % i,
+                 artist="A", album="L", trackno=str(i))
+    cache_file = m.scan_cache_path()
+
+    t1, e1 = m.scan_library(lib)
+    check("cache miss scans all", len(t1) == 4 and e1 == 0, len(t1))
+    check("cache file written", os.path.exists(cache_file))
+
+    t2, e2 = m.scan_library(lib)
+    check("cache hit returns identical tracks",
+          [t["path"] for t in t2] == [t["path"] for t in t1],
+          [t.get("path") for t in t2])
+    check("cache hit strips cover_bytes",
+          all("cover_bytes" not in t for t in t2), t2[0].keys())
+
+    # invalidation: add
+    make_mp3(os.path.join(lib, "s4.mp3"), title="T4", artist="A",
+             album="L", trackno="4")
+    t3, _ = m.scan_library(lib)
+    check("cache invalidated on add", len(t3) == 5, len(t3))
+
+    # invalidation: remove
+    os.remove(os.path.join(lib, "s4.mp3"))
+    t4, _ = m.scan_library(lib)
+    check("cache invalidated on remove", len(t4) == 4, len(t4))
+
+    # invalidation: modify (mtime change)
+    time.sleep(0.01)
+    make_mp3(os.path.join(lib, "s0.mp3"), title="T0", artist="A",
+             album="L", trackno="0")
+    t5, _ = m.scan_library(lib)
+    check("cache invalidated on modify", len(t5) == 4, len(t5))
+
+    # corrupt cache -> quarantine + rescan
+    with open(cache_file, "w") as f:
+        f.write("NOT JSON {{{")
+    t6, _ = m.scan_library(lib)
+    check("corrupt cache rescanned", len(t6) == 4, len(t6))
+    quarantined = [f for f in os.listdir(cache_dir) if "corrupt" in f]
+    check("corrupt cache quarantined", len(quarantined) >= 1, quarantined)
+
+    m.scan_cache_dir = lambda: os.path.expanduser("~/.cache/mv-music")
+
+
 def main():
     global m
     m = load_app()
@@ -520,6 +573,7 @@ def main():
     test_play_log(m)
     test_search(m)
     test_cover_cache(m, tmp)
+    test_scan_cache(m, tmp)
     test_media_key_cli(m)
     test_mpris_controller(m)
     test_gui_smoke(m, libdir)

@@ -521,9 +521,17 @@ def search_tracks(tracks, query):
 
 def scan_library(root):
     """Scan root for audio files. Returns (tracks, error_count).
-    Deterministic order: (artist, album, trackno, path)."""
+    Deterministic order: (artist, album, trackno, path).
+    Uses an mtime+size+count-keyed cache: a hit skips re-reading every
+    file's tags (the walk+stat fingerprint is the invalidation check).
+    Cached tracks carry cover_path instead of cover_bytes (binary would
+    bloat the cache); write_cover resolves the cover from cover_path."""
     if not root or not os.path.isdir(root):
         return [], 0
+    fp, count = _scan_fingerprint(root)
+    cached = load_scan_cache(root, fp, count)
+    if cached is not None:
+        return cached, 0
     tracks = []
     errors = 0
     for dirpath, dirnames, filenames in os.walk(root):
@@ -541,7 +549,7 @@ def scan_library(root):
                 errors += 1
                 continue
             stem = os.path.splitext(os.path.basename(path))[0]
-            tracks.append({
+            track = {
                 "path": path,
                 "title": tags.get("title") or stem,
                 "artist": tags.get("artist") or "Unknown Artist",
@@ -551,10 +559,120 @@ def scan_library(root):
                 "duration": tags.get("duration"),
                 "cover_bytes": tags.get("cover_bytes"),
                 "cover_mime": tags.get("cover_mime"),
-            })
+            }
+            if track["cover_bytes"]:
+                track["cover_path"] = cover_cache_path(track)
+            tracks.append(track)
     tracks.sort(key=lambda t: (t["artist"].lower(), t["album"].lower(),
                                t["trackno"], t["path"]))
+    save_scan_cache(root, tracks, fp, count)
     return tracks, errors
+
+
+# -------------------------------------------------------------- scan cache
+
+def scan_cache_dir():
+    d = os.path.expanduser("~/.cache/mv-music")
+    try:
+        os.makedirs(d, exist_ok=True)
+    except OSError:
+        d = None
+    return d
+
+
+def scan_cache_path():
+    d = scan_cache_dir()
+    return os.path.join(d, "scan.json") if d else None
+
+
+def _scan_fingerprint(root):
+    """Hash of (path, mtime_ns, size) for supported files + count.
+    Add/remove changes the set+count; modify changes mtime_ns."""
+    h = hashlib.sha1()
+    count = 0
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
+            if os.path.splitext(name)[1].lower() not in SUPPORTED_EXTS:
+                continue
+            try:
+                st = os.stat(path)
+            except OSError:
+                continue
+            h.update(path.encode("utf-8", "replace"))
+            h.update(str(st.st_mtime_ns).encode())
+            h.update(str(st.st_size).encode())
+            count += 1
+    return h.hexdigest(), count
+
+
+def _read_json_safe(path):
+    """Read JSON cache; on any error quarantine the corrupt file (family
+    pattern: never silently lost) and return None (cache miss)."""
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        pass
+    try:
+        os.replace(path, "%s.corrupt-%d" % (path, int(time.time())))
+    except OSError:
+        pass
+    return None
+
+
+def _cacheable_track(track):
+    """Strip binary cover_bytes/cover_mime for the JSON cache; keep
+    cover_path so covers still resolve on a warm scan."""
+    return {k: v for k, v in track.items()
+            if k not in ("cover_bytes", "cover_mime")}
+
+
+def load_scan_cache(root, fp=None, count=None):
+    """Return cached tracks for root, or None on miss/corrupt/stale."""
+    path = scan_cache_path()
+    if not path or not root:
+        return None
+    if fp is None or count is None:
+        fp, count = _scan_fingerprint(root)
+    data = _read_json_safe(path)
+    if not isinstance(data, dict):
+        return None
+    entry = data.get("roots", {}).get(root)
+    if not isinstance(entry, dict):
+        return None
+    if entry.get("fp") != fp or entry.get("count") != count:
+        return None
+    tracks = entry.get("tracks")
+    if not isinstance(tracks, list):
+        return None
+    return tracks
+
+
+def save_scan_cache(root, tracks, fp=None, count=None):
+    path = scan_cache_path()
+    if not path or not root:
+        return
+    if fp is None or count is None:
+        fp, count = _scan_fingerprint(root)
+    data = _read_json_safe(path)
+    if not isinstance(data, dict):
+        data = {}
+    roots = data.get("roots")
+    if not isinstance(roots, dict):
+        roots = {}
+    roots[root] = {"fp": fp, "count": count,
+                   "tracks": [_cacheable_track(t) for t in tracks]}
+    data["roots"] = roots
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, path)
+    except OSError:
+        pass
 
 
 def group_by_album(tracks):
@@ -593,13 +711,16 @@ def cover_cache_dir():
 
 
 def cover_cache_path(track):
+    # Keyed on (path, size, mtime) — NOT file content — so a warm scan
+    # cache can reference the cached cover without re-reading the audio
+    # file. Consistent with the scan cache's mtime+size invalidation: if
+    # the scan cache is valid, the cover path is valid.
     try:
         st = os.stat(track["path"])
         h = hashlib.sha1()
         h.update(track["path"].encode("utf-8", "replace"))
         h.update(str(st.st_size).encode())
-        with open(track["path"], "rb") as f:
-            h.update(f.read(512))
+        h.update(str(int(st.st_mtime)).encode())
         digest = h.hexdigest()[:16]
     except OSError:
         digest = uuid.uuid4().hex[:16]
@@ -614,6 +735,11 @@ def cover_cache_path(track):
 
 
 def write_cover(track):
+    # A warm cached track carries cover_path (no cover_bytes); use it
+    # directly when the cover file already exists.
+    dest = track.get("cover_path")
+    if dest and os.path.exists(dest):
+        return dest
     data = track.get("cover_bytes")
     if not data:
         return None
@@ -1122,6 +1248,20 @@ class MusicWindow(Gtk.Window):
                 or os.environ.get(LIBRARY_ENV)
                 or os.path.expanduser(DEFAULT_LIBRARY))
         self.library_root = root
+        cached = load_scan_cache(root)
+        if cached is not None:
+            self.tracks = cached
+            self.albums = group_by_album(self.tracks)
+            self.track_by_path = {t["path"]: t for t in self.tracks}
+            self._scan_errors = 0
+            self.album_grid.foreach(lambda w: w.destroy())
+            if initial and not cached:
+                self._show_empty(
+                    "No music found",
+                    "Point Music at a folder with audio files, or drop files "
+                    "into %s." % root)
+            self._refresh_views()
+            return
         self._scan_paths = []
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames.sort()

@@ -5,6 +5,7 @@ image dimension header reading, Moments grouping, favorites, albums,
 import tracking, search. GUI: GTK3 Mavericks-styled grid with sidebar,
 search, slideshow, and gthumb handoff for editing. No daemon, no polling.
 License: GPL-2.0-or-later."""
+import hashlib
 import json
 import os
 import shutil
@@ -270,9 +271,16 @@ def _exif_datetime(tiff_blob):
 def scan_library(root):
     """Scan root for image files. Returns (photos, error_count).
     Each photo: path, filename, ext, mtime, size, date (ISO or None),
-    width, height. Sorted by mtime descending."""
+    width, height. Sorted by mtime descending.
+    Uses an mtime+size+count-keyed cache: a hit skips re-reading every
+    file header/EXIF (the walk+stat fingerprint is the invalidation
+    check). Corrupt cache is quarantined, never silently lost."""
     if not root or not os.path.isdir(root):
         return [], 0
+    fp, count = _scan_fingerprint(root)
+    cached = load_scan_cache(root, fp, count)
+    if cached is not None:
+        return cached, 0
     photos = []
     errors = 0
     for dirpath, dirnames, filenames in os.walk(root):
@@ -299,7 +307,106 @@ def scan_library(root):
             except Exception:
                 errors += 1
     photos.sort(key=lambda p: p["mtime"], reverse=True)
+    save_scan_cache(root, photos, fp, count)
     return photos, errors
+
+
+# -------------------------------------------------------------- scan cache
+
+def scan_cache_dir():
+    d = os.path.expanduser("~/.cache/mv-photos")
+    try:
+        os.makedirs(d, exist_ok=True)
+    except OSError:
+        d = None
+    return d
+
+
+def scan_cache_path():
+    d = scan_cache_dir()
+    return os.path.join(d, "scan.json") if d else None
+
+
+def _scan_fingerprint(root):
+    """Hash of (path, mtime_ns, size) for supported files + count.
+    Add/remove changes the set+count; modify changes mtime_ns."""
+    h = hashlib.sha1()
+    count = 0
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
+            if os.path.splitext(name)[1].lower() not in SUPPORTED_EXTS:
+                continue
+            try:
+                st = os.stat(path)
+            except OSError:
+                continue
+            h.update(path.encode("utf-8", "replace"))
+            h.update(str(st.st_mtime_ns).encode())
+            h.update(str(st.st_size).encode())
+            count += 1
+    return h.hexdigest(), count
+
+
+def _read_json_safe(path):
+    """Read JSON cache; on any error quarantine the corrupt file (family
+    pattern: never silently lost) and return None (cache miss)."""
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        pass
+    try:
+        os.replace(path, "%s.corrupt-%d" % (path, int(time.time())))
+    except OSError:
+        pass
+    return None
+
+
+def load_scan_cache(root, fp=None, count=None):
+    """Return cached photos for root, or None on miss/corrupt/stale."""
+    path = scan_cache_path()
+    if not path or not root:
+        return None
+    if fp is None or count is None:
+        fp, count = _scan_fingerprint(root)
+    data = _read_json_safe(path)
+    if not isinstance(data, dict):
+        return None
+    entry = data.get("roots", {}).get(root)
+    if not isinstance(entry, dict):
+        return None
+    if entry.get("fp") != fp or entry.get("count") != count:
+        return None
+    photos = entry.get("photos")
+    if not isinstance(photos, list):
+        return None
+    return photos
+
+
+def save_scan_cache(root, photos, fp=None, count=None):
+    path = scan_cache_path()
+    if not path or not root:
+        return
+    if fp is None or count is None:
+        fp, count = _scan_fingerprint(root)
+    data = _read_json_safe(path)
+    if not isinstance(data, dict):
+        data = {}
+    roots = data.get("roots")
+    if not isinstance(roots, dict):
+        roots = {}
+    roots[root] = {"fp": fp, "count": count, "photos": photos}
+    data["roots"] = roots
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, path)
+    except OSError:
+        pass
 
 
 def group_by_moment(photos):

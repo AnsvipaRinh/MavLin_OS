@@ -290,6 +290,56 @@ def test_scan_library(m, tmp):
     check("empty dir", photos2 == [])
 
 
+def test_scan_cache(m, tmp):
+    """P1-C3: mtime+size+count-keyed scan-result cache.
+    Hit returns identical photos without re-reading files; add/remove/
+    modify invalidates; corrupt cache is quarantined and rescanned."""
+    cache_dir = os.path.join(tmp, "scan-cache")
+    m.scan_cache_dir = lambda: cache_dir
+    lib = os.path.join(tmp, "cachelib")
+    os.makedirs(lib)
+    for i in range(4):
+        make_png(os.path.join(lib, "p%d.png" % i), 8, 6)
+    cache_file = m.scan_cache_path()
+
+    p1, e1 = m.scan_library(lib)
+    check("cache miss scans all", len(p1) == 4 and e1 == 0, len(p1))
+    check("cache file written", os.path.exists(cache_file))
+
+    p2, e2 = m.scan_library(lib)
+    check("cache hit returns identical photos",
+          [p["path"] for p in p2] == [p["path"] for p in p1],
+          [p.get("path") for p in p2])
+
+    # invalidation: add
+    make_png(os.path.join(lib, "p4.png"), 8, 6)
+    p3, _ = m.scan_library(lib)
+    check("cache invalidated on add", len(p3) == 5, len(p3))
+
+    # invalidation: remove
+    os.remove(os.path.join(lib, "p4.png"))
+    p4, _ = m.scan_library(lib)
+    check("cache invalidated on remove", len(p4) == 4, len(p4))
+
+    # invalidation: modify (mtime change)
+    time.sleep(0.01)
+    make_png(os.path.join(lib, "p0.png"), 16, 9)
+    p5, _ = m.scan_library(lib)
+    check("cache invalidated on modify", len(p5) == 4, len(p5))
+    w0 = next(p["width"] for p in p5 if p["filename"] == "p0.png")
+    check("modified file rescanned", w0 == 16, w0)
+
+    # corrupt cache -> quarantine + rescan
+    with open(cache_file, "w") as f:
+        f.write("NOT JSON {{{")
+    p6, _ = m.scan_library(lib)
+    check("corrupt cache rescanned", len(p6) == 4, len(p6))
+    quarantined = [f for f in os.listdir(cache_dir) if "corrupt" in f]
+    check("corrupt cache quarantined", len(quarantined) >= 1, quarantined)
+
+    m.scan_cache_dir = lambda: os.path.expanduser("~/.cache/mv-photos")
+
+
 def test_group_by_moment(m, tmp):
     root = make_library(os.path.join(tmp, "lib"))
     photos, _ = m.scan_library(root)
@@ -497,6 +547,7 @@ def main():
         test_dimensions(m, tmp)
         test_exif_date(m, tmp)
         test_scan_library(m, tmp)
+        test_scan_cache(m, tmp)
         test_group_by_moment(m, tmp)
         test_search_photos(m, tmp)
         test_state_store(m, tmp)
