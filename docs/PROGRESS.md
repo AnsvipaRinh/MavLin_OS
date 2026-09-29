@@ -956,3 +956,12 @@
 - [x] Без демонов и polling (budget check — one-shot /proc); power baseline не тронут
 - [x] Residual: один web-процесс ~400 MB после использования (реальный контент страниц); all-tabs-случай — 4 процесса (форсировано), ограничен budget-fallback. HW: рендеринг на 2304×1440, многочасовая сессия
 - [x] Подробности: `docs/BENCHMARKS.md` (TRACK 1/7), `docs/DECISIONS.md`, `docs/APPS.md` (Dictionary)
+
+### Track 3/7 — Snapshot hooks (2026-09-29, без железа)
+- [x] mv-snapshot-take.sh: axis-S compliant — helper NEVER fails wrapped operation (logs + returns 0 on validation/snapshot errors), no recursion, prune keep-last-N (5 per label, 10 overall) documented in comments, mocked-btrfs tests pass (scripts/test_mv_snapshot_take.py: 7 tests).
+- [x] mavericks-rollback.sh: single rollback procedure (no new daemon), fixed path bug (target_dir#l → #/) and dangerous rm -rf removed; uses cp -a overwrite.
+- [x] mv-experiment.sh: fixed broken case statement syntax, added --no-snapshot flag, pre-change snapshot hook integrated (calls mv-snapshot-take on btrfs, logs + continues on non-btrfs).
+- [x] mavericks-firstboot.sh: pre-change snapshot hook integrated (calls mv-snapshot-take on btrfs, logs + continues on non-btrfs).
+- [x] check-sync.sh: added sync pair for mv-snapshot-take.sh (tools/diagnostics ↔ airootfs).
+- [x] Gate: check-sync ALL CHECKS PASSED (227 checks); test_mv_snapshot_take.py 7/7 pass; bash syntax clean.
+- [x] DECISIONS.md: hook policy entry added (snapshot-before-change = mandatory on btrfs, best-effort on non-btrfs; never blocks operation).

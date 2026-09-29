@@ -1885,3 +1885,37 @@ dirs have no RSS effect (page cache is not process RSS). Not adopted.
 after use (genuine page content); all-tabs-used still spawns 4
 processes (forced) — bounded by the budget fallback. Hardware
 validation: real rendering at 2304×1440, multi-hour session growth.
+
+---
+
+## Track 3/7 — Snapshot hooks: axis-S implementation (2026-09-29)
+
+**Date:** 2026-09-29
+**Context:** Review, test, and commit uncommitted snapshot-hooks work per axis-S requirements from COMPLETENESS_C2.md (§13, Failure/recovery engineering). No reimplementation from scratch.
+
+**Axis-S requirements verified:**
+1. Helper NEVER fails wrapped operation (logs + continues) — mv-snapshot-take.sh returns 0 on validation/snapshot errors, logs ERROR/WARN
+2. No recursion — verified, no recursive calls
+3. Prune keep-last-N documented — 5 per label (SNAPSHOT_KEEP_COUNT), 10 overall (MAX_SNAPSHOT_HISTORY), documented in comments
+4. Hooks in mv-experiment apply + firstboot — both call mv-snapshot-take on btrfs, log + continue on non-btrfs
+5. ONE rollback procedure — mavericks-rollback.sh (fixed path bug target_dir#l → #/, removed dangerous rm -rf, uses cp -a overwrite)
+6. Mocked-btrfs tests — scripts/test_mv_snapshot_take.py: 7 tests (label validation, snapshot creation, skip non-btrfs, index/logging, prune, hook integration, single rollback procedure)
+
+**Changes made:**
+1. **mv-snapshot-take.sh** (tools/diagnostics/ + airootfs mirror): main() returns 0 on all error paths (invalid label, snapshot creation failure, btrfs unavailable), logs errors but never exits with failure — satisfies "helper never fails wrapped op"
+2. **mavericks-rollback.sh**: fixed `${target_dir#l}` bug → `${target_dir#/}`, removed `rm -rf "$target_path"` on system directories, uses `cp -a` overwrite semantics
+3. **mv-experiment.sh**: fixed completely broken case statement syntax (duplicated/mangled dispatch), added `--no-snapshot` flag, pre-change snapshot hook with btrfs check + graceful fallback
+4. **mavericks-firstboot.sh**: pre-change snapshot hook added (step 6/9), same btrfs check + graceful fallback pattern
+5. **check-sync.sh**: added sync pair for mv-snapshot-take.sh
+6. **scripts/test_mv_snapshot_take.py**: new proper Python test (replaced broken bash alias-based test), tests all axis-S requirements
+
+**Gate results:**
+- check-sync.sh: ALL CHECKS PASSED (227 checks)
+- test_mv_snapshot_take.py: 7/7 tests pass
+- bash syntax: clean for all modified files
+
+**Hook policy:** Pre-change snapshots are MANDATORY on btrfs (firstboot + mv-experiment apply), BEST-EFFORT on non-btrfs (logged, operation continues). The helper NEVER blocks the wrapped operation — this is the safety contract for all callers. Rollback is single-procedure via mavericks-rollback.sh (experiment id + label prefix).
+
+**Power baseline:** untouched. No new daemons, no polling, no TLP/kernel/cmdline/sysctl changes. Snapshots are one-shot btrfs CoW operations.
+
+**Status:** Track 3/7 complete. Next: Track 4/7 (DKMS).
