@@ -69,6 +69,13 @@ fi
 chmod 600 "$AUTHORIZED_KEYS"
 chown -R "$LAB_USER:$LAB_USER" "$LAB_HOME/.ssh"
 
+# 3b. Enable sshd — EXPLICIT OPT-IN for remote bring-up (P0-J1).
+#     The ISO and installed system ship sshd OFF with root locked. Installing
+#     the lab agent is the deliberate act that turns remote management on.
+#     Access is key-based forced-command as the unprivileged $LAB_USER only.
+log "enabling sshd (explicit remote-bring-up opt-in)"
+systemctl enable --now sshd.service
+
 # 4. systemd oneshot unit
 log "installing systemd oneshot unit"
 cat > /etc/systemd/system/mavericks-lab-agent-boot.service <<EOF

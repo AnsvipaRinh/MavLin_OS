@@ -58,6 +58,11 @@ systemctl enable NetworkManager.service
 systemctl enable systemd-resolved.service 2>/dev/null || true
 systemctl mask ModemManager.service 2>/dev/null || true
 systemctl disable sshd.service reflector.service 2>/dev/null || true
+# Security (P0-J1): lock root on the installed system (defense-in-depth; the
+# ISO airootfs shadow is locked at packaging time). Remote bring-up is
+# key-based SSH as the unprivileged mavericks-lab user (lab/agent/install.sh
+# is the explicit opt-in that enables sshd) — never root login.
+passwd -l root 2>/dev/null || true
 
 log "6/7 fstrim timer + desktop/firefox skel"
 # SSD health: weekly TRIM (negligible cost, prevents performance degradation)

@@ -1,5 +1,65 @@
 # DECISIONS
 
+## 2026-09-29 — P0-J1 SECURITY: ISO sshd disabled, root locked, permissive override removed (safe-optimization class)
+
+**Date:** 2026-09-29
+**Context:** Implements P0-J1 from `docs/COMPLETENESS_C2.md` (axis J). The ISO
+shipped sshd ENABLED (`multi-user.target.wants/sshd.service`) with
+`sshd_config.d/10-archiso.conf` (`PasswordAuthentication yes` +
+`PermitRootLogin yes`) and root with an EMPTY password
+(`root::` in airootfs shadow). sshd's compiled-in `PermitEmptyPasswords no`
+blocked empty-password root login, but the attack surface was real: a
+running daemon permitting root login with password auth on any
+local-network interface. Class: safe-optimization (security hardening, no
+behavior change for the local install flow).
+
+**Verify-first (no-boot-breakage reasoning):**
+- **Install flow is local.** The MacBook install is performed from the live
+  ISO on the USB-C console (external keyboard); nothing in the install path
+  uses SSH. `mavericks-firstboot.sh` already disabled sshd on the installed
+  system (`systemctl disable sshd.service`).
+- **Remote bring-up does NOT need root-SSH.** `lab/agent/install.sh`
+  connects as the unprivileged `mavericks-lab` user (`/usr/sbin/nologin`)
+  with ed25519 key auth + forced-command (no shell, no pty, no forwarding).
+  It never uses root. It does not even enable sshd itself — that was an
+  implicit dependency on the ISO's open-by-default sshd, now made explicit
+  (see below).
+- **sshd is not in the boot critical path.** No `.wants/.requires` symlink
+  references sshd (verified by explicit symlink walk in check-sync.sh).
+  Its removal cannot delay or break boot; it was ~5 MB idle-sleep resident
+  (SERVICE_AUDIT.md).
+- **Root lock is safe for the live environment.** The live ISO runs as root
+  directly (console); the desktop uses the lightdm greeter (no root
+  console login); `sudo` remains available from the user account. Matches
+  the macOS target: root disabled by default (dsenableroot to enable).
+
+**Changes:**
+1. **sshd disabled in ISO** — removed
+   `airootfs/etc/systemd/system/multi-user.target.wants/sshd.service`
+   (archiso convention: `.wants` symlinks ARE the enablement).
+2. **Root password locked** — airootfs shadow `root::` → `root:!`.
+   `mavericks-firstboot.sh` additionally runs `passwd -l root` on the
+   installed system (defense-in-depth; the installed shadow comes from
+   Arch base, not our packaging). Mirrored to airootfs copy.
+3. **Permissive override removed** — deleted
+   `airootfs/etc/ssh/sshd_config.d/10-archiso.conf`. With it gone, a
+   future `systemctl enable sshd` gets distro defaults
+   (`PermitRootLogin prohibit-password` — key-only root), not
+   open-root-with-password.
+4. **Documented enable path (explicit opt-in)** — remote bring-up is
+   enabled ONLY by deliberately installing the lab agent:
+   `lab/agent/install.sh` now runs `systemctl enable --now sshd` as an
+   explicit, logged step ("enabling sshd (explicit remote-bring-up
+   opt-in)"). SSH access is then key-based forced-command as
+   `mavericks-lab` — never root. Bring-up runbook: `sudo lab/agent/install.sh`.
+
+**Tests:** check-sync.sh "P0-J1 security" section — sshd symlink absent,
+override absent, root field locked, firstboot locks root, lab install is
+the explicit opt-in, sshd not in boot critical path. 6 new checks.
+
+**Power baseline:** untouched (sshd was idle-sleep ~5 MB; disabling it
+removes a resident process — strictly less).
+
 ## Phase 1: Remote Lab Control Plane (2026-09-28)
 
 **Date:** 2026-09-28
@@ -28,6 +88,37 @@
 **Power baseline:** untouched. No TLP/kernel/cmdline/sysctl changes. No driver modifications. Lab control plane is additive infrastructure, not a baseline change.
 
 **Status:** Phase 1 complete. All pre-hardware lab infrastructure implemented and tested. Phase 2 (QEMU harness + failure injection + external scenarios) is the next track.
+
+---
+
+## Phase 2: QEMU/OVMF A/B Test Harness (2026-09-29)
+
+**Date:** 2026-09-29
+**Context:** Phase 2 of the remote lab control plane. Implements a deterministic A/B test harness with 25 failure-injection scenarios against pluggable target backends. Commit 1d56515.
+
+**Decisions:**
+
+1. **Pluggable backends via narrow TargetBackend API.** `get_boot_state / select_boot / reboot / shutdown` + scenario-specific methods. Three backends: SimBackend (rootless, always works — primary), QemuBackend (real guest boot via direct kernel boot), MacBackend (documented stub for MacBook10,1). Scenarios declare which backends they run on.
+
+2. **Declarative YAML scenarios.** Scenario = fixture (initial conditions) + steps (boot/reboot/deploy/select_boot/commit/rollback/status/verify/inject/power_loss/host_crash/wait) + expected assertions (serial_contains, state, active_slot, journal_contains, boot_current, boot_next). Separates SCENARIO from TARGET BACKEND — same scenario runs on sim and qemu.
+
+3. **Direct kernel boot for QEMU.** EFI stub cmdline patching (ext_cmd_line_ptr) does NOT produce serial output for kernel 7.2.6-zen in this QEMU/OVMF config — investigated extensively, documented in docs/LAB_HARNESS.md. Direct boot (`-kernel/-initrd/-append console=ttyS0`) works reliably with the same kernel + initramfs + cmdline. ESP/A/B/DATA structure fully represented in fixtures.
+
+4. **virtio-blk + ext4 for DATA disk.** Both built-in to the kernel (vfat is a module). Guest init is python PID 1: mounts DATA, runs boot stages + agent, command loop. Host writes `cmd.json` → guest runs `agent serve` → host reads `resp.json`. Serial log (`-serial file:`) is ground truth.
+
+5. **Sim backend network simulation.** Network-down: agent runs inside `unshare -rn` (empty /proc/net/route). Network-up: agent runs normally. No root required.
+
+6. **Known QEMU limitation: network-up cannot create routes.** virtio-net module fails ("Unknown symbol" — virtio_ring not exported in this kernel config); netlink RTM_NEWROUTE/RTM_NEWADDR don't create routes for loopback. Network-down scenarios work correctly. Network-up scenarios fail the health check → ROLLBACK (expected, documented). This is an environment limitation, not an agent bug — sim backend covers network-up paths. Full QEMU run (2026-09-29): 1 passed / 18 failed (all this limitation) / 6 skipped (sim-only scenarios).
+
+7. **Result DB: SQLite at /tmp/mavericks-lab-harness/results.sqlite.** Records scenario, backend, result (pass/fail/skip), failure_reason, timestamps, duration, evidence (fixture_dir). Summary counts all rows in the DB (cumulative across runs).
+
+8. **MacBackend is a documented stub ONLY.** Raises NotImplementedError. Does NOT modify any production bootloader. Narrow sudoers (efibootmgr -n/-o) documented for future wiring.
+
+9. **Deferred seam (intentionally):** chunked deploy for large images (currently base64 in single NDJSON message), raw stream deploy (separate SCP channel), QEMU network-up fix, Mac backend wiring to production bootloader.
+
+**Power baseline:** untouched. Harness is test infrastructure — no TLP/kernel/cmdline/sysctl changes. QEMU backend requires root for loop mount (DATA image access); sim backend is fully rootless.
+
+**Status:** Phase 2 complete. Sim 25/25 pass, harness tests 110/110 pass, QEMU backend functional with documented network-up limitation. Remaining: hardware validation on MacBook10,1 (Mac backend wiring).
 
 ---
 

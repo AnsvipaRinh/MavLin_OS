@@ -134,5 +134,49 @@ PYEOF
 echo "--- firefox chrome css ---"
 python3 scripts/test-firefox-chrome.py && ok "firefox chrome css" || bad "firefox chrome css"
 
+echo "--- P0-J1 security: sshd off + root locked + no permissive override ---"
+AIROOT="archiso-profile/releng/airootfs"
+if [[ -e "$AIROOT/etc/systemd/system/multi-user.target.wants/sshd.service" ]]; then
+  bad "sshd.service still enabled in ISO (multi-user.target.wants)"
+else
+  ok "sshd not enabled in ISO"
+fi
+if [[ -e "$AIROOT/etc/ssh/sshd_config.d/10-archiso.conf" ]]; then
+  bad "permissive sshd_config.d/10-archiso.conf still present"
+else
+  ok "no permissive sshd_config override"
+fi
+ROOT_FIELD="$(grep '^root:' "$AIROOT/etc/shadow" 2>/dev/null | cut -d: -f2)"
+if [[ "$ROOT_FIELD" == "!"* ]]; then
+  ok "root password locked in ISO shadow"
+else
+  bad "root password not locked in ISO shadow (field='${ROOT_FIELD}')"
+fi
+if grep -q "passwd -l root" scripts/install/mavericks-firstboot.sh; then
+  ok "firstboot locks root (installed system)"
+else
+  bad "firstboot missing passwd -l root"
+fi
+if grep -q "systemctl enable --now sshd" lab/agent/install.sh; then
+  ok "lab agent install is the explicit sshd opt-in"
+else
+  bad "lab agent install missing explicit sshd enable"
+fi
+# sshd must not be in the boot critical path: no unit Wants/Requires it
+# (explicit symlink walk: grep -r does not follow symlinks during recursion)
+sshd_ref=0
+for d in "$AIROOT/etc/systemd/system/"*.wants "$AIROOT/etc/systemd/system/"*.requires; do
+  [[ -d "$d" ]] || continue
+  for l in "$d"/*; do
+    [[ -L "$l" ]] || continue
+    tgt="$(readlink "$l")"
+    if [[ "$tgt" == *sshd* ]]; then
+      bad "sshd referenced by $l -> $tgt"
+      sshd_ref=1
+    fi
+  done
+done
+[[ $sshd_ref -eq 0 ]] && ok "sshd not in boot critical path"
+
 if [[ $FAIL -eq 0 ]]; then echo "ALL CHECKS PASSED"; else echo "CHECKS FAILED"; fi
 exit $FAIL

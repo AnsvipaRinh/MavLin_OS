@@ -20,7 +20,7 @@
 | xfce4-power-manager | yes | session | event-driven (UPower) | ~10MB | KEEP |
 | fstrim.timer | no | weekly timer | one shot/week | 0 | KEEP |
 | reflector.service | no | boot (oneshot, ISO only) | one shot | 0 | ISO: KEEP; installed: OFF (use reflector.timer weekly or remove) |
-| sshd | yes | boot | idle sleep | ~5MB | ISO: KEEP (bring-up); installed: OFF (enable on demand) |
+| sshd | no | on-demand | idle sleep | ~5MB | OFF everywhere by default (P0-J1); enabled only by explicit opt-in `lab/agent/install.sh` (key-based forced-command as mavericks-lab, never root) |
 | ModemManager | yes | D-Bus activation | polls serial unless filtered | ~10MB | OFF (no modem on MacBook; mask) |
 | thermald | — | — | — | — | REMOVED (Phase 0.2: no DPTF profile need demonstrated) |
 | ananicy-cpp | — | — | — | — | REMOVED (Phase 0.2: no measurable benefit) |
@@ -30,4 +30,4 @@
 ## Actions
 - Installed system: `systemctl disable iwd systemd-networkd; systemctl enable NetworkManager`
 - Installed system: `systemctl mask ModemManager; systemctl disable sshd reflector`
-- Live ISO: unchanged (needs iwd+networkd+sshd for install)
+- Live ISO: sshd disabled (P0-J1, 2026-09-29); install is local (USB-C console), remote bring-up is explicit opt-in via lab/agent/install.sh
