@@ -133,6 +133,20 @@ Strategy 3: Try linux-lts or different kernel version
 - [ ] TLP baseline effectiveness (read-only measurement: tools/diagnostics/mv-power.sh; NEVER powertop --auto-tune on baseline)
 - [ ] Intel P-state / HWP behavior (turbostat + energy_performance_preference)
 - [ ] Battery discharge rate under idle load (10-min samples)
+
+### ISO diagnostic tools (KEEP reasons, C2 P1-O1/O2 verify-first)
+These packages were candidates for removal but are KEPT because HW
+procedures or active code reference them:
+- `intel-gpu-tools` — `intel_gpu_top` is the GPU-usage metric source in
+  the HW_BROWSER_MATRIX.md 4-mode validation plan (also DEPENDENCY_AUDIT.md:21)
+- `powertop` — idle power draw measurement (read-only; DECISIONS.md:566)
+- `turbostat` — used by tools/diagnostics/mv-power.sh, mv-thermal.sh, mv-collect.sh
+- `ethtool` — `ethtool -S wlan0` HW counters in DRIVER_OPTIMIZATION_CANDIDATES.md
+- `dmidecode` — MacBook10,1 revision confirmation + mv-collect.sh
+- `mesa-utils` — GPU bring-up debug tooling (DEPENDENCY_AUDIT.md:21)
+- `less` — man-db hard dependency; `diffutils` — mkinitcpio hard dependency;
+  `hdparm` + `usbutils` — tlp hard dependencies (pacman -Si verified)
+- `stress-ng` — mv-thermal.sh (C1-P1 precedent)
 - [ ] Thermal throttling thresholds (tools/diagnostics/mv-thermal.sh)
 
 ### Photos

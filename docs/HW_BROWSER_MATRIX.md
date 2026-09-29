@@ -75,7 +75,7 @@ cat /sys/class/power_supply/BAT0/power_now
 | Metric | Unit | Source | Notes |
 |---|---|---|---|
 | CPU usage | % | /proc/stat delta | Average over 5-min playback |
-| GPU usage | % | intel_gpu_top (if available) | May not be available; record N/A |
+| GPU usage | % | intel_gpu_top (if available) | May not be available; record N/A. **intel-gpu-tools is in the ISO for exactly this metric** (KEEP reason, C2 P1-O1: referenced by this HW procedure + DEPENDENCY_AUDIT.md:21) |
 | RSS | KB | ps | Peak RSS during playback |
 | Dropped frames | count | mpv OSD/stats | M3/M4 only; M1/M2 N/A |
 | Wakeups | count/sec | powertop | Average over 5-min playback |
