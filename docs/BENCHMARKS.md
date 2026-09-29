@@ -514,3 +514,53 @@ hevc 4.00 / av1(SVT) 2.80 ms per frame.
 - VA-API decode on HD 615 (h264/vp9/hevc offload, av1 absence) → NEEDS_HARDWARE_TEST.md
 - Power/thermal per codec (battery discharge, package vs whole-system, fanless
   throttling) → NEEDS_HARDWARE_TEST.md
+
+---
+
+## COMPLETENESS C1 — P1 implementation before/after — 2026-09-29
+
+- Raw JSON: `docs/benchmarks/results-2026-09-29-c1-p1.json`
+- Method: median of 3 runs. C2 = full-process wall (the timer spawns a
+  process, so process startup is part of the measured cost). C3 =
+  in-process scan wall (the scan is called in-process by the app, so
+  process startup is excluded; cold = cache miss = full scan, warm =
+  cache hit = the post-fix common case).
+- Host: WSL2 Arch (AMD R7 5800HS, 2 vCPU, 7.6 GB). All numbers are
+  host-relative deltas, NOT MacBook predictions (honesty contract).
+
+### C2 — lazy Gtk import in timer one-shots (P1-C2)
+
+| Timer path | Before | After | Delta |
+|---|---|---|---|
+| mv-calendar --check-upcoming (5-min) | 0.4115 s | 0.0964 s | **-77%** |
+| mv-reminders --check-due (hourly) | 0.3770 s | 0.0801 s | **-79%** |
+| mv-timemachine --check-due (hourly) | 0.4291 s | 0.2627 s | **-39%** |
+
+The --check-* paths are pure Python (+ notify-send / libsecret) but paid
+the module-level Gtk import (~150-400 ms per spawn). Defining the GUI
+classes only in GUI mode eliminates it. mv-timemachine retains the
+Secret (libsecret) import in timer mode for passphrase lookup (hence
+the smaller delta). Saves ~4.4 s/hr CPU on the 5-min calendar timer.
+
+### C3 — mtime+size-keyed scan-result cache (P1-C3)
+
+| Scan | Before (full) | After cold (miss) | After warm (hit) |
+|---|---|---|---|
+| mv-music scan_library | 0.0541 s | 0.0818 s | **0.0070 s** |
+| mv-photos scan_library | 0.0163 s | 0.0350 s | **0.0077 s** |
+
+Every app open re-walked the full library and re-read all metadata. The
+cache (mtime+size+count keyed JSON) makes a warm hit skip all file reads
+(walk+stat fingerprint is the invalidation check). The cold-miss column
+carries a one-time fingerprint + cache-write overhead per library change;
+the warm hit is the common case (2nd+ app open) and is 7.7x (music) /
+2.1x (photos) faster than the pre-cache full scan. Break-even vs the
+pre-cache full scan is at 2 opens.
+
+### Suite / gate
+
+- Test scripts: 22 test-*.py. After C1-P1: 20 pass clean; mv-photos
+  91/2 (2 pre-existing gthumb host artifacts); mv-textedit 6/6
+  (pre-existing respawn host artifacts). mv-music 117/0 (+9 cache
+  tests), mv-calendar 64/0, mv-reminders 32/0, mv-timemachine 60/0.
+- Gate: `scripts/check-sync.sh --check-repos` → ALL CHECKS PASSED.

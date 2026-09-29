@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "track": "completeness-C1 P1 implementation",
+  "date": "2026-09-29",
+  "host": "WSL2 Arch (AMD R7 5800HS 3.19 GHz, 2 vCPU, 7.6 GB)",
+  "method": "median of 3 runs; C2 = full-process wall (timer spawns a process); C3 = in-process scan wall (scan is called in-process by the app)",
+  "C2_timer_wall_s": {
+    "mv-calendar --check-upcoming": {"before": 0.4115, "after": 0.0964, "delta_pct": -77},
+    "mv-reminders --check-due": {"before": 0.3770, "after": 0.0801, "delta_pct": -79},
+    "mv-timemachine --check-due": {"before": 0.4291, "after": 0.2627, "delta_pct": -39, "note": "Secret (libsecret) retained in timer mode for passphrase lookup"}
+  },
+  "C3_scan_wall_s": {
+    "mv-music scan_library": {"before_full": 0.0541, "after_cold_miss": 0.0818, "after_warm_hit": 0.0070, "warm_vs_before_pct": -87},
+    "mv-photos scan_library": {"before_full": 0.0163, "after_cold_miss": 0.0350, "after_warm_hit": 0.0077, "warm_vs_before_pct": -53}
+  },
+  "notes": [
+    "C2: lazy Gtk import in timer one-shots; Gtk import (~150-400 ms) eliminated from the --check-* path.",
+    "C3: mtime+size+count-keyed scan-result cache; warm hit skips all file reads. Cold miss carries a one-time fingerprint+cache-write overhead per library change.",
+    "C3 cold-miss overhead is the price of invalidation (walk+stat fingerprint) + JSON cache write; warm scan is the common case (2nd+ app open) and is 7.7x (music) / 2.1x (photos) faster than the pre-cache full scan.",
+    "All host numbers are WSL2/5800HS-relative deltas, NOT MacBook predictions (honesty contract)."
+  ]
+}

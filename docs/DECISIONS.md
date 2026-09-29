@@ -1632,3 +1632,62 @@ OVMF firmware запускается (PI/UEFI), но не обнаруживае
 **Verification:** mv-control test 34/34 (was 32; +2 rescan tests). check-sync.sh ALL CHECKS PASSED (new mirror pair added). No NM/supplicant source patches. Frozen power baseline untouched.
 
 **Status:** D2 config changes applied. HW measurement plan (NM scan wakeups, backend A/B, powersave lever) in DRIVER_OPTIMIZATION_CANDIDATES.md §5. Upstream patch search: NONE (see UPSTREAM_PATCH_TRACKER.md).
+
+## 2026-09-29 — Completeness C1 P1 implementation (dead-weight removal, lazy Gtk, scan cache)
+
+**Date:** 2026-09-29
+**Context:** Implements the four P1 proposals from `docs/COMPLETENESS_C1.md`
+(commit 2a56789) with before/after measurement discipline. No scope creep
+beyond the four items.
+
+**Decisions:**
+
+1. **P1-C1 — 13 packages removed, stress-ng KEPT.** Removed from
+   `packages.x86_64` (142 → 129, ~330 MiB): linux, sof-firmware,
+   linux-firmware-marvell, refind, orage, flameshot, xfce4-taskmanager,
+   xfce4-appfinder, xfce4-notes-plugin, rsync, wireless_tools, mc, vim.
+   Each verified unreferenced (word-boundary grep of .desktop Exec, MIME
+   handlers, firstboot, scripts, configs, backend claims in APPS.md).
+   **stress-ng KEPT** — functionally used by `mv-thermal.sh`
+   (`archiso-profile/.../usr/local/bin/mavericks/mv-thermal.sh:9`) for
+   thermal diagnostics. The `99-fix-linux-preset.hook` is now inert
+   (linux pkg not installed) but left in place (out of scope; harmless,
+   useful if linux is ever re-added).
+
+2. **P1-C4 — 8 dead systemd units removed via .wants symlink removal.**
+   archiso convention: `.wants` symlinks ARE the enablement; removing them
+   disables the unit (no mask/blacklist needed in the ISO). Removed 5x
+   cloud-init + pcscd.socket + ModemManager.service + livecd-talk.service
+   (unit file + symlink). The firstboot `systemctl mask ModemManager` is
+   KEPT as defense-in-depth for the installed system. VM agents KEPT for
+   QEMU smoke test.
+
+3. **P1-C2 — lazy Gtk import via conditional class definition.** The
+   `--check-*` timer paths are pure Python (+ notify-send / libsecret) but
+   paid the module-level Gtk import. Fix: `_GUI` flag from argv; Gtk
+   imported and GUI classes defined only in GUI mode. mv-timemachine
+   retains the Secret (libsecret) import in BOTH modes (needed for
+   passphrase lookup in the timer path). Behavior preserved: GUI mode
+   defines all classes; timer mode exits before any GUI code.
+
+4. **P1-C3 — scan-result cache with cover_path indirection.**
+   mtime+size+count-keyed JSON cache. **Key non-obvious decision:** cached
+   mv-music tracks cannot store binary `cover_bytes` (would bloat the
+   cache to hundreds of MB for a real library). Instead, cached tracks
+   carry `cover_path`, and `cover_cache_path` was changed from a
+   content-hash (path+size+first-512-bytes, which required opening the
+   audio file) to an mtime-hash (path+size+mtime). This lets a warm scan
+   reference the cached cover file WITHOUT re-reading the audio file —
+   the cover cache path is computable from data already in the cached
+   track. The mtime key is consistent with the scan cache's own
+   invalidation (if the scan cache is valid, the cover path is valid).
+   `write_cover` resolves `cover_path` first, falls back to `cover_bytes`.
+   Trade-off: if the cover cache dir is cleared but the scan cache
+   persists, covers show as placeholders until the next cold scan (rare;
+   both live under the same ~/.cache/mv-music/).
+
+**Power baseline:** untouched. No TLP/kernel/cmdline/sysctl changes.
+
+**Measurement:** see `docs/BENCHMARKS.md` (C1-P1 section) and
+`docs/benchmarks/results-2026-09-29-c1-p1.json`. All numbers are
+host-relative deltas, NOT MacBook predictions.

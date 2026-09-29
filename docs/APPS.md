@@ -117,8 +117,12 @@
 
 ## Backend license summary (all OSI-approved)
 MIT: rofi. GPL-2.0(-only/-or-later): Thunar, xfce4*, trash-cli, xarchiver,
-mousepad, galculator, orage, gnome-disk-utility, seahorse, gcolor3,
-xfce4-notes-plugin, gtksourceview4, plocate, custom mavericks-apps.
+mousepad, galculator, gnome-disk-utility, seahorse, gcolor3,
+gtksourceview4, plocate, custom mavericks-apps.
 GPL-3.0-or-later: lollypop, geary, mavericks-theme. LGPL (libraries): poppler-glib,
 GTK3, GLib/GIO. Apache-2.0: LocalSend GUI (localsend-bin, AUR optdep).
 AGPL-3.0-only: LocalSend CLI (localsend-cli-bin, AUR optdep).
+
+Note: orage and xfce4-notes-plugin were removed from the ISO in the
+C1-P1 dead-weight pass (duplicate calendar/notes; mv-calendar and
+mv-notes are the project's own). stress-ng was kept (mv-thermal.sh).

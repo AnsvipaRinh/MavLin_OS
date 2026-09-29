@@ -1,5 +1,15 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Completeness C1 — P1 implementation (2026-09-29, без железа)
+- [x] P1-C1: removed 13 dead-weight packages from ISO (142→129, ~330 MiB): linux, sof-firmware, linux-firmware-marvell, refind, orage, flameshot, xfce4-taskmanager, xfce4-appfinder, xfce4-notes-plugin, rsync, wireless_tools, mc, vim. **stress-ng KEPT** (mv-thermal.sh). Each verified unreferenced. check-sync --check-repos green. (3193695)
+- [x] P1-C4: removed 8 dead systemd units via .wants symlink removal (archiso convention): 5x cloud-init + pcscd.socket + ModemManager + livecd-talk. firstboot ModemManager mask kept; VM agents kept for QEMU. (7eb6977)
+- [x] P1-C2: lazy Gtk import in timer one-shots (mv-calendar/mv-reminders/mv-timemachine). Timer paths no longer import Gtk. mv-calendar 0.41→0.10s, mv-reminders 0.38→0.08s, mv-timemachine 0.43→0.26s (Secret retained). (444fba3)
+- [x] P1-C3: mtime+size+count-keyed scan-result cache in mv-music/mv-photos. Warm hit skips all file reads. mv-music 0.054→0.007s (7.7×), mv-photos 0.016→0.008s (2.1×). Cover handling via cover_path + mtime-keyed cover_cache_path. (e6d65ba)
+- [x] Tests: +9 cache tests per app, +1 lazy-import test per timer app. mv-music 117/0, mv-calendar 64/0, mv-reminders 32/0, mv-timemachine 60/0. Pre-existing host artifacts unchanged (mv-photos 2 gthumb, mv-textedit 6 respawn).
+- [x] Gate: check-sync --check-repos ALL CHECKS PASSED. Power baseline untouched.
+- [x] Before/after: docs/BENCHMARKS.md (C1-P1 section) + docs/benchmarks/results-2026-09-29-c1-p1.json
+- [ ] HW validation (NEEDS_HARDWARE_TEST.md): all remaining items are hardware measurements/validation.
+
 ### Phase 1 — Remote Lab Control Plane (2026-09-28, без железа)
 - [x] Agent: `lab/agent/mavericks-lab-agent` — single-file, python3 stdlib, zero-idle, SSH forced-command, NOT a daemon
 - [x] Protocol: NDJSON over stdin/stdout, 17 commands (status, inventory, collect, run-test, benchmark, deploy, verify, reboot, shutdown, select-boot, commit, rollback, snapshot, restore, logs, trace, ping)
