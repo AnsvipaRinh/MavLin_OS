@@ -496,6 +496,83 @@ def scenario_nmcli_wifi_list(ctx):
                 "refresh_wifi_list polling cost (docs/PERF_AUDIT.md suspect S-01)"}
 
 
+def scenario_cold_warm_distortion(ctx):
+    """S23: quantify bench.py's own cold-vs-warm distortion (axis R).
+
+    Runs the gi+Gtk import 6x in fresh subprocesses. Run 1 pays cold
+    bytecode/page-cache; runs 2-6 are warm. distortion_pct is the inflation
+    a repeats=1 scenario (S03) reports vs the warm median. True cold-cache
+    measurement needs root (drop_caches) — NOT-MEASURABLE as user; this is
+    the session-level proxy.
+    """
+    cmd = [sys.executable, "-c",
+           "import gi; gi.require_version('Gtk','3.0'); from gi.repository import Gtk"]
+    walls = []
+    for _ in range(6):
+        wall, rc, _, _ = run_cmd(cmd, timeout=30, env=headless_env())
+        if rc != 0:
+            raise RuntimeError("gi import failed")
+        walls.append(wall * 1000)
+    warm = sorted(walls[1:])
+    warm_med = warm[len(warm) // 2]
+    distortion = 100.0 * (walls[0] - warm_med) / warm_med if warm_med else 0.0
+    return {"first_run_ms": round(walls[0], 1),
+            "warm_median_ms": round(warm_med, 1),
+            "distortion_pct": round(distortion, 1)}, {
+        "note": "S03 (repeats=1) always reports the cold value; this quantifies "
+                "the inflation vs warm median. Host page cache stays warm across "
+                "runs; true cold needs root.",
+        "all_runs_ms": [round(w, 1) for w in walls]}
+
+
+def scenario_ui_resource_load(ctx):
+    """S24: GTK resource/UI loading costs (axis L).
+
+    Measures the per-app-startup resource costs that every GTK app pays:
+    theme CSS parse (CssProvider), desktop/MIME DB parse (AppInfo.get_all),
+    icon lookup, Pango font discovery. In-process medians after warmup.
+    """
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, Gio, PangoCairo
+    theme_css = REPO / "packages/mavericks-theme/src/mavericks-theme/gtk-3.0/gtk.css"
+
+    def med_ms(fn, n=11, warmup=3):
+        for _ in range(warmup):
+            fn()
+        ts = []
+        for _ in range(n):
+            t0 = time.monotonic()
+            fn()
+            ts.append((time.monotonic() - t0) * 1000)
+        ts.sort()
+        return ts[len(ts) // 2]
+
+    out = {}
+    if theme_css.exists():
+        def load_css():
+            cp = Gtk.CssProvider()
+            cp.load_from_path(str(theme_css))
+        out["css_parse_ms"] = round(med_ms(load_css), 2)
+    def appinfo_all():
+        return len(Gio.AppInfo.get_all())
+    out["appinfo_getall_ms"] = round(med_ms(appinfo_all), 2)
+    theme = Gtk.IconTheme.get_default()
+    def icon_lookup():
+        return theme.lookup_icon("folder", 24, 0) is not None
+    out["icon_lookup_ms"] = round(med_ms(icon_lookup), 3)
+    fmap = PangoCairo.FontMap.get_default()
+    pctx = fmap.create_context()
+    def font_enum():
+        return len(pctx.list_families())
+    out["font_families_ms"] = round(med_ms(font_enum), 3)
+    return out, {
+        "note": "per-app-startup resource costs; css_parse is paid once per "
+                "process by GTK itself, appinfo/icon/font are paid only by apps "
+                "that call them (mv-launchpad/mv-spotlight parse .desktop "
+                "manually: ~12-15 ms, see COMPLETENESS_C2.md axis L)"}
+
+
 def scenario_skipped(ctx, reason):
     return None, {"reason": reason}
 
@@ -787,6 +864,8 @@ SCENARIOS = {
     "S20-browser-youtube-return-to-idle": (scenario_browser_youtube_return_to_idle, 3),
     "S21-finder-scan-return-to-idle": (scenario_finder_scan_return_to_idle, 3),
     "S22-notification-burst-return-to-idle": (scenario_notification_burst_return_to_idle, 3),
+    "S23-cold-warm-distortion": (scenario_cold_warm_distortion, 1),
+    "S24-ui-resource-load": (scenario_ui_resource_load, 1),
     "S06-launchpad-open": (lambda c: scenario_skipped(
         c, no_x_reason("rofi render tier")), 1),
     "S07-mission-control": (lambda c: scenario_skipped(
