@@ -24,9 +24,11 @@ import time
 
 SERIAL = "/dev/ttyS0"
 DATA = "/mnt/data"
+CMD_DIR = "/mnt/cmd"
 AGENT = "/opt/mavericks-lab-agent"
 INBOX = os.path.join(DATA, "deploy-inbox")
-CMD_PORT = "/dev/virtio-ports/org.mavericks.cmd"
+CMD = os.path.join(CMD_DIR, "cmd.json")
+RESP = os.path.join(CMD_DIR, "resp.json")
 
 
 def serial(msg):
@@ -281,31 +283,13 @@ def run_agent_boot():
 
 def run_agent_cmd():
     try:
-        # Open the virtio-serial port for reading command, writing response
-        with open(CMD_PORT, "r+") as f:
-            line = f.readline()
-            if not line:
-                return
-            req = json.loads(line.strip())
-            job_id = req.get("id") or str(uuid.uuid4())
-            cmd = req.get("cmd", "")
-            args = req.get("args", {})
-            handler = COMMANDS.get(cmd)
-            if not handler:
-                resp = {"id": job_id, "ok": False, "error": f"unknown command: {cmd}"}
-            else:
-                try:
-                    result = handler(args)
-                    if "error" in result:
-                        resp = {"id": job_id, "ok": False, "error": result["error"]}
-                    else:
-                        resp = {"id": job_id, "ok": True, "result": result}
-                except Exception as e:
-                    resp = {"id": job_id, "ok": False, "error": f"{type(e).__name__}: {e}"}
-            f.write(json.dumps(resp) + "\n")
-            f.flush()
-    except Exception as e:
-        serial(f"CMD_PORT error: {e}")
+        with open(CMD) as fin, open(RESP, "w") as fout:
+            subprocess.run(
+                ["/usr/bin/python3", AGENT, "serve"], stdin=fin, stdout=fout,
+                env=agent_env(), timeout=60,
+            )
+    except Exception:
+        pass
 
 
 def stage_rootfs(slot):
@@ -363,15 +347,13 @@ def boot_flow(fixture):
 
 def command_loop(fixture):
     serial("CMD_LOOP enter")
-    loop_count = 0
     while True:
-        loop_count += 1
-        if loop_count % 50 == 0:
-            serial(f"CMD_LOOP alive count={loop_count}")
-        try:
+        if os.path.exists(CMD):
             run_agent_cmd()
-        except Exception:
-            pass
+            try:
+                os.unlink(CMD)
+            except OSError:
+                pass
         time.sleep(0.2)
 
 
@@ -393,9 +375,21 @@ def main():
         serial("DATA_MOUNT fail")
         poweroff()
     serial("DATA_MOUNT ok")
-    # wait for virtio-serial command port
-    wait_for_dev(CMD_PORT, retries=20, delay=0.3)
-    serial("CMD_PORT ready")
+    # mount 9p command channel
+    try:
+        os.makedirs(CMD_DIR, exist_ok=True)
+        # load 9p modules
+        for mod in ["9p.ko.zst", "9pnet.ko.zst", "9pnet_virtio.ko.zst"]:
+            for base in ["/lib/modules/7.2.6-zen2-1-zen/kernel/fs/9p",
+                         "/lib/modules/7.2.6-zen2-1-zen/kernel/net/9p"]:
+                mod_path = os.path.join(base, mod)
+                if os.path.exists(mod_path):
+                    subprocess.run(["/usr/sbin/insmod", mod_path],
+                                   timeout=10, capture_output=True, check=False)
+        mount("cmd-channel", CMD_DIR, "9p", "trans=virtio,version=9p2000.L")
+        serial("CMD_CHANNEL_MOUNT ok")
+    except Exception as e:
+        serial(f"CMD_CHANNEL_MOUNT fail: {e}")
     fixture = read_fixture()
     max_boots = int(fixture.get("max_boots", "10"))
     for _ in range(max_boots):

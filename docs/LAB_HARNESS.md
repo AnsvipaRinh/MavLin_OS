@@ -30,18 +30,17 @@ Runs 25 failure-injection scenarios against pluggable target backends.
 ### QemuBackend (real guest boot)
 - Direct kernel boot: `qemu-system-x86_64 -kernel vmlinuz -initrd initramfs -append "console=ttyS0"`
 - DATA disk: virtio-blk (CONFIG_VIRTIO_BLK=y), ext4 (CONFIG_EXT4_FS=y)
+- Network: virtio-net-pci (CONFIG_VIRTIO_NET=y), user-mode SLiRP (`-netdev user,id=net0 -device virtio-net-pci,netdev=net0`)
 - Guest init (python, PID 1): mounts DATA, runs boot stages + agent, command loop
-- Host writes `cmd.json` to DATA → guest runs `agent serve` → host reads `resp.json`
+- Host writes `cmd.json` to 9p virtfs share (cmd-channel) → guest runs `agent serve` → host reads `resp.json`
 - Serial log = QEMU `-serial file:` (ground truth)
-- **Known limitation**: network-up cannot create a route in the guest
-  (virtio-net module fails with "Unknown symbol" — virtio_ring not exported;
-  netlink RTM_NEWROUTE/RTM_NEWADDR don't create routes for loopback).
-  Network-down scenarios work correctly. Network-up scenarios are
-  expected to fail the health check in QEMU mode (documented).
-- **Full QEMU run (2026-09-29)**: 1 passed / 18 failed / 6 skipped.
-  All 18 failures are this network-up limitation (health check fails →
-  ROLLBACK). The 6 skips declare `backends: [sim]` only. The sim backend
-  (primary) passes 25/25 and covers the network-up paths.
+- **Known limitation**: 9p virtfs command channel mount fails in guest (ENODEV — 9p modules load but transport not ready).
+  Network-up now works: virtio-net-pci with user-mode SLiRP provides eth0 with route via 10.0.2.2.
+  Network-down scenarios work correctly. Command channel scenarios (select_boot, status, etc.)
+  are blocked on the 9p mount issue.
+- **Full QEMU run (2026-09-30)**: Network-up boot scenarios pass (HEALTHY). Command-channel
+  scenarios (select_boot, status, etc.) fail due to 9p mount. The 6 skips declare
+  `backends: [sim]` only. The sim backend (primary) passes 25/25.
 
 ### MacBackend (documented stub)
 - Placeholder for future MacBook10,1 hardware validation

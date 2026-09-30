@@ -7,23 +7,20 @@ documented in docs/LAB_HARNESS.md).
 
 The guest init (guest_init.py) runs as PID 1, mounts the DATA disk
 (virtio-blk, ext4), runs boot stages + the agent, and enters a command
-loop. The host communicates via virtio-serial port (org.mavericks.cmd),
+loop. The host communicates via 9p virtfs share (cmd-channel),
 the guest processes commands, the host reads responses.
 
 Disk: virtio-blk (CONFIG_VIRTIO_BLK=y built-in), ext4 (CONFIG_EXT4_FS=y).
 Network: virtio-net-pci (CONFIG_VIRTIO_NET=y built-in), user-mode SLiRP
 (no ICMP — agent comms use TCP/HTTP via DATA disk; guest health check
 validates /proc/net/route presence).
-Command channel: virtio-serial (CONFIG_VIRTIO_CONSOLE=y built-in),
-/dev/virtio-ports/org.mavericks.cmd in guest, Unix socket on host.
+Command channel: 9p virtfs (CONFIG_NET_9P_VIRTIO=m), /mnt/cmd in guest.
 """
 import json
 import os
 import shutil
 import signal
-import socket
 import subprocess
-import threading
 import time
 import uuid
 from pathlib import Path
@@ -44,12 +41,11 @@ class QemuBackend(TargetBackend):
         self.work.mkdir(parents=True, exist_ok=True)
         self.proc = None
         self.monitor_sock = self.work / "monitor.sock"
-        # virtio-serial command channel
-        self.cmd_sock = self.work / "cmd.sock"
-        self._cmd_sock_conn = None
-        self._cmd_lock = threading.Lock()
 
     def _qemu_cmd(self):
+        # Create a directory for the 9p command channel
+        cmd_dir = self.work / "cmd-channel"
+        cmd_dir.mkdir(parents=True, exist_ok=True)
         return [
             "qemu-system-x86_64",
             "-machine", "q35", "-m", "1024", "-smp", "2",
@@ -60,9 +56,7 @@ class QemuBackend(TargetBackend):
             "-device", "virtio-blk-pci,drive=d0",
             "-netdev", "user,id=net0",
             "-device", "virtio-net-pci,netdev=net0",
-            "-device", "virtio-serial-pci",
-            "-chardev", "pty,id=char0",
-            "-device", "virtserialport,chardev=char0,name=org.mavericks.cmd",
+            "-virtfs", f"local,path={cmd_dir},mount_tag=cmd-channel,security_model=mapped-xattr",
             "-serial", f"file:{self.serial_path}",
             "-display", "none", "-no-reboot",
             "-monitor", f"unix:{self.monitor_sock},server,nowait",
@@ -79,36 +73,9 @@ class QemuBackend(TargetBackend):
             sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
             from fixtures import builder
             builder.build_initramfs(initrd)
-        # Start QEMU with stderr captured to find the pty path
         self.proc = subprocess.Popen(
-            self._qemu_cmd(), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
+            self._qemu_cmd(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
-        # Read stderr in a background thread to find the pty path
-        import threading
-        self._cmd_pty_path = None
-        self._pty_found = threading.Event()
-        
-        def read_stderr():
-            for line in self.proc.stderr:
-                line = line.decode(errors="ignore")
-                if "char device redirected to" in line:
-                    import re
-                    m = re.search(r"char device redirected to (/dev/pts/\d+)", line)
-                    if m:
-                        self._cmd_pty_path = m.group(1)
-                        self._pty_found.set()
-                        break
-        
-        stderr_thread = threading.Thread(target=read_stderr, daemon=True)
-        stderr_thread.start()
-        
-        # Wait for pty path
-        if not self._pty_found.wait(timeout=10):
-            self.stop()
-            raise RuntimeError("Failed to find virtio-serial pty path")
-        
-        # Connect to the pty
-        self._cmd_sock_conn = open(self._cmd_pty_path, "r+b", buffering=0)
         return self._wait_for_boot()
 
     def _wait_for_boot(self, timeout=60):
@@ -140,41 +107,30 @@ class QemuBackend(TargetBackend):
             except subprocess.TimeoutExpired:
                 self.proc.kill()
             self.proc = None
-        if self._cmd_sock_conn:
-            self._cmd_sock_conn.close()
-            self._cmd_sock_conn = None
-        if self.cmd_sock.exists():
-            self.cmd_sock.unlink()
-
-    def _send_recv(self, req, timeout=60):
-        """Send request and receive response on the persistent socket connection."""
-        if not self._cmd_sock_conn:
-            return {"ok": False, "error": "not connected to virtio-serial"}
-        with self._cmd_lock:
-            try:
-                self._cmd_sock_conn.sendall((json.dumps(req) + "\n").encode())
-                # Read response (JSON + newline)
-                buf = b""
-                deadline = time.time() + timeout
-                while time.time() < deadline:
-                    try:
-                        data = self._cmd_sock_conn.recv(4096)
-                        if not data:
-                            return {"ok": False, "error": "connection closed"}
-                        buf += data
-                        if b"\n" in buf:
-                            line, _ = buf.split(b"\n", 1)
-                            if line:
-                                return json.loads(line.decode())
-                    except socket.timeout:
-                        continue
-            except Exception as e:
-                return {"ok": False, "error": f"socket error: {e}"}
-        return {"ok": False, "error": "timeout waiting for resp"}
 
     def run_agent_cmd(self, cmd, args=None, timeout=60):
         req = {"id": str(uuid.uuid4()), "cmd": cmd, "args": args or {}}
-        return self._send_recv(req, timeout)
+        # Write cmd.json to the 9p command channel directory
+        cmd_dir = self.work / "cmd-channel"
+        cmd_dir.mkdir(parents=True, exist_ok=True)
+        cmd_file = cmd_dir / "cmd.json"
+        resp_file = cmd_dir / "resp.json"
+        cmd_file.write_text(json.dumps(req))
+        # wait for resp.json to appear (guest processes cmd.json)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if resp_file.exists():
+                try:
+                    resp = json.loads(resp_file.read_text())
+                    resp_file.unlink(missing_ok=True)
+                    return resp
+                except json.JSONDecodeError:
+                    pass
+            if self.proc and self.proc.poll() is not None:
+                return {"ok": False, "error": "guest exited"}
+            time.sleep(0.2)
+        cmd_file.unlink(missing_ok=True)
+        return {"ok": False, "error": "timeout waiting for resp.json"}
 
     def read_serial(self):
         try:

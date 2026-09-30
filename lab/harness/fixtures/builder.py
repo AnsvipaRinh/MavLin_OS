@@ -187,6 +187,18 @@ def build_initramfs(dest):
     src = "/usr/lib/modules/7.2.6-zen2-1-zen/kernel/net/core/failover.ko.zst"
     if Path(src).exists():
         _run(["sudo", "cp", src, str(core_dir)], check=True)
+    # 9p modules for virtfs command channel
+    p9_net_dir = root / "lib/modules/7.2.6-zen2-1-zen/kernel/net/9p"
+    p9_net_dir.mkdir(parents=True, exist_ok=True)
+    for mod in ["9pnet.ko.zst", "9pnet_virtio.ko.zst"]:
+        src = f"/usr/lib/modules/7.2.6-zen2-1-zen/kernel/net/9p/{mod}"
+        if Path(src).exists():
+            _run(["sudo", "cp", src, str(p9_net_dir)], check=True)
+    p9_fs_dir = root / "lib/modules/7.2.6-zen2-1-zen/kernel/fs/9p"
+    p9_fs_dir.mkdir(parents=True, exist_ok=True)
+    src = "/usr/lib/modules/7.2.6-zen2-1-zen/kernel/fs/9p/9p.ko.zst"
+    if Path(src).exists():
+        _run(["sudo", "cp", src, str(p9_fs_dir)], check=True)
     _run(["sudo", "chown", "-R", "builder:builder", str(root / "lib/modules")], check=False)
     # modprobe needs modules.dep etc.
     _run(["/usr/sbin/depmod", "-b", str(root), "7.2.6-zen2-1-zen"], check=False)

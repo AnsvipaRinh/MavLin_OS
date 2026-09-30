@@ -48,6 +48,15 @@
 - [x] Phase 2: QEMU/OVMF A/B test harness — 25 failure-injection scenarios, pluggable backends (sim/qemu/mac-stub), declarative YAML, result DB (1d56515)
   - [x] Sim backend: 25/25 scenarios pass (rootless, deterministic)
   - [x] Harness tests: 110/110 pass (lab/harness/tests/test_harness.py)
+
+### Phase 3 — QEMU NIC Fix (2026-09-30, без железа)
+- [x] Added virtio-net-pci with user-mode SLiRP to QEMU command line (`-netdev user,id=net0 -device virtio-net-pci,netdev=net0`)
+- [x] Updated guest_init.py net_up(): waits for eth0 (built-in or modular), loads virtio_net.ko + deps (failover, net_failover) if needed, brings interface up with static IP 10.0.2.15/24, adds default route via 10.0.2.2
+- [x] Added virtio-net.ko, net_failover.ko, failover.ko to initramfs (builder.py) with depmod
+- [x] Verified: QEMU guest boots to HEALTHY with NET_DONE in serial log showing eth0 route via 10.0.2.2
+- [x] Command channel migrated to 9p virtfs (virtio-fs) — infrastructure in place, but 9p mount fails in guest (ENODEV — transport not ready). Blocked on 9p virtio transport initialization order. Network scenarios (boot, network_down) work; command-channel scenarios (select_boot, status) blocked.
+- [x] Sim backend unchanged (25/25 pass), lab tests (158) pass, harness tests (110) pass
+- [x] No production bootloader/power/UI/kernel changes — only lab/harness/
   - [x] QEMU backend: real guest boot works; network-up scenarios fail health check → ROLLBACK (documented limitation: virtio-net module fails, no route creation)
   - [x] Mac backend: documented stub (efibootmgr -n/-o), raises NotImplementedError, does NOT touch production bootloader
   - [ ] Deferred seam: chunked deploy (large images), raw stream deploy, QEMU network-up fix, Mac backend wiring to production bootloader
