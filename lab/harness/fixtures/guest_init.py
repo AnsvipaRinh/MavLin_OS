@@ -26,8 +26,7 @@ SERIAL = "/dev/ttyS0"
 DATA = "/mnt/data"
 AGENT = "/opt/mavericks-lab-agent"
 INBOX = os.path.join(DATA, "deploy-inbox")
-CMD = os.path.join(DATA, "cmd.json")
-RESP = os.path.join(DATA, "resp.json")
+CMD_PORT = "/dev/virtio-ports/org.mavericks.cmd"
 
 
 def serial(msg):
@@ -120,35 +119,51 @@ def read_slot():
 
 def net_up():
     try:
-        # load virtio core modules then virtio-net for a real network interface
-        vdir = "/lib/modules/7.2.6-zen2-1-zen/kernel/drivers/virtio"
-        ndir = "/lib/modules/7.2.6-zen2-1-zen/kernel/drivers/net"
-        for mod in ["virtio", "virtio_ring", "virtio_pci",
-                    "virtio_pci_modern_dev", "virtio_pci_legacy_dev",
-                    "net_failover", "virtio_net"]:
-            mp = subprocess.run(["/usr/sbin/insmod", f"{vdir}/{mod}.ko.zst"],
-                                timeout=10, capture_output=True, text=True)
-            if mp.returncode != 0:
-                mp = subprocess.run(["/usr/sbin/insmod", f"{ndir}/{mod}.ko.zst"],
-                                    timeout=10, capture_output=True, text=True)
-                if mp.returncode != 0:
-                    serial(f"INSMOD {mod} rc={mp.returncode} err={mp.stderr.strip()[:120]}")
+        # First, wait for eth0 (built-in virtio-net case: CONFIG_VIRTIO_NET=y).
+        # If not found, try loading the module (modular kernel case).
         if not wait_for_dev("/sys/class/net/eth0", retries=20, delay=0.3):
-            serial("NET_NO_ETH0")
-            return False
+            serial("NET_WAIT_ETH0 timeout, trying insmod virtio_net + deps")
+            # Load dependencies in order: failover -> net_failover -> virtio_net
+            base = "/lib/modules/7.2.6-zen2-1-zen/kernel"
+            for mod_path in [
+                f"{base}/net/core/failover.ko.zst",
+                f"{base}/drivers/net/net_failover.ko.zst",
+                f"{base}/drivers/net/virtio_net.ko.zst",
+            ]:
+                mp = subprocess.run(["/usr/sbin/insmod", mod_path],
+                           timeout=10, capture_output=True, text=True)
+                serial(f"INSMOD {mod_path} rc={mp.returncode} out={mp.stdout.strip()[:120]} err={mp.stderr.strip()[:120]}")
+            if not wait_for_dev("/sys/class/net/eth0", retries=20, delay=0.3):
+                serial("NET_NO_ETH0")
+                # debug: list available interfaces
+                try:
+                    import os
+                    ifaces = os.listdir("/sys/class/net")
+                    serial(f"NET_IFACES: {ifaces}")
+                except Exception:
+                    pass
+                return False
+        # bring interface up
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        ifreq = struct.pack("16sH", b"eth0", 0x1 | 0x10)
-        fcntl.ioctl(s, 0x8914, ifreq)
+        ifreq = struct.pack("16sH", b"eth0", 0x1 | 0x10)  # IFF_UP | IFF_RUNNING
+        fcntl.ioctl(s, 0x8914, ifreq)  # SIOCSIFFLAGS
+        # set IP address (QEMU user-mode default gateway is 10.0.2.2)
         ifreq = struct.pack(
             "16sH2s4s8s", b"eth0", socket.AF_INET, b"\0" * 2,
             socket.inet_aton("10.0.2.15"), b"\0" * 8,
         )
-        fcntl.ioctl(s, 0x8916, ifreq)
+        fcntl.ioctl(s, 0x8916, ifreq)  # SIOCSIFADDR
         ifreq = struct.pack(
             "16sH2s4s8s", b"eth0", socket.AF_INET, b"\0" * 2,
             socket.inet_aton("255.255.255.0"), b"\0" * 8,
         )
-        fcntl.ioctl(s, 0x891b, ifreq)
+        fcntl.ioctl(s, 0x891b, ifreq)  # SIOCSIFNETMASK
+        # add default route via 10.0.2.2
+        try:
+            subprocess.run(["ip", "route", "add", "default", "via", "10.0.2.2", "dev", "eth0"],
+                           timeout=5, capture_output=True, check=False)
+        except Exception:
+            pass
         serial(f"NET_DONE route={dump_proc('/proc/net/route')}")
         return True
     except OSError as e:
@@ -266,13 +281,31 @@ def run_agent_boot():
 
 def run_agent_cmd():
     try:
-        with open(CMD) as fin, open(RESP, "w") as fout:
-            subprocess.run(
-                ["/usr/bin/python3", AGENT, "serve"], stdin=fin, stdout=fout,
-                env=agent_env(), timeout=60,
-            )
-    except Exception:
-        pass
+        # Open the virtio-serial port for reading command, writing response
+        with open(CMD_PORT, "r+") as f:
+            line = f.readline()
+            if not line:
+                return
+            req = json.loads(line.strip())
+            job_id = req.get("id") or str(uuid.uuid4())
+            cmd = req.get("cmd", "")
+            args = req.get("args", {})
+            handler = COMMANDS.get(cmd)
+            if not handler:
+                resp = {"id": job_id, "ok": False, "error": f"unknown command: {cmd}"}
+            else:
+                try:
+                    result = handler(args)
+                    if "error" in result:
+                        resp = {"id": job_id, "ok": False, "error": result["error"]}
+                    else:
+                        resp = {"id": job_id, "ok": True, "result": result}
+                except Exception as e:
+                    resp = {"id": job_id, "ok": False, "error": f"{type(e).__name__}: {e}"}
+            f.write(json.dumps(resp) + "\n")
+            f.flush()
+    except Exception as e:
+        serial(f"CMD_PORT error: {e}")
 
 
 def stage_rootfs(slot):
@@ -330,13 +363,15 @@ def boot_flow(fixture):
 
 def command_loop(fixture):
     serial("CMD_LOOP enter")
+    loop_count = 0
     while True:
-        if os.path.exists(CMD):
+        loop_count += 1
+        if loop_count % 50 == 0:
+            serial(f"CMD_LOOP alive count={loop_count}")
+        try:
             run_agent_cmd()
-            try:
-                os.unlink(CMD)
-            except OSError:
-                pass
+        except Exception:
+            pass
         time.sleep(0.2)
 
 
@@ -358,6 +393,9 @@ def main():
         serial("DATA_MOUNT fail")
         poweroff()
     serial("DATA_MOUNT ok")
+    # wait for virtio-serial command port
+    wait_for_dev(CMD_PORT, retries=20, delay=0.3)
+    serial("CMD_PORT ready")
     fixture = read_fixture()
     max_boots = int(fixture.get("max_boots", "10"))
     for _ in range(max_boots):

@@ -166,7 +166,8 @@ def build_initramfs(dest):
     shutil.copy2(AGENT_SRC, agent_dst)
     agent_dst.chmod(0o755)
 
-    # virtio core + virtio-net + net_failover modules (for QEMU network-up)
+    # virtio-net is built-in (CONFIG_VIRTIO_NET=y) on target hardware;
+    # but in test kernels it may be a module. Include virtio_net.ko + deps for modprobe.
     virtio_dir = root / "lib/modules/7.2.6-zen2-1-zen/kernel/drivers/virtio"
     virtio_dir.mkdir(parents=True, exist_ok=True)
     net_dir = root / "lib/modules/7.2.6-zen2-1-zen/kernel/drivers/net"
@@ -177,8 +178,18 @@ def build_initramfs(dest):
         if Path(src).exists():
             _run(["sudo", "cp", src, str(virtio_dir)], check=True)
     for mod in ["virtio_net.ko.zst", "net_failover.ko.zst"]:
-        _run(["sudo", "cp", f"/usr/lib/modules/7.2.6-zen2-1-zen/kernel/drivers/net/{mod}", str(net_dir)], check=True)
+        src = f"/usr/lib/modules/7.2.6-zen2-1-zen/kernel/drivers/net/{mod}"
+        if Path(src).exists():
+            _run(["sudo", "cp", src, str(net_dir)], check=True)
+    # failover module (dependency of net_failover)
+    core_dir = root / "lib/modules/7.2.6-zen2-1-zen/kernel/net/core"
+    core_dir.mkdir(parents=True, exist_ok=True)
+    src = "/usr/lib/modules/7.2.6-zen2-1-zen/kernel/net/core/failover.ko.zst"
+    if Path(src).exists():
+        _run(["sudo", "cp", src, str(core_dir)], check=True)
     _run(["sudo", "chown", "-R", "builder:builder", str(root / "lib/modules")], check=False)
+    # modprobe needs modules.dep etc.
+    _run(["/usr/sbin/depmod", "-b", str(root), "7.2.6-zen2-1-zen"], check=False)
 
     # build cpio
     subprocess.run(

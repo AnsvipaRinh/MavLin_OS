@@ -7,17 +7,23 @@ documented in docs/LAB_HARNESS.md).
 
 The guest init (guest_init.py) runs as PID 1, mounts the DATA disk
 (virtio-blk, ext4), runs boot stages + the agent, and enters a command
-loop. The host writes cmd.json to DATA, the guest processes it, the host
-reads resp.json.
+loop. The host communicates via virtio-serial port (org.mavericks.cmd),
+the guest processes commands, the host reads responses.
 
 Disk: virtio-blk (CONFIG_VIRTIO_BLK=y built-in), ext4 (CONFIG_EXT4_FS=y).
-Network: loopback ioctl (no route — network-up is a known limitation).
+Network: virtio-net-pci (CONFIG_VIRTIO_NET=y built-in), user-mode SLiRP
+(no ICMP — agent comms use TCP/HTTP via DATA disk; guest health check
+validates /proc/net/route presence).
+Command channel: virtio-serial (CONFIG_VIRTIO_CONSOLE=y built-in),
+/dev/virtio-ports/org.mavericks.cmd in guest, Unix socket on host.
 """
 import json
 import os
 import shutil
 import signal
+import socket
 import subprocess
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -38,6 +44,10 @@ class QemuBackend(TargetBackend):
         self.work.mkdir(parents=True, exist_ok=True)
         self.proc = None
         self.monitor_sock = self.work / "monitor.sock"
+        # virtio-serial command channel
+        self.cmd_sock = self.work / "cmd.sock"
+        self._cmd_sock_conn = None
+        self._cmd_lock = threading.Lock()
 
     def _qemu_cmd(self):
         return [
@@ -48,6 +58,11 @@ class QemuBackend(TargetBackend):
             "-append", "console=ttyS0,115200",
             "-drive", f"if=none,file={self.data_img},format=raw,id=d0",
             "-device", "virtio-blk-pci,drive=d0",
+            "-netdev", "user,id=net0",
+            "-device", "virtio-net-pci,netdev=net0",
+            "-device", "virtio-serial-pci",
+            "-chardev", f"socket,id=char0,path={self.cmd_sock},server=on,wait=on",
+            "-device", "virtserialport,chardev=char0,name=org.mavericks.cmd",
             "-serial", f"file:{self.serial_path}",
             "-display", "none", "-no-reboot",
             "-monitor", f"unix:{self.monitor_sock},server,nowait",
@@ -60,11 +75,31 @@ class QemuBackend(TargetBackend):
         # ensure the ESP initramfs exists
         initrd = self.fixture / "esp/EFI/BOOT/initramfs.img"
         if not initrd.exists():
+            import sys
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
             from fixtures import builder
             builder.build_initramfs(initrd)
+        # clean up old socket
+        if self.cmd_sock.exists():
+            self.cmd_sock.unlink()
         self.proc = subprocess.Popen(
             self._qemu_cmd(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
+        # wait for socket to appear (QEMU creates it) and connect (wait=on)
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            if self.cmd_sock.exists():
+                try:
+                    self._cmd_sock_conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    self._cmd_sock_conn.settimeout(5)
+                    self._cmd_sock_conn.connect(str(self.cmd_sock))
+                    break
+                except (ConnectionRefusedError, FileNotFoundError):
+                    time.sleep(0.1)
+            time.sleep(0.1)
+        if self._cmd_sock_conn is None:
+            self.stop()
+            raise RuntimeError("Failed to connect to virtio-serial socket")
         return self._wait_for_boot()
 
     def _wait_for_boot(self, timeout=60):
@@ -95,28 +130,42 @@ class QemuBackend(TargetBackend):
                 self.proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.proc.kill()
-        self.proc = None
+            self.proc = None
+        if self._cmd_sock_conn:
+            self._cmd_sock_conn.close()
+            self._cmd_sock_conn = None
+        if self.cmd_sock.exists():
+            self.cmd_sock.unlink()
+
+    def _send_recv(self, req, timeout=60):
+        """Send request and receive response on the persistent socket connection."""
+        if not self._cmd_sock_conn:
+            return {"ok": False, "error": "not connected to virtio-serial"}
+        with self._cmd_lock:
+            try:
+                self._cmd_sock_conn.sendall((json.dumps(req) + "\n").encode())
+                # Read response (JSON + newline)
+                buf = b""
+                deadline = time.time() + timeout
+                while time.time() < deadline:
+                    try:
+                        data = self._cmd_sock_conn.recv(4096)
+                        if not data:
+                            return {"ok": False, "error": "connection closed"}
+                        buf += data
+                        if b"\n" in buf:
+                            line, _ = buf.split(b"\n", 1)
+                            if line:
+                                return json.loads(line.decode())
+                    except socket.timeout:
+                        continue
+            except Exception as e:
+                return {"ok": False, "error": f"socket error: {e}"}
+        return {"ok": False, "error": "timeout waiting for resp"}
 
     def run_agent_cmd(self, cmd, args=None, timeout=60):
         req = {"id": str(uuid.uuid4()), "cmd": cmd, "args": args or {}}
-        cmd_file = self.data / "cmd.json"
-        resp_file = self.data / "resp.json"
-        cmd_file.write_text(json.dumps(req))
-        # wait for resp.json to appear (guest processes cmd.json)
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            if resp_file.exists():
-                try:
-                    resp = json.loads(resp_file.read_text())
-                    resp_file.unlink(missing_ok=True)
-                    return resp
-                except json.JSONDecodeError:
-                    pass
-            if self.proc and self.proc.poll() is not None:
-                return {"ok": False, "error": "guest exited"}
-            time.sleep(0.2)
-        cmd_file.unlink(missing_ok=True)
-        return {"ok": False, "error": "timeout waiting for resp.json"}
+        return self._send_recv(req, timeout)
 
     def read_serial(self):
         try:
