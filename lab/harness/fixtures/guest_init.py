@@ -376,20 +376,47 @@ def main():
         poweroff()
     serial("DATA_MOUNT ok")
     # mount 9p command channel
-    try:
-        os.makedirs(CMD_DIR, exist_ok=True)
-        # load 9p modules
-        for mod in ["9p.ko.zst", "9pnet.ko.zst", "9pnet_virtio.ko.zst"]:
-            for base in ["/lib/modules/7.2.6-zen2-1-zen/kernel/fs/9p",
-                         "/lib/modules/7.2.6-zen2-1-zen/kernel/net/9p"]:
-                mod_path = os.path.join(base, mod)
-                if os.path.exists(mod_path):
-                    subprocess.run(["/usr/sbin/insmod", mod_path],
-                                   timeout=10, capture_output=True, check=False)
-        mount("cmd-channel", CMD_DIR, "9p", "trans=virtio,version=9p2000.L")
+    os.makedirs(CMD_DIR, exist_ok=True)
+    # load 9p modules in dependency order: netfs -> 9pnet -> 9pnet_virtio -> 9p
+    for mod, base in [
+        ("netfs.ko.zst", "/lib/modules/7.2.6-zen2-1-zen/kernel/fs"),
+        ("9pnet.ko.zst", "/lib/modules/7.2.6-zen2-1-zen/kernel/net/9p"),
+        ("9pnet_virtio.ko.zst", "/lib/modules/7.2.6-zen2-1-zen/kernel/net/9p"),
+        ("9p.ko.zst", "/lib/modules/7.2.6-zen2-1-zen/kernel/fs/9p"),
+    ]:
+        mod_path = os.path.join(base, mod)
+        if os.path.exists(mod_path):
+            result = subprocess.run(["/usr/sbin/insmod", mod_path],
+                                   timeout=10, capture_output=True, text=True)
+            if result.returncode != 0:
+                serial(f"INSMOD_FAIL mod={mod} rc={result.returncode} err={result.stderr.strip()[:200]}")
+            else:
+                serial(f"INSMOD_OK mod={mod}")
+        else:
+            serial(f"INSMOD_MISSING mod={mod} path={mod_path}")
+    # wait for virtio 9p device to appear (max 10s)
+    for _ in range(40):
+        try:
+            for d in os.listdir("/sys/bus/virtio/devices/"):
+                try:
+                    with open(f"/sys/bus/virtio/devices/{d}/device") as f:
+                        dev_id = f.read().strip()
+                        if dev_id == "9":  # virtio 9p device ID
+                            serial(f"VIRTIO_9P_DEVICE_FOUND: {d}")
+                            break
+                except:
+                    pass
+            else:
+                time.sleep(0.25)
+                continue
+            break
+        except:
+            time.sleep(0.25)
+    # mount 9p with retries
+    if not mount("cmd-channel", CMD_DIR, "9p", "trans=virtio,version=9p2000.L", retries=30, delay=0.3):
+        serial("CMD_CHANNEL_MOUNT fail after retries")
+    else:
         serial("CMD_CHANNEL_MOUNT ok")
-    except Exception as e:
-        serial(f"CMD_CHANNEL_MOUNT fail: {e}")
     fixture = read_fixture()
     max_boots = int(fixture.get("max_boots", "10"))
     for _ in range(max_boots):

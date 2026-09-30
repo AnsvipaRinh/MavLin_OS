@@ -48,11 +48,11 @@
     "ses_f0e4a110bffexTkfRxD13os4PF": {
       "agent": "build",
       "objective": "icons-cursors-cleanup",
-      "task": "Clean tree + Mavericks icons cursors",
+      "task": "Resume icons-cursors cleanup DONE",
       "model": "",
       "oid": "",
       "state": "reusable",
-      "lastUsed": "2026-09-30T10:04:37+00:00",
+      "lastUsed": "2026-09-30T11:07:35+00:00",
       "lastResult": "",
       "failure": ""
     }

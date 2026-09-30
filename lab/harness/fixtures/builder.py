@@ -187,6 +187,12 @@ def build_initramfs(dest):
     src = "/usr/lib/modules/7.2.6-zen2-1-zen/kernel/net/core/failover.ko.zst"
     if Path(src).exists():
         _run(["sudo", "cp", src, str(core_dir)], check=True)
+    # netfs module (dependency of 9pnet)
+    fs_dir = root / "lib/modules/7.2.6-zen2-1-zen/kernel/fs"
+    fs_dir.mkdir(parents=True, exist_ok=True)
+    src = "/usr/lib/modules/7.2.6-zen2-1-zen/kernel/fs/netfs/netfs.ko.zst"
+    if Path(src).exists():
+        _run(["sudo", "cp", src, str(fs_dir)], check=True)
     # 9p modules for virtfs command channel
     p9_net_dir = root / "lib/modules/7.2.6-zen2-1-zen/kernel/net/9p"
     p9_net_dir.mkdir(parents=True, exist_ok=True)
