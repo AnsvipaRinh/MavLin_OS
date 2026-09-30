@@ -192,6 +192,35 @@ procedures or active code reference them:
 - [ ] Dialogs: dialog-action-area button styling visible
 - [ ] Context menus: frosted-glass menu look
 
+### Icon Theme — hardware validation (2304×1440)
+- [ ] All 28 core Mavericks app icons render correctly at 2304×1440 (HiDPI 2x scaling)
+- [ ] Finder icon (smiling face) appears correctly in Dock/panel/Thunar
+- [ ] Folder icon (manila with tab) appears correctly in Thunar sidebar/tree/grid
+- [ ] Trash (empty/full) renders correctly with paper texture in Dock and Thunar
+- [ ] System Settings (gear), Activity Monitor (chart), Disk Utility (drive) appear with correct Mavericks styling
+- [ ] Launchpad grid icon (view-app-grid) renders correctly in Dock and app menu
+- [ ] Places icons (user-trash, user-trash-full, user-home, user-desktop) appear in Thunar sidebar
+- [ ] Device icons (drive-harddisk, computer, video-display) appear in Thunar sidebar
+- [ ] Mimetype icons (text, image, audio, video, archive, pdf) render in Thunar/file chooser
+- [ ] Emblem icons (favorite, readonly, system, documents, photos, music, videos) overlay correctly
+- [ ] Toolbar/action icons (new-folder, edit-copy, edit-paste, go-up, etc.) render in Thunar/GTK dialogs
+- [ ] Symlinked standard icons (gnome-*, evince, eog, rhythmbox, gedit, seahorse, etc.) resolve correctly via Mavericks→hicolor→Adwaita chain
+- [ ] SVG scalable icons scale cleanly at all sizes (16-512) without pixelation on 2304×1440 panel
+
+### Cursor Theme — hardware validation (2304×1440)
+- [ ] left_ptr (classic Mac arrow) appears with correct hotspot (0,0) and shadow
+- [ ] hand1/hand2 (pointing hand) appears on links/buttons with correct hotspot
+- [ ] text/xterm (I-beam) appears in text fields with correct hotspot
+- [ ] crosshair/cross appears in graphics apps with correct hotspot
+- [ ] watch/wait (spinning beach ball) animates smoothly during app launch/load
+- [ ] sb_h_double_arrow/ew-resize appears on horizontal resize edges
+- [ ] sb_v_double_arrow/ns-resize appears on vertical resize edges
+- [ ] Corner resize cursors (nwse, nesw, nw, ne, sw, se) appear on window corners
+- [ ] move/all-scroll appears during drag operations
+- [ ] All cursors render at correct HiDPI scale (2x) without blur on 2304×1440 panel
+- [ ] Cursor hotspots align correctly with visual center on Retina display
+- [ ] Cursor theme inherits from Adwaita for missing cursors (no gaps)
+
 ## Phase 3 — Visual layer
 - [ ] GTK3 Mavericks theme renders correctly on hardware display (2304×1440)
 - [ ] HiDPI scaling works (fractional scaling if needed)

@@ -2089,3 +2089,49 @@ validation: real rendering at 2304×1440, multi-hour session growth.
 **Power baseline:** untouched. No new daemons, no polling, no TLP/kernel/cmdline/sysctl changes. Snapshots are one-shot btrfs CoW operations.
 
 **Status:** Track 3/7 complete. Next: Track 4/7 (DKMS).
+
+---
+
+## Mavericks skeuomorphic icon theme + cursor theme (2026-09-30)
+
+**Date:** 2026-09-30
+
+**Context:** The audit's final visual-asset gap (highest-priority unfinished pre-hardware work):
+- Mavericks icon theme mostly Adwaita fallback (modern flat, violates Mavericks skeuomorphic target)
+- Mavericks-Cursors inherits Adwaita with no custom cursors
+
+**Decision:** Create comprehensive Mavericks-era skeuomorphic icon set and coherent Mavericks-style cursor set pre-hardware.
+
+**Icon theme (packages/mavericks-theme/src/mavericks-theme/icons/):**
+- 28 core app icons (Finder, folder, trash empty/full, calculator, calendar, console, control-center, text-editor, system-monitor, help-about, display, drive-harddisk, launchpad, mail, archive, dictionary, log-viewer, image-viewer, audio-player, audio-recorder, screenshot, font-book, keychain, timemachine, terminal, document-viewer, color-picker, sticky-notes, reminders, sound, keyboard, mouse)
+- 30+ symlinks for standard Linux/GTK icon names (gnome-*, evince, eog, rhythmbox, gedit, seahorse, gcolor3, gnome-font-viewer, gnome-terminal, xed, xfce4-notes, etc.)
+- All sizes: 16, 22, 24, 32, 48, 64, 128, 256, 512 + scalable SVG (HiDPI-ready, no hardcoded 1x)
+- Places: user-trash, user-trash-full
+- Devices: computer, drive-harddisk (+ symlinks for optical, floppy, removable)
+- Mimetypes: text, image, audio, video, archive, pdf, font, executable
+- Emblems: favorite, readonly, system, documents, photos, music, videos, downloads, shared
+- Actions, categories, filesystems, status directories structured
+
+**Cursor theme (packages/mavericks-theme/src/mavericks-theme/cursors/):**
+- Mavericks-Cursors replaces Adwaita inheritance
+- 13 base cursors: left_ptr (classic Mac arrow), hand1/hand2 (pointing hand), text/xterm (I-beam), crosshair/cross, watch/wait (spinning beach ball), sb_h_double_arrow/ew-resize, sb_v_double_arrow/ns-resize, corner resizes (nwse, nesw, nw, ne, sw, se), move/all-scroll
+- Proper hotspots, 32px base with 16/24px variants
+- 30+ symlinks for X11/GTK standard names
+- Compiled to X11 .cursor format via Python (no xcursorgen dependency)
+
+**Implementation details:**
+- All icons generated as PNG at all required sizes via rsvg-convert
+- All cursors compiled to X11 .cursor format with custom Python script
+- No Electron/Java/daemons, no power baseline break, reuse-first, keep fallback for missing sizes
+- Desktop-file icon resolution validated, SVG validity confirmed
+
+**Gate results:**
+- check-sync.sh: 221 checks pass
+- test-theme-css.py: 9 checks pass
+- All lab tests pass (158 tests across 7 test files)
+
+**Power baseline:** untouched. No TLP/kernel/cmdline/sysctl changes. No new daemons/polling.
+
+**Status:** IMPLEMENTED — HARDWARE VALIDATION REQUIRED (2304×1440 pixel validation needed for HiDPI rendering on MacBook10,1 Retina display)
+
+**Next:** Update NEEDS_HARDWARE_TEST.md with icon/cursor pixel validation items.

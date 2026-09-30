@@ -1,5 +1,25 @@
 # PROGRESS — MacBook 12 Mavericks Linux
 
+### Theme: Mavericks skeuomorphic icon theme + cursor theme (2026-09-30, без железа)
+- [x] Icon theme (packages/mavericks-theme/src/mavericks-theme/icons/): comprehensive Mavericks-era skeuomorphic icons
+  - 28 core app icons (Finder, folder, trash empty/full, calculator, calendar, console, control-center, text-editor, system-monitor, help-about, display, drive-harddisk, launchpad, mail, archive, dictionary, log-viewer, image-viewer, audio-player, audio-recorder, screenshot, font-book, keychain, timemachine, terminal, document-viewer, color-picker, sticky-notes, reminders, sound, keyboard, mouse)
+  - 30+ symlinks for standard Linux/GTK icon names (gnome-*, evince, eog, rhythmbox, gedit, seahorse, etc.)
+  - All sizes: 16, 22, 24, 32, 48, 64, 128, 256, 512 + scalable SVG (HiDPI-ready, no hardcoded 1x)
+  - Places: user-trash, user-trash-full
+  - Devices: computer, drive-harddisk (+ symlinks for optical, floppy, removable)
+  - Mimetypes: text, image, audio, video, archive, pdf, font, executable
+  - Emblems: favorite, readonly, system, documents, photos, music, videos, downloads, shared
+  - Actions, categories, filesystems, status directories structured
+- [x] Cursor theme (packages/mavericks-theme/src/mavericks-theme/cursors/): Mavericks-Cursors replaces Adwaita inheritance
+  - left_ptr (classic Mac arrow), hand1/hand2 (pointing hand), text/xterm (I-beam), crosshair/cross, watch/wait (spinning beach ball)
+  - sb_h_double_arrow/ew-resize, sb_v_double_arrow/ns-resize, corner resizes (nwse, nesw, nw, ne, sw, se), move/all-scroll
+  - Proper hotspots, 32px base with 16/24px variants
+  - 13 base cursors + 30+ symlinks for X11/GTK standard names
+  - Compiled to X11 .cursor format (Python-generated, no xcursorgen dependency)
+- [x] All icons generated as PNG at all required sizes via rsvg-convert
+- [x] check-sync.sh: 221 checks pass
+- [x] test-theme-css.py: 9 checks pass
+
 ### Completeness C2 — P1 implementation (2026-09-29, без железа)
 - [x] P0-J1 SECURITY (commit dfbd987): sshd disabled in ISO (.wants symlink removed), root locked (`root:!` in airootfs shadow + `passwd -l root` in firstboot), permissive sshd_config.d/10-archiso.conf deleted. Remote bring-up = explicit opt-in via lab/agent/install.sh (key-based forced-command as mavericks-lab, never root). Verified: install is local, no .wants/.requires references sshd, lab agent needs no root SSH. DECISIONS.md security entry. +6 check-sync security checks.
 - [x] P1-M1 (commit 77f6e15): Firefox seed profiles.ini + installs.ini added (configs/firefox/ source, mirrored to seed). Before: no profiles.ini → activation non-deterministic, seed could be orphaned. check-sync validates INI content + profile existence.
