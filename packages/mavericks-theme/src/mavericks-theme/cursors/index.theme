@@ -2,32 +2,11 @@
 Name=Mavericks-Cursors
 Comment=macOS Mavericks style cursors
 Inherits=Adwaita
+Directories=cursors
 
-# Standard cursors - these will use Adwaita fallbacks
-# Custom cursors can be added as .cursor files in cursors/ directory
-
-# Example custom cursor entries (when actual .cursor files are created):
-# Default=default
-# Pointer=default
-# Text=text
-# Crosshair=crosshair
-# Hand=pointer
-# Move=move
-# Resize horizontal=ew-resize
-# Resize vertical=ns-resize
-# Resize diagonal 1=nesw-resize
-# Resize diagonal 2=nwse-resize
-# Wait=wait
-# Progress=progress
-# Not allowed=not-allowed
-# Help=help
-# Context menu=context-menu
-# Cell=cell
-# Vertical text=vertical-text
-# Alias=alias
-# Copy=copy
-# No drop=no-drop
-# Grab=grab
-# Grabbing=grabbing
-# Zoom in=zoom-in
-# Zoom out=zoom-out
+[cursors]
+Size=32
+Context=Cursors
+Type=Fixed
+MinSize=16
+MaxSize=64

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="consoleBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#181818;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0D0D0D;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="consoleScreen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0D1A0D;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#081208;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="consoleBezel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#383838;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#282828;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#181818;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <g filter="url(#shadow)">
+    <!-- Monitor body -->
+    <rect x="40" y="32" width="176" height="160" rx="8" ry="8" fill="url(#consoleBody)" stroke="#282828" stroke-width="3"/>
+    <!-- Screen -->
+    <rect x="52" y="44" width="152" height="120" rx="4" ry="4" fill="url(#consoleScreen)" stroke="#1A2A1A" stroke-width="1"/>
+    <!-- Stand -->
+    <path d="M118 192 L118 216 Q118 224 128 224 L128 224 Q138 224 138 216 L138 192 Z" fill="url(#consoleBezel)"/>
+    <ellipse cx="128" cy="228" rx="24" ry="6" fill="url(#consoleBezel)"/>
+  </g>
+  
+  <!-- Terminal text -->
+  <g font-family="Monaco, Menlo, monospace" font-size="13" fill="#8FF08F" text-anchor="start" dominant-baseline="central" filter="url(#glow)">
+    <text x="64" y="68">Last login: Tue Sep 30 10:00:00 on console</text>
+    <text x="64" y="92">MacBook10,1:~ mavericks$ _</text>
+    <text x="64" y="116">$ ls -la</text>
+    <text x="64" y="140">Desktop    Library    Documents</text>
+    <text x="64" y="164">Applications Downloads  Movies</text>
+  </g>
+  
+  <!-- Power LED -->
+  <circle cx="128" cy="204" r="3" fill="#FF3838" filter="url(#glow)"/>
+</svg>

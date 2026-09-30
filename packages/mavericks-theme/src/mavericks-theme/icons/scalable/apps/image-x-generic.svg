@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="photoBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F8F4E8;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#E8E0D0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D8D0C0;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="photoImage" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#40A8E0;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#80C060;stop-opacity:1" />
+      <stop offset="60%" style="stop-color:#E0C040;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E06060;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="photoFrame" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#D8C8B8;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#C8B8A8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B8A898;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+    <filter id="innerGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <g filter="url(#shadow)">
+    <!-- Photo frame -->
+    <rect x="32" y="32" width="192" height="192" rx="4" ry="4" fill="url(#photoFrame)" stroke="#A89888" stroke-width="2"/>
+    <!-- Photo image area -->
+    <rect x="44" y="44" width="168" height="140" rx="2" ry="2" fill="url(#photoImage)"/>
+    <!-- Mountain silhouette -->
+    <path d="M44,184 L80,100 L104,140 L132,80 L168,130 L204,70 L224,184 Z" fill="#203040" opacity="0.6"/>
+    <!-- Sun -->
+    <circle cx="196" cy="60" r="14" fill="#FFE040" filter="url(#innerGlow)"/>
+    <circle cx="196" cy="60" r="8" fill="#FFF880"/>
+    
+    <!-- Corner decoration -->
+    <g stroke="#A89888" stroke-width="2" fill="none">
+      <path d="M32,52 L32,32 L52,32" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M224,32 L224,52 L204,52" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M32,204 L32,184 L52,184" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M224,184 L224,204 L204,204" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    
+    <!-- Photo label -->
+    <text x="128" y="210" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="bold" fill="#504840" text-anchor="middle">Photos</text>
+  </g>
+</svg>

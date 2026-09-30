@@ -1,21 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#fff9c4"/>
-      <stop offset="1" stop-color="#f5e69a"/>
+    <linearGradient id="noteYellow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFF8A0;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFE880;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFD860;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="noteEdge" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#E8D860;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D8C850;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="noteBlue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#A0D0FF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#80C0FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#60B0FF;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="noteGreen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#A0FFA0;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#80FF80;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#60E060;stop-opacity:1" />
     </linearGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#3a3000" flood-opacity="0.28"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+    <filter id="curlShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feOffset dx="2" dy="2"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
   </defs>
-  <g transform="rotate(-4 128 128)">
-    <rect x="36" y="36" width="184" height="184" rx="4" fill="url(#paper)" stroke="#e0d09a" stroke-width="2" filter="url(#shadow)"/>
-    <path d="M184 220 L220 184 L220 220 Z" fill="#e3d18c" stroke="#d4c27e" stroke-width="2" stroke-linejoin="round"/>
-    <g stroke="#d8c888" stroke-width="4" stroke-linecap="round" fill="none">
-      <line x1="62" y1="82" x2="194" y2="82" opacity="0.55"/>
-      <line x1="62" y1="108" x2="178" y2="108" opacity="0.45"/>
-      <line x1="62" y1="134" x2="186" y2="134" opacity="0.35"/>
-    </g>
+  
+  <!-- Bottom note (green) -->
+  <g filter="url(#shadow)">
+    <path d="M48,100 L48,216 Q48,232 64,232 L192,232 Q208,232 208,216 L208,100 Z" 
+          fill="url(#noteGreen)" stroke="#80C880" stroke-width="1.5"/>
+    <text x="128" y="170" font-family="'Marker Felt', cursive" font-size="20" fill="#2D5D2D" text-anchor="middle">Reminders</text>
+    <text x="128" y="195" font-family="'Marker Felt', cursive" font-size="16" fill="#3D6D3D" text-anchor="middle">• Buy milk</text>
+  </g>
+  
+  <!-- Middle note (blue) -->
+  <g filter="url(#shadow)">
+    <path d="M72,68 L72,184 Q72,200 88,200 L200,200 Q216,200 216,184 L216,68 Z" 
+          fill="url(#noteBlue)" stroke="#80B0E0" stroke-width="1.5"/>
+    <text x="144" y="140" font-family="'Marker Felt', cursive" font-size="20" fill="#2D4D7D" text-anchor="middle">Ideas</text>
+    <text x="144" y="165" font-family="'Marker Felt', cursive" font-size="16" fill="#3D5D8D" text-anchor="middle">• New feature</text>
+  </g>
+  
+  <!-- Top note (yellow) with curled corner -->
+  <g filter="url(#shadow)">
+    <path d="M96,36 L96,152 Q96,168 112,168 L208,168 Q224,168 224,152 L224,36 Q224,20 208,20 L112,20 Q96,20 96,36 Z" 
+          fill="url(#noteYellow)" stroke="#E8D860" stroke-width="1.5"/>
+    <!-- Curled corner -->
+    <path d="M208,36 L208,68 L176,36 Z" fill="url(#noteEdge)" filter="url(#curlShadow)"/>
+    <path d="M192,36 L192,52 L176,52 L176,36" fill="#FFE8A0" opacity="0.5"/>
+    
+    <text x="152" y="100" font-family="'Marker Felt', cursive" font-size="22" fill="#6D5D2D" text-anchor="middle">Notes</text>
+    <text x="152" y="125" font-family="'Marker Felt', cursive" font-size="16" fill="#7D6D3D" text-anchor="middle">• Meeting at 3</text>
+    <text x="152" y="145" font-family="'Marker Felt', cursive" font-size="16" fill="#7D6D3D" text-anchor="middle">• Call John</text>
   </g>
 </svg>

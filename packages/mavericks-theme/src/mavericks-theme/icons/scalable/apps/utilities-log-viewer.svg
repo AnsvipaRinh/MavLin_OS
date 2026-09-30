@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#181818;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0D0D0D;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="logPaper" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0D1A0D;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#081208;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="logBezel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#383838;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#282828;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#181818;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <g filter="url(#shadow)">
+    <!-- Terminal window -->
+    <rect x="32" y="24" width="192" height="176" rx="8" ry="8" fill="url(#logBody)" stroke="#282828" stroke-width="3"/>
+    <!-- Title bar -->
+    <rect x="32" y="24" width="192" height="28" rx="8" ry="8" fill="url(#logBezel)"/>
+    <rect x="32" y="44" width="192" height="8" fill="url(#logBezel)"/>
+    <!-- Window controls -->
+    <circle cx="52" cy="38" r="6" fill="#E04040" filter="url(#glow)"/>
+    <circle cx="72" cy="38" r="6" fill="#E0C040" filter="url(#glow)"/>
+    <circle cx="92" cy="38" r="6" fill="#40E040" filter="url(#glow)"/>
+    <!-- Title text -->
+    <text x="128" y="42" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#B8B0A8" text-anchor="middle">Console</text>
+    
+    <!-- Log content -->
+    <rect x="44" y="60" width="168" height="124" rx="4" ry="4" fill="url(#logPaper)" stroke="#1A2A1A" stroke-width="1"/>
+    <g font-family="Monaco, Menlo, monospace" font-size="11" fill="#8FF08F" text-anchor="start" dominant-baseline="central" filter="url(#glow)">
+      <text x="56" y="80">2026-09-30 10:00:00.000 kernel[0]: Darwin Kernel</text>
+      <text x="56" y="98">2026-09-30 10:00:01.000 launchd[1]: System booted</text>
+      <text x="56" y="116">2026-09-30 10:00:02.000 mds[45]: Indexing complete</text>
+      <text x="56" y="134">2026-09-30 10:00:03.000 WindowServer[89]: Display config</text>
+      <text x="56" y="152">2026-09-30 10:00:04.000 mavericks[123]: Desktop ready</text>
+      <text x="56" y="170">2026-09-30 10:00:05.000 _</text>
+    </g>
+    
+    <!-- Stand -->
+    <path d="M118 200 L118 224 Q118 232 128 232 L128 232 Q138 232 138 224 L138 200 Z" fill="url(#logBezel)"/>
+    <ellipse cx="128" cy="236" rx="24" ry="6" fill="url(#logBezel)"/>
+  </g>
+</svg>
