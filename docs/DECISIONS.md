@@ -2121,6 +2121,7 @@ validation: real rendering at 2304×1440, multi-hour session growth.
 
 **Implementation details:**
 - All icons generated as PNG at all required sizes via rsvg-convert
+- PNGs stay pre-rendered (no on-demand generator): rsvg-convert overhead per icon > pre-rendered disk cost; static PNGs give zero-runtime decode latency for GTK icon theme, no persistent process, and verified size coverage (16/22/24/32/48/64/128/256/512) covers HiDPI without generator complexity
 - All cursors compiled to X11 .cursor format with custom Python script
 - No Electron/Java/daemons, no power baseline break, reuse-first, keep fallback for missing sizes
 - Desktop-file icon resolution validated, SVG validity confirmed
