@@ -61,7 +61,7 @@ class QemuBackend(TargetBackend):
             "-netdev", "user,id=net0",
             "-device", "virtio-net-pci,netdev=net0",
             "-device", "virtio-serial-pci",
-            "-chardev", f"socket,id=char0,path={self.cmd_sock},server=on,wait=on",
+            "-chardev", "pty,id=char0",
             "-device", "virtserialport,chardev=char0,name=org.mavericks.cmd",
             "-serial", f"file:{self.serial_path}",
             "-display", "none", "-no-reboot",
@@ -79,27 +79,36 @@ class QemuBackend(TargetBackend):
             sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
             from fixtures import builder
             builder.build_initramfs(initrd)
-        # clean up old socket
-        if self.cmd_sock.exists():
-            self.cmd_sock.unlink()
+        # Start QEMU with stderr captured to find the pty path
         self.proc = subprocess.Popen(
-            self._qemu_cmd(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            self._qemu_cmd(), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE
         )
-        # wait for socket to appear (QEMU creates it) and connect (wait=on)
-        deadline = time.time() + 10
-        while time.time() < deadline:
-            if self.cmd_sock.exists():
-                try:
-                    self._cmd_sock_conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                    self._cmd_sock_conn.settimeout(5)
-                    self._cmd_sock_conn.connect(str(self.cmd_sock))
-                    break
-                except (ConnectionRefusedError, FileNotFoundError):
-                    time.sleep(0.1)
-            time.sleep(0.1)
-        if self._cmd_sock_conn is None:
+        # Read stderr in a background thread to find the pty path
+        import threading
+        self._cmd_pty_path = None
+        self._pty_found = threading.Event()
+        
+        def read_stderr():
+            for line in self.proc.stderr:
+                line = line.decode(errors="ignore")
+                if "char device redirected to" in line:
+                    import re
+                    m = re.search(r"char device redirected to (/dev/pts/\d+)", line)
+                    if m:
+                        self._cmd_pty_path = m.group(1)
+                        self._pty_found.set()
+                        break
+        
+        stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+        stderr_thread.start()
+        
+        # Wait for pty path
+        if not self._pty_found.wait(timeout=10):
             self.stop()
-            raise RuntimeError("Failed to connect to virtio-serial socket")
+            raise RuntimeError("Failed to find virtio-serial pty path")
+        
+        # Connect to the pty
+        self._cmd_sock_conn = open(self._cmd_pty_path, "r+b", buffering=0)
         return self._wait_for_boot()
 
     def _wait_for_boot(self, timeout=60):

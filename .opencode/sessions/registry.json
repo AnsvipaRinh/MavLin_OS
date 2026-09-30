@@ -44,6 +44,17 @@
       "model": "opencode/longcat-2.5-preview-free",
       "state": "retired",
       "lastResult": "COMPLETE: codec bench real numbers (h264 4.20/vp9 5.57/hevc 7.99/av1 5.38 ms per frame 1080p); mv-ytplayer 19/19 tests + branch5 fallback fix; firefox mirrors synced (SponsorBlock confirmed); VIDEO_PIPELINE.md + BENCHMARKS/NEEDS_HARDWARE_TEST/PROGRESS/PERF_AUDIT updated; full suite 20 files 1258 checks pass; P0/P1 sweep 0/0; commits clean"
+    },
+    "ses_f0e4a110bffexTkfRxD13os4PF": {
+      "agent": "build",
+      "objective": "icons-cursors-cleanup",
+      "task": "Clean tree + Mavericks icons cursors",
+      "model": "",
+      "oid": "",
+      "state": "reusable",
+      "lastUsed": "2026-09-30T10:04:37+00:00",
+      "lastResult": "",
+      "failure": ""
     }
   }
 }
