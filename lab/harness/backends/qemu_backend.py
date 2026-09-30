@@ -108,7 +108,7 @@ class QemuBackend(TargetBackend):
                 self.proc.kill()
             self.proc = None
 
-    def run_agent_cmd(self, cmd, args=None, timeout=60):
+    def run_agent_cmd(self, cmd, args=None, timeout=120):
         req = {"id": str(uuid.uuid4()), "cmd": cmd, "args": args or {}}
         # Write cmd.json to the 9p command channel directory
         cmd_dir = self.work / "cmd-channel"
@@ -123,6 +123,8 @@ class QemuBackend(TargetBackend):
                 try:
                     resp = json.loads(resp_file.read_text())
                     resp_file.unlink(missing_ok=True)
+                    # small delay to let agent return to polling loop
+                    time.sleep(0.1)
                     return resp
                 except json.JSONDecodeError:
                     pass
