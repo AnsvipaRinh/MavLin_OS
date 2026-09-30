@@ -80,21 +80,33 @@ headerbar:backdrop {
         box-shadow: inset 0 1px 0 rgba(255,255,255,0.3),
                     0 0 4px rgba(0,0,0,0.3);
     }
+
+    &:active {
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    &:focus {
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.2),
+                    0 0 0 2px $accent_bg_color;
+    }
 }
 
 .titlebutton.close {
     background-image: linear-gradient(to bottom, #ff5c5c, #e04040);
     &:hover { background-image: linear-gradient(to bottom, #ff7070, #ff5c5c); }
+    &:active { background-image: linear-gradient(to bottom, #e04040, #c03030); }
 }
 
 .titlebutton.maximize {
     background-image: linear-gradient(to bottom, #ffbd4c, #e0a030);
     &:hover { background-image: linear-gradient(to bottom, #ffcc66, #ffbd4c); }
+    &:active { background-image: linear-gradient(to bottom, #e0a030, #c08020); }
 }
 
 .titlebutton.minimize {
     background-image: linear-gradient(to bottom, #4cd964, #30c040);
     &:hover { background-image: linear-gradient(to bottom, #66e070, #4cd964); }
+    &:active { background-image: linear-gradient(to bottom, #30c040, #20a030); }
 }
 
 /* Window controls container */

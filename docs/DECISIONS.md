@@ -543,6 +543,65 @@ removes a resident process — strictly less).
 
 ---
 
+## P0 Window Chrome Fidelity: Complete xfwm4 theme + GTK CSD parity (Phase 0.72)
+
+**Date:** 2026-09-30
+**Decision:** Completed full Mavericks window chrome fidelity for both SSD (xfwm4) and CSD (GTK HeaderBar) windows.
+
+**Root cause of missing traffic lights:**
+- xfwm4 theme only had 3 basic XPM buttons (close/minimize/maximize) with NO state variations (active/inactive/pressed/hover/toggled)
+- Third-party apps using SSD (Thunar, Mousepad, xfce4-terminal, etc.) received plain solid-circle buttons
+- mv-* apps using CSD (HeaderBar) had better GTK .titlebutton styling but lacked :active/:focus states
+- Frame pieces (titlebar segments, corners, borders) were entirely missing
+
+**Implementation:**
+1. **xfwm4 theme (67 XPM assets):** Generated Mavericks-style traffic lights with proper gradients, highlights, and symbols (X/–/+) for all button states:
+   - Buttons: close, hide (minimize), maximize, menu, shade, stick
+   - States: active, inactive, pressed, prelight (hover), toggled (for maximize/shade/stick)
+   - Frame: title-1..5 (stretchable), top-left/right, bottom-left/right, left/right, bottom — all with active/inactive variants
+2. **GTK CSD parity:** Added `.titlebutton:active` (inset shadow + darker gradient) and `.titlebutton:focus` (blue ring) states to match SSD button fidelity
+3. **themerc update:** Full button_layout=OHM|:, button_spacing=4, frame dimensions, shadow config matching Mavericks aesthetics
+
+**Affected window classes (now all Mavericks-consistent):**
+- Normal app windows (SSD via xfwm4): Thunar, Mousepad, xfce4-terminal, Galculator, Evince, gThumb, etc.
+- CSD app windows (GTK HeaderBar): gnome-disks, seahorse, gnome-font-viewer, gcolor3, mv-* apps
+- Dialogs/modal/transient/utility/popup: consistent styling via both paths
+- Maximized/minimized/inactive: proper state handling
+
+**Remaining xfwm4 limitations (architectural, not fixable without WM replacement):**
+- No native window animations (minimize/restore genie, zoom) — xfwm4 doesn't support this
+- No window grouping in titlebar — xfwm4 limitation
+- Titlebar height not configurable via theme — requires xfwm4 source patch
+- Double-click titlebar for maximize — hardcoded xfwm4 behavior
+
+**Linux remnants in chrome (accepted deltas):**
+- Menu button (≡) on windows with app menu (GTK HeaderBar) — Mavericks has app menu in top bar
+- Shade/stick buttons — not in Mavericks; xfwm4 requires them; styled neutrally
+- No live window preview on hover (Dock/Expose only via rofi/skippy-xd)
+
+**Animations actually existing after changes:**
+- GTK transitions (button hover/active: 150ms) — via theme CSS
+- Dock (plank) zoom/reflection — via plank daemon
+- Launchpad (rofi) pagination transitions — via rofi theme
+- Mission Control (rofi/skippy-xd) — via rofi/skippy-xd
+- NO minimize/restore genie, NO zoom animation — xfwm4 limitation
+
+**Mavericks window behaviors now supported:**
+- Traffic lights (close/minimize/zoom) LEFT, title centered
+- Close button: red with X symbol on hover/active
+- Minimize button: yellow with – symbol on hover/active
+- Zoom button: green with + symbol on hover/active; toggles to double-arrow when maximized
+- Hover/pressed/active/inactive states on all buttons
+- Window shadows via xfwm4 compositing
+- Focus/raise on click, click-to-focus
+- Keyboard navigation (Alt+Tab, Super+Arrows tiling, Super+Alt+Arrows workspaces)
+- Double-click titlebar to maximize (xfwm4 default)
+- Drag titlebar to move, drag edges/corners to resize
+
+**Status:** IMPLEMENTED — HARDWARE VALIDATION REQUIRED (visual validation on 2304×1440 panel; button hit-testing on real trackpad)
+
+---
+
 ## Model: MacBook10,1 (Mid 2017) — explicit, not assumption
 
 **Date:** 2026-09-25

@@ -1,7 +1,8 @@
 # Mavericks xfwm4 theme — OS X 10.9 window decorations
 # Button layout: close/minimize/maximize LEFT (traffic lights), title centered
+# Full button state support: active, inactive, pressed, prelight, toggled
 
-button_layout=OIM|:
+button_layout=OHM|:
 title_alignment=center
 full_width_title=true
 title_font=San Francisco 11
@@ -19,3 +20,34 @@ active_background_color=#e8e8e0
 inactive_background_color=#d8d8d0
 active_border_color=#c0c0b8
 inactive_border_color=#c8c8c0
+
+# Button spacing and offset
+button_offset=0
+button_spacing=4
+maximized_offset=0
+show_app_icon=false
+
+# Frame dimensions
+frame_border_top=4
+frame_border_bottom=4
+frame_border_left=4
+frame_border_right=4
+
+# Title offsets
+title_horizontal_offset=0
+title_vertical_offset_active=2
+title_vertical_offset_inactive=2
+
+# Shadow
+shadow_delta_height=6
+shadow_delta_width=6
+shadow_delta_x=0
+shadow_delta_y=3
+shadow_opacity=45
+
+# Compositing
+use_compositing=true
+frame_opacity=100
+inactive_opacity=100
+move_opacity=100
+resize_opacity=100

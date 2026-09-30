@@ -187,6 +187,33 @@ procedures or active code reference them:
 - [ ] Menu bar: panel.css translucent/gradient look on real panel
 - [ ] Dock: plank Mavericks theme (zoom, reflection, indicators) on real panel
 - [ ] xfwm4: traffic-light buttons (close/minimize/maximize LEFT) visible and functional
+- [ ] **Window chrome fidelity — SSD (xfwm4) windows:**
+  - [ ] Thunar: traffic lights with Mavericks gradients + symbols (X/–/+), hover/pressed states work
+  - [ ] Mousepad: traffic lights with Mavericks gradients + symbols, all button states functional
+  - [ ] xfce4-terminal: traffic lights with Mavericks gradients + symbols, all button states functional
+  - [ ] Galculator: traffic lights with Mavericks gradients + symbols
+  - [ ] Evince: traffic lights with Mavericks gradients + symbols
+  - [ ] gThumb: traffic lights with Mavericks gradients + symbols
+  - [ ] All xfwm4-decorated windows: frame pieces (titlebar gradient, corners, borders) render correctly
+- [ ] **Window chrome fidelity — CSD (GTK HeaderBar) windows:**
+  - [ ] gnome-disks: HeaderBar traffic lights with :hover/:active/:focus states
+  - [ ] seahorse (Keychain): HeaderBar traffic lights with :hover/:active/:focus states
+  - [ ] gnome-font-viewer: HeaderBar traffic lights with :hover/:active/:focus states
+  - [ ] gcolor3: HeaderBar traffic lights with :hover/:active/:focus states
+  - [ ] mv-* apps (mv-activity, mv-notes, mv-calculator, etc.): HeaderBar traffic lights with :hover/:active/:focus states
+- [ ] **Window state behaviors:**
+  - [ ] Maximized windows: titlebar buttons still functional, frame border removed
+  - [ ] Minimized windows: Dock indicator shows correctly
+  - [ ] Inactive windows: titlebar dimmed, buttons dimmed
+  - [ ] Dialog/modal/transient/utility: appropriate frame styling
+- [ ] **Keyboard/mouse interaction:**
+  - [ ] Click traffic lights: Close/Minimize/Zoom work correctly
+  - [ ] Double-click titlebar: maximize/restore (xfwm4 default)
+  - [ ] Drag titlebar: move window
+  - [ ] Drag edges/corners: resize window
+  - [ ] Alt+Tab: window switching with previews
+  - [ ] Super+Arrows: tiling (left/right/up/down)
+  - [ ] Super+Alt+Arrows: workspace switching
 - [ ] Wallpaper: mavericks-desktop.png (2304×1440) displays correctly
 - [ ] File chooser: pathbar buttons + column headers visible
 - [ ] Dialogs: dialog-action-area button styling visible
