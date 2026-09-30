@@ -2,7 +2,7 @@
 # Button layout: close/minimize/maximize LEFT (traffic lights), title centered
 # Full button state support: active, inactive, pressed, prelight, toggled
 
-button_layout=OHM|:
+button_layout=CHM|:
 title_alignment=center
 full_width_title=true
 title_font=San Francisco 11
