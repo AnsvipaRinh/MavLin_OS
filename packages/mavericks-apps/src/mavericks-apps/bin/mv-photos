@@ -5,6 +5,7 @@ image dimension header reading, Moments grouping, favorites, albums,
 import tracking, search. GUI: GTK3 Mavericks-styled grid with sidebar,
 search, slideshow, and gthumb handoff for editing. No daemon, no polling.
 License: GPL-2.0-or-later."""
+import cairo
 import hashlib
 import json
 import os
@@ -825,6 +826,27 @@ class PhotosWindow(Gtk.Window):
             font-size: 11pt;
             padding: 8px 12px 4px;
         }
+        .moment-header-leather {
+            background-image: linear-gradient(to bottom,
+                #f5f0e8 0%,
+                #e8ddd0 50%,
+                #dcccb8 100%);
+            border-bottom: 1px solid #c4b8a0;
+            border-top: 1px solid #faf8f4;
+            padding: 10px 16px;
+            font-weight: bold;
+            color: #444;
+            font-size: 12pt;
+        }
+        .moment-date-label {
+            font-weight: bold;
+            color: #555;
+            font-size: 11pt;
+        }
+        .moment-count-label {
+            color: #888;
+            font-size: 10pt;
+        }
         .photos-empty {
             color: #999;
             font-size: 14pt;
@@ -833,9 +855,53 @@ class PhotosWindow(Gtk.Window):
             border-radius: 4px;
             padding: 4px 8px;
             margin: 2px;
+            background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
+            border: 1px solid #d0c8b8;
+            color: #333;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
         }
         .mavericks-toolbar-btn:hover {
-            background: #d4c8b8;
+            background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .mavericks-toolbar-btn:active {
+            background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%);
+        }
+        .moment-expander {
+            background: transparent;
+            border: none;
+            padding: 2px;
+            margin-right: 8px;
+        }
+        .moment-expander:hover {
+            background: rgba(0,122,255,0.1);
+            border-radius: 3px;
+        }
+        .moment-sidebar-item {
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 12px;
+            margin: 1px 8px;
+        }
+        .moment-sidebar-item:hover {
+            background: rgba(0,122,255,0.1);
+        }
+        .moment-sidebar-item.selected {
+            background: #007aff;
+            color: white;
+        }
+        .moment-thumb-container {
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .moment-photo-grid {
+            border-radius: 4px;
+            padding: 2px;
+            margin: 1px;
+        }
+        .moment-photo-grid:hover {
+            background: rgba(0,122,255,0.08);
         }
         .photo-info-label {
             font-size: 10pt;
@@ -901,6 +967,11 @@ class PhotosWindow(Gtk.Window):
             frame.add(vbox)
             sidebar.pack_start(frame, False, False, 0)
 
+        # Moments sidebar - populated dynamically
+        self.moments_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        self.moments_box.set_border_width(6)
+        sidebar.add(self.moments_box)
+
         self.albums_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.albums_box.set_border_width(6)
         sidebar.add(self.albums_box)
@@ -951,6 +1022,9 @@ class PhotosWindow(Gtk.Window):
         if self.current_view in self.sidebar_items:
             self.sidebar_items[self.current_view].get_style_context().add_class("selected")
 
+        # Populate Moments sidebar with date groups
+        self._populate_moments_sidebar()
+
         for child in self.albums_box.get_children():
             self.albums_box.remove(child)
         for album in self.state.get("albums") or []:
@@ -962,6 +1036,82 @@ class PhotosWindow(Gtk.Window):
                 btn.get_style_context().add_class("selected")
             self.albums_box.pack_start(btn, False, False, 0)
         self.albums_box.show_all()
+
+    def _populate_moments_sidebar(self):
+        for child in self.moments_box.get_children():
+            self.moments_box.remove(child)
+
+        moments = group_by_moment(self.all_photos)
+        if not moments:
+            empty = Gtk.Label(label="No moments")
+            empty.get_style_context().add_class("photos-empty")
+            empty.set_xalign(0)
+            self.moments_box.pack_start(empty, False, False, 0)
+            return
+
+        self.moment_expanded = getattr(self, 'moment_expanded', {})
+        for m in moments:
+            date_str = m["date"]
+            count = m["count"]
+            is_expanded = self.moment_expanded.get(date_str, False)
+
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+            row.set_halign(Gtk.Align.START)
+
+            expander = Gtk.Button()
+            expander.get_style_context().add_class("moment-expander")
+            expander.set_image(Gtk.Image.new_from_icon_name(
+                "pan-down" if is_expanded else "pan-end", Gtk.IconSize.MENU))
+            expander.connect("clicked", self._on_moment_expand, date_str)
+            row.pack_start(expander, False, False, 0)
+
+            label = Gtk.Button()
+            label.get_style_context().add_class("moment-sidebar-item")
+            label.set_halign(Gtk.Align.START)
+            label.set_label("%s (%d)" % (date_str, count))
+            label.connect("clicked", self.on_moment_date_click, date_str)
+            if self.current_view == "moments" and self.current_moment == date_str:
+                label.get_style_context().add_class("selected")
+            row.pack_start(label, True, True, 0)
+
+            self.moments_box.pack_start(row, False, False, 0)
+
+            if is_expanded:
+                self._populate_moment_photos_in_sidebar(m["photos"])
+
+        self.moments_box.show_all()
+
+    def _populate_moment_photos_in_sidebar(self, photos):
+        for p in photos[:5]:
+            btn = Gtk.Button()
+            btn.get_style_context().add_class("moment-sidebar-item")
+            btn.set_halign(Gtk.Align.START)
+            tp = ensure_thumb(p)
+            if tp:
+                try:
+                    pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(tp, 32, 32, True)
+                    img = Gtk.Image.new_from_pixbuf(pix)
+                    btn.set_image(img)
+                    btn.set_always_show_image(True)
+                except Exception:
+                    pass
+            btn.set_label(p["filename"][:20])
+            btn.connect("clicked", self._open_photo, p["path"])
+            self.moments_box.pack_start(btn, False, False, 0)
+
+    def _on_moment_expand(self, btn, date_str):
+        self.moment_expanded = getattr(self, 'moment_expanded', {})
+        self.moment_expanded[date_str] = not self.moment_expanded.get(date_str, False)
+        self._populate_moments_sidebar()
+
+    def on_moment_date_click(self, _btn, date_str):
+        self.current_view = "moments"
+        self.current_moment = date_str
+        self.current_album = None
+        self.search_entry.set_text("")
+        self.search_query = ""
+        self.refresh_sidebar()
+        self.refresh_content()
 
     def refresh_content(self):
         for child in self.photos_flow.get_children():
@@ -997,18 +1147,34 @@ class PhotosWindow(Gtk.Window):
             for m in moments:
                 m["photos"] = search_photos(m["photos"], self.search_query)
                 m["count"] = len(m["photos"])
+
+        if self.current_moment:
+            moments = [m for m in moments if m["date"] == self.current_moment]
+
         if not moments:
             self.photos_flow.hide()
             self.empty_label.set_text("No moments to show")
             self.empty_label.show()
             return
+
         self.empty_label.hide()
         self.photos_flow.show()
+
         for m in moments:
-            hdr = Gtk.Label(label="%s — %d photos" % (m["date"], m["count"]))
-            hdr.set_xalign(0)
-            hdr.get_style_context().add_class("moment-header")
-            self.photos_flow.add(hdr)
+            hdr_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            hdr_box.get_style_context().add_class("moment-header-leather")
+
+            date_label = Gtk.Label(label=m["date"])
+            date_label.get_style_context().add_class("moment-date-label")
+            date_label.set_xalign(0)
+            hdr_box.pack_start(date_label, True, True, 0)
+
+            count_label = Gtk.Label(label="%d photos" % m["count"])
+            count_label.get_style_context().add_class("moment-count-label")
+            hdr_box.pack_end(count_label, False, False, 0)
+
+            self.photos_flow.add(hdr_box)
+
             for p in m["photos"]:
                 self._add_photo_item(p)
 
@@ -1064,6 +1230,7 @@ class PhotosWindow(Gtk.Window):
     def on_sidebar_click(self, _btn, item_id):
         self.current_view = item_id
         self.current_album = None
+        self.current_moment = None
         self.search_entry.set_text("")
         self.search_query = ""
         self.refresh_sidebar()
