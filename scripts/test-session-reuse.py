@@ -58,9 +58,11 @@ class MockHandler(BaseHTTPRequestHandler):
     META = {
         "ses_ORPHAN": {"directory": "/proj",
                        "title": "Do thing (@build subagent)",
-                       "parentID": "ses_PARENT"},
+                       "parentID": "ses_PARENT",
+                       "agent": "build"},
         "ses_STRANGER": {"directory": "/proj", "title": "user notes",
-                         "parentID": ""},
+                         "parentID": "",
+                         "agent": "user"},
     }
     ABORTS = []
     MSGS = {

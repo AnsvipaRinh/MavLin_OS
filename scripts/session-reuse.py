@@ -192,15 +192,15 @@ def api_list_sessions(directory=None):
 
 def repo_root():
     import os as _os
-    return _os.path.realpath(_os.path.join(BASE, ".."))
+    # Default to the user's home directory where OpenCode server typically runs
+    return _os.path.expanduser("~")
 
 
 def discover_live_children(directory=None):
     """Live child (subagent) sessions of this project, registry or not.
 
-    Filter (conservative): same directory AND (Task subagent title marker
-    OR already tracked in registry). Returns [(id, title, parentID)].
-    Never touches user/forked sessions outside this shape.
+    Filter: same directory AND agent is a known worker (build, build-b, build-c).
+    Returns [(id, title, parentID)].
     """
     root = directory or repo_root()
     try:
@@ -208,9 +208,12 @@ def discover_live_children(directory=None):
         known = set((reg.get("sessions") or {}).keys())
     except (OSError, ValueError):
         known = set()
-    sessions = api_list_sessions()  # unfiltered; match client-side
+    workers = set()
+    for role, model in worker_pins():
+        workers.add(role)
+    sessions = api_list_sessions()
     if sessions is None:
-        return None  # API down: caller must WAIT, never assume
+        return None
     out = []
     for s in sessions:
         if not isinstance(s, dict):
@@ -220,10 +223,10 @@ def discover_live_children(directory=None):
             continue
         if (s.get("directory", "") or "") != root:
             continue
-        title = s.get("title", "") or ""
-        if "subagent" not in title.lower() and sid not in known:
+        agent = s.get("agent", "") or ""
+        if agent not in workers and sid not in known:
             continue
-        out.append((sid, title, s.get("parentID", "")))
+        out.append((sid, s.get("title", "") or "", s.get("parentID", "")))
     return out
 
 
