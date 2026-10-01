@@ -188,3 +188,7 @@ class SimBackend(TargetBackend):
             return (self.data / "boot/next-boot.txt").read_text().strip()
         except OSError:
             return "A"
+
+    def wait_for_agent_ready(self, timeout=30):
+        """Sim backend is always ready immediately after start()."""
+        return True

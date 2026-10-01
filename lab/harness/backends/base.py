@@ -49,3 +49,9 @@ class TargetBackend(ABC):
     @abstractmethod
     def inject(self, action, **kw):
         """Failure injection (network_down, agent_off, corrupt_rootfs, etc.)."""
+
+    @abstractmethod
+    def wait_for_agent_ready(self, timeout=30):
+        """Wait for agent to be responsive on command channel after boot.
+        Returns True if ready, raises HarnessError on timeout with clear message.
+        """

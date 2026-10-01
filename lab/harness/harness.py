@@ -77,7 +77,7 @@ class Harness:
                     "result": "skip", "reason": "backend not in scenario"}
 
         fixture_dir = TEMP / f"{name}-{self.backend_name}-{uuid.uuid4().hex[:8]}"
-        from fixtures import builder
+        from lab.harness.fixtures import builder
         builder.create_fixture(fixture_dir, scenario.get("fixture", {}))
 
         backend = self._make_backend(fixture_dir)
@@ -122,10 +122,10 @@ class Harness:
 
     def _make_backend(self, fixture_dir):
         if self.backend_name == "sim":
-            from backends.sim_backend import SimBackend
+            from lab.harness.backends.sim_backend import SimBackend
             return SimBackend(fixture_dir)
         elif self.backend_name == "qemu":
-            from backends.qemu_backend import QemuBackend
+            from lab.harness.backends.qemu_backend import QemuBackend
             return QemuBackend(fixture_dir)
         else:
             raise HarnessError(f"unknown backend: {self.backend_name}")
@@ -140,6 +140,7 @@ class Harness:
             backend.stop()
             time.sleep(0.5)
             backend.start(reset_serial=False)
+            backend.wait_for_agent_ready()
         elif "deploy" in step:
             d = step["deploy"]
             image = self._make_image(d.get("image", "test-image"), d.get("corrupt", False))

@@ -46,8 +46,8 @@ def test_scenario_files_valid():
 
 
 def test_sim_backend_boot():
-    from fixtures import builder
-    from backends.sim_backend import SimBackend
+    from lab.harness.fixtures import builder
+    from lab.harness.backends.sim_backend import SimBackend
     tmp = tempfile.mkdtemp(prefix="harness-test-")
     builder.create_fixture(tmp + "/fixture", {"slot_a_image": "v1", "network": "up"})
     backend = SimBackend(tmp + "/fixture")
@@ -59,8 +59,8 @@ def test_sim_backend_boot():
 
 
 def test_sim_backend_deploy():
-    from fixtures import builder
-    from backends.sim_backend import SimBackend
+    from lab.harness.fixtures import builder
+    from lab.harness.backends.sim_backend import SimBackend
     tmp = tempfile.mkdtemp(prefix="harness-test-")
     builder.create_fixture(tmp + "/fixture", {"slot_a_image": "v1", "network": "up"})
     backend = SimBackend(tmp + "/fixture")
@@ -77,8 +77,8 @@ def test_sim_backend_deploy():
 
 
 def test_sim_backend_network_down():
-    from fixtures import builder
-    from backends.sim_backend import SimBackend
+    from lab.harness.fixtures import builder
+    from lab.harness.backends.sim_backend import SimBackend
     tmp = tempfile.mkdtemp(prefix="harness-test-")
     builder.create_fixture(tmp + "/fixture", {"slot_a_image": "v1", "network": "down"})
     backend = SimBackend(tmp + "/fixture")

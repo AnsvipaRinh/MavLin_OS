@@ -83,7 +83,7 @@ class QemuBackend(TargetBackend):
         if not initrd.exists():
             import sys
             sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-            from fixtures import builder
+            from lab.harness.fixtures import builder
             builder.build_initramfs(initrd)
         # Open serial log in append mode for QEMU's stdout (serial output via -serial stdio)
         self._serial_log_file = open(self.serial_path, "ab")
@@ -293,3 +293,17 @@ class QemuBackend(TargetBackend):
                 m.unlink()
         finally:
             subprocess.run(["sudo", "umount", str(mnt)], capture_output=True)
+
+    def wait_for_agent_ready(self, timeout=30):
+        """Poll agent with 'status' command until responsive or timeout."""
+        deadline = time.time() + timeout
+        last_error = None
+        while time.time() < deadline:
+            resp = self.run_agent_cmd("status", timeout=5)
+            if resp.get("ok"):
+                return True
+            last_error = resp.get("error", "unknown")
+            if self.proc and self.proc.poll() is not None:
+                raise HarnessError("guest exited while waiting for agent ready")
+            time.sleep(0.3)
+        raise HarnessError(f"timeout waiting for agent ready after {timeout}s: last error={last_error}")
