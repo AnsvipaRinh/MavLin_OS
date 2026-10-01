@@ -3,31 +3,39 @@
 Uses xdotool to copy selection and parse clipboard for file URIs.
 Falls back to xdg-open if Thunar not focused or no selection.
 License: GPL-2.0-or-later."""
-import os, subprocess, sys, gi
+import os
+import subprocess
+import sys
+import time
+import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
+
 
 def get_thunar_selection():
     """Try to get selected files from Thunar via clipboard copy."""
     try:
         # Check if Thunar is the active window
-        active = subprocess.run(["xdotool", "getactivewindow", "getwindowname"],
-                                capture_output=True, text=True, timeout=2)
+        active = subprocess.run(
+            ["xdotool", "getactivewindow", "getwindowname"],
+            capture_output=True, text=True, timeout=2
+        )
         if "thunar" not in active.stdout.lower():
             return None
 
         # Copy selection to clipboard (Ctrl+C)
         subprocess.run(["xdotool", "key", "ctrl+c"], timeout=1)
 
-        # Give clipboard time to update
-        import time
-        time.sleep(0.15)
-
-        # Get clipboard content
+        # Give clipboard time to update - poll with timeout
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        clipboard_text = clipboard.wait_for_text()
+        clipboard_text = None
+        for _ in range(10):
+            clipboard_text = clipboard.wait_for_text()
+            if clipboard_text and clipboard_text.strip():
+                break
+            time.sleep(0.05)
 
-        if not clipboard_text:
+        if not clipboard_text or not clipboard_text.strip():
             return None
 
         # Parse file:// URIs from clipboard
@@ -54,9 +62,11 @@ def main():
     else:
         # Fallback: show a brief notification
         try:
-            subprocess.run(["notify-send", "-t", "1500",
-                            "Quick Look", "No files selected in Thunar"],
-                           timeout=2)
+            subprocess.run(
+                ["notify-send", "-t", "1500",
+                 "Quick Look", "No files selected in Thunar"],
+                timeout=2
+            )
         except Exception:
             pass
         sys.exit(1)

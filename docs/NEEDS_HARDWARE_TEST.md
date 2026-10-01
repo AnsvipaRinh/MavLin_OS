@@ -279,6 +279,14 @@ procedures or active code reference them:
 - [ ] Escape closes overview
 - [ ] Error handling: if wmctrl missing, user-friendly message with install hint appears
 
+## Finder Quick Look Space Binding — hardware validation
+- [ ] Super+Shift+Space in Thunar copies selection to clipboard and opens mv-quicklook with selected files
+- [ ] **Native Space binding limitation**: Thunar does not support binding Space key to custom actions without a C/Vala plugin (ThunarX). Current workaround uses Super+Shift+Space. A native Thunar plugin would be required for true Space-key Quick Look integration (investigate thunarx-python or Vala plugin for future).
+- [ ] UCA context menu "Quick Look" works (right-click → Quick Look)
+- [ ] mv-quicklook on image/PDF/text/audio — multi-file nav (←/→/Space), fullscreen (F), Open button work
+- [ ] PDF preview via poppler-glib renders first page on 2304x1440
+- [ ] Media files show metadata via ffprobe
+
 ## Thumbnailer — config gap (decision: no new daemon)
 - [ ] tumbler is absent from the ISO package list; thunarrc requests
       thumbnails (`MiscThumbnailMode=ALWAYS`, `MiscShowThumbnails=TRUE`)
