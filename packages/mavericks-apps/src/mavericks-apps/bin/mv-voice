@@ -285,6 +285,16 @@ class WaveformWidget(Gtk.DrawingArea):
         self.set_size_request(-1, 52)
         self.connect("draw", self.on_draw)
 
+        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK |
+                        Gdk.EventMask.BUTTON_RELEASE_MASK |
+                        Gdk.EventMask.POINTER_MOTION_MASK)
+        self.connect("button-press-event", self.on_button_press)
+        self.connect("button-release-event", self.on_button_release)
+        self.connect("motion-notify-event", self.on_motion_notify)
+
+        self.dragging = False
+        self.seek_callback = None
+
     def set_memo(self, peaks):
         self.peaks = peaks or []
         self.progress = 0.0
@@ -293,6 +303,35 @@ class WaveformWidget(Gtk.DrawingArea):
     def set_progress(self, frac):
         self.progress = max(0.0, min(1.0, frac))
         self.queue_draw()
+
+    def set_seek_callback(self, callback):
+        self.seek_callback = callback
+
+    def on_button_press(self, widget, event):
+        if event.button == 1 and self.peaks and self.seek_callback:
+            self.dragging = True
+            self._seek_to_position(event.x)
+            return True
+        return False
+
+    def on_button_release(self, widget, event):
+        if event.button == 1 and self.dragging:
+            self.dragging = False
+            return True
+        return False
+
+    def on_motion_notify(self, widget, event):
+        if self.dragging and self.seek_callback:
+            self._seek_to_position(event.x)
+            return True
+        return False
+
+    def _seek_to_position(self, x):
+        w = self.get_allocated_width()
+        if w > 0 and self.peaks:
+            frac = max(0.0, min(1.0, x / float(w)))
+            if self.seek_callback:
+                self.seek_callback(frac)
 
     def on_draw(self, widget, cr):
         w = widget.get_allocated_width()
@@ -317,6 +356,16 @@ class WaveformWidget(Gtk.DrawingArea):
                     cr.set_source_rgb(0.78, 0.86, 0.94)
                 cr.rectangle(x + 0.5, (h - bh) / 2, max(1.0, bw - 1), bh)
                 cr.fill()
+
+            # Draw seek indicator when dragging
+            if self.dragging:
+                seek_x = self.progress * w
+                cr.set_source_rgb(1.0, 0.4, 0.0)
+                cr.set_line_width(2)
+                cr.move_to(seek_x, 2)
+                cr.line_to(seek_x, h - 2)
+                cr.stroke()
+
         return False
 
 
@@ -339,6 +388,7 @@ class VoiceMemos(Gtk.Window):
         vbox.pack_start(self.cassette, False, False, 0)
 
         self.waveform = WaveformWidget()
+        self.waveform.set_seek_callback(self.on_waveform_seek)
         vbox.pack_start(self.waveform, False, False, 0)
 
         row = Gtk.Box(spacing=12)
@@ -731,6 +781,44 @@ class VoiceMemos(Gtk.Window):
                 self.time_label.set_text(fmt_time(dur))
             self.status.set_text("Stopped: %s" % os.path.basename(self.play_path))
             self.play_path = None
+
+    def on_waveform_seek(self, frac):
+        if self.play_proc and self.play_path and self.play_dur > 0:
+            seek_time = frac * self.play_dur
+            self._seek_playback(seek_time)
+
+    def _seek_playback(self, seek_time):
+        if not self.play_path or self.play_dur <= 0:
+            return
+        seek_time = max(0.0, min(seek_time, self.play_dur))
+        self.stop_playback()
+        self._start_playback_at(self.play_path, seek_time)
+
+    def _start_playback_at(self, path, start_time):
+        pb = playback_cmd()
+        if not pb:
+            self.status.set_text(
+                "No audio player found — install PipeWire or PulseAudio.")
+            return
+        try:
+            self.play_proc = subprocess.Popen(pb + [path])
+        except OSError as e:
+            self.status.set_text("Failed to start playback: %s" % e)
+            return
+
+        self.play_path = path
+        self.play_start = time.time() - start_time
+        self.play_dur = wav_duration(path) or 0.0
+        self.selected_path = path
+        self._load_waveform(path)
+        self.cassette.set_state("playing")
+        self.play_btn.set_image(Gtk.Image.new_from_icon_name(
+            "media-playback-stop", Gtk.IconSize.LARGE_TOOLBAR))
+        self.play_btn.set_tooltip_text("Stop playback (Return)")
+        base = os.path.basename(path)
+        self.status.set_text("Playing: %s (seeked)" % base)
+        self.play_timer = GLib.timeout_add(200, self.update_playback_time)
+        self.update_playback_time()
 
     def _load_waveform(self, path):
         self.waveform.set_memo(waveform_peaks(path))
