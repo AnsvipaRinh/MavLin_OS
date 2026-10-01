@@ -12,9 +12,12 @@
     input-border: #cccccc;
     input-bg: #ffffff;
     separator: #e0e0e0;
+    workspace-active-bg: rgba(0, 122, 255, 0.1);
+    workspace-active-fg: #007aff;
 }
 window {
-    width: 800px;
+    width: 900px;
+    height: 600px;
     location: center;
     anchor: center;
     border: 1px;
@@ -47,7 +50,7 @@ entry {
     spacing: 0;
 }
 listview {
-    lines: 18;
+    lines: 20;
     columns: 1;
     fixed-height: true;
     dynamic: true;
@@ -71,19 +74,23 @@ element selected.normal {
     text-color: @accent-text;
 }
 element-icon {
-    size: 28px;
+    size: 32px;
     background-color: transparent;
 }
 element-text {
     vertical-align: 0.5;
 }
 category {
-    padding: 8px 14px;
+    padding: 10px 14px;
     background: @category-bg;
     font-weight: 600;
     color: @category-fg;
     border-radius: 5px;
-    margin: 6px 4px 2px;
+    margin: 8px 4px 4px;
+}
+category.active {
+    background: @workspace-active-bg;
+    color: @workspace-active-fg;
 }
 scrollbar {
     width: 6px;

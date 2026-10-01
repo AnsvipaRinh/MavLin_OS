@@ -263,7 +263,10 @@ def main():
         ws_label = f"Desktop {desk}"
         if desk == str(active_ws):
             ws_label += " ●"
-        print(ws_label)
+            # Active workspace category with special styling
+            print(f"{ws_label}\0class\x1factive")
+        else:
+            print(ws_label)
         if not by_desktop[desk]:
             print("(empty)\0icon\x1fworkspace\0info\x1fWorkspace {desk} is empty".format(desk=desk))
         for w in by_desktop[desk]:
@@ -272,10 +275,6 @@ def main():
             title = w["title"]
             if is_active:
                 title = "▸ " + title
-            # Build action string for rofi: format is "action\x1fcommand"
-            # We'll use custom actions via rofi's -kb-custom-1 etc. or just rely on
-            # the info field for now. For window actions, we can use the
-            # rofi-script mode with custom keybindings.
             info = f"Workspace {w['desktop']} — {w['class']}"
             if is_active:
                 info += " (active)"
