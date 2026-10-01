@@ -13,3 +13,6 @@ packages/mavericks-theme/src/mavericks-theme/gtk-3.20/gtk.css
 packages/epiphany-mavericks-theme/src/epiphany-mavericks-theme/epiphany.css
 # ISO build output (2.7G binary, not for git)
 out/
+
+# opencode agent session runtime state
+.opencode/sessions/
