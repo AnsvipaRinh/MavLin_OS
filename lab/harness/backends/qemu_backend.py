@@ -72,7 +72,12 @@ class QemuBackend(TargetBackend):
         self.stop()
         if reset_serial:
             self.serial_path.write_text("")
-        self._serial_pos = 0
+            self._serial_pos = 0
+        # Clean command channel directory to avoid stale commands
+        cmd_dir = self.work / "cmd-channel"
+        if cmd_dir.exists():
+            shutil.rmtree(cmd_dir)
+        cmd_dir.mkdir(parents=True, exist_ok=True)
         # ensure the ESP initramfs exists
         initrd = self.fixture / "esp/EFI/BOOT/initramfs.img"
         if not initrd.exists():
@@ -114,16 +119,61 @@ class QemuBackend(TargetBackend):
             time.sleep(0.5)
         return "TIMEOUT"
 
+    def _monitor_cmd(self, cmd, timeout=5):
+        """Send a command to QEMU monitor via unix socket."""
+        import socket
+        try:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            sock.connect(str(self.monitor_sock))
+            # QMP handshake
+            sock.recv(4096)
+            sock.sendall(json.dumps({"execute": "qmp_capabilities"}).encode() + b"\n")
+            sock.recv(4096)
+            # Send actual command
+            sock.sendall(json.dumps({"execute": cmd}).encode() + b"\n")
+            resp = sock.recv(4096)
+            sock.close()
+            return json.loads(resp.decode())
+        except Exception:
+            return None
+
+    def _send_poweroff_cmd(self):
+        """Send poweroff command via 9p command channel."""
+        cmd_dir = self.work / "cmd-channel"
+        cmd_dir.mkdir(parents=True, exist_ok=True)
+        cmd_file = cmd_dir / "cmd.json"
+        req = {"id": str(uuid.uuid4()), "cmd": "poweroff", "args": {}}
+        cmd_file.write_text(json.dumps(req))
+        # Wait a bit for guest to process
+        time.sleep(1)
+
     def stop(self, sigkill=False):
         if self.proc and self.proc.poll() is None:
-            if sigkill:
-                self.proc.send_signal(signal.SIGKILL)
-            else:
-                self.proc.send_signal(signal.SIGTERM)
-            try:
-                self.proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.proc.kill()
+            # Try graceful shutdown via 9p command channel
+            if not sigkill:
+                self._send_poweroff_cmd()
+                try:
+                    self.proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    pass
+            # Fallback to QEMU monitor system_powerdown
+            if self.proc and self.proc.poll() is None and not sigkill:
+                self._monitor_cmd("system_powerdown")
+                try:
+                    self.proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    pass
+            # Force kill if still running
+            if self.proc and self.proc.poll() is None:
+                if sigkill:
+                    self.proc.send_signal(signal.SIGKILL)
+                else:
+                    self.proc.send_signal(signal.SIGTERM)
+                try:
+                    self.proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.proc.kill()
             self.proc = None
         # Close serial log file
         if hasattr(self, '_serial_log_file') and self._serial_log_file:

@@ -321,8 +321,30 @@ def stage_systemd(slot):
     return True
 
 
+def _read_fixture_value(key, default):
+    # Sync to ensure we see latest writes from host
+    try:
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        libc.sync()
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(DATA, "fixture.env")) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                if k.strip() == key:
+                    return v.strip()
+    except OSError:
+        pass
+    return default
+
+
 def stage_network(fixture):
-    if fixture.get("network", "up") == "up":
+    network = _read_fixture_value("network", "up")
+    if network == "up":
         if net_up():
             serial("NETWORK up")
             serial(f"ROUTE: {dump_proc('/proc/net/route')}")
@@ -334,7 +356,8 @@ def stage_network(fixture):
 
 
 def stage_agent(fixture):
-    if fixture.get("agent", "on") == "off":
+    agent = _read_fixture_value("agent", "on")
+    if agent == "off":
         serial("AGENT_SKIP")
         return "SKIP"
     state = run_agent_boot()
@@ -344,6 +367,12 @@ def stage_agent(fixture):
 
 def boot_flow(fixture):
     slot = read_slot()
+    # Update current-boot.txt to reflect the slot we're actually booting
+    try:
+        with open(os.path.join(DATA, "boot", "current-boot.txt"), "w") as f:
+            f.write(slot + "\n")
+    except OSError:
+        pass
     serial(f"BOOT slot={slot}")
     if not stage_rootfs(slot):
         return "ROOTFS_FAIL"
@@ -359,6 +388,15 @@ def command_loop(fixture):
     serial("CMD_LOOP enter")
     while True:
         if os.path.exists(CMD):
+            try:
+                with open(CMD) as f:
+                    cmd_data = json.loads(f.read())
+                if cmd_data.get("cmd") == "poweroff":
+                    serial("POWEROFF command received, syncing and shutting down")
+                    sync_data_mount()
+                    poweroff()
+            except Exception:
+                pass
             run_agent_cmd()
             try:
                 os.unlink(CMD)
