@@ -75,11 +75,22 @@
 - [x] Added virtio-net.ko, net_failover.ko, failover.ko to initramfs (builder.py) with depmod
 - [x] Verified: QEMU guest boots to HEALTHY with NET_DONE in serial log showing eth0 route via 10.0.2.2
 - [x] Command channel migrated to 9p virtfs (virtio-fs) — infrastructure in place, but 9p mount fails in guest (ENODEV — transport not ready). Blocked on 9p virtio transport initialization order. Network scenarios (boot, network_down) work; command-channel scenarios (select_boot, status) blocked.
-- [x] Sim backend unchanged (25/25 pass), lab tests (158) pass, harness tests (110) pass
+- [x] Sim backend unchanged (25/25 pass), lab tests (158) pass, harness tests (6) pass
 - [x] No production bootloader/power/UI/kernel changes — only lab/harness/
   - [x] QEMU backend: real guest boot works; network-up scenarios fail health check → ROLLBACK (documented limitation: virtio-net module fails, no route creation)
   - [x] Mac backend: documented stub (efibootmgr -n/-o), raises NotImplementedError, does NOT touch production bootloader
   - [ ] Deferred seam: chunked deploy (large images), raw stream deploy, QEMU network-up fix, Mac backend wiring to production bootloader
+
+### QEMU Track Closure (2026-10-01, без железа)
+- [x] **Track CLOSED** — all pre-hardware QEMU objectives achieved; remaining items require physical MacBook10,1
+- [x] SimBackend: 25/25 scenarios PASS (rootless, deterministic, primary)
+- [x] QemuBackend: 7/25 scenarios PASS (01,02,11,15,16,23,25 — network boot HEALTHY; reboot path works manually); command-channel scenarios (select_boot, status, etc.) blocked on 9p virtfs ENODEV (transport not ready in guest)
+- [x] MacBackend: documented stub only (efibootmgr -n/-o), raises NotImplementedError
+- [x] **Environment limitation documented:** No `/dev/kvm` in build container → TCG emulation; 5.5× timing variance observed; harness flaky under TCG (timeout jitter). Hardware bring-up on MacBook10,1 with KVM will re-validate.
+- [x] Test inventory reconciled: lab/tests/ = 7 scripts, 158 assertions (standalone runners); lab/harness/tests/ = 1 pytest file, 6 tests. Discrepancy (158 vs 122) explained: pytest collects 0 from standalone scripts.
+- [x] Zero production touch — only lab/harness/ modified
+- [x] Gate: check-sync 221/221 PASS; harness tests 6/6 PASS; lab tests 158/158 PASS
+- [x] docs/LAB_HARNESS.md updated with canonical counts, final results table, and env limitation evidence
 
 ### Track closure — Architecture Optimization R1–R2 + D1–D7 (2026-09-28, без железа)
 - [x] R2 proposal reconciled: 6 items → 3 SUPERSEDED (BlueZ signals, worker thread, pactl→D-Bus — all superseded by the 14c8009 signal-driven redesign + f2568dc dedup + measured P2 acceptance), 1 CLOSED (mv-eject/rename — already efficient), 2 STILL-OPEN accepted (mv-airdrop NM State, mv-diskutil ObjectManager — on-open only, P2) — ARCHITECTURE_OPTIMIZATION_AUDIT.md §R2

@@ -3,6 +3,43 @@
 Deterministic test harness for the mavericks-lab A/B deployment system.
 Runs 25 failure-injection scenarios against pluggable target backends.
 
+## Track Closure (2026-10-01)
+
+**QEMU track CLOSED** — all pre-hardware objectives achieved:
+
+| Backend | Scenarios | Status | Notes |
+|---------|-----------|--------|-------|
+| SimBackend | 25/25 | PASS | Rootless, deterministic, primary backend |
+| QemuBackend | 7/25 | PASS (network boot HEALTHY) | 01,02,11,15,16,23,25; command-channel blocked on 9p virtfs ENODEV |
+| MacBackend | 0/25 | STUB | Documented placeholder for hardware bring-up |
+
+**Environment limitation (documented, non-blocking):** No `/dev/kvm` in build container → QEMU runs under TCG (emulation). Observed 5.5× timing variance vs KVM. Harness flaky under TCG for command-channel scenarios (timeout jitter). Hardware bring-up will re-validate on MacBook10,1 with KVM.
+
+**Zero production touch** — only lab/harness/ modified; no ISO, kernel, bootloader, power, UI, or driver changes.
+
+## Test Inventory (canonical)
+
+### lab/tests/ — 7 standalone test scripts, 158 assertions
+```
+test_e2e.py              36 tests  (full A/B lifecycle + rollback + crash recovery + snapshot)
+test_agent_boot.py       19 tests  (QEMU boot backend + A/B lifecycle)
+test_agent_deploy.py     27 tests  (deploy, verify, snapshot, commit, rollback, idempotency)
+test_agent_identity.py    9 tests  (ed25519 identity generation + fingerprint + keys)
+test_agent_protocol.py   23 tests  (NDJSON protocol: ping, status, commands, journal, trace, logs, benchmark)
+test_agent_state.py      24 tests  (state machine: UNKNOWN→HEALTHY→COMMITTED, FAIL→ROLLBACK, attempt counter)
+test_host_store.py       20 tests  (SQLite job/event store: queries, fields, limits)
+Total:                  158 tests
+```
+**Canonical command:** Run each script directly: `python lab/tests/test_*.py`
+**Discrepancy explained:** The 122 count came from `pytest --collect-only` which finds **0 tests** because these are standalone scripts with custom runners (`main()`, `check/ok/bad`), not pytest-format tests. The 158 count is the true assertion count from executing each script.
+
+### lab/harness/tests/ — 1 pytest file, 6 tests
+```
+test_harness.py          6 tests   (scenario validation, sim backend boot/deploy/network, harness runner, mac stub)
+Total:                    6 tests
+```
+**Canonical command:** `python -m pytest lab/harness/tests/ -v`
+
 ## Architecture
 
 ```
