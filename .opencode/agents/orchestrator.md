@@ -54,7 +54,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 0. ENV PRE-CHECK (once per session, BEFORE anything else — both commands
    must succeed in the SAME session):
    `git status` AND `scripts/session-reuse.py version` (need
-   `orchestrator-protocol: 8`).
+   `orchestrator-protocol: 9`).
    - Either fails ("file not found", unknown subcommand, older version) →
      PROJECT-NOT-LOADED or STALE-AGENT: the server started outside the repo
      or cached an old agent file (no hot-reload — AGENTS.md 14.6). STOP and

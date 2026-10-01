@@ -1,5 +1,18 @@
 # DECISIONS
 
+## 2026-10-01 — Protocol v9: find-objective live fallback, stuck orphans, migrate tail-model
+
+**Date:** 2026-10-01
+**Context:** User reported: continuation of old sessions works, but model switch on provider pause does not — LongCat paused ~30k sec, orchestrators idle.
+
+**Root cause (three gaps):**
+1. `find-objective` ONLY looked in registry → FRESH when registry empty after restart, even though live child sessions exist on server. Fixed: live discovery fallback (`discover_live_children()`).
+2. `stuck` ONLY looked at registry sessions → missed orphans (blocked Task never registered). Fixed: also scan `/session/status` for orphans + age from `timeUpdated`; unknown-ids resolved via `session_exists()`.
+3. `migrate` needed `--objective` even when registry had record; model missing when unregistered. Fixed: optional `--objective`; model learned from bounded message tail (`session_tail_model()`) for unregistered sessions.
+
+**Verified:** 48/48 green on mock REST (live fallback, orphan detection, tail-model learning).
+**NOT verifiable here:** live 30k-sec abort, daemon lifetime, background flag. Live proof = acceptance A–R + Test H in user env.
+
 ## 2026-10-01 — Protocol v8: watchdog discovers unregistered stuck sessions
 
 **Date:** 2026-10-01

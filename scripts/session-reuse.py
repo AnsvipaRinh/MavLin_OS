@@ -97,7 +97,7 @@ CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-ORCHESTRATOR_PROTOCOL = 8
+ORCHESTRATOR_PROTOCOL = 9
 
 # Cooldown memory for dead models (.opencode/sessions/model-health.json).
 # A model observed dead (provider retry/unavailable > stuck threshold, or
@@ -435,18 +435,28 @@ def cmd_find_objective(args):
     hits = [sid for sid, m in reg["sessions"].items()
             if (m.get("oid", "") or "").lower() == q or
             (not m.get("oid") and (m.get("objective", "") or "").lower() == q)]
+    # Fallback to live discovery when registry has no matches
     if not hits:
-        print(f"FRESH (no session registered for objective '{a.objective}'; "
-              f"create one with a fresh Task, then register its task_id)");
-        return
+        live = discover_live_children()
+        if live is None:
+            print(f"FRESH (session API unreachable; cannot discover live children)")
+            raise SystemExit(3)
+        for sid, title, _parent in live:
+            # Match by oid in title or by objective text
+            if (f"oid:{q}" in title.lower() or q in title.lower()):
+                hits.append(sid)
+        if not hits:
+            print(f"FRESH (no session registered or live for objective '{a.objective}'; "
+                  f"create one with a fresh Task, then register its task_id)");
+            return
     if len(hits) > 1:
         print(f"AMBIGUOUS ({len(hits)} sessions match '{a.objective}'; "
               f"attach distinct --oid via link-objective, then retry)");
         for sid in hits:
-            print(f"  - {sid} worker={reg['sessions'][sid].get('agent')}")
+            print(f"  - {sid} worker={reg.get('sessions', {}).get(sid, {}).get('agent', '?')}")
         raise SystemExit(4)
     sid = hits[0]
-    meta = reg["sessions"][sid]
+    meta = reg["sessions"].get(sid, {})
     # Authoritative existence first: post-restart sessions answer here
     # even with no status entry (status absence = idle, never gone).
     estate, _eobj = session_exists(sid)
@@ -1488,6 +1498,7 @@ def cmd_stuck(args):
     except (OSError, ValueError):
         pass
     rows = []
+    # Check sessions from status (including orphans not in registry)
     for sid, entry in (st.items() if isinstance(st, dict) else []):
         etype = entry.get("type", "?") if isinstance(entry, dict) else "?"
         if etype == "idle":
@@ -1495,6 +1506,15 @@ def cmd_stuck(args):
         delay = extract_delay_sec(entry) if isinstance(entry, dict) else None
         meta = reg.get(sid, {})
         age = _busy_age_sec(meta) if meta else None
+        # Also check time.updated from status entry for orphans
+        if age is None and isinstance(entry, dict):
+            updated = entry.get("timeUpdated") or entry.get("updated")
+            if updated:
+                try:
+                    ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
+                    age = max(0.0, (datetime.now(timezone.utc) - ts).total_seconds())
+                except (ValueError, TypeError):
+                    pass
         stuck = (delay is not None and delay > a.threshold) or \
                 (delay is None and age is not None and age > a.threshold
                  and etype in ("busy", "retry", "running", "waiting"))
@@ -1502,6 +1522,16 @@ def cmd_stuck(args):
                      "delaySec": delay, "busyAgeSec": age,
                      "objective": meta.get("objective", ""),
                      "verdict": "STUCK" if stuck else "WAIT"})
+    # Also check registry sessions that might be stuck but not in status (orphans)
+    for sid, meta in reg.items():
+        if sid in st:
+            continue
+        age = _busy_age_sec(meta) if meta else None
+        if age is not None and age > a.threshold:
+            rows.append({"session": sid, "status": "orphan",
+                         "delaySec": None, "busyAgeSec": age,
+                         "objective": meta.get("objective", ""),
+                         "verdict": "STUCK"})
     stuck_rows = [r for r in rows if r["verdict"] == "STUCK"]
     if a.format == "json":
         print(json.dumps({"threshold": a.threshold, "sessions": rows,
@@ -1515,8 +1545,9 @@ def cmd_stuck(args):
             print(f"{r['verdict']} {r['session']} status={r['status']} "
                   f"delay={d} busyAge={age} objective={r['objective'] or '?'}")
             if r["verdict"] == "STUCK":
+                obj = r['objective'] or '<OBJECTIVE>'
                 print(f"  -> migrate: scripts/session-reuse.py migrate "
-                      f"{r['session']} --objective \"{r['objective'] or '<OBJECTIVE>'}\"")
+                      f"{r['session']} --objective \"{obj}\"")
         if stuck_rows and not rows == stuck_rows:
             pass
     raise SystemExit(2 if stuck_rows else 0)
@@ -1550,6 +1581,12 @@ def cmd_migrate(args):
     old_model = meta.get("model", "")
     old_worker = meta.get("agent", "build")
     excluded = [e for e in a.exclude.split(",") if e.strip()]
+    # If no model in registry, try to learn from message tail (bounded fetch)
+    if not old_model:
+        pid, mid = session_tail_model(a.id)
+        if mid and pid:
+            old_model = f"{pid}/{mid}"
+            meta["model"] = old_model
     if old_model:
         excluded.append(old_model)
     # 1. Cooldown memory: explicit --delay wins; else a fresh watchdog
