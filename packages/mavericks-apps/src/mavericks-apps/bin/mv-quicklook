@@ -7,7 +7,7 @@ No indexer, no daemon. License: GPL-2.0-or-later."""
 import mimetypes, os, subprocess, sys
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, GdkPixbuf, Gdk
+from gi.repository import Gtk, GdkPixbuf, Gdk, GLib
 
 _POPPLER = None
 _POPPLER_TRIED = False
@@ -153,30 +153,124 @@ class Preview(Gtk.Window):
             return tv
 
         if ext in MEDIA_EXT:
-            info = self.probe(path)
+            info = self.probe_media(path)
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
             box.set_border_width(16)
-            box.pack_start(Gtk.Label(label="<b>Media preview</b>", use_markup=True), False, False, 0)
-            box.pack_start(Gtk.Label(label=info, selectable=True), False, False, 0)
+
+            # Title
+            title = Gtk.Label()
+            title.set_markup(f"<b>{GLib.markup_escape_text(os.path.basename(path))}</b>")
+            title.set_xalign(0)
+            box.pack_start(title, False, False, 0)
+
+            # Metadata grid
+            grid = Gtk.Grid()
+            grid.set_column_spacing(12)
+            grid.set_row_spacing(6)
+            grid.set_margin_top(8)
+
+            row = 0
+            for label, value in info.items():
+                lbl = Gtk.Label(label=label + ":")
+                lbl.set_xalign(1)
+                lbl.get_style_context().add_class("dim-label")
+                grid.attach(lbl, 0, row, 1, 1)
+
+                val_lbl = Gtk.Label(label=value)
+                val_lbl.set_xalign(0)
+                val_lbl.set_selectable(True)
+                grid.attach(val_lbl, 1, row, 1, 1)
+                row += 1
+
+            box.pack_start(grid, False, False, 0)
+
             hint = Gtk.Label(label="Press Open for full playback.")
+            hint.get_style_context().add_class("dim-label")
             box.pack_start(hint, False, False, 0)
+
             vp = Gtk.Viewport()
             vp.add(box)
             return vp
 
         return Gtk.Label(label="No preview available for this file.\nPress Open.")
 
-    def probe(self, path):
+    def probe_media(self, path):
+        """Return dict of media metadata for display."""
+        info = {}
         try:
-            out = subprocess.run(["ffprobe", "-v", "quiet", "-show_format",
-                                  "-show_streams", path],
-                                 capture_output=True, text=True, timeout=10).stdout
-            lines = [l for l in out.splitlines()
-                     if l.startswith(("duration=", "codec_name=",
-                                      "width=", "height=", "sample_rate="))][:8]
-            return "\n".join(lines) or "No metadata."
-        except (OSError, subprocess.SubprocessError):
-            return "Install ffmpeg for media metadata."
+            out = subprocess.run(
+                ["ffprobe", "-v", "quiet", "-show_format", "-show_streams", "-of", "json", path],
+                capture_output=True, text=True, timeout=10
+            )
+            if out.returncode != 0:
+                info["Error"] = "ffprobe failed"
+                return info
+
+            import json
+            data = json.loads(out.stdout)
+            fmt = data.get("format", {})
+            streams = data.get("streams", [])
+
+            # Format info
+            duration = fmt.get("duration")
+            if duration:
+                info["Duration"] = self.format_duration(float(duration))
+            bitrate = fmt.get("bit_rate")
+            if bitrate:
+                info["Bitrate"] = f"{int(bitrate) // 1000} kbps"
+            size = fmt.get("size")
+            if size:
+                info["Size"] = self.format_size(int(size))
+            fmt_name = fmt.get("format_name")
+            if fmt_name:
+                info["Container"] = fmt_name
+
+            # Stream info
+            for i, stream in enumerate(streams):
+                ctype = stream.get("codec_type")
+                codec = stream.get("codec_name", "unknown")
+                if ctype == "video":
+                    w = stream.get("width")
+                    h = stream.get("height")
+                    fps = stream.get("avg_frame_rate", "").split("/")
+                    fps_val = ""
+                    if len(fps) == 2 and int(fps[1]) != 0:
+                        fps_val = f" @ {int(fps[0]) // int(fps[1])} fps"
+                    info[f"Video #{i+1}"] = f"{w}x{h} ({codec}){fps_val}"
+                elif ctype == "audio":
+                    rate = stream.get("sample_rate")
+                    ch = stream.get("channels")
+                    lang = stream.get("tags", {}).get("language", "")
+                    lang_str = f" ({lang})" if lang else ""
+                    info[f"Audio #{i+1}"] = f"{codec}, {rate} Hz, {ch} ch{lang_str}"
+                elif ctype == "subtitle":
+                    lang = stream.get("tags", {}).get("language", "")
+                    info[f"Subtitle #{i+1}"] = f"{codec} ({lang})" if lang else codec
+
+            if not info:
+                info["Note"] = "No metadata available"
+
+        except (OSError, subprocess.SubprocessError, json.JSONDecodeError, ValueError) as e:
+            info["Error"] = f"Failed to read metadata: {e}"
+
+        return info
+
+    def format_duration(self, seconds):
+        """Format duration as HH:MM:SS or MM:SS."""
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        if hours > 0:
+            return f"{hours}:{minutes:02d}:{secs:02d}"
+        return f"{minutes}:{secs:02d}"
+
+    def format_size(self, size):
+        """Format file size human-readable."""
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
+            if size < 1024:
+                return f"{size:.1f} {unit}"
+            size /= 1024
+        return f"{size:.1f} PB"
 
     def navigate(self, delta):
         if len(self.paths) <= 1:
