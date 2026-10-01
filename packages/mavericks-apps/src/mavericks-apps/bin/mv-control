@@ -13,6 +13,7 @@ Features:
 import os
 import subprocess
 import time
+import json
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gio", "2.0")
@@ -75,6 +76,7 @@ class ControlCenter(Gtk.Window):
         self.build_display_section()
         self.build_battery_section()
         self.build_dnd_section()
+        self.build_notifications_section()
 
         self.connect("focus-out-event", self.on_focus_out)
         self.connect("key-press-event", self.on_key_press)
@@ -739,6 +741,104 @@ class ControlCenter(Gtk.Window):
     def on_dnd_toggle(self, switch, _):
         run_async(["xfconf-query", "-c", "xfce4-notifyd", "-p", "/do-not-disturb", "-s", 
                    "true" if switch.get_active() else "false"])
+
+    # ==================== Notifications ====================
+
+    def build_notifications_section(self):
+        box = self.build_section("Notifications", "mail-read")
+
+        # Open Notification Center button
+        open_btn = Gtk.Button(label="Open Notification Center")
+        open_btn.connect("clicked", self.on_open_notification_center)
+        box.pack_start(open_btn, False, False, 0)
+
+        # Recent notifications list (up to 5)
+        self.notif_listbox = Gtk.ListBox()
+        self.notif_listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.refresh_notifications()
+        box.pack_start(self.notif_listbox, False, False, 0)
+
+    def refresh_notifications(self):
+        for child in self.notif_listbox.get_children():
+            self.notif_listbox.remove(child)
+
+        notifications = self.load_notifications()
+        if not notifications:
+            self.add_info_row(self.notif_listbox, "No recent notifications", "mail-read")
+        else:
+            for n in notifications[:5]:
+                self.add_notification_row(n)
+
+        self.notif_listbox.show_all()
+
+    def load_notifications(self):
+        store_file = os.path.expanduser("~/.local/share/mavericks/notifications.json")
+        try:
+            with open(store_file) as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data[-10:]  # Last 10, newest first
+        except (OSError, ValueError):
+            pass
+        return []
+
+    def add_notification_row(self, item):
+        row = Gtk.ListBoxRow()
+        row.set_activatable(False)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        box.set_border_width(8)
+
+        # App icon
+        icon_name = item.get("icon") or "dialog-information"
+        icon = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
+        box.pack_start(icon, False, False, 0)
+
+        # Content
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        content.set_hexpand(True)
+
+        summary = item.get("summary", "")
+        body = item.get("body", "")
+        timestamp = item.get("timestamp", 0)
+
+        summary_lbl = Gtk.Label()
+        summary_lbl.set_markup(f"<b>{GLib.markup_escape_text(summary)}</b>")
+        summary_lbl.set_xalign(0)
+        summary_lbl.set_ellipsize(3)
+        content.pack_start(summary_lbl, False, False, 0)
+
+        if body:
+            body_lbl = Gtk.Label(label=body[:80] + ("..." if len(body) > 80 else ""))
+            body_lbl.set_xalign(0)
+            body_lbl.get_style_context().add_class("dim-label")
+            content.pack_start(body_lbl, False, False, 0)
+
+        time_lbl = Gtk.Label(label=self.format_time(timestamp))
+        time_lbl.get_style_context().add_class("dim-label")
+        time_lbl.set_xalign(0)
+        content.pack_start(time_lbl, False, False, 0)
+
+        box.pack_start(content, True, True, 0)
+        row.add(box)
+        self.notif_listbox.add(row)
+
+    def format_time(self, timestamp):
+        import time
+        now = int(time.time())
+        diff = now - timestamp
+        if diff < 60:
+            return "Just now"
+        elif diff < 3600:
+            return f"{diff // 60} min ago"
+        elif diff < 86400:
+            return f"{diff // 3600} hours ago"
+        else:
+            return time.strftime("%b %d", time.localtime(timestamp))
+
+    def on_open_notification_center(self, _):
+        run_async(["mv-notification-center"])
+        Gtk.main_quit()
 
     # ==================== Common ====================
 
