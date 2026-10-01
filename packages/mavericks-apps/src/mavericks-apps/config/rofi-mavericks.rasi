@@ -12,6 +12,8 @@
     input-border: #cccccc;
     input-bg: #ffffff;
     separator: #e0e0e0;
+    preview-bg: #ffffff;
+    preview-fg: #2d2d2d;
 }
 window {
     width: 680px;
@@ -101,4 +103,13 @@ num-filtered-rows, num-rows, textbox-num-sep {
 }
 case-indicator {
     text-color: @category-fg;
+}
+/* Preview pane (enabled via -show-preview) */
+preview {
+    background-color: @preview-bg;
+    text-color: @preview-fg;
+    border: 1px;
+    border-color: @separator;
+    border-radius: 6px;
+    padding: 12px;
 }
