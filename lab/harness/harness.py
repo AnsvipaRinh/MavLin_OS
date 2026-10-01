@@ -139,7 +139,7 @@ class Harness:
         elif "reboot" in step:
             backend.stop()
             time.sleep(0.5)
-            backend.start()
+            backend.start(reset_serial=False)
         elif "deploy" in step:
             d = step["deploy"]
             image = self._make_image(d.get("image", "test-image"), d.get("corrupt", False))

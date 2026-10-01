@@ -15,6 +15,9 @@ Network: virtio-net-pci (CONFIG_VIRTIO_NET=y built-in), user-mode SLiRP
 (no ICMP — agent comms use TCP/HTTP via DATA disk; guest health check
 validates /proc/net/route presence).
 Command channel: 9p virtfs (CONFIG_NET_9P_VIRTIO=m), /mnt/cmd in guest.
+
+Serial logging: uses -serial stdio; QEMU stdout captured in append mode
+to serial.log to persist across QEMU restarts (reboot persistence).
 """
 import json
 import os
@@ -41,11 +44,14 @@ class QemuBackend(TargetBackend):
         self.work.mkdir(parents=True, exist_ok=True)
         self.proc = None
         self.monitor_sock = self.work / "monitor.sock"
+        self._serial_log_file = None
+        self._serial_pos = 0
 
     def _qemu_cmd(self):
         # Create a directory for the 9p command channel
         cmd_dir = self.work / "cmd-channel"
         cmd_dir.mkdir(parents=True, exist_ok=True)
+        # Use stdio for serial output; we'll capture QEMU's stdout to serial.log in append mode
         return [
             "qemu-system-x86_64",
             "-machine", "q35", "-m", "1024", "-smp", "2",
@@ -57,15 +63,16 @@ class QemuBackend(TargetBackend):
             "-netdev", "user,id=net0",
             "-device", "virtio-net-pci,netdev=net0",
             "-virtfs", f"local,path={cmd_dir},mount_tag=cmd-channel,security_model=mapped-xattr",
-            "-serial", f"file:{self.serial_path}",
+            "-serial", "stdio",
             "-display", "none", "-no-reboot",
             "-monitor", f"unix:{self.monitor_sock},server,nowait",
         ]
 
-    def start(self):
+    def start(self, reset_serial=True):
         self.stop()
-        # reset serial log
-        self.serial_path.write_text("")
+        if reset_serial:
+            self.serial_path.write_text("")
+        self._serial_pos = 0
         # ensure the ESP initramfs exists
         initrd = self.fixture / "esp/EFI/BOOT/initramfs.img"
         if not initrd.exists():
@@ -73,24 +80,35 @@ class QemuBackend(TargetBackend):
             sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
             from fixtures import builder
             builder.build_initramfs(initrd)
+        # Open serial log in append mode for QEMU's stdout (serial output via -serial stdio)
+        self._serial_log_file = open(self.serial_path, "ab")
         self.proc = subprocess.Popen(
-            self._qemu_cmd(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            self._qemu_cmd(), stdout=self._serial_log_file, stderr=subprocess.DEVNULL
         )
         return self._wait_for_boot()
 
     def _wait_for_boot(self, timeout=60):
-        """Wait for BOOT_DONE or a failure marker in the serial log."""
+        """Wait for BOOT_DONE or a failure marker in the serial log (new content only)."""
         deadline = time.time() + timeout
         while time.time() < deadline:
-            serial = self.read_serial()
-            if "BOOT_DONE" in serial:
-                for line in serial.splitlines():
-                    if line.startswith("BOOT_DONE"):
-                        return line.split("state=")[-1].strip()
-            if "ROOTFS_FAIL" in serial or "SYSTEMD_FAIL" in serial:
-                return "FAIL"
-            if "CMD_LOOP" in serial:
-                return "TIMEOUT"
+            # Read only new content since last check
+            try:
+                with open(self.serial_path, "rb") as f:
+                    f.seek(self._serial_pos)
+                    new_data = f.read()
+                    self._serial_pos = f.tell()
+            except OSError:
+                new_data = b""
+            if new_data:
+                new_text = new_data.decode("utf-8", errors="replace")
+                if "BOOT_DONE" in new_text:
+                    for line in new_text.splitlines():
+                        if line.startswith("BOOT_DONE"):
+                            return line.split("state=")[-1].strip()
+                if "ROOTFS_FAIL" in new_text or "SYSTEMD_FAIL" in new_text:
+                    return "FAIL"
+                if "CMD_LOOP" in new_text:
+                    return "TIMEOUT"
             if self.proc.poll() is not None:
                 return "EXITED"
             time.sleep(0.5)
@@ -107,6 +125,10 @@ class QemuBackend(TargetBackend):
             except subprocess.TimeoutExpired:
                 self.proc.kill()
             self.proc = None
+        # Close serial log file
+        if hasattr(self, '_serial_log_file') and self._serial_log_file:
+            self._serial_log_file.close()
+            self._serial_log_file = None
 
     def run_agent_cmd(self, cmd, args=None, timeout=120):
         req = {"id": str(uuid.uuid4()), "cmd": cmd, "args": args or {}}

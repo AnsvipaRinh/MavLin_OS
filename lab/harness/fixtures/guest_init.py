@@ -96,6 +96,16 @@ def poweroff():
         time.sleep(1)
 
 
+def sync_data_mount():
+    """Sync the DATA mount to ensure pending writes are flushed."""
+    try:
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        libc.sync()
+        serial("SYNC_DATA_MOUNT ok")
+    except Exception as e:
+        serial(f"SYNC_DATA_MOUNT fail: {e}")
+
+
 def read_fixture():
     env = {}
     try:
@@ -367,6 +377,15 @@ def dump_proc(name):
 
 def main():
     serial("GUEST_INIT start")
+
+    def sigterm_handler(signum, frame):
+        serial("SIGTERM received, syncing DATA mount")
+        sync_data_mount()
+        poweroff()
+
+    import signal
+    signal.signal(signal.SIGTERM, sigterm_handler)
+
     mount("proc", "/proc", "proc")
     mount("sysfs", "/sys", "sysfs")
     mount("devtmpfs", "/dev", "devtmpfs")
@@ -412,8 +431,8 @@ def main():
             break
         except:
             time.sleep(0.25)
-    # mount 9p with retries
-    if not mount("cmd-channel", CMD_DIR, "9p", "trans=virtio,version=9p2000.L", retries=30, delay=0.3):
+    # mount 9p with retries (cache=none to avoid directory entry caching issues)
+    if not mount("cmd-channel", CMD_DIR, "9p", "trans=virtio,version=9p2000.L,cache=none", retries=30, delay=0.3):
         serial("CMD_CHANNEL_MOUNT fail after retries")
     else:
         serial("CMD_CHANNEL_MOUNT ok")

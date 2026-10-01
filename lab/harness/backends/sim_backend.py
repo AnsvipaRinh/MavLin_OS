@@ -57,7 +57,7 @@ class SimBackend(TargetBackend):
             env=self._env(), capture_output=True, text=True, timeout=timeout,
         )
 
-    def start(self):
+    def start(self, reset_serial=True):
         self._boot_count += 1
         fixture_env = self._read_fixture_env()
         slot = self._read_slot()
