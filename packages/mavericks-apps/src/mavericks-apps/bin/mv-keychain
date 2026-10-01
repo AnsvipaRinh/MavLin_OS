@@ -9,6 +9,7 @@ clipboard on explicit user action.
 import math
 import secrets
 import string
+import subprocess
 import sys
 
 import gi
@@ -216,6 +217,87 @@ def password_strength(password):
     if pool == 0:
         return 0.0
     return len(password) * math.log2(pool)
+
+
+def get_certificate_details(item):
+    """Extract X509 certificate details from a keychain item.
+    
+    Returns dict with: subject, issuer, validity (not_before, not_after),
+    fingerprint (SHA-256), serial_number, version, signature_algorithm,
+    or None if not a certificate or openssl unavailable."""
+    attrs = item.get("attributes") or {}
+    secret_data = get_item_secret(item)
+    
+    # Try to get certificate data from secret or attributes
+    cert_pem = None
+    if secret_data:
+        try:
+            cert_pem = secret_data.decode("utf-8")
+        except UnicodeDecodeError:
+            # Might be DER format
+            cert_pem = None
+    
+    # Check attributes for certificate data
+    if not cert_pem:
+        for key in ("certificate", "cert", "x509", "public-key"):
+            if key in attrs:
+                cert_pem = attrs[key]
+                break
+    
+    if not cert_pem:
+        return None
+    
+    # Use openssl to parse certificate
+    try:
+        # Try PEM format first
+        result = subprocess.run(
+            ["openssl", "x509", "-noout", "-text", "-fingerprint", "-sha256"],
+            input=cert_pem.encode("utf-8"),
+            capture_output=True,
+            timeout=5
+        )
+        if result.returncode != 0:
+            # Try DER format
+            result = subprocess.run(
+                ["openssl", "x509", "-inform", "DER", "-noout", "-text", "-fingerprint", "-sha256"],
+                input=secret_data if secret_data else cert_pem.encode("utf-8"),
+                capture_output=True,
+                timeout=5
+            )
+        if result.returncode != 0:
+            return None
+        
+        output = result.stdout.decode("utf-8", "replace")
+        return parse_openssl_cert_output(output)
+    except (OSError, subprocess.SubprocessError, FileNotFoundError):
+        return None
+
+
+def parse_openssl_cert_output(output):
+    """Parse openssl x509 -text output into structured dict."""
+    details = {}
+    lines = output.split("\n")
+    
+    for line in lines:
+        line = line.strip()
+        if line.startswith("Subject:"):
+            details["subject"] = line[8:].strip()
+        elif line.startswith("Issuer:"):
+            details["issuer"] = line[7:].strip()
+        elif line.startswith("Not Before:"):
+            details["not_before"] = line[11:].strip()
+        elif line.startswith("Not After :"):
+            details["not_after"] = line[11:].strip()
+        elif line.startswith("Serial Number:"):
+            details["serial_number"] = line[14:].strip()
+        elif line.startswith("Version:"):
+            details["version"] = line[8:].strip()
+        elif line.startswith("Signature Algorithm:"):
+            details["signature_algorithm"] = line[20:].strip()
+        elif line.startswith("SHA256 Fingerprint="):
+            details["fingerprint"] = line[19:].strip()
+    
+    return details if details else None
 
 
 class KeychainWindow(Gtk.Window):
@@ -466,22 +548,67 @@ class KeychainWindow(Gtk.Window):
         kind = classify_item(item)
         self.detail_label.set_text("%s — %s" % (label, kind))
         row = 0
-        for key, value in sorted(item.get("attributes", {}).items()):
-            k = Gtk.Label(label="%s:" % key)
-            k.get_style_context().add_class("keychain-attrs")
-            k.set_halign(Gtk.Align.END)
-            v = Gtk.Label(label=str(value))
-            v.get_style_context().add_class("keychain-attrs")
-            v.set_halign(Gtk.Align.START)
-            v.set_selectable(True)
-            self.attr_grid.attach(k, 0, row, 1, 1)
-            self.attr_grid.attach(v, 1, row, 1, 1)
-            row += 1
+
+        # Show certificate details if this is a certificate
+        if kind == "Certificate":
+            cert_details = get_certificate_details(item)
+            if cert_details:
+                cert_grid = Gtk.Grid(column_spacing=12, row_spacing=6)
+                cert_grid.get_style_context().add_class("keychain-attrs")
+                
+                cert_fields = [
+                    ("Subject", cert_details.get("subject")),
+                    ("Issuer", cert_details.get("issuer")),
+                    ("Valid From", cert_details.get("not_before")),
+                    ("Valid Until", cert_details.get("not_after")),
+                    ("Serial Number", cert_details.get("serial_number")),
+                    ("Version", cert_details.get("version")),
+                    ("Signature Algorithm", cert_details.get("signature_algorithm")),
+                    ("SHA-256 Fingerprint", cert_details.get("fingerprint")),
+                ]
+
+                for field_name, field_value in cert_fields:
+                    if field_value:
+                        k = Gtk.Label(label="%s:" % field_name)
+                        k.get_style_context().add_class("keychain-attrs")
+                        k.set_halign(Gtk.Align.END)
+                        v = Gtk.Label(label=field_value)
+                        v.get_style_context().add_class("keychain-attrs")
+                        v.set_halign(Gtk.Align.START)
+                        v.set_selectable(True)
+                        v.set_line_wrap(True)
+                        v.set_max_width_chars(60)
+                        cert_grid.attach(k, 0, row, 1, 1)
+                        cert_grid.attach(v, 1, row, 1, 1)
+                        row += 1
+
+                self.detail.pack_start(cert_grid, False, False, 0)
+                cert_grid.show_all()
+            else:
+                no_cert = Gtk.Label(label="Certificate details unavailable (openssl required)")
+                no_cert.get_style_context().add_class("keychain-attrs")
+                no_cert.set_halign(Gtk.Align.START)
+                self.attr_grid.attach(no_cert, 0, row, 2, 1)
+                row += 1
+        else:
+            for key, value in sorted(item.get("attributes", {}).items()):
+                k = Gtk.Label(label="%s:" % key)
+                k.get_style_context().add_class("keychain-attrs")
+                k.set_halign(Gtk.Align.END)
+                v = Gtk.Label(label=str(value))
+                v.get_style_context().add_class("keychain-attrs")
+                v.set_halign(Gtk.Align.START)
+                v.set_selectable(True)
+                self.attr_grid.attach(k, 0, row, 1, 1)
+                self.attr_grid.attach(v, 1, row, 1, 1)
+                row += 1
+
         if row == 0:
             none_label = Gtk.Label(label="(no attributes)")
             none_label.get_style_context().add_class("keychain-attrs")
             none_label.set_halign(Gtk.Align.START)
             self.attr_grid.attach(none_label, 0, row, 2, 1)
+            row += 1
         self.attr_grid.show_all()
         self.secret_entry.set_text("")
         self.show_secret.set_sensitive(True)
