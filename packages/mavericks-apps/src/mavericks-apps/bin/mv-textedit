@@ -3,16 +3,18 @@
 Plain/rich text editing with Mavericks-style UI.
 Backend: GtkSourceView4 for syntax highlighting.
 Storage: plain text files (.txt, .md).
-Features: format bar, find/replace, print, document inspector, autosave.
+Features: format bar, find/replace, print, document inspector, autosave,
+Mavericks leather toolbar, ruler.
 """
 import os
 import sys
 import json
 import time
+import cairo
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("GtkSource", "4")
-from gi.repository import Gtk, GtkSource, GLib, Pango
+from gi.repository import Gtk, GtkSource, GLib, Pango, Gdk
 
 DRAFT_DIR = os.path.expanduser("~/.local/share/mv-textedit/drafts")
 DRAFT_FILE = os.path.join(DRAFT_DIR, "autosave.json")
@@ -28,6 +30,9 @@ class TextEdit(Gtk.Window):
         self.encoding = "UTF-8"
         self.line_ending = "LF"
         self._format_tags = {}
+        self.ruler_visible = True
+
+        self.apply_mavericks_css()
 
         hb = Gtk.HeaderBar(title="TextEdit", show_close_button=True)
         self.set_titlebar(hb)
@@ -58,6 +63,7 @@ class TextEdit(Gtk.Window):
         self.buffer.connect("changed", self.on_changed)
 
         self.build_format_bar(vbox)
+        self.build_ruler(vbox)
         self.build_search_bar(vbox)
 
         lm = GtkSource.LanguageManager.get_default()
@@ -100,46 +106,121 @@ class TextEdit(Gtk.Window):
 
         GLib.timeout_add_seconds(AUTOSAVE_INTERVAL, self.autosave)
 
+    def apply_mavericks_css(self):
+        css = b"""
+        .textedit-format-bar {
+            background-image: linear-gradient(to bottom,
+                #f5f0e8 0%,
+                #e8ddd0 50%,
+                #dcccb8 100%);
+            border-bottom: 1px solid #c4b8a0;
+            border-top: 1px solid #faf8f4;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.3),
+                        0 2px 4px rgba(0,0,0,0.1);
+            padding: 6px 8px;
+        }
+        .textedit-format-bar > * {
+            background: transparent;
+        }
+        .textedit-ruler {
+            background-image: linear-gradient(to bottom,
+                #faf8f4 0%,
+                #f0ebe0 100%);
+            border-bottom: 1px solid #d4c8b8;
+            padding: 2px 8px;
+            min-height: 18px;
+        }
+        .textedit-ruler-mark {
+            color: #888;
+            font-size: 7pt;
+            font-family: "SF Mono", "Menlo", monospace;
+        }
+        .textedit-ruler-indent {
+            color: #007aff;
+        }
+        .mavericks-toolbar-btn {
+            border-radius: 4px;
+            padding: 4px 8px;
+            margin: 1px;
+            background-image: linear-gradient(to bottom, #f0ebe0 0%, #e0d8c8 100%);
+            border: 1px solid #d0c8b8;
+            color: #333;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+        }
+        .mavericks-toolbar-btn:hover {
+            background-image: linear-gradient(to bottom, #e8e0d0 0%, #d8d0c0 100%);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .mavericks-toolbar-btn:active {
+            background-image: linear-gradient(to bottom, #d8d0c0 0%, #c8c0b0 100%);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+        }
+        .mavericks-toolbar-btn:checked {
+            background-image: linear-gradient(to bottom, #d0d8e8 0%, #b0c0d8 100%);
+            border-color: #8098c0;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+        }
+        .textedit-separator {
+            background: linear-gradient(to bottom, transparent, #c4b8a0, transparent);
+            min-width: 1px;
+            margin: 4px 4px;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        screen = Gdk.Screen.get_default()
+        if screen is not None:
+            Gtk.StyleContext.add_provider_for_screen(
+                screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
     def build_format_bar(self, parent):
         bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         bar.set_border_width(4)
-        bar.get_style_context().add_class("toolbar")
+        bar.get_style_context().add_class("textedit-format-bar")
 
         self.btn_bold = Gtk.ToggleButton()
         self.btn_bold.set_image(Gtk.Image.new_from_icon_name("format-text-bold", Gtk.IconSize.SMALL_TOOLBAR))
         self.btn_bold.set_tooltip_text("Bold (Ctrl+B)")
         self.btn_bold.connect("toggled", self.on_bold_toggled)
+        self.btn_bold.get_style_context().add_class("mavericks-toolbar-btn")
 
         self.btn_italic = Gtk.ToggleButton()
         self.btn_italic.set_image(Gtk.Image.new_from_icon_name("format-text-italic", Gtk.IconSize.SMALL_TOOLBAR))
         self.btn_italic.set_tooltip_text("Italic (Ctrl+I)")
         self.btn_italic.connect("toggled", self.on_italic_toggled)
+        self.btn_italic.get_style_context().add_class("mavericks-toolbar-btn")
 
         self.btn_underline = Gtk.ToggleButton()
         self.btn_underline.set_image(Gtk.Image.new_from_icon_name("format-text-underline", Gtk.IconSize.SMALL_TOOLBAR))
         self.btn_underline.set_tooltip_text("Underline (Ctrl+U)")
         self.btn_underline.connect("toggled", self.on_underline_toggled)
+        self.btn_underline.get_style_context().add_class("mavericks-toolbar-btn")
 
         sep1 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        sep1.get_style_context().add_class("textedit-separator")
 
         self.btn_align_left = Gtk.ToggleButton()
         self.btn_align_left.set_image(Gtk.Image.new_from_icon_name("format-justify-left", Gtk.IconSize.SMALL_TOOLBAR))
         self.btn_align_left.set_tooltip_text("Align Left")
         self.btn_align_left.connect("toggled", lambda b: self.set_justification(Gtk.Justification.LEFT, b))
+        self.btn_align_left.get_style_context().add_class("mavericks-toolbar-btn")
 
         self.btn_align_center = Gtk.ToggleButton()
         self.btn_align_center.set_image(Gtk.Image.new_from_icon_name("format-justify-center", Gtk.IconSize.SMALL_TOOLBAR))
         self.btn_align_center.set_tooltip_text("Center")
         self.btn_align_center.connect("toggled", lambda b: self.set_justification(Gtk.Justification.CENTER, b))
+        self.btn_align_center.get_style_context().add_class("mavericks-toolbar-btn")
 
         self.btn_align_right = Gtk.ToggleButton()
         self.btn_align_right.set_image(Gtk.Image.new_from_icon_name("format-justify-right", Gtk.IconSize.SMALL_TOOLBAR))
         self.btn_align_right.set_tooltip_text("Align Right")
         self.btn_align_right.connect("toggled", lambda b: self.set_justification(Gtk.Justification.RIGHT, b))
+        self.btn_align_right.get_style_context().add_class("mavericks-toolbar-btn")
 
         self.align_group = [self.btn_align_left, self.btn_align_center, self.btn_align_right]
 
         sep2 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        sep2.get_style_context().add_class("textedit-separator")
 
         self.font_combo = Gtk.ComboBoxText()
         fonts = ["San Francisco", "Helvetica Neue", "Georgia", "Times New Roman",
@@ -149,6 +230,7 @@ class TextEdit(Gtk.Window):
         self.font_combo.set_active(0)
         self.font_combo.set_tooltip_text("Font Family")
         self.font_combo.connect("changed", self.on_font_changed)
+        self.font_combo.get_style_context().add_class("mavericks-toolbar-btn")
 
         self.size_combo = Gtk.ComboBoxText()
         sizes = ["9", "10", "11", "12", "13", "14", "16", "18", "24", "36"]
@@ -157,18 +239,23 @@ class TextEdit(Gtk.Window):
         self.size_combo.set_active(4)
         self.size_combo.set_tooltip_text("Font Size")
         self.size_combo.connect("changed", self.on_size_changed)
+        self.size_combo.get_style_context().add_class("mavericks-toolbar-btn")
 
         sep3 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        sep3.get_style_context().add_class("textedit-separator")
 
         btn_color = Gtk.Button()
         btn_color.set_image(Gtk.Image.new_from_icon_name("format-text-color", Gtk.IconSize.SMALL_TOOLBAR))
         btn_color.set_tooltip_text("Text Color")
         btn_color.connect("clicked", self.show_color_dialog)
+        btn_color.get_style_context().add_class("mavericks-toolbar-btn")
 
-        btn_ruler = Gtk.ToggleButton()
-        btn_ruler.set_image(Gtk.Image.new_from_icon_name("format-text-ruler", Gtk.IconSize.SMALL_TOOLBAR))
-        btn_ruler.set_tooltip_text("Ruler")
-        btn_ruler.connect("toggled", self.toggle_ruler)
+        self.btn_ruler = Gtk.ToggleButton()
+        self.btn_ruler.set_image(Gtk.Image.new_from_icon_name("format-text-ruler", Gtk.IconSize.SMALL_TOOLBAR))
+        self.btn_ruler.set_tooltip_text("Ruler (Ctrl+R)")
+        self.btn_ruler.connect("toggled", self.toggle_ruler)
+        self.btn_ruler.set_active(self.ruler_visible)
+        self.btn_ruler.get_style_context().add_class("mavericks-toolbar-btn")
 
         for w in [self.btn_bold, self.btn_italic, self.btn_underline,
                   sep1,
@@ -176,11 +263,69 @@ class TextEdit(Gtk.Window):
                   sep2,
                   self.font_combo, self.size_combo,
                   sep3,
-                  btn_color, btn_ruler]:
+                  btn_color, self.btn_ruler]:
             bar.pack_start(w, False, False, 0)
 
         parent.pack_start(bar, False, False, 0)
         self.format_bar = bar
+
+    def build_ruler(self, parent):
+        self.ruler_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self.ruler_box.get_style_context().add_class("textedit-ruler")
+        self.ruler_box.set_border_width(0)
+
+        self.ruler_drawing = Gtk.DrawingArea()
+        self.ruler_drawing.set_size_request(-1, 18)
+        self.ruler_drawing.connect("draw", self.on_ruler_draw)
+        self.ruler_box.pack_start(self.ruler_drawing, True, True, 0)
+
+        parent.pack_start(self.ruler_box, False, False, 0)
+
+    def on_ruler_draw(self, widget, cr):
+        w = widget.get_allocated_width()
+        h = widget.get_allocated_height()
+        if w < 10 or h < 10:
+            return False
+
+        cr.set_source_rgb(1.0, 1.0, 1.0)
+        cr.rectangle(0, 0, w, h)
+        cr.fill()
+
+        margin_left = 72
+        margin_right = w - 72
+        text_width = margin_right - margin_left
+
+        cr.set_source_rgb(0.9, 0.88, 0.85)
+        cr.set_line_width(1)
+        cr.move_to(margin_left, h / 2 - 4)
+        cr.line_to(margin_right, h / 2 - 4)
+        cr.stroke()
+
+        cr.set_source_rgb(0.5, 0.5, 0.5)
+        cr.select_font_face("SF Mono", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        cr.set_font_size(7)
+
+        for i in range(0, int(text_width), 72):
+            x = margin_left + i
+            tick_h = 8 if i % 72 == 0 else 4
+            cr.move_to(x, h / 2 - 4)
+            cr.line_to(x, h / 2 - 4 + tick_h)
+            cr.stroke()
+            if i % 72 == 0 and i > 0:
+                inch = i // 72
+                cr.move_to(x - 4, h / 2 + 10)
+                cr.show_text(str(inch))
+
+        cr.set_source_rgb(0.0, 0.47, 1.0)
+        cr.set_line_width(2)
+        cr.move_to(margin_left, 0)
+        cr.line_to(margin_left, h)
+        cr.stroke()
+        cr.move_to(margin_right, 0)
+        cr.line_to(margin_right, h)
+        cr.stroke()
+
+        return False
 
     def build_search_bar(self, parent):
         self.search_bar = Gtk.Revealer()
@@ -370,7 +515,8 @@ class TextEdit(Gtk.Window):
         dialog.destroy()
 
     def toggle_ruler(self, btn):
-        self.view.set_show_line_numbers(btn.get_active())
+        self.ruler_visible = btn.get_active()
+        self.ruler_box.set_visible(self.ruler_visible)
 
     def print_document(self, _):
         op = Gtk.PrintOperation()
