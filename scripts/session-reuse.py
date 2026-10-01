@@ -97,7 +97,7 @@ CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-ORCHESTRATOR_PROTOCOL = 7
+ORCHESTRATOR_PROTOCOL = 8
 
 # Cooldown memory for dead models (.opencode/sessions/model-health.json).
 # A model observed dead (provider retry/unavailable > stuck threshold, or
@@ -172,9 +172,128 @@ def session_exists(session_id):
     return "unavailable", None
 
 
+def api_list_sessions(directory=None):
+    """GET /session[?directory=...] -> list (or None when unreachable).
+
+    The persistent session store: restarted servers still list old sessions.
+    Used for discovering live child sessions the registry never saw
+    (their task_id is learned only when a Task returns — which never
+    happens while the Task is blocked in a provider retry).
+    """
+    import urllib.parse
+    path = "/session"
+    if directory:
+        path += "?directory=" + urllib.parse.quote(directory, safe="")
+    code, obj = api_probe("GET", path)
+    if code is None or not 200 <= code < 300 or not isinstance(obj, list):
+        return None
+    return obj
+
+
+def repo_root():
+    import os as _os
+    return _os.path.realpath(_os.path.join(BASE, ".."))
+
+
+def discover_live_children(directory=None):
+    """Live child (subagent) sessions of this project, registry or not.
+
+    Filter (conservative): same directory AND (Task subagent title marker
+    OR already tracked in registry). Returns [(id, title, parentID)].
+    Never touches user/forked sessions outside this shape.
+    """
+    root = directory or repo_root()
+    try:
+        reg = load_reg()
+        known = set((reg.get("sessions") or {}).keys())
+    except (OSError, ValueError):
+        known = set()
+    sessions = api_list_sessions()  # unfiltered; match client-side
+    if sessions is None:
+        return None  # API down: caller must WAIT, never assume
+    out = []
+    for s in sessions:
+        if not isinstance(s, dict):
+            continue
+        sid = s.get("id", "")
+        if not sid:
+            continue
+        if (s.get("directory", "") or "") != root:
+            continue
+        title = s.get("title", "") or ""
+        if "subagent" not in title.lower() and sid not in known:
+            continue
+        out.append((sid, title, s.get("parentID", "")))
+    return out
+
+
+def session_tail_model(session_id, limit=5):
+    """(providerID, modelID) from the newest message carrying model info.
+
+    Bounded tail fetch (?limit=) — never downloads a 200k-token history
+    just to learn which backend is stuck.
+    """
+    code, msgs = api_probe("GET", f"/session/{session_id}/message"
+                                  f"?limit={int(limit)}")
+    if code is None or not 200 <= code < 300 or not isinstance(msgs, list):
+        return None, None
+    for m in reversed(msgs):
+        info = (m or {}).get("info", {}) if isinstance(m, dict) else {}
+        mid = info.get("modelID") or ""
+        pid = info.get("providerID") or ""
+        if mid and pid:
+            return pid, mid
+    return None, None
+
+
+def upsert_discovered(session_id, title="", model=""):
+    """Track a live-discovered child WITHOUT touching existing metadata.
+
+    Registry entries for sessions the orchestrator never saw (blocked Task
+    never returned its task_id). Creates a minimal reusable record, or fills
+    in a missing model on an existing one. Returns the entry.
+    """
+    try:
+        reg = load_reg()
+    except (OSError, ValueError):
+        return {}
+    sessions = reg.setdefault("sessions", {})
+    meta = sessions.get(session_id)
+    if meta is None:
+        meta = {
+            "agent": "?", "objective": title or "discovered-child",
+            "task": title or "discovered-child",
+            "model": model, "oid": "", "state": "reusable",
+            "lastUsed": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "lastResult": "", "failure": "", "discovered": True,
+        }
+        sessions[session_id] = meta
+    else:
+        if not meta.get("model") and model:
+            meta["model"] = model
+        meta["discovered"] = bool(meta.get("discovered", False))
+    try:
+        save_reg(reg)
+    except OSError:
+        pass
+    return meta
+
+
 def load_reg():
-    with open(REG) as f:
-        return json.load(f)
+    """Load the registry; missing/corrupt file = empty (never raises).
+
+    The registry is a cache of task_id metadata, not the source of truth
+    (OpenCode owns sessions). Mutating commands recreate it on save.
+    """
+    try:
+        with open(REG) as f:
+            reg = json.load(f)
+        if isinstance(reg, dict):
+            reg.setdefault("sessions", {})
+            return reg
+    except (OSError, ValueError):
+        pass
+    return {"$schema": "session-registry v1", "sessions": {}}
 
 
 def save_reg(reg):
@@ -1413,7 +1532,9 @@ def cmd_migrate(args):
                     "next healthy worker. No replacement session, no prompt "
                     "replay. Never deletes transcripts.")
     p.add_argument("id")
-    p.add_argument("--objective", required=True)
+    p.add_argument("--objective", default="",
+                   help="Objective text (defaults to the registry record; "
+                        "only required for untracked sessions)")
     p.add_argument("--task", default="")
     p.add_argument("--exclude", default="",
                    help="Comma-separated exhausted models to skip")

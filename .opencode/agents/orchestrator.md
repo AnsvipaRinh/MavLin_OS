@@ -54,7 +54,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 0. ENV PRE-CHECK (once per session, BEFORE anything else — both commands
    must succeed in the SAME session):
    `git status` AND `scripts/session-reuse.py version` (need
-   `orchestrator-protocol: 7`).
+   `orchestrator-protocol: 8`).
    - Either fails ("file not found", unknown subcommand, older version) →
      PROJECT-NOT-LOADED or STALE-AGENT: the server started outside the repo
      or cached an old agent file (no hot-reload — AGENTS.md 14.6). STOP and
@@ -104,7 +104,9 @@ forever. Two mechanisms, in order:
      HEARTBEAT in `.opencode/sessions/watchdog.log` via read; if stale/absent,
      start it: `python3 scripts/task-watchdog.py --daemon --all
      --interval 20 --threshold 600 &`). The watchdog is a dumb REST loop (no
-     LLM): it aborts provider-retry waits >600s, records model cooldowns and
+     LLM): it discovers live project child sessions itself (registry AND
+     server-side `GET /session` — even sessions whose Task never returned),
+     aborts provider-retry waits >600s, records model cooldowns and
      `lastAbort`, and NEVER creates sessions or sends prompts. Your blocked
      Task then fails fast — see ABORT-WAKEUP below.
 ABORT-WAKEUP RULE: a Task error arriving after a fresh `lastAbort` (registry)

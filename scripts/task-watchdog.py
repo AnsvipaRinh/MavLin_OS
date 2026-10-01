@@ -128,6 +128,19 @@ def check_session(sid, threshold, do_abort=True):
         journal("SESSION_GONE", session=sid,
                 objective=meta.get("objective", ""))
         return "gone", "404 from GET /session/{id}"
+    if sid not in (reg.get("sessions") or {}):
+        # Live session the registry never saw (its Task never returned its
+        # task_id — exactly the blocked case). Track it WITHOUT touching
+        # anything else, so abort/cooldown/resume all work on it.
+        title = ""
+        try:
+            _code, _obj = sr.api_probe("GET", f"/session/{sid}")
+            if isinstance(_obj, dict):
+                title = _obj.get("title", "") or ""
+        except Exception:
+            pass
+        meta = sr.upsert_discovered(sid, title=title)
+        journal("DISCOVERED", session=sid, title=title)
     try:
         st = sr.api("GET", "/session/status") or {}
     except SystemExit:
@@ -163,11 +176,27 @@ def check_session(sid, threshold, do_abort=True):
                 delaySec=delay, attempt=attempt,
                 note="below threshold, no abort")
         return "watch", f"retry but delay {delay} <= {threshold}"
-    # STUCK in a dead-backend retry: abort the blocked attempt.
+    # STUCK in a provider wait over threshold: abort the blocked attempt.
+    # Cooldown = the OBSERVED provider delay (a timetable fact recorded for
+    # every verdict: the backend provably cannot generate before it elapses).
     if not do_abort:
         journal("WOULD_ABORT", session=sid, verdict=verdict, delaySec=delay,
                 attempt=attempt)
         return "watch", "dry run"
+    model = meta.get("model", "")
+    worker = meta.get("agent", "")
+    if not model:
+        # Unregistered/discovered child: learn the backend from the newest
+        # message tail (bounded fetch, never the whole history) and persist.
+        pid, mid = sr.session_tail_model(sid)
+        if mid and pid:
+            model = f"{pid}/{mid}"
+            try:
+                reg = sr.load_reg()
+                reg["sessions"][sid]["model"] = model
+                sr.save_reg(reg)
+            except (OSError, ValueError, KeyError):
+                pass
     code, _obj = sr.api_probe("POST", f"/session/{sid}/abort", {})
     if code is None:
         journal("ABORT_FAILED", session=sid, reason="server unreachable")
@@ -175,8 +204,6 @@ def check_session(sid, threshold, do_abort=True):
     if code == 404:
         journal("ABORT_FAILED", session=sid, reason="session vanished")
         return "gone", "abort: 404"
-    model = meta.get("model", "")
-    worker = meta.get("agent", "")
     if model:
         h = sr.load_health()
         h["models"][model.lower()] = {
@@ -200,12 +227,13 @@ def check_session(sid, threshold, do_abort=True):
         pass
     journal("ABORTED", session=sid, verdict=verdict, delaySec=delay,
             attempt=attempt, worker=worker, model=model, abortHttp=code)
-    return "aborted", (f"aborted dead-backend retry ({verdict}, "
+    return "aborted", (f"aborted provider wait ({verdict}, "
                        f"delay={delay:.0f}s); cooldown recorded; "
                        f"resume SAME task_id on a healthy worker")
 
 
-def resolve_targets(oid=None, session=None, all_sessions=False):
+def resolve_targets(oid=None, session=None, all_sessions=False,
+                    directory=None):
     if session:
         return [session]
     try:
@@ -214,8 +242,20 @@ def resolve_targets(oid=None, session=None, all_sessions=False):
         return []
     sessions = reg.get("sessions") or {}
     if all_sessions:
-        return [sid for sid, m in sessions.items()
-                if (m or {}).get("state") != "retired"]
+        targets = [sid for sid, m in sessions.items()
+                   if (m or {}).get("state") != "retired"]
+        # PLUS live discovery: the session that needs the watchdog most is
+        # the one whose Task never returned (hence never registered).
+        # Only same-directory Task children (title marker or tracked).
+        live = sr.discover_live_children(directory=directory)
+        if live is None:
+            journal("DISCOVERY_UNKNOWN",
+                    note="GET /session unreachable; registry targets only")
+        else:
+            for sid, _title, _parent in live:
+                if sid not in targets:
+                    targets.append(sid)
+        return targets
     q = (oid or "").strip().lower()
     return [sid for sid, m in sessions.items()
             if (m.get("oid", "") or "").lower() == q or
@@ -235,6 +275,9 @@ def main(argv):
                    help="Max wall-clock seconds (0 = unlimited)")
     p.add_argument("--once", action="store_true")
     p.add_argument("--daemon", action="store_true")
+    p.add_argument("--directory", default="",
+                   help="Project directory for live child discovery "
+                        "(default: this repo root)")
     p.add_argument("--no-abort", action="store_true",
                    help="Observe only, never POST abort")
     a = p.parse_args(argv)
@@ -243,7 +286,8 @@ def main(argv):
         print("another watchdog daemon holds the lock; exiting")
         return 0
     targets = resolve_targets(oid=a.oid, session=a.session,
-                              all_sessions=a.all)
+                              all_sessions=a.all,
+                              directory=a.directory or None)
     if not targets:
         print("no target sessions (oid has no registered live mapping?)")
         if mode_daemon:

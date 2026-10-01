@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for scripts/session-reuse.py: SESSION != MODEL (protocol v5).
+"""Tests for orchestration scripts: SESSION != MODEL (protocol v7).
 
 Pure unit tests (classifier, delay parser, worker resolution) + integration
 tests against an in-process mock OpenCode REST server (no live server, no
@@ -12,9 +12,11 @@ import base64
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
+import time as _time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -41,17 +43,35 @@ class MockHandler(BaseHTTPRequestHandler):
         "ses_WORKING": {"type": "busy"},
         "ses_SOON": {"type": "retry", "attempt": 1,
                      "message": "rate limited, retry in 60 seconds"},
-        "ses_NEXT": {"type": "retry", "attempt": 3,
-                     "message": "Free usage exceeded"},
+        "ses_ORPHAN": {"type": "retry", "attempt": 2,
+                       "message": "Free usage exceeded",
+                       "next": int(_time.time() * 1000) + 4500 * 1000},
+        "ses_WAITWORD": {"type": "retry", "attempt": 1,
+                         "message": "agent unavailable"},
+        "ses_ESC": {"type": "retry", "attempt": 1,
+                    "message": "agent unavailable"},
     }
     SESSIONS = {"ses_LIVE", "ses_BUSY", "ses_QUIET", "ses_MSGBROKEN",
-                "ses_WORKING", "ses_SOON", "ses_NEXT"}
+                "ses_WORKING", "ses_SOON", "ses_NEXT", "ses_ORPHAN",
+                "ses_WAITWORD", "ses_STRANGER", "ses_ESC"}
+    # Live-store metadata for GET /session[/{id}]: directory/title/parent.
+    META = {
+        "ses_ORPHAN": {"directory": "/proj",
+                       "title": "Do thing (@build subagent)",
+                       "parentID": "ses_PARENT"},
+        "ses_STRANGER": {"directory": "/proj", "title": "user notes",
+                         "parentID": ""},
+    }
     ABORTS = []
     MSGS = {
         "ses_LIVE": [{"info": {"role": "assistant",
                                "tokens": {"input": 1000}}}],
         "ses_QUIET": [{"info": {"role": "assistant",
                                 "tokens": {"input": 200000}}}],
+        "ses_ORPHAN": [{"info": {"role": "assistant",
+                                 "tokens": {"input": 50000},
+                                 "modelID": "longcat-2.5-preview-free",
+                                 "providerID": "opencode"}}],
     }
 
     def log_message(self, *a):
@@ -66,22 +86,35 @@ class MockHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if self.path == "/session/status":
+        if self.path == "/session/status" or \
+                self.path.startswith("/session/status?"):
             return self._send(200, MockHandler.STATUS)
+        if self.path == "/session" or self.path.startswith("/session?"):
+            return self._send(200, [
+                dict({"id": s}, **MockHandler.META.get(s, {}))
+                for s in sorted(MockHandler.SESSIONS)])
         if self.path == "/session":
             return self._send(200, [{"id": s} for s in
                                     sorted(MockHandler.SESSIONS)])
-        if self.path.startswith("/session/") and self.path.endswith("/message"):
-            sid = self.path.split("/")[2]
+        bare = self.path.split("?", 1)[0]
+        query = self.path.split("?", 1)[1] if "?" in self.path else ""
+        if bare.startswith("/session/") and bare.endswith("/message"):
+            sid = bare.split("/")[2]
             if sid in MockHandler.MSGS:
-                return self._send(200, MockHandler.MSGS[sid])
+                msgs = MockHandler.MSGS[sid]
+                m = re.search(r"limit=(\d+)", query)
+                if m:
+                    msgs = msgs[-int(m.group(1)):]
+                return self._send(200, msgs)
             return self._send(404, {"error": "no such session"})
-        if self.path.startswith("/session/") and self.path.endswith("/children"):
+        if bare.startswith("/session/") and bare.endswith("/children"):
             return self._send(200, [])
-        if self.path.startswith("/session/"):
-            sid = self.path.split("/")[2]
+        if bare.startswith("/session/"):
+            sid = bare.split("/")[2]
             if sid in MockHandler.SESSIONS:
-                return self._send(200, {"id": sid, "title": sid})
+                return self._send(200, dict(
+                    {"id": sid, "title": sid},
+                    **MockHandler.META.get(sid, {})))
             return self._send(404, {"error": "no such session"})
         if self.path == "/provider":
             return self._send(200, {"all": [
@@ -561,6 +594,60 @@ class WatchdogTests(ScriptCase):
         self.assertIn("subagent_type=build-b", r.stdout)
         r2 = self.run_script("health")
         self.assertIn("1h56m", r2.stdout)  # abort delay, not 3h default
+
+
+class DiscoveryTests(ScriptCase):
+    """The stuck session whose Task never returned is unregistered by
+    definition. The watchdog must still find, abort and track it."""
+
+    def test_orphan_discovered_aborted_upserted(self):
+        # ses_ORPHAN is NOT in the registry: straight --all discovery.
+        r = self.run_watchdog("--once", "--all", "--directory", "/proj",
+                              "--threshold", "600")
+        self.assertIn("aborted ses_ORPHAN", r.stdout, r.stdout + r.stderr)
+        self.assertIn("ses_ORPHAN", MockHandler.ABORTS)
+        with open(REG) as f:
+            meta = json.load(f)["sessions"]["ses_ORPHAN"]
+        # Model learned from the bounded message tail, not guessed.
+        self.assertEqual(meta["model"], "opencode/longcat-2.5-preview-free")
+        self.assertIn("lastAbort", meta)
+        r2 = self.run_script("health")
+        self.assertIn("longcat-2.5-preview-free", r2.stdout)
+        # Follow-up migrate reuses the SAME id with no --objective needed.
+        r3 = self.run_script("migrate", "ses_ORPHAN")
+        self.assertIn("task_id=ses_ORPHAN", r3.stdout, r3.stdout + r.stderr)
+
+    def test_stranger_ignored(self):
+        # Same directory but no subagent marker and untracked: not ours.
+        r = self.run_watchdog("--once", "--all", "--directory", "/proj")
+        self.assertNotIn("ses_STRANGER", r.stdout)
+        self.assertNotIn("ses_STRANGER", MockHandler.ABORTS)
+        with open(REG) as f:
+            self.assertNotIn("ses_STRANGER", json.load(f)["sessions"])
+
+    def test_waitword_without_delay_never_aborts(self):
+        # Words alone ("agent unavailable", no parseable delay) must not
+        # abort: only proven-long provider waits are interrupted.
+        self.run_script("register", "ses_WAITWORD", "--agent", "build",
+                        "--objective", "W", "--task", "do W")
+        r = self.run_watchdog("--once", "--session", "ses_WAITWORD",
+                              "--threshold", "600")
+        self.assertIn("watch ses_WAITWORD", r.stdout, r.stdout + r.stderr)
+        self.assertNotIn("ses_WAITWORD", MockHandler.ABORTS)
+
+    def test_unclassified_wait_still_cools_down(self):
+        # "agent unavailable" has no quota wording (verdict UNKNOWN), but a
+        # PROVEN 7000s provider wait is a timetable fact: abort + cooldown.
+        self.run_script("register", "ses_BUSY", "--agent", "build",
+                        "--objective", "B", "--task", "do B",
+                        "--model", "opencode/nemotron-3-ultra-free")
+        r = self.run_watchdog("--once", "--session", "ses_BUSY",
+                              "--threshold", "600")
+        self.assertIn("aborted ses_BUSY", r.stdout, r.stdout + r.stderr)
+        self.assertIn("ses_BUSY", MockHandler.ABORTS)
+        r2 = self.run_script("health")
+        self.assertIn("nemotron-3-ultra-free", r2.stdout)
+        self.assertIn("1h56m", r2.stdout)
 
 
 if __name__ == "__main__":

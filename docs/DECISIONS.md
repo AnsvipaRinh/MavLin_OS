@@ -1,5 +1,22 @@
 # DECISIONS
 
+## 2026-10-01 — Protocol v8: watchdog discovers unregistered stuck sessions
+
+**Date:** 2026-10-01
+**Context:** User report: continuation of old sessions works, but model switch on provider pause does not — LongCat paused ~40k sec, orchestrators idle.
+
+**Root cause (the actual hole):** the watchdog resolved targets ONLY from the registry, but a session is registered only AFTER its Task returns. A session blocked in a 40k-sec provider retry is therefore definitionally unregistered — the exact session needing rescue was invisible to the rescuer. Additionally: (1) bare "agent unavailable, retry in Ns" wording classified UNKNOWN (no quota words) yet is observably a provider wait; (2) the 1.18.32 retry `next` field was unparsed; (3) `migrate --objective` was mandatory even with a registry record; (4) any dead registry file crashed readers instead of degrading.
+
+**Changes:**
+1. Watchdog `--all` now unions registry targets with live server-side discovery (`GET /session`, same-directory + Task-subagent-title filter; user sessions excluded by construction). Discovered sessions are upserted minimally (model learned from a bounded `?limit=` message tail, never a full download) so abort/cooldown/migrate work on them immediately.
+2. Abort trigger: `retry` + parsed delay > threshold + (dead MODEL_* verdict OR provider-wait wording). Cooldown = observed delay, always (timetable fact). Busy/idle/short/delay-less retries never aborted. Streak/escalation machinery removed as unnecessary complexity.
+3. `extract_delay_sec` parses the 1.18.32 `next` field (seconds vs s/ms-epoch by magnitude).
+4. `migrate --objective` optional (registry fallback); `load_reg` never raises (missing file = empty cache; mutating commands recreate on save).
+5. Incident note: parallel app-track agent committed `03b4a38` deleting `registry.json` mid-session (all 5 records were retired — no live data lost). Registry is now explicitly a non-authoritative cache; its absence is a supported state, covered by tests.
+
+**Verified:** 48/48 green on mock REST (discovery+abort+upsert of unregistered orphan, stranger exclusion, wait-words-without-delay conservatism, next-field magnitudes, preflight, taxonomy). Sessions dir left clean by tests.
+**NOT verifiable here:** live 40k-sec abort, daemon lifetime on user OS, background flag. Live proof = acceptance A–R + Test H in user env.
+
 ## 2026-09-30 — Protocol v7: watchdog breaks the synchronous-Task deadlock
 
 **Date:** 2026-09-30
