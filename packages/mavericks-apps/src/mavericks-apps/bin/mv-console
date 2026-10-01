@@ -100,7 +100,8 @@ def parse_journal_json(line):
         except (TypeError, ValueError, OSError, OverflowError):
             ts = ""
     src = rec.get("SYSLOG_IDENTIFIER") or rec.get("_SYSTEMD_UNIT") or "unknown"
-    return (ts, src, str(msg), severity_from_priority(rec.get("PRIORITY")))
+    # Return full record for preview
+    return (ts, src, str(msg), severity_from_priority(rec.get("PRIORITY")), rec)
 
 
 def parse_journal_text(line):
@@ -111,7 +112,7 @@ def parse_journal_text(line):
         msg = " ".join(parts[4:])
     else:
         ts, src, msg = "", "", line
-    return (ts, src, msg, parse_severity(msg))
+    return (ts, src, msg, parse_severity(msg), None)
 
 
 def parse_dmesg(line):
@@ -121,7 +122,7 @@ def parse_dmesg(line):
         close = stripped.index("]")
         ts = stripped[1:close].strip()
         msg = stripped[close + 1:].strip()
-    return (ts, src, msg, parse_severity(msg))
+    return (ts, src, msg, parse_severity(msg), None)
 
 
 def parse_line(line):
@@ -143,6 +144,21 @@ def filter_entries(entries, query):
         return entries
     return [e for e in entries
             if q in (e[0] + " " + e[1] + " " + e[2]).lower()]
+
+
+def format_preview_record(rec):
+    """Format a journal record for preview pane display."""
+    if not rec or not isinstance(rec, dict):
+        return "No detailed record available"
+    lines = []
+    for key in sorted(rec.keys()):
+        val = rec[key]
+        if isinstance(val, bytes):
+            val = val.decode("utf-8", "replace")
+        elif isinstance(val, (list, dict)):
+            val = json.dumps(val, ensure_ascii=False)
+        lines.append("%s: %s" % (key, val))
+    return "\n".join(lines)
 
 
 def source_command(key, level=None):
@@ -214,7 +230,7 @@ class Console(Gtk.Window):
 
         self.current_source = "all"
         self.current_level = "all"
-        self.entries = []
+        self.entries = []  # Each entry: (ts, src, msg, sev, raw_record)
         self._syncing = False
         self._follow_proc = None
         self._follow_watch = None
@@ -244,6 +260,13 @@ class Console(Gtk.Window):
         }
         .console-log-view > viewport { background: #1a1a1a; }
         .console-log-view text { background: #1a1a1a; color: #e0e0e0; }
+        .console-preview {
+            background: #f5f0e8;
+            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+            border-left: 1px solid #d4c8b8;
+        }
+        .console-preview > viewport { background: transparent; }
+        .console-preview text { background: transparent; color: #333; }
         .mavericks-toolbar-btn {
             border-radius: 4px;
             padding: 6px 12px;
@@ -328,8 +351,9 @@ class Console(Gtk.Window):
         self.menu_btn.get_style_context().add_class("mavericks-toolbar-btn")
         hb.pack_end(self.menu_btn)
 
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
+        # Main horizontal paned: sidebar | content
+        main_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        self.add(main_paned)
 
         self.sidebar_store = Gtk.ListStore(str, str, int)
         self.sidebar_tree = Gtk.TreeView(model=self.sidebar_store,
@@ -351,7 +375,11 @@ class Console(Gtk.Window):
         sidebar_sw.add(self.sidebar_tree)
         self.sidebar_tree.get_selection().connect(
             "changed", self.on_source_select)
-        paned.add1(sidebar_sw)
+        main_paned.add1(sidebar_sw)
+
+        # Content area: vertical paned for log view + preview
+        content_paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+        main_paned.add2(content_paned)
 
         self.buf = Gtk.TextBuffer()
         self.setup_severity_tags()
@@ -363,17 +391,95 @@ class Console(Gtk.Window):
         self.tv.set_wrap_mode(Gtk.WrapMode.NONE)
         self.tv.get_style_context().add_class("console-log-view")
 
+        # Enable hover/click for preview
+        self.tv.add_events(Gdk.EventMask.POINTER_MOTION_MASK |
+                           Gdk.EventMask.BUTTON_PRESS_MASK |
+                           Gdk.EventMask.LEAVE_NOTIFY_MASK)
+        self.tv.connect("motion-notify-event", self.on_text_motion)
+        self.tv.connect("button-press-event", self.on_text_click)
+        self.tv.connect("leave-notify-event", self.on_text_leave)
+
         sw = Gtk.ScrolledWindow()
         sw.add(self.tv)
-        paned.add2(sw)
+        content_paned.add1(sw)
         self.log_scroll = sw
-        paned.set_position(240)
+
+        # Preview pane
+        self.preview_buf = Gtk.TextBuffer()
+        self.preview_buf.set_text("Hover or click a log entry to see details...")
+        self.preview_tv = Gtk.TextView(buffer=self.preview_buf)
+        self.preview_tv.set_editable(False)
+        self.preview_tv.set_monospace(True)
+        self.preview_tv.set_left_margin(12)
+        self.preview_tv.set_right_margin(12)
+        self.preview_tv.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.preview_tv.get_style_context().add_class("console-preview")
+        self.preview_tv.set_cursor_visible(False)
+
+        preview_sw = Gtk.ScrolledWindow()
+        preview_sw.add(self.preview_tv)
+        content_paned.add2(preview_sw)
+
+        # Initial sizes
+        main_paned.set_position(240)
+        content_paned.set_position(400)
 
         for name, icon, _key in SOURCES:
             self.sidebar_store.append([name, icon, 0])
 
         self.connect("key-press-event", self.on_key)
         self.connect("destroy", self.on_destroy)
+
+    def on_text_motion(self, widget, event):
+        """Handle mouse motion over log view - show preview for line under cursor."""
+        x, y = widget.window_to_buffer_coords(Gtk.TextWindowType.TEXT,
+                                               int(event.x), int(event.y))
+        iter_ = widget.get_iter_at_location(x, y)
+        if iter_:
+            self.show_preview_for_iter(iter_)
+
+    def on_text_click(self, widget, event):
+        """Handle click on log view - pin preview for line clicked."""
+        if event.button == 1:
+            x, y = widget.window_to_buffer_coords(Gtk.TextWindowType.TEXT,
+                                                   int(event.x), int(event.y))
+            iter_ = widget.get_iter_at_location(x, y)
+            if iter_:
+                self.show_preview_for_iter(iter_)
+                return True
+        return False
+
+    def on_text_leave(self, widget, event):
+        """Handle mouse leaving log view - clear preview."""
+        self.clear_preview()
+
+    def show_preview_for_iter(self, iter_):
+        """Show preview for the log entry at the given iterator."""
+        # Find the entry corresponding to this line
+        line_start = iter_.copy()
+        line_start.set_line_offset(0)
+        line_text = self.buf.get_text(line_start, iter_.forward_to_line_end(), False)
+        if not line_text.strip():
+            self.clear_preview()
+            return
+
+        # Match against entries to find the raw record
+        for entry in self.entries:
+            ts, src, msg, sev, raw = entry
+            if msg in line_text or (ts and ts in line_text):
+                if raw:
+                    preview_text = format_preview_record(raw)
+                else:
+                    preview_text = "Timestamp: %s\nSource: %s\nSeverity: %s\nMessage: %s" % (
+                        ts or "N/A", src, sev.upper(), msg)
+                self.preview_buf.set_text(preview_text)
+                return
+
+        self.clear_preview()
+
+    def clear_preview(self):
+        """Clear the preview pane."""
+        self.preview_buf.set_text("Hover or click a log entry to see details...")
 
     def setup_severity_tags(self):
         tag_configs = {}
@@ -584,7 +690,7 @@ class Console(Gtk.Window):
             adj.set_value(adj.get_upper())
 
     def append_entry(self, entry):
-        ts, src, msg, sev = entry
+        ts, src, msg, sev, _raw = entry
         end = self.buf.get_end_iter()
         if ts:
             self.buf.insert_with_tags_by_name(end, ts + "  ", "timestamp")
