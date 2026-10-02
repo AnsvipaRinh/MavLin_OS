@@ -210,7 +210,8 @@ verify_rewrite() {
            -e 's/vsevolod/<build-user-2>/g' "$f"
   done < <(grep -rl 'Vsevolod Avdonkin\|vsevolod@archlinux\|vsevolod' \
              "$WORKDIR/.tree-check-src" 2>/dev/null || true)
-  if diff -r "$WORKDIR/.tree-check-src" "$WORKDIR/.tree-check-new" \
+  if diff -r --no-dereference "$WORKDIR/.tree-check-src" \
+             "$WORKDIR/.tree-check-new" \
        > "$WORKDIR/.tree-check-diff.txt" 2>&1; then
     echo "  [OK] HEAD tree identical to source after exactly the 3 intended neutralizations"
   else
