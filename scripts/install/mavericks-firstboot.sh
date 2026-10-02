@@ -24,19 +24,32 @@ hostnamectl set-hostname mavericks-macbook 2>/dev/null || echo mavericks-macbook
 ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime 2>/dev/null || true
 hwclock --systohc 2>/dev/null || true
 
-log "2/7 bootloader entries = baseline CMDLINE"
-BASELINE_CMDLINE="quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0"
+log "2/7 bootloader entries = baseline CMDLINE (base + fragments)"
+# Base cmdline (generic, always applied)
+BASE_CMDLINE="quiet loglevel=3"
+# MacBook-specific fragments (graceful-missing: only append if file exists)
+FRAGMENT_DIR="$REPO_DIR/configs/profiles/fragments"
+MACBOOK_FRAGMENTS=()
+[[ -f "$FRAGMENT_DIR/99-mavericks-s3x.conf" ]] && MACBOOK_FRAGMENTS+=("$(cat "$FRAGMENT_DIR/99-mavericks-s3x.conf" | grep -v '^#' | tr -d '\n')")
+[[ -f "$FRAGMENT_DIR/99-mavericks-display.conf" ]] && MACBOOK_FRAGMENTS+=("$(cat "$FRAGMENT_DIR/99-mavericks-display.conf" | grep -v '^#' | tr -d '\n')")
+# Compose final cmdline
+FINAL_CMDLINE="$BASE_CMDLINE"
+for frag in "${MACBOOK_FRAGMENTS[@]}"; do
+  [[ -n "$frag" ]] && FINAL_CMDLINE="$FINAL_CMDLINE $frag"
+done
+log "Composed cmdline: $FINAL_CMDLINE"
 for f in /boot/loader/entries/*.conf; do
   [[ -f "$f" ]] || continue
   if grep -q "^options" "$f"; then
     # preserve root= PARTUUID lines, replace trailing options after 'rw '
-    sed -i -E "s/^(options +.*rootflags=[^ ]+ *) .*/\1 $BASELINE_CMDLINE/" "$f" || true
+    sed -i -E "s/^(options +.*rootflags=[^ ]+ *) .*/\1 $FINAL_CMDLINE/" "$f" || true
   fi
 done
 grep -H "^options" /boot/loader/entries/*.conf || true
 
-log "3/7 TLP baseline"
+log "3/7 TLP baseline (generic + MacBook fragment)"
 install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/tlp.d/99-mavericks.conf" /etc/tlp.d/99-mavericks.conf
+install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/tlp.d/99-mavericks-power.conf" /etc/tlp.d/99-mavericks-power.conf
 rm -f /etc/tlp.d/10-experiment.conf
 systemctl enable tlp.service
 
@@ -47,9 +60,9 @@ systemctl enable systemd-zram-setup@zram0.service
 rm -f /etc/sysctl.d/99-mavericks.conf
 
 log "5/7 network: NetworkManager owns Wi-Fi on installed system"
-# NM tuning: explicit wpa_supplicant backend + connectivity-check off (D2).
-# Shadows Arch's /usr/lib/NetworkManager/conf.d/20-connectivity.conf (300s HTTP poll).
+# NM tuning: connectivity-check off (generic) + wpa_supplicant backend (MacBook fragment)
 install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks.conf" /etc/NetworkManager/conf.d/99-mavericks.conf
+install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf" /etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf
 systemctl disable --now iwd.service 2>/dev/null || true
 systemctl disable --now systemd-networkd.service 2>/dev/null || true
 # NOTE: keep systemd-resolved enabled — /etc/resolv.conf points at its stub;
