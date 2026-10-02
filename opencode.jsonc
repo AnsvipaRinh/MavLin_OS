@@ -101,6 +101,20 @@
         }
       }
     },
+    // Re-enabled 2026-10-02 at user request (chain #5): mid-output stops are
+    // recoverable via same-session resume, and the user verified live that
+    // it currently solves tasks adequately.
+    "build-h": {
+      "mode": "subagent",
+      "hidden": true,
+      "model": "opencode/nemotron-3.5-lightning-free",
+      "description": "Implementation worker (fallback H): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
+      "permission": {
+        "task": {
+          "*": "deny"
+        }
+      }
+    },
     "plan": {
       "disable": true
     },

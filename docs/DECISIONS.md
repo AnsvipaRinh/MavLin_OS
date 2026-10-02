@@ -1,5 +1,15 @@
 # DECISIONS
 
+## 2026-10-02 — Protocol v14: Nemotron 3.5 Lightning re-enabled (build-h)
+
+**Date:** 2026-10-02
+**Context:** User request: re-enable Nemotron 3.5 Lightning. The 2026-09-26 ban reason (mid-output generation stops) is neutralized by the now-working continuation: a stop is no longer session corruption — the same session resumes from the stop point. User additionally verified live that it currently solves tasks adequately (upstream may have fixed it).
+
+**Changes:** chain #5 `worker: build-h` (role back to `sub-agent`, ban reason replaced with re-enable rationale + demote-only-on-fresh-evidence rule); `opencode.jsonc` hidden `build-h`; orchestrator allow-list + texts; AGENTS texts; protocol v14 (new allow-list needs restart). Chain position kept (#5, ahead of experimental #6–#9): verified-good-today outranks unverified.
+
+**Verified:** 70/70 green; 8 workers resolve in order (build → build-b → … → build-h → …); exclusion ranking checked live.
+**User action REQUIRED once:** server restart from repo dir (build-h + v14 load at start only).
+
 ## 2026-10-02 — Protocol v13: 4 experimental fallback workers (user request)
 
 **Date:** 2026-10-02
