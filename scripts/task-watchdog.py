@@ -158,12 +158,17 @@ def check_session(sid, threshold, do_abort=True):
     # surface in /session/status (proven live: 0-token assistant shell,
     # finish None, idle status, blocked parent Task). A generation with
     # zero output for longer than threshold is stuck whatever status says.
+    # Evidence freshness: a days-old 0-token shell proves nothing about the
+    # backend TODAY. Abort it (harmless no-op on a dead attempt) but only
+    # record a cooldown on fresh evidence.
+    evidence_fresh = True
     stalled, stall_age, stall_model = sr.stalled_generation(sid, threshold)
     if stalled:
         journal("STALLED", session=sid, stallSec=stall_age,
                 model=stall_model or meta.get("model", ""))
         verdict, matched = "MODEL_TIMEOUT", "stalled-no-output"
         delay = min(stall_age, sr.DEFAULT_COOLDOWN_SEC)
+        evidence_fresh = stall_age <= 24 * 3600
         attempt = "?"
         quota_abort = True  # skip status parsing below, go abort
     elif entry is None:
@@ -243,7 +248,7 @@ def check_session(sid, threshold, do_abort=True):
     if code == 404:
         journal("ABORT_FAILED", session=sid, reason="session vanished")
         return "gone", "abort: 404"
-    if model:
+    if model and evidence_fresh:
         h = sr.load_health()
         h["models"][model.lower()] = {
             "model": model, "state": "dead",
@@ -540,8 +545,26 @@ def main(argv):
     deadline = time.time() + a.timeout if a.timeout and a.timeout > 0 else None
     initial_count = len(targets)
     gone_count = 0
+    cycles = 0
     try:
         while True:
+            cycles += 1
+            # Re-resolve every ~15 cycles: the target set is NOT frozen —
+            # sessions created (or discovered) after daemon start must be
+            # picked up without a restart. Verified live: a stuck child was
+            # missed for an hour by a frozen target list.
+            if a.all and cycles % 15 == 1 and cycles > 1:
+                try:
+                    fresh = resolve_targets(
+                        oid=a.oid, session=a.session, all_sessions=a.all,
+                        directory=a.directory or None)
+                    added = [s for s in fresh if s not in targets]
+                    if added:
+                        targets.extend(added)
+                        journal("TARGETS_UPDATED", added=added,
+                                total=len(targets))
+                except Exception as e:
+                    journal("REDISCOVER_FAILED", error=str(e)[:150])
             for sid in list(targets):
                 action, detail = check_session(
                     sid, a.threshold, do_abort=not a.no_abort)

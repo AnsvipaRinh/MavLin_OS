@@ -66,7 +66,7 @@ class MockHandler(BaseHTTPRequestHandler):
     SESSIONS = {"ses_LIVE", "ses_BUSY", "ses_QUIET", "ses_MSGBROKEN",
                 "ses_WORKING", "ses_SOON", "ses_NEXT", "ses_ORPHAN",
                 "ses_WAITWORD", "ses_STRANGER", "ses_ESC", "ses_TOOLABORT",
-                "ses_STALLED", "ses_FRESHSTALL"}
+                "ses_STALLED", "ses_FRESHSTALL", "ses_ANCIENT"}
     # Live-store metadata for GET /session[/{id}]: directory/title/parent.
     META = {
         "ses_ORPHAN": {"directory": "/proj",
@@ -87,6 +87,15 @@ class MockHandler(BaseHTTPRequestHandler):
                                  "tokens": {"input": 50000},
                                  "modelID": "longcat-2.5-preview-free",
                                  "providerID": "opencode"}}],
+        "ses_ANCIENT": [{"info": {"role": "user"},
+                          "parts": [{"type": "text", "text": "old work"}]},
+                         {"info": {"role": "assistant", "finish": None,
+                                   "tokens": {"input": 90000, "output": 0},
+                                   "modelID": "cohere/north-mini-code:free",
+                                   "providerID": "openrouter",
+                                   "time": {"created": int(_time.time() * 1000)
+                                            - 3 * 24 * 3600 * 1000}},
+                          "parts": []}],
         "ses_TOOLABORT": [{"info": {"role": "assistant", "finish": None,
                                     "tokens": {"input": 1000},
                                     "modelID": "longcat-2.5-preview-free",
@@ -747,6 +756,19 @@ class DiscoveryTests(ScriptCase):
             meta = json.load(f)["sessions"]["ses_STALLED"]
         self.assertIn("lastAbort", meta)
         self.assertEqual(meta["state"], "reusable")
+
+    def test_ancient_stall_aborts_without_cooldown(self):
+        # 3-day-old 0-token shell: abort is harmless, but the evidence is
+        # too stale to judge today's backend — no cooldown may be recorded.
+        self.run_script("register", "ses_ANCIENT", "--agent", "build",
+                        "--objective", "ANC", "--task", "do ANC",
+                        "--model", "openrouter/cohere/north-mini-code:free")
+        r = self.run_watchdog("--once", "--session", "ses_ANCIENT",
+                              "--threshold", "600")
+        self.assertIn("aborted ses_ANCIENT", r.stdout, r.stdout + r.stderr)
+        self.assertIn("ses_ANCIENT", MockHandler.ABORTS)
+        r2 = self.run_script("health")
+        self.assertNotIn("north-mini", r2.stdout)
 
     def test_unclassified_wait_still_cools_down(self):
         # "agent unavailable" has no quota wording (verdict UNKNOWN), but a
