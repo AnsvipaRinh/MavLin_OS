@@ -48,6 +48,11 @@ PAIRS=(
   "packages/mavericks-apps/src/mavericks-apps/config/xfce4-keyboard-shortcuts.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml"
   "configs/desktop/skippy-xd/skippy-xd.rc:archiso-profile/releng/airootfs/etc/skel/.config/skippy-xd/skippy-xd.rc"
   "configs/network/99-mavericks.conf:archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks.conf"
+  "configs/network/99-mavericks-wifi-backend.conf:archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf"
+  "configs/profiles/fragments/99-mavericks-s3x.conf:archiso-profile/releng/airootfs/usr/local/share/mavericks/profiles/fragments/99-mavericks-s3x.conf"
+  "configs/profiles/fragments/99-mavericks-display.conf:archiso-profile/releng/airootfs/usr/local/share/mavericks/profiles/fragments/99-mavericks-display.conf"
+  "configs/power/99-mavericks-power.conf:archiso-profile/releng/airootfs/etc/tlp.d/99-mavericks-power.conf"
+  "archiso-profile/releng/airootfs/etc/mkinitcpio.conf.d/99-mavericks-spi.conf:archiso-profile/releng/airootfs/etc/mkinitcpio.conf.d/99-mavericks-spi.conf"
 )
 for pair in "${PAIRS[@]}"; do
   a="${pair%%:*}"; b="${pair##*:}"
