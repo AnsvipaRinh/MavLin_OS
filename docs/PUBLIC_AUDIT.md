@@ -403,3 +403,63 @@ Coverage: A-side boot, B-side deploy/boot/health/commit, 9 failure injections (k
 ---
 
 *End of Section 2.*
+---
+
+## Section 3 — Secret Scan + Public/Private Boundary
+
+**Generated:** 2026-10-02  
+**Commit:** 802b504 (HEAD)  
+**Scanner:** regex sweep (gitleaks/trufflehog not installed)
+
+### 3.1 Secret Scan Results
+
+| Pattern | Files Scanned | Findings | Verdict |
+|---------|---------------|----------|---------|
+| `BEGIN.*PRIVATE KEY` | 432 tracked files | 0 | **CLEAN** |
+| `ghp_\|gho_\|github_pat_` | 432 tracked files | 0 | **CLEAN** |
+| `AKIA` (AWS keys) | 432 tracked files | 0 | **CLEAN** |
+| `xox[bap]-` (Slack tokens) | 432 tracked files | 0 | **CLEAN** |
+| `password\s*=\s*['\"][^'\"]+` | 432 tracked files | 0 | **CLEAN** |
+| `root:[!$]` (shadow) | 432 tracked files | 1 file (`archiso-profile/releng/airootfs/etc/shadow`: `root:!14871::::::`) | **EXPECTED** — locked root password (security hardening, documented in DECISIONS.md/PROGRESS.md) |
+| `.env` files | 432 tracked files | 0 tracked | **CLEAN** |
+| Cookies / session data | 432 tracked files | 0 | **CLEAN** |
+| Provider API keys (OPENROUTER/ZEN) | 432 tracked files | Config references only (model-fallback.json, orchestrator.md — no actual keys) | **CLEAN** — providers require external auth (`OPENROUTER_API_KEY` env or `/connect`; Zen login) |
+| `.opencode/sessions/` session histories | 3 files (registry.json, model-health.json, watchdog.log) | Session metadata only (IDs, timestamps, model states, cooldowns) | **CLEAN** — no user content, no provider secrets |
+| Personal emails/phones | 432 tracked files | 2 authors in git history (`agent@mavericks-linux.local`, `vsevolod@archlinux`); extension IDs (`uBlock0@raymondhill.net`, `sponsorBlocker@ajay.app`) | **PUBLIC IDENTITY** — git authors; extension IDs are public AMO identifiers |
+| IPs/MACs/SSIDs/serials | 432 tracked files | Public DNS (1.1.1.1, 9.9.9.9, 8.8.8.8, 1.0.0.1), placeholder MAC (`02:00:00:00:00:00`), `serial` kernel param, Firefox install IDs (`Install4F96D1932A9F858E`) | **PUBLIC TECH DATA** — no private network identifiers |
+| BCM IDs (`14e4:43ba`, `BCM43602`) | 432 tracked files | 15+ occurrences in docs/configs | **PUBLIC TECH DATA** — PCI vendor:device for Broadcom Wi-Fi chip, documented in HARDWARE.md/DRIVER_AUDIT.md |
+
+**Overall Secret Scan: CLEAN** — No secrets, credentials, or private identifiers found in tracked files. All matches are documented configuration, public technical data, or expected security hardening artifacts.
+
+### 3.2 Public/Private Boundary Classification
+
+| Path / Directory | Classification | Rationale |
+|------------------|----------------|-----------|
+| `.opencode/sessions/` | **PRIVATE-KEEP-LOCAL** | Runtime session state (registry, model health, watchdog log). Gitignored. Contains no secrets but reflects local orchestration history. |
+| `out/*.iso` | **REMOVE-BEFORE-PUBLISH** | 2.7G binary ISO artifacts. Gitignored. Build output, not source. |
+| `lab/` fixtures/results | **PUBLIC** | Test scenarios (YAML), harness code, backend implementations. No generated results found. Source-level test definitions. |
+| `docs/benchmarks/*.json` | **PRIVATE-KEEP-LOCAL** | Benchmark results contain builder host metadata (WSL2, AMD Ryzen 7 5800HS, memory, container info). Not target hardware data. Useful for local regression but not for public repo. |
+| `.git` history (author identity) | **INVESTIGATE** | Two authors: `Mavericks Linux Agent <agent@mavericks-linux.local>` (project bot) and `Vsevolod Avdonkin <vsevolod@archlinux>` (personal). Options: (a) keep as-is (transparent history), (b) rewrite `vsevolod@archlinux` → project alias via `git filter-repo` before public push, (c) squash/flatten. **Recommendation: (b)** — preserves history shape while removing personal identity. |
+| `configs/` with `/home/builder` paths | **REMOVE-BEFORE-PUBLISH** (5 files) | `archiso-profile/releng/pacman.conf:101` (`file:///home/builder/mavericks-repo`), `docs/DECISIONS.md:1958`, `docs/ENVIRONMENT.md:61-62`, `docs/PROGRESS.md:646,997,1022,1025`, `scripts/test-session-reuse.py:816,889`. All are local build environment references. Must be sanitized (use relative paths, `$REPO_ROOT`, or placeholder) before public push. |
+| `archiso-profile/releng/airootfs/etc/shadow` | **PUBLIC** (with note) | Contains locked root password (`root:!14871::::::`). Standard archiso practice; documented as security hardening. No secret exposed. |
+| `archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox/installs.ini` | **PUBLIC** | Firefox profile install ID (`Install4F96D1932A9F858E`) — generic placeholder, not tied to user. |
+| `.opencode/model-fallback.json` | **PUBLIC** | Model chain config. No secrets (provider auth external). References `OPENROUTER_API_KEY` as env var requirement only. |
+| All source code (packages/, scripts/, configs/ minus builder paths) | **PUBLIC** | Core project source. Ready for publication. |
+
+### 3.3 History Identity Verdict
+
+**Status: INVESTIGATE → RECOMMEND REWRITE**
+
+- **Current authors:** `Mavericks Linux Agent <agent@mavericks-linux.local>` (8 commits), `Vsevolod Avdonkin <vsevolod@archlinux>` (8 commits).
+- **Risk:** Personal email in public git history.
+- **Action:** Run `git filter-repo --mailmap <(echo "Vsevolod Avdonkin <vsevolod@archlinux> Mavericks Linux Agent <agent@mavericks-linux.local>")` before any public remote add. Preserves commit count/timestamps, maps identity to project alias.
+- **Alternative:** If history rewrite undesirable, document as-known in PUBLIC_AUDIT.md and accept transparency.
+
+### 3.4 Immediate Pre-Publish Checklist
+
+1. [ ] Rewrite git author identity for `vsevolod@archlinux` → project alias
+2. [ ] Sanitize `/home/builder` paths in 5 files (replace with `$REPO_ROOT` or relative)
+3. [ ] Verify `out/` and `.opencode/sessions/` remain gitignored
+4. [ ] Consider moving `docs/benchmarks/` to gitignore (builder-host data) or document as local-only
+5. [ ] Confirm no `.env` or credential files accidentally staged
+
