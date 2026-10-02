@@ -469,16 +469,19 @@ def stalled_generation(session_id, threshold=600, now=None):
     invisible to status-based detection, so the watchdog would idle forever.
 
     Returns (is_stalled, age_sec, model_str). Stalled IFF: newest message
-    is assistant AND finish is None AND output tokens == 0 AND a user
-    prompt precedes it AND its age exceeds threshold. Any real generation
-    progress (output tokens, tool parts, finish set) = not stalled.
-    Bounded (?limit=8) tail fetch: tool-call rounds разделяют промпт и
-    оболочку (proven live: 9 completed rounds hid the prompt 11 back,
-    limit=3 missed a real stall). Still tiny vs full history download.
+    is assistant AND finish is None AND output tokens == 0 AND no tool
+    parts AND no error recorded AND its age exceeds threshold. Any real
+    generation progress (output tokens, tool parts, finish set, error
+    recorded) = not stalled.
+    No user-prompt window check by design: an assistant message cannot
+    exist without a preceding user prompt somewhere in history (platform
+    invariant — every assistant has a parent chain to a user message), so
+    scanning windows (3, then 8 — both missed live stalls buried behind
+    tool-call rounds) is pure downside. Bounded (?limit=3) tail fetch.
     """
     import time as _time
     now_ms = int((now if now is not None else _time.time()) * 1000)
-    code, msgs = api_probe("GET", f"/session/{session_id}/message?limit=8")
+    code, msgs = api_probe("GET", f"/session/{session_id}/message?limit=3")
     if code is None or not 200 <= code < 300 or not isinstance(msgs, list):
         return False, 0, ""
     if not msgs:
@@ -489,15 +492,16 @@ def stalled_generation(session_id, threshold=600, now=None):
     info = last.get("info", {}) or {}
     if info.get("role") != "assistant" or info.get("finish") is not None:
         return False, 0, ""
+    if info.get("error"):
+        return False, 0, ""  # failed attempt, not a silent stall
     toks = info.get("tokens") or {}
     if (toks.get("output") or 0) > 0:
         return False, 0, ""
     if any((p or {}).get("type") == "tool" for p in (last.get("parts") or [])):
         return False, 0, ""  # tool work in flight = progress, not a stall
-    if not any(isinstance(m, dict) and (m.get("info") or {}).get("role") == "user"
-               for m in msgs[:-1]):
-        return False, 0, ""  # no prompt sent: nothing was ever requested
     created = ((info.get("time") or {}).get("created")) or 0
+    if not created:
+        return False, 0, ""  # no timestamp: cannot prove age, stay silent
     try:
         age = (now_ms - int(created)) / 1000.0
     except (TypeError, ValueError):
