@@ -2292,3 +2292,51 @@ validation: real rendering at 2304×1440, multi-hour session growth.
 **Status:** IMPLEMENTED — HARDWARE VALIDATION REQUIRED (2304×1440 pixel validation needed for HiDPI rendering on MacBook10,1 Retina display)
 
 **Next:** Update NEEDS_HARDWARE_TEST.md with icon/cursor pixel validation items.
+
+---
+
+## 2026-10-02 — OS-4a: License audit for publication (license matrix + questionable-asset disposition)
+
+**Date:** 2026-10-02
+**Context:** Pre-publication license audit per OS-4a. Collected license() from all PKGBUILDs, backend licenses from APPS.md, fonts, icons, cursors, wallpapers, and copied code attributions.
+
+**Findings:**
+
+1. **All custom packages** have OSI-approved licenses: mavericks-theme (GPL-3.0-or-later), epiphany-mavericks-theme (GPL-3.0-or-later), mavericks-apps (GPL-2.0-or-later), macbook12-audio-driver (GPL-2.0-or-later via tanisperez fork).
+
+2. **All reused backends** (46 packages per APPS.md) have OSI-approved licenses: MIT (rofi), GPL-2.0-or-later (Thunar, xfce4*, xarchiver, mousepad, galculator, gnome-disk-utility, seahorse, gcolor3, plocate, trash-cli, gtksourceview4), GPL-3.0-or-later (lollypop, geary), LGPL-2.1-or-later (poppler-glib, GTK3, GLib/GIO), BSD-2-Clause (restic, xdotool), Apache-2.0 (localsend-bin), AGPL-3.0-only (localsend-cli-bin). LocalSend components are AUR optdeps only, NOT in ISO.
+
+3. **Fonts:** gsfonts (URW Base 35, GPL-2.0-only with font exception) provides Z003 (URW Chancery L) — free, included in ISO. Bradley Hand (Apple) and Comic Sans MS (Microsoft) are referenced only as CSS fallbacks in mv-stickies; NOT shipped, NOT depended upon. fontconfig maps `cursive` → Z003.
+
+4. **Icons (384 files):** 3 SVG files contained Apple-derived trademark/copyright assets:
+   - `preferences-desktop-mouse.svg`: explicit Apple logo vector path on mouse
+   - `preferences-desktop-display.svg`: explicit Apple logo vector path on display back
+   - `help-about.svg`: Apple logo silhouette + "Mac OS X 10.9 Mavericks" text
+   These are NOT redistributable (Apple trademark + copyright).
+
+5. **Cursors (13 base + symlinks):** Original designs, no Apple assets detected.
+6. **Wallpaper (mavericks-desktop.png):** Original gradient, no Apple assets detected.
+7. **Code:** All mv-* apps, rofi themes, configs are original; no external code copied without attribution. mv-hud.c and mv_desktop_cache.py have license headers.
+
+**Dispositions:**
+
+| Asset | Action | Reason |
+|---|---|---|
+| preferences-desktop-mouse.svg | ISOLATED → `docs/isolated-assets/apple-derived/` | Apple logo trademark |
+| preferences-desktop-display.svg | ISOLATED → `docs/isolated-assets/apple-derived/` | Apple logo trademark |
+| help-about.svg | ISOLATED → `docs/isolated-assets/apple-derived/` | Apple shape + "Mac OS X" copyright text |
+| finder.svg ("happy mac style") | KEPT (monitored) | Generic smiling folder face; not substantially similar to 1984 Apple Happy Mac trademark |
+| CSS "Bradley Hand"/"Comic Sans MS" fallbacks | KEPT | Fallback-only in CSS; neither font shipped nor depended upon; Z003 is primary via fontconfig |
+| All other 381 icons, cursors, wallpaper | KEPT | Original skeuomorphic designs, no Apple IP |
+
+**Replacements:** Created generic non-Apple SVG replacements for the three isolated icons (neutral logo placeholder, generic display back badge, info badge with "i" symbol). Replacements installed in `icons/scalable/apps/` and will be packaged by mavericks-theme.
+
+**Gate:** GREEN — All redistributable components have verified OSI-approved licenses. Three Apple-derived assets isolated. No GPL/LGPL compliance issues. No AGPL network-service components in ISO.
+
+**Artifacts:** `docs/LICENSES.md` (full matrix), `docs/isolated-assets/apple-derived/` (archived originals).
+
+**Commits:**
+1. `docs: add LICENSES.md license matrix (OS-4a)`
+2. `theme: isolate 3 Apple-derived SVG icons to docs/isolated-assets/`
+3. `theme: add replacement generic icons for isolated assets`
+4. `docs: update DECISIONS.md with OS-4a dispositions`
