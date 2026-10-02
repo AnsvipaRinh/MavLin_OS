@@ -47,17 +47,38 @@ class GetInfoDialog(Gtk.Dialog):
         box.set_margin_start(12)
         box.set_margin_end(12)
 
+        # Filter out invalid paths
+        valid_paths = [p for p in paths if p and os.path.exists(p)]
+
+        if not valid_paths:
+            # Show empty state
+            label = Gtk.Label(label="No valid items selected")
+            label.set_justify(Gtk.Justification.CENTER)
+            label.get_style_context().add_class("dim-label")
+            box.pack_start(label, True, True, 0)
+            self.show_all()
+            return
+
         # For multiple selection, show summary
-        if len(paths) > 1:
-            self.show_multiple_info(box, paths)
+        if len(valid_paths) > 1:
+            self.show_multiple_info(box, valid_paths)
         else:
-            self.show_single_info(box, paths[0])
+            self.show_single_info(box, valid_paths[0])
 
         self.show_all()
 
     def show_single_info(self, box, path):
         path = os.path.abspath(path)
         name = os.path.basename(path)
+
+        if not os.path.exists(path):
+            # Empty state: item no longer exists
+            label = Gtk.Label(label="Item not found")
+            label.set_justify(Gtk.Justification.CENTER)
+            label.get_style_context().add_class("dim-label")
+            box.pack_start(label, True, True, 0)
+            return
+
         st = os.stat(path)
 
         # Icon + name row

@@ -2,6 +2,7 @@
 """mv-quicklook-thunar — Global hotkey handler for Quick Look in Thunar.
 Uses xdotool to copy selection and parse clipboard for file URIs.
 Falls back to xdg-open if Thunar not focused or no selection.
+Supports multi-select (multiple file:// URIs on separate lines).
 License: GPL-2.0-or-later."""
 import os
 import subprocess
@@ -12,7 +13,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
 
 
-def get_thunar_selection():
+def get_thuran_selection():
     """Try to get selected files from Thunar via clipboard copy."""
     try:
         # Check if Thunar is the active window
@@ -38,7 +39,7 @@ def get_thunar_selection():
         if not clipboard_text or not clipboard_text.strip():
             return None
 
-        # Parse file:// URIs from clipboard
+        # Parse file:// URIs from clipboard (support multi-select)
         import urllib.parse
         files = []
         for line in clipboard_text.strip().splitlines():

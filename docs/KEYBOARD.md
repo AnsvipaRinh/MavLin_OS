@@ -19,6 +19,11 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Super+Shift+N | New Folder in Home | mv-newfolder |
 | Super+I | Get Info (Home) | mv-getinfo |
 | Super+O | Open With (Home) | mv-openwith |
+| Super+Shift+I | Get Info (Current) | mv-getinfo |
+| Super+Shift+O | Open With (Current) | mv-openwith |
+| Super+F4 | Eject (Selected) | mv-eject |
+| Super+Delete | Move to Trash | trash-cli |
+| Super+Shift+Delete | Empty Trash | trash-empty |
 
 ## System
 
@@ -30,6 +35,8 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Super+Shift+Space | Quick Look (Thunar selection) | mv-quicklook-thunar |
 | Ctrl+Alt+Escape | Power dialog (Sleep/Restart/Shut Down/Log Out) | mv-power-ui |
 | Ctrl+Alt+Logout | Log Out | mv-power-ui logout |
+| Super+E | Finder / Thunar | Thunar |
+| Super+Shift+E | Empty Trash | trash-empty |
 
 ## Screenshots
 
@@ -71,7 +78,7 @@ don't steal global shortcuts.
 | Super+M | Minimize window | xfwm4 Super+Down | App-level |
 | Super+H | Hide application | — | App-level |
 | Super+W | Close window/tab | Ctrl+W in Firefox | App-level |
-| Super+E | Finder | Super+Shift+F | App-level |
+| Super+E | Finder / Thunar | Super+Shift+F | App-level |
 | Super+T | New tab | Ctrl+T in Firefox | App-level |
 | Super+N | New window | Ctrl+N in Firefox | App-level |
 | Super+C | Copy | Ctrl+C in Firefox/terminal | App-level |
