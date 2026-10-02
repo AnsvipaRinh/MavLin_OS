@@ -114,8 +114,38 @@ DEFAULT_COOLDOWN_SEC = 10800
 _server_cache = {"at": 0.0, "port": ""}
 
 
+def _ps_table():
+    """[(pid, args)] of all processes (pure parse helper needs text)."""
+    import subprocess
+    try:
+        out = subprocess.run(["ps", "-eo", "pid,args"], capture_output=True,
+                             text=True, timeout=10).stdout or ""
+    except Exception:
+        return []
+    rows = []
+    for line in out.splitlines():
+        m = re.match(r"\s*(\d+)\s+(.*)$", line)
+        if m:
+            rows.append((int(m.group(1)), m.group(2)))
+    return rows
+
+
+def _parse_serve_processes(ps_text):
+    """[(pid, port-or-None)] for `opencode ... serve ...` lines. Pure."""
+    out = []
+    for line in (ps_text or "").splitlines():
+        m = re.match(r"\s*(\d+)\s+(.*)$", line)
+        if not m:
+            continue
+        pid, args = int(m.group(1)), m.group(2)
+        if "opencode" in args and "serve" in args and "grep" not in args:
+            pm = re.search(r"--port\s+(\d+)", args)
+            out.append((pid, pm.group(1) if pm else None))
+    return out
+
+
 def _ps_opencode_ports():
-    """Ports parsed from live `opencode ... serve --port N` processes.
+    """Ports parsed from live `opencode ... serve ...` processes.
 
     Pure string parsing (no connection attempts); testable without a server.
     """
@@ -132,6 +162,41 @@ def _ps_opencode_ports():
             if m and m.group(1) not in ports:
                 ports.append(m.group(1))
     return ports
+
+
+def _read_proc_environ(pid):
+    """Environ dict of a live process (Linux /proc). Same-user only."""
+    try:
+        with open(f"/proc/{pid}/environ", "rb") as f:
+            raw = f.read().split(b"\0")
+    except (OSError, ValueError):
+        return {}
+    out = {}
+    for item in raw:
+        if b"=" in item:
+            k, v = item.split(b"=", 1)
+            try:
+                out[k.decode()] = v.decode()
+            except UnicodeDecodeError:
+                pass
+    return out
+
+
+def _proc_credentials():
+    """(user, password) from the live server process environment.
+
+    Long-lived processes (watchdog daemon) outlive server restarts: their
+    own env holds a STALE password while the new server generated a fresh
+    one. /proc/<serve-pid>/environ is the authoritative current source.
+    Returns (None, None) when unavailable (non-Linux, no permission).
+    """
+    for pid, _port in _parse_serve_processes("\n".join(
+            f"{p} {a}" for p, a in _ps_table())):
+        env = _read_proc_environ(pid)
+        pw = env.get("OPENCODE_SERVER_PASSWORD", "")
+        if pw:
+            return env.get("OPENCODE_SERVER_USERNAME", "opencode"), pw
+    return None, None
 
 
 def server_host():
@@ -160,24 +225,50 @@ def server_pass():
     return os.environ.get("OPENCODE_SERVER_PASSWORD", "")
 
 
-def api(method, path, body=None):
+def _api_once(method, path, body, use_proc_creds):
     import base64
-    user, pwd = server_user(), server_pass()
+    if use_proc_creds:
+        user, pwd = _proc_credentials()
+        if user is None:
+            return ("unreachable", None)
+    else:
+        user, pwd = server_user(), server_pass()
     req = urllib.request.Request(
-        f"http://{server_host()}:{server_port()}{path}", method=method,
+        f"http://{server_host()}:{server_port() if not use_proc_creds else server_port(ttl=-1)}{path}",
+        method=method,
         data=json.dumps(body).encode() if body is not None else None,
         headers={"Content-Type": "application/json",
                  "Authorization": "Basic " + base64.b64encode(
                      f"{user}:{pwd}".encode()).decode()})
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
-            return json.loads(r.read().decode() or "null")
+            return ("ok", json.loads(r.read().decode() or "null"))
     except urllib.error.HTTPError as e:
-        sys.exit(f"API {method} {path} -> HTTP {e.code}: {e.read().decode()[:200]}")
+        if e.code == 401:
+            return ("auth", None)
+        return ("http-%d" % e.code,
+                e.read().decode()[:200])
     except urllib.error.URLError as e:
+        return ("unreachable", str(getattr(e, "reason", e)))
+
+
+def api(method, path, body=None):
+    status, payload = _api_once(method, path, body, False)
+    if status in ("auth", "unreachable"):
+        # Server restarted under us (new port/password): refresh from the
+        # live process and retry once before giving up.
+        _server_cache["at"] = 0
+        status, payload = _api_once(method, path, body, True)
+    if status == "ok":
+        return payload
+    if status == "unreachable":
         # Connection refused / DNS / offline: structured exit, never a
         # traceback — callers map this to UNKNOWN/VERIFY, never NEW.
-        sys.exit(f"API {method} {path} -> unreachable: {e.reason}")
+        sys.exit(f"API {method} {path} -> unreachable: {payload}")
+    if status == "auth":
+        sys.exit(f"API {method} {path} -> HTTP 401 (auth failed even "
+                 f"with live server credentials)")
+    sys.exit(f"API {method} {path} -> HTTP {status}: {payload}")
 
 
 def api_probe(method, path, body=None):
@@ -187,10 +278,32 @@ def api_probe(method, path, body=None):
     Used for existence checks where 404 is a VALID answer
     (SESSION_DOES_NOT_EXIST), not an error.
     """
+    # First attempt: configured credentials. On 401 (password rotated by a
+    # server restart) or unreachable (port moved), refresh from the live
+    # server process and retry ONCE. This is what keeps long-lived daemons
+    # working across restarts with zero manual steps.
+    code, obj = _api_probe_once(method, path, body, use_proc_creds=False)
+    if code == 401 or code is None:
+        _server_cache["at"] = 0  # force fresh ps discovery too
+        code2, obj2 = _api_probe_once(method, path, body, use_proc_creds=True)
+        # A retry that still fails is the real answer (wrong creds everywhere
+        # looks identical to server-down from here: report unreachable).
+        if code2 is not None:
+            return code2, obj2
+    return code, obj
+
+
+def _api_probe_once(method, path, body, use_proc_creds=False):
     import base64
-    user, pwd = server_user(), server_pass()
+    if use_proc_creds:
+        user, pwd = _proc_credentials()
+        if user is None:
+            return None, None
+    else:
+        user, pwd = server_user(), server_pass()
     req = urllib.request.Request(
-        f"http://{server_host()}:{server_port()}{path}", method=method,
+        f"http://{server_host()}:{server_port() if not use_proc_creds else server_port(ttl=-1)}{path}",
+        method=method,
         data=json.dumps(body).encode() if body is not None else None,
         headers={"Content-Type": "application/json",
                  "Authorization": "Basic " + base64.b64encode(

@@ -744,6 +744,96 @@ class WatchdogEnsureTests(unittest.TestCase):
         cls.tw = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.tw)
 
+    def test_parse_serve_processes(self):
+        tw = self.__class__.tw
+        text = ("  PID ARGS\n"
+                "    1 /sbin/init\n"
+                " 6321 /home/builder/.opencode/bin/opencode --print-logs "
+                "serve --hostname 0.0.0.0 --port 51950\n"
+                " 6591 grep -i opencode\n")
+        self.assertEqual(tw.sr._parse_serve_processes(text),
+                         [(6321, "51950")])
+        self.assertEqual(tw.sr._parse_serve_processes("  1 /sbin/init\n"), [])
+
+    def test_read_proc_environ(self):
+        import subprocess
+        tw = self.__class__.tw
+        # Child inherits the marker in its INITIAL env (like a server
+        # process); /proc reflects initial env, not runtime setenv.
+        env = dict(os.environ, WD_TEST_MARKER_XYZ="hello42")
+        p = subprocess.Popen(["sleep", "30"], env=env)
+        import time as _wt
+        _wt.sleep(0.3)  # let fork/exec settle before reading /proc
+        try:
+            got = tw.sr._read_proc_environ(p.pid)
+            self.assertEqual(got.get("WD_TEST_MARKER_XYZ"), "hello42")
+        finally:
+            p.kill()
+            p.wait()
+        self.assertEqual(tw.sr._read_proc_environ(999999999), {})
+
+    def _write_journal(self, tw, tmp, events):
+        import time as _t
+        import datetime as _dt
+        now = _t.time()
+        with open(tmp, "w") as f:
+            for i, ev in enumerate(events):
+                ts = _dt.datetime.fromtimestamp(
+                    now - ev[1], tz=_dt.timezone.utc).isoformat(
+                        timespec="seconds")
+                f.write('{"ts": "%s", "event": "%s"}\n' % (ts, ev[0]))
+
+    def test_daemon_healthy_live(self):
+        import tempfile
+        tw = self.__class__.tw
+        real_log, real_lock = tw.JOURNAL, tw.lock_held_by_live_process
+        with tempfile.NamedTemporaryFile("w+", delete=False) as f:
+            tmp = f.name
+        try:
+            tw.JOURNAL = tmp
+            tw.lock_held_by_live_process = lambda: True
+            # Fresh heartbeat + recent WATCH = healthy.
+            self._write_journal(tw, tmp, [("WATCH", 30), ("HEARTBEAT", 5)])
+            self.assertTrue(tw.daemon_healthy(90))
+        finally:
+            tw.JOURNAL = real_log
+            tw.lock_held_by_live_process = real_lock
+            os.remove(tmp)
+
+    def test_daemon_healthy_api_down_streak(self):
+        import tempfile
+        tw = self.__class__.tw
+        real_log, real_lock = tw.JOURNAL, tw.lock_held_by_live_process
+        with tempfile.NamedTemporaryFile("w+", delete=False) as f:
+            tmp = f.name
+        try:
+            tw.JOURNAL = tmp
+            tw.lock_held_by_live_process = lambda: True
+            # Fresh heartbeats but only API_DOWN lately = deaf, not alive.
+            self._write_journal(tw, tmp, [("WATCH", 300), ("API_DOWN", 60),
+                                          ("API_DOWN", 30), ("HEARTBEAT", 5)])
+            self.assertFalse(tw.daemon_healthy(90))
+        finally:
+            tw.JOURNAL = real_log
+            tw.lock_held_by_live_process = real_lock
+            os.remove(tmp)
+
+    def test_daemon_healthy_fresh_start(self):
+        import tempfile
+        tw = self.__class__.tw
+        real_log, real_lock = tw.JOURNAL, tw.lock_held_by_live_process
+        with tempfile.NamedTemporaryFile("w+", delete=False) as f:
+            tmp = f.name
+        try:
+            tw.JOURNAL = tmp
+            tw.lock_held_by_live_process = lambda: True
+            self._write_journal(tw, tmp, [("START", 10), ("HEARTBEAT", 5)])
+            self.assertTrue(tw.daemon_healthy(90))
+        finally:
+            tw.JOURNAL = real_log
+            tw.lock_held_by_live_process = real_lock
+            os.remove(tmp)
+
     def test_heartbeat_fresh_and_stale(self):
         import tempfile
         tw = self.__class__.tw

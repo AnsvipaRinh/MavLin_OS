@@ -342,8 +342,9 @@ def cmd_ensure(args, carry_argv):
             i += 2
         else:
             i += 1
-    if heartbeat_fresh(max_age) and lock_held_by_live_process():
-        print("watchdog ALIVE (fresh HEARTBEAT, nothing to do)")
+    if daemon_healthy(max_age):
+        print("watchdog ALIVE (fresh HEARTBEAT + server reachable, "
+              "nothing to do)")
         return 0
     try:
         if os.path.exists(LOCKFILE):
@@ -355,6 +356,69 @@ def cmd_ensure(args, carry_argv):
     os.execv(sys.executable, [sys.executable, os.path.abspath(__file__),
                               "--daemon", "--all", "--interval",
                               str(interval)] + carry_argv)
+
+
+def recent_events(limit=60):
+    """Journal records, newest first (empty list when no journal)."""
+    try:
+        with open(JOURNAL) as f:
+            lines = f.read().strip().split("\n")[-limit:]
+    except OSError:
+        return []
+    out = []
+    for line in lines:
+        try:
+            out.append(json.loads(line))
+        except ValueError:
+            pass
+    out.reverse()
+    return out
+
+
+# Events proving the daemon REACHED the server (any answer, even 404, means
+# the API talks to us). API_DOWN / ABORT_FAILED / STATUS_UNKNOWN /
+# HEARTBEAT prove nothing and are skipped by the health check.
+HEALTHY_EVENTS = {"WATCH", "ABORTED", "DISCOVERED", "SESSION_GONE",
+                  "TIMEOUT", "WOULD_ABORT"}
+
+
+def _rec_ts(rec):
+    try:
+        return datetime.fromisoformat(rec.get("ts", "").replace(
+            "Z", "+00:00")).timestamp()
+    except (ValueError, TypeError):
+        return None
+
+
+def daemon_healthy(max_age=90):
+    """A daemon counts as alive only if it BOTH heartbeats AND actually
+    reaches the server. A daemon stuck in API_DOWN (deaf to a restarted
+    server) looks alive by heartbeat alone — this catches that, so
+    --ensure replaces it instead of reporting ALIVE."""
+    recs = recent_events()
+    now = time.time()
+    if not any(rec.get("event") == "HEARTBEAT"
+               and (_rec_ts(rec) or 0) >= now - max_age for rec in recs):
+        return False
+    if not lock_held_by_live_process():
+        return False
+    # Newest signal event decides: a real server answer (or a fresh START
+    # with no cycle yet) = healthy; pure API_DOWN streak = deaf.
+    for rec in recs:
+        ev, ts = rec.get("event"), _rec_ts(rec)
+        if ev in ("HEARTBEAT", "API_DOWN", "ABORT_FAILED",
+                  "STATUS_UNKNOWN"):
+            continue
+        if ev == "START":
+            return ts is not None and (now - ts) <= max_age
+        if ev in HEALTHY_EVENTS:
+            # Only a FRESH server answer counts; an old WATCH followed by
+            # an API_DOWN streak means the daemon went deaf since.
+            if ts is not None and (now - ts) <= max_age:
+                return True
+            return False
+        # Unknown future event kinds: do not judge, keep waiting for signal.
+    return False
 
 
 def lock_held_by_live_process():

@@ -1,5 +1,21 @@
 # DECISIONS
 
+## 2026-10-02 — Deaf-daemon fix: credential refresh + health-aware --ensure
+
+**Date:** 2026-10-02
+**Context:** User: 30k-sec timeout not cancelled/switched despite running watchdog. Forensics: daemon alive by HEARTBEAT but `API_DOWN` on every session — server had restarted (new port AND new password) after daemon start; daemon's frozen env held stale creds.
+
+**Root cause:** two gaps, both fixed without touching roles/models: (1) port auto-discovered via `ps`, but password read once from own env — a restart under a live daemon = permanent 401s misread as "server down"; (2) `--ensure`/liveness judged by HEARTBEAT alone, so a deaf daemon reported ALIVE forever.
+
+**Changes (`session-reuse.py`, `task-watchdog.py`, no prompt changes needed):**
+1. `_proc_credentials()`: current password/username read from the live `opencode serve` process via `/proc/<pid>/environ` (same-user; verified live: password present).
+2. `api()`/`api_probe()`: on 401 or unreachable → bust port cache + retry ONCE with proc creds. Transient rotation becomes invisible.
+3. `daemon_healthy()`: ALIVE requires fresh HEARTBEAT + live lock holder + a FRESH server answer (WATCH/ABORTED/DISCOVERED/SESSION_GONE/TIMEOUT) since last START; pure API_DOWN streak = deaf → `--ensure` replaces it. `--ensure` is now the single self-healing entrypoint.
+4. Watchdog `resolve --all` unchanged (registry ∪ live discovery).
+
+**Verified:** 61/61 green (new: ps/port parse incl. serve-process table, env-wins, default fallback, /proc environ via child process, heartbeat fresh/stale, ensure alive-no-spawn, ensure stale-spawns-daemon, daemon_healthy live/deaf/fresh-start).
+**NOT verifiable here:** live 401-rotation recovery against a real restart cycle, daemon lifetime on user OS. Watch: after next server restart, `watchdog.log` should show continued WATCH (not an API_DOWN streak) with zero manual steps.
+
 ## 2026-10-02 — Protocol v10: zero-config watchdog (auto-discovery + --ensure)
 
 **Date:** 2026-10-02
