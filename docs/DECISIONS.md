@@ -1,5 +1,22 @@
 # DECISIONS
 
+## 2026-10-02 — Protocol v11: status-blind stall detection (the actual hang shape)
+
+**Date:** 2026-10-02
+**Context:** User's live case: sub session `ses_f0919523...` ("Fidelity Track 3 calendar backend (@build subagent)", LongCat) stuck ~4000s+ with "Free usage exceeded"-style wait; parent orchestrator blocked in `task running`; `/session/status` EMPTY.
+
+**Root cause (verified live, not inferred):** the provider wait does NOT always surface in `/session/status`. Observable signature: user prompt → assistant shell created ~100ms later with ZERO tokens, ZERO parts, finish=None → silence for 4000s+, status map empty. All status-keyed detection (stuck/watchdog pre-v11) is blind to this shape by construction.
+
+**Changes:**
+1. `stalled_generation()` + `stalled` command: newest message is assistant AND finish None AND output tokens 0 AND no tool parts AND user prompt precedes AND age > threshold (bounded `?limit=3` tail, no history download). Any real progress disqualifies.
+2. Watchdog runs the stall check for every target the status path would call idle/ok: stall → same abort/cooldown/migrate-same-task_id flow (verdict MODEL_TIMEOUT, cooldown = observed stall capped at 3h).
+3. `find-objective`/`stuck`/`migrate` hardened in passing (live-discovery fallback, orphan ages, tail-model); `load_reg` never raises (registry deletion by parallel track survived as supported state).
+4. Test-isolation fixes (tmp lockfile for ensure-stale, torn-journal-tolerant reader, `server_close()`); full-suite flake under container load documented (per-class runs green, one 68/68 full green).
+5. Protocol v11 (new `stalled*` allow-entry).
+
+**Verified:** 13/13 classes green in isolation + one full 68/68 green; live `stalled` check against the real stuck session pending below (read-only).
+**NOT verifiable here:** live abort→migrate→resume cycle on the real session (needs the orchestrator turn + provider); next user "Продолжай" executes it.
+
 ## 2026-10-02 — Deaf-daemon fix: credential refresh + health-aware --ensure
 
 **Date:** 2026-10-02

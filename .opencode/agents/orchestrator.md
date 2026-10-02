@@ -20,6 +20,7 @@ permission:
     "scripts/session-reuse.py retire*": allow
     "scripts/session-reuse.py delete*": allow
     "scripts/session-reuse.py stuck*": allow
+    "scripts/session-reuse.py stalled*": allow
     "scripts/session-reuse.py migrate*": allow
     "scripts/session-reuse.py version*": allow
     "scripts/session-reuse.py health*": allow
@@ -54,7 +55,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 0. ENV PRE-CHECK (once per session, BEFORE anything else — both commands
    must succeed in the SAME session):
    `git status` AND `scripts/session-reuse.py version` (need
-   `orchestrator-protocol: 10`).
+   `orchestrator-protocol: 11`).
    - Either fails ("file not found", unknown subcommand, older version) →
      PROJECT-NOT-LOADED or STALE-AGENT: the server started outside the repo
      or cached an old agent file (no hot-reload — AGENTS.md 14.6). STOP and
@@ -149,8 +150,10 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
   `python3 scripts/task-watchdog.py --ensure --all` (self-maintaining: ALIVE
   or freshly spawned; a foreground Task without a watchdog has no runtime
   failover) →
-  `scripts/session-reuse.py stuck --threshold 600` (exit 2 = STUCK).
-  STUCK → `abort` if still running, then `migrate` (same `task_id`).
+  `scripts/session-reuse.py stuck --threshold 600` (exit 2 = STUCK) +
+  `scripts/session-reuse.py stalled <id> --threshold 600` for idle sessions
+  (exit 2 = status-blind provider wait: 0-token shell, abort it).
+  STUCK/STALLED → `abort` if still running, then `migrate` (same `task_id`).
 - SINGLE-FLIGHT: at most ONE active worker Task per objective. If the previous
   Task for this objective returned no terminal result yet (busy/retry, or
   `decide` says WAIT): do NOT launch a second Task for the same objective.

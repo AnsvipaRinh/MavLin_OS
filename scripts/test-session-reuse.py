@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Tests for orchestration scripts: SESSION != MODEL (protocol v7).
+"""Tests for orchestration scripts: SESSION != MODEL (protocol v11).
 
 Pure unit tests (classifier, delay parser, worker resolution) + integration
 tests against an in-process mock OpenCode REST server (no live server, no
-provider, no network). State files (.opencode/sessions/*) are backed up
-byte-exact before the run and restored after every test.
+provider, no network). Hermetic by construction: $SR_STATE_DIR points all
+state files (registry/health/limits/journal/lock) at a temp dir, so a live
+watchdog daemon running in parallel can neither pollute results nor be
+touched by them. Per-test wipe keeps a clean slate without backup/restore.
 
 Run: python3 scripts/test-session-reuse.py
 """
@@ -15,17 +17,26 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time as _time
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+os.environ["SR_STATE_DIR"] = tempfile.mkdtemp(prefix="sr-state-test-")
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(BASE, "session-reuse.py")
-REG = os.path.join(BASE, "..", ".opencode", "sessions", "registry.json")
-HEALTH = os.path.join(BASE, "..", ".opencode", "sessions", "model-health.json")
-LIMITS = os.path.join(BASE, "..", ".opencode", "sessions", "model-limits.json")
-WDLOG = os.path.join(BASE, "..", ".opencode", "sessions", "watchdog.log")
+
+
+def _sp(name):
+    return os.path.join(os.environ["SR_STATE_DIR"], name)
+
+
+REG = _sp("registry.json")
+HEALTH = _sp("model-health.json")
+LIMITS = _sp("model-limits.json")
+WDLOG = _sp("watchdog.log")
 WATCHDOG = os.path.join(BASE, "task-watchdog.py")
 
 spec = importlib.util.spec_from_file_location("sr", SCRIPT)
@@ -190,27 +201,18 @@ class ScriptCase(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.server.shutdown()
+        cls.server.server_close()
 
     def setUp(self):
-        self.saved = {}
-        for p in (REG, HEALTH, LIMITS, WDLOG):
+        # Hermetic slate: wipe the temp state dir (no backup/restore needed —
+        # production files are untouched by construction via $SR_STATE_DIR).
+        for name in ("registry.json", "model-health.json",
+                     "model-limits.json", "watchdog.log"):
             try:
-                with open(p, "rb") as f:
-                    self.saved[p] = f.read()
+                os.remove(os.path.join(os.environ["SR_STATE_DIR"], name))
             except OSError:
-                self.saved[p] = None
+                pass
         MockHandler.ABORTS = []
-
-    def tearDown(self):
-        for p, data in self.saved.items():
-            if data is None:
-                try:
-                    os.remove(p)
-                except OSError:
-                    pass
-            else:
-                with open(p, "wb") as f:
-                    f.write(data)
 
     def run_script(self, *args, port=None):
         env = dict(os.environ)
@@ -974,26 +976,52 @@ class WatchdogEnsureTests(unittest.TestCase):
             tw.JOURNAL = real_log
             os.remove(tmp)
 
+    def _tmp_journal(self, tw, events):
+        # Hermetic journal: NEVER let ensure/daemon_healthy touch the real
+        # watchdog.log (a stale-path bug here once SIGTERMd the live daemon
+        # mid-suite and os._exit(0)'d the whole run).
+        import tempfile
+        import time as _t
+        import datetime as _dt
+        with tempfile.NamedTemporaryFile("w+", suffix=".log",
+                                         delete=False) as f:
+            tmp = f.name
+        now = _t.time()
+        with open(tmp, "w") as f:
+            for ev, age in events:
+                ts = _dt.datetime.fromtimestamp(
+                    now - age, tz=_dt.timezone.utc).isoformat(
+                        timespec="seconds")
+                f.write('{"ts": "%s", "event": "%s"}\n' % (ts, ev))
+        return tmp
+
     def test_ensure_alive_path_does_not_spawn(self):
         tw = self.__class__.tw
-        real_hb, real_lock = tw.heartbeat_fresh, tw.lock_held_by_live_process
-        tw.heartbeat_fresh = lambda max_age: True
+        real_log, real_lock = tw.JOURNAL, tw.lock_held_by_live_process
+        tmp = self._tmp_journal(tw, [("WATCH", 30), ("HEARTBEAT", 5)])
+        tw.JOURNAL = tmp
         tw.lock_held_by_live_process = lambda: True
         try:
             self.assertEqual(tw.cmd_ensure([], []), 0)
         finally:
-            tw.heartbeat_fresh, tw.lock_held_by_live_process = real_hb, real_lock
+            tw.JOURNAL = real_log
+            tw.lock_held_by_live_process = real_lock
+            os.remove(tmp)
 
     def test_ensure_stale_path_spawns_daemon(self):
         import tempfile
         tw = self.__class__.tw
-        real_hb, real_lock = tw.heartbeat_fresh, tw.lock_held_by_live_process
+        real_log = tw.JOURNAL
+        tmp_log = self._tmp_journal(tw, [("WATCH", 300), ("API_DOWN", 60),
+                                          ("API_DOWN", 30), ("HEARTBEAT", 5)])
+        tw.JOURNAL = tmp_log
         real_lockfile = tw.LOCKFILE
         with tempfile.NamedTemporaryFile("w+", suffix=".lock",
                                          delete=False) as f:
             tmp_lock = f.name
         tw.LOCKFILE = tmp_lock
         real_daemonize, real_execv = tw.daemonize, os.execv
+        real_hb, real_lockfn = tw.heartbeat_fresh, tw.lock_held_by_live_process
         calls = {}
         tw.heartbeat_fresh = lambda max_age: False
         tw.lock_held_by_live_process = lambda: False
@@ -1006,7 +1034,10 @@ class WatchdogEnsureTests(unittest.TestCase):
 
         tw.daemonize = fake_daemonize
         os.execv = fake_execv
-        try:
+        try:  # NOTE: heartbeat/lock left REAL here on purpose would be
+            # lethal (SIGTERM to the live daemon + os._exit); journal and
+            # lockfile above are tmp, and the fake journal forces the
+            # stale path deterministically.
             with self.assertRaises(SystemExit) as cm:
                 tw.cmd_ensure([], ["--threshold", "600"])
             self.assertEqual(cm.exception.code, 99)
@@ -1015,12 +1046,17 @@ class WatchdogEnsureTests(unittest.TestCase):
             self.assertIn("--daemon", argv)
             self.assertIn("--all", argv)
         finally:
-            tw.heartbeat_fresh, tw.lock_held_by_live_process = real_hb, real_lock
             tw.daemonize = real_daemonize
             os.execv = real_execv
+            tw.heartbeat_fresh, tw.lock_held_by_live_process = real_hb, real_lockfn
             tw.LOCKFILE = real_lockfile
+            tw.JOURNAL = real_log
             try:
                 os.remove(tmp_lock)
+            except OSError:
+                pass
+            try:
+                os.remove(tmp_log)
             except OSError:
                 pass
 

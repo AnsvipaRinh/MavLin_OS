@@ -49,7 +49,14 @@ _spec = importlib.util.spec_from_file_location(
 sr = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sr)
 
-SESSIONS_DIR = os.path.join(BASE, "..", ".opencode", "sessions")
+def _sessions_dir():
+    d = os.environ.get("SR_STATE_DIR", "")
+    if d:
+        return d
+    return os.path.join(BASE, "..", ".opencode", "sessions")
+
+
+SESSIONS_DIR = _sessions_dir()
 JOURNAL = os.path.join(SESSIONS_DIR, "watchdog.log")
 LOCKFILE = os.path.join(SESSIONS_DIR, "watchdog.lock")
 
@@ -147,13 +154,32 @@ def check_session(sid, threshold, do_abort=True):
         journal("STATUS_UNKNOWN", session=sid)
         return "ok", "exists, activity unknown"
     entry = st.get(sid)
-    if entry is None:
+    # Status-blind stall check FIRST: a provider wait does not always
+    # surface in /session/status (proven live: 0-token assistant shell,
+    # finish None, idle status, blocked parent Task). A generation with
+    # zero output for longer than threshold is stuck whatever status says.
+    stalled, stall_age, stall_model = sr.stalled_generation(sid, threshold)
+    if stalled:
+        journal("STALLED", session=sid, stallSec=stall_age,
+                model=stall_model or meta.get("model", ""))
+        verdict, matched = "MODEL_TIMEOUT", "stalled-no-output"
+        delay = min(stall_age, sr.DEFAULT_COOLDOWN_SEC)
+        attempt = "?"
+        quota_abort = True  # skip status parsing below, go abort
+    elif entry is None:
         return "ok", "exists, no status entry = idle"
-    etype = entry.get("type", "?") if isinstance(entry, dict) else "?"
-    if etype == "idle":
+    else:
+        quota_abort = False
+    if entry is None:
+        if quota_abort:
+            etype = "idle"  # fall through to the shared abort block below
+        else:
+            return "ok", "exists, no status entry = idle"
+    else:
+        etype = entry.get("type", "?") if isinstance(entry, dict) else "?"
+    if etype == "idle" and not quota_abort:
         return "ok", "idle"
-    quota_abort = False
-    if etype not in ("retry",):
+    if etype not in ("retry",) and not quota_abort:
         # busy/running/waiting = normal work. NEVER abort on activity alone.
         # BUT: check for tool aborts indicating quota exhaustion
         # (Free usage exceeded causes tool aborts even when status is empty).

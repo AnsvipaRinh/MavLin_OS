@@ -90,21 +90,31 @@ import urllib.error
 from datetime import datetime, timezone
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-REG = os.path.join(BASE, "..", ".opencode", "sessions", "registry.json")
+
+
+def _state_dir():
+    """State directory: $SR_STATE_DIR override (test isolation) else repo."""
+    d = os.environ.get("SR_STATE_DIR", "")
+    if d:
+        return d
+    return os.path.join(BASE, "..", ".opencode", "sessions")
+
+
+REG = os.path.join(_state_dir(), "registry.json")
 CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 
 # Orchestrator protocol version. The orchestrator prompt requires THIS version:
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-ORCHESTRATOR_PROTOCOL = 10
+ORCHESTRATOR_PROTOCOL = 11
 
 # Cooldown memory for dead models (.opencode/sessions/model-health.json).
 # A model observed dead (provider retry/unavailable > stuck threshold, or
 # QUOTA/CONTEXT Task failure) is skipped for COOLDOWN_SEC unless the provider
 # gave an explicit retry delay (then that delay is used). Default 3h per user
 # spec when no explicit time is known; after expiry the model is retried.
-HEALTH = os.path.join(BASE, "..", ".opencode", "sessions", "model-health.json")
+HEALTH = os.path.join(_state_dir(), "model-health.json")
 DEFAULT_COOLDOWN_SEC = 10800
 
 # Server endpoint auto-discovery (2026-10-02: the OpenCode server port AND
@@ -354,8 +364,12 @@ def api_list_sessions(directory=None):
 
 def repo_root():
     import os as _os
-    # Default to the user's home directory where OpenCode server typically runs
-    return _os.path.expanduser("~")
+    # Project directory (this repo). Used as the explicit ?directory= scope
+    # for GET /session: the server's unfiltered list is project-scoped and
+    # SILENTLY OMITS sessions outside its own default scope (verified live:
+    # 6 sessions unfiltered vs 100 with ?directory=<repo>, including the
+    # stuck child). Never rely on the unfiltered list for discovery.
+    return _os.path.realpath(_os.path.join(BASE, ".."))
 
 
 def discover_live_children(directory=None):
@@ -373,7 +387,9 @@ def discover_live_children(directory=None):
     workers = set()
     for role, model in worker_pins():
         workers.add(role)
-    sessions = api_list_sessions()
+    # Explicit directory scope: the server's default list omits sessions
+    # outside its own scope WITHOUT any signal (verified live).
+    sessions = api_list_sessions(directory=root)
     if sessions is None:
         return None
     out = []
@@ -441,6 +457,74 @@ def check_tool_abort_quota(session_id):
                             if state.get("metadata", {}).get("interrupted") is True:
                                 return True, f"tool interrupted abort (likely quota): {error}"
     return False, ""
+
+
+def stalled_generation(session_id, threshold=600, now=None):
+    """Detect a provider wait that /session/status does NOT show.
+
+    Proven live shape (2026-10-02): an assistant message shell is created
+    (~100ms after the user prompt) with ZERO tokens, ZERO parts,
+    finish=None — and stays that way for 4000+s while the parent Task
+    stays `running` and the status map stays EMPTY. The provider wait is
+    invisible to status-based detection, so the watchdog would idle forever.
+
+    Returns (is_stalled, age_sec, model_str). Stalled IFF: newest message
+    is assistant AND finish is None AND output tokens == 0 AND a user
+    prompt precedes it AND its age exceeds threshold. Any real generation
+    progress (output tokens, tool parts, finish set) = not stalled.
+    Pure logic over a bounded (?limit=3) tail fetch.
+    """
+    import time as _time
+    now_ms = int((now if now is not None else _time.time()) * 1000)
+    code, msgs = api_probe("GET", f"/session/{session_id}/message?limit=3")
+    if code is None or not 200 <= code < 300 or not isinstance(msgs, list):
+        return False, 0, ""
+    if not msgs:
+        return False, 0, ""
+    last = msgs[-1]
+    if not isinstance(last, dict):
+        return False, 0, ""
+    info = last.get("info", {}) or {}
+    if info.get("role") != "assistant" or info.get("finish") is not None:
+        return False, 0, ""
+    toks = info.get("tokens") or {}
+    if (toks.get("output") or 0) > 0:
+        return False, 0, ""
+    if any((p or {}).get("type") == "tool" for p in (last.get("parts") or [])):
+        return False, 0, ""  # tool work in flight = progress, not a stall
+    if not any(isinstance(m, dict) and (m.get("info") or {}).get("role") == "user"
+               for m in msgs[:-1]):
+        return False, 0, ""  # no prompt sent: nothing was ever requested
+    created = ((info.get("time") or {}).get("created")) or 0
+    try:
+        age = (now_ms - int(created)) / 1000.0
+    except (TypeError, ValueError):
+        return False, 0, ""
+    if age <= threshold:
+        return False, age, ""
+    model = "%s/%s" % (info.get("providerID") or "",
+                        info.get("modelID") or "")
+    model = model if model != "/" else ""
+    return True, age, model
+
+
+def cmd_stalled(args):
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Detect a stalled generation invisible to /session/status: "
+                    "newest message is an assistant shell with zero output "
+                    "tokens, no finish, preceded by a user prompt, older "
+                    "than --threshold. Exit 2 = STALLED.")
+    p.add_argument("id")
+    p.add_argument("--threshold", type=float, default=600)
+    a = p.parse_args(args)
+    stalled, age, model = stalled_generation(a.id, a.threshold)
+    if stalled:
+        print(f"STALLED {a.id} (zero output for {age:.0f}s > "
+              f"{a.threshold:g}s; model={model or '?'}; abort + migrate "
+              f"same task_id)")
+        raise SystemExit(2)
+    print(f"OK ({a.id}: latest generation shows progress or is fresh)")
 
 
 def upsert_discovered(session_id, title="", model=""):
@@ -518,8 +602,7 @@ def model_limit(model):
     return None
 
 
-LIMITS_CACHE = os.path.join(BASE, "..", ".opencode", "sessions",
-                             "model-limits.json")
+LIMITS_CACHE = os.path.join(_state_dir(), "model-limits.json")
 LIMITS_TTL_SEC = 24 * 3600
 
 
@@ -1853,6 +1936,7 @@ CMDS = {"register": cmd_register, "context": cmd_context, "decide": cmd_decide,
         "mark-alive": cmd_mark_alive,
         "find-objective": cmd_find_objective,
         "link-objective": cmd_link_objective,
+        "stalled": cmd_stalled,
         "stuck": cmd_stuck, "migrate": cmd_migrate,
         "models": cmd_models, "classify-error": cmd_classify_error}
 
