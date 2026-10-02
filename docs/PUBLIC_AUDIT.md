@@ -262,3 +262,144 @@ Vsevolod Avdonkin <vsevolod@archlinux>
 ---
 
 *End of Section 1. Section 2+ reserved for future audits.*
+
+---
+
+## Section 2 — Component Manifests
+
+### 2.1 Packages — PKGBUILD License + Source Analysis
+
+| Package | license() | source() | Network Fetch? | Hash Type | Notes |
+|---------|-----------|----------|----------------|-----------|-------|
+| `epiphany-mavericks-theme` | `GPL-3.0-or-later` | Repo-local (`./src/epiphany-mavericks-theme/`) | **NO** | N/A | DEFERRED — not in ISO; Firefox ESR is system browser. Sources tracked in git. |
+| `mavericks-theme` | `GPL-3.0-or-later` | Repo-local (`./src/mavericks-theme/`) | **NO** | N/A | Primary GTK3/Xfce theme. SCSS→CSS build via sassc; PNG optim via optipng. All sources tracked. |
+| `mavericks-apps` | `GPL2` | Repo-local (`./src/mavericks-apps/`) | **NO** | N/A | 23 binaries + desktop files + configs. `make` build, `make DESTDIR` install. All sources tracked. |
+| `macbook12-audio-driver` | `GPL` | **YES** — `git+https://github.com/tanisperez/macbook12-audio-driver.git#commit=75884e2b...` + 4 local files | **YES** (git clone) | `SKIP` for git source; 4 local files have full SHA256 | Cirrus Logic CS42L83 driver (tanisperez fork, 6.17+ DKMS). Commit-pinned. PRE_BUILD downloads matching kernel source from kernel.org at DKMS build time. |
+
+**Summary:** 3/4 packages are fully repo-local with no network fetches. Only `macbook12-audio-driver` pulls upstream via git (pinned commit). No placeholder hashes in repo-local packages. The git source uses `SKIP` (expected for VCS sources); local patch/config files have verified SHA256.
+
+---
+
+### 2.2 Configs — Deep Inventory
+
+```
+configs/
+├── desktop/
+│   ├── fonts/99-mavericks-cursive.conf
+│   ├── lightdm/lightdm.conf, lightdm-gtk-greeter.conf
+│   ├── plank/dock1-settings
+│   ├── skippy-xd/skippy-xd.rc
+│   ├── thunar/bookmarks, thunarrc
+│   └── xfce/
+│       ├── settings.ini, terminalrc, xfce4-desktop.xml, xfce4-notifyd.xml
+│       ├── xfce4-panel.xml, xfwm4.xml, xsettings.xml
+├── firefox/
+│   ├── chrome/element-inventory.json, userChrome.css, userContent.css
+│   ├── installs.ini, policies.json, profiles.ini, ublock-backup.json, user.js
+├── mv-ytplayer/codec-policy.conf
+├── network/99-mavericks.conf
+└── profiles/
+    ├── baseline.conf, bootstrap.conf, diagnostic.conf, production.conf, recovery.conf
+    └── experiments/
+        ├── E-MC-skippy-xd.sh
+        ├── E1-turbo-off.cmdline, E2-pcie-pm-on.cmdline, E3-apst-off.cmdline
+        ├── E4-psr1.cmdline, E5-psr2.cmdline, E6-fbc-force.cmdline
+        ├── E7-huc.cmdline, E8-epp.conf, E9-usb-nosuspend.conf
+        ├── E10-wifi-powersave.sh, E11-swappiness.conf, E12-writeback.conf
+```
+
+**Mirror Status:** All 51 files in `configs/` are mirrored into `archiso-profile/releng/airootfs/` (validated by `scripts/check-sync.sh` PAIRS array). The `profiles/experiments/` directory exists with 13 experiment profiles.
+
+---
+
+### 2.3 Lab — Test Matrix
+
+**Backends (3):**
+- `sim_backend.py` — fast software simulation (no VM, no hardware)
+- `qemu_backend.py` — QEMU+OVMF UEFI (ISO boot, smoke tests)
+- `mac_backend.py` — MacBook10,1 hardware (stub; requires physical hardware)
+
+**Scenarios (25, YAML):**
+```
+01_successful_a_boot          11_agent_never_starts       21_auto_rollback
+02_deploy_b                   12_agent_crash              22_successful_retry
+03_b_boots                    13_health_timeout           23_idempotent_duplicate
+04_b_health_pass              14_interrupted_transfer     24_network_flap
+05_b_commit                   15_corrupted_image          25_stale_journal
+06_b_kernel_fail              16_checksum_sig_fail
+07_b_initramfs_fail           17_host_crash_during_deploy
+08_b_rootfs_corruption        18_power_loss_during_deploy
+09_b_systemd_fail             19_power_loss_after_activation
+10_b_network_fail             20_repeated_boot_failure
+```
+Coverage: A-side boot, B-side deploy/boot/health/commit, 9 failure injections (kernel/initramfs/rootfs/systemd/network), agent lifecycle, host crashes, power loss, rollback/retry/idempotency, network flaps, journal staleness.
+
+**Harness Tests (1 file):** `lab/harness/tests/test_harness.py` — unit tests for harness logic.
+
+**Lab Tests (7 files):**
+- `test_agent_boot.py`, `test_agent_deploy.py`, `test_agent_identity.py`
+- `test_agent_protocol.py`, `test_agent_state.py`, `test_e2e.py`, `test_host_store.py`
+
+**Sim-vs-QEMU:** Both `sim` and `qemu` backends are implemented and exercised by scenarios. `mac` backend is a stub awaiting hardware.
+
+---
+
+### 2.4 Scripts — Capability Map (one line each)
+
+| Script | Category | Purpose |
+|--------|----------|---------|
+| `apply-hardware-selection.sh` | install/diagnostics | Detect MacBook10,1; interactive Wi-Fi/audio/BT/applespi driver selection; apply config + kernel cmdline + initramfs + bootloader + services + theme |
+| `arch-inventory-measure.py` | diagnostics | (exists, not audited in detail) |
+| `bench/run-bench.sh` | bench | Thin wrapper for `bench.py` (perf harness: boot time, idle RAM, package size, app startup, thermal) |
+| `bench/video_codec.py` | bench | Video encode/decode benchmark scenarios |
+| `build-local-pkgs.sh` | install | Build 3–4 repo-local packages into a pacman repo (mavericks-apps, mavericks-theme, macbook12-audio-driver, optionally epiphany-mavericks-theme) |
+| `check-sync.sh` | test | Pre-commit gate: 51 mirror-pair diffs, shell/XML/desktop/PKGBUILD syntax, py_compile, Firefox seed validation, ISO security (sshd off, root locked) |
+| `install/extract-brcmfmac-nvram.sh` | install | First-boot NVRAM provisioning for BCM43602: installs placeholder `brcmfmac43602-pcie.txt` with MAC addr if missing/EFI NVRAM absent |
+| `install/mavericks-firstboot.sh` | install | Idempotent post-install: hostname/locale, bootloader baseline cmdline, TLP/zram/NetworkManager configs, root lock, btrfs snapshot, fstrim, skel copy, LightDM, plocate, local pkg install |
+| `mavericks-rollback.sh` | diagnostics | Btrfs snapshot rollback (/@, /home, /var/log) for experiment IDs E1–E12; fallback to /var/lib/mavericks-experiments/*.bak |
+| `mock-logind.py` | test | Mock `org.freedesktop.login1` for unit tests |
+| `mock-udisks2.py` | test | Mock `org.freedesktop.UDisks2` for unit tests |
+| `session-reuse.py` | test/diagnostics | Orchestrator session lifecycle: register/context/decide/retire/delete/status/children/list/exists/abort/preflight/version/health/mark-dead/mark-alive/stuck/migrate/find-objective/link-objective/models/classify-error |
+| `task-watchdog.py` | diagnostics | Independent daemon: monitors child Task sessions for provider retries >600s (MODEL_QUOTA/RATE_LIMIT/TIMEOUT/PROVIDER/FREE_USAGE_EXHAUSTED), aborts stuck generations, records cooldown, preserves task_id for same-session resume |
+| `test-firefox-chrome.py` | test | Validates Firefox userChrome.css/userContent.css syntax and element inventory |
+| `test-mv-*.py` (23 files) | test | Per-app smoke tests: airdrop, calculator, calendar, colormeter, console, control, desktop-cache, dictionary, diskutil, fontbook, keychain, music, notes, photos, power-ui, reminders, stickies, textedit, timemachine, voice, ytplayer |
+| `test-session-reuse.py` | test | Unit tests for session-reuse.py logic |
+| `test-theme-css.py` | test | GTK theme CSS syntax/compilation validation |
+| `test_mv_snapshot_take.py` | test | Snapshot creation test |
+
+---
+
+### 2.5 .opencode — Map
+
+```
+.opencode/
+├── agents/
+│   └── orchestrator.md          # Orchestrator agent (primary, restricted: no edit/write/bash/Task invoke except git read)
+├── model-fallback.json          # Fallback chain v1 (10 entries, chain-only execution)
+├── node_modules/                # effect@unstable (TypeScript runtime, ~1400 files, NOT tracked — gitignored via .gitignore)
+├── package.json / package-lock.json
+└── sessions/                    # Runtime session state (gitignored)
+```
+
+**model-fallback.json Chain Summary (no provider secrets in file — verified):**
+
+| Order | Role | Provider | Match | Want | Worker | Status |
+|-------|------|----------|-------|------|--------|--------|
+| 1 | fallback | openrouter | cohere/north-mini-code | openrouter/cohere/north-mini-code:free | build-b | Active |
+| 2 | fallback | openrouter | openrouter/free | openrouter/openrouter/free | null | NOT a worker (random router) |
+| 3 | sub-agent | opencode | longcat | opencode/longcat-2.5-preview-free | build-c | Active |
+| 4 | primary-worker | opencode | nemotron-3-ultra | opencode/nemotron-3-ultra-free | build | **Primary** |
+| 5 | sub-agent | opencode | nemotron-3.5-lightning | opencode/nemotron-3.5-lightning-free | build-h | Re-enabled 2026-10-02 |
+| 6 | fallback-experimental | opencode | fledge-alpha | opencode/fledge-alpha-free | build-d | Experimental |
+| 7 | fallback-experimental | opencode | ling-3.0-flash-fin | opencode/ling-3.0-flash-fin-free | build-e | Experimental |
+| 8 | fallback-experimental | opencode | mimo-v2.6-flash | opencode/mimo-v2.6-flash-free | build-f | Experimental |
+| 9 | fallback-experimental | opencode | space-bunny | opencode/space-bunny-free | build-g | Experimental |
+
+**Never list (excluded from execution, NOT from picker):** `muse-spark*` (5 substrings).  
+**Workers defined in opencode.jsonc:** `build` (primary), `build-b`..`build-h` (hidden subagents).  
+**Execution mode:** chain-only (models outside chain never run as Task workers).  
+**Provider secrets:** None in chain file. OpenRouter needs `OPENROUTER_API_KEY` or `/connect`; Zen needs login. Unconnected providers are skipped at resolution time.
+
+---
+
+*End of Section 2.*
