@@ -273,6 +273,16 @@ class TaxonomyTests(unittest.TestCase):
     def test_timeout(self):
         self.assertEqual(self.v("generation timed out after 120s"),
                          "MODEL_TIMEOUT")
+        # Live provider wordings observed 2026-10-02 (were PROJECT_ERROR).
+        self.assertEqual(self.v(
+            "Streaming response failed: [504] Upstream idle timeout exceeded"),
+            "MODEL_TIMEOUT")
+        self.assertEqual(self.v(
+            "Streaming response failed: [503] Upstream error from Nvidia: "
+            "Service temporarily overloaded"), "MODEL_QUOTA")
+        self.assertEqual(self.v(
+            "Rate limit exceeded: free-models-per-day. Add 10 credits"),
+            "MODEL_RATE_LIMIT")
 
     def test_network(self):
         self.assertEqual(self.v("socket hang up ECONNRESET"), "NETWORK_ERROR")

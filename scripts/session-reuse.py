@@ -107,7 +107,7 @@ CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-ORCHESTRATOR_PROTOCOL = 11
+ORCHESTRATOR_PROTOCOL = 12
 
 # Cooldown memory for dead models (.opencode/sessions/model-health.json).
 # A model observed dead (provider retry/unavailable > stuck threshold, or
@@ -1259,6 +1259,8 @@ TIMEOUT_PATTERNS = [
     r"generation (timed out|timeout|stalled)",
     r"request timed out", r"deadline exceeded",
     r"timed out after", r"generation timeout",
+    r"timeout exceeded", r"idle timeout", r"upstream.+timeout",
+    r"504",
 ]
 RATE_PATTERNS = [
     r"\b429\b", r"rate.?limit", r"too many requests",
@@ -1279,6 +1281,8 @@ PROVIDER_PATTERNS = [
     r"model (unavailable|not available|failed)",
     r"bad gateway", r"\b502\b", r"service unavailable", r"\b503\b",
     r"internal server error", r"\b500\b",
+    r"upstream (error|overloaded|unavailable|failed)",
+    r"service temporarily (overloaded|unavailable)",
 ]
 AGENT_PATTERNS = [
     r"subagent depth limit", r"depth limit reached",

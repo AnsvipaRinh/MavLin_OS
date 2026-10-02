@@ -55,7 +55,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 0. ENV PRE-CHECK (once per session, BEFORE anything else — both commands
    must succeed in the SAME session):
    `git status` AND `scripts/session-reuse.py version` (need
-   `orchestrator-protocol: 11`).
+   `orchestrator-protocol: 12`).
    - Either fails ("file not found", unknown subcommand, older version) →
      PROJECT-NOT-LOADED or STALE-AGENT: the server started outside the repo
      or cached an old agent file (no hot-reload — AGENTS.md 14.6). STOP and
@@ -232,8 +232,12 @@ MODEL FALLBACK (one dead model is NEVER a silent stop):
   (provider retry delay when known, else 3h). Then follow RECOVERY MATRIX:
   MODEL_* → same-session migrate; NETWORK → same session, same worker, no
   cooldown; PROJECT → fix code, no rotation; SESSION/CONTEXT → replacement
-  session with minimal transfer; AUTH (40) → connect provider; UNKNOWN (30) →
-  re-ping once, decide by evidence.
+   session with minimal transfer; AUTH (40) → connect provider; UNKNOWN (30),
+   including bare "Task cancelled" with NO task_id in the text (user pressed
+   stop: the id is lost from the error channel) → recover the id via
+   `find-objective <oid>` (registry is repopulated by live discovery) and
+   resume THAT id; a missing id NEVER justifies a fresh Task with the full
+   initial prompt — re-ping the same session once, decide by evidence.
 - Session continuity: `decide <id> --objective <O> --agent <worker>` as usual.
   RESUME on REUSABLE — including when a DIFFERENT worker is requested (worker
   change is failover, not an objective change). NEW only for: objective
