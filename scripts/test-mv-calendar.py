@@ -67,15 +67,16 @@ def main():
         store = os.path.join(td, "calendars.json")
 
         data = mv.load_store(store)
-        check("missing store -> default calendars",
-              set(data["calendars"]) == {"Personal", "Work", "Birthdays"}
+        check("missing store -> default accounts",
+              set(data["accounts"]) == {"Personal", "Work"}
               and data["events"] == [])
 
-        ev1 = {"id": "e1", "title": "standup", "calendar": "Work",
+        # Test account-based structure with nested calendars
+        ev1 = {"id": "e1", "title": "standup", "account": "Work", "calendar": "Work",
                "start": "20260926T093000", "end": "20260926T100000",
                "location": "Room 1", "description": "daily",
                "all_day": False, "repeat": "none", "notified": []}
-        ev2 = {"id": "e2", "title": "Holiday", "calendar": "Personal",
+        ev2 = {"id": "e2", "title": "Holiday", "account": "Personal", "calendar": "Personal",
                "start": "20261005", "end": "20261007", "location": "",
                "description": "", "all_day": True, "repeat": "none",
                "notified": []}
@@ -95,7 +96,7 @@ def main():
         data2 = mv.load_store(store, warns.append)
         check("corrupt store -> fresh default",
               data2["events"] == []
-              and set(data2["calendars"]) == {"Personal", "Work", "Birthdays"})
+              and set(data2["accounts"]) == {"Personal", "Work"})
         check("corrupt store warns",
               len(warns) == 1 and "quarantined" in warns[0], str(warns))
         check("corrupt store quarantined",
@@ -103,9 +104,9 @@ def main():
                   for f in os.listdir(td)), str(os.listdir(td)))
 
         # corrupt store WITH valid backup -> restore from backup
-        mv.save_store(store, {"calendars": data["calendars"],
+        mv.save_store(store, {"accounts": data["accounts"],
                                "events": [ev1, ev2]})
-        mv.save_store(store, {"calendars": data["calendars"],
+        mv.save_store(store, {"accounts": data["accounts"],
                                "events": [ev1, ev2]})
         check("backup regenerated", os.path.exists(store + ".bak"))
         with open(store, "w") as f:
@@ -121,13 +122,14 @@ def main():
         # normalization
         norm = mv._normalize("garbage")
         check("normalize non-dict",
-              set(norm["calendars"]) == {"Personal", "Work", "Birthdays"}
+              set(norm["accounts"]) == {"Personal", "Work"}
               and norm["events"] == [] and norm["geometry"] == {})
-        norm = mv._normalize({"calendars": {"X": "bad", "Y": {"color": "#fff"}},
+        # Account-based normalization test
+        norm = mv._normalize({"accounts": {"Personal": {"calendars": {"X": "bad", "Y": {"color": "#fff"}}}},
                               "events": [{"title": "x"}, 5], "extra": 1})
         check("normalize fixes bad calendar",
-              norm["calendars"]["X"] == {"color": "#888888", "visible": True}
-              and norm["calendars"]["Y"]["visible"] is True)
+              norm["accounts"]["Personal"]["calendars"]["X"] == {"color": "#888888", "visible": True}
+              and norm["accounts"]["Personal"]["calendars"]["Y"]["visible"] is True)
         check("normalize drops non-dict events",
               len(norm["events"]) == 1 and norm["events"][0]["id"]
               and norm["events"][0]["all_day"] is False
@@ -151,16 +153,17 @@ def main():
     check("parse_dt rejects None", mv.parse_dt(None) is None)
     check("fmt_time", mv.fmt_time(datetime(2026, 9, 26, 9, 5)) == "09:05")
 
-    # events_for_day
-    cals = {"Work": {"color": "#f00", "visible": True},
-            "Hidden": {"color": "#0f0", "visible": False}}
-    timed = {"id": "t1", "title": "meeting", "calendar": "Work",
+    # events_for_day - uses account-based structure
+    cals = {"Personal": {"calendars": {"Personal": {"color": "#007aff", "visible": True},
+                         "Hidden": {"color": "#0f0", "visible": False}}},
+            "Work": {"calendars": {"Work": {"color": "#ff3b30", "visible": True}}}}
+    timed = {"id": "t1", "title": "meeting", "account": "Work", "calendar": "Work",
              "start": "20260926T140000", "end": "20260926T150000"}
-    allday = {"id": "t2", "title": "trip", "calendar": "Work",
+    allday = {"id": "t2", "title": "trip", "account": "Personal", "calendar": "Personal",
               "start": "20260926", "end": "20260928", "all_day": True}
-    hidden = {"id": "t3", "title": "secret", "calendar": "Hidden",
+    hidden = {"id": "t3", "title": "secret", "account": "Personal", "calendar": "Hidden",
               "start": "20260926T100000", "end": "20260926T110000"}
-    bad = {"id": "t4", "title": "broken", "calendar": "Work",
+    bad = {"id": "t4", "title": "broken", "account": "Work", "calendar": "Work",
            "start": "garbage", "end": "garbage"}
     span = [timed, allday, hidden, bad]
     d = datetime(2026, 9, 26)
@@ -172,7 +175,7 @@ def main():
           all(e["id"] != "t4" for e in mv.events_for_day(span, cals, d)))
     check("events_for_day multi-day span",
           [e["id"] for e in mv.events_for_day(span, cals,
-                                              datetime(2026, 9, 27))] == ["t2"])
+                                               datetime(2026, 9, 27))] == ["t2"])
     check("events_for_day query filter",
           [e["id"] for e in mv.events_for_day(span, cals, d, "meeting")]
           == ["t1"])
@@ -243,11 +246,11 @@ def main():
         ics_path = os.path.join(td, "cal.ics")
         events = [
             {"id": "abc123", "title": "Team, standup; daily",
-             "calendar": "Work", "start": "20260926T093000",
+             "account": "Work", "calendar": "Work", "start": "20260926T093000",
              "end": "20260926T100000", "location": "Room 1, Bldg; 2",
              "description": "Line one\nLine two", "all_day": False,
              "repeat": "weekly", "notified": []},
-            {"id": "def456", "title": "Holiday", "calendar": "Personal",
+            {"id": "def456", "title": "Holiday", "account": "Personal", "calendar": "Personal",
              "start": "20261005", "end": "20261007", "location": "",
              "description": "", "all_day": True, "repeat": "none",
              "notified": []},
@@ -321,7 +324,7 @@ def main():
         soon_rel = {"id": "u1", "title": "in 10 min", "start": in10,
                     "end": "20990101T000000", "all_day": False,
                     "notified": []}
-        mv.save_store(store, {"calendars": mv.DEFAULT_CALENDARS,
+        mv.save_store(store, {"accounts": mv.DEFAULT_ACCOUNTS,
                                "events": [soon_rel]})
         calls = []
         orig_sub = mv.subprocess

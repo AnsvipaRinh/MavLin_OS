@@ -30,10 +30,19 @@ if _GUI:
 
 STORE = os.path.expanduser("~/.local/share/mv-calendar/calendars.json")
 REPEAT_MODES = ["none", "daily", "weekly", "monthly", "yearly"]
-DEFAULT_CALENDARS = {
-    "Personal": {"color": "#007aff", "visible": True},
-    "Work": {"color": "#ff3b30", "visible": True},
-    "Birthdays": {"color": "#ff9500", "visible": True},
+DEFAULT_ACCOUNTS = {
+    "Personal": {
+        "calendars": {
+            "Personal": {"color": "#007aff", "visible": True},
+            "Family": {"color": "#34c759", "visible": True},
+        }
+    },
+    "Work": {
+        "calendars": {
+            "Work": {"color": "#ff3b30", "visible": True},
+            "Projects": {"color": "#af52de", "visible": True},
+        }
+    },
 }
 ROW_H_WEEK = 40
 ROW_H_DAY = 48
@@ -69,7 +78,7 @@ def load_store(path=None, on_warn=None):
             on_warn(msg)
 
     if not os.path.exists(path):
-        return _normalize({"calendars": DEFAULT_CALENDARS, "events": []})
+        return _normalize({"accounts": DEFAULT_ACCOUNTS, "events": []})
     try:
         with open(path) as f:
             data = json.load(f)
@@ -89,7 +98,7 @@ def load_store(path=None, on_warn=None):
             pass
         warn("Calendar store was unreadable (%s); the corrupt file was "
              "quarantined and a fresh store was started." % e)
-        data = {"calendars": DEFAULT_CALENDARS, "events": []}
+        data = {"accounts": DEFAULT_ACCOUNTS, "events": []}
     return _normalize(data)
 
 
@@ -109,24 +118,69 @@ def save_store(path=None, data=None):
 
 def _normalize(data):
     if not isinstance(data, dict):
-        return {"calendars": dict(DEFAULT_CALENDARS), "events": [],
-                "geometry": {}}
-    if not isinstance(data.get("calendars"), dict):
-        data["calendars"] = dict(DEFAULT_CALENDARS)
-    for name, c in list(data["calendars"].items()):
-        if not isinstance(c, dict):
-            data["calendars"][name] = {"color": "#888888", "visible": True}
+        return {"accounts": {k: {"calendars": dict(v["calendars"])}
+                            for k, v in DEFAULT_ACCOUNTS.items()},
+                "events": [], "geometry": {}}
+
+    # Migration from old flat "calendars" format to new "accounts" format
+    if "accounts" not in data and "calendars" in data:
+        accounts = {}
+        for cal_name, cal_data in data["calendars"].items():
+            # Heuristic: group calendars into Personal/Work accounts based on name
+            if cal_name in ("Personal", "Family", "Birthdays"):
+                acc = "Personal"
+            elif cal_name in ("Work", "Projects"):
+                acc = "Work"
+            else:
+                acc = "Personal"
+            if acc not in accounts:
+                accounts[acc] = {"calendars": {}}
+            accounts[acc]["calendars"][cal_name] = cal_data
+        # Ensure defaults exist
+        for acc_name, acc_data in DEFAULT_ACCOUNTS.items():
+            if acc_name not in accounts:
+                accounts[acc_name] = {"calendars": dict(acc_data["calendars"])}
+            else:
+                for cal_name, cal_data in acc_data["calendars"].items():
+                    if cal_name not in accounts[acc_name]["calendars"]:
+                        accounts[acc_name]["calendars"][cal_name] = cal_data
+        data["accounts"] = accounts
+        data.pop("calendars", None)
+
+    if not isinstance(data.get("accounts"), dict):
+        data["accounts"] = {k: {"calendars": dict(v["calendars"])}
+                            for k, v in DEFAULT_ACCOUNTS.items()}
+
+    for acc_name, acc_data in list(data["accounts"].items()):
+        if not isinstance(acc_data, dict) or not isinstance(acc_data.get("calendars"), dict):
+            default_cals = DEFAULT_ACCOUNTS.get(acc_name, {}).get("calendars", {})
+            data["accounts"][acc_name] = {"calendars": dict(default_cals)}
             continue
-        c.setdefault("color", "#888888")
-        c.setdefault("visible", True)
+        for cal_name, cal_data in list(acc_data["calendars"].items()):
+            if not isinstance(cal_data, dict):
+                acc_data["calendars"][cal_name] = {"color": "#888888", "visible": True}
+                continue
+            cal_data.setdefault("color", "#888888")
+            cal_data.setdefault("visible", True)
+
     if not isinstance(data.get("events"), list):
         data["events"] = []
     data["events"] = [ev for ev in data["events"] if isinstance(ev, dict)]
     data.setdefault("geometry", {})
+
+    # Migration: add "account" field to events that only have "calendar"
+    # Determine account from calendar name
+    cal_to_acc = {}
+    for acc_name, acc_data in data["accounts"].items():
+        for cal_name in acc_data["calendars"]:
+            cal_to_acc[cal_name] = acc_name
+
     for ev in data["events"]:
         ev.setdefault("id", uuid.uuid4().hex[:12])
         ev.setdefault("title", "")
-        ev.setdefault("calendar", "")
+        cal = ev.get("calendar", "")
+        ev.setdefault("calendar", cal)
+        ev.setdefault("account", cal_to_acc.get(cal, "Personal"))
         ev.setdefault("start", datetime.now().strftime("%Y%m%dT%H%M%S"))
         ev.setdefault("end", ev["start"])
         ev.setdefault("location", "")
@@ -201,13 +255,37 @@ def iter_event_dates(ev):
             count += 1
 
 
-def events_for_day(events, calendars, target, query=""):
+def get_calendar_info(accounts, account, calendar):
+    """Get calendar info dict from accounts structure."""
+    return accounts.get(account, {}).get("calendars", {}).get(calendar, {})
+
+
+def is_calendar_visible(accounts, account, calendar):
+    """Check if a calendar is visible."""
+    return get_calendar_info(accounts, account, calendar).get("visible", True)
+
+
+def get_calendar_color(accounts, account, calendar):
+    """Get calendar color."""
+    return get_calendar_info(accounts, account, calendar).get("color", "#888888")
+
+
+def iter_all_calendars(accounts):
+    """Yield (account, calendar, info) for all calendars."""
+    for acc_name, acc_data in accounts.items():
+        for cal_name, cal_data in acc_data.get("calendars", {}).items():
+            yield acc_name, cal_name, cal_data
+
+
+def events_for_day(events, accounts, target, query=""):
     """Visible, query-matching events occurring on target date (datetime).
     All-day and multi-day spans match per date."""
     result = []
     q = (query or "").strip().lower()
     for ev in events:
-        if not calendars.get(ev.get("calendar"), {}).get("visible", True):
+        acc = ev.get("account", "Personal")
+        cal = ev.get("calendar", "")
+        if not is_calendar_visible(accounts, acc, cal):
             continue
         if q and not matches_event(ev, q):
             continue
@@ -405,7 +483,7 @@ if _GUI:
                 self.move(g.get("x", 100), g.get("y", 100))
             else:
                 self.set_default_size(1050, 700)
-            self.calendars = self.data.get("calendars", DEFAULT_CALENDARS)
+            self.accounts = self.data.get("accounts", DEFAULT_ACCOUNTS)
             self.events = self.data.get("events", [])
             self.current_date = datetime.now()
             self.view_mode = "month"
@@ -517,6 +595,11 @@ if _GUI:
             .cal-sidebar-header {
                 color: #5a4a38; font-weight: bold; font-size: 9pt;
                 text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+            }
+            .cal-account-header {
+                color: #5a4a38; font-weight: bold; font-size: 9pt;
+                text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+                text-transform: uppercase;
             }
             .cal-content {
                 background: #f5f0e8;
@@ -657,7 +740,7 @@ if _GUI:
             self.refresh()
 
         def refresh(self):
-            self.calendars = self.data.get("calendars", DEFAULT_CALENDARS)
+            self.accounts = self.data.get("accounts", DEFAULT_ACCOUNTS)
             self.events = self.data.get("events", [])
             self.update_title()
             self.rebuild_calendar_list()
@@ -666,27 +749,37 @@ if _GUI:
         def rebuild_calendar_list(self):
             for child in self.cal_list.get_children():
                 self.cal_list.remove(child)
-            for name, c in self.cal_list_data().items():
-                row = Gtk.ListBoxRow()
-                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
-                               spacing=8)
-                hbox.set_border_width(4)
-                dot = Gtk.DrawingArea()
-                dot.set_size_request(14, 14)
-                dot.connect("draw", self.draw_dot, c["color"])
-                hbox.pack_start(dot, False, False, 0)
-                lbl = Gtk.Label(label=name, xalign=0)
-                hbox.pack_start(lbl, True, True, 0)
-                vis = Gtk.CheckButton()
-                vis.set_active(c.get("visible", True))
-                vis.connect("toggled", self.on_vis_toggle, name)
-                hbox.pack_start(vis, False, False, 0)
-                row.add(hbox)
-                self.cal_list.add(row)
+            for acc_name, acc_data in self.accounts.items():
+                # Account header row
+                acc_row = Gtk.ListBoxRow()
+                acc_row.set_activatable(False)
+                acc_row.set_selectable(False)
+                acc_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                acc_hbox.set_border_width(4)
+                acc_lbl = Gtk.Label(label=acc_name, xalign=0)
+                acc_lbl.get_style_context().add_class("cal-account-header")
+                acc_hbox.pack_start(acc_lbl, True, True, 0)
+                acc_row.add(acc_hbox)
+                self.cal_list.add(acc_row)
+                # Calendar rows under this account
+                for cal_name, cal_data in acc_data.get("calendars", {}).items():
+                    row = Gtk.ListBoxRow()
+                    hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                                   spacing=8)
+                    hbox.set_border_width(4)
+                    dot = Gtk.DrawingArea()
+                    dot.set_size_request(14, 14)
+                    dot.connect("draw", self.draw_dot, cal_data["color"])
+                    hbox.pack_start(dot, False, False, 0)
+                    lbl = Gtk.Label(label="  " + cal_name, xalign=0)
+                    hbox.pack_start(lbl, True, True, 0)
+                    vis = Gtk.CheckButton()
+                    vis.set_active(cal_data.get("visible", True))
+                    vis.connect("toggled", self.on_vis_toggle, acc_name, cal_name)
+                    hbox.pack_start(vis, False, False, 0)
+                    row.add(hbox)
+                    self.cal_list.add(row)
             self.cal_list.show_all()
-
-        def cal_list_data(self):
-            return self.calendars
 
         @staticmethod
         def draw_dot(area, cr, color):
@@ -697,8 +790,8 @@ if _GUI:
             cr.arc(7, 7, 5, 0, 6.2832)
             cr.fill()
 
-        def on_vis_toggle(self, btn, name):
-            self.calendars[name]["visible"] = btn.get_active()
+        def on_vis_toggle(self, btn, acc_name, cal_name):
+            self.accounts[acc_name]["calendars"][cal_name]["visible"] = btn.get_active()
             self.save()
             self.refresh_view()
 
@@ -720,8 +813,9 @@ if _GUI:
             y, m = self.current_date.year, self.current_date.month
             days_with_events = set()
             for ev in self.events:
-                if not self.calendars.get(ev.get("calendar"),
-                                          {}).get("visible", True):
+                acc = ev.get("account", "Personal")
+                cal = ev.get("calendar", "")
+                if not is_calendar_visible(self.accounts, acc, cal):
                     continue
                 for s in iter_event_dates(ev):
                     e = parse_dt(ev.get("end") or ev.get("start")) or s
@@ -787,18 +881,19 @@ if _GUI:
                         num.set_xalign(0)
                         inner.pack_start(num, False, False, 0)
                         day_events = events_for_day(
-                            self.events, self.calendars,
+                            self.events, self.accounts,
                             datetime(self.current_date.year,
                                      self.current_date.month, day), self.query)
                         for ev in day_events[:3]:
                             t = fmt_time(parse_dt(ev["start"])) if not ev.get(
                                 "all_day") else "all-day"
+                            acc = ev.get("account", "Personal")
+                            cal = ev.get("calendar", "")
+                            color = get_calendar_color(self.accounts, acc, cal)
                             ev_lbl = Gtk.Label()
                             ev_lbl.set_markup(
                                 '<span foreground="%s">%s %s</span>'
-                                % (GLib.markup_escape_text(
-                                    self.calendars.get(ev["calendar"],
-                                                       {}).get("color", "#888")),
+                                % (GLib.markup_escape_text(color),
                                    "●", GLib.markup_escape_text(
                                        "%s %s" % (t, ev["title"][:18]))))
                             ev_lbl.set_xalign(0)
@@ -849,8 +944,8 @@ if _GUI:
                 cell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
                 cell.set_size_request(DAY_COL_W, -1)
                 cell.get_style_context().add_class("cal-day-cell")
-                for ev in events_for_day(self.events, self.calendars, day,
-                                         self.query):
+                for ev in events_for_day(self.events, self.accounts, day,
+                                          self.query):
                     if ev.get("all_day"):
                         cell.pack_start(self.make_event_block(ev, wide=True),
                                         False, False, 0)
@@ -899,8 +994,8 @@ if _GUI:
             bg.connect("draw", self.draw_hour_lines, 24, ROW_H_WEEK)
             fixed.put(bg, 0, 0)
 
-            for ev in events_for_day(self.events, self.calendars, day,
-                                     self.query):
+            for ev in events_for_day(self.events, self.accounts, day,
+                                      self.query):
                 if ev.get("all_day"):
                     continue
                 s = parse_dt(ev["start"])
@@ -956,7 +1051,7 @@ if _GUI:
                 gutter.pack_start(gl, False, False, 0)
             outer.pack_start(gutter, False, False, 0)
 
-            evs = events_for_day(self.events, self.calendars, day, self.query)
+            evs = events_for_day(self.events, self.accounts, day, self.query)
             if not evs:
                 lbl = Gtk.Label(label="No events"
                                 + (" match your search" if self.query else ""))
@@ -979,8 +1074,9 @@ if _GUI:
         # ------------------------------------------------------------ events
 
         def make_event_block(self, ev, wide=False, details=False):
-            color = self.calendars.get(ev["calendar"], {}).get("color",
-                                                              "#888888")
+            acc = ev.get("account", "Personal")
+            cal = ev.get("calendar", "")
+            color = get_calendar_color(self.accounts, acc, cal)
             rgba = Gdk.RGBA()
             if not rgba.parse(color):
                 rgba.parse("#888888")
@@ -1045,7 +1141,7 @@ if _GUI:
             ev = self.find_event(eid)
             if ev is None:
                 return
-            dialog = EventDialog(self, self.calendars,
+            dialog = EventDialog(self, self.accounts,
                                  parse_dt(ev["start"]) or datetime.now(), ev=ev)
             if dialog.run() == Gtk.ResponseType.OK:
                 new = dialog.get_event()
@@ -1090,7 +1186,7 @@ if _GUI:
             self.new_event_with_date(self.current_date)
 
         def new_event_with_date(self, date):
-            dialog = EventDialog(self, self.calendars, date)
+            dialog = EventDialog(self, self.accounts, date)
             if dialog.run() == Gtk.ResponseType.OK:
                 ev = dialog.get_event()
                 if ev is not None:
@@ -1140,10 +1236,11 @@ if _GUI:
                     self.error_dialog("No valid events found in file "
                                       "(%d entries skipped)." % errors)
                 else:
-                    default_cal = (list(self.calendars)[0]
-                                   if self.calendars else "Personal")
+                    default_acc = list(self.accounts)[0] if self.accounts else "Personal"
+                    default_cal = list(self.accounts[default_acc]["calendars"])[0] if self.accounts[default_acc]["calendars"] else "Personal"
                     for ev in imported:
                         ev.setdefault("calendar", default_cal)
+                        ev.setdefault("account", default_acc)
                     self.events.extend(imported)
                     self.save()
                     self.refresh()
@@ -1171,7 +1268,7 @@ if _GUI:
         # ------------------------------------------------------------ calendars
 
         def show_calendars(self, _):
-            dialog = CalendarsDialog(self, self.calendars)
+            dialog = CalendarsDialog(self, self.accounts)
             dialog.run()
             dialog.destroy()
             self.save()
@@ -1231,14 +1328,14 @@ if _GUI:
 
 
     class EventDialog(Gtk.Dialog):
-        def __init__(self, parent, calendars, date, ev=None):
+        def __init__(self, parent, accounts, date, ev=None):
             editing = ev is not None
             super().__init__(title="Edit Event" if editing else "New Event",
                              transient_for=parent, modal=True)
             self.set_default_size(380, 430)
             self.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
                              "Save" if editing else "Add", Gtk.ResponseType.OK)
-            self.calendars = calendars
+            self.accounts = accounts
             self.set_response_sensitive(Gtk.ResponseType.OK, False)
 
             grid = Gtk.Grid(column_spacing=12, row_spacing=10, margin=16)
@@ -1249,23 +1346,28 @@ if _GUI:
             self.title_entry.connect("changed", self.on_title_changed)
             grid.attach(self.title_entry, 1, 0, 1, 1)
 
-            grid.attach(Gtk.Label(label="Calendar:", xalign=0), 0, 1, 1, 1)
-            self.cal_combo = Gtk.ComboBoxText()
-            names = list(calendars)
-            for name in names:
-                self.cal_combo.append_text(name)
-            self.cal_combo.set_active(0)
-            grid.attach(self.cal_combo, 1, 1, 1, 1)
+            grid.attach(Gtk.Label(label="Account:", xalign=0), 0, 1, 1, 1)
+            self.acc_combo = Gtk.ComboBoxText()
+            for acc_name in accounts:
+                self.acc_combo.append_text(acc_name)
+            self.acc_combo.set_active(0)
+            self.acc_combo.connect("changed", self.on_account_changed)
+            grid.attach(self.acc_combo, 1, 1, 1, 1)
 
-            grid.attach(Gtk.Label(label="Starts:", xalign=0), 0, 2, 1, 1)
+            grid.attach(Gtk.Label(label="Calendar:", xalign=0), 0, 2, 1, 1)
+            self.cal_combo = Gtk.ComboBoxText()
+            self.update_calendar_combo()
+            grid.attach(self.cal_combo, 1, 2, 1, 1)
+
+            grid.attach(Gtk.Label(label="Starts:", xalign=0), 0, 3, 1, 1)
             hb = Gtk.Box(spacing=6)
             self.start_date = Gtk.Calendar()
             self.start_date.select_month(date.month - 1, date.year)
             self.start_date.select_day(date.day)
             hb.pack_start(self.start_date, False, False, 0)
-            grid.attach(hb, 1, 2, 1, 1)
+            grid.attach(hb, 1, 3, 1, 1)
 
-            grid.attach(Gtk.Label(label="Time:", xalign=0), 0, 3, 1, 1)
+            grid.attach(Gtk.Label(label="Time:", xalign=0), 0, 4, 1, 1)
             hb = Gtk.Box(spacing=4)
             self.start_hour = Gtk.SpinButton.new_with_range(0, 23, 1)
             self.start_hour.set_value(date.hour)
@@ -1274,18 +1376,18 @@ if _GUI:
             hb.pack_start(self.start_hour, True, True, 0)
             hb.pack_start(Gtk.Label(label=":"), False, False, 0)
             hb.pack_start(self.start_min, True, True, 0)
-            grid.attach(hb, 1, 3, 1, 1)
+            grid.attach(hb, 1, 4, 1, 1)
 
-            grid.attach(Gtk.Label(label="Ends:", xalign=0), 0, 4, 1, 1)
+            grid.attach(Gtk.Label(label="Ends:", xalign=0), 0, 5, 1, 1)
             hb = Gtk.Box(spacing=6)
             self.end_date = Gtk.Calendar()
             end_d = date + timedelta(hours=1)
             self.end_date.select_month(end_d.month - 1, end_d.year)
             self.end_date.select_day(end_d.day)
             hb.pack_start(self.end_date, False, False, 0)
-            grid.attach(hb, 1, 4, 1, 1)
+            grid.attach(hb, 1, 5, 1, 1)
 
-            grid.attach(Gtk.Label(label="Time:", xalign=0), 0, 5, 1, 1)
+            grid.attach(Gtk.Label(label="Time:", xalign=0), 0, 6, 1, 1)
             hb = Gtk.Box(spacing=4)
             self.end_hour = Gtk.SpinButton.new_with_range(0, 23, 1)
             self.end_hour.set_value(min(date.hour + 1, 23))
@@ -1294,42 +1396,53 @@ if _GUI:
             hb.pack_start(self.end_hour, True, True, 0)
             hb.pack_start(Gtk.Label(label=":"), False, False, 0)
             hb.pack_start(self.end_min, True, True, 0)
-            grid.attach(hb, 1, 5, 1, 1)
+            grid.attach(hb, 1, 6, 1, 1)
 
             self.all_day = Gtk.CheckButton(label="All day")
             self.all_day.connect("toggled", self.on_all_day_toggled)
-            grid.attach(self.all_day, 1, 6, 1, 1)
+            grid.attach(self.all_day, 1, 7, 1, 1)
 
-            grid.attach(Gtk.Label(label="Repeat:", xalign=0), 0, 7, 1, 1)
+            grid.attach(Gtk.Label(label="Repeat:", xalign=0), 0, 8, 1, 1)
             self.repeat_combo = Gtk.ComboBoxText()
             for label, key in [("None", "none"), ("Daily", "daily"),
                                ("Weekly", "weekly"), ("Monthly", "monthly"),
                                ("Yearly", "yearly")]:
                 self.repeat_combo.append_text(label)
             self.repeat_combo.set_active(0)
-            grid.attach(self.repeat_combo, 1, 7, 1, 1)
+            grid.attach(self.repeat_combo, 1, 8, 1, 1)
 
-            grid.attach(Gtk.Label(label="Location:", xalign=0), 0, 8, 1, 1)
+            grid.attach(Gtk.Label(label="Location:", xalign=0), 0, 9, 1, 1)
             self.location_entry = Gtk.Entry(placeholder_text="Location")
-            grid.attach(self.location_entry, 1, 8, 1, 1)
+            grid.attach(self.location_entry, 1, 9, 1, 1)
 
-            grid.attach(Gtk.Label(label="Notes:", xalign=0), 0, 9, 1, 1)
+            grid.attach(Gtk.Label(label="Notes:", xalign=0), 0, 10, 1, 1)
             self.desc_buffer = Gtk.TextBuffer()
             self.desc_view = Gtk.TextView(buffer=self.desc_buffer)
             self.desc_view.set_wrap_mode(Gtk.WrapMode.WORD)
             self.desc_view.set_size_request(-1, 70)
             sw = Gtk.ScrolledWindow()
             sw.add(self.desc_view)
-            grid.attach(sw, 1, 9, 1, 1)
+            grid.attach(sw, 1, 10, 1, 1)
 
             if editing:
                 self.title_entry.set_text(ev.get("title", ""))
                 self.location_entry.set_text(ev.get("location", ""))
                 if ev.get("description"):
                     self.desc_buffer.set_text(ev["description"])
-                names = list(calendars)
-                if ev.get("calendar") in names:
-                    self.cal_combo.set_active(names.index(ev["calendar"]))
+                # Set account combo
+                acc = ev.get("account", "Personal")
+                for i, acc_name in enumerate(self.accounts):
+                    if acc_name == acc:
+                        self.acc_combo.set_active(i)
+                        break
+                self.update_calendar_combo()
+                cal = ev.get("calendar", "")
+                for i in range(self.cal_combo.get_active() + 1):
+                    if self.cal_combo.get_active_text() == cal:
+                        break
+                else:
+                    for i in range(self.cal_combo.get_model().iter_n_children(None) if self.cal_combo.get_model() else 0):
+                        pass
                 self.all_day.set_active(bool(ev.get("all_day")))
                 self.repeat_combo.set_active(
                     REPEAT_MODES.index(ev.get("repeat", "none")))
@@ -1343,6 +1456,18 @@ if _GUI:
             self.on_all_day_toggled(None)
             self.on_title_changed(None)
             self.show_all()
+
+        def on_account_changed(self, _combo):
+            self.update_calendar_combo()
+
+        def update_calendar_combo(self):
+            self.cal_combo.remove_all()
+            acc_name = self.acc_combo.get_active_text()
+            if acc_name and acc_name in self.accounts:
+                for cal_name in self.accounts[acc_name]["calendars"]:
+                    self.cal_combo.append_text(cal_name)
+            if self.cal_combo.get_active_text() is None:
+                self.cal_combo.set_active(0)
 
         def on_title_changed(self, _e):
             self.set_response_sensitive(
@@ -1384,6 +1509,7 @@ if _GUI:
             return {
                 "id": uuid.uuid4().hex[:12],
                 "title": title,
+                "account": self.acc_combo.get_active_text() or "Personal",
                 "calendar": self.cal_combo.get_active_text() or "Personal",
                 "start": fmt_ics(start, all_day),
                 "end": fmt_ics(end, all_day),
@@ -1398,10 +1524,10 @@ if _GUI:
 
 
     class CalendarsDialog(Gtk.Dialog):
-        def __init__(self, parent, calendars):
+        def __init__(self, parent, accounts):
             super().__init__(title="Calendars", transient_for=parent, modal=True)
-            self.set_default_size(360, 320)
-            self.calendars = calendars
+            self.set_default_size(360, 400)
+            self.accounts = accounts
             self.add_buttons("Close", Gtk.ResponseType.CLOSE)
 
             vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -1409,12 +1535,16 @@ if _GUI:
             self.get_content_area().add(vbox)
 
             self.listbox = Gtk.ListBox()
+            self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
             self.refresh_list()
             vbox.pack_start(self.listbox, True, True, 0)
 
             btn_box = Gtk.Box(spacing=8)
-            for label, cb in [("+ Add", self.add_calendar),
-                              ("Remove", self.remove_calendar)]:
+            for label, cb in [
+                ("+ Add Account", self.add_account),
+                ("+ Add Calendar", self.add_calendar),
+                ("Remove", self.remove_item),
+                ("Edit", self.edit_item)]:
                 b = Gtk.Button(label=label)
                 b.connect("clicked", cb)
                 btn_box.pack_start(b, False, False, 0)
@@ -1424,19 +1554,39 @@ if _GUI:
         def refresh_list(self):
             for child in self.listbox.get_children():
                 self.listbox.remove(child)
-            for name, data in self.calendars.items():
-                row = Gtk.ListBoxRow()
-                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
-                               spacing=12)
-                hbox.set_border_width(8)
-                dot = Gtk.DrawingArea()
-                dot.set_size_request(16, 16)
-                dot.connect("draw", self.draw_dot, data["color"])
-                hbox.pack_start(dot, False, False, 0)
-                lbl = Gtk.Label(label=name, xalign=0)
-                hbox.pack_start(lbl, True, True, 0)
-                row.add(hbox)
-                self.listbox.add(row)
+            for acc_name, acc_data in self.accounts.items():
+                # Account header
+                acc_row = Gtk.ListBoxRow()
+                acc_row.set_data("type", "account")
+                acc_row.set_data("name", acc_name)
+                acc_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+                acc_hbox.set_border_width(8)
+                acc_lbl = Gtk.Label(label=acc_name, xalign=0)
+                acc_lbl.get_style_context().add_class("cal-account-header")
+                acc_hbox.pack_start(acc_lbl, True, True, 0)
+                acc_row.add(acc_hbox)
+                self.listbox.add(acc_row)
+                # Calendars in this account
+                for cal_name, cal_data in acc_data.get("calendars", {}).items():
+                    cal_row = Gtk.ListBoxRow()
+                    cal_row.set_data("type", "calendar")
+                    cal_row.set_data("account", acc_name)
+                    cal_row.set_data("name", cal_name)
+                    cal_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                                       spacing=12)
+                    cal_hbox.set_border_width(8)
+                    dot = Gtk.DrawingArea()
+                    dot.set_size_request(16, 16)
+                    dot.connect("draw", self.draw_dot, cal_data["color"])
+                    cal_hbox.pack_start(dot, False, False, 0)
+                    lbl = Gtk.Label(label="  " + cal_name, xalign=0)
+                    cal_hbox.pack_start(lbl, True, True, 0)
+                    vis = Gtk.CheckButton()
+                    vis.set_active(cal_data.get("visible", True))
+                    vis.connect("toggled", self.on_vis_toggle, acc_name, cal_name)
+                    cal_hbox.pack_start(vis, False, False, 0)
+                    cal_row.add(cal_hbox)
+                    self.listbox.add(cal_row)
             self.listbox.show_all()
 
         @staticmethod
@@ -1448,50 +1598,143 @@ if _GUI:
             cr.arc(8, 8, 6, 0, 6.2832)
             cr.fill()
 
-        def add_calendar(self, _):
-            dialog = Gtk.Dialog(title="New Calendar", transient_for=self,
+        def on_vis_toggle(self, btn, acc_name, cal_name):
+            self.accounts[acc_name]["calendars"][cal_name]["visible"] = btn.get_active()
+
+        def get_selected_item(self):
+            row = self.listbox.get_selected_row()
+            if row is None:
+                return None
+            return {
+                "type": row.get_data("type"),
+                "name": row.get_data("name"),
+                "account": row.get_data("account"),
+            }
+
+        def add_account(self, _):
+            dialog = Gtk.Dialog(title="New Account", transient_for=self,
                                 modal=True)
             dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
                               "Add", Gtk.ResponseType.OK)
             grid = Gtk.Grid(column_spacing=12, row_spacing=12, margin=16)
             dialog.get_content_area().add(grid)
             grid.attach(Gtk.Label(label="Name:", xalign=0), 0, 0, 1, 1)
-            name_entry = Gtk.Entry(placeholder_text="Calendar name")
+            name_entry = Gtk.Entry(placeholder_text="Account name")
             grid.attach(name_entry, 1, 0, 1, 1)
-            grid.attach(Gtk.Label(label="Color:", xalign=0), 0, 1, 1, 1)
-            color_btn = Gtk.ColorButton()
-            grid.attach(color_btn, 1, 1, 1, 1)
             if dialog.run() == Gtk.ResponseType.OK:
                 name = name_entry.get_text().strip()
-                if name and name not in self.calendars:
+                if name and name not in self.accounts:
+                    self.accounts[name] = {"calendars": {}}
+                    self.refresh_list()
+            dialog.destroy()
+
+        def add_calendar(self, _):
+            # Need to know which account to add to
+            item = self.get_selected_item()
+            default_acc = item["account"] if item and item["type"] == "calendar" else (
+                item["name"] if item and item["type"] == "account" else list(self.accounts)[0])
+            dialog = Gtk.Dialog(title="New Calendar", transient_for=self,
+                                modal=True)
+            dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                              "Add", Gtk.ResponseType.OK)
+            grid = Gtk.Grid(column_spacing=12, row_spacing=12, margin=16)
+            dialog.get_content_area().add(grid)
+            grid.attach(Gtk.Label(label="Account:", xalign=0), 0, 0, 1, 1)
+            acc_combo = Gtk.ComboBoxText()
+            for acc in self.accounts:
+                acc_combo.append_text(acc)
+            if default_acc in self.accounts:
+                for i, acc in enumerate(self.accounts):
+                    if acc == default_acc:
+                        acc_combo.set_active(i)
+                        break
+            grid.attach(acc_combo, 1, 0, 1, 1)
+            grid.attach(Gtk.Label(label="Name:", xalign=0), 0, 1, 1, 1)
+            name_entry = Gtk.Entry(placeholder_text="Calendar name")
+            grid.attach(name_entry, 1, 1, 1, 1)
+            grid.attach(Gtk.Label(label="Color:", xalign=0), 0, 2, 1, 1)
+            color_btn = Gtk.ColorButton()
+            grid.attach(color_btn, 1, 2, 1, 1)
+            if dialog.run() == Gtk.ResponseType.OK:
+                acc = acc_combo.get_active_text()
+                name = name_entry.get_text().strip()
+                if acc and name and name not in self.accounts[acc]["calendars"]:
                     rgba = color_btn.get_rgba()
                     color = "#%02x%02x%02x" % (int(rgba.red * 255),
                                                int(rgba.green * 255),
                                                int(rgba.blue * 255))
-                    self.calendars[name] = {"color": color, "visible": True}
+                    self.accounts[acc]["calendars"][name] = {"color": color, "visible": True}
                     self.refresh_list()
             dialog.destroy()
 
-        def remove_calendar(self, _):
-            row = self.listbox.get_selected_row()
-            if row is None:
+        def remove_item(self, _):
+            item = self.get_selected_item()
+            if not item:
                 return
-            hbox = row.get_child()
-            lbl = next(c for c in hbox.get_children()
-                       if isinstance(c, Gtk.Label))
-            name = lbl.get_text()
-            d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                 message_type=Gtk.MessageType.WARNING,
-                                 buttons=Gtk.ButtonsType.NONE,
-                                 text="Delete calendar?")
-            d.format_secondary_text('"%s" and its events will be permanently '
-                                    "removed." % name)
-            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "Delete", Gtk.ResponseType.OK)
-            if d.run() == Gtk.ResponseType.OK:
-                del self.calendars[name]
-                self.refresh_list()
-            d.destroy()
+            if item["type"] == "account":
+                d = Gtk.MessageDialog(transient_for=self, modal=True,
+                                     message_type=Gtk.MessageType.WARNING,
+                                     buttons=Gtk.ButtonsType.NONE,
+                                     text="Delete account?")
+                d.format_secondary_text('Account "%s" and all its calendars and events '
+                                        "will be permanently removed." % item["name"])
+                d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                              "Delete", Gtk.ResponseType.OK)
+                if d.run() == Gtk.ResponseType.OK:
+                    del self.accounts[item["name"]]
+                    self.refresh_list()
+                d.destroy()
+            else:
+                d = Gtk.MessageDialog(transient_for=self, modal=True,
+                                     message_type=Gtk.MessageType.WARNING,
+                                     buttons=Gtk.ButtonsType.NONE,
+                                     text="Delete calendar?")
+                d.format_secondary_text('Calendar "%s" and its events will be permanently '
+                                        "removed." % item["name"])
+                d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                              "Delete", Gtk.ResponseType.OK)
+                if d.run() == Gtk.ResponseType.OK:
+                    del self.accounts[item["account"]]["calendars"][item["name"]]
+                    self.refresh_list()
+                d.destroy()
+
+        def edit_item(self, _):
+            item = self.get_selected_item()
+            if not item or item["type"] != "calendar":
+                return
+            acc_name = item["account"]
+            cal_name = item["name"]
+            cal_data = self.accounts[acc_name]["calendars"][cal_name]
+            dialog = Gtk.Dialog(title="Edit Calendar", transient_for=self,
+                                modal=True)
+            dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                              "Save", Gtk.ResponseType.OK)
+            grid = Gtk.Grid(column_spacing=12, row_spacing=12, margin=16)
+            dialog.get_content_area().add(grid)
+            grid.attach(Gtk.Label(label="Name:", xalign=0), 0, 0, 1, 1)
+            name_entry = Gtk.Entry()
+            name_entry.set_text(cal_name)
+            grid.attach(name_entry, 1, 0, 1, 1)
+            grid.attach(Gtk.Label(label="Color:", xalign=0), 0, 1, 1, 1)
+            color_btn = Gtk.ColorButton()
+            rgba = Gdk.RGBA()
+            if rgba.parse(cal_data["color"]):
+                color_btn.set_rgba(rgba)
+            grid.attach(color_btn, 1, 1, 1, 1)
+            if dialog.run() == Gtk.ResponseType.OK:
+                new_name = name_entry.get_text().strip()
+                if new_name:
+                    rgba = color_btn.get_rgba()
+                    color = "#%02x%02x%02x" % (int(rgba.red * 255),
+                                               int(rgba.green * 255),
+                                               int(rgba.blue * 255))
+                    # Handle rename
+                    if new_name != cal_name:
+                        del self.accounts[acc_name]["calendars"][cal_name]
+                    self.accounts[acc_name]["calendars"][new_name] = {
+                        "color": color, "visible": cal_data.get("visible", True)}
+                    self.refresh_list()
+            dialog.destroy()
 
 
 # ------------------------------------------------------------ CLI (timer)
