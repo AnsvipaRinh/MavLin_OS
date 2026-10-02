@@ -58,8 +58,8 @@ whoami; sudo -n true && echo ROOT-OK || echo ROOT-BLOCKED
 
 4. `/tmp` — tmpfs 3.8G. mkarchiso workdir (`-w`) и локальный pacman-репо
    туда НЕ помещаются (только linux-zen-headers рвёт лимит): workdir —
-   `/home/builder/archiso-work` (на диске 940G+), репо собирается в
-   `/home/builder/mavericks-repo`, а `/tmp/mavericks-repo` — symlink
+   `/home/user/archiso-work` (на диске 940G+), репо собирается в
+   `/home/user/mavericks-repo`, а `/tmp/mavericks-repo` — symlink
    на него (pacman.conf committed на `file:///tmp/mavericks-repo`;
    symlink слетает при ребуте — пересоздать). Остаток /tmp чистить sudo.
 5. Остатки mkarchiso root-owned: `rm -rf` workdir только через sudo.

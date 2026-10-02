@@ -1,0 +1,5 @@
+{"path": "packages/linux-macbook101/applespi.patch", "additions": 45, "deletions": 0, "changeType": "ADDED"}
+{"path": "packages/linux-macbook101/PKGBUILD", "additions": 3, "deletions": 0, "changeType": "MODIFIED"}
+{"path": "scripts/apply-hardware-selection.sh", "additions": 8, "deletions": 0, "changeType": "MODIFIED"}
+{"path": "docs/HARDWARE.md", "additions": 4, "deletions": 0, "changeType": "MODIFIED"}
+{"path": "docs/NEEDS_HARDWARE_TEST.md", "additions": 5, "deletions": 0, "changeType": "MODIFIED"}

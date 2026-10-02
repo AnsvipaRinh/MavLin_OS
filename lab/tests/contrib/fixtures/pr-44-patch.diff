@@ -1,0 +1,46 @@
+diff --git a/README.md b/README.md
+index aaaaaaa..bbbbbbb 100644
+--- a/README.md
++++ b/README.md
+@@ -20,6 +20,46 @@
+ 
+ ## Quick Start
+ 
++### Installation
++
++1. **Download ISO**: Get the latest `mavericks-linux-<version>.iso` from releases.
++
++2. **Verify signature**:
++   ```bash
++   gpg --verify mavericks-linux-<version>.iso.sig
++   sha256sum -c mavericks-linux-<version>.iso.sha256
++   ```
++
++3. **Flash to USB** (Linux/macOS):
++   ```bash
++   sudo dd if=mavericks-linux-<version>.iso of=/dev/sdX bs=4M status=progress
++   sync
++   ```
++
++4. **Boot MacBook10,1**:
++   - Hold `Option` (Alt) at startup
++   - Select "EFI Boot" from USB
++   - Choose "Mavericks Linux" in bootloader
++
++5. **First boot setup**:
++   - Connect external USB keyboard/mouse (required for initial setup)
++   - Run: `sudo mavericks-firstboot`
++   - Follow prompts for Wi-Fi, user creation, timezone
++
++### Post-Install
++
++Run hardware detection:
++```bash
++sudo /usr/local/bin/apply-hardware-selection.sh
++```
++
++This configures Wi-Fi, audio, and trackpad for your specific MacBook revision.
++
+ ## Configuration
+ 
+ See `configs/` for Xfce, Plank, GTK, and application configurations.

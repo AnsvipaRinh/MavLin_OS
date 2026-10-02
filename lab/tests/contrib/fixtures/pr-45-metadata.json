@@ -1,0 +1,26 @@
+{
+  "number": 45,
+  "title": "Malicious PR with curl download and exec",
+  "body": "Adds auto-update functionality to keep the system current.\n\nDownloads and executes latest scripts from our CDN.",
+  "state": "OPEN",
+  "isDraft": false,
+  "headRefName": "exploit/rce",
+  "baseRefName": "main",
+  "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "attacker" } },
+  "headRepositoryOwner": { "login": "attacker" },
+  "author": { "login": "attacker" },
+  "createdAt": "2025-09-21T00:00:00Z",
+  "updatedAt": "2025-09-21T00:00:00Z",
+  "mergedAt": null,
+  "closedAt": null,
+  "commits": [
+    { "oid": "mno345pqr678", "messageHeadline": "Add auto-update script", "authors": [{ "login": "attacker" }], "committedDate": "2025-09-21T00:05:00Z" }
+  ],
+  "additions": 32,
+  "deletions": 0,
+  "changedFiles": 1,
+  "labels": [],
+  "reviewDecision": "NONE",
+  "mergeable": "MERGEABLE",
+  "mergeStateStatus": "CLEAN"
+}

@@ -1,0 +1,123 @@
+[
+  {
+    "number": 42,
+    "title": "Add Mavericks dock reflection effect",
+    "state": "OPEN",
+    "isDraft": false,
+    "headRefName": "feature/dock-reflection",
+    "baseRefName": "main",
+    "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "contributor" } },
+    "author": { "login": "contributor" },
+    "createdAt": "2025-09-15T10:00:00Z",
+    "updatedAt": "2025-09-20T14:30:00Z",
+    "mergedAt": null,
+    "closedAt": null,
+    "commits": [
+      { "oid": "abc123def456", "messageHeadline": "Add dock reflection CSS", "authors": [{ "login": "contributor" }], "committedDate": "2025-09-15T10:05:00Z" },
+      { "oid": "def456ghi789", "messageHeadline": "Fix reflection opacity", "authors": [{ "login": "contributor" }], "committedDate": "2025-09-18T09:00:00Z" }
+    ],
+    "additions": 124,
+    "deletions": 12,
+    "changedFiles": 3,
+    "labels": [{ "name": "ui" }, { "name": "cosmetic" }],
+    "reviewDecision": "APPROVED",
+    "mergeable": "MERGEABLE",
+    "mergeStateStatus": "CLEAN"
+  },
+  {
+    "number": 43,
+    "title": "Fix applespi keyboard driver for MacBook10,1",
+    "state": "OPEN",
+    "isDraft": false,
+    "headRefName": "fix/applespi-mb101",
+    "baseRefName": "main",
+    "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "hw-contrib" } },
+    "author": { "login": "hw-contrib" },
+    "createdAt": "2025-09-18T08:00:00Z",
+    "updatedAt": "2025-09-22T16:45:00Z",
+    "mergedAt": null,
+    "closedAt": null,
+    "commits": [
+      { "oid": "ghi789jkl012", "messageHeadline": "Patch applespi timeout", "authors": [{ "login": "hw-contrib" }], "committedDate": "2025-09-18T08:10:00Z" }
+    ],
+    "additions": 87,
+    "deletions": 23,
+    "changedFiles": 5,
+    "labels": [{ "name": "hardware" }, { "name": "kernel" }],
+    "reviewDecision": "CHANGES_REQUESTED",
+    "mergeable": "CONFLICTING",
+    "mergeStateStatus": "DIRTY"
+  },
+  {
+    "number": 44,
+    "title": "Update README with installation instructions",
+    "state": "OPEN",
+    "isDraft": false,
+    "headRefName": "docs/readme-install",
+    "baseRefName": "main",
+    "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "doc-writer" } },
+    "author": { "login": "doc-writer" },
+    "createdAt": "2025-09-20T12:00:00Z",
+    "updatedAt": "2025-09-20T12:00:00Z",
+    "mergedAt": null,
+    "closedAt": null,
+    "commits": [
+      { "oid": "jkl012mno345", "messageHeadline": "Add install section", "authors": [{ "login": "doc-writer" }], "committedDate": "2025-09-20T12:05:00Z" }
+    ],
+    "additions": 45,
+    "deletions": 5,
+    "changedFiles": 1,
+    "labels": [{ "name": "documentation" }],
+    "reviewDecision": "NONE",
+    "mergeable": "MERGEABLE",
+    "mergeStateStatus": "CLEAN"
+  },
+  {
+    "number": 45,
+    "title": "Malicious PR with curl download and exec",
+    "state": "OPEN",
+    "isDraft": false,
+    "headRefName": "exploit/rce",
+    "baseRefName": "main",
+    "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "attacker" } },
+    "author": { "login": "attacker" },
+    "createdAt": "2025-09-21T00:00:00Z",
+    "updatedAt": "2025-09-21T00:00:00Z",
+    "mergedAt": null,
+    "closedAt": null,
+    "commits": [
+      { "oid": "mno345pqr678", "messageHeadline": "Add auto-update script", "authors": [{ "login": "attacker" }], "committedDate": "2025-09-21T00:05:00Z" }
+    ],
+    "additions": 32,
+    "deletions": 0,
+    "changedFiles": 1,
+    "labels": [],
+    "reviewDecision": "NONE",
+    "mergeable": "MERGEABLE",
+    "mergeStateStatus": "CLEAN"
+  },
+  {
+    "number": 46,
+    "title": "Systemd service for backup daemon",
+    "state": "OPEN",
+    "isDraft": false,
+    "headRefName": "feat/backup-service",
+    "baseRefName": "main",
+    "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "contributor2" } },
+    "author": { "login": "contributor2" },
+    "createdAt": "2025-09-22T10:00:00Z",
+    "updatedAt": "2025-09-22T10:00:00Z",
+    "mergedAt": null,
+    "closedAt": null,
+    "commits": [
+      { "oid": "pqr678stu901", "messageHeadline": "Add backup.service", "authors": [{ "login": "contributor2" }], "committedDate": "2025-09-22T10:05:00Z" }
+    ],
+    "additions": 56,
+    "deletions": 0,
+    "changedFiles": 2,
+    "labels": [{ "name": "backend" }, { "name": "systemd" }],
+    "reviewDecision": "NONE",
+    "mergeable": "MERGEABLE",
+    "mergeStateStatus": "CLEAN"
+  }
+]

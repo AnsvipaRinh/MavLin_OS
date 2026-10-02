@@ -1,0 +1,72 @@
+diff --git a/configs/plank/dock.theme b/configs/plank/dock.theme
+index 1234567..abcdefg 100644
+--- a/configs/plank/dock.theme
++++ b/configs/plank/dock.theme
+@@ -10,6 +10,18 @@
+ 
+ [DockTheme]
+ 
++# Mavericks-style reflection
++ReflectionHeight=16
++ReflectionOpacity=0.15
++ReflectionFadeStart=0.3
++ReflectionFadeEnd=1.0
++
++# Subtle gradient for reflection
++ReflectionGradientStart=#ffffff
++ReflectionGradientEnd=#cccccc
++
+ [IconTheme]
+ IconSize=48
+ IconZoom=1.4
+@@ -25,3 +37,12 @@
+ 
+ [HoverEffect]
+ Enabled=true
+ GlowColor=#ffffff
+ GlowOpacity=0.2
++
++# Mavericks glass effect
++GlassOpacity=0.85
++GlassBlurRadius=8
++GlassBorderColor=#ffffff
++GlassBorderOpacity=0.3
+diff --git a/configs/gtk-3.0/gtk.css b/configs/gtk-3.0/gtk.css
+index fedcba9..9876543 100644
+--- a/configs/gtk-3.0/gtk.css
++++ b/configs/gtk-3.0/gtk.css
+@@ -150,6 +150,20 @@
+ }
+ 
+ /* Dock integration */
++.dock-item {
++    -gtk-icon-effect: reflection;
++    -gtk-reflection-height: 16px;
++    -gtk-reflection-opacity: 0.15;
++}
++
++.dock-item:hover {
++    -gtk-icon-effect: reflection;
++    -gtk-reflection-height: 20px;
++    -gtk-reflection-opacity: 0.25;
++    transition: all 0.2s ease-out;
++}
++
+ /* Window controls */
+ .headerbar {
+     background-image: linear-gradient(to bottom, #ececec 0%, #dcdcdc 100%);
+diff --git a/configs/icons/mavericks-dock-reflection.svg b/configs/icons/mavericks-dock-reflection.svg
+new file mode 100644
+--- /dev/null
++++ b/configs/icons/mavericks-dock-reflection.svg
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<svg width="48" height="64" viewBox="0 0 48 64" xmlns="http://www.w3.org/2000/svg">
++  <defs>
++    <linearGradient id="reflection" x1="0%" y1="0%" x2="0%" y2="100%">
++      <stop offset="0%" style="stop-color:white;stop-opacity:0.15" />
++      <stop offset="100%" style="stop-color:white;stop-opacity:0" />
++    </linearGradient>
++  </defs>
++  <rect x="0" y="48" width="48" height="16" fill="url(#reflection)" />
++</svg>

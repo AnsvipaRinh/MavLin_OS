@@ -42,11 +42,15 @@ gh auth status
 # Check current remotes
 git remote -v
 
+# Rename local branch master → main (CI and branch protection target `main`)
+git branch -m master main
+
 # Add GitHub remote (replace YOUR_USER)
 git remote add origin https://github.com/YOUR_USER/macbook12-macos-linux.git
 
 # Verify
 git remote -v
+git branch --show-current   # must print: main
 ```
 
 **Human** (first push requires auth):

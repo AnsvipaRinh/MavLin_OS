@@ -1,0 +1,26 @@
+{
+  "number": 44,
+  "title": "Update README with installation instructions",
+  "body": "Adds detailed installation instructions for the Mavericks Linux ISO.\n\nIncludes: USB flashing, boot options, first-boot setup.",
+  "state": "OPEN",
+  "isDraft": false,
+  "headRefName": "docs/readme-install",
+  "baseRefName": "main",
+  "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "doc-writer" } },
+  "headRepositoryOwner": { "login": "doc-writer" },
+  "author": { "login": "doc-writer" },
+  "createdAt": "2025-09-20T12:00:00Z",
+  "updatedAt": "2025-09-20T12:00:00Z",
+  "mergedAt": null,
+  "closedAt": null,
+  "commits": [
+    { "oid": "jkl012mno345", "messageHeadline": "Add install section", "authors": [{ "login": "doc-writer" }], "committedDate": "2025-09-20T12:05:00Z" }
+  ],
+  "additions": 45,
+  "deletions": 5,
+  "changedFiles": 1,
+  "labels": [{ "name": "documentation" }],
+  "reviewDecision": "NONE",
+  "mergeable": "MERGEABLE",
+  "mergeStateStatus": "CLEAN"
+}

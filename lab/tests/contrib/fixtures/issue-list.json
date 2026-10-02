@@ -1,0 +1,46 @@
+[
+  {
+    "number": 101,
+    "title": "Trackpad force-click not working on MacBook10,1",
+    "state": "OPEN",
+    "author": { "login": "user1" },
+    "createdAt": "2025-09-10T10:00:00Z",
+    "updatedAt": "2025-09-15T14:00:00Z",
+    "closedAt": null,
+    "labels": [{ "name": "hardware" }, { "name": "trackpad" }, { "name": "applespi" }],
+    "comments": 5
+  },
+  {
+    "number": 102,
+    "title": "Dock icons misaligned at 2x scaling",
+    "state": "OPEN",
+    "author": { "login": "user2" },
+    "createdAt": "2025-09-12T09:00:00Z",
+    "updatedAt": "2025-09-18T11:30:00Z",
+    "closedAt": null,
+    "labels": [{ "name": "ui" }, { "name": "hidpi" }],
+    "comments": 3
+  },
+  {
+    "number": 103,
+    "title": "Documentation: Add troubleshooting section",
+    "state": "OPEN",
+    "author": { "login": "user3" },
+    "createdAt": "2025-09-14T16:00:00Z",
+    "updatedAt": "2025-09-14T16:00:00Z",
+    "closedAt": null,
+    "labels": [{ "name": "documentation" }],
+    "comments": 0
+  },
+  {
+    "number": 104,
+    "title": "Duplicate: WiFi not working (see #99)",
+    "state": "OPEN",
+    "author": { "login": "user4" },
+    "createdAt": "2025-09-16T08:00:00Z",
+    "updatedAt": "2025-09-16T08:00:00Z",
+    "closedAt": null,
+    "labels": [{ "name": "duplicate" }, { "name": "wifi" }],
+    "comments": 1
+  }
+]

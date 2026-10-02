@@ -95,10 +95,16 @@ Mac backend — documented stub only. See `docs/LAB_HARNESS.md`.
 | `docs/DECISIONS.md` | Every non-obvious decision + rationale |
 | `docs/LAB_HARNESS.md` | A/B deploy + 25 failure-injection scenarios |
 | `CONTRIBUTING.md` | Contribution guide (this repo) |
-| `SECURITY.md` | Threat model + review verdicts |
+| `SECURITY.md` | Threat model + review verdicts + responsible disclosure |
+| `CODE_OF_CONDUCT.md` | Community rules (Contributor Covenant 2.1) |
 | `ARCHITECTURE.md` | Layer diagram + profiles + lab harness |
+| `docs/CONTRIBUTION_PROTOCOL.md` | End-to-end contribution flow (discovery → human merge) |
+| `docs/SECURITY_MODEL.md` | Threat model, isolation guarantees, no-secrets-in-CI |
 | `docs/VIBE_CODING.md` | External agent workflow |
 | `docs/UI_UX_CONTRIBUTION.md` | Fidelity axes + completion criteria |
+| `docs/GITHUB_SETUP.md` | First-time GitHub publish walkthrough |
+| `docs/RELEASE_READINESS.md` | Pre-publication audit + remaining user decisions |
+| `docs/LICENSES.md` | Full license matrix (all packages + backends) |
 
 ---
 
@@ -115,6 +121,6 @@ Selector: `scripts/apply-hardware-selection.sh` (interactive, runs on first boot
 
 ## License
 
-Project code: GPL-2.0-or-later (packages/mavericks-apps), GPL-3.0-or-later (mavericks-theme).
+Project code: GPL-3.0-or-later (root `LICENSE`); per-package: GPL-2.0-or-later (mavericks-apps), GPL-3.0-or-later (mavericks-theme). Full matrix: `docs/LICENSES.md`.
 Upstream components retain their licenses (see `docs/APPS.md` backend column).
 No Apple proprietary code/assets/resources. Visual fidelity via reimplementation only.

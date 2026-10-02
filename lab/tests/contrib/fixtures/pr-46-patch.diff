@@ -1,0 +1,55 @@
+diff --git a/configs/systemd/backup.service b/configs/systemd/backup.service
+new file mode 100644
+--- /dev/null
++++ b/configs/systemd/backup.service
+@@ -0,0 +1,25 @@
++[Unit]
++Description=Daily Home Backup
++Documentation=man:rsync(1)
++After=network-online.target
++Wants=network-online.target
++
++[Service]
++Type=oneshot
++ExecStart=/usr/local/bin/backup-home.sh
++Nice=19
++IOSchedulingClass=idle
++
++[Install]
++WantedBy=multi-user.target
+diff --git a/scripts/backup-home.sh b/scripts/backup-home.sh
+new file mode 100755
+--- /dev/null
++++ b/scripts/backup-home.sh
+@@ -0,0 +1,30 @@
++#!/bin/bash
++# Daily home directory backup to external drive
++
++set -euo pipefail
++
++BACKUP_SRC="/home"
++BACKUP_DEST="/mnt/backup"
++EXCLUDES=(
++    "*/.cache/*"
++    "*/.local/share/Trash/*"
++    "*/Downloads/*"
++    "*.tmp"
++)
++
++# Check if backup destination is mounted
++if ! mountpoint -q "$BACKUP_DEST"; then
++    echo "Backup destination $BACKUP_DEST not mounted"
++    exit 1
++fi
++
++# Build rsync exclude args
++RSYNC_EXCLUDES=()
++for pattern in "${EXCLUDES[@]}"; do
++    RSYNC_EXCLUDES+=("--exclude=$pattern")
++done
++
++# Perform backup
++rsync -aHAX --delete "${RSYNC_EXCLUDES[@]}" "$BACKUP_SRC/" "$BACKUP_DEST/$(date +%Y-%m-%d)/"
++
++# Cleanup old backups (keep 30 days)
++find "$BACKUP_DEST" -mindepth 1 -maxdepth 1 -type d -mtime +30 -exec rm -rf {} \;

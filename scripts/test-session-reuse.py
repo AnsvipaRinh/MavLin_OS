@@ -836,7 +836,7 @@ class DiscoveryTests(ScriptCase):
 class ServerDiscoveryTests(unittest.TestCase):
     def test_ps_parse(self):
         sample = ("root 1 /sbin/init\n"
-                  "builder 6321 /home/builder/.opencode/bin/opencode "
+                  "user 6321 /home/user/.opencode/bin/opencode "
                   "--print-logs --log-level WARN serve --hostname 0.0.0.0 "
                   "--port 51950\n"
                   "builder 6591 grep -i opencode\n")
@@ -909,7 +909,7 @@ class WatchdogEnsureTests(unittest.TestCase):
         tw = self.__class__.tw
         text = ("  PID ARGS\n"
                 "    1 /sbin/init\n"
-                " 6321 /home/builder/.opencode/bin/opencode --print-logs "
+                " 6321 /home/user/.opencode/bin/opencode --print-logs "
                 "serve --hostname 0.0.0.0 --port 51950\n"
                 " 6591 grep -i opencode\n")
         self.assertEqual(tw.sr._parse_serve_processes(text),

@@ -19,6 +19,26 @@ if [[ ! -d "$REPO_DIR/archiso-profile" ]]; then
 fi
 log() { echo "[firstboot] $*"; }
 
+# Hardware profile — written by mavericks-profile-select.sh at install
+# time (MAVERICKS_PROFILE=generic|macbook10,1) and sourced here so the
+# selection actually drives firstboot behavior. Absent config = legacy
+# graceful-missing behavior: MacBook fragments apply when their files
+# exist (repo checkout present). Explicit generic profile = MacBook
+# fragments skipped entirely (generic hardware must not get Apple
+# kernel params, Cirrus/Broadcom quirks, or S3X NVMe tuning).
+PROFILE_CONF="/etc/mavericks/profile.conf"
+MAVERICKS_PROFILE=""
+if [[ -f "$PROFILE_CONF" ]]; then
+  # shellcheck disable=SC1090
+  source "$PROFILE_CONF"
+  log "profile: ${MAVERICKS_PROFILE:-unknown}"
+else
+  log "profile config absent ($PROFILE_CONF) — legacy fragment behavior"
+fi
+macbook_profile() {
+  [[ -z "$MAVERICKS_PROFILE" || "$MAVERICKS_PROFILE" == "macbook10,1" ]]
+}
+
 log "1/7 hostname/locale/time"
 hostnamectl set-hostname mavericks-macbook 2>/dev/null || echo mavericks-macbook > /etc/hostname
 ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime 2>/dev/null || true
@@ -27,11 +47,15 @@ hwclock --systohc 2>/dev/null || true
 log "2/7 bootloader entries = baseline CMDLINE (base + fragments)"
 # Base cmdline (generic, always applied)
 BASE_CMDLINE="quiet loglevel=3"
-# MacBook-specific fragments (graceful-missing: only append if file exists)
+# MacBook-specific fragments (graceful-missing: only append if file exists
+# AND the selected profile is macbook10,1 — generic hardware must not
+# receive Apple-specific kernel parameters)
 FRAGMENT_DIR="$REPO_DIR/configs/profiles/fragments"
 MACBOOK_FRAGMENTS=()
-[[ -f "$FRAGMENT_DIR/99-mavericks-s3x.conf" ]] && MACBOOK_FRAGMENTS+=("$(cat "$FRAGMENT_DIR/99-mavericks-s3x.conf" | grep -v '^#' | tr -d '\n')")
-[[ -f "$FRAGMENT_DIR/99-mavericks-display.conf" ]] && MACBOOK_FRAGMENTS+=("$(cat "$FRAGMENT_DIR/99-mavericks-display.conf" | grep -v '^#' | tr -d '\n')")
+if macbook_profile; then
+  [[ -f "$FRAGMENT_DIR/99-mavericks-s3x.conf" ]] && MACBOOK_FRAGMENTS+=("$(cat "$FRAGMENT_DIR/99-mavericks-s3x.conf" | grep -v '^#' | tr -d '\n')")
+  [[ -f "$FRAGMENT_DIR/99-mavericks-display.conf" ]] && MACBOOK_FRAGMENTS+=("$(cat "$FRAGMENT_DIR/99-mavericks-display.conf" | grep -v '^#' | tr -d '\n')")
+fi
 # Compose final cmdline
 FINAL_CMDLINE="$BASE_CMDLINE"
 for frag in "${MACBOOK_FRAGMENTS[@]}"; do
@@ -49,7 +73,13 @@ grep -H "^options" /boot/loader/entries/*.conf || true
 
 log "3/7 TLP baseline (generic + MacBook fragment)"
 install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/tlp.d/99-mavericks.conf" /etc/tlp.d/99-mavericks.conf
-install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/tlp.d/99-mavericks-power.conf" /etc/tlp.d/99-mavericks-power.conf
+# Power fragment is MacBook10,1-only (fanless Core M tuning); on generic
+# hardware TLP/kernel defaults apply and no stale fragment may remain.
+if macbook_profile; then
+  install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/tlp.d/99-mavericks-power.conf" /etc/tlp.d/99-mavericks-power.conf
+else
+  rm -f /etc/tlp.d/99-mavericks-power.conf
+fi
 rm -f /etc/tlp.d/10-experiment.conf
 systemctl enable tlp.service
 
@@ -60,9 +90,14 @@ systemctl enable systemd-zram-setup@zram0.service
 rm -f /etc/sysctl.d/99-mavericks.conf
 
 log "5/7 network: NetworkManager owns Wi-Fi on installed system"
-# NM tuning: connectivity-check off (generic) + wpa_supplicant backend (MacBook fragment)
+# NM tuning: connectivity-check off (generic) + wpa_supplicant backend
+# (MacBook10,1 fragment only — generic uses NM compile-time default)
 install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks.conf" /etc/NetworkManager/conf.d/99-mavericks.conf
-install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf" /etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf
+if macbook_profile; then
+  install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf" /etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf
+else
+  rm -f /etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf
+fi
 systemctl disable --now iwd.service 2>/dev/null || true
 systemctl disable --now systemd-networkd.service 2>/dev/null || true
 # NOTE: keep systemd-resolved enabled — /etc/resolv.conf points at its stub;
@@ -118,7 +153,9 @@ log "6/8 take pre-change snapshot"
   rm -f /etc/systemd/journald.conf.d/volatile-storage.conf 2>/dev/null || true
   
   log "9/9 NVRAM placeholder check + local app/theme packages"
-  "$REPO_DIR/scripts/install/extract-brcmfmac-nvram.sh" || true
+  if macbook_profile; then
+    "$REPO_DIR/scripts/install/extract-brcmfmac-nvram.sh" || true
+  fi
   # mavericks-apps/theme are NOT in upstream repos. Prefer nearby built package
   # files (ISO build output, checkout dir, live medium), then configured repo.
   LOCAL_PKGS=(mavericks-apps mavericks-theme)

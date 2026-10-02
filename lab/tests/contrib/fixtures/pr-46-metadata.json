@@ -1,0 +1,26 @@
+{
+  "number": 46,
+  "title": "Systemd service for backup daemon",
+  "body": "Adds a systemd service for automated backups using rsync.\n\nRuns daily, backs up /home to external drive.",
+  "state": "OPEN",
+  "isDraft": false,
+  "headRefName": "feat/backup-service",
+  "baseRefName": "main",
+  "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "contributor2" } },
+  "headRepositoryOwner": { "login": "contributor2" },
+  "author": { "login": "contributor2" },
+  "createdAt": "2025-09-22T10:00:00Z",
+  "updatedAt": "2025-09-22T10:00:00Z",
+  "mergedAt": null,
+  "closedAt": null,
+  "commits": [
+    { "oid": "pqr678stu901", "messageHeadline": "Add backup.service", "authors": [{ "login": "contributor2" }], "committedDate": "2025-09-22T10:05:00Z" }
+  ],
+  "additions": 56,
+  "deletions": 0,
+  "changedFiles": 2,
+  "labels": [{ "name": "backend" }, { "name": "systemd" }],
+  "reviewDecision": "NONE",
+  "mergeable": "MERGEABLE",
+  "mergeStateStatus": "CLEAN"
+}

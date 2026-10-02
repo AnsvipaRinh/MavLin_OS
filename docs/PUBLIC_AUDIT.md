@@ -1,9 +1,14 @@
 # PUBLIC_AUDIT.md — Forensic Repository Map
 
-**Generated:** 2026-10-02  
-**Commit:** fef6e98 feat: protocol v14 — re-enable nemotron-3.5-lightning as build-h  
+**Generated:** 2026-10-03 (refreshed; original 2026-10-02)  
+**Commit:** see `git log -1` (master, no remotes)  
 **Branch:** master (only)  
-**Remotes:** (none)
+**Remotes:** (none)  
+**Refresh:** OS-GH publication pass — all §3.4 checklist items resolved except #1 (user decision, see RELEASE_READINESS.md §3.1)
+
+> Sections below are the original audit (2026-10-02). §3.4 checklist status updated at end of file.
+
+---
 
 ---
 
@@ -457,9 +462,13 @@ Coverage: A-side boot, B-side deploy/boot/health/commit, 9 failure injections (k
 
 ### 3.4 Immediate Pre-Publish Checklist
 
-1. [ ] Rewrite git author identity for `vsevolod@archlinux` → project alias
-2. [ ] Sanitize `/home/builder` paths in 5 files (replace with `$REPO_ROOT` or relative)
-3. [ ] Verify `out/` and `.opencode/sessions/` remain gitignored
-4. [ ] Consider moving `docs/benchmarks/` to gitignore (builder-host data) or document as local-only
-5. [ ] Confirm no `.env` or credential files accidentally staged
+**Status (2026-10-03 refresh):**
+
+1. [ ] Rewrite git author identity for `vsevolod@archlinux` → project alias — **USER DECISION** (4 commits; procedure + command in `docs/RELEASE_READINESS.md` §3.1; not performed automatically — history rewrite requires explicit consent)
+2. [x] Sanitize `/home/builder` paths — DONE: pacman.conf → `/tmp/mavericks-repo`, test-session-reuse.py → `/home/user`, test_mv_launchpad.py + test_security_scan.py → `__file__`-relative, docs → `<build-host>`
+3. [x] Verify `out/` and `.opencode/sessions/` remain gitignored — verified
+4. [x] `docs/benchmarks/` — kept tracked: results are calibration data referenced by `docs/BENCHMARKS.md`; host metadata (WSL2/5800HS) is build-env context, not user identity; no action needed
+5. [x] Confirm no `.env` or credential files accidentally staged — verified (secret sweep CLEAN)
+
+**Added since original audit:** root `LICENSE` (GPL-3.0-or-later), `CODE_OF_CONDUCT.md` (CC 2.1), `docs/RELEASE_READINESS.md`, contribution pipeline (`scripts/contrib/`, `lab/tests/contrib/`), calibrated security-scan.sh + triage.sh (5/5 fixture verdicts each).
 

@@ -100,7 +100,8 @@ def test_desktop_entry_integrity():
     desktop_paths = [
         "/usr/share/applications/mv-launchpad.desktop",
         "/usr/local/share/applications/mv-launchpad.desktop",
-        "/home/builder/projects/macbook12-macos-linux/packages/mavericks-apps/src/mavericks-apps/desktop/mv-launchpad.desktop",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "..", "desktop", "mv-launchpad.desktop"),
     ]
     desktop_file = None
     for path in desktop_paths:

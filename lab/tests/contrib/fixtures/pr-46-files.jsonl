@@ -1,0 +1,2 @@
+{"path": "configs/systemd/backup.service", "additions": 25, "deletions": 0, "changeType": "ADDED"}
+{"path": "scripts/backup-home.sh", "additions": 30, "deletions": 0, "changeType": "ADDED"}

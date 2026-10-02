@@ -643,7 +643,7 @@
       ожидаемо), обе rofi-темы парсятся реальным rofi, mkinitcpio MODULES/HOOKS на месте
 ### Фаза 0.8 — Mission Control E-MC experiment prepared (2026-09-25, без железа)
 
-- [x] ISO built: `mavericks-linux-2026.09.25-x86_64.iso` (`/home/builder/archiso-out/`)
+- [x] ISO built: `mavericks-linux-2026.09.25-x86_64.iso` (`<build-host>/archiso-out/`)
 - [x] QEMU+OVMF smoke-test: ISO boots → systemd-boot menu → archiso hook → airootfs → DE loads
 - [x] Pre-hardware P0 coherence fully validated: ISO contains mavericks-apps + mavericks-theme pkgs
 
@@ -995,7 +995,7 @@
 - [x] ISO structure verified: EFI/BOOT/BOOTx64.EFI + BOOTIA32.EFI, systemd-boot entries (01-archiso-linux.conf, 02-archiso-speech-linux.conf), airootfs.sfs + airootfs.sha512, 737 packages (600 transitive deps + 137 direct from packages.x86_64)
 - [x] Package coherence: 0 profile-only packages missing from ISO (comm -23 = empty)
 - [x] QEMU+OVMF: BLOCKED — OVMF firmware runs ("Guest has not initialized the display (yet)") but does not detect bootable device from ISO CD-ROM; tried: -vga virtio, -vga std, direct kernel boot, EFI disk image, USB mass storage — all same result. Environment limitation (container lacks proper UEFI boot device emulation), NOT an ISO defect. ISO structure is valid per xorriso inspection.
-- [x] Note: first build attempt failed (tmpfs /tmp 3.8G 100% full → "Write failed" on kernel module extraction); fixed by moving work dir to /home/builder/mv-iso-work (937G free)
+- [x] Note: first build attempt failed (tmpfs /tmp 3.8G 100% full → "Write failed" on kernel module extraction); fixed by moving work dir to <build-host>/mv-iso-work (937G free)
 - [x] Note: corrupted mavericks-* packages in /var/cache/pacman/pkg from first failed attempt; cleared with sudo rm, rebuild succeeded
 
 ### TRACK 1/7 — mv-dictionary WebKit2 memory: leak vs steady-state (2026-09-29, без железа)
@@ -1020,13 +1020,32 @@
 - [x] DECISIONS.md: hook policy entry added (snapshot-before-change = mandatory on btrfs, best-effort on non-btrfs; never blocks operation).
 
 ### Track 5/7 — Rebuild local packages + ISO + QEMU smoke attempt (2026-09-29, без железа)
-- [x] build-local-pkgs.sh: mavericks-apps 0.1.0-1, mavericks-theme 1.0.0-2, macbook12-audio-driver 1.0.0.r94.g75884e2-1 — all rebuilt, repo-add OK at /home/builder/mavericks-repo
+- [x] build-local-pkgs.sh: mavericks-apps 0.1.0-1, mavericks-theme 1.0.0-2, macbook12-audio-driver 1.0.0.r94.g75884e2-1 — all rebuilt, repo-add OK at /tmp/mavericks-repo
 - [x] packages.x86_64 coherence verified: mavericks-apps, mavericks-theme PRESENT; macbook12-audio-driver ABSENT (ISO-excluded as per P1-C1); openssh PRESENT but disabled (no sshd.service in multi-user.target.wants)
 - [x] P0-J1 verified in airootfs: sshd.service NOT in multi-user.target.wants; root locked in /etc/shadow (`root:!14871::::::`); sshd disabled in firstboot via `systemctl disable sshd.service reflector.service`
-- [x] mkarchiso: work dir /home/builder/mv-iso-work (not tmpfs), output /home/builder/out/mavericks-linux-2026.09.29-x86_64.iso — 2.0G (2,099,507,200 bytes), sha256=81d560d7db2a9e08be18942af285359726a4bbde461c8a91f4fbfcdfbadc9bb3
+- [x] mkarchiso: work dir <build-host>/mv-iso-work (not tmpfs), output <build-host>/out/mavericks-linux-2026.09.29-x86_64.iso — 2.0G (2,099,507,200 bytes), sha256=81d560d7db2a9e08be18942af285359726a4bbde461c8a91f4fbfcdfbadc9bb3
 - [x] ISO package count: 712 packages (pkglist.x86_64.txt)
 - [x] ISO structure verified via xorriso: UEFI bootable (El Torito EFI image at LBA 884846, 140288 blocks), MBR protective + GPT, systemd-boot entries present
 - [x] QEMU+OVMF attempt: BLOCKED at boot menu — OVMF firmware loads, shows UEFI boot menu with "UEFI QEMU DVD-ROM QM00003" entry, but times out at 120s waiting for kernel handoff. Container lacks KVM (no hardware acceleration) and proper UEFI CD-ROM emulation; NOT an ISO defect. ISO structure valid per xorriso.
 - [x] NEEDS_HARDWARE_TEST.md updated with ISO validation items
 - [x] All gates: check-sync.sh ALL CHECKS PASSED, py_compile clean, desktop-file-validate clean
+
+### OS-GH — GitHub publication + contribution architecture (2026-10-03, без железа)
+
+- [x] Forensic re-audit of full tree (1112 tracked files): git status/branches/remotes (master, no remotes), .gitignore coverage, generated artifacts (out/ 2.7G ISO gitignored), secret scan (regex sweep across all history: CLEAN), personal-path scan
+- [x] Public/private boundary sanitized: all `/home/builder` absolute paths removed from tracked files — pacman.conf local repo → `file:///tmp/mavericks-repo` (matches build-local-pkgs.sh default + ENVIRONMENT.md doc), test-session-reuse.py mock ps output → `/home/user`, test_mv_launchpad.py + lab/tests/contrib/test_security_scan.py → paths derived from `__file__`, docs (DECISIONS/ENVIRONMENT/PROGRESS) → `<build-host>` placeholder
+- [x] Root LICENSE added (GPL-3.0-or-later; per-package licenses in docs/LICENSES.md)
+- [x] CODE_OF_CONDUCT.md added (Contributor Covenant 2.1, enforcement via private maintainer report per SECURITY.md)
+- [x] Contribution pipeline committed: docs/CONTRIBUTION_PROTOCOL.md, docs/SECURITY_MODEL.md, scripts/contrib/{discover,fetch-pr,security-scan,triage}.sh, lab/tests/contrib/ (2 suites + 5 fixture PRs)
+- [x] security-scan.sh calibrated (was 1/5): word-boundary regexes (no `sh `→"push " / `dd `→"add " FPs), XML `?>`/`/>` excluded from redirect detection, C `a > b` comparisons excluded, doc-only patches skip code-execution categories, `../` alone ≠ path traversal (needs extraction co-occurrence), PKGBUILD patch-application → MED BUILD_RECIPE. Result: 5/5 fixture verdicts correct
+- [x] triage.sh fixed: `PATH=` env clobber bug (line 184) → `F_PATH=`; REQUIRES_SECURITY_REVIEW now adds OS-SEC-REVIEW objective without overriding topical classification; multi-objective routing (every matching category adds objective); word-boundary fixes (`ux` in "linux", bare `ui`/`ci`/`iso`); integration checked before backend. Result: 5/5 fixture classifications correct
+- [x] test_triage.py REPO_ROOT fixed (was one dirname short → wrong scripts path)
+- [x] CONTRIBUTION_PROTOCOL.md §4 corrected: CI job table now matches actual ci.yml (was referencing nonexistent mkarchiso.sh/qemu-smoke-test.sh); contrib scripts documented as local-orchestrator-only
+- [x] project-meta.json: stale `hardwareAssumption: MacBook9,1` → `MacBook10,1`
+- [x] Validation: bash -n all .sh clean, py_compile all .py clean, check-sync.sh ALL CHECKS PASSED, check-profile-sync.sh pass, security-scan 5/5, triage 5/5, CI secret-scan fallback patterns → 0 matches on tracked tree
+- [x] Remaining user decisions documented in docs/RELEASE_READINESS.md (git author identity rewrite, GitHub auth/gh CLI)
+- [x] Pre-existing CI blockers found by gate re-run and fixed:
+  - configs/profiles/generic/99-mavericks-network.conf had drifted from airootfs mirror (source was condensed, mirror kept evidence comments) — synced source to richer mirror content
+  - mavericks-firstboot.sh never sourced /etc/mavericks/profile.conf (written by mavericks-profile-select.sh) — profile selection had no effect. Fixed: firstboot sources PROFILE_CONF; MacBook fragments (S3X/display cmdline, TLP power, NM wifi-backend, brcmfmac NVRAM) now gated on `macbook_profile()` (macbook10,1 or legacy-absent); generic profile → fragments skipped + stale fragments removed. Mirrored to airootfs (check-sync pair)
+  - Gates: check-profile-sync.sh OK, check-sync.sh ALL CHECKS PASSED
 

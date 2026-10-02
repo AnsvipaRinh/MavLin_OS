@@ -1968,7 +1968,7 @@ Arch extra переименовал `webkit2gtk` в `webkit2gtk-4.1` (слот 4
 **Date:** 2026-09-27
 
 Контейнер build env: /tmp = tmpfs 3.8G (100% full → "Write failed" при распакке kernel modules).
-Решение: work dir mkarchiso перенесён на /home/builder/mv-iso-work (937G free, ext4).
+Решение: work dir mkarchiso перенесён на <build-host>/mv-iso-work (937G free, ext4).
 Локальный pacman repo (/tmp/mavericks-repo, ~300KB) остаётся на tmpfs — достаточно.
 Первый failed run оставил corrupted mavericks-* в /var/cache/pacman/pkg — требуется sudo rm перед rebuild.
 
@@ -2352,4 +2352,34 @@ validation: real rendering at 2304×1440, multi-hour session growth.
 1. `docs: add LICENSES.md license matrix (OS-4a)`
 2. `theme: isolate 3 Apple-derived SVG icons to docs/isolated-assets/`
 3. `theme: add replacement generic icons for isolated assets`
+
+## GitHub publication architecture (OS-GH, 2026-10-03)
+
+**Context:** Project to be published on GitHub for external human + AI-agent contributions.
+
+**Decisions:**
+
+1. **Root LICENSE = GPL-3.0-or-later.** All repo-local packages are GPL-2.0-or-later or GPL-3.0-or-later ("or later" makes them GPL-3 compatible). Per-package matrix stays in `docs/LICENSES.md`. Upstream backends keep their own licenses (MIT/BSD/Apache — all OSI-approved, see LICENSES.md §2).
+
+2. **Local pacman repo path = `file:///tmp/mavericks-repo`** (archiso-profile/releng/pacman.conf). Matches `build-local-pkgs.sh` default `OUT="${1:-/tmp/mavericks-repo}"`. Replaced machine-specific `/home/builder/mavericks-repo`. Contributors override via `build-local-pkgs.sh <path>`.
+
+3. **All absolute build-host paths sanitized** → `<build-host>` placeholder in docs, `/home/user` in mocks, `__file__`-relative paths in tests. Reason: public repo must not carry the maintainer's filesystem layout.
+
+4. **Contribution pipeline runs on the local orchestrator, not CI.** discover/fetch/security-scan/triage need the maintainer's scoped `gh` credentials; CI only runs credential-free gates (syntax, format, secrets, unit tests, profile sync). Documented in CONTRIBUTION_PROTOCOL.md §4 (corrected to match actual ci.yml).
+
+5. **security-scan.sh calibration model.** Line-level grep heuristics produce false positives; calibrated to: word-boundary patterns, XML self-closing/declaration exclusion (`/>`, `?>`), C comparison exclusion (`a > b` — only `>` followed by a path start counts as redirect), doc-only patches skip code-execution categories, `../` alone is not traversal (requires extraction/concatenation co-occurrence), PKGBUILD patch application = MED BUILD_RECIPE (supply-chain surface). Verdicts validated against 5 fixture PRs (5/5).
+
+6. **triage.sh routing model.** REJECTED → `dangerous` (no topical routing). REQUIRES_SECURITY_REVIEW → adds `OS-SEC-REVIEW` objective, topical classification still computed. Every matching category adds its objective (PR can route to several review sessions); classification = first/highest-priority match. File-type refinement only sets classification when text analysis found nothing. Word-boundary fixes for `ux` (in "linux"), bare `ui`/`ci`/`iso`. Integration checked before backend (cross-component signals are more specific than service/daemon keywords). Validated 5/5.
+
+7. **Git history preserved; author identity rewrite is a USER decision.** History contains 4 commits by `Vsevolod Avdonkin <vsevolod@archlinux>` (personal email) + 324 by `Mavericks Linux Agent <agent@mavericks-linux.local>`. Per publication rules, history rewrite (filter-repo mailmap) requires explicit user consent — NOT done automatically. Options documented in `docs/RELEASE_READINESS.md`.
+
+8. **CODE_OF_CONDUCT = Contributor Covenant 2.1** (standard, well-understood by contributors); enforcement contact = private report to maintainers per SECURITY.md (no public email published).
+
+**Validation:** bash -n (all .sh), py_compile (all .py), check-sync.sh ALL CHECKS PASSED, check-profile-sync.sh pass, security-scan 5/5, triage 5/5, secret-scan fallback patterns 0 matches on tracked tree.
+
+9. **firstboot profile gating (pre-existing bug, found by check-profile-sync gate).** `mavericks-profile-select.sh` writes `/etc/mavericks/profile.conf` (`MAVERICKS_PROFILE=generic|macbook10,1`) but `mavericks-firstboot.sh` never sourced it — profile selection was ineffective and MacBook-only fragments (S3X/display kernel params, TLP power tuning, NM wifi-backend pin, brcmfmac NVRAM provisioning) were applied unconditionally. Fix: firstboot sources `PROFILE_CONF`; a `macbook_profile()` helper gates all MacBook fragments (true for `macbook10,1` or when the config is absent = legacy graceful-missing behavior); explicit `generic` profile skips them and removes stale installs. Also fixed pre-existing drift: `configs/profiles/generic/99-mavericks-network.conf` (condensed) vs airootfs mirror (evidence-documented) — source synced to the richer mirror content.
+
+**Validation:** bash -n (all .sh), py_compile (all .py), check-sync.sh ALL CHECKS PASSED, check-profile-sync.sh OK, security-scan 5/5, triage 5/5, secret-scan fallback patterns 0 matches on tracked tree.
+
+## [Previous entries above]
 4. `docs: update DECISIONS.md with OS-4a dispositions`

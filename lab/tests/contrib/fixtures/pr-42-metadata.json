@@ -1,0 +1,27 @@
+{
+  "number": 42,
+  "title": "Add Mavericks dock reflection effect",
+  "body": "Implements the classic Mavericks dock reflection effect using GTK CSS. Adds a subtle gradient reflection below dock icons.\n\nTested on Xfce 4.18 with Plank dock.",
+  "state": "OPEN",
+  "isDraft": false,
+  "headRefName": "feature/dock-reflection",
+  "baseRefName": "main",
+  "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "contributor" } },
+  "headRepositoryOwner": { "login": "contributor" },
+  "author": { "login": "contributor" },
+  "createdAt": "2025-09-15T10:00:00Z",
+  "updatedAt": "2025-09-20T14:30:00Z",
+  "mergedAt": null,
+  "closedAt": null,
+  "commits": [
+    { "oid": "abc123def456", "messageHeadline": "Add dock reflection CSS", "authors": [{ "login": "contributor" }], "committedDate": "2025-09-15T10:05:00Z" },
+    { "oid": "def456ghi789", "messageHeadline": "Fix reflection opacity", "authors": [{ "login": "contributor" }], "committedDate": "2025-09-18T09:00:00Z" }
+  ],
+  "additions": 124,
+  "deletions": 12,
+  "changedFiles": 3,
+  "labels": [{ "name": "ui" }, { "name": "cosmetic" }],
+  "reviewDecision": "APPROVED",
+  "mergeable": "MERGEABLE",
+  "mergeStateStatus": "CLEAN"
+}

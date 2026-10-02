@@ -16,6 +16,8 @@ git clone https://github.com/your-org/macbook12-macos-linux
 cd macbook12-macos-linux
 ```
 
+**Community rules:** this project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Report security issues privately per [SECURITY.md](SECURITY.md). AI-generated contributions are reviewed under the same rules as human ones — see `docs/CONTRIBUTION_PROTOCOL.md` and `docs/VIBE_CODING.md`.
+
 ## First Contribution Path
 
 1. **Read** `AGENTS.md` (constitution), `docs/HARDWARE.md`, `docs/APPS.md`, `docs/NEEDS_HARDWARE_TEST.md`
