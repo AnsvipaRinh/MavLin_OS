@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="appleBody" x1="0%" y1="0%" x2="0%" y2="100%">
+    <linearGradient id="infoBody" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#E8E0D8;stop-opacity:1" />
       <stop offset="50%" style="stop-color:#D8D0C8;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#C8C0B8;stop-opacity:1" />
     </linearGradient>
-    <linearGradient id="appleHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+    <linearGradient id="infoHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:0.4" />
       <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:0" />
     </linearGradient>
@@ -23,20 +23,18 @@
   </defs>
   
   <g filter="url(#shadow)">
-    <!-- Apple shape -->
-    <path d="M128,24 C180,24 220,64 220,116 C220,168 180,208 128,208 C76,208 36,168 36,116 C36,64 76,24 128,24 Z" 
-          fill="url(#appleBody)" stroke="#A8A098" stroke-width="2"/>
+    <!-- Info badge shape (rounded square, not Apple silhouette) -->
+    <rect x="28" y="24" width="200" height="184" rx="24" ry="24" 
+          fill="url(#infoBody)" stroke="#A8A098" stroke-width="2"/>
     <!-- Highlight -->
-    <path d="M80,56 Q100,48 128,56 Q156,48 176,56 Q168,80 156,104 Q144,128 128,144 Q112,128 100,104 Q88,80 80,56 Z" 
-          fill="url(#appleHighlight)"/>
-    <!-- Leaf -->
-    <path d="M144,28 Q160,16 172,28 Q168,40 152,44 Q140,48 136,36 Q140,24 144,28 Z" 
-          fill="#40A840" stroke="#288028" stroke-width="1" transform="rotate(-15 128 28)"/>
-    <!-- Bite taken out -->
-    <ellipse cx="176" cy="60" rx="18" ry="22" fill="#0D0D0D" transform="rotate(25 176 60)"/>
+    <rect x="36" y="32" width="184" height="60" rx="16" ry="16" 
+          fill="url(#infoHighlight)"/>
+    <!-- Info symbol (i in circle) -->
+    <circle cx="128" cy="80" r="28" fill="#007AFF" stroke="#0056CC" stroke-width="1.5"/>
+    <text x="128" y="88" font-family="Helvetica, Arial, sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF" text-anchor="middle" dominant-baseline="central">i</text>
     <!-- Version text -->
-    <text x="128" y="156" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="bold" fill="#303030" text-anchor="middle">Mac OS X</text>
-    <text x="128" y="176" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="bold" fill="#202020" text-anchor="middle">10.9 Mavericks</text>
-    <text x="128" y="198" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#606060" text-anchor="middle">Build 13A603</text>
+    <text x="128" y="156" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="bold" fill="#303030" text-anchor="middle">Mavericks Linux</text>
+    <text x="128" y="176" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="bold" fill="#202020" text-anchor="middle">OS X 10.9 Style</text>
+    <text x="128" y="198" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#606060" text-anchor="middle">Build 2026.10</text>
   </g>
 </svg>

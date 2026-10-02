@@ -33,7 +33,7 @@
   </defs>
   
   <g filter="url(#shadow)">
-    <!-- Mouse body (Mighty Mouse style) -->
+    <!-- Mouse body (generic Mighty Mouse style) -->
     <path d="M64,180 Q64,100 128,100 Q192,100 192,180 Q192,220 128,220 Q64,220 64,180 Z" 
           fill="url(#mouseBody)" stroke="#C8C0B8" stroke-width="1.5"/>
     
@@ -44,15 +44,15 @@
     <!-- Touch surface division line -->
     <path d="M128,110 L128,190" stroke="#D8D0C8" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
     
-    <!-- Scroll ball (Mighty Mouse) -->
+    <!-- Scroll ball (generic) -->
     <circle cx="128" cy="140" r="16" fill="url(#mouseButton)" stroke="#C8C0B8" stroke-width="1.5"/>
     <circle cx="128" cy="140" r="12" fill="#E8E0D8"/>
     <circle cx="124" cy="134" r="3" fill="#FFFFFF" opacity="0.5"/>
     
-    <!-- Apple logo on mouse -->
+    <!-- Generic logo placeholder (neutral circle) -->
     <g transform="translate(128, 150) scale(0.25)" fill="#888078">
-      <path d="M0,-72 C-52,-72 -92,-32 -92,20 C-92,72 -52,112 0,112 C52,112 92,72 92,20 C92,-32 52,-72 0,-72 Z"/>
-      <path d="M0,-72 C-20,-72 -40,-52 -40,-20 C-40,12 -20,32 0,32 C20,32 40,12 40,-20 C40,-52 20,-72 0,-72 Z" fill="#1A1A1A"/>
+      <circle cx="0" cy="0" r="36" fill="#B8B0A8" stroke="#989088" stroke-width="2"/>
+      <circle cx="0" cy="0" r="24" fill="#D8D0C8"/>
     </g>
     
     <!-- Bottom feet -->
