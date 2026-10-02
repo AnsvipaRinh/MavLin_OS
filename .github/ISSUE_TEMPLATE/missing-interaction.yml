@@ -1,0 +1,76 @@
+name: Missing Interaction
+description: Missing user interaction (shortcut, gesture, menu, drag-drop) from Mavericks
+title: "[INTERACTION] "
+labels: ["missing-interaction", "P1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Missing Interaction Report
+        User interaction present in Mavericks (10.9) but missing in build.
+  - type: textarea
+    id: mavericks-ref
+    attributes:
+      label: Mavericks Reference
+      description: Documentation/video of the Mavericks interaction
+      placeholder: https://... (HIG section, video)
+    validations:
+      required: true
+  - type: textarea
+    id: missing-what
+    attributes:
+      label: What is Missing
+      description: Specific interaction (shortcut, gesture, menu item, drag-drop target, context menu action)
+      placeholder: Cmd+Space for Spotlight / Two-finger swipe for Mission Control / ...
+    validations:
+      required: true
+  - type: dropdown
+    id: interaction-category
+    attributes:
+      label: Category
+      options:
+        - Global keyboard shortcut
+        - Application keyboard shortcut
+        - Trackpad gesture
+        - Mouse gesture
+        - Menu bar item
+        - Context menu action
+        - Drag-and-drop target
+        - Dock interaction
+        - Window control (traffic lights)
+        - Dialog button/keyboard
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      options:
+        - Finder
+        - Spotlight
+        - Launchpad
+        - Mission Control
+        - Control Center
+        - Notification Center
+        - Quick Look
+        - System Settings
+        - Dock
+        - Menu Bar
+        - Global Shortcut Layer
+        - Other Application
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Hardware Scope
+      description: PRE-HARDWARE IMPLEMENTABLE / HARDWARE VALIDATION REQUIRED / HARDWARE BLOCKED
+    validations:
+      required: true
+  - type: textarea
+    id: impl-note
+    attributes:
+      label: Implementation Note
+      description: Backend needed (X11, xfconf, D-Bus, udev, kernel, custom daemon)
+      placeholder: xfconf keybindings / custom X11 event daemon / D-Bus signal / ...

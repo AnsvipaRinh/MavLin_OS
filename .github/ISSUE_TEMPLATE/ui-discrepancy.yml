@@ -1,0 +1,63 @@
+name: UI Discrepancy
+description: Visual difference from macOS 10.9 Mavericks reference
+title: "[UI] "
+labels: ["ui-discrepancy", "P0"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## UI Discrepancy Report
+        Visual difference from Mavericks (10.9) reference. Include screenshots.
+  - type: textarea
+    id: mavericks-ref
+    attributes:
+      label: Mavericks Reference
+      description: Link/image of macOS 10.9 behavior (Apple HIG, screenshots, video timestamp)
+      placeholder: https://...
+    validations:
+      required: true
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Behavior
+      description: What the build currently shows (screenshot + description)
+      placeholder: Screenshot: ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What it should look like per Mavericks
+      placeholder: Should match Mavericks...
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      options:
+        - Finder
+        - Spotlight
+        - Launchpad
+        - Mission Control
+        - Control Center
+        - Notification Center
+        - Quick Look
+        - System Settings
+        - Dock
+        - Menu Bar
+        - Window Management
+        - Dialogs
+        - File Chooser
+        - Context Menus
+        - Other Application
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Hardware Scope
+      description: PRE-HARDWARE IMPLEMENTABLE / HARDWARE VALIDATION REQUIRED / HARDWARE BLOCKED
+    validations:
+      required: true

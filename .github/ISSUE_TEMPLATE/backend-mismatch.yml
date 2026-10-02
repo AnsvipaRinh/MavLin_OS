@@ -1,0 +1,56 @@
+name: Backend Mismatch
+description: Linux backend behavior diverges from macOS/Mavericks expectation
+title: "[BACKEND] "
+labels: ["backend-mismatch", "P1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Backend Mismatch Report
+        Linux backend (kernel, systemd, D-Bus, X11, drivers) behaves differently from macOS equivalent.
+  - type: textarea
+    id: mavericks-expectation
+    attributes:
+      label: Mavericks Expectation
+      description: What macOS 10.9 does (sleep/wake, power, thermal, input, audio, display, storage, network)
+      placeholder: Instant wake from sleep / Thermal throttling at 95°C / Force Touch haptics / ...
+    validations:
+      required: true
+  - type: textarea
+    id: linux-behavior
+    attributes:
+      label: Current Linux Behavior
+      description: What actually happens on Linux (logs, dmesg, journalctl, measurable metrics)
+      placeholder: 3s wake latency / Throttles at 85°C / No haptics / ...
+    validations:
+      required: true
+  - type: dropdown
+    id: subsystem
+    attributes:
+      label: Subsystem
+      options:
+        - Power/Sleep (S0ix, S3, hibernate)
+        - Thermal/Throttling
+        - Input (keyboard, trackpad, Force Touch)
+        - Audio (Cirrus, speakers, mic, headphone)
+        - Display (HiDPI, brightness, external)
+        - Storage (NVMe S3X, APFS/HFS+)
+        - Network (Wi-Fi BCM43602, Bluetooth)
+        - USB-C/PD/DP Alt Mode
+        - Sensors (accelerometer, ALS, battery)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Hardware Scope
+      description: HARDWARE VALIDATION REQUIRED / HARDWARE BLOCKED (describe what needs real MacBook10,1)
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround / Mitigation
+      description: Kernel params, userspace daemon, config, fallback behavior
+      placeholder: pcie_port_pm=off / custom suspend script / TLP profile / ...

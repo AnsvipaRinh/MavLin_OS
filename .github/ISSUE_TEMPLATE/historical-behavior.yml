@@ -1,0 +1,77 @@
+name: Historical Behavior
+description: Documented Mavericks (10.9) behavior for reference/implementation
+title: "[HIST] "
+labels: ["historical-behavior", "P2"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Historical Behavior Documentation
+        Authoritative reference for macOS 10.9 Mavericks behavior. Used to guide implementation.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Behavior Description
+      description: Detailed description of the Mavericks 10.9 behavior (visual, interaction, animation, backend)
+      placeholder: When user presses Cmd+Space, a centered overlay appears with...
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Sources
+      description: Links to Apple HIG, developer docs, videos, screenshots, archive.org, Wayback Machine
+      placeholder: https://developer.apple.com/library/archive/documentation/UserExperience/Conceptual/OSXHIGuidelines/...
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Visual/Theme
+        - Animation
+        - Interaction/Shortcut
+        - Window Management
+        - File Management (Finder)
+        - Search (Spotlight)
+        - Application Launch (Launchpad)
+        - System UI (Dock, Menu Bar, Control Center)
+        - Notifications
+        - Quick Look
+        - Settings/Preferences
+        - Power/Energy
+        - Input Devices
+        - Audio
+        - Network
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Target Component
+      options:
+        - Finder
+        - Spotlight
+        - Launchpad
+        - Mission Control
+        - Control Center
+        - Notification Center
+        - Quick Look
+        - System Settings
+        - Dock
+        - Menu Bar
+        - Window Manager
+        - Global Shortcuts
+        - Other Application
+    validations:
+      required: true
+  - type: textarea
+    id: impl-priority
+    attributes:
+      label: Implementation Priority
+      description: P0 (blocker for coherence) / P1 (important) / P2 (polish) / DEFERRED
+      placeholder: P0 - required for Spotlight coherence
+    validations:
+      required: true

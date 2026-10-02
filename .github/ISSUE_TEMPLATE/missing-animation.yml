@@ -1,0 +1,72 @@
+name: Missing Animation
+description: Missing or incorrect animation compared to macOS 10.9 Mavericks
+title: "[ANIM] "
+labels: ["missing-animation", "P1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Missing Animation Report
+        Animation present in Mavericks (10.9) but missing or incorrect in build.
+  - type: textarea
+    id: mavericks-ref
+    attributes:
+      label: Mavericks Reference
+      description: Video/link showing the Mavericks animation (timing, easing, duration)
+      placeholder: https://... (video timestamp)
+    validations:
+      required: true
+  - type: textarea
+    id: current-state
+    attributes:
+      label: Current State
+      description: What happens now (instant, wrong easing, wrong duration, missing entirely)
+      placeholder: Currently instant / no animation / wrong easing...
+    validations:
+      required: true
+  - type: dropdown
+    id: animation-type
+    attributes:
+      label: Animation Type
+      options:
+        - Window minimize/maximize (genie/scale)
+        - Window open/close
+        - Dashboard/Launchpad transition
+        - Mission Control enter/exit
+        - Space switch
+        - Dock bounce/magnification
+        - Menu open/close
+        - Dialog/sheet slide
+        - Tooltip fade
+        - Progress/spinner
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      options:
+        - Finder
+        - Dock
+        - Mission Control
+        - Launchpad
+        - Window Manager (xfwm4)
+        - Dialogs
+        - Notifications
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Hardware Scope
+      description: PRE-HARDWARE IMPLEMENTABLE / HARDWARE VALIDATION REQUIRED / HARDWARE BLOCKED
+    validations:
+      required: true
+  - type: textarea
+    id: perf-note
+    attributes:
+      label: Performance Note
+      description: Expected cost on fanless Core M (compositor load, GPU, battery). "Negligible" if <1% CPU.
+      placeholder: Negligible / ~2% CPU for 300ms / requires compositor...

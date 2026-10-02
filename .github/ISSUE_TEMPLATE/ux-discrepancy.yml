@@ -1,0 +1,79 @@
+name: UX Discrepancy
+description: Behavior/interaction difference from macOS 10.9 Mavericks reference
+title: "[UX] "
+labels: ["ux-discrepancy", "P0"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## UX Discrepancy Report
+        Interaction/behavior difference from Mavericks (10.9) reference.
+  - type: textarea
+    id: mavericks-ref
+    attributes:
+      label: Mavericks Reference
+      description: Link/video/doc of macOS 10.9 interaction behavior
+      placeholder: https://...
+    validations:
+      required: true
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Behavior
+      description: What the build currently does (steps to reproduce)
+      placeholder: 1. Open... 2. Press... 3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What it should do per Mavericks (keyboard, mouse, gestures, focus, animation, timing)
+      placeholder: Should behave like Mavericks...
+    validations:
+      required: true
+  - type: dropdown
+    id: interaction-type
+    attributes:
+      label: Interaction Type
+      options:
+        - Keyboard shortcut
+        - Keyboard navigation
+        - Mouse/Trackpad gesture
+        - Focus behavior
+        - Animation/timing
+        - Drag-and-drop
+        - Context menu
+        - Window management
+        - Dialog/sheet behavior
+        - Launch/quit behavior
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      options:
+        - Finder
+        - Spotlight
+        - Launchpad
+        - Mission Control
+        - Control Center
+        - Notification Center
+        - Quick Look
+        - System Settings
+        - Dock
+        - Menu Bar
+        - Window Management
+        - Global Shortcuts
+        - Other Application
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Hardware Scope
+      description: PRE-HARDWARE IMPLEMENTABLE / HARDWARE VALIDATION REQUIRED / HARDWARE BLOCKED
+    validations:
+      required: true
