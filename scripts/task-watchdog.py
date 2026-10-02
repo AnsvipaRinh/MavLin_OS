@@ -152,30 +152,43 @@ def check_session(sid, threshold, do_abort=True):
     etype = entry.get("type", "?") if isinstance(entry, dict) else "?"
     if etype == "idle":
         return "ok", "idle"
+    quota_abort = False
     if etype not in ("retry",):
         # busy/running/waiting = normal work. NEVER abort on activity alone.
-        return "ok", f"active ({etype}), untouched"
-    msg = (entry.get("message", "") or "") if isinstance(entry, dict) else ""
-    # Both status shapes exist in the wild: 1.18.32 uses `message`, older
-    # surfaces used `error`. Scan both for wait wording.
-    msg_all = " ".join(
-        str((entry or {}).get(k, "") or "")
-        for k in ("message", "error", "reason")).lower() \
-        if isinstance(entry, dict) else ""
-    verdict, matched = sr.classify_text(msg)
-    delay = sr.extract_delay_sec(entry) if isinstance(entry, dict) else None
-    attempt = (entry.get("attempt") or "?") if isinstance(entry, dict) else "?"
-    provider_wait = any(w in msg_all for w in PROVIDER_WAIT_PATTERNS)
-    if verdict not in DEAD_BACKEND and not (
-            provider_wait and delay is not None and delay > threshold):
-        journal("WATCH", session=sid, status=etype, verdict=verdict,
-                delaySec=delay, attempt=attempt)
-        return "watch", f"retry but {verdict} (not an abortable wait)"
-    if delay is None or delay <= threshold:
-        journal("WATCH", session=sid, status=etype, verdict=verdict,
-                delaySec=delay, attempt=attempt,
-                note="below threshold, no abort")
-        return "watch", f"retry but delay {delay} <= {threshold}"
+        # BUT: check for tool aborts indicating quota exhaustion
+        # (Free usage exceeded causes tool aborts even when status is empty).
+        tool_abort, abort_reason = sr.check_tool_abort_quota(sid)
+        if tool_abort:
+            quota_abort = True
+            verdict, matched = "FREE_USAGE_EXHAUSTED", "tool-abort-quota"
+            delay = threshold + 1.0
+            attempt = "?"
+            journal("QUOTA_ABORT_DETECTED", session=sid, verdict=verdict,
+                    reason=abort_reason)
+        else:
+            return "ok", f"active ({etype}), untouched"
+    if not quota_abort:
+        msg = (entry.get("message", "") or "") if isinstance(entry, dict) else ""
+        # Both status shapes exist in the wild: 1.18.32 uses `message`, older
+        # surfaces used `error`. Scan both for wait wording.
+        msg_all = " ".join(
+            str((entry or {}).get(k, "") or "")
+            for k in ("message", "error", "reason")).lower() \
+            if isinstance(entry, dict) else ""
+        verdict, matched = sr.classify_text(msg)
+        delay = sr.extract_delay_sec(entry) if isinstance(entry, dict) else None
+        attempt = (entry.get("attempt") or "?") if isinstance(entry, dict) else "?"
+        provider_wait = any(w in msg_all for w in PROVIDER_WAIT_PATTERNS)
+        if verdict not in DEAD_BACKEND and not (
+                provider_wait and delay is not None and delay > threshold):
+            journal("WATCH", session=sid, status=etype, verdict=verdict,
+                    delaySec=delay, attempt=attempt)
+            return "watch", f"retry but {verdict} (not an abortable wait)"
+        if delay is None or delay <= threshold:
+            journal("WATCH", session=sid, status=etype, verdict=verdict,
+                    delaySec=delay, attempt=attempt,
+                    note="below threshold, no abort")
+            return "watch", f"retry but delay {delay} <= {threshold}"
     # STUCK in a provider wait over threshold: abort the blocked attempt.
     # Cooldown = the OBSERVED provider delay (a timetable fact recorded for
     # every verdict: the backend provably cannot generate before it elapses).

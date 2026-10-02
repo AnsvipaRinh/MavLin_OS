@@ -50,10 +50,11 @@ class MockHandler(BaseHTTPRequestHandler):
                          "message": "agent unavailable"},
         "ses_ESC": {"type": "retry", "attempt": 1,
                     "message": "agent unavailable"},
+        "ses_TOOLABORT": {"type": "busy"},
     }
     SESSIONS = {"ses_LIVE", "ses_BUSY", "ses_QUIET", "ses_MSGBROKEN",
                 "ses_WORKING", "ses_SOON", "ses_NEXT", "ses_ORPHAN",
-                "ses_WAITWORD", "ses_STRANGER", "ses_ESC"}
+                "ses_WAITWORD", "ses_STRANGER", "ses_ESC", "ses_TOOLABORT"}
     # Live-store metadata for GET /session[/{id}]: directory/title/parent.
     META = {
         "ses_ORPHAN": {"directory": "/proj",
@@ -74,6 +75,14 @@ class MockHandler(BaseHTTPRequestHandler):
                                  "tokens": {"input": 50000},
                                  "modelID": "longcat-2.5-preview-free",
                                  "providerID": "opencode"}}],
+        "ses_TOOLABORT": [{"info": {"role": "assistant", "finish": None,
+                                    "tokens": {"input": 1000},
+                                    "modelID": "longcat-2.5-preview-free",
+                                    "providerID": "opencode"},
+                           "parts": [{"type": "tool", "tool": "bash",
+                                      "state": {"status": "error",
+                                                "error": "Tool execution aborted",
+                                                "metadata": {"interrupted": True}}}]}],
     }
 
     def log_message(self, *a):
@@ -573,6 +582,17 @@ class WatchdogTests(ScriptCase):
                               "--threshold", "600")
         self.assertIn("watch ses_SOON", r.stdout, r.stdout + r.stderr)
         self.assertNotIn("ses_SOON", MockHandler.ABORTS)
+
+    def test_abort_tool_quota_without_status_retry(self):
+        # Busy status (no retry entry) + interrupted tool abort in the
+        # message tail = quota exhaustion the status endpoint hides.
+        self.run_script("register", "ses_TOOLABORT", "--agent", "build",
+                        "--objective", "T", "--task", "do T",
+                        "--model", "opencode/longcat-2.5-preview-free")
+        r = self.run_watchdog("--once", "--session", "ses_TOOLABORT",
+                              "--threshold", "600")
+        self.assertIn("aborted ses_TOOLABORT", r.stdout, r.stdout + r.stderr)
+        self.assertIn("ses_TOOLABORT", MockHandler.ABORTS)
 
     def test_no_abort_idle(self):
         self.register_live()

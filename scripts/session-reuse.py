@@ -249,6 +249,38 @@ def session_tail_model(session_id, limit=5):
     return None, None
 
 
+def check_tool_abort_quota(session_id):
+    """Check if the session's latest active generation has tool aborts
+    indicating quota exhaustion (Free usage exceeded).
+
+    Returns (True, reason) if quota abort detected, else (False, "").
+    """
+    code, msgs = api_probe("GET", f"/session/{session_id}/message?limit=5")
+    if code is None or not 200 <= code < 300 or not isinstance(msgs, list):
+        return False, ""
+    for m in msgs:
+        info = (m or {}).get("info", {}) if isinstance(m, dict) else {}
+        if info.get("role") == "assistant" and info.get("finish") is None:
+            # Active generation — check tool parts for aborts
+            for p in m.get("parts", []):
+                if p.get("type") == "tool":
+                    state = p.get("state", {})
+                    if state.get("status") == "error":
+                        error = state.get("error", "") or ""
+                        # "Tool execution aborted" with interrupted=true often wraps quota exhaustion
+                        # Check for explicit quota keywords OR interrupted abort in active generation
+                        if "aborted" in error.lower():
+                            if ("free usage" in error.lower() or
+                                "usage exceeded" in error.lower() or
+                                "subscribe to go" in error.lower() or
+                                "quota" in error.lower()):
+                                return True, f"tool abort indicates quota: {error}"
+                            # Interrupted abort in active generation = likely quota
+                            if state.get("metadata", {}).get("interrupted") is True:
+                                return True, f"tool interrupted abort (likely quota): {error}"
+    return False, ""
+
+
 def upsert_discovered(session_id, title="", model=""):
     """Track a live-discovered child WITHOUT touching existing metadata.
 
