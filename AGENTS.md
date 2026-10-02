@@ -1032,7 +1032,7 @@ READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.m
 TASK LIFECYCLE (binding, full text in `.opencode/agents/orchestrator.md`):
 ENV PRE-CHECK (`git status` + `version` must both succeed; else
 PROJECT-NOT-LOADED/STALE-AGENT = stop, no improvising) →
-protocol check `version` (need v9) →
+protocol check `version` (need v10) →
 REBOOT RULE (sessions PERSIST across restart — verified vs 1.18.32 SDK:
 `GET /session/{id}` is authoritative; status absence = idle, never gone;
 fresh ONLY on verified 404) →
@@ -1161,12 +1161,13 @@ scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>  # same-sess
 scripts/session-reuse.py find-objective <oid>          # resume-first lookup: oid -> LIVE session + Task block
 scripts/session-reuse.py health                    # cooldown memory (dead models + retry-in)
 scripts/session-reuse.py mark-alive <model>        # clear cooldown after good result
-scripts/session-reuse.py version                   # need orchestrator-protocol: 9 (else STALE-AGENT)
+scripts/session-reuse.py version                   # need orchestrator-protocol: 10 (else STALE-AGENT)
 scripts/session-reuse.py exists <id>               # SESSION_EXISTS_IDLE/BUSY/RETRYING vs DOES_NOT_EXIST
 scripts/session-reuse.py abort <id>                # cancel blocked attempt, history survives
 scripts/session-reuse.py preflight                 # offline: skip cooldown models BEFORE Task
-python3 scripts/task-watchdog.py --daemon --all    # independent abort/cooldown loop (needs one start)
+python3 scripts/task-watchdog.py --ensure --all    # self-maintaining daemon (no env, no &, returns at once)
 # watchdog liveness: read tail of .opencode/sessions/watchdog.log (HEARTBEAT)
+# server endpoint auto-discovery: env OPENCODE_* -> live `opencode serve` ps -> 4096 (no manual port lookup, ever)
 ```
 
 ### 14.6 Agent visibility (why global symlinks exist)

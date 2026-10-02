@@ -672,5 +672,138 @@ class DiscoveryTests(ScriptCase):
         self.assertIn("1h56m", r2.stdout)
 
 
+class ServerDiscoveryTests(unittest.TestCase):
+    def test_ps_parse(self):
+        sample = ("root 1 /sbin/init\n"
+                  "builder 6321 /home/builder/.opencode/bin/opencode "
+                  "--print-logs --log-level WARN serve --hostname 0.0.0.0 "
+                  "--port 51950\n"
+                  "builder 6591 grep -i opencode\n")
+        import subprocess
+        real_run = subprocess.run
+
+        class FakeDone:
+            stdout = sample
+
+        def fake_run(*a, **k):
+            return FakeDone()
+
+        subprocess.run = fake_run
+        try:
+            self.assertEqual(sr._ps_opencode_ports(), ["51950"])
+        finally:
+            subprocess.run = real_run
+
+    def test_ps_parse_none(self):
+        import subprocess
+        real_run = subprocess.run
+
+        class FakeDone:
+            stdout = "root 1 /sbin/init\nbuilder 9 grep foo\n"
+
+        def fake_run(*a, **k):
+            return FakeDone()
+
+        subprocess.run = fake_run
+        try:
+            self.assertEqual(sr._ps_opencode_ports(), [])
+        finally:
+            subprocess.run = real_run
+
+    def test_env_wins_over_ps(self):
+        os.environ["OPENCODE_SERVER_PORT"] = "1234"
+        try:
+            self.assertEqual(sr.server_port(ttl=0), "1234")
+        finally:
+            del os.environ["OPENCODE_SERVER_PORT"]
+
+    def test_default_without_env_or_ps(self):
+        import subprocess
+        real_run = subprocess.run
+        saved = os.environ.pop("OPENCODE_SERVER_PORT", None)
+
+        def boom(*a, **k):
+            raise OSError("no ps")
+
+        subprocess.run = boom
+        try:
+            sr._server_cache.update(at=0.0, port="")
+            self.assertEqual(sr.server_port(ttl=0), "4096")
+        finally:
+            subprocess.run = real_run
+            if saved is not None:
+                os.environ["OPENCODE_SERVER_PORT"] = saved
+
+
+class WatchdogEnsureTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "tw", os.path.join(BASE, "task-watchdog.py"))
+        cls.tw = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.tw)
+
+    def test_heartbeat_fresh_and_stale(self):
+        import tempfile
+        tw = self.__class__.tw
+        real_log = tw.JOURNAL
+        with tempfile.NamedTemporaryFile("w+", suffix=".log",
+                                         delete=False) as f:
+            tmp = f.name
+        try:
+            tw.JOURNAL = tmp
+            self.assertFalse(tw.heartbeat_fresh(90))
+            now = __import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc).isoformat(
+                    timespec="seconds")
+            with open(tmp, "w") as f:
+                f.write('{"ts": "%s", "event": "HEARTBEAT"}\n' % now)
+            self.assertTrue(tw.heartbeat_fresh(90))
+            self.assertFalse(tw.heartbeat_fresh(-1))
+        finally:
+            tw.JOURNAL = real_log
+            os.remove(tmp)
+
+    def test_ensure_alive_path_does_not_spawn(self):
+        tw = self.__class__.tw
+        real_hb, real_lock = tw.heartbeat_fresh, tw.lock_held_by_live_process
+        tw.heartbeat_fresh = lambda max_age: True
+        tw.lock_held_by_live_process = lambda: True
+        try:
+            self.assertEqual(tw.cmd_ensure([], []), 0)
+        finally:
+            tw.heartbeat_fresh, tw.lock_held_by_live_process = real_hb, real_lock
+
+    def test_ensure_stale_path_spawns_daemon(self):
+        tw = self.__class__.tw
+        real_hb, real_lock = tw.heartbeat_fresh, tw.lock_held_by_live_process
+        real_daemonize, real_execv = tw.daemonize, os.execv
+        calls = {}
+        tw.heartbeat_fresh = lambda max_age: False
+        tw.lock_held_by_live_process = lambda: False
+        def fake_daemonize():
+            calls["daemonized"] = True
+
+        def fake_execv(*a):
+            calls["exec"] = a
+            raise SystemExit(99)
+
+        tw.daemonize = fake_daemonize
+        os.execv = fake_execv
+        try:
+            with self.assertRaises(SystemExit) as cm:
+                tw.cmd_ensure([], ["--threshold", "600"])
+            self.assertEqual(cm.exception.code, 99)
+            self.assertTrue(calls.get("daemonized"))
+            argv = calls["exec"][1]
+            self.assertIn("--daemon", argv)
+            self.assertIn("--all", argv)
+        finally:
+            tw.heartbeat_fresh, tw.lock_held_by_live_process = real_hb, real_lock
+            tw.daemonize = real_daemonize
+            os.execv = real_execv
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

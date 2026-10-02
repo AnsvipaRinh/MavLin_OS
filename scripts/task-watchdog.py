@@ -275,8 +275,119 @@ def resolve_targets(oid=None, session=None, all_sessions=False,
             (not m.get("oid") and (m.get("objective", "") or "").lower() == q)]
 
 
+def heartbeat_fresh(max_age=90):
+    """True when watchdog.log ends with a recent HEARTBEAT (daemon alive)."""
+    try:
+        with open(JOURNAL) as f:
+            lines = f.read().strip().split("\n")[-15:]
+    except OSError:
+        return False
+    now = time.time()
+    for line in reversed(lines):
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        if rec.get("event") != "HEARTBEAT":
+            continue
+        try:
+            ts = datetime.fromisoformat(rec.get("ts", "").replace(
+                "Z", "+00:00")).timestamp()
+        except (ValueError, TypeError):
+            continue
+        return (now - ts) <= max_age
+    return False
+
+
+def daemonize():
+    """Detach fully (double fork + fd redirect) so the CALLER RETURNS.
+
+    Plain `&` backgrounding hangs some tool runtimes waiting on child fds;
+    this does not: stdio goes to /dev/null and the parent exits at once.
+    """
+    if os.fork() > 0:
+        os._exit(0)
+    os.setsid()
+    if os.fork() > 0:
+        os._exit(0)
+    try:
+        devnull = os.open(os.devnull, os.O_RDWR)
+        for fd in (0, 1, 2):
+            try:
+                os.dup2(devnull, fd)
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
+def cmd_ensure(args, carry_argv):
+    """One self-maintaining entrypoint: alive? -> print + exit 0.
+    Stale/missing? -> spawn a detached daemon and exit at once.
+    Synchronous, returns immediately either way (no `&` needed)."""
+    interval, max_age = 20.0, 90.0
+    i = 0
+    while i < len(args):
+        if args[i] == "--interval" and i + 1 < len(args):
+            try:
+                interval = float(args[i + 1])
+            except ValueError:
+                pass
+            i += 2
+        elif args[i] == "--max-age" and i + 1 < len(args):
+            try:
+                max_age = float(args[i + 1])
+            except ValueError:
+                pass
+            i += 2
+        else:
+            i += 1
+    if heartbeat_fresh(max_age) and lock_held_by_live_process():
+        print("watchdog ALIVE (fresh HEARTBEAT, nothing to do)")
+        return 0
+    try:
+        if os.path.exists(LOCKFILE):
+            os.remove(LOCKFILE)
+    except OSError:
+        pass
+    daemonize()
+    # Child continues here: re-exec as a real daemon process.
+    os.execv(sys.executable, [sys.executable, os.path.abspath(__file__),
+                              "--daemon", "--all", "--interval",
+                              str(interval)] + carry_argv)
+
+
+def lock_held_by_live_process():
+    try:
+        with open(LOCKFILE) as f:
+            pid = int((json.load(f) or {}).get("pid") or 0)
+    except (OSError, ValueError):
+        return False
+    if not pid or pid == os.getpid():
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
 def main(argv):
     import argparse
+    # --ensure is handled before the target group (it takes no target).
+    # Only --interval/--threshold pass through to the spawned daemon.
+    if "--ensure" in argv:
+        rest = [x for x in argv if x != "--ensure"]
+        keep, carry = [], []
+        i = 0
+        while i < len(rest):
+            if rest[i] in ("--interval", "--threshold") and i + 1 < len(rest):
+                carry += [rest[i], rest[i + 1]]
+                i += 2
+            else:
+                keep += [rest[i]]
+                i += 1
+        return cmd_ensure(keep, carry)
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--oid", default="")

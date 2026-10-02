@@ -97,7 +97,7 @@ CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-ORCHESTRATOR_PROTOCOL = 9
+ORCHESTRATOR_PROTOCOL = 10
 
 # Cooldown memory for dead models (.opencode/sessions/model-health.json).
 # A model observed dead (provider retry/unavailable > stuck threshold, or
@@ -107,20 +107,68 @@ ORCHESTRATOR_PROTOCOL = 9
 HEALTH = os.path.join(BASE, "..", ".opencode", "sessions", "model-health.json")
 DEFAULT_COOLDOWN_SEC = 10800
 
-HOST = os.environ.get("OPENCODE_SERVER_HOST", "localhost")
-PORT = os.environ.get("OPENCODE_SERVER_PORT", "4096")
-USER = os.environ.get("OPENCODE_SERVER_USERNAME", "opencode")
-PASS = os.environ.get("OPENCODE_SERVER_PASSWORD", "")
+# Server endpoint auto-discovery (2026-10-02: the OpenCode server port AND
+# password change on every restart, so nothing may be hardcoded or required
+# by hand). Resolution order: explicit env wins -> live `opencode serve`
+# process command line -> compiled-in default. No manual lookup needed.
+_server_cache = {"at": 0.0, "port": ""}
+
+
+def _ps_opencode_ports():
+    """Ports parsed from live `opencode ... serve --port N` processes.
+
+    Pure string parsing (no connection attempts); testable without a server.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(["ps", "-eo", "args"], capture_output=True,
+                             text=True, timeout=10).stdout or ""
+    except Exception:
+        return []
+    ports = []
+    for line in out.splitlines():
+        if "opencode" in line and "serve" in line:
+            m = re.search(r"--port\s+(\d+)", line)
+            if m and m.group(1) not in ports:
+                ports.append(m.group(1))
+    return ports
+
+
+def server_host():
+    return os.environ.get("OPENCODE_SERVER_HOST", "localhost")
+
+
+def server_port(ttl=60):
+    """Server port: env -> live serve process -> 4096 default."""
+    env = (os.environ.get("OPENCODE_SERVER_PORT") or "").strip()
+    if env:
+        return env
+    now = time.time()
+    if now - _server_cache["at"] < ttl and _server_cache["port"]:
+        return _server_cache["port"]
+    for p in _ps_opencode_ports():
+        _server_cache.update(at=now, port=p)
+        return p
+    return "4096"
+
+
+def server_user():
+    return os.environ.get("OPENCODE_SERVER_USERNAME", "opencode")
+
+
+def server_pass():
+    return os.environ.get("OPENCODE_SERVER_PASSWORD", "")
 
 
 def api(method, path, body=None):
     import base64
+    user, pwd = server_user(), server_pass()
     req = urllib.request.Request(
-        f"http://{HOST}:{PORT}{path}", method=method,
+        f"http://{server_host()}:{server_port()}{path}", method=method,
         data=json.dumps(body).encode() if body is not None else None,
         headers={"Content-Type": "application/json",
                  "Authorization": "Basic " + base64.b64encode(
-                     f"{USER}:{PASS}".encode()).decode()})
+                     f"{user}:{pwd}".encode()).decode()})
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
             return json.loads(r.read().decode() or "null")
@@ -140,12 +188,13 @@ def api_probe(method, path, body=None):
     (SESSION_DOES_NOT_EXIST), not an error.
     """
     import base64
+    user, pwd = server_user(), server_pass()
     req = urllib.request.Request(
-        f"http://{HOST}:{PORT}{path}", method=method,
+        f"http://{server_host()}:{server_port()}{path}", method=method,
         data=json.dumps(body).encode() if body is not None else None,
         headers={"Content-Type": "application/json",
-                  "Authorization": "Basic " + base64.b64encode(
-                      f"{USER}:{PASS}".encode()).decode()})
+                 "Authorization": "Basic " + base64.b64encode(
+                     f"{user}:{pwd}".encode()).decode()})
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
             return r.status, json.loads(r.read().decode() or "null")
@@ -1230,10 +1279,11 @@ def config_models():
 def live_provider_models():
     """[(provider, model)] from live GET /provider; None when unreachable."""
     import base64
+    user, pwd = server_user(), server_pass()
     req = urllib.request.Request(
-        f"http://{HOST}:{PORT}/provider",
+        f"http://{server_host()}:{server_port()}/provider",
         headers={"Authorization": "Basic " + base64.b64encode(
-            f"{USER}:{PASS}".encode()).decode()})
+            f"{user}:{pwd}".encode()).decode()})
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             provs = json.loads(r.read().decode() or "null")

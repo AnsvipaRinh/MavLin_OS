@@ -54,7 +54,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 0. ENV PRE-CHECK (once per session, BEFORE anything else — both commands
    must succeed in the SAME session):
    `git status` AND `scripts/session-reuse.py version` (need
-   `orchestrator-protocol: 9`).
+   `orchestrator-protocol: 10`).
    - Either fails ("file not found", unknown subcommand, older version) →
      PROJECT-NOT-LOADED or STALE-AGENT: the server started outside the repo
      or cached an old agent file (no hot-reload — AGENTS.md 14.6). STOP and
@@ -99,11 +99,12 @@ forever. Two mechanisms, in order:
      turns, `migrate` the same `task_id` on stuck/dead, resume on notice.
      Same task_id + same workers — background changes NOTHING about session
      identity or model failover.
-  B. WATCHDOG (mandatory for every foreground Task): BEFORE launching, ensure
-     `scripts/task-watchdog.py --daemon --all` is running (check fresh
-     HEARTBEAT in `.opencode/sessions/watchdog.log` via read; if stale/absent,
-     start it: `python3 scripts/task-watchdog.py --daemon --all
-     --interval 20 --threshold 600 &`). The watchdog is a dumb REST loop (no
+  B. WATCHDOG (mandatory for every foreground Task): BEFORE launching, run
+     `python3 scripts/task-watchdog.py --ensure --all` — one synchronous call
+     that returns at once: prints ALIVE when the daemon is healthy, otherwise
+     spawns a detached daemon itself (no `&`, no env vars, no port lookup —
+     server endpoint auto-discovers via env → live `opencode serve` process →
+     default). The watchdog is a dumb REST loop (no
      LLM): it discovers live project child sessions itself (registry AND
      server-side `GET /session` — even sessions whose Task never returned),
      aborts provider-retry waits >600s, records model cooldowns and
@@ -144,10 +145,10 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
     SESSION_ERROR) — never merely because the worker changes.
 - BEFORE every Task call run preflight + watchdog-ensure + stuck-gate:
   `scripts/session-reuse.py preflight` (offline: skips cooldown models —
-  NEVER launch a known-dead model just to watch it fail) → watchdog alive?
-  (fresh HEARTBEAT in watchdog.log via read; if stale/absent, start
-  `python3 scripts/task-watchdog.py --daemon --all &` — a foreground Task
-  without a watchdog has no runtime failover) →
+  NEVER launch a known-dead model just to watch it fail) →
+  `python3 scripts/task-watchdog.py --ensure --all` (self-maintaining: ALIVE
+  or freshly spawned; a foreground Task without a watchdog has no runtime
+  failover) →
   `scripts/session-reuse.py stuck --threshold 600` (exit 2 = STUCK).
   STUCK → `abort` if still running, then `migrate` (same `task_id`).
 - SINGLE-FLIGHT: at most ONE active worker Task per objective. If the previous

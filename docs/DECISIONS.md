@@ -1,5 +1,17 @@
 # DECISIONS
 
+## 2026-10-02 — Protocol v10: zero-config watchdog (auto-discovery + --ensure)
+
+**Date:** 2026-10-02
+**Context:** User: rebooting OpenCode daily changes server port AND password; manual lookup/typing per reboot is not workable infrastructure.
+
+**Changes:**
+1. Server endpoint auto-discovery in `session-reuse.py`: `OPENCODE_*` env wins → live `opencode ... serve --port N` process command line → `localhost:4096` default (60s ps cache). Password/username/help always from env (present in tool runtime). Nothing to look up or type, ever.
+2. `task-watchdog.py --ensure --all`: synchronous self-maintaining entrypoint — fresh HEARTBEAT + live lock holder → prints ALIVE, exit 0; else removes stale lock, double-fork daemonizes (fds to /dev/null, so the caller RETURNS — plain `&` hangs tool runtimes) and re-execs `--daemon --all`. Orchestrator ensure-step is now one bare command.
+3. Orchestrator/AGENTS updated to the one-liner; protocol v10.
+
+**Verified:** 56/56 green (new: ps-parse, env-wins, default-fallback, heartbeat fresh/stale, ensure alive-path no-spawn, ensure stale-path spawns daemon with --daemon --all).
+
 ## 2026-10-01 — Protocol v9: find-objective live fallback, stuck orphans, migrate tail-model
 
 **Date:** 2026-10-01
