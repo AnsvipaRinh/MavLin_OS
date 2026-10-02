@@ -829,6 +829,7 @@
 - [x] Empty state handling: "No recent items" on empty query; "No results for 'query'" when nothing matches
 - [x] rofi-mavericks.rasi: visual polish (Mavericks-style skeuomorphic accents, better spacing, scrollbar, rounded corners, softer colors)
 - [x] All validations pass: py_compile, rofi -dump-theme (LANG=C.UTF-8), check-sync ALL PASSED
+- [x] mv-spotlight: added headless test suite (scripts/test-mv-spotlight.py) covering rank_app_match, categorize_file, get_icon_for_file, evaluate_calculator, format_result, search_files error states, and main() query routing
 - [x] APPS.md Spotlight row updated with implemented features
 
 ### Фаза 0.31 — Launchpad gap fixes (2026-09-26, без железа)
