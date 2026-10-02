@@ -1,5 +1,18 @@
 # DECISIONS
 
+## 2026-10-02 — Fossil orchestrator + narrow stall window (live 4-min idle case)
+
+**Date:** 2026-10-02
+**Context:** User: sub session idle ~4+ min, no failover. Forensics on live sessions.
+
+**Findings (all verified live, no guessing):**
+1. The driving orchestrator (`ses_f2270870`, "MavLinOS") was created 2026-09-26 — BEFORE the entire task_id architecture (v2+). All its Task calls carry EMPTY task_id with the full initial prompt. It runs the original prompt text forever; no code change can reach it. Continuation machinery is NOT broken — it is simply never invoked by this fossil session (contrast: same-session resume+complete proven on other sessions).
+2. `stalled_generation` limit=3 missed the real stall: 9 completed tool rounds buried the user prompt 11 messages back. Widened to limit=8 (still bounded; full-history download was already worse via `live_context`).
+3. `?directory=<repo>` scoping verified: unfiltered list returned 6 sessions, scoped 100 incl. the stuck child with parentID. Discovery now always passes explicit scope.
+
+**Changes:** stall window 3→8 + deep-stall test; DECISIONS entry. No protocol bump (no new commands/allow-entries; v12 prompt already covers everything).
+**Action for user:** the fossil chat cannot be upgraded from outside — open a FRESH orchestrator chat for this track (new session = current v12 agent file), then "Продолжай". The stuck child will be aborted+migrated from there.
+
 ## 2026-10-02 — Protocol v14: Nemotron 3.5 Lightning re-enabled (build-h)
 
 **Date:** 2026-10-02

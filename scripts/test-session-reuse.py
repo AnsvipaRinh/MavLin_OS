@@ -66,7 +66,8 @@ class MockHandler(BaseHTTPRequestHandler):
     SESSIONS = {"ses_LIVE", "ses_BUSY", "ses_QUIET", "ses_MSGBROKEN",
                 "ses_WORKING", "ses_SOON", "ses_NEXT", "ses_ORPHAN",
                 "ses_WAITWORD", "ses_STRANGER", "ses_ESC", "ses_TOOLABORT",
-                "ses_STALLED", "ses_FRESHSTALL", "ses_ANCIENT"}
+                "ses_STALLED", "ses_FRESHSTALL", "ses_ANCIENT",
+                "ses_DEEPSTALL"}
     # Live-store metadata for GET /session[/{id}]: directory/title/parent.
     META = {
         "ses_ORPHAN": {"directory": "/proj",
@@ -123,6 +124,19 @@ class MockHandler(BaseHTTPRequestHandler):
                                      "time": {"created": int(_time.time() * 1000)
                                               - 30 * 1000}},
                             "parts": []}],
+        # Prompt buried 7 messages back behind tool-call rounds (live case).
+        "ses_DEEPSTALL": [{"info": {"role": "user"},
+                           "parts": [{"type": "text", "text": "do work"}]}] + [
+            {"info": {"role": "assistant", "finish": "tool-calls",
+                      "tokens": {"input": 500, "output": 42}},
+             "parts": []} for _ in range(6)] + [
+            {"info": {"role": "assistant", "finish": None,
+                      "tokens": {"input": 200000, "output": 0},
+                      "modelID": "nemotron-3-ultra-free",
+                      "providerID": "opencode",
+                      "time": {"created": int(_time.time() * 1000)
+                               - 3600 * 1000}},
+             "parts": []}],
     }
 
     def log_message(self, *a):
@@ -739,6 +753,15 @@ class DiscoveryTests(ScriptCase):
         self.with_mock_server()
         stalled, _a, _m = sr.stalled_generation("ses_LIVE", 600)
         self.assertFalse(stalled)
+
+    def test_stalled_prompt_buried_behind_tool_rounds(self):
+        # Live case: 9 completed tool rounds hide the user prompt;
+        # limit=3 missed it, limit=8 must catch the stall.
+        self.with_mock_server()
+        stalled, age, model = sr.stalled_generation("ses_DEEPSTALL", 600)
+        self.assertTrue(stalled)
+        self.assertGreater(age, 600)
+        self.assertEqual(model, "opencode/nemotron-3-ultra-free")
 
     def test_stalled_unknown_session(self):
         self.with_mock_server()

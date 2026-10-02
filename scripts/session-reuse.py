@@ -472,11 +472,13 @@ def stalled_generation(session_id, threshold=600, now=None):
     is assistant AND finish is None AND output tokens == 0 AND a user
     prompt precedes it AND its age exceeds threshold. Any real generation
     progress (output tokens, tool parts, finish set) = not stalled.
-    Pure logic over a bounded (?limit=3) tail fetch.
+    Bounded (?limit=8) tail fetch: tool-call rounds разделяют промпт и
+    оболочку (proven live: 9 completed rounds hid the prompt 11 back,
+    limit=3 missed a real stall). Still tiny vs full history download.
     """
     import time as _time
     now_ms = int((now if now is not None else _time.time()) * 1000)
-    code, msgs = api_probe("GET", f"/session/{session_id}/message?limit=3")
+    code, msgs = api_probe("GET", f"/session/{session_id}/message?limit=8")
     if code is None or not 200 <= code < 300 or not isinstance(msgs, list):
         return False, 0, ""
     if not msgs:
