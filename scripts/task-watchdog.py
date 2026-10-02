@@ -346,6 +346,8 @@ def cmd_ensure(args, carry_argv):
         print("watchdog ALIVE (fresh HEARTBEAT + server reachable, "
               "nothing to do)")
         return 0
+    if terminate_lock_holder():
+        print("stopped previous deaf daemon; starting a fresh one")
     try:
         if os.path.exists(LOCKFILE):
             os.remove(LOCKFILE)
@@ -419,6 +421,32 @@ def daemon_healthy(max_age=90):
             return False
         # Unknown future event kinds: do not judge, keep waiting for signal.
     return False
+
+
+def lock_holder_pid():
+    try:
+        with open(LOCKFILE) as f:
+            return int((json.load(f) or {}).get("pid") or 0)
+    except (OSError, ValueError):
+        return 0
+
+
+def terminate_lock_holder():
+    """SIGTERM a stale lock holder (never self). Returns True if signalled."""
+    pid = lock_holder_pid()
+    if not pid or pid == os.getpid():
+        return False
+    try:
+        os.kill(pid, 15)
+    except (OSError, ValueError):
+        return False
+    for _ in range(20):  # up to ~2s for a clean exit
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return True
+        time.sleep(0.1)
+    return True  # signalled; proceeding anyway (lock will be replaced)
 
 
 def lock_held_by_live_process():

@@ -834,6 +834,36 @@ class WatchdogEnsureTests(unittest.TestCase):
             tw.lock_held_by_live_process = real_lock
             os.remove(tmp)
 
+    def test_terminate_lock_holder(self):
+        import subprocess
+        import tempfile
+        tw = self.__class__.tw
+        real_lock = tw.LOCKFILE
+        with tempfile.NamedTemporaryFile("w+", suffix=".lock",
+                                         delete=False) as f:
+            tmp = f.name
+        try:
+            tw.LOCKFILE = tmp
+            p = subprocess.Popen(["sleep", "30"])
+            import time as _wt
+            _wt.sleep(0.2)
+            with open(tmp, "w") as f:
+                json.dump({"pid": p.pid}, f)
+            self.assertTrue(tw.terminate_lock_holder())
+            p.wait(timeout=10)
+            self.assertIsNotNone(p.returncode)
+            # No lock / foreign pid / self pid -> False, no signal.
+            with open(tmp, "w") as f:
+                json.dump({"pid": 999999999}, f)
+            self.assertFalse(tw.terminate_lock_holder())
+        finally:
+            tw.LOCKFILE = real_lock
+            try:
+                p.kill()
+            except Exception:
+                pass
+            os.remove(tmp)
+
     def test_heartbeat_fresh_and_stale(self):
         import tempfile
         tw = self.__class__.tw
