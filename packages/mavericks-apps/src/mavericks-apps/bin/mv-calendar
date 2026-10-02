@@ -28,6 +28,47 @@ if _GUI:
     gi.require_version("Gtk", "3.0")
     from gi.repository import Gtk, GLib, Gdk
 
+# Import EDS sync bridge (always available for headless --sync)
+try:
+    # When imported as module (from same package)
+    from .mv_calendar_eds import (
+        sync_eds, get_sync_status, _is_eds_available,
+        MIN_SYNC_INTERVAL, _EDS_AVAILABLE
+    )
+    _EDS_SYNC_AVAILABLE = True
+except ImportError:
+    # When run as script (relative import fails)
+    try:
+        import importlib.machinery
+        import importlib.util
+        import os
+        base = os.path.dirname(os.path.abspath(__file__))
+        eds_path = os.path.join(base, "mv_calendar_eds.py")
+        loader = importlib.machinery.SourceFileLoader("mv_calendar_eds", eds_path)
+        spec = importlib.util.spec_from_loader("mv_calendar_eds", loader)
+        eds_mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(eds_mod)
+        sync_eds = eds_mod.sync_eds
+        get_sync_status = eds_mod.get_sync_status
+        _is_eds_available = eds_mod._is_eds_available
+        MIN_SYNC_INTERVAL = eds_mod.MIN_SYNC_INTERVAL
+        _EDS_AVAILABLE = eds_mod._EDS_AVAILABLE
+        _EDS_SYNC_AVAILABLE = True
+    except Exception:
+        _EDS_SYNC_AVAILABLE = False
+        _EDS_AVAILABLE = False
+        MIN_SYNC_INTERVAL = 15 * 60
+        def sync_eds(force=False, on_progress=None):
+            return {"success": False, "imported": 0, "errors": 0,
+                    "skipped": True, "reason": "EDS sync module not available",
+                    "sources_synced": []}
+        def get_sync_status():
+            return {"eds_available": False, "source_count": 0,
+                    "last_sync": 0, "last_sync_str": "Never",
+                    "sources": {}, "next_sync_in": 0}
+        def _is_eds_available():
+            return False
+
 STORE = os.path.expanduser("~/.local/share/mv-calendar/calendars.json")
 REPEAT_MODES = ["none", "daily", "weekly", "monthly", "yearly"]
 DEFAULT_ACCOUNTS = {
@@ -528,7 +569,8 @@ if _GUI:
                     ("New Event", "list-add", self.new_event),
                     ("Calendars", "preferences-system", self.show_calendars),
                     ("Import", "document-open", self.import_ics_gui),
-                    ("Export", "document-save-as", self.export_ics_gui)]:
+                    ("Export", "document-save-as", self.export_ics_gui),
+                    ("Sync EDS", "view-refresh", self.sync_eds_gui)]:
                 b = Gtk.Button()
                 b.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
                 b.set_tooltip_text(label)
@@ -580,6 +622,20 @@ if _GUI:
             self.connect("destroy", self.on_destroy)
             self.show_all()
             self._warn_if_needed()
+            # On-launch EDS sync check (respects 15-min interval)
+            if _EDS_SYNC_AVAILABLE:
+                GLib.idle_add(self._check_eds_sync_on_launch)
+
+        def _check_eds_sync_on_launch(self):
+            """Check if EDS sync should run on launch (non-blocking)."""
+            status = get_sync_status()
+            if status["eds_available"] and status["next_sync_in"] == 0:
+                def on_progress(msg):
+                    pass  # Silent on launch
+                result = sync_eds(force=False, on_progress=on_progress)
+                if result["success"] and result["imported"] > 0:
+                    self.toast("EDS sync: imported %d event(s)" % result["imported"])
+                    self.refresh()
 
         def apply_mavericks_css(self):
             css = b"""
@@ -1274,6 +1330,27 @@ if _GUI:
             self.save()
             self.refresh()
 
+        # ------------------------------------------------------------ EDS sync
+
+        def sync_eds_gui(self, _):
+            def on_progress(msg):
+                # Update status in window title or show toast
+                self.toast(msg)
+
+            def do_sync():
+                result = sync_eds(force=True, on_progress=on_progress)
+                if result["success"]:
+                    self.toast("EDS sync: imported %d event(s) from %d source(s)"
+                               % (result["imported"], len(result["sources_synced"])))
+                    self.refresh()
+                elif result["skipped"]:
+                    self.toast("EDS sync skipped: %s" % result["reason"])
+                else:
+                    self.error_dialog("EDS sync failed: %s" % result["reason"])
+
+            # Run sync in background to avoid blocking UI
+            GLib.idle_add(do_sync)
+
         # ------------------------------------------------------------ keyboard
 
         def on_key(self, _w, ev):
@@ -1291,6 +1368,11 @@ if _GUI:
                 return True
             if ctrl and ev.keyval == Gdk.KEY_i and not in_text:
                 self.import_ics_gui(None)
+                return True
+            # Ctrl+Shift+R for EDS sync
+            shift = ev.state & Gdk.ModifierType.SHIFT_MASK
+            if ctrl and shift and ev.keyval == Gdk.KEY_r and not in_text:
+                self.sync_eds_gui(None)
                 return True
             if in_text:
                 return False
@@ -1756,9 +1838,19 @@ def check_upcoming_cli():
     return 0
 
 
+def sync_eds_cli():
+    """Oneshot entry for manual EDS sync."""
+    import json
+    result = sync_eds(force=True, on_progress=lambda m: print(m, file=sys.stderr))
+    print(json.dumps(result))
+    return 0 if result["success"] or result["skipped"] else 1
+
+
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--check-upcoming":
         return check_upcoming_cli()
+    if len(sys.argv) > 1 and sys.argv[1] == "--sync":
+        return sync_eds_cli()
     w = CalendarWindow()
     w.connect("destroy", Gtk.main_quit)
     Gtk.main()
