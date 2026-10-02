@@ -54,7 +54,8 @@ class MockHandler(BaseHTTPRequestHandler):
     }
     SESSIONS = {"ses_LIVE", "ses_BUSY", "ses_QUIET", "ses_MSGBROKEN",
                 "ses_WORKING", "ses_SOON", "ses_NEXT", "ses_ORPHAN",
-                "ses_WAITWORD", "ses_STRANGER", "ses_ESC", "ses_TOOLABORT"}
+                "ses_WAITWORD", "ses_STRANGER", "ses_ESC", "ses_TOOLABORT",
+                "ses_STALLED", "ses_FRESHSTALL"}
     # Live-store metadata for GET /session[/{id}]: directory/title/parent.
     META = {
         "ses_ORPHAN": {"directory": "/proj",
@@ -83,6 +84,25 @@ class MockHandler(BaseHTTPRequestHandler):
                                       "state": {"status": "error",
                                                 "error": "Tool execution aborted",
                                                 "metadata": {"interrupted": True}}}]}],
+        "ses_STALLED": [{"info": {"role": "user"},
+                         "parts": [{"type": "text", "text": "do work"}]},
+                        {"info": {"role": "assistant", "finish": None,
+                                  "tokens": {"input": 150000, "output": 0,
+                                             "reasoning": 0},
+                                  "modelID": "longcat-2.5-preview-free",
+                                  "providerID": "opencode",
+                                  "time": {"created": int(_time.time() * 1000)
+                                           - 3600 * 1000}},
+                         "parts": []}],
+        "ses_FRESHSTALL": [{"info": {"role": "user"},
+                            "parts": [{"type": "text", "text": "do work"}]},
+                           {"info": {"role": "assistant", "finish": None,
+                                     "tokens": {"input": 10, "output": 0},
+                                     "modelID": "longcat-2.5-preview-free",
+                                     "providerID": "opencode",
+                                     "time": {"created": int(_time.time() * 1000)
+                                              - 30 * 1000}},
+                            "parts": []}],
     }
 
     def log_message(self, *a):
@@ -541,11 +561,22 @@ class WatchdogTests(ScriptCase):
         self.assertEqual(r.returncode, 0, r.stderr)
 
     def journal_lines(self):
+        # Tolerant reader: a live daemon may append mid-read (torn tail
+        # line); skip unparseable lines instead of failing.
         try:
             with open(WDLOG) as f:
-                return [json.loads(line) for line in f if line.strip()]
+                content = f.read()
         except OSError:
             return []
+        out = []
+        for line in content.split("\n"):
+            if not line.strip():
+                continue
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                pass
+        return out
 
     def test_abort_dead_retry_over_threshold(self):
         self.reg_busy()
@@ -656,6 +687,64 @@ class DiscoveryTests(ScriptCase):
                               "--threshold", "600")
         self.assertIn("watch ses_WAITWORD", r.stdout, r.stdout + r.stderr)
         self.assertNotIn("ses_WAITWORD", MockHandler.ABORTS)
+
+    def with_mock_server(self):
+        os.environ["OPENCODE_SERVER_HOST"] = "127.0.0.1"
+        os.environ["OPENCODE_SERVER_PORT"] = str(self.port)
+        os.environ["OPENCODE_SERVER_USERNAME"] = "u"
+        os.environ["OPENCODE_SERVER_PASSWORD"] = "p"
+        # Purge cached auto-discovery so direct in-process calls hit mock.
+        sr._server_cache.update(at=0.0, port="")
+        self.addCleanup(os.environ.pop, "OPENCODE_SERVER_HOST", None)
+        self.addCleanup(os.environ.pop, "OPENCODE_SERVER_PORT", None)
+        self.addCleanup(os.environ.pop, "OPENCODE_SERVER_USERNAME", None)
+        self.addCleanup(os.environ.pop, "OPENCODE_SERVER_PASSWORD", None)
+
+    def test_stalled_old_zero_output(self):
+        self.with_mock_server()
+        stalled, age, model = sr.stalled_generation("ses_STALLED", 600)
+        self.assertTrue(stalled)
+        self.assertGreater(age, 600)
+        self.assertEqual(model, "opencode/longcat-2.5-preview-free")
+
+    def test_stalled_fresh_is_not_stalled(self):
+        self.with_mock_server()
+        stalled, age, _m = sr.stalled_generation("ses_FRESHSTALL", 600)
+        self.assertFalse(stalled)
+        self.assertLess(age, 600)
+
+    def test_stalled_with_progress_is_not_stalled(self):
+        # ses_LIVE: assistant message but no preceding user prompt.
+        self.with_mock_server()
+        stalled, _a, _m = sr.stalled_generation("ses_LIVE", 600)
+        self.assertFalse(stalled)
+
+    def test_stalled_unknown_session(self):
+        self.with_mock_server()
+        stalled, _a, _m = sr.stalled_generation("ses_NOPE", 600)
+        self.assertFalse(stalled)
+
+    def test_stalled_cmd_exit_codes(self):
+        r = self.run_script("stalled", "ses_STALLED", "--threshold", "600")
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("STALLED ses_STALLED", r.stdout)
+        r = self.run_script("stalled", "ses_FRESHSTALL", "--threshold", "600")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
+    def test_watchdog_aborts_status_blind_stall(self):
+        # No status entry (idle map) + 0-token shell older than threshold
+        # = abort, even though /session/status shows nothing.
+        self.run_script("register", "ses_STALLED", "--agent", "build",
+                        "--objective", "ST", "--task", "do ST",
+                        "--model", "opencode/longcat-2.5-preview-free")
+        r = self.run_watchdog("--once", "--session", "ses_STALLED",
+                              "--threshold", "600")
+        self.assertIn("aborted ses_STALLED", r.stdout, r.stdout + r.stderr)
+        self.assertIn("ses_STALLED", MockHandler.ABORTS)
+        with open(REG) as f:
+            meta = json.load(f)["sessions"]["ses_STALLED"]
+        self.assertIn("lastAbort", meta)
+        self.assertEqual(meta["state"], "reusable")
 
     def test_unclassified_wait_still_cools_down(self):
         # "agent unavailable" has no quota wording (verdict UNKNOWN), but a
@@ -896,8 +985,14 @@ class WatchdogEnsureTests(unittest.TestCase):
             tw.heartbeat_fresh, tw.lock_held_by_live_process = real_hb, real_lock
 
     def test_ensure_stale_path_spawns_daemon(self):
+        import tempfile
         tw = self.__class__.tw
         real_hb, real_lock = tw.heartbeat_fresh, tw.lock_held_by_live_process
+        real_lockfile = tw.LOCKFILE
+        with tempfile.NamedTemporaryFile("w+", suffix=".lock",
+                                         delete=False) as f:
+            tmp_lock = f.name
+        tw.LOCKFILE = tmp_lock
         real_daemonize, real_execv = tw.daemonize, os.execv
         calls = {}
         tw.heartbeat_fresh = lambda max_age: False
@@ -923,6 +1018,11 @@ class WatchdogEnsureTests(unittest.TestCase):
             tw.heartbeat_fresh, tw.lock_held_by_live_process = real_hb, real_lock
             tw.daemonize = real_daemonize
             os.execv = real_execv
+            tw.LOCKFILE = real_lockfile
+            try:
+                os.remove(tmp_lock)
+            except OSError:
+                pass
 
 
 if __name__ == "__main__":
