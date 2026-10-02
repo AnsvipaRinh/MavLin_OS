@@ -68,9 +68,18 @@ a made-up identity." ;;
 esac
 
 command -v git-filter-repo >/dev/null 2>&1 || \
-  pip show git-filter-repo >/dev/null 2>&1 || \
   python3 -c "import git_filter_repo" 2>/dev/null || \
   die "git-filter-repo not found (install: pip install git-filter-repo)"
+
+# Resolve a working invocation: prefer the standalone script (also makes
+# `git filter-repo` work as a subcommand), fall back to module execution.
+export PATH="$HOME/.local/bin:$PATH"
+if command -v git-filter-repo >/dev/null 2>&1; then
+  FILTER_REPO=(git-filter-repo)
+else
+  FILTER_REPO=(python3 -m git_filter_repo)
+fi
+echo "using: ${FILTER_REPO[*]}"
 
 SOURCE_REPO="$(cd "$SOURCE_REPO" && pwd -P)"
 git -C "$SOURCE_REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
@@ -103,16 +112,16 @@ sed "s|<GITHUB_NOREPLY_EMAIL>|$NOREPLY_EMAIL|g" \
 grep -v '^#' .mailmap-rules.txt > .mailmap-clean.txt
 
 echo "--- pass 1/4: mailmap (both identities -> Ansvipa_Rinh <$NOREPLY_EMAIL>)"
-git filter-repo --mailmap .mailmap-clean.txt --force
+"${FILTER_REPO[@]}" --mailmap .mailmap-clean.txt --force
 
 echo "--- pass 2/4: replace-text (personal name/email in old doc blobs)"
-git filter-repo --replace-text "$SCRIPT_DIR/02-replace-text.txt" --force
+"${FILTER_REPO[@]}" --replace-text "$SCRIPT_DIR/02-replace-text.txt" --force
 
 echo "--- pass 3/4: remove archived Apple-derived originals from ALL history"
-git filter-repo --path docs/isolated-assets/apple-derived/ --invert-paths --force
+"${FILTER_REPO[@]}" --path docs/isolated-assets/apple-derived/ --invert-paths --force
 
 echo "--- pass 4/4: strip 30 pre-522ab98 Apple-derived icon blobs"
-git filter-repo --strip-blobs-with-id "$SCRIPT_DIR/03-apple-derived-blob-ids.txt" --force
+"${FILTER_REPO[@]}" --strip-blobs-with-id "$SCRIPT_DIR/03-apple-derived-blob-ids.txt" --force
 
 # --- verification gates ------------------------------------------------------
 verify_rewrite() {
