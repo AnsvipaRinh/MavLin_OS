@@ -2,7 +2,7 @@
   "schema": 1,
   "track": "completeness-C1 P1 implementation",
   "date": "2026-09-29",
-  "host": "WSL2 Arch (AMD R7 5800HS 3.19 GHz, 2 vCPU, 7.6 GB)",
+  "host": "<build-host-platform> Arch (<build-host-cpu> 3.19 GHz, 2 vCPU, 7.6 GB)",
   "method": "median of 3 runs; C2 = full-process wall (timer spawns a process); C3 = in-process scan wall (scan is called in-process by the app)",
   "C2_timer_wall_s": {
     "mv-calendar --check-upcoming": {"before": 0.4115, "after": 0.0964, "delta_pct": -77},
@@ -17,6 +17,6 @@
     "C2: lazy Gtk import in timer one-shots; Gtk import (~150-400 ms) eliminated from the --check-* path.",
     "C3: mtime+size+count-keyed scan-result cache; warm hit skips all file reads. Cold miss carries a one-time fingerprint+cache-write overhead per library change.",
     "C3 cold-miss overhead is the price of invalidation (walk+stat fingerprint) + JSON cache write; warm scan is the common case (2nd+ app open) and is 7.7x (music) / 2.1x (photos) faster than the pre-cache full scan.",
-    "All host numbers are WSL2/5800HS-relative deltas, NOT MacBook predictions (honesty contract)."
+    "All host numbers are <build-host-platform>/<build-host-cpu>-relative deltas, NOT MacBook predictions (honesty contract)."
   ]
 }

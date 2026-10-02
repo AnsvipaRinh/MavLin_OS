@@ -30,7 +30,7 @@ It is a Mavericks-era UX layer over standard Linux userspace.
 # 1. Build local packages (mavericks-apps, mavericks-theme, macbook12-audio-driver)
 ./scripts/build-local-pkgs.sh
 
-# 2. Run pre-commit gate (221 checks: mirrors, syntax, security, ISO hardening)
+# 2. Run pre-commit gate (142 checks: mirrors, syntax, security, ISO hardening)
 ./scripts/check-sync.sh --check-repos
 
 # 3. Build ISO (requires root for mkarchiso; run on Arch host or CI)
@@ -88,7 +88,7 @@ Mac backend — documented stub only. See `docs/LAB_HARNESS.md`.
 | `docs/PROGRESS.md` | Phase-by-phase implementation log |
 | `docs/APPS.md` | 46-objective application inventory + statuses |
 | `docs/NEEDS_HARDWARE_TEST.md` | Every item requiring real hardware |
-| `docs/SAFARI_SPEC.md` | Firefox chrome CSS fidelity spec (498 lines, 221-check gate) |
+| `docs/SAFARI_SPEC.md` | Firefox chrome CSS fidelity spec (498 lines, 142-check gate) |
 | `docs/PERF_CRITERIA.md` | Optimization stopping rules (P0/P1/P2/IGNORE) |
 | `docs/BENCHMARKS.md` | Measured deltas + calibration maps |
 | `docs/KEYBOARD.md` | Global Super-layer shortcut map |

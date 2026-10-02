@@ -26,8 +26,8 @@
 ## Ловушки (зафиксировано кровью)
 
 1. Drop-in в `/etc/sudoers.d/` НЕ сработал: в конце `/etc/sudoers` ПОСЛЕ
-   `@includedir` есть явная строка `builder ALL=(ALL) ALL` (и `vsevolod`
-   ALL=(ALL) ALL) — действует последнее совпадение (last match wins),
+   `@includedir` есть явная строка `builder ALL=(ALL) ALL` (и
+   `<build-user-2> ALL=(ALL) ALL`) — действует последнее совпадение (last match wins),
    она перебивала NOPASSWD. Править надо сам `/etc/sudoers`.
 2. `sudo -n true` сразу после `sudo -S ...` врет: timestamp закэширован,
    проверять только после `sudo -K`.

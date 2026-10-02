@@ -121,11 +121,11 @@ jobs:
           # Placeholder for theme validation (GTK/CSS syntax, asset checks)
           echo "Theme validation gates - TODO: implement"
 
-      - name: Firefox/Chrome CSS gates
-        run: |
-          # Reuse check-sync.sh firefox chrome css validation
-          ./scripts/check-sync.sh 2>&1 | grep -A5 "firefox chrome css" || true
-
+      # NOTE: check-sync.sh is enforced by the static-analysis job ("Full sync
+      # check" step runs ./scripts/check-sync.sh directly). A previous version
+      # of this job piped check-sync through `grep ... || true`, which swallowed
+      # its exit code and could never fail — removed by the forensic audit
+      # (docs/FORENSIC_AUDIT.md, finding F6).
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest

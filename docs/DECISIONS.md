@@ -1556,7 +1556,7 @@ exact id `opencode/longcat-2.5-preview-free` was guessed right.
 
 **Auth inventory (presence only, no secrets read/committed):** container
 `~/.local/share/opencode/auth.json` has `openrouter` + `opencode` keys;
-Windows profile `Vsevolod Avdonkin` has `openrouter` + `google` + `groq` but
+Windows profile of the project author has `openrouter` + `google` + `groq` but
 NO `opencode` key — Zen chain entries (#3–5) cannot run on the Windows-spawned
 server until the user runs `/connect` → OpenCode Zen there. Nothing to copy
 into the repo (keys must never be committed); OpenRouter key already present
@@ -2371,7 +2371,7 @@ validation: real rendering at 2304×1440, multi-hour session growth.
 
 6. **triage.sh routing model.** REJECTED → `dangerous` (no topical routing). REQUIRES_SECURITY_REVIEW → adds `OS-SEC-REVIEW` objective, topical classification still computed. Every matching category adds its objective (PR can route to several review sessions); classification = first/highest-priority match. File-type refinement only sets classification when text analysis found nothing. Word-boundary fixes for `ux` (in "linux"), bare `ui`/`ci`/`iso`. Integration checked before backend (cross-component signals are more specific than service/daemon keywords). Validated 5/5.
 
-7. **Git history preserved; author identity rewrite is a USER decision.** History contains 4 commits by `Vsevolod Avdonkin <vsevolod@archlinux>` (personal email) + 324 by `Mavericks Linux Agent <agent@mavericks-linux.local>`. Per publication rules, history rewrite (filter-repo mailmap) requires explicit user consent — NOT done automatically. Options documented in `docs/RELEASE_READINESS.md`.
+7. **Git author identity rewrite before first public push — USER DECISION (b), 2026-10-03.** History contains 4 commits by the original author under a personal identity (real name + personal email, redacted from this repo per publication policy) + 325 by `Mavericks Linux Agent <agent@mavericks-linux.local>` (temporary local alias of the previous agent — NOT a public identity). User decision: rewrite ALL commits to the public project identity `Ansvipa_Rinh <ID+Ansvipa_Rinh@users.noreply.github.com>` before the first push. The numeric GitHub ID cannot be fabricated — it is obtained after GitHub authentication, so the rewrite happens only at publication time. Scope: the 4 personal-identity commits include the ROOT commit (`82386e5`), so any mailmap rewrite changes ALL 329 commit IDs, not just 4. Content mentions of the personal name/email (17 occurrences in old doc blobs, 13 lines in 4 current docs) are removed in the same rewrite via `git filter-repo --replace-text`. Exact procedure: `docs/RELEASE_READINESS.md` §3.1; forensic evidence: `docs/FORENSIC_AUDIT.md`. Not performed yet (requires GitHub numeric ID + explicit publication step).
 
 8. **CODE_OF_CONDUCT = Contributor Covenant 2.1** (standard, well-understood by contributors); enforcement contact = private report to maintainers per SECURITY.md (no public email published).
 

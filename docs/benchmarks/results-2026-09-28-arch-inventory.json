@@ -1,7 +1,7 @@
 {
   "date": "2026-09-28 18:34:59",
   "host": {
-    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "kernel": "6.18.33.2 (<build-host-platform>)",
     "cpu_count": 2,
     "container": "unknown"
   },

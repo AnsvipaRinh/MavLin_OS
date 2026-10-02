@@ -1032,7 +1032,7 @@
 
 ### OS-GH — GitHub publication + contribution architecture (2026-10-03, без железа)
 
-- [x] Forensic re-audit of full tree (1112 tracked files): git status/branches/remotes (master, no remotes), .gitignore coverage, generated artifacts (out/ 2.7G ISO gitignored), secret scan (regex sweep across all history: CLEAN), personal-path scan
+- [x] Forensic re-audit of full tree (1140 tracked files — the original "1112" was the count at audit START; the publication commit added 28 of its own pipeline files, root-caused in the 2026-10-03 forensic audit): git status/branches/remotes (master, no remotes), .gitignore coverage, generated artifacts (out/ ISO gitignored), secret scan (regex sweep across all history: CLEAN — independently re-verified: 1898 reachable + 3 unreachable blobs, 0 findings), personal-path scan
 - [x] Public/private boundary sanitized: all `/home/builder` absolute paths removed from tracked files — pacman.conf local repo → `file:///tmp/mavericks-repo` (matches build-local-pkgs.sh default + ENVIRONMENT.md doc), test-session-reuse.py mock ps output → `/home/user`, test_mv_launchpad.py + lab/tests/contrib/test_security_scan.py → paths derived from `__file__`, docs (DECISIONS/ENVIRONMENT/PROGRESS) → `<build-host>` placeholder
 - [x] Root LICENSE added (GPL-3.0-or-later; per-package licenses in docs/LICENSES.md)
 - [x] CODE_OF_CONDUCT.md added (Contributor Covenant 2.1, enforcement via private maintainer report per SECURITY.md)
@@ -1048,4 +1048,22 @@
   - configs/profiles/generic/99-mavericks-network.conf had drifted from airootfs mirror (source was condensed, mirror kept evidence comments) — synced source to richer mirror content
   - mavericks-firstboot.sh never sourced /etc/mavericks/profile.conf (written by mavericks-profile-select.sh) — profile selection had no effect. Fixed: firstboot sources PROFILE_CONF; MacBook fragments (S3X/display cmdline, TLP power, NM wifi-backend, brcmfmac NVRAM) now gated on `macbook_profile()` (macbook10,1 or legacy-absent); generic profile → fragments skipped + stale fragments removed. Mirrored to airootfs (check-sync pair)
   - Gates: check-profile-sync.sh OK, check-sync.sh ALL CHECKS PASSED
+
+### OS-FORENSIC — Independent forensic audit of publication readiness (2026-10-03, без железа)
+
+Triggered by the chat-transfer context recovery: the previous agent's
+final report was treated as CLAIMS, not facts, and independently
+re-verified against the repository. Full report: `docs/FORENSIC_AUDIT.md`.
+
+- [x] Re-verified independently: check-sync (142 OK / 0 FAIL), check-profile-sync OK, security-scan 5/5, triage 5/5, py_compile clean, bash -n clean, sim harness (25 scenarios / 110 assertions), spot-run test-mv-calculator (141) + test-mv-notes (41), full test-mv-*.py suite (21/22 pass; test-mv-photos has 2 known pre-existing headless failures — documented, not a regression)
+- [x] Secret sweep across ALL history (1898 reachable blobs + 3 unreachable blobs, 31.5 MB): 0 credentials/tokens/keys; high-entropy sweep: only hashes/test strings; PII sweep (phones/addresses/cards): noise only
+- [x] Root-caused the 1112-vs-1140 tracked-file discrepancy: count was taken at audit START (parent `939c8ad` = 1112); publication commit `b27af3d` added 28 of its own pipeline files → 1140. The "complete inventory reviewed" claim never covered those 28 as an audited inventory (they were same-session authored)
+- [x] Resolved the "history clean" contradiction: worktree functional paths ARE sanitized, but history retains 204 `/home/builder` line-occurrences in 136 old blob versions (10 files), 17 personal-email occurrences in old doc blobs, and 4 commits (incl. the ROOT commit) under the original author's personal identity — all public after push unless the §3.1 rewrite is applied
+- [x] Quantified identity-rewrite scope: personal-identity set includes the root commit → ALL 329 commit IDs change under mailmap (not just 4)
+- [x] Found NEW issues the previous audit missed: (F5) 3 Apple-derived SVGs tracked for publication despite NON-redistributable verdict in LICENSES.md §6 — isolation prevents installation, not redistribution; (F10) build-host hardware fingerprint (Ryzen 7 5800HS / WSL2) recorded verbatim in 14 tracked benchmark JSONs while the audit itself was self-contradictory on their classification; (F6) CI unit-tests job swallowed check-sync exit code via `grep ... || true`
+- [x] Sanitized: personal name/email from 4 current docs (DECISIONS, ENVIRONMENT, PUBLIC_AUDIT, RELEASE_READINESS) → neutral placeholders (audit facts preserved); benchmark host fingerprint → `<build-host-cpu>` / `<build-host-platform>` (measurements preserved)
+- [x] Corrected stale audit figures: tracked files 1112 → 1140, `.git` 7.9M → 5.4M, working tree "~10M" → 6.2M tracked (2.8G with gitignored ISO), check-sync "221/227 checks" → 142 verified lines
+- [x] Fixed CI: removed exit-code-swallowing step from unit-tests job
+- [x] User decisions recorded: identity rewrite = option (b) to `Ansvipa_Rinh <ID+Ansvipa_Rinh@users.noreply.github.com>` (numeric ID pending GitHub auth — must not be fabricated); `.opencode/` internals stay public (audited: no credentials/keys/paths/session data); branch rename master → main scheduled inside the publication procedure; GitHub auth/remote/push explicitly NOT performed
+- [x] Open: D1 Apple-derived assets (user decision required before push), ISO rebuild re-verification (REQUIRES EXTERNAL EVIDENCE — hours + root), first real GitHub Actions run (REQUIRES EXTERNAL EVIDENCE)
 

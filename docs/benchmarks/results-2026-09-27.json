@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "host": {
-    "kernel": "6.18.33.2-microsoft-standard-WSL2",
-    "cpu_model": "AMD Ryzen 7 5800HS with Radeon Graphics",
+    "kernel": "6.18.33.2 (<build-host-platform>)",
+    "cpu_model": "<build-host-cpu>",
     "cpu_count": 2,
     "mem_total_mb": 7643,
-    "container": "WSL2",
+    "container": "<build-host-platform>",
     "display": ":0",
     "date": "2026-09-27 20:09:44"
   },
