@@ -770,6 +770,21 @@ class DiscoveryTests(ScriptCase):
         r2 = self.run_script("health")
         self.assertNotIn("north-mini", r2.stdout)
 
+    def test_no_reabort_when_tail_unchanged(self):
+        # First abort records lastAbort; second run sees the same tail and
+        # must NOT abort again (no cooldown creep, no journal spam).
+        self.run_script("register", "ses_STALLED", "--agent", "build",
+                        "--objective", "ST", "--task", "do ST",
+                        "--model", "opencode/longcat-2.5-preview-free")
+        r1 = self.run_watchdog("--once", "--session", "ses_STALLED",
+                               "--threshold", "600")
+        self.assertIn("aborted ses_STALLED", r1.stdout, r1.stdout + r1.stderr)
+        n1 = MockHandler.ABORTS.count("ses_STALLED")
+        r2 = self.run_watchdog("--once", "--session", "ses_STALLED",
+                               "--threshold", "600")
+        self.assertIn("already aborted", r2.stdout, r2.stdout + r2.stderr)
+        self.assertEqual(MockHandler.ABORTS.count("ses_STALLED"), n1)
+
     def test_unclassified_wait_still_cools_down(self):
         # "agent unavailable" has no quota wording (verdict UNKNOWN), but a
         # PROVEN 7000s provider wait is a timetable fact: abort + cooldown.

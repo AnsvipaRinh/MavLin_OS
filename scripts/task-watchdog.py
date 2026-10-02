@@ -164,6 +164,35 @@ def check_session(sid, threshold, do_abort=True):
     evidence_fresh = True
     stalled, stall_age, stall_model = sr.stalled_generation(sid, threshold)
     if stalled:
+        # Do NOT re-abort the same dead attempt every cycle: if the tail
+        # is unchanged since our last abort, nobody resumed yet — aborting
+        # again is a no-op that only extends the cooldown indefinitely.
+        # The ball is in the orchestrator's court (resume/migrate).
+        try:
+            last_ab = (meta.get("lastAbort") or {})
+            if last_ab.get("at"):
+                _code, _msgs = sr.api_probe(
+                    "GET", f"/session/{sid}/message?limit=1")
+                if isinstance(_msgs, list) and _msgs:
+                    _info = (_msgs[-1] or {}).get("info", {}) or {}
+                    _created = ((_info.get("time") or {}).get("created")) or 0
+                    _aborted_at = last_ab.get("at", "")
+                    import datetime as _dt
+                    try:
+                        _abts = _dt.datetime.fromisoformat(
+                            str(_aborted_at).replace("Z", "+00:00")
+                            ).timestamp() * 1000.0
+                    except (ValueError, TypeError):
+                        _abts = 0
+                    if _created and _created <= _abts:
+                        journal("SKIP_ABORTED_RECENTLY", session=sid,
+                                note="tail unchanged since last abort; "
+                                     "awaiting orchestrator resume/migrate")
+                        return "watch", ("already aborted, tail unchanged — "
+                                         "awaiting resume, not re-aborting")
+        except Exception as e:
+            journal("SKIP_CHECK_FAILED", session=sid,
+                    error=str(e)[:120])
         journal("STALLED", session=sid, stallSec=stall_age,
                 model=stall_model or meta.get("model", ""))
         verdict, matched = "MODEL_TIMEOUT", "stalled-no-output"
