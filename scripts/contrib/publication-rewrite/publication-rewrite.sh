@@ -136,10 +136,12 @@ verify_rewrite() {
   fi
 
   # personal strings absent from every remaining commit's content
-  if git log --all -p | grep -qE "Vsevolod|vsevolod@archlinux|Avdonkin"; then
+  # (case-insensitive: catches "Vsevolod", "vsevolod", "Avdonkin",
+  # "vsevolod@archlinux" — the three forms proven to exist in history)
+  if git log --all -p | grep -qiE "vsevolod|avdonkin"; then
     echo "  [FAIL] personal identity strings still present in history"; fail=1
   else
-    echo "  [OK] personal name/email absent from all history content"
+    echo "  [OK] personal name/email/username absent from all history content"
   fi
 
   # apple-derived archived path absent from all history
