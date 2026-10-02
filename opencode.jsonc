@@ -7,9 +7,9 @@
   //   NEVER inherits the orchestrator session model;
   // - background-plane (title/summary/compaction): small_model below,
   //   chain model so auto "cheaper model" pick stays in-chain.
-  // Worker pool (2026-09-29, protocol v3, see DECISIONS.md): build is the
-  // primary worker; build-b/build-c are HIDDEN subagent fallbacks pinned to
-  // other chain entries. Runtime agent rotation = Task subagent_type switch
+  // Worker pool (2026-09-29+, see DECISIONS.md): build is the
+  // primary worker; build-b..build-g are HIDDEN subagent fallbacks pinned to
+  // other chain entries (build-d..g EXPERIMENTAL since 2026-10-02). Runtime agent rotation = Task subagent_type switch
   // (no server restart, no config paste). mode=subagent + hidden=true keeps
   // them out of the Tab picker and @-menu; they are invokable ONLY via the
   // Task tool when the orchestrator's task allow-list permits. NEVER pin any
@@ -48,6 +48,53 @@
       "hidden": true,
       "model": "opencode/longcat-2.5-preview-free",
       "description": "Implementation worker (fallback C): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
+      "permission": {
+        "task": {
+          "*": "deny"
+        }
+      }
+    },
+    // Experimental fallback workers (2026-10-02, user request; chain #6-9).
+    // Same shape as build-b/build-c; only the model pin differs. Ranked
+    // after all proven workers; live Task use is their real proof.
+    "build-d": {
+      "mode": "subagent",
+      "hidden": true,
+      "model": "opencode/fledge-alpha-free",
+      "description": "Implementation worker (fallback D, EXPERIMENTAL): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
+      "permission": {
+        "task": {
+          "*": "deny"
+        }
+      }
+    },
+    "build-e": {
+      "mode": "subagent",
+      "hidden": true,
+      "model": "opencode/ling-3.0-flash-fin-free",
+      "description": "Implementation worker (fallback E, EXPERIMENTAL): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
+      "permission": {
+        "task": {
+          "*": "deny"
+        }
+      }
+    },
+    "build-f": {
+      "mode": "subagent",
+      "hidden": true,
+      "model": "opencode/mimo-v2.6-flash-free",
+      "description": "Implementation worker (fallback F, EXPERIMENTAL): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
+      "permission": {
+        "task": {
+          "*": "deny"
+        }
+      }
+    },
+    "build-g": {
+      "mode": "subagent",
+      "hidden": true,
+      "model": "opencode/space-bunny-free",
+      "description": "Implementation worker (fallback G, EXPERIMENTAL): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
       "permission": {
         "task": {
           "*": "deny"

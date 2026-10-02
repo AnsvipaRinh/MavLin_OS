@@ -1,5 +1,17 @@
 # DECISIONS
 
+## 2026-10-02 — Protocol v13: 4 experimental fallback workers (user request)
+
+**Date:** 2026-10-02
+**Context:** User: all primary models intermittently in quota/timeout; requested adding OpenCode Zen free models (Fledge Alpha, Ling 3.0 Flash Fin, MiMo V2.6 Flash, Space Bunny) to the worker rotation so "Продолжай" tries them too.
+
+**Verification (not assumption):** all four resolve live on the `opencode` provider with `toolcall:true` and ~1M context (checked via `GET /provider` metadata). Live generation quality is UNPROVEN (fleet-wide quota wave makes a probe meaningless right now) — marked EXPERIMENTAL, ranked #6–#9 after all proven workers, never displacing order. `never` (Muse Spark) untouched; primary `build` untouched.
+
+**Changes:** chain entries #6–#9 with worker mapping; `opencode.jsonc` hidden workers `build-d`..`build-g` (same deny-shape); orchestrator task allow-list + worker-pool texts; AGENTS roles/lifecycle texts; `preflight-all-cooling` test now derives the pool from live config instead of a hardcoded triple; protocol v13 (new allow-list needs server restart).
+
+**Verified:** 70/70 green; `worker_pins()` lists all 7 in order; rotation skips correctly.
+**User action REQUIRED once:** server restart from repo dir (new workers + v13 agent load only at start). After that, failover walks build → build-b → … → build-g automatically.
+
 ## 2026-10-02 — Protocol v11: status-blind stall detection (the actual hang shape)
 
 **Date:** 2026-10-02

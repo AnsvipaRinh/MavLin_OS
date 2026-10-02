@@ -988,7 +988,7 @@ Do not return a "final summary" merely because the audit is complete. The audit 
 > Two user roles only: **Build** (the built-in full agent: files, bash,
 > research, planning, implementation) and **Orchestrator** (manages work,
 > never implements). Orchestrator delegates ALL work to the worker pool
-> (`build` + hidden `build-b`/`build-c` fallbacks) via the Task tool and
+> (`build` + hidden `build-b`..`build-g` fallbacks) via the Task tool and
 > manages session continuation/reuse/retire/migrate. A Task completion,
 > commit, validation pass, audit, or phase completion is a checkpoint,
 > not a stop condition.
@@ -1005,9 +1005,9 @@ Do not return a "final summary" merely because the audit is complete. The audit 
 
 | Role | Mode | Edit/Write | Bash | Task (invoke) | Purpose |
 |---|---|---|---|---|---|
-| Orchestrator | primary | DENY | DENY except `git status/log/diff` | `build`, `build-b`, `build-c` | read state, choose objective, delegate, verify, continue loop |
+| Orchestrator | primary | DENY | DENY except `git status/log/diff` | `build`, `build-b`..`build-g` | read state, choose objective, delegate, verify, continue loop |
 | Build | primary (built-in) | ALLOW | ALLOW | ALLOW | research, plan, implement, test, docs, commit, short result |
-| build-b / build-c | subagent (hidden) | ALLOW | ALLOW | DENY (no nesting) | fallback workers, other chain pins, runtime rotation |
+| build-b..build-g | subagent (hidden) | ALLOW | ALLOW | DENY (no nesting) | fallback workers, other chain pins, runtime rotation |
 
 Residual limitation (documented, not hidden): OpenCode permissions cannot
 deny `read`, and Orchestrator keeps read/search/web/skill tools — that is
@@ -1032,7 +1032,7 @@ READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.m
 TASK LIFECYCLE (binding, full text in `.opencode/agents/orchestrator.md`):
 ENV PRE-CHECK (`git status` + `version` must both succeed; else
 PROJECT-NOT-LOADED/STALE-AGENT = stop, no improvising) →
-protocol check `version` (need v12) →
+protocol check `version` (need v13) →
 REBOOT RULE (sessions PERSIST across restart — verified vs 1.18.32 SDK:
 `GET /session/{id}` is authoritative; status absence = idle, never gone;
 fresh ONLY on verified 404) →
@@ -1077,7 +1077,7 @@ Single-model quota/rate-limit exhaustion is NOT a blocker — follow
 MODEL FALLBACK in `.opencode/agents/orchestrator.md` (chain:
 `.opencode/model-fallback.json`, resolver: `scripts/session-reuse.py models`,
 memory: `scripts/session-reuse.py health`). Rotation is a runtime
-`subagent_type` switch (`build` → `build-b` → `build-c`), no restart, no paste.
+`subagent_type` switch (`build` → `build-b` → … → `build-g`), no restart, no paste.
 A sub-agent stuck in provider retry/unavailable backoff longer than 600s
 (10 min, e.g. the observed 8800s "agent unavailable" hang) is NOT waited
 out — it is a STUCK-TASK failover: keep the logical session, record the dead
@@ -1161,7 +1161,7 @@ scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>  # same-sess
 scripts/session-reuse.py find-objective <oid>          # resume-first lookup: oid -> LIVE session + Task block
 scripts/session-reuse.py health                    # cooldown memory (dead models + retry-in)
 scripts/session-reuse.py mark-alive <model>        # clear cooldown after good result
-scripts/session-reuse.py version                   # need orchestrator-protocol: 12 (else STALE-AGENT)
+scripts/session-reuse.py version                   # need orchestrator-protocol: 13 (else STALE-AGENT)
 scripts/session-reuse.py exists <id>               # SESSION_EXISTS_IDLE/BUSY/RETRYING vs DOES_NOT_EXIST
 scripts/session-reuse.py abort <id>                # cancel blocked attempt, history survives
 scripts/session-reuse.py preflight                 # offline: skip cooldown models BEFORE Task
@@ -1190,7 +1190,7 @@ Machine equivalent of "visible in UI": fresh `GET /agent` (or
 ### 14.7 Workers never delegate (no nested sub-agents)
 
 `agent.build*.permission.task` = deny-all in project `opencode.jsonc` (build,
-build-b, build-c), so the Task tool offers a worker zero invokable agents
+build-b..build-g), so the Task tool offers a worker zero invokable agents
 (not even `orchestrator` — this also kills the worker→orchestrator
 self-invoke). The stock Build role is untouched (no custom role file; hidden
 fallback workers never enter the picker, which still shows only

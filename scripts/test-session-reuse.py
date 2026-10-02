@@ -542,9 +542,9 @@ class PreflightTests(ScriptCase):
         self.assertIn("PREFLIGHT_OK subagent_type=build-b", r.stdout)
 
     def test_preflight_all_cooling_waits(self):
-        for m in ("opencode/nemotron-3-ultra-free",
-                  "openrouter/cohere/north-mini-code:free",
-                  "opencode/longcat-2.5-preview-free"):
+        # ALL worker pins must cool (pool size comes from live config,
+        # not a hardcoded triple — the pool grew before).
+        for _role, m in sr.worker_pins():
             self.run_script("mark-dead", m, "--reason", "test")
         r = self.run_script("preflight")
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)

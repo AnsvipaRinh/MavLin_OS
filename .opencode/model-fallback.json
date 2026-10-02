@@ -59,7 +59,47 @@
       "worker": null,
       "worker_reason": "NOT a worker: known 2026-09-26 instability (stops generation mid-output, see DECISIONS.md TEMP entry); promoting it would trade model failure for session corruption",
       "label": "Nemotron 3.5 Lightning (Zen; LAST RESORT — known 2026-09-26 instability: stops generation mid-output, see DECISIONS.md TEMP entry)"
+    },
+    {
+      "order": 6,
+      "role": "fallback-experimental",
+      "provider": "opencode",
+      "match": "fledge-alpha",
+      "want": "opencode/fledge-alpha-free",
+      "worker": "build-d",
+      "worker_reason": "EXPERIMENTAL (added 2026-10-02 at user request): metadata-verified only (exists, toolcall:true, 1M context). Live generation quality unproven — real Tasks are the proof. Ranked after all proven workers.",
+      "label": "Fledge Alpha Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
+    },
+    {
+      "order": 7,
+      "role": "fallback-experimental",
+      "provider": "opencode",
+      "match": "ling-3.0-flash-fin",
+      "want": "opencode/ling-3.0-flash-fin-free",
+      "worker": "build-e",
+      "worker_reason": "EXPERIMENTAL (added 2026-10-02 at user request): metadata-verified only (exists, toolcall:true, ~1M context). Live generation quality unproven — real Tasks are the proof. Ranked after all proven workers.",
+      "label": "Ling 3.0 Flash Fin Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
+    },
+    {
+      "order": 8,
+      "role": "fallback-experimental",
+      "provider": "opencode",
+      "match": "mimo-v2.6-flash",
+      "want": "opencode/mimo-v2.6-flash-free",
+      "worker": "build-f",
+      "worker_reason": "EXPERIMENTAL (added 2026-10-02 at user request): metadata-verified only (exists, toolcall:true, ~1M context). Live generation quality unproven — real Tasks are the proof. Ranked after all proven workers.",
+      "label": "MiMo V2.6 Flash Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
+    },
+    {
+      "order": 9,
+      "role": "fallback-experimental",
+      "provider": "opencode",
+      "match": "space-bunny",
+      "want": "opencode/space-bunny-free",
+      "worker": "build-g",
+      "worker_reason": "EXPERIMENTAL (added 2026-10-02 at user request): metadata-verified only (exists, toolcall:true, ~1M context). Live generation quality unproven — real Tasks are the proof. Ranked after all proven workers.",
+      "label": "Space Bunny Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     }
   ],
-  "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 1-2; Zen login for 3-5. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry."
+  "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 1-2; Zen login for 3-9. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry."
 }

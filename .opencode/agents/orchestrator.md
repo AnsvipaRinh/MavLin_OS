@@ -38,6 +38,10 @@ permission:
     "build": allow
     "build-b": allow
     "build-c": allow
+    "build-d": allow
+    "build-e": allow
+    "build-f": allow
+    "build-g": allow
   todowrite: allow
 ---
 
@@ -55,7 +59,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 0. ENV PRE-CHECK (once per session, BEFORE anything else — both commands
    must succeed in the SAME session):
    `git status` AND `scripts/session-reuse.py version` (need
-   `orchestrator-protocol: 12`).
+   `orchestrator-protocol: 13`).
    - Either fails ("file not found", unknown subcommand, older version) →
      PROJECT-NOT-LOADED or STALE-AGENT: the server started outside the repo
      or cached an old agent file (no hot-reload — AGENTS.md 14.6). STOP and
@@ -119,13 +123,13 @@ SAME `task_id` on the printed worker at once.
 
 TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a new session):
 
-- WORKER POOL: `build` (primary) + `build-b` + `build-c` (hidden subagent
+- WORKER POOL: `build` (primary) + `build-b`..`build-g` (hidden subagent
   fallbacks, different chain pins). All three do the same work; only the model
   differs. Runtime agent switch = Task with a different `subagent_type` on the
   SAME `task_id` — session, history and context preserved. NO server restart,
   NO config paste. Hidden workers never appear in the picker.
 - Task output `task_id` IS the subagent session id. `register <task_id>` exactly
-  that value, with the worker name you invoked (`--agent build|build-b|build-c`)
+  that value, with the worker name you invoked (`--agent build|build-b|...|build-g`)
   and a stable `--oid` per Objective. Re-registering NEVER wipes history
   metadata — capture the task_id on the failure path too (it is in the error
   text); "error → id lost → cannot resume" is forbidden.
@@ -205,7 +209,7 @@ MODEL FALLBACK (one dead model is NEVER a silent stop):
 - Two planes, both in-chain. Orchestrator-plane = this agent's session model
   (default: chain head, OpenRouter North Mini Code; /models offers FULL list,
   including Muse Spark — user explicitly selects it for orchestration).
-  Worker-plane = `build` + hidden `build-b`/`build-c` pins in project
+  Worker-plane = `build` + hidden `build-b`..`build-g` pins in project
   `opencode.jsonc` (chain #4/#1/#3). Background-plane (title/summary/compaction)
   = project `small_model` (chain head), so the auto "cheaper model" pick stays
   in-chain. Workers do NOT inherit the session model, so whatever model the
@@ -216,7 +220,7 @@ MODEL FALLBACK (one dead model is NEVER a silent stop):
   NEVER run as a sub-agent: the resolver excludes it even with `--all`.
   Your own session MAY run on any model you choose — workers stay on the pins.
 - NEVER invoke `orchestrator` (yourself) as a sub-agent — not via Task, not via
-  @-mention. Workers are `build`/`build-b`/`build-c` via the Task tool (see
+  @-mention. Workers are `build`/`build-b`/…/`build-g` via the Task tool (see
   TASK LIFECYCLE for which one). If a sub-agent starts acting as an orchestrator
   (re-delegating instead of implementing), abort that path and re-issue the work
   as a plain implementation Task.
