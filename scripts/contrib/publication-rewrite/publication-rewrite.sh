@@ -189,14 +189,36 @@ verify_rewrite() {
     echo "  [FAIL] blob strip: $present still present, $missing stripped (want 0/30)"; fail=1
   fi
 
-  # HEAD tree byte-identical to source HEAD tree (content unchanged beyond intent)
-  SRC_TREE="$(git -C "$SOURCE_REPO" rev-parse "$SRC_HEAD^{tree}")"
-  NEW_TREE="$(git rev-parse HEAD^{tree})"
-  if [ "$SRC_TREE" = "$NEW_TREE" ]; then
-    echo "  [OK] HEAD tree identical to source ($SRC_TREE)"
+  # HEAD tree comparison — the precise form of "no commit content
+  # changes beyond the intended neutralizations": the rewritten HEAD
+  # tree must equal the source HEAD tree after applying EXACTLY the
+  # three replace-text rules and nothing else. (The rules themselves
+  # live in files that legitimately contain the personal strings —
+  # mailmap keys, replace rules, audit evidence — so those files
+  # differ in the published copy by design: the published repo must
+  # not contain the personal identity anywhere, including tooling.)
+  rm -rf "$WORKDIR/.tree-check-src" "$WORKDIR/.tree-check-new"
+  mkdir -p "$WORKDIR/.tree-check-src" "$WORKDIR/.tree-check-new"
+  git -C "$SOURCE_REPO" archive HEAD | tar -x -C "$WORKDIR/.tree-check-src"
+  git archive HEAD | tar -x -C "$WORKDIR/.tree-check-new"
+  # replicate the 3 literal rules on the source extraction
+  # (order matters: the email rule must run before the bare-username
+  # rule, same as the rule order in 02-replace-text.txt)
+  while IFS= read -r f; do
+    sed -i -e 's/Vsevolod Avdonkin/<project author>/g' \
+           -e 's/vsevolod@archlinux/<project-author-email>/g' \
+           -e 's/vsevolod/<build-user-2>/g' "$f"
+  done < <(grep -rl 'Vsevolod Avdonkin\|vsevolod@archlinux\|vsevolod' \
+             "$WORKDIR/.tree-check-src" 2>/dev/null || true)
+  if diff -r "$WORKDIR/.tree-check-src" "$WORKDIR/.tree-check-new" \
+       > "$WORKDIR/.tree-check-diff.txt" 2>&1; then
+    echo "  [OK] HEAD tree identical to source after exactly the 3 intended neutralizations"
   else
-    echo "  [FAIL] HEAD tree changed: $SRC_TREE -> $NEW_TREE"; fail=1
+    echo "  [FAIL] HEAD tree differs beyond the intended neutralizations:"
+    head -30 "$WORKDIR/.tree-check-diff.txt" | sed 's/^/    /'
+    fail=1
   fi
+  rm -rf "$WORKDIR/.tree-check-src" "$WORKDIR/.tree-check-new"
 
   if git fsck --full >/dev/null 2>&1; then
     echo "  [OK] git fsck --full clean"
