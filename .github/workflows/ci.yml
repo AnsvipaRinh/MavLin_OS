@@ -1,0 +1,190 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck xmllint desktop-file-utils python3 libxml2-utils
+
+      - name: Bash syntax (bash -n)
+        run: |
+          find . -type f -name '*.sh' ! -path './.git/*' -exec bash -n {} \;
+
+      - name: Python syntax (py_compile)
+        run: |
+          find . -type f -name '*.py' ! -path './.git/*' -exec python3 -m py_compile {} \;
+
+      - name: XML validation (xmllint)
+        run: |
+          find . -type f -name '*.xml' ! -path './.git/*' -exec xmllint --noout {} \;
+
+      - name: Desktop file validation
+        run: |
+          find . -type f -name '*.desktop' ! -path './.git/*' -exec desktop-file-validate {} \;
+
+      - name: PKGBUILD parse check
+        run: |
+          for d in packages/*/; do
+            [ -f "$d/PKGBUILD" ] && bash -n "$d/PKGBUILD" && echo "OK: $d"
+          done
+
+      - name: Profile sync check
+        run: ./scripts/check-profile-sync.sh
+
+      - name: Full sync check
+        run: ./scripts/check-sync.sh
+
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks (if available) or regex fallback
+        run: |
+          if command -v gitleaks >/dev/null 2>&1; then
+            gitleaks detect --source . --no-git --verbose
+          else
+            echo "gitleaks not installed; running lightweight regex scan"
+            # Common secret patterns - documented fallback
+            patterns=(
+              "AKIA[0-9A-Z]{16}"
+              "gh[pousr]_[A-Za-z0-9]{36,}"
+              "ghu_[A-Za-z0-9]{36,}"
+              "github_pat_[A-Za-z0-9]{22,}"
+              "glpat-[A-Za-z0-9]{20,}"
+              "xox[baprs]-[0-9a-zA-Z-]{10,}"
+              "sk_live_[0-9a-zA-Z]{24,}"
+              "sk_test_[0-9a-zA-Z]{24,}"
+              "rk_live_[0-9a-zA-Z]{24,}"
+              "rk_test_[0-9a-zA-Z]{24,}"
+              "AIza[0-9A-Za-z\\-_]{35}"
+              "ya29\\.[0-9A-Za-z\\-_]+"
+              "-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----"
+              "password\\s*[=:]\\s*['\"][^'\"]{8,}['\"]"
+              "secret\\s*[=:]\\s*['\"][^'\"]{8,}['\"]"
+              "api[_-]?key\\s*[=:]\\s*['\"][^'\"]{16,}['\"]"
+            )
+            found=0
+            for pat in "${patterns[@]}"; do
+              if grep -rEi "$pat" --exclude-dir=.git . 2>/dev/null | grep -v "patterns=(" | grep -v "found=0" | grep -v "echo"; then
+                found=1
+              fi
+            done
+            if [ $found -eq 1 ]; then
+              echo "::warning::Potential secrets found (regex fallback). Install gitleaks for full scan."
+              exit 1
+            fi
+            echo "No obvious secrets found via regex fallback."
+          fi
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install python deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3 python3-pip
+          pip3 install --quiet pytest
+
+      - name: Run mv-* unit tests
+        run: |
+          find . -type f -name 'test-mv-*.py' ! -path './.git/*' -exec python3 -m pytest {} -v \;
+
+      - name: Theme validation gates
+        run: |
+          # Placeholder for theme validation (GTK/CSS syntax, asset checks)
+          echo "Theme validation gates - TODO: implement"
+
+      - name: Firefox/Chrome CSS gates
+        run: |
+          # Reuse check-sync.sh firefox chrome css validation
+          ./scripts/check-sync.sh 2>&1 | grep -A5 "firefox chrome css" || true
+
+  profile-sync:
+    name: Profile Sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check profile sync
+        run: ./scripts/check-profile-sync.sh
+
+  contribution-format:
+    name: Contribution Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR body sections
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          required_sections=(
+            "Summary"
+            "Mavericks-ref"
+            "Visual"
+            "Interaction"
+            "Backend"
+            "Integration"
+            "Performance"
+            "Security"
+            "Tests"
+            "Hardware-scope"
+            "AI-disclosure"
+            "Limitations"
+          )
+          missing=()
+          for section in "${required_sections[@]}"; do
+            if ! echo "$PR_BODY" | grep -qi "^### $section"; then
+              missing+=("$section")
+            fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::PR body missing required sections:"
+            for m in "${missing[@]}"; do
+              echo "  - $m"
+            done
+            exit 1
+          fi
+          echo "All required sections present."
+
+  hardware-tests:
+    name: Hardware Tests (skipped)
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    if: false
+    steps:
+      - name: Skip - requires MacBook10,1 hardware
+        run: echo "Hardware tests skipped - no Mac hardware in CI"
