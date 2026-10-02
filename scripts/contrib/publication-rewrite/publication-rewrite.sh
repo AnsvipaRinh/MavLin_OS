@@ -39,6 +39,16 @@
 # The dry-run evidence for this procedure (executed 2026-10-03 with a
 # TEST identity on a throwaway clone) is recorded in
 # docs/FORENSIC_AUDIT.md §"Publication rewrite dry-run".
+#
+# FORMAT WARNINGS (both learned from the 2026-10-03 dry-run):
+#   * 02-replace-text.txt must contain ONLY "literal==>replacement"
+#     rule lines. git-filter-repo --replace-text does NOT support
+#     comments: any line without "==>" becomes a rule replacing that
+#     literal with ***REMOVED***. A bare "#" comment line once replaced
+#     every "#" in every file — caught by the HEAD-tree-identical gate.
+#   * the mailmap sed must preserve the angle brackets around the new
+#     email (see pass 1 below) or the mailmap parser silently keeps
+#     the old emails — caught by the single-identity gate.
 
 set -euo pipefail
 
@@ -106,9 +116,15 @@ git clone --no-local "$SOURCE_REPO" "$WORKDIR" >/dev/null
 cd "$WORKDIR"
 
 # --- build the real mailmap from the template + supplied email -------------
-sed "s|<GITHUB_NOREPLY_EMAIL>|$NOREPLY_EMAIL|g" \
+# NOTE: the replacement must KEEP the angle brackets around the email —
+# the git mailmap format is "Name <email> Old Name <old-email>". An early
+# dry-run (2026-10-03) lost the brackets here via sed, which made the
+# mailmap parser read the whole line as one name and silently keep the
+# old emails; the verification gate caught it.
+sed "s|<GITHUB_NOREPLY_EMAIL>|<${NOREPLY_EMAIL}>|g" \
   "$SCRIPT_DIR/01-mailmap-template.txt" > .mailmap-rules.txt
-# drop comment lines for filter-repo
+# drop comment lines for filter-repo (mailmap parser strips them too,
+# but keep the file minimal and explicit)
 grep -v '^#' .mailmap-rules.txt > .mailmap-clean.txt
 
 echo "--- pass 1/4: mailmap (both identities -> Ansvipa_Rinh <$NOREPLY_EMAIL>)"
