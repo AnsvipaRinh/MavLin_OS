@@ -1,6 +1,6 @@
 # Contribution Protocol
 
-This document defines the end-to-end flow for external contributions to the Mavericks Linux project — from PR/issue discovery through human merge. **No auto-merge is ever performed.**
+This document defines the end-to-end flow for external contributions to the MavLinOS project — from PR/issue discovery through human merge. **No auto-merge is ever performed.**
 
 ---
 

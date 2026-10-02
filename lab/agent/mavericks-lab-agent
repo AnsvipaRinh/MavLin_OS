@@ -228,7 +228,7 @@ class QemuBootBackend(BootBackend):
             entry = self.entries_dir / f"{slot}.conf"
             if not entry.exists():
                 entry.write_text(
-                    f"title   Mavericks Linux (slot {slot})\n"
+                    f"title   MavLinOS (slot {slot})\n"
                     f"linux   /vmlinuz-linux-zen\n"
                     f"initrd  /initramfs-linux-zen.img\n"
                     f"options root=PARTUUID=%ROOT_PARTUUID% rw rootflags=subvol=@"

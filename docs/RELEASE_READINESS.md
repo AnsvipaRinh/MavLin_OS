@@ -102,7 +102,7 @@ EOF
 git branch -m master main
 
 # 4. remote + push (separate authenticated step — never performed by the agent)
-git remote add origin https://github.com/Ansvipa_Rinh/macbook12-macos-linux.git
+git remote add origin https://github.com/Ansvipa_Rinh/MavLinOS.git
 git push -u origin main
 ```
 

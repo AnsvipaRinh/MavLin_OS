@@ -1,10 +1,10 @@
-# Maintainer: Mavericks Linux <agent@mavericks-linux.local>
+# Maintainer: Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL>
 pkgname=mavericks-apps
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="Mavericks-like system apps for Xfce (settings, activity, console, control, notes, HUD)"
 arch=('x86_64')
-url="https://github.com/mavericks-linux/macbook12-macos-linux"
+url="https://github.com/Ansvipa_Rinh/MavLinOS"
 license=('GPL2')
 depends=('gtk3' 'python-gobject' 'python-cairo' 'gtksourceview4' 'webkit2gtk-4.1'
           'thunar' 'rofi' 'xfce4-screenshooter' 'trash-cli' 'xarchiver'

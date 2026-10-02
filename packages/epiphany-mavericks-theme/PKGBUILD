@@ -1,10 +1,10 @@
-# Maintainer: Mavericks Linux Agent <agent@mavericks-linux.local>
+# Maintainer: Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL>
 pkgname=epiphany-mavericks-theme
 pkgver=1.0.0
 pkgrel=1
 pkgdesc="Safari 7 (OS X 10.9) style theme for Epiphany/GNOME Web - unified toolbar, compass icon, Top Sites"
 arch=('any')
-url="https://github.com/mavericks-linux/macbook12-macos-linux"
+url="https://github.com/Ansvipa_Rinh/MavLinOS"
 license=('GPL-3.0-or-later')
 depends=('epiphany' 'mavericks-theme')
 makedepends=('sassc')

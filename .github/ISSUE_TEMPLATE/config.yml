@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Mavericks Linux Documentation
-    url: https://github.com/your-org/macbook12-macos-linux/blob/main/docs/
+  - name: MavLinOS Documentation
+    url: https://github.com/Ansvipa_Rinh/MavLinOS/blob/main/docs/
     about: Read the project documentation before filing
   - name: Hardware Bring-up Status
-    url: https://github.com/your-org/macbook12-macos-linux/blob/main/docs/NEEDS_HARDWARE_TEST.md
+    url: https://github.com/Ansvipa_Rinh/MavLinOS/blob/main/docs/NEEDS_HARDWARE_TEST.md
     about: Check what requires real MacBook10,1 hardware

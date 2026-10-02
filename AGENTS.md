@@ -1,4 +1,4 @@
-# AGENTS.md — сборка "Mavericks Linux" для MacBook 12" (A1534, MacBook10,1)
+# AGENTS.md — сборка "MavLinOS" для MacBook 12" (A1534, MacBook10,1)
 
 > Persistent environment / project instructions. Этот файл — единственный
 > постоянный источник инструкций для coding-агента. Будущие независимые

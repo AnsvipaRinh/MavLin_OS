@@ -1070,7 +1070,7 @@ optimization candidates → HW measurement plan.
    `trash-restore` (hangs without a terminal) wrapped as
    `xfce4-terminal --hold -e trash-restore`.
 3. firstboot install flow defined: repo checkout must exist (auto-detected at
-   `/root/macbook12-macos-linux` etc., clear error otherwise); local packages
+   `/root/MavLinOS` etc., clear error otherwise); local packages
    (`mavericks-apps`, `mavericks-theme`) install from nearby `.pkg.tar.zst`
    via `pacman -U` first (ISO build output / checkout / live medium), repo
    second, explicit warning last. Rationale: local packages are NOT in
@@ -2335,23 +2335,40 @@ validation: real rendering at 2304×1440, multi-hour session growth.
 
 | Asset | Action | Reason |
 |---|---|---|
-| preferences-desktop-mouse.svg | ISOLATED → `docs/isolated-assets/apple-derived/` | Apple logo trademark |
-| preferences-desktop-display.svg | ISOLATED → `docs/isolated-assets/apple-derived/` | Apple logo trademark |
-| help-about.svg | ISOLATED → `docs/isolated-assets/apple-derived/` | Apple shape + "Mac OS X" copyright text |
+| preferences-desktop-mouse.svg (original) | **REMOVED from public tree (D1, 2026-10-03)** | Apple logo trademark; isolation alone cannot prevent redistribution in a public repo |
+| preferences-desktop-display.svg (original) | **REMOVED from public tree (D1, 2026-10-03)** | Apple logo trademark; same |
+| help-about.svg (original) | **REMOVED from public tree (D1, 2026-10-03)** | Apple shape + "Mac OS X" copyright text; same |
 | finder.svg ("happy mac style") | KEPT (monitored) | Generic smiling folder face; not substantially similar to 1984 Apple Happy Mac trademark |
 | CSS "Bradley Hand"/"Comic Sans MS" fallbacks | KEPT | Fallback-only in CSS; neither font shipped nor depended upon; Z003 is primary via fontconfig |
-| All other 381 icons, cursors, wallpaper | KEPT | Original skeuomorphic designs, no Apple IP |
+| All other icons, cursors, wallpaper | KEPT | Original skeuomorphic designs, no Apple IP |
+
+**D1 update (2026-10-03, user decision):** the three Apple-derived
+originals were deleted from the tracked tree (`git rm
+docs/isolated-assets/apple-derived/`). Reason: "ISOLATE" prevented
+installation but not redistribution — a public repository publishes
+its entire tree plus its full history, so NON-redistributable
+material must not be tracked at all. The theme UI keeps the generic
+replacements that have shipped since `522ab98` (30 files at the same
+icon names, verified free of Apple artwork). Pre-`522ab98` history
+still contains the Apple-derived versions (theme-tree SVG/PNG paths +
+the archived directory); the publication history rewrite purges them
+(`--path --invert-paths`, `--replace-text`, `--strip-blobs-with-id`) —
+see `docs/RELEASE_READINESS.md` §3.1 and
+`scripts/contrib/publication-rewrite/`. Provenance note:
+`docs/isolated-assets/README.md`. No replacement Apple-derived assets
+may be added under any path.
 
 **Replacements:** Created generic non-Apple SVG replacements for the three isolated icons (neutral logo placeholder, generic display back badge, info badge with "i" symbol). Replacements installed in `icons/scalable/apps/` and will be packaged by mavericks-theme.
 
-**Gate:** GREEN — All redistributable components have verified OSI-approved licenses. Three Apple-derived assets isolated. No GPL/LGPL compliance issues. No AGPL network-service components in ISO.
+**Gate:** GREEN — All redistributable components have verified OSI-approved licenses. Three Apple-derived assets removed from the public tree (D1); historical purge scheduled in the publication rewrite. No GPL/LGPL compliance issues. No AGPL network-service components in ISO.
 
-**Artifacts:** `docs/LICENSES.md` (full matrix), `docs/isolated-assets/apple-derived/` (archived originals).
+**Artifacts:** `docs/LICENSES.md` (full matrix), `docs/isolated-assets/README.md` (provenance note; originals removed).
 
 **Commits:**
 1. `docs: add LICENSES.md license matrix (OS-4a)`
 2. `theme: isolate 3 Apple-derived SVG icons to docs/isolated-assets/`
 3. `theme: add replacement generic icons for isolated assets`
+4. `git rm docs/isolated-assets/apple-derived/` (D1)
 
 ## GitHub publication architecture (OS-GH, 2026-10-03)
 

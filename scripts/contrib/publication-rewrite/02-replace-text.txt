@@ -1,0 +1,13 @@
+# git-filter-repo --replace-text rules (literal mode)
+# Neutralizes the personal name/email in OLD blob versions of docs
+# (DECISIONS/ENVIRONMENT/PUBLIC_AUDIT/RELEASE_READINESS history).
+# The CURRENT worktree is already sanitized (placeholders) — these rules
+# only affect historical blob versions, which would otherwise publish the
+# personal identity after the first push.
+#
+# Scope proof (forensic audit 2026-10-03): these two strings occur in
+# history ONLY inside old versions of the 4 docs above (17 occurrences);
+# they do not occur in any current tracked file, and no other personal
+# identifier exists in reachable history (verified by full-blob sweep).
+Vsevolod Avdonkin==><project author>
+vsevolod@archlinux==><project-author-email>

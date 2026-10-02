@@ -1,5 +1,5 @@
 <!--
-Mavericks Linux PR Template
+MavLinOS PR Template
 All sections are REQUIRED. CI will fail if any section is missing.
 Delete the instructional comments (<!-- ... -->) before submitting.
 -->

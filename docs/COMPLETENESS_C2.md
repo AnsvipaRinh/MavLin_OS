@@ -424,7 +424,7 @@ All optimized variants produce IDENTICAL size (14320 B) — the binary is domina
 | 1 | BOOT FAILURE (kernel/cmdline regression) | system won't boot / panics | systemd-boot menu → select fallback entry (mavericks-linux-zen-fallback.conf) | manual (boot menu) |
 | 2 | DESKTOP SESSION FAILURE (Xfce/panel broken) | black screen / panel crash | log out/in (new session); btrfs snapshot of @home before firstboot changes | manual + snapshot |
 | 3 | PACKAGE/PACMAN FAILURE (bad update) | boot loops / missing libs | pacman cache (`/var/cache/pacman/pkg/`) + btrfs snapshot before update; rollback = `pacman -U <cached>` + snapshot restore | semi-auto (snapshot hook) |
-| 4 | CONFIG REGRESSION (our configs) | settings broken / theme broken | `git -C /root/macbook12-macos-linux checkout -- <path>` + re-run firstboot | manual (git) |
+| 4 | CONFIG REGRESSION (our configs) | settings broken / theme broken | `git -C /root/MavLinOS checkout -- <path>` + re-run firstboot | manual (git) |
 | 5 | FULL SYSTEM CORRUPTION | unbootable / data loss | btrfs snapshot rollback (mv-timemachine btrfs layer) or restic restore (off-device); reinstall from ISO (2.87 GB known-good) | manual |
 | 6 | REMOTE BRING-UP FAILURE (lab) | health check fails | lab controller: deploy to inactive slot → verify → select-boot → commit; FAIL → select-boot previous slot | auto (lab state machine) |
 | 7 | EXPERIMENT REGRESSION (E1–E12) | perf/thermal regression | `mv-experiment.sh <E> revert` — each experiment has a revert path | semi-auto |

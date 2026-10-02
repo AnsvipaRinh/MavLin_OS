@@ -86,7 +86,7 @@ measurement commands. Run on target hardware only.
     2. `git clone https://github.com/tanisperez/macbook12-audio-driver.git`
     3. `cd macbook12-audio-driver && sudo ./install.cirrus.driver.sh -i`
     4. Reboot
-  Or if using local repo: `cd /path/to/macbook12-macos-linux/packages/macbook12-audio-driver && sudo pacman -U macbook12-audio-driver-*.pkg.tar.zst` then `sudo dkms install -m macbook12-audio-driver -v <pkgver>` (PRE_BUILD fetches kernel source)
+  Or if using local repo: `cd /path/to/MavLinOS/packages/macbook12-audio-driver && sudo pacman -U macbook12-audio-driver-*.pkg.tar.zst` then `sudo dkms install -m macbook12-audio-driver -v <pkgver>` (PRE_BUILD fetches kernel source)
 - [ ] Verify DKMS status: `dkms status` → `macbook12-audio/0.1, <kernel>, x86_64: installed`
 - [ ] Verify module loaded: `lsmod | grep snd_hda_codec_cs420x`
 - [ ] Verify built-in speakers work (not just headphone jack) — test `speaker-test -c 2`
@@ -471,9 +471,9 @@ procedures or active code reference them:
 ## Fresh-ISO hardware checklist (Phase D7 refresh, 2026-09-28)
 
 ### Boot chain validation (D7 audit — all CORRECT pre-hardware)
-- [ ] **systemd-boot menu appears** → select "Mavericks Linux (linux-zen)" (default entry, timeout 3s)
+- [ ] **systemd-boot menu appears** → select "MavLinOS (linux-zen)" (default entry, timeout 3s)
 - [ ] **Cmdline correct:** `quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0` visible in `journalctl -k` or `/proc/cmdline`
-- [ ] **Fallback entry works:** reboot, select "Mavericks Linux (linux-zen fallback)" → boots successfully
+- [ ] **Fallback entry works:** reboot, select "MavLinOS (linux-zen fallback)" → boots successfully
 - [ ] **mkinitcpio modules loaded:** `lsmod | grep -E "applespi|spi_pxa|intel_lpss"` → all 4 modules present
 - [ ] **No encrypted root:** confirm no `encrypt` hook needed (btrfs root, no LUKS)
 - [ ] **zram active:** `zramctl` → zram0 with zstd, size = RAM/2
@@ -489,7 +489,7 @@ procedures or active code reference them:
 
 ### Installed system first boot
 - [ ] Run `mavericks-firstboot.sh` as root → all 8 steps complete
-- [ ] Reboot → systemd-boot menu → select "Mavericks Linux (linux-zen)"
+- [ ] Reboot → systemd-boot menu → select "MavLinOS (linux-zen)"
 - [ ] lightdm starts → Xfce session starts → Mavericks theme applies
 - [ ] **NetworkManager:** `systemctl status NetworkManager` → active; Wi-Fi scan works
 - [ ] **Bluetooth:** `systemctl status bluetooth` → active (if enabled)

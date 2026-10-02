@@ -1,4 +1,4 @@
-# Technical Audit: "Mavericks Linux" for MacBook10,1 (2017, m3-7Y32)
+# Technical Audit: "MavLinOS" for MacBook10,1 (2017, m3-7Y32)
 
 **Audit Date:** 2026-09-25
 **Kernel:** Linux 6.x / Arch Linux 2026
@@ -149,4 +149,4 @@
 
 ---
 
-**Audit Conclusion**: The original "Mavericks Linux" plan is largely sound in its core architecture (linux-zen, TLP, zram, Xfce base) but contains several outdated or unverified items that need correction before ISO finalization. The most critical items requiring hardware verification are: applespi keyboard/trackpad behavior, Cirrus audio speaker output, BCM43602 Wi-Fi revision detection, and NVMe APST stability. No claim is positively harmful if applied with the corrections noted above.
+**Audit Conclusion**: The original "MavLinOS" (then "Mavericks Linux") plan is largely sound in its core architecture (linux-zen, TLP, zram, Xfce base) but contains several outdated or unverified items that need correction before ISO finalization. The most critical items requiring hardware verification are: applespi keyboard/trackpad behavior, Cirrus audio speaker output, BCM43602 Wi-Fi revision detection, and NVMe APST stability. No claim is positively harmful if applied with the corrections noted above.

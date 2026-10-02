@@ -1,4 +1,4 @@
-# GitHub Labels for Mavericks Linux
+# GitHub Labels for MavLinOS
 
 > Labels are created on GitHub via `gh label create`. This document records the canonical label set and when each is applied.
 > **Do NOT run these commands from the build environment** (no `gh` auth). They are documented for maintainers with repo access.

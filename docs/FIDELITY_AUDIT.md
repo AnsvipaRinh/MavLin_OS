@@ -1,4 +1,4 @@
-# FIDELITY_AUDIT — Comprehensive Mavericks Linux Surface Gap Matrix
+# FIDELITY_AUDIT — Comprehensive MavLinOS Surface Gap Matrix
 
 ## Summary
 

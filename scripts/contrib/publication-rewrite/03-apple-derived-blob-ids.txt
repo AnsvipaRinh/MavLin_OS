@@ -1,0 +1,38 @@
+# git-filter-repo --strip-blobs-with-id target list
+# All pre-522ab98 (Apple-derived) blob versions of the 3 formerly-
+# Apple-derived theme icons: 3 scalable SVGs + 27 raster PNGs.
+# Each path has exactly 2 historical versions: this Apple-derived
+# blob (added with the theme) and the generic replacement (commit
+# 522ab98, which survives — it is NOT in this list).
+# Regenerate with: python3 scripts/contrib/publication-rewrite/generate-lists.py
+# 30 unique blobs
+047a4c0188bc51b0c982630704a1fd471fd3f8ca
+1295eb70e8d856b3f88de4f0c296e4d5a37b4d22
+12f1d4f32bc925fd5358bc4725a3105878e1b280
+144ff55839d824d411569ab9a5e4e4cf850665e1
+1ea531bd23c11df560900c82e5a96bcac09e4d64
+1ef3d3242e5ddf689f539a112e4f10a09047dcd4
+2293d712dc329a72ea4541f040f6140cfe1979df
+26fd41164088d22ecc1366a2a07d2ce5cc62c7f6
+2c0cf2fe2fa74df248102a5d10a6447deabdd6ae
+2e8bfbbf905fa260ad8aa86c1dc51d2541cf2e61
+3d88d306e7e0560851fba779815d8a1f5201cc59
+3e261421cc943d2347eb97c0ab9fdca968f7a89b
+433daee44e7aa2d14224c878da43a375cce2550f
+4b9afa342eb32b2fbdebddb793474e134cb7b8e5
+4f37d9d9e518861718f7c3e5b66864eae6ddb996
+67e413b7aaaa682bbdcf24431c60c429ac1818ca
+68572a7425283145ba707cd38fa80b5a7df13e8b
+6a51b98864c43d25f4053de7b74f1d42d6f1db83
+7b26f462b65817996795b09d68c269847b1721e0
+7c08812aeee4f4f4e30c12ef2f18ac1292b5c9eb
+8773aa09a664adace26a0926c6b574f44dbb4219
+971175b0fa9e7dd74976a801a6c66a1ff16b54f9
+995553f977df5ed1a6d1199c7c9afadd825bc50a
+9b4cb8cc5cc08fef4b53aeddfbe7752504b9e6be
+9eafda0310be8a3d92471f3e77dd39094c276f60
+9f595b2b27c274f1cf6800c254bb3350b44e331c
+a7b70a05ea8f7cc29356febf724f5bee80501145
+c539a62cb54f5bdc8effdfd7739c3024fb411b92
+da9cde57cee716a261dd722dd172f21c5b69cd17
+ffbfb7917a6e173946525e6db41527b40db07212

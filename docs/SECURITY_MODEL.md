@@ -1,6 +1,6 @@
 # Security Model
 
-This document defines the threat model, isolation guarantees, and security boundaries for the Mavericks Linux contribution pipeline.
+This document defines the threat model, isolation guarantees, and security boundaries for the MavLinOS contribution pipeline.
 
 ---
 

@@ -1,6 +1,6 @@
 {
-  "name": "macbook12-macos-linux",
-  "description": "MacBook 12 Mavericks Linux - custom Arch-based ISO build for skeuomorphic macOS 10.9",
+  "name": "MavLinOS",
+  "description": "MavLinOS - custom Arch-based ISO for MacBook 12 with skeuomorphic macOS 10.9 desktop",
   "root": ".",
   "agent": "orchestrator",
   "phases": [

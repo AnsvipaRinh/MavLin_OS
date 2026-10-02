@@ -51,7 +51,7 @@ if ! command -v yay &> /dev/null; then
 fi
 
 echo "== 4. Структура проекта =="
-PROJECT_ROOT="$HOME/projects/macbook12-macos-linux"
+PROJECT_ROOT="$HOME/projects/MavLinOS"
 mkdir -p "$PROJECT_ROOT"/{archiso-profile,packages,drivers,theme,scripts,docs,logs}
 cd "$PROJECT_ROOT"
 

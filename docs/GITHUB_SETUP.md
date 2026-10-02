@@ -1,4 +1,4 @@
-# GitHub Setup Guide for Mavericks Linux
+# GitHub Setup Guide for MavLinOS
 
 > Beginner-friendly path from zero to contributing. Commands marked `[ORCHESTRATOR]` can be run by the autonomous agent; others require human with GitHub credentials.
 
@@ -13,7 +13,7 @@
 
 **Human:**
 1. Go to https://github.com → Sign up
-2. Create new repository: `macbook12-macos-linux`
+2. Create new repository: `MavLinOS` (public; owner `Ansvipa_Rinh`)
    - Public or Private (your choice)
    - Do NOT initialize with README, .gitignore, license (we have our own)
 
@@ -45,8 +45,8 @@ git remote -v
 # Rename local branch master → main (CI and branch protection target `main`)
 git branch -m master main
 
-# Add GitHub remote (replace YOUR_USER)
-git remote add origin https://github.com/YOUR_USER/macbook12-macos-linux.git
+# Add GitHub remote
+git remote add origin https://github.com/Ansvipa_Rinh/MavLinOS.git
 
 # Verify
 git remote -v
@@ -83,12 +83,12 @@ git push
 ```bash
 # Option A: Use the script from docs/LABELS.md (copy-paste all commands)
 # Option B: Run this helper (requires gh auth)
-gh repo clone YOUR_USER/macbook12-macos-linux /tmp/mavericks-labels && cd /tmp/mavericks-labels && bash -c "$(cat docs/LABELS.md | grep '^gh label create')"
+gh repo clone Ansvipa_Rinh/MavLinOS /tmp/mavericks-labels && cd /tmp/mavericks-labels && bash -c "$(cat docs/LABELS.md | grep '^gh label create')"
 ```
 
 **Verify:**
 ```bash
-gh label list --repo YOUR_USER/macbook12-macos-linux
+gh label list --repo Ansvipa_Rinh/MavLinOS
 ```
 
 ---
@@ -98,7 +98,7 @@ gh label list --repo YOUR_USER/macbook12-macos-linux
 **Human** (requires admin access):
 ```bash
 # Protect main branch
-gh api repos/YOUR_USER/macbook12-macos-linux/branches/main/protection \
+gh api repos/Ansvipa_Rinh/MavLinOS/branches/main/protection \
   --method PUT \
   --field required_status_checks='{"strict":true,"contexts":["Static Analysis","Secret Scan","Unit Tests","Profile Sync","Contribution Format"]}' \
   --field enforce_admins=true \

@@ -74,7 +74,7 @@
 
 ## 📁 СТРУКТУРА ПРОЕКТА
 ```
-macbook12-macos-linux/
+MavLinOS/
 ├── archiso-profile/releng/     # Профиль archiso (ISO собирается отсюда)
 │   └── packages.x86_64         # Полный desktop; local pkgs: mavericks-apps + mavericks-theme
 │                               # (собрать scripts/build-local-pkgs.sh → подключить [mavericks] repo)

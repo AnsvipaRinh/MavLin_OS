@@ -8,13 +8,13 @@ REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 # live ISO build host). Fall back to well-known checkout locations; fail fast
 # with a clear message instead of dying obscurely mid-script.
 if [[ ! -d "$REPO_DIR/archiso-profile" ]]; then
-  for cand in /root/macbook12-macos-linux /usr/local/src/macbook12-macos-linux; do
+  for cand in /root/MavLinOS /usr/local/src/MavLinOS; do
     if [[ -d "$cand/archiso-profile" ]]; then REPO_DIR="$cand"; break; fi
   done
 fi
 if [[ ! -d "$REPO_DIR/archiso-profile" ]]; then
   echo "[firstboot] ERROR: repo checkout not found."
-  echo "[firstboot] Clone the repo (e.g. to /root/macbook12-macos-linux) and re-run."
+  echo "[firstboot] Clone the repo (e.g. to /root/MavLinOS) and re-run."
   exit 1
 fi
 log() { echo "[firstboot] $*"; }

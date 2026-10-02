@@ -1,4 +1,4 @@
-# Mavericks Linux — Keyboard Shortcut Reference
+# MavLinOS — Keyboard Shortcut Reference
 
 Central reference for all global keyboard bindings. Super = Windows/Command key.
 

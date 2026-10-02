@@ -71,7 +71,7 @@ COMPRESSION_OPTIONS=(-c -T0 --long -19)
 **File:** `archiso-profile/releng/airootfs/boot/loader/entries/mavericks-linux-zen.conf`
 
 ```
-title   Mavericks Linux (linux-zen)
+title   MavLinOS (linux-zen)
 linux   /vmlinuz-linux-zen
 initrd  /intel-ucode.img
 initrd  /initramfs-linux-zen.img
@@ -81,7 +81,7 @@ options root=PARTUUID=%ROOT_PARTUUID% rw rootflags=subvol=@ quiet loglevel=3 pci
 **File:** `archiso-profile/releng/airootfs/boot/loader/entries/mavericks-linux-zen-fallback.conf`
 
 ```
-title   Mavericks Linux (linux-zen fallback)
+title   MavLinOS (linux-zen fallback)
 linux   /vmlinuz-linux-zen
 initrd  /intel-ucode.img
 initrd  /initramfs-linux-zen-fallback.img
@@ -158,7 +158,7 @@ bootmodes=('uefi.systemd-boot')
 |---|---|---|
 | `iso_name` | `mavericks-linux` | YES |
 | `iso_label` | `MAVERICKS` | YES |
-| `iso_publisher` | `Mavericks Linux for MacBook 12"` | YES |
+| `iso_publisher` | `MavLinOS` | YES |
 | `iso_application` | `Mavericks Linux Live/Install DVD` | YES |
 | `install_dir` | `mavericks` | YES |
 | `buildmodes` | `('iso')` | YES — ISO only |
@@ -434,6 +434,6 @@ The two final docs are:
 
 ## 10. Conclusion
 
-**D7 verdict:** Boot chain and ISO packaging are CORRECT for MacBook10,1. No changes needed. All components are consistent with the frozen power baseline and the Mavericks Linux architecture.
+**D7 verdict:** Boot chain and ISO packaging are CORRECT for MacBook10,1. No changes needed. All components are consistent with the frozen power baseline and the MavLinOS architecture.
 
 **Next:** Hardware validation on MacBook10,1 (Phase 5). All feasible pre-hardware P0/P1 work is complete.

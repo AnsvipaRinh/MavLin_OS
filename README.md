@@ -1,6 +1,6 @@
-# Mavericks Linux — MacBook 12" (MacBook10,1) Desktop Environment
+# MavLinOS — MacBook 12" (MacBook10,1) Desktop Environment
 
-A Linux desktop that behaves and looks like **macOS Mavericks (10.9)** — skeuomorphic,
+Formerly named "Mavericks Linux" (repo slug `macbook12-macos-linux`); renamed to **MavLinOS** for the first public release. A Linux desktop that behaves and looks like **macOS Mavericks (10.9)** — skeuomorphic,
 not modern flat macOS — built on Arch + Xfce + mature Linux backends. Target hardware:
 **MacBook10,1 (Mid 2017, A1534)**, fanless Core m3-7Y32, 2304×1440 HiDPI, single USB-C.
 

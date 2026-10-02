@@ -1,4 +1,4 @@
-# Contributing to Mavericks Linux
+# Contributing to MavLinOS
 
 ## Setup (one-time)
 
@@ -12,8 +12,8 @@ sudo pacman -S base-devel git python python-gobject gtk3 libnotify rofi plocate 
 pip install --user -r packages/mavericks-apps/requirements.txt 2>/dev/null || true
 
 # Clone
-git clone https://github.com/your-org/macbook12-macos-linux
-cd macbook12-macos-linux
+git clone https://github.com/Ansvipa_Rinh/MavLinOS
+cd MavLinOS
 ```
 
 **Community rules:** this project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Report security issues privately per [SECURITY.md](SECURITY.md). AI-generated contributions are reviewed under the same rules as human ones — see `docs/CONTRIBUTION_PROTOCOL.md` and `docs/VIBE_CODING.md`.

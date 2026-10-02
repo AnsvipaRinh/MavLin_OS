@@ -1,0 +1,16 @@
+# git-filter-repo --mailmap source template (PUBLICATION STEP ONLY)
+#
+# Maps BOTH historical identities to the single public project identity.
+# GITHUB_NOREPLY_EMAIL is a REQUIRED parameter — it must be the account's
+# real noreply address (format: <numeric-id>+Ansvipa_Rinh@users.noreply.github.com),
+# obtained AFTER GitHub authentication, e.g.:
+#     gh api user --jq '.id'   # numeric ID
+#     gh api user --jq '.login'
+# or from GitHub Settings -> Emails -> "Keep my email addresses private".
+# DO NOT fabricate the numeric ID. publication-rewrite.sh refuses to run
+# without a plausible noreply address.
+#
+# Format: <new-name> <new-email> <old-name> <old-email>
+# (first pair = canonical identity shown after the rewrite)
+Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL> Mavericks Linux Agent <agent@mavericks-linux.local>
+Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL> Vsevolod Avdonkin <vsevolod@archlinux>
