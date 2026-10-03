@@ -12,10 +12,10 @@
 ## ✅ ЧТО ГОТОВО (полностью, ждёт только физической проверки)
 
 ### Phase 0 — Базовая система
-- ISO собирается: `mavericks-linux-2026.09.25-x86_64.iso` (2.2 GB)
+- ISO собирается: `mavlinos-2026.09.25-x86_64.iso` (2.2 GB)
 - Загружается в QEMU+OVMF (UEFI) → systemd-boot меню → linux kernel → archiso hook находит ISO по label MAVERICKS → airootfs монтируется → systemd стартует
 - **Ядро:** linux-zen (основное) + linux (для live boot с archiso hooks)
-- **Загрузчик:** systemd-boot (UEFI only), таймаут 15с, дефолт: Mavericks Linux
+- **Загрузчик:** systemd-boot (UEFI only), таймаут 15с, дефолт: MavLinOS
 - **ФС установленной системы:** btrfs с субволюмами (@, @home, @var_log, @snapshots), compression=zstd
 - **Swap:** zram-generator (zram0 = RAM/2, zstd)
 - **Initramfs:** mkinitcpio, hooks: base udev autodetect microcode modconf kms keyboard keymap block filesystems fsck; MODULES=(applespi spi_pxa2xx_platform intel_lpss_pci intel_lpss_acpi)

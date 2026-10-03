@@ -123,7 +123,7 @@
 | File | Key(s) | Type | Notes |
 |------|--------|------|-------|
 | `archiso-profile/releng/efiboot/loader/entries/*.conf` | `options root=PARTUUID=%ROOT_PARTUUID% rw rootflags=subvol=@ $BASELINE_OPTS` | ENTANGLED | Bootloader entries reference MacBook-specific PARTUUID placeholder; `BASELINE_OPTS` includes `pcie_port_pm=off i915.enable_psr=0`. |
-| `apply-hardware-selection.sh` (lines 179-195) | Generates `mavericks-linux-macbook.conf` / `mavericks-linux-lts.conf` | ISOLATED | Only created if SPI strategy 2/3 chosen (kernel swap). |
+| `apply-hardware-selection.sh` (lines 179-195) | Generates `mavlinos-macbook.conf` / `mavlinos-lts.conf` | ISOLATED | Only created if SPI strategy 2/3 chosen (kernel swap). |
 | `scripts/install/extract-brcmfmac-nvram.sh` | EFI NVRAM detection | ISOLATED | See Wi-Fi section. |
 | `archiso-profile/releng/airootfs/etc/mkinitcpio.d/linux-zen.preset` | Standard preset | GENERIC-OK | Generic. |
 

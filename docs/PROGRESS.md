@@ -1,4 +1,4 @@
-# PROGRESS — MacBook 12 Mavericks Linux
+# PROGRESS — MacBook 12 MavLinOS
 
 ### Theme: Mavericks skeuomorphic icon theme + cursor theme (2026-09-30, без железа)
 - [x] Icon theme (packages/mavericks-theme/src/mavericks-theme/icons/): comprehensive Mavericks-era skeuomorphic icons
@@ -140,7 +140,7 @@
 
 ### Фаза D7 — BOOT + ISO packaging audit: mkinitcpio, systemd-boot, profiledef, packages.x86_64, firstboot (2026-09-28, без железа)
 - [x] mkinitcpio.conf: MODULES=(applespi spi_pxa2xx_platform intel_lpss_pci intel_lpss_acpi) — all 4 correct for MacBook10,1; HOOKS=(base udev autodetect microcode modconf kms keyboard keymap block filesystems fsck) — no encrypted root, no btrfs hook needed (in-kernel); COMPRESSION=zstd -T0 --long -19 — CORRECT — BOOT_AUDIT.md §1
-- [x] systemd-boot entries: mavericks-linux-zen.conf + fallback — cmdline correct (quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0); loader.conf timeout 3, default mavericks-linux-zen.conf, editor 1 — CORRECT — BOOT_AUDIT.md §2
+- [x] systemd-boot entries: mavlinos-zen.conf + fallback — cmdline correct (quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0); loader.conf timeout 3, default mavlinos-zen.conf, editor 1 — CORRECT — BOOT_AUDIT.md §2
 - [x] profiledef.sh: bootmodes=('uefi.systemd-boot') — UEFI-only, no grub; all settings correct — BOOT_AUDIT.md §3
 - [x] packages.x86_64: 142 packages (140 Arch + 2 local); NO AUR in default list (localsend-bin/skippy-xd opt-in); all new deps from chrome/ytplayer/policy phases present — CORRECT — BOOT_AUDIT.md §4
 - [x] firstboot: 8-step idempotent script — hostname/locale, bootloader cmdline, TLP baseline, zram, NM config, fstrim.timer (D5 fix), desktop/firefox skel, NVRAM check, local pkgs — CORRECT — BOOT_AUDIT.md §5
@@ -643,7 +643,7 @@
       ожидаемо), обе rofi-темы парсятся реальным rofi, mkinitcpio MODULES/HOOKS на месте
 ### Фаза 0.8 — Mission Control E-MC experiment prepared (2026-09-25, без железа)
 
-- [x] ISO built: `mavericks-linux-2026.09.25-x86_64.iso` (`<build-host>/archiso-out/`)
+- [x] ISO built: `mavlinos-2026.09.25-x86_64.iso` (`<build-host>/archiso-out/`)
 - [x] QEMU+OVMF smoke-test: ISO boots → systemd-boot menu → archiso hook → airootfs → DE loads
 - [x] Pre-hardware P0 coherence fully validated: ISO contains mavericks-apps + mavericks-theme pkgs
 
@@ -991,7 +991,7 @@
 - [x] packages.x86_64 coherence: добавлены fontconfig и libsecret как явные hard deps mavericks-apps (были транзитивными); espeak-ng/dictd — optdeps, valid repo names, остаются optdeps
 - [x] check-sync.sh --check-repos: ALL CHECKS PASSED (все имена валидны в текущих sync DB)
 - [x] build-local-pkgs.sh: mavericks-apps 0.1.0-1, mavericks-theme 1.0.0-2, macbook12-audio-driver 1.0.0.r108.g4cdfcdb-1 — все собраны, repo-add OK
-- [x] mkarchiso: out/mavericks-linux-2026.09.27-x86_64.iso — 2.7G (2,866,518,016 bytes), sha256=02f9f2c45af157b4077f560f79dd0f701d4b4387bff7a6ce99b147f02b1a31fb
+- [x] mkarchiso: out/mavlinos-2026.09.27-x86_64.iso — 2.7G (2,866,518,016 bytes), sha256=02f9f2c45af157b4077f560f79dd0f701d4b4387bff7a6ce99b147f02b1a31fb
 - [x] ISO structure verified: EFI/BOOT/BOOTx64.EFI + BOOTIA32.EFI, systemd-boot entries (01-archiso-linux.conf, 02-archiso-speech-linux.conf), airootfs.sfs + airootfs.sha512, 737 packages (600 transitive deps + 137 direct from packages.x86_64)
 - [x] Package coherence: 0 profile-only packages missing from ISO (comm -23 = empty)
 - [x] QEMU+OVMF: BLOCKED — OVMF firmware runs ("Guest has not initialized the display (yet)") but does not detect bootable device from ISO CD-ROM; tried: -vga virtio, -vga std, direct kernel boot, EFI disk image, USB mass storage — all same result. Environment limitation (container lacks proper UEFI boot device emulation), NOT an ISO defect. ISO structure is valid per xorriso inspection.
@@ -1023,7 +1023,7 @@
 - [x] build-local-pkgs.sh: mavericks-apps 0.1.0-1, mavericks-theme 1.0.0-2, macbook12-audio-driver 1.0.0.r94.g75884e2-1 — all rebuilt, repo-add OK at /tmp/mavericks-repo
 - [x] packages.x86_64 coherence verified: mavericks-apps, mavericks-theme PRESENT; macbook12-audio-driver ABSENT (ISO-excluded as per P1-C1); openssh PRESENT but disabled (no sshd.service in multi-user.target.wants)
 - [x] P0-J1 verified in airootfs: sshd.service NOT in multi-user.target.wants; root locked in /etc/shadow (`root:!14871::::::`); sshd disabled in firstboot via `systemctl disable sshd.service reflector.service`
-- [x] mkarchiso: work dir <build-host>/mv-iso-work (not tmpfs), output <build-host>/out/mavericks-linux-2026.09.29-x86_64.iso — 2.0G (2,099,507,200 bytes), sha256=81d560d7db2a9e08be18942af285359726a4bbde461c8a91f4fbfcdfbadc9bb3
+- [x] mkarchiso: work dir <build-host>/mv-iso-work (not tmpfs), output <build-host>/out/mavlinos-2026.09.29-x86_64.iso — 2.0G (2,099,507,200 bytes), sha256=81d560d7db2a9e08be18942af285359726a4bbde461c8a91f4fbfcdfbadc9bb3
 - [x] ISO package count: 712 packages (pkglist.x86_64.txt)
 - [x] ISO structure verified via xorriso: UEFI bootable (El Torito EFI image at LBA 884846, 140288 blocks), MBR protective + GPT, systemd-boot entries present
 - [x] QEMU+OVMF attempt: BLOCKED at boot menu — OVMF firmware loads, shows UEFI boot menu with "UEFI QEMU DVD-ROM QM00003" entry, but times out at 120s waiting for kernel handoff. Container lacks KVM (no hardware acceleration) and proper UEFI CD-ROM emulation; NOT an ISO defect. ISO structure valid per xorriso.

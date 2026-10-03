@@ -482,7 +482,7 @@ procedures or active code reference them:
 - [ ] **plocate timer:** `systemctl status plocate-updatedb.timer` → active (enabled by firstboot)
 
 ### Live ISO boot
-- [ ] Boot mavericks-linux-*.iso on MacBook10,1 via USB-C (write with dd or balenaEtcher)
+- [ ] Boot mavlinos-*.iso on MacBook10,1 via USB-C (write with dd or balenaEtcher)
 - [ ] airootfs loads → archiso hook runs → /run/archiso/bootmnt mounted
 - [ ] lightdm starts → Xfce session starts → Mavericks theme applies (panel, wallpaper, GTK theme name)
 - [ ] Spot-check: panel visible, wallpaper set, gtk theme = Mavericks (xfconf-query -c xsettings -p /Net/ThemeName)

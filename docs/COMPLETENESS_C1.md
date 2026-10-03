@@ -43,7 +43,7 @@
 Boot chain decomposed from configs (archiso-profile/releng):
 
 ```
-UEFI → systemd-boot (timeout 3s, default mavericks-linux-zen.conf)
+UEFI → systemd-boot (timeout 3s, default mavlinos-zen.conf)
   → vmlinuz-linux-zen + intel-ucode.img + initramfs-linux-zen.img
   → mkinitcpio hooks (15): base udev microcode modconf kms memdisk archiso
     archiso_loop_mnt archiso_pxe_common archiso_pxe_nbd archiso_pxe_http

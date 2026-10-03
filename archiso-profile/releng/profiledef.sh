@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 
-iso_name="mavericks-linux"
+iso_name="mavlinos"
 iso_label="MAVERICKS"
 iso_publisher="MavLinOS <https://github.com/AnsvipaRinh/MavLinOS>"
 iso_application="MavLinOS Live/Install DVD"
 iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
-install_dir="mavericks"
+install_dir="mavlinos"
 buildmodes=('iso')
 bootmodes=('uefi.systemd-boot')
 pacman_conf="pacman.conf"

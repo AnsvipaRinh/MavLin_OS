@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""bench.py — reproducible benchmark harness for the Mavericks Linux perf track.
+"""bench.py — reproducible benchmark harness for the MavLinOS perf track.
 
 Phase A harness. Measures host-relative deltas only; never predicts MacBook
 watts. GUI scenarios are skipped with a recorded reason when no X display is

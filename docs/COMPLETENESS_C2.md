@@ -239,7 +239,7 @@ All optimized variants produce IDENTICAL size (14320 B) — the binary is domina
 
 ### Evidence
 
-**ISO size (measured):** 2.87 GB (`out/mavericks-linux-2026.09.27-x86_64.iso`, 2866518016 bytes). Dominated by base system + firefox + webkit2gtk-4.1 (133 MiB) + mesa/Xorg/Xfce + linux-zen + fonts + firmware. The mavericks-theme package is ~500 KB (tiny).
+**ISO size (measured):** 2.87 GB (`out/mavlinos-2026.09.27-x86_64.iso`, 2866518016 bytes). Dominated by base system + firefox + webkit2gtk-4.1 (133 MiB) + mesa/Xorg/Xfce + linux-zen + fonts + firmware. The mavericks-theme package is ~500 KB (tiny).
 
 **Classification of 129 packages:**
 
@@ -413,7 +413,7 @@ All optimized variants produce IDENTICAL size (14320 B) — the binary is domina
 **Existing recovery infrastructure (inventoried):**
 - **lab/ control plane** (committed 760b443): A/B slot state machine UNKNOWN→BOOTING→NETWORK_READY→AGENT_READY→HEALTH_CHECK→HEALTHY→COMMITTED; FAIL→rollback. NDJSON over SSH, ed25519 machine identity, deploy/verify/select-boot/commit/rollback. This IS the remote bring-up mechanism.
 - **mv-timemachine**: btrfs subvolume snapshots (read-only CoW of @ / @home under @snapshots) + restic (off-device encrypted dedup). btrfs-progs + restic in ISO.
-- **systemd-boot entries**: mavericks-linux-zen.conf + mavericks-linux-zen-fallback.conf (fallback for boot failure).
+- **systemd-boot entries**: mavlinos-zen.conf + mavlinos-zen-fallback.conf (fallback for boot failure).
 - **mv-experiment.sh**: apply|revert|status for E1–E12 experiments — each has a revert path.
 - **git**: all configs versioned; rollback = `git checkout -- <path>` + re-run firstboot.
 
@@ -421,7 +421,7 @@ All optimized variants produce IDENTICAL size (14320 B) — the binary is domina
 
 | # | Failure class | Detection | Rollback path | Automation |
 |---|---|---|---|---|
-| 1 | BOOT FAILURE (kernel/cmdline regression) | system won't boot / panics | systemd-boot menu → select fallback entry (mavericks-linux-zen-fallback.conf) | manual (boot menu) |
+| 1 | BOOT FAILURE (kernel/cmdline regression) | system won't boot / panics | systemd-boot menu → select fallback entry (mavlinos-zen-fallback.conf) | manual (boot menu) |
 | 2 | DESKTOP SESSION FAILURE (Xfce/panel broken) | black screen / panel crash | log out/in (new session); btrfs snapshot of @home before firstboot changes | manual + snapshot |
 | 3 | PACKAGE/PACMAN FAILURE (bad update) | boot loops / missing libs | pacman cache (`/var/cache/pacman/pkg/`) + btrfs snapshot before update; rollback = `pacman -U <cached>` + snapshot restore | semi-auto (snapshot hook) |
 | 4 | CONFIG REGRESSION (our configs) | settings broken / theme broken | `git -C /root/MavLinOS checkout -- <path>` + re-run firstboot | manual (git) |

@@ -164,8 +164,8 @@ Each category maps to a threat vector. **High = reject, Medium = requires review
 Human maintainer verifies:
 ```bash
 # Check ISO signature
-gpg --verify mavericks-linux-<ver>.iso.sig mavericks-linux-<ver>.iso
-sha256sum -c mavericks-linux-<ver>.iso.sha256
+gpg --verify mavlinos-<ver>.iso.sig mavlinos-<ver>.iso
+sha256sum -c mavlinos-<ver>.iso.sha256
 ```
 
 ---

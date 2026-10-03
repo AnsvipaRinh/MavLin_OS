@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scripts/bench/video_codec.py - Video codec benchmark for Mavericks Linux
+scripts/bench/video_codec.py - Video codec benchmark for MavLinOS
 
 Phase A harness for host-relative video decode measurements.
 Creates deterministic fixtures and measures decode performance.
@@ -521,7 +521,7 @@ def run_benchmark(output_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Video codec benchmark for Mavericks Linux")
+    parser = argparse.ArgumentParser(description="Video codec benchmark for MavLinOS")
     parser.add_argument("--generate", action="store_true", help="Generate video fixtures")
     parser.add_argument("--bench", action="store_true", help="Run benchmarks")
     parser.add_argument("--all", action="store_true", help="Run all operations (default)")

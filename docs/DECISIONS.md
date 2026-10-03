@@ -475,7 +475,7 @@ removes a resident process — strictly less).
 
 1. **mkinitcpio.conf → CORRECT.** MODULES=(applespi spi_pxa2xx_platform intel_lpss_pci intel_lpss_acpi) — all 4 correct for MacBook10,1. HOOKS=(base udev autodetect microcode modconf kms keyboard keymap block filesystems fsck) — no encrypted root (no encrypt hook), no btrfs hook needed (btrfs in-kernel). COMPRESSION=zstd -T0 --long -19 — optimal for boot speed. No changes needed.
 
-2. **systemd-boot entries → CORRECT.** mavericks-linux-zen.conf + fallback — cmdline correct (quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0). loader.conf timeout 3, default mavericks-linux-zen.conf, editor 1. Speech entry in efiboot/ (live ISO only, not installed). No changes needed.
+2. **systemd-boot entries → CORRECT.** mavlinos-zen.conf + fallback — cmdline correct (quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0). loader.conf timeout 3, default mavlinos-zen.conf, editor 1. Speech entry in efiboot/ (live ISO only, not installed). No changes needed.
 
 3. **profiledef.sh → CORRECT.** bootmodes=('uefi.systemd-boot') — UEFI-only, no grub. All settings correct for MacBook10,1 UEFI firmware. No changes needed.
 
@@ -1045,7 +1045,7 @@ optimization candidates → HW measurement plan.
    live session would fall back to stock Adwaita/Raleigh (P0 coherence break).
 2. `mavericks-theme` + `epiphany-mavericks-theme` PKGBUILDs rewritten to
    repo-local sources (same pattern as `mavericks-apps`: no network fetch).
-   Both previously cloned nonexistent `github.com/mavericks-linux/*.git`
+   Both previously cloned nonexistent `github.com/AnsvipaRinh/MavLinOS`
    repos, so `scripts/build-local-pkgs.sh` could never build them.
 3. `epiphany-mavericks-theme` → DEFERRED (system browser is Firefox ESR;
    Epiphany not in ISO). Kept buildable offline; built only with `--all`.

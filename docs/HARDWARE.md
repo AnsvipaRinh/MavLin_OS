@@ -23,7 +23,7 @@
 
 **Bootloader:** systemd-boot (UEFI only)
 - MacBook 12" is UEFI-only, no BIOS/CSM
-- Loader entries: mavericks-linux-zen.conf, mavericks-linux-zen-fallback.conf
+- Loader entries: mavlinos-zen.conf, mavlinos-zen-fallback.conf
 - Kernel command line (Phase 0.3 baseline, source of truth):
   `quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0`
   (pcie_port_pm=off = Apple S3X resume workaround; psr=0 = diagnostic-safe)

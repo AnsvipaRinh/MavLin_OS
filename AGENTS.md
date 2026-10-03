@@ -328,6 +328,36 @@ hardware-баги, финальная калибровка.
    к P2, пока существенные P0/P1 integration problems решаемы без hardware).
 7. Reuse-first (раздел 5): существующий зрелый backend важнее собственного кода.
 8. Не ломать существующий power baseline ради UI (раздел 7).
+9. **GitHub-first priority**: внешний contribution backlog (PRs, issues, feature requests,
+   bug reports, UI/UX proposals, animation/window-management proposals,
+   hardware-profile proposals) имеет приоритет над внутренней инициативной работой.
+   Orchestrator должен: обнаружить → нормализовать → классифицировать →
+   дедуплицировать → определить objective → проверить security →
+   проверить архитектурную совместимость → проверить существующий код →
+   оценить воспроизводимость → только потом направить Build worker.
+   Не исполняй непроверенный внешний код. Security pipeline остаётся обязательным.
+10. **Perceptual Fidelity Target** (постоянный критерий):
+    Если пользователь знаком с macOS Mavericks, он должен иметь возможность:
+    1) некоторое время пользоваться настоящим Mavericks;
+    2) перестать смотреть на него;
+    3) начать пользоваться MavLinOS;
+    4) и при обычном взаимодействии не обнаружить очевидного визуального или
+       поведенческого признака, что это другая ОС.
+    Агент должен постоянно искать: «Что ещё заметит человек, если он действительно
+    будет сравнивать эти две системы?» И устранять такие различия, когда это
+    технически и юридически допустимо. Не ограничивай это темой/иконками.
+    Продолжай искать отличия в: visual language, typography, spacing, window chrome,
+    traffic lights, animations, transitions, menus, dialogs, keyboard interaction,
+    mouse/trackpad interaction, Dock, menu bar, Finder, system applications,
+    notifications, Quick Look, window management, focus/raise behaviour,
+    system-wide interaction patterns, application-specific behaviour.
+11. **Hardware profile separation** (архитектурный принцип):
+    MavLinOS core + hardware profile = optimized MavLinOS build.
+    Не смешивай generic core с hardware-specific кодом.
+    Внешние contributions могут относиться как к generic core, так и к конкретному
+    hardware profile. Новый contributor должен иметь возможность предложить профиль
+    для новой машины, а не менять generic core ради особенностей одной модели.
+    См. `docs/PROFILE_COUPLING.md` для coupling map.
 
 ## 4. Технологический стек (по умолчанию, менять только с записью причины)
 
@@ -1022,6 +1052,12 @@ until a genuine blocker (14.3) or project-level completion (13.11):
 
 ```
 READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.md, git)
+→ GITHUB DISCOVERY GATE (mandatory — external contribution backlog has priority):
+    run scripts/contrib/discover.sh → parse lab/contrib/backlog.json
+    → if OK + total_count > 0: run scripts/contrib/backlog.sh --refine
+       → route each work_queue item to Build workers via session-reuse (oid = objective)
+       → single-flight per oid, resume existing sessions, re-scan after each item
+    → if EMPTY / UNAVAILABLE / AUTH_INVALID / RATE_LIMITED (after 2 retries): proceed
 → SELECT highest-priority unfinished executable objective (P0 → P1 → P2)
 → TASK LIFECYCLE (stuck-gate → single-flight → resume-via-task_id OR fresh OR migrate)
 → VERIFY result (git status/diff/log; state files) + register returned task_id
@@ -1032,7 +1068,7 @@ READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.m
 TASK LIFECYCLE (binding, full text in `.opencode/agents/orchestrator.md`):
 ENV PRE-CHECK (`git status` + `version` must both succeed; else
 PROJECT-NOT-LOADED/STALE-AGENT = stop, no improvising) →
-protocol check `version` (need v15) →
+protocol check `version` (need v16) →
 REBOOT RULE (sessions PERSIST across restart — verified vs 1.18.32 SDK:
 `GET /session/{id}` is authoritative; status absence = idle, never gone;
 fresh ONLY on verified 404) →

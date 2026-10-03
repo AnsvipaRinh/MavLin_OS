@@ -8,7 +8,7 @@ set -euo pipefail
 LOG_FILE="/var/log/mavericks-hardware-setup.log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
-echo "=== Mavericks Linux Hardware Selection ==="
+echo "=== MavLinOS Hardware Selection ==="
 echo "Started: $(date)"
 echo
 
@@ -201,16 +201,16 @@ for frag in "${MACBOOK_FRAGMENTS[@]}"; do
 done
 
 if [[ "$SPI_DRIVER" == "linux-macbook" ]]; then
-    cat > /boot/loader/entries/mavericks-linux-macbook.conf <<EOF
-title   Mavericks Linux (linux-macbook)
+    cat > /boot/loader/entries/mavlinos-macbook.conf <<EOF
+title   MavLinOS (linux-macbook)
 linux   /vmlinuz-linux-macbook
 initrd  /intel-ucode.img
 initrd  /initramfs-linux-macbook.img
 options root=PARTUUID=%ROOT_PARTUUID% rw rootflags=subvol=@ $FINAL_CMDLINE
 EOF
 elif [[ "$SPI_DRIVER" == "linux-lts-applespi" ]]; then
-    cat > /boot/loader/entries/mavericks-linux-lts.conf <<EOF
-title   Mavericks Linux (linux-lts)
+    cat > /boot/loader/entries/mavlinos-lts.conf <<EOF
+title   MavLinOS (linux-lts)
 linux   /vmlinuz-linux-lts
 initrd  /intel-ucode.img
 initrd  /initramfs-linux-lts.img
@@ -219,7 +219,7 @@ EOF
 fi
 
 # Also update the default zen entry
-for f in /boot/loader/entries/mavericks-linux-zen*.conf; do
+for f in /boot/loader/entries/mavlinos-zen*.conf; do
   [[ -f "$f" ]] || continue
   if grep -q "^options" "$f"; then
     sed -i -E "s/^(options +.*rootflags=[^ ]+ *) .*/\1 $FINAL_CMDLINE/" "$f" || true

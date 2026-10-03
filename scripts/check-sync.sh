@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-sync.sh — pre-commit gate for the Mavericks Linux repo.
+# check-sync.sh — pre-commit gate for the MavLinOS repo.
 # Verifies: mirror pairs (scripts/tools/configs vs airootfs copies) are in
 # sync, shell syntax, XML validity, .desktop validity, PKGBUILD syntax.
 # Usage: ./scripts/check-sync.sh [--check-repos]

@@ -68,7 +68,7 @@ COMPRESSION_OPTIONS=(-c -T0 --long -19)
 
 ### 2.1 Installed system entries
 
-**File:** `archiso-profile/releng/airootfs/boot/loader/entries/mavericks-linux-zen.conf`
+**File:** `archiso-profile/releng/airootfs/boot/loader/entries/mavlinos-zen.conf`
 
 ```
 title   MavLinOS (linux-zen)
@@ -78,7 +78,7 @@ initrd  /initramfs-linux-zen.img
 options root=PARTUUID=%ROOT_PARTUUID% rw rootflags=subvol=@ quiet loglevel=3 pcie_port_pm=off i915.enable_psr=0
 ```
 
-**File:** `archiso-profile/releng/airootfs/boot/loader/entries/mavericks-linux-zen-fallback.conf`
+**File:** `archiso-profile/releng/airootfs/boot/loader/entries/mavlinos-zen-fallback.conf`
 
 ```
 title   MavLinOS (linux-zen fallback)
@@ -122,13 +122,13 @@ options root=PARTUUID=%ROOT_PARTUUID% rw rootflags=subvol=@ quiet loglevel=3 pci
 
 ```
 timeout 3
-default mavericks-linux-zen.conf
+default mavlinos-zen.conf
 console-mode keep
 editor 1
 ```
 
 - `timeout 3` — 3 second boot menu timeout (reasonable)
-- `default mavericks-linux-zen.conf` — default entry
+- `default mavlinos-zen.conf` — default entry
 - `console-mode keep` — keep console mode
 - `editor 1` — allow boot entry editor (for recovery)
 - VERDICT: CORRECT
@@ -156,11 +156,11 @@ bootmodes=('uefi.systemd-boot')
 
 | Setting | Value | Correct? |
 |---|---|---|
-| `iso_name` | `mavericks-linux` | YES |
+| `iso_name` | `mavlinos` | YES |
 | `iso_label` | `MAVERICKS` | YES |
 | `iso_publisher` | `MavLinOS` | YES |
-| `iso_application` | `Mavericks Linux Live/Install DVD` | YES |
-| `install_dir` | `mavericks` | YES |
+| `iso_application` | `MavLinOS Live/Install DVD` | YES |
+| `install_dir` | `mavlinos` | YES |
 | `buildmodes` | `('iso')` | YES — ISO only |
 | `pacman_conf` | `pacman.conf` | YES |
 | `airootfs_image_type` | `squashfs` | YES |

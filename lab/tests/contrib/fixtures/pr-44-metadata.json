@@ -1,7 +1,7 @@
 {
   "number": 44,
   "title": "Update README with installation instructions",
-  "body": "Adds detailed installation instructions for the Mavericks Linux ISO.\n\nIncludes: USB flashing, boot options, first-boot setup.",
+  "body": "Adds detailed installation instructions for the MavLinOS ISO.\n\nIncludes: USB flashing, boot options, first-boot setup.",
   "state": "OPEN",
   "isDraft": false,
   "headRefName": "docs/readme-install",

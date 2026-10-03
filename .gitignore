@@ -16,3 +16,4 @@ out/
 
 # opencode agent session runtime state
 .opencode/sessions/
+lab/contrib/

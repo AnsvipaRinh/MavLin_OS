@@ -123,7 +123,7 @@ qemu-system-x86_64 \
   -cpu host \
   -m 4G \
   -bios /usr/share/edk2/x64/OVMF_CODE.fd \
-  -drive file=out/mavericks-linux-*.iso,format=raw,if=virtio \
+  -drive file=out/mavlinos-*.iso,format=raw,if=virtio \
   -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
   -display gtk,gl=on
 ```
