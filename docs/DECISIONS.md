@@ -1,5 +1,26 @@
 # DECISIONS
 
+## Finder: column view — in-Thunar implementation rejected, navigation companion shipped (Phase finder-p0)
+
+**Date:** 2026-10-03
+**Context:** AGENTS.md §13.6 FINDER requires column view investigation before accepting "Thunar limitation" as a completion criterion.
+
+**Investigation (hard evidence, live system):**
+1. Thunar 4.20.10 (installed, the ISO target) supports exactly three compiled-in view modes — `ThunarIconView`, `ThunarDetailsView`, `ThunarCompactView` (visible in `thunarrc` `LastView=` value space; internal widgets in `thunar-view.c`, not loadable).
+2. The thunarx-3 plugin API (`/usr/share/gir-1.0/Thunarx-3.0.gir`, introspected live via `gi.repository.Thunarx`) exposes provider interfaces for: `MenuProvider`, `PreferencesProvider`, `PropertyPageProvider`, `RenamerProvider` (+ `FileInfo`/`Menu`/`MenuItem`/`ProviderPlugin` infrastructure). **There is no view/view-mode provider interface** — a third-party view mode cannot be plugged in; it requires forking Thunar itself.
+3. `thunarx-python` is not in the ISO package list, so even menu/property-page plugins are not currently loadable — but that class of plugin could not add a view mode anyway.
+4. Writing a full column-mode file manager as a Thunar replacement violates reuse-first (§5, §13.7): it would duplicate file management (rename/delete/copy/DnD) already owned by a mature backend.
+
+**Decision:**
+- Column view *inside* the Finder main window: architecturally blocked pre-fork — documented here with the evidence above, not silently accepted.
+- Shipped instead: `mv-finder-columns` — a Finder-style **column navigation companion** (multi-pane browser: folder → subfolder → …, folders-first, keyboard Left/Right/Up/Down/Backspace/Enter/Esc, horizontal scroll). Navigation and opening only; all file management is handed off to Thunar via the "Open in Thunar" button (reuse-first: zero duplication of backend file operations). Wired as a Thunar custom action "Browse as Columns" (`thunar-uca.xml`).
+- Entry point is a context-menu action, not an in-window view switcher — the delta vs Mavericks Cmd+3 is explicit and listed in APPS.md known gaps.
+- Recursive search delivered in the same pass via `mv-finder-search` (separate concern; plocate is used only for whole-`$HOME` roots because the index is machine-global and possibly stale — folder-rooted searches always walk the real tree via `os.scandir`, matching Finder's "Search in This Folder" semantics).
+
+**Cost:** both helpers are on-demand single-shot processes (no daemon, no indexer, no polling — §7 compliant); `mv-finder-search` uses one worker thread per debounced query with a generation counter.
+
+**Revisit when:** Thunar upstream ever adds a view provider to thunarx (then implement a native column view plugin), or the project decides to fork/patch Thunar (currently out of scope).
+
 ## 2026-10-03 — Ling 3.1 Flash Free = first-priority builder (protocol v15)
 
 **Date:** 2026-10-03

@@ -1,5 +1,13 @@
 # NEEDS_HARDWARE_TEST — Items requiring real MacBook10,1 hardware
 
+## Finder search / column browser — hardware validation (phase finder-p0)
+- [ ] Visual: mv-finder-search results window (HeaderBar + search field, Name/Kind/Size/Where columns, folders-first ordering) under the Mavericks GTK theme at 2304×1440
+- [ ] Visual: mv-finder-columns multi-pane column browser proportions at 2304×1440 (240px columns readable at 2x scaling)
+- [ ] Thunar UCA entries appear in context menu and pass `%f` correctly for background click (current folder) and selected folder
+- [ ] Recursive search latency over the real $HOME tree on Apple S3X NVMe (walk backend) and plocate fast-path with real index
+- [ ] UCA icons resolve (edit-find, format-justify-fill via Mavericks→Adwaita inheritance)
+- [ ] Esc semantics in the search window do not collide with xfwm4 keybindings on real session
+
 ## Browser chrome visual checklist (phase 0.70, pixel validation on HW)
 All states below are covered-by-CSS (gate-validated, see docs/SAFARI_SPEC.md §17)
 but NOT pixel-validated. Screenshot each on MacBook10,1 at 2304×1440:

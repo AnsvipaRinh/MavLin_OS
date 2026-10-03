@@ -20,8 +20,8 @@
 | **Selection** | Ctrl-click select, Shift range | GTK3 selection semantics | No Command-click (meta) for single, Option-drag for range | Map keyboard shortcuts (Cmd+Click, Option+Drag) |
 | **Context Menu** | Thunar UCA + custom menu | mv-finder integration, Get Info/Open With | Missing "Open With...", "Get Info", "Put Back", "Eject" in Finder style | Add missing UCA entries with Mavericks terminology |
 | **Quick Look** | Space binding fallback via mv-quicklook | Thunar limitation, hotkey Super+Shift+Space for selection | No native Space binding, limited preview scope | Investigate/implement native Thunar plugin; fallback documentation |
-| **Icon View** | 48px, Thunar style | Icon theme matches Mavericks | No column view, no icon size adaptive to window | Implement grid/column layout switcher |
-| **Search** | Top search field, basic results | Thunar integrated search | No recursive search toolbar, no "Search the Internet" | Add "Search in This Folder" with Mavericks glass |
+| **Icon View** | 48px, Thunar style | Icon theme matches Mavericks | No in-window column view (Thunar/thunarx architectural limit, see DECISIONS); column browsing exists via mv-finder-columns companion | Column view inside Thunar impossible pre-fork; companion covered; adaptive icon size remains open |
+| **Search** | Recursive "Search in This Folder…" UCA action + mv-finder-search results window (walk backend; plocate fast-path for whole-home) | thunar-uca.xml mv-finder-search; scripts/test-mv-finder-search.py 57 tests | Not a toolbar-embedded field (Thunar toolbar not extensible); no "Search the Internet" (out of scope) | Accept UCA entry point pre-hardware; visual validation on panel |
 
 #### 2. Spotlight (PARTIALLY IMPLEMENTED)
 | UI Surface | Current State | Evidence | Gap | Planned Action |

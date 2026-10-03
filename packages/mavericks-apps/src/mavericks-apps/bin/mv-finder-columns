@@ -1,0 +1,294 @@
+#!/usr/bin/env python3
+"""mv-finder-columns — Finder column-view navigation companion.
+
+Thunar has no column view and the thunarx-3 API exposes no view provider
+(see docs/DECISIONS.md), so the Mavericks column experience lives here:
+a multi-pane column browser (folder → subfolder → …) with the same visual
+language as the other mv-* apps. Navigation and opening only — all file
+management (rename/delete/copy) is handed off to Thunar ("Open in Thunar"
+button / opening a folder). On-demand single-shot process: no daemon,
+no indexer, no polling.
+
+License: GPL-2.0-or-later."""
+import os
+import shutil
+import subprocess
+import sys
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib, Gio  # noqa: E402
+
+COLUMN_WIDTH = 240
+MAX_COLUMNS = 24  # horizontal scroll still handles it; cap is a safety net
+
+
+def list_entries(directory, include_hidden=False):
+    """Entries of one column: folders first, then case-insensitive name.
+
+    Raises OSError for unreadable directories (caller shows error state).
+    """
+    out = []
+    with os.scandir(directory) as scan:
+        for entry in scan:
+            name = entry.name
+            if not include_hidden and name.startswith("."):
+                continue
+            try:
+                is_dir = entry.is_dir(follow_symlinks=False)
+            except OSError:
+                continue
+            try:
+                st = entry.stat(follow_symlinks=False)
+                size = 0 if is_dir else st.st_size
+            except OSError:
+                size = 0
+            out.append({"name": name, "is_dir": is_dir, "size": size})
+    out.sort(key=lambda e: (not e["is_dir"], e["name"].casefold(), e["name"]))
+    return out
+
+
+def icon_for(name, is_dir):
+    """Icon name for a row; never raises."""
+    if is_dir:
+        return "folder"
+    import mimetypes
+    mime = mimetypes.guess_type(name)[0]
+    if mime:
+        try:
+            names = Gio.content_type_get_icon(mime).get_names()
+            try:
+                theme = Gtk.IconTheme.get_default()
+            except Exception:
+                theme = None
+            for n in names:
+                if n and (theme is None or theme.has_icon(n)):
+                    return n
+        except Exception:
+            pass
+    return "text-x-generic"
+
+
+class ColumnRow(Gtk.ListBoxRow):
+    def __init__(self, entry):
+        super().__init__()
+        self.entry = entry
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        box.set_margin_top(3)
+        box.set_margin_bottom(3)
+        box.set_margin_start(6)
+        box.set_margin_end(6)
+        img = Gtk.Image.new_from_icon_name(icon_for(entry["name"], entry["is_dir"]),
+                                           Gtk.IconSize.MENU)
+        label = Gtk.Label(label=entry["name"])
+        label.set_ellipsize(3)  # middle
+        label.set_halign(Gtk.Align.START)
+        box.pack_start(img, False, False, 0)
+        box.pack_start(label, False, False, 0)
+        self.add(box)
+
+
+class ColumnsWindow(Gtk.Window):
+    def __init__(self, root):
+        super().__init__(title=os.path.basename(root) or root)
+        self.root = os.path.abspath(root)
+        self.chain = [self.root]
+        self.listboxes = []
+
+        self.set_default_size(760, 480)
+        self.set_position(Gtk.WindowPosition.CENTER)
+
+        hb = Gtk.HeaderBar(title=self.get_title(), show_close_button=True)
+        hb.set_subtitle("Column View")
+        self.set_titlebar(hb)
+
+        open_tb = Gtk.Button(label="Open in Thunar")
+        open_tb.set_tooltip_text("Manage these files in Thunar")
+        open_tb.connect("clicked", self.on_open_thunar)
+        hb.pack_end(open_tb)
+
+        self.columns_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+
+        self.scrolled = Gtk.ScrolledWindow()
+        self.scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        self.scrolled.add(self.columns_box)
+
+        self.error_label = Gtk.Label()
+        self.error_label.get_style_context().add_class("dim-label")
+        self.error_label.set_justify(Gtk.Justification.CENTER)
+
+        self.status_label = Gtk.Label(label="")
+        self.status_label.get_style_context().add_class("dim-label")
+        self.status_label.set_halign(Gtk.Align.START)
+        status = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        status.set_border_width(4)
+        status.pack_start(self.status_label, False, False, 0)
+
+        self.overlay = Gtk.Overlay()
+        self.overlay.add(self.scrolled)
+        self.overlay.add_overlay(self.error_label)
+        self.overlay.set_overlay_pass_through(self.error_label, True)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        vbox.pack_start(self.overlay, True, True, 0)
+        vbox.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+        vbox.pack_start(status, False, False, 0)
+        self.add(vbox)
+
+        self.connect("destroy", Gtk.main_quit)
+        self.connect("key-press-event", self.on_key_press)
+
+        self.show_all()
+        self.rebuild_columns()
+
+    # ---------- column construction ----------
+
+    def rebuild_columns(self, keep_depth=None):
+        for child in self.columns_box.get_children():
+            self.columns_box.remove(child)
+        self.listboxes = []
+
+        if keep_depth is not None:
+            self.chain = self.chain[:keep_depth]
+
+        columns = []
+        last_error = None
+        for directory in self.chain:
+            try:
+                columns.append((directory, list_entries(directory)))
+            except OSError as e:
+                columns.append((directory, None))
+                if directory == self.chain[-1]:
+                    last_error = e
+
+        for directory, entries in columns:
+            self.append_column(directory, entries)
+
+        last_entries = columns[-1][1]
+        if last_entries is None:
+            self.error_label.set_text(
+                "Could not open “%s”\n%s" % (
+                    self.chain[-1],
+                    (last_error.strerror if last_error else None) or "permission denied"))
+            self.status_label.set_text("Folder unavailable")
+        else:
+            self.error_label.set_text("")
+            count = len(last_entries)
+            name = os.path.basename(self.chain[-1]) or self.chain[-1]
+            self.status_label.set_text(
+                "%d item%s in “%s”" % (count, "" if count == 1 else "s", name))
+
+        self.columns_box.show_all()
+        self.error_label.set_visible(last_entries is None)
+        # scroll to the newest (right-most) column
+        GLib.idle_add(self.scroll_to_end)
+
+    def append_column(self, directory, entries):
+        if len(self.listboxes) >= MAX_COLUMNS:
+            return
+        listbox = Gtk.ListBox()
+        listbox.set_size_request(COLUMN_WIDTH, -1)
+        listbox.set_activate_on_single_click(False)
+        listbox.connect("row-activated", self.on_row_activated)
+        listbox.get_style_context().add_class("background")
+        if entries:
+            for entry in entries:
+                listbox.add(ColumnRow(entry))
+        elif entries is None:
+            error_row = Gtk.ListBoxRow()
+            lbl = Gtk.Label(label="Cannot open")
+            lbl.get_style_context().add_class("dim-label")
+            error_row.add(lbl)
+            listbox.add(error_row)
+        separator = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        self.columns_box.pack_start(listbox, False, False, 0)
+        self.columns_box.pack_start(separator, False, False, 0)
+        self.listboxes.append(listbox)
+
+    def scroll_to_end(self):
+        adj = self.scrolled.get_hadjustment()
+        adj.set_value(adj.get_upper())
+        if self.listboxes:
+            self.listboxes[-1].grab_focus()
+        return False
+
+    # ---------- interaction ----------
+
+    def on_row_activated(self, listbox, row):
+        if not hasattr(row, "entry"):
+            return
+        entry = row.entry
+        index = self.listboxes.index(listbox)
+        path = os.path.join(self.chain[index], entry["name"])
+        if entry["is_dir"]:
+            self.chain = self.chain[:index + 1]
+            self.chain.append(path)
+            self.rebuild_columns()
+        else:
+            try:
+                subprocess.Popen(["xdg-open", path],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError:
+                pass
+
+    def on_open_thunar(self, _button):
+        target = self.chain[-1]
+        opener = ["thunar", target] if shutil.which("thunar") else ["xdg-open", target]
+        try:
+            subprocess.Popen(opener, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+
+    def on_key_press(self, _widget, event):
+        key = Gdk.keyval_name(event.keyval)
+        if key == "Escape":
+            self.destroy()
+            return True
+        if not self.listboxes:
+            return False
+        if key == "Right":
+            index = self.focus_column_index()
+            if index is not None and index + 1 < len(self.listboxes):
+                self.listboxes[index + 1].grab_focus()
+            return True
+        if key == "Left":
+            index = self.focus_column_index()
+            if index is not None and index > 0:
+                self.listboxes[index - 1].grab_focus()
+            return True
+        if key == "BackSpace":
+            if len(self.chain) > 1:
+                self.rebuild_columns(keep_depth=len(self.chain) - 1)
+            return True
+        return False
+
+    def focus_column_index(self):
+        focus = self.get_focus()
+        for i, listbox in enumerate(self.listboxes):
+            if focus is listbox or (focus is not None and
+                                    focus.get_ancestor(Gtk.ListBox) is listbox):
+                return i
+        return None
+
+
+def main():
+    args = sys.argv[1:]
+    if args and args[0] in ("-h", "--help"):
+        print("usage: mv-finder-columns FOLDER\n"
+              "  Finder-like column view browser for FOLDER (navigation only;\n"
+              "  file management hands off to Thunar).")
+        return 0
+    if len(args) != 1:
+        print("usage: mv-finder-columns FOLDER", file=sys.stderr)
+        return 2
+    root = args[0]
+    if not os.path.isdir(root):
+        print("mv-finder-columns: not a folder: %s" % root, file=sys.stderr)
+        return 2
+    ColumnsWindow(root)
+    Gtk.main()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

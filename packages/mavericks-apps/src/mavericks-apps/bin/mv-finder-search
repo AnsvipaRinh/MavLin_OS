@@ -1,0 +1,510 @@
+#!/usr/bin/env python3
+"""mv-finder-search — Finder-like recursive "Search in This Folder".
+
+Mavericks search results window rooted at a folder (Thunar custom action
+"Search in This Folder…"). Recursive name search via os.scandir walk;
+plocate fast-path only for whole-$HOME queries (index may be stale —
+walk fallback when plocate is missing/broken). Results list with icon /
+name / kind / size / location, double-click or Enter opens (folders in
+Thunar, files via xdg-open). On-demand single-shot process: no indexer,
+no daemon, no polling.
+
+License: GPL-2.0-or-later."""
+import os
+import shutil
+import subprocess
+import sys
+import threading
+import time
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib, Gio  # noqa: E402
+
+DEFAULT_MAX_RESULTS = 1000
+PLOCATE_LIMIT = 4000
+PLOCATE_TIMEOUT = 10
+
+
+def format_size(size):
+    """Human-readable file size (Finder-like)."""
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024:
+            if unit == "B":
+                return "%d %s" % (size, unit)
+            return "%.1f %s" % (size, unit)
+        size /= 1024
+    return "%.1f PB" % size
+
+
+def file_kind(name, is_dir):
+    """Short kind label for a filename (mirrors mv-getinfo naming)."""
+    if is_dir:
+        return "Folder"
+    import mimetypes
+    mime = mimetypes.guess_type(name)[0]
+    if not mime:
+        return "Document"
+    if mime == "application/pdf":
+        return "PDF document"
+    category, _, subtype = mime.partition("/")
+    if category == "image":
+        return "%s image" % subtype.upper()
+    if category == "text":
+        return "Plain text document"
+    return "%s %s" % (subtype.capitalize(), category)
+
+
+def rank_match(query, name_lower):
+    """Relevance ladder: 0 exact, 1 prefix, 2 word-start, 3 substring, -1 none.
+
+    Query is casefolded here; name must already be lowercase."""
+    query_lower = query.casefold()
+    if not query_lower:
+        return -1
+    if name_lower == query_lower:
+        return 0
+    if name_lower.startswith(query_lower):
+        return 1
+    starts = [0]
+    for i, ch in enumerate(name_lower[1:], 1):
+        if name_lower[i - 1] in " ._-" and ch not in " ._-" and ch.isalnum():
+            starts.append(i)
+    if any(name_lower.startswith(query_lower, i) for i in starts):
+        return 2
+    if query_lower in name_lower:
+        return 3
+    return -1
+
+
+def visible_entry(name, include_hidden):
+    """Dotfiles hidden unless the query itself is a dot-query (Finder convention)."""
+    if include_hidden:
+        return True
+    return not name.startswith(".")
+
+
+def auto_hidden(query):
+    """Hidden files become searchable when the query starts with a dot."""
+    return query.startswith(".")
+
+
+def walk_results(root, query, max_results=DEFAULT_MAX_RESULTS):
+    """Iterative recursive name search. Returns (results, skipped_dirs).
+
+    No symlinked dirs followed (cycle safety, find(1) default parity).
+    Directories themselves are also matched (Finder searches folders).
+    """
+    query_lower = query.casefold()
+    include_hidden = auto_hidden(query)
+    results = []
+    skipped = []
+    stack = [root]
+    while stack and len(results) < max_results:
+        directory = stack.pop()
+        try:
+            entries = list(os.scandir(directory))
+        except OSError:
+            skipped.append(directory)
+            continue
+        for entry in entries:
+            name = entry.name
+            if not visible_entry(name, include_hidden):
+                continue
+            try:
+                is_dir = entry.is_dir(follow_symlinks=False)
+            except OSError:
+                continue
+            if query_lower and rank_match(query_lower, name.casefold()) >= 0:
+                try:
+                    st = entry.stat(follow_symlinks=False)
+                    results.append({
+                        "path": entry.path,
+                        "name": name,
+                        "is_dir": is_dir,
+                        "size": 0 if is_dir else st.st_size,
+                        "mtime": st.st_mtime,
+                        "rank": rank_match(query_lower, name.casefold()),
+                    })
+                except OSError:
+                    continue
+                if len(results) >= max_results:
+                    break
+            if is_dir:
+                stack.append(entry.path)
+    return results, skipped
+
+
+def parse_plocate_output(text, root, query, max_results=DEFAULT_MAX_RESULTS):
+    """Filter plocate path output to basename matches under root.
+
+    plocate matches the full path; Finder searches names — keep only rows
+    whose basename matches, so both backends present the same result set.
+    """
+    include_hidden = auto_hidden(query)
+    query_lower = query.casefold()
+    root_real = os.path.realpath(root)
+    root_prefix = root_real + os.sep
+    seen = set()
+    results = []
+    for line in text.splitlines():
+        path = line.rstrip("\n")
+        if not path:
+            continue
+        try:
+            real = os.path.realpath(path)
+        except OSError:
+            continue
+        if not real.startswith(root_prefix) and real != root_real:
+            continue
+        name = os.path.basename(real)
+        if not name or not visible_entry(name, include_hidden):
+            continue
+        # hidden intermediate components (e.g. ~/.cache/...) respect the
+        # same visibility rule as the walk backend
+        rel = real[len(root_prefix):-len(name)] if real != root_real else ""
+        if not include_hidden and any(
+                part.startswith(".") for part in rel.split(os.sep) if part):
+            continue
+        if query_lower not in name.casefold():
+            continue
+        if real in seen:
+            continue
+        seen.add(real)
+        is_dir = os.path.isdir(real)
+        try:
+            st = os.stat(real)
+            size, mtime = (0, st.st_mtime) if is_dir else (st.st_size, st.st_mtime)
+        except OSError:
+            size, mtime = 0, 0
+        results.append({
+            "path": real,
+            "name": name,
+            "is_dir": is_dir,
+            "size": size,
+            "mtime": mtime,
+            "rank": rank_match(query_lower, name.casefold()),
+        })
+        if len(results) >= max_results:
+            break
+    return results
+
+
+def choose_backend(root, home=None, plocate_path=None):
+    """'plocate' only for whole-home roots with a working binary; else 'walk'.
+
+    plocate_path: None auto-detects via PATH; "" (or any falsy value) forces
+    the walk backend (used by tests and by callers that know it is broken)."""
+    if home is None:
+        home = os.path.expanduser("~")
+    if plocate_path is None:
+        plocate_path = shutil.which("plocate")
+    try:
+        if os.path.realpath(root) == os.path.realpath(home) and plocate_path:
+            return "plocate"
+    except OSError:
+        pass
+    return "walk"
+
+
+def run_plocate(query, limit=PLOCATE_LIMIT):
+    """Run plocate; raises OSError/subprocess errors for walk fallback."""
+    proc = subprocess.run(
+        ["plocate", "-i", "-l", str(limit), "--", query],
+        capture_output=True, text=True, timeout=PLOCATE_TIMEOUT,
+    )
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, "plocate")
+    return proc.stdout
+
+
+def sort_results(results):
+    """Finder ordering: folders first, then name (case-insensitive)."""
+    return sorted(results, key=lambda r: (not r["is_dir"], r["name"].casefold()))
+
+
+def icon_for(name, is_dir, size=16):
+    """Icon name for a row; never raises (text-x-generic fallback)."""
+    if is_dir:
+        return "folder"
+    import mimetypes
+    mime = mimetypes.guess_type(name)[0]
+    if mime:
+        try:
+            names = Gio.content_type_get_icon(mime).get_names()
+            try:
+                theme = Gtk.IconTheme.get_default()
+            except Exception:
+                theme = None
+            for n in names:
+                if n and (theme is None or theme.has_icon(n)):
+                    return n
+        except Exception:
+            pass
+    return "text-x-generic"
+
+
+class FinderSearchWindow(Gtk.Window):
+    def __init__(self, root, query=""):
+        super().__init__(title="Search")
+        self.root = os.path.abspath(root)
+        self.root_name = os.path.basename(self.root) or self.root
+        self.generation = 0
+        self.debounce_id = None
+        self.state = "idle"
+        self.skipped_count = 0
+
+        self.set_default_size(680, 480)
+        self.set_position(Gtk.WindowPosition.CENTER)
+
+        hb = Gtk.HeaderBar(title="Search", show_close_button=True)
+        hb.set_subtitle("Searching in “%s”" % self.root_name)
+        self.set_titlebar(hb)
+
+        self.entry = Gtk.SearchEntry()
+        self.entry.set_placeholder_text("Search in “%s”" % self.root_name)
+        self.entry.set_width_chars(24)
+        self.entry.connect("search-changed", self.on_search_changed)
+        hb.pack_end(self.entry)
+
+        # Results store: icon, name, kind, size, location, path, is_dir
+        self.store = Gtk.ListStore(str, str, str, str, str, str, bool)
+        self.tree = Gtk.TreeView(model=self.store)
+        self.tree.set_headers_visible(True)
+        self.tree.set_search_column(-1)  # our entry is the filter
+
+        col_icon = Gtk.CellRendererPixbuf()
+        col_name = Gtk.CellRendererText()
+        name_col = Gtk.TreeViewColumn("Name", col_name, text=1)
+        name_col.pack_start(col_icon, False)
+        name_col.add_attribute(col_icon, "icon_name", 0)
+        name_col.set_sort_column_id(1)
+        name_col.set_resizable(True)
+        name_col.set_expand(True)
+        self.tree.append_column(name_col)
+
+        for title, idx in (("Kind", 2), ("Size", 3), ("Where", 4)):
+            renderer = Gtk.CellRendererText()
+            if title == "Where":
+                renderer.set_property("ellipsize", 3)  # Pango.EllipsizeMode.MIDDLE
+            column = Gtk.TreeViewColumn(title, renderer, text=idx)
+            column.set_resizable(True)
+            if title == "Where":
+                column.set_expand(True)
+            self.tree.append_column(column)
+        self.tree.connect("row-activated", self.on_row_activated)
+
+        selection = self.tree.get_selection()
+        selection.set_mode(Gtk.SelectionMode.SINGLE)
+
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.add(self.tree)
+
+        # Empty state overlay (no results / initial hint)
+        self.empty_label = Gtk.Label()
+        self.empty_label.get_style_context().add_class("dim-label")
+        self.empty_label.set_justify(Gtk.Justification.CENTER)
+
+        overlay = Gtk.Overlay()
+        overlay.add(sw)
+        overlay.add_overlay(self.empty_label)
+        overlay.set_overlay_pass_through(self.empty_label, True)
+
+        # Unreadable-folders banner
+        self.infobar = Gtk.InfoBar()
+        self.infobar.set_message_type(Gtk.MessageType.WARNING)
+        self.infobar.set_revealed(False)
+        self.infobar.set_show_close_button(True)
+        self.infobar.connect("response", lambda *_: self.infobar.set_revealed(False))
+        ib_label = Gtk.Label(label="Some folders could not be searched (permission denied).")
+        self.infobar.get_content_area().add(ib_label)
+
+        # Status bar (Finder-like result count + search location)
+        status = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        status.set_border_width(4)
+        self.status_label = Gtk.Label(label="Type to search")
+        self.status_label.get_style_context().add_class("dim-label")
+        self.status_label.set_halign(Gtk.Align.START)
+        status.pack_start(self.status_label, False, False, 0)
+        self.location_label = Gtk.Label(label="Search in: %s" % self.root)
+        self.location_label.get_style_context().add_class("dim-label")
+        self.location_label.set_halign(Gtk.Align.END)
+        self.location_label.set_ellipsize(3)
+        status.pack_end(self.location_label, False, False, 0)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        vbox.pack_start(self.infobar, False, False, 0)
+        vbox.pack_start(overlay, True, True, 0)
+        vbox.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+        vbox.pack_start(status, False, False, 0)
+        self.add(vbox)
+
+        self.connect("destroy", Gtk.main_quit)
+        self.connect("key-press-event", self.on_key_press)
+
+        self.show_all()
+        self.infobar.set_revealed(False)
+        self.set_empty_state("Type to search in “%s”" % self.root_name)
+
+        if query:
+            self.entry.set_text(query)
+            # search-changed fires on programmatic set; debounce handles it
+        else:
+            self.entry.grab_focus()
+
+    # ---------- UI helpers ----------
+
+    def set_empty_state(self, text):
+        self.empty_label.set_text(text)
+        self.empty_label.set_visible(self.store.get_iter_first() is None)
+
+    def on_key_press(self, _widget, event):
+        key = Gdk.keyval_name(event.keyval)
+        if key == "Escape":
+            if self.entry.get_text():
+                self.entry.set_text("")
+            else:
+                self.destroy()
+            return True
+        if key in ("f", "F") and event.state & Gdk.ModifierType.CONTROL_MASK:
+            self.entry.grab_focus()
+            return True
+        if key == "l" and event.state & Gdk.ModifierType.CONTROL_MASK:
+            self.entry.grab_focus()
+            self.entry.select_region(0, -1)
+            return True
+        return False
+
+    # ---------- search lifecycle ----------
+
+    def on_search_changed(self, _entry):
+        if self.debounce_id:
+            GLib.source_remove(self.debounce_id)
+            self.debounce_id = None
+        self.debounce_id = GLib.timeout_add(250, self.start_search)
+
+    def start_search(self):
+        self.debounce_id = None
+        query = self.entry.get_text().strip()
+        if not query:
+            self.generation += 1
+            self.store.clear()
+            self.state = "idle"
+            self.status_label.set_text("Type to search")
+            self.set_empty_state("Type to search in “%s”" % self.root_name)
+            return False
+        self.generation += 1
+        generation = self.generation
+        self.state = "running"
+        self.status_label.set_text("Searching “%s”…" % query)
+        self.set_empty_state("")
+        thread = threading.Thread(
+            target=self.search_worker, args=(query, generation), daemon=True)
+        thread.start()
+        return False
+
+    def search_worker(self, query, generation):
+        backend = choose_backend(self.root)
+        skipped = []
+        try:
+            if backend == "plocate":
+                try:
+                    text = run_plocate(query)
+                    results = parse_plocate_output(text, self.root, query)
+                except (OSError, subprocess.SubprocessError):
+                    results, skipped = walk_results(self.root, query)
+            else:
+                results, skipped = walk_results(self.root, query)
+        except Exception as e:  # defensive: worker must never kill the loop
+            GLib.idle_add(self.apply_error, generation, str(e))
+            return
+        GLib.idle_add(self.apply_results, query, generation, results, skipped)
+
+    def apply_results(self, query, generation, results, skipped):
+        if generation != self.generation:
+            return False
+        self.state = "done"
+        self.skipped_count = len(skipped)
+        ordered = sort_results(results)
+        self.store.clear()
+        for r in ordered:
+            location = os.path.dirname(r["path"])
+            try:
+                location = os.path.relpath(location, self.root)
+            except ValueError:
+                pass
+            self.store.append([
+                icon_for(r["name"], r["is_dir"]),
+                r["name"],
+                file_kind(r["name"], r["is_dir"]),
+                "—" if r["is_dir"] else format_size(r["size"]),
+                location,
+                r["path"],
+                r["is_dir"],
+            ])
+        count = len(ordered)
+        self.status_label.set_text("%d result%s" % (count, "" if count == 1 else "s"))
+        if count == 0:
+            self.set_empty_state("No results for “%s”" % query)
+        else:
+            self.set_empty_state("")
+        self.infobar.set_revealed(self.skipped_count > 0)
+        return False
+
+    def apply_error(self, generation, message):
+        if generation != self.generation:
+            return False
+        self.state = "error"
+        self.store.clear()
+        self.set_empty_state("Search failed: %s" % message)
+        self.status_label.set_text("Search failed")
+        return False
+
+    # ---------- opening results ----------
+
+    def on_row_activated(self, _tree, path, _column):
+        row = self.store[path]
+        target, is_dir = row[5], row[6]
+        if is_dir and shutil.which("thunar"):
+            opener = ["thunar", target]
+        else:
+            opener = ["xdg-open", target]
+        try:
+            subprocess.Popen(opener, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+        except OSError as e:
+            dialog = Gtk.MessageDialog(
+                transient_for=self, message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK, text="Could not open %s" % row[1])
+            dialog.format_secondary_text(str(e))
+            dialog.run()
+            dialog.destroy()
+
+
+def main():
+    args = sys.argv[1:]
+    if args and args[0] in ("-h", "--help"):
+        print("usage: mv-finder-search [FOLDER] [QUERY]\n"
+              "  FOLDER  search root (default: current directory)\n"
+              "  QUERY   initial search text")
+        return 0
+    if len(args) > 2:
+        print("usage: mv-finder-search [FOLDER] [QUERY]", file=sys.stderr)
+        return 2
+    root = args[0] if args else os.getcwd()
+    query = args[1] if len(args) > 1 else ""
+
+    if not os.path.isdir(root):
+        print("mv-finder-search: not a folder: %s" % root, file=sys.stderr)
+        return 2
+
+    win = FinderSearchWindow(root, query)
+    if not os.access(root, os.R_OK):
+        win.apply_error(win.generation, "cannot read %s (permission denied)" % root)
+    Gtk.main()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

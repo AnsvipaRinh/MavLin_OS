@@ -147,6 +147,28 @@
     <video-files/>
   </action>
   <action>
+    <icon>edit-find</icon>
+    <name>Search in This Folder…</name>
+    <submenu></submenu>
+    <unique-id>mv-finder-search</unique-id>
+    <command>mv-finder-search "%f"</command>
+    <description>Search recursively in this folder (Finder-like results window)</description>
+    <patterns>*</patterns>
+    <startup-notify/>
+    <directories/>
+  </action>
+  <action>
+    <icon>format-justify-fill</icon>
+    <name>Browse as Columns</name>
+    <submenu></submenu>
+    <unique-id>mv-finder-columns</unique-id>
+    <command>mv-finder-columns "%f"</command>
+    <description>Open this folder in a Finder-style column browser</description>
+    <patterns>*</patterns>
+    <startup-notify/>
+    <directories/>
+  </action>
+  <action>
     <icon>user-trash-full</icon>
     <name>Empty Trash</name>
     <submenu></submenu>
