@@ -1,6 +1,6 @@
 {
   "$schema": "mavericks model-fallback-chain v1",
-  "note": "User-defined ordered fallback chain (2026-09-26). Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts. SESSION != MODEL (2026-09-29 v3/v4 protocol): failover switches the worker (subagent_type) on the SAME session, never a replacement session. Only entries with a 'worker' are runtime-reachable; entries with worker=null are intentionally NOT workers (reason given).",
+  "note": "User-defined ordered fallback chain (2026-09-26; primary = Ling 3.1 Flash Free since 2026-10-03). Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts. SESSION != MODEL (2026-09-29 v3/v4 protocol): failover switches the worker (subagent_type) on the SAME session, never a replacement session. Only entries with a 'worker' are runtime-reachable; entries with worker=null are intentionally NOT workers (reason given).",
   "primaryWorker": "build",
   "execution": "chain-only",
   "never": [
@@ -14,6 +14,16 @@
   "chain": [
     {
       "order": 1,
+      "role": "primary-worker",
+      "provider": "opencode",
+      "match": "ling-3.1-flash",
+      "want": "opencode/ling-3.1-flash-free",
+      "worker": "build",
+      "worker_reason": "PRIMARY WORKER since 2026-10-03 at user request: Ling 3.1 Flash Free (OpenCode Zen / Z.ai) is the default first-priority builder model. Holds continuity of running sessions; chain order governs FALLBACK preference and now also names the primary.",
+      "label": "Ling 3.1 Flash Free (OpenCode Zen / Z.ai; PRIMARY from 2026-10-03, user-selected, live-verified serving)"
+    },
+    {
+      "order": 2,
       "role": "fallback",
       "provider": "openrouter",
       "match": "cohere/north-mini-code",
@@ -22,7 +32,7 @@
       "label": "North Mini Code (OpenRouter, free; Cohere agentic coding, 256K context)"
     },
     {
-      "order": 2,
+      "order": 3,
       "role": "fallback",
       "provider": "openrouter",
       "match": "openrouter/free",
@@ -32,23 +42,13 @@
       "label": "Free Model Router (OpenRouter; random free model with tool-calling filter)"
     },
     {
-      "order": 3,
+      "order": 4,
       "role": "sub-agent",
       "provider": "opencode",
       "match": "longcat",
       "want": "opencode/longcat-2.5-preview-free",
       "worker": "build-c",
       "label": "LongCat 2.5 Preview Free (Zen; VERIFIED 2026-09-26 via models.dev: served by OpenCode Zen AND OpenCode Go as 'longcat-2.5-preview-free', $0, 1M context; confirm locally via `opencode models`)"
-    },
-    {
-      "order": 4,
-      "role": "primary-worker",
-      "provider": "opencode",
-      "match": "nemotron-3-ultra",
-      "want": "opencode/nemotron-3-ultra-free",
-      "worker": "build",
-      "worker_reason": "Primary worker: holds continuity of running sessions. Chain order governs FALLBACK preference (build-b #1 before build-c #3); it does not demote the primary.",
-      "label": "Nemotron 3 Ultra Free (Zen; primary worker pin; quota event 2026-09-26 handled via cooldown memory, not pin rotation)"
     },
     {
       "order": 5,
@@ -62,6 +62,16 @@
     },
     {
       "order": 6,
+      "role": "fallback",
+      "provider": "opencode",
+      "match": "nemotron-3-ultra",
+      "want": "opencode/nemotron-3-ultra-free",
+      "worker": "build-i",
+      "worker_reason": "Former primary (2026-09-26..2026-10-02), DEMOTED 2026-10-03 when the user selected Ling 3.1 Flash Free as first-priority builder. Proven worker, kept runtime-reachable via the build-i pin; ranks below the other proven fallbacks, above the experimental pins.",
+      "label": "Nemotron 3 Ultra Free (Zen; former primary 2026-09-26..2026-10-02, demoted by user choice)"
+    },
+    {
+      "order": 7,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "fledge-alpha",
@@ -71,7 +81,7 @@
       "label": "Fledge Alpha Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 7,
+      "order": 8,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "ling-3.0-flash-fin",
@@ -81,7 +91,7 @@
       "label": "Ling 3.0 Flash Fin Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 8,
+      "order": 9,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "mimo-v2.6-flash",
@@ -91,7 +101,7 @@
       "label": "MiMo V2.6 Flash Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 9,
+      "order": 10,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "space-bunny",
@@ -101,5 +111,5 @@
       "label": "Space Bunny Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     }
   ],
-  "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 1-2; Zen login for 3-9. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry."
+  "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 2-3; Zen login for 4-10. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry."
 }

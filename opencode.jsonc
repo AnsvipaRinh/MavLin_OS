@@ -18,7 +18,9 @@
   "small_model": "openrouter/cohere/north-mini-code:free",
   "agent": {
     "build": {
-      "model": "opencode/nemotron-3-ultra-free",
+      // PRIMARY since 2026-10-03 (user choice): Ling 3.1 Flash Free
+      // (OpenCode Zen / Z.ai) is the default first-priority builder.
+      "model": "opencode/ling-3.1-flash-free",
       "description": "Implementation worker: executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
       "permission": {
         // Workers must NEVER delegate deeper (2026-09-26, see DECISIONS.md):
@@ -109,6 +111,20 @@
       "hidden": true,
       "model": "opencode/nemotron-3.5-lightning-free",
       "description": "Implementation worker (fallback H): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
+      "permission": {
+        "task": {
+          "*": "deny"
+        }
+      }
+    },
+    // Former primary (2026-09-26..2026-10-02), demoted when Ling 3.1
+    // Flash Free became the first-priority builder. Kept as a proven
+    // fallback worker (chain #6).
+    "build-i": {
+      "mode": "subagent",
+      "hidden": true,
+      "model": "opencode/nemotron-3-ultra-free",
+      "description": "Implementation worker (fallback I, former primary): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
       "permission": {
         "task": {
           "*": "deny"
