@@ -1,3 +1,6 @@
 Vsevolod Avdonkin==><project author>
 vsevolod@archlinux==><project-author-email>
 vsevolod==><build-user-2>
+/home/builder==><build-host>
+/home/mavericks-lab==><target-host>
+/home/custompkgs==><build-host>

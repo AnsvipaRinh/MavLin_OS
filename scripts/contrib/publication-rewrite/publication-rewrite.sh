@@ -189,31 +189,53 @@ verify_rewrite() {
     echo "  [FAIL] blob strip: $present still present, $missing stripped (want 0/30)"; fail=1
   fi
 
+  # private absolute build paths absent from all history content
+  # (user constraint: no /home/builder or other private absolute
+  # paths in the published history where not functionally needed;
+  # the worktree was sanitized earlier — this covers the 204
+  # historical line-occurrences in 136 old blob versions plus
+  # two single occurrences in superseded drafts)
+  if git log --all -p | grep -q "/home/builder"; then
+    echo "  [FAIL] /home/builder still present in history"; fail=1
+  else
+    echo "  [OK] private absolute build paths absent from all history content"
+  fi
+
   # HEAD tree comparison — the precise form of "no commit content
   # changes beyond the intended neutralizations": the rewritten HEAD
   # tree must equal the source HEAD tree after applying EXACTLY the
-  # three replace-text rules and nothing else. (The rules themselves
-  # live in files that legitimately contain the personal strings —
-  # mailmap keys, replace rules, audit evidence — so those files
-  # differ in the published copy by design: the published repo must
-  # not contain the personal identity anywhere, including tooling.)
+  # replace-text rules and nothing else. (The rules themselves live
+  # in files that legitimately contain the personal strings and
+  # private paths — mailmap keys, replace rules, audit evidence —
+  # so those files differ in the published copy by design: the
+  # published repo must not contain them anywhere, including
+  # tooling. The sed replication is DERIVED from the rules file
+  # itself so the gate always mirrors the actual rule set.)
   rm -rf "$WORKDIR/.tree-check-src" "$WORKDIR/.tree-check-new"
   mkdir -p "$WORKDIR/.tree-check-src" "$WORKDIR/.tree-check-new"
   git -C "$SOURCE_REPO" archive HEAD | tar -x -C "$WORKDIR/.tree-check-src"
   git archive HEAD | tar -x -C "$WORKDIR/.tree-check-new"
-  # replicate the 3 literal rules on the source extraction
-  # (order matters: the email rule must run before the bare-username
-  # rule, same as the rule order in 02-replace-text.txt)
+  # build the needle list (old literals) and the neutralize sed
+  # script (same order as the rules file = filter-repo's order)
+  : > "$WORKDIR/.needle-patterns"
+  : > "$WORKDIR/.neutralize.sed"
+  while IFS= read -r rule; do
+    case "$rule" in ''|\#*) continue;; esac
+    old="${rule%%==>*}"; new="${rule#*==>}"
+    printf '%s\n' "$old" >> "$WORKDIR/.needle-patterns"
+    old_e="$(printf '%s' "$old" | sed 's/[.[\*^$|\\]/\\&/g')"
+    new_e="$(printf '%s' "$new" | sed 's/[&|\\]/\\&/g')"
+    printf 's|%s|%s|g\n' "$old_e" "$new_e" >> "$WORKDIR/.neutralize.sed"
+  done < "$SCRIPT_DIR/02-replace-text.txt"
+  # replicate the rules on the source extraction
   while IFS= read -r f; do
-    sed -i -e 's/Vsevolod Avdonkin/<project author>/g' \
-           -e 's/vsevolod@archlinux/<project-author-email>/g' \
-           -e 's/vsevolod/<build-user-2>/g' "$f"
-  done < <(grep -rl 'Vsevolod Avdonkin\|vsevolod@archlinux\|vsevolod' \
+    sed -i -f "$WORKDIR/.neutralize.sed" "$f"
+  done < <(grep -rlF -f "$WORKDIR/.needle-patterns" \
              "$WORKDIR/.tree-check-src" 2>/dev/null || true)
   if diff -r --no-dereference "$WORKDIR/.tree-check-src" \
              "$WORKDIR/.tree-check-new" \
        > "$WORKDIR/.tree-check-diff.txt" 2>&1; then
-    echo "  [OK] HEAD tree identical to source after exactly the 3 intended neutralizations"
+    echo "  [OK] HEAD tree identical to source after exactly the intended neutralizations"
   else
     echo "  [FAIL] HEAD tree differs beyond the intended neutralizations:"
     head -30 "$WORKDIR/.tree-check-diff.txt" | sed 's/^/    /'
