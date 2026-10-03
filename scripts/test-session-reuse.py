@@ -396,8 +396,11 @@ class DecideTests(ScriptCase):
 
 class MigrateTests(ScriptCase):
     def test_migrate_preserves_session(self):
-        self.register_live(agent="build",
-                            model="opencode/nemotron-3-ultra-free")
+        # Register a session on the CURRENT primary model, migrate after
+        # a simulated provider delay -> cooldown recorded, next healthy
+        # worker (build-b, first fallback) becomes the new backend.
+        primary_model = sr.worker_pins()[0][1]
+        self.register_live(agent="build", model=primary_model)
         r = self.run_script("migrate", "ses_LIVE", "--objective",
                             "Test Objective", "--delay", "7000")
         self.assertIn("task_id=ses_LIVE", r.stdout, r.stdout + r.stderr)
@@ -411,7 +414,7 @@ class MigrateTests(ScriptCase):
         self.assertIn("migratedFrom", meta)
         # Cooldown recorded for the dead model with provider delay.
         r2 = self.run_script("health")
-        self.assertIn("nemotron-3-ultra-free", r2.stdout)
+        self.assertIn(primary_model.split("/")[-1], r2.stdout)
         self.assertIn("1h56m", r2.stdout)
 
 
@@ -548,8 +551,8 @@ class PreflightTests(ScriptCase):
 
     def test_preflight_skips_cooldown_primary(self):
         # Primary model in cooldown -> next healthy worker BEFORE any Task.
-        self.run_script("mark-dead", "opencode/nemotron-3-ultra-free",
-                        "--reason", "test")
+        primary_model = sr.worker_pins()[0][1]
+        self.run_script("mark-dead", primary_model, "--reason", "test")
         r = self.run_script("preflight")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("PRIMARY_COOLDOWN build", r.stdout)
@@ -589,9 +592,11 @@ class NextFieldTests(unittest.TestCase):
 
 class WatchdogTests(ScriptCase):
     def reg_busy(self):
+        # Register a busy session on the CURRENT primary model so the
+        # watchdog learns that model from the registry meta.
         r = self.run_script("register", "ses_BUSY", "--agent", "build",
                             "--objective", "Busy Objective", "--task", "do Y",
-                            "--model", "opencode/nemotron-3-ultra-free",
+                            "--model", sr.worker_pins()[0][1],
                             "--oid", "busy-o")
         self.assertEqual(r.returncode, 0, r.stderr)
 
@@ -622,7 +627,8 @@ class WatchdogTests(ScriptCase):
         self.assertIn("ses_BUSY", MockHandler.ABORTS)
         # Cooldown recorded with observed delay (~7000s).
         r2 = self.run_script("health")
-        self.assertIn("nemotron-3-ultra-free", r2.stdout)
+        primary_model = sr.worker_pins()[0][1]
+        self.assertIn(primary_model.split("/")[-1], r2.stdout)
         self.assertIn("1h56m", r2.stdout)
         # Registry lastAbort recorded, session NOT killed/replaced.
         with open(REG) as f:
@@ -673,6 +679,8 @@ class WatchdogTests(ScriptCase):
 
     def test_migrate_uses_abort_delay(self):
         # migrate without --delay picks up a fresh watchdog abort record.
+        # Primary model is aborted -> cooldown recorded with observed delay
+        # -> migrate picks next healthy worker (build-b, first fallback).
         self.reg_busy()
         self.run_watchdog("--once", "--session", "ses_BUSY",
                           "--threshold", "600")
