@@ -17,10 +17,24 @@ import sys
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib, Gio  # noqa: E402
+from gi.repository import Gtk, Gdk, GLib, Gio, GdkPixbuf  # noqa: E402
 
 COLUMN_WIDTH = 240
 MAX_COLUMNS = 24  # horizontal scroll still handles it; cap is a safety net
+
+# Finder-like icon-size ladder (Ctrl+= / Ctrl+- / Ctrl+0, same as
+# mv-finder-search and Thunar's in-window zoom)
+ZOOM_LADDER = [16, 22, 32, 48]
+ZOOM_DEFAULT = ZOOM_LADDER[0]
+
+
+def zoom_step(size, delta):
+    """Next/previous step on the zoom ladder (clamped). Unknown sizes start at default."""
+    base = ZOOM_LADDER.index(size) if size in ZOOM_LADDER \
+        else ZOOM_LADDER.index(ZOOM_DEFAULT)
+    index = base + delta
+    index = max(0, min(len(ZOOM_LADDER) - 1, index))
+    return ZOOM_LADDER[index]
 
 
 def list_entries(directory, include_hidden=False):
@@ -69,8 +83,28 @@ def icon_for(name, is_dir):
     return "text-x-generic"
 
 
+def load_icon_pixbuf(name, size):
+    """Pixbuf for an icon name; falls back to text-x-generic, never raises."""
+    try:
+        theme = Gtk.IconTheme.get_default()
+        if theme is not None:
+            try:
+                return theme.load_icon(name, size,
+                                       Gtk.IconLookupFlags.GENERIC_FALLBACK)
+            except Exception:
+                pass
+            try:
+                return theme.load_icon("text-x-generic", size,
+                                       Gtk.IconLookupFlags.GENERIC_FALLBACK)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return None
+
+
 class ColumnRow(Gtk.ListBoxRow):
-    def __init__(self, entry):
+    def __init__(self, entry, icon_size=ZOOM_DEFAULT):
         super().__init__()
         self.entry = entry
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -78,8 +112,12 @@ class ColumnRow(Gtk.ListBoxRow):
         box.set_margin_bottom(3)
         box.set_margin_start(6)
         box.set_margin_end(6)
-        img = Gtk.Image.new_from_icon_name(icon_for(entry["name"], entry["is_dir"]),
-                                           Gtk.IconSize.MENU)
+        pixbuf = load_icon_pixbuf(icon_for(entry["name"], entry["is_dir"]),
+                                  icon_size)
+        if pixbuf is not None:
+            img = Gtk.Image.new_from_pixbuf(pixbuf)
+        else:
+            img = Gtk.Image()
         label = Gtk.Label(label=entry["name"])
         label.set_ellipsize(3)  # middle
         label.set_halign(Gtk.Align.START)
@@ -94,6 +132,7 @@ class ColumnsWindow(Gtk.Window):
         self.root = os.path.abspath(root)
         self.chain = [self.root]
         self.listboxes = []
+        self.icon_size = ZOOM_DEFAULT
 
         self.set_default_size(760, 480)
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -193,7 +232,7 @@ class ColumnsWindow(Gtk.Window):
         listbox.get_style_context().add_class("background")
         if entries:
             for entry in entries:
-                listbox.add(ColumnRow(entry))
+                listbox.add(ColumnRow(entry, self.icon_size))
         elif entries is None:
             error_row = Gtk.ListBoxRow()
             lbl = Gtk.Label(label="Cannot open")
@@ -204,6 +243,13 @@ class ColumnsWindow(Gtk.Window):
         self.columns_box.pack_start(listbox, False, False, 0)
         self.columns_box.pack_start(separator, False, False, 0)
         self.listboxes.append(listbox)
+
+    def set_icon_size(self, size):
+        """Finder-like Ctrl+=/-/0 zoom: rebuild columns with new icon size."""
+        if size == self.icon_size:
+            return
+        self.icon_size = size
+        self.rebuild_columns()
 
     def scroll_to_end(self):
         adj = self.scrolled.get_hadjustment()
@@ -241,6 +287,16 @@ class ColumnsWindow(Gtk.Window):
 
     def on_key_press(self, _widget, event):
         key = Gdk.keyval_name(event.keyval)
+        ctrl = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
+        if ctrl and key in ("equal", "plus", "KP_Add"):
+            self.set_icon_size(zoom_step(self.icon_size, +1))
+            return True
+        if ctrl and key in ("minus", "KP_Subtract"):
+            self.set_icon_size(zoom_step(self.icon_size, -1))
+            return True
+        if ctrl and key in ("0", "KP_0"):
+            self.set_icon_size(ZOOM_DEFAULT)
+            return True
         if key == "Escape":
             self.destroy()
             return True

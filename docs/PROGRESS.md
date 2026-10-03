@@ -1,5 +1,15 @@
 # PROGRESS — MacBook 12 MavLinOS
 
+### Finder P0 — view/zoom fidelity close-out (2026-10-03, без железа)
+- [x] Evidence pass on installed Thunar 4.20.10 binary: in-window accelerators (Ctrl+1/2/3 view switch, Ctrl+=/-/0 zoom incl. KP_ variants), real thunarrc zoom keys (Last{Icon,Details,Compact}ViewZoomLevel), per-directory zoom memory via GVFS metadata, native icon-view reflow on resize.
+- [x] thunarrc: removed dead `LastViewZoomLevel` key (never read by Thunar — binary evidence), added real `LastDetailsViewZoomLevel`/`LastCompactViewZoomLevel`, icon view default 64px (`THUNAR_ZOOM_LEVEL_150_PERCENT` = Mavericks Finder default; was 48px Thunar-ism). Mirror synced (check-sync green).
+- [x] Keyboard architecture decision (DECISIONS): zoom/view keys stay app-level Ctrl (= macOS Cmd semantics); no global Super injection via xdotool — consistent with KEYBOARD.md Super=global / Ctrl=app-level split. No new global bindings.
+- [x] mv-finder-search + mv-finder-columns: Finder-like Ctrl+=/-/0 zoom over 16/22/32/48 px ladder; results rebuild in place preserving rows/chain; pixbuf-based icons in search results. Tests: search 68 pass (+11 zoom), columns 24 pass (+10 zoom).
+- [x] KEYBOARD.md: new "Finder / Thunar (app-level accelerators)" section.
+- [x] APPS.md Finder status: **IMPLEMENTED — HARDWARE VALIDATION REQUIRED** — §13.6 checklist closed pre-hardware; 3 documented architectural deltas (in-window column view, in-toolbar search field, native Space key) all carry hard evidence + mitigations in DECISIONS.
+- [x] Gate: check-sync.sh ALL CHECKS PASSED; :0 launch smoke clean for both helpers.
+- [ ] HW: 64px default at 2x scaling on 2304×1440, zoom ladder feel, view-switch behavior (NEEDS_HARDWARE_TEST).
+
 ### Finder P0 — recursive search + column-view decision (2026-10-03, без железа)
 - [x] Audit vs APPS.md line-55 claims: confirmed three open gaps — recursive search, column view, Space-key delta (accepted). Evidence: thunar-uca.xml actions, bin/mv-* helpers, thunarrc.
 - [x] RECURSIVE SEARCH (headline): `bin/mv-finder-search` — Mavericks-style results window (HeaderBar + SearchEntry, Name/Kind/Size/Where columns, folders-first) rooted at the Thunar current folder. Debounced incremental search (250 ms, generation counter kills stale results), worker thread keeps UI responsive, `os.scandir` walk backend (no symlinked-dir traversal — find(1) parity), plocate fast-path ONLY for whole-$HOME roots (basename-filtered for walk parity; falls back to walk on plocate failure). Hidden files follow Finder convention (searchable when query starts with "."). Enter/double-click: folders → Thunar, files → xdg-open. Esc clears query then closes; Ctrl+F/L focuses entry. Unreadable-dirs warning InfoBar; empty/no-results/error states; status bar with result count + search root. On-demand single-shot process, no daemon.

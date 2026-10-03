@@ -100,12 +100,24 @@ def test_pure(m):
         else:
             print("skip - unreadable dir test (running as root)")
 
+    # --- zoom ladder ---
+    check("zoom: default is ladder start", m.ZOOM_DEFAULT == m.ZOOM_LADDER[0])
+    check("zoom: step up", m.zoom_step(16, +1) == 22)
+    check("zoom: step down", m.zoom_step(48, -1) == 32)
+    check("zoom: clamp at top", m.zoom_step(48, +1) == 48)
+    check("zoom: clamp at bottom", m.zoom_step(16, -1) == 16)
+
 
 def test_gui(m):
     if not HAS_DISPLAY:
         print("skip - GUI smoke (no display)")
         return
-    from gi.repository import GLib, Gtk
+    from gi.repository import GLib, Gdk, Gtk
+
+    class FakeEvent:
+        def __init__(self, keyval, state=0):
+            self.keyval = keyval
+            self.state = state
 
     def quiet_destroy(win):
         win.disconnect_by_func(Gtk.main_quit)
@@ -137,6 +149,22 @@ def test_gui(m):
         win.rebuild_columns(keep_depth=1)
         pump()
         check("gui: truncation collapses columns", len(win.listboxes) == 1)
+
+        # Zoom keyboard: Ctrl+= / Ctrl+- / Ctrl+0 rebuild columns at new size
+        ctrl = Gdk.ModifierType.CONTROL_MASK
+        rows_before = len(win.listboxes[0].get_children())
+        win.on_key_press(win, FakeEvent(Gdk.keyval_from_name("equal"), ctrl))
+        pump()
+        check("gui: ctrl+= zooms in", win.icon_size == 22)
+        check("gui: zoom keeps columns", len(win.listboxes) == 1)
+        check("gui: zoom keeps rows",
+              len(win.listboxes[0].get_children()) == rows_before)
+        win.on_key_press(win, FakeEvent(Gdk.keyval_from_name("minus"), ctrl))
+        pump()
+        check("gui: ctrl+- zooms out", win.icon_size == 16)
+        win.on_key_press(win, FakeEvent(Gdk.keyval_from_name("0"), ctrl))
+        pump()
+        check("gui: ctrl+0 resets zoom", win.icon_size == m.ZOOM_DEFAULT)
         quiet_destroy(win)
 
         if not IS_ROOT:

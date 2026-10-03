@@ -1,5 +1,23 @@
 # DECISIONS
 
+## Finder: view/zoom fidelity — app-level Ctrl keys, 64px icon default, dead thunarrc key removed (Phase finder-p0)
+
+**Date:** 2026-10-03
+**Context:** Remaining executable Finder gap after recursive search + column companion: "adaptive icon size / view-switcher fidelity" (FIDELITY_AUDIT).
+
+**Evidence (live binary, Thunar 4.20.10-1):**
+1. `strings /usr/bin/thunar` confirms in-window accelerators: `<Primary>1/2/3` (view switch), `<Primary>equal`, `<Primary>minus`, `<Primary>0`, `<Primary>KP_Add/KP_Subtract/KP_0` (zoom).
+2. Real thunarrc keys read by the binary: `LastView`, `LastIconViewZoomLevel`, `LastDetailsViewZoomLevel`, `LastCompactViewZoomLevel`. Our config carried `LastViewZoomLevel` — **a dead key never read by Thunar**; removed.
+3. Per-directory zoom is remembered natively via GVFS metadata (`metadata::thunar-zoom-level-Thunar{Icon,Details,Compact}View`), and the icon view reflows on window resize (flow layout) — the "adaptive" behavior is native, not configurable code we need to write.
+
+**Decision:**
+- **Keyboard mapping:** zoom/view keys stay APP-LEVEL (`Ctrl+1/2/3`, `Ctrl+=/-/0`) — identical to macOS, where Cmd+±/0/1-4 go to the active app, never the global layer. Injecting Super-based globals into the focused Thunar window would need xdotool focus hacks, violate the existing Super=global / Ctrl=app-level split (KEYBOARD.md), and add failure modes for zero fidelity gain. No global bindings added.
+- **Icon size default:** `LastIconViewZoomLevel=THUNAR_ZOOM_LEVEL_150_PERCENT` (64px) — Mavericks Finder default icon size; previous 100% (48px) was a Thunar-ism. Details/compact stay 100%. Pixel-proportion validation deferred to hardware (2x scaling on 2304×1440 may want revisiting — recorded in NEEDS_HARDWARE_TEST).
+- **mv-finder-search / mv-finder-columns** implement the same convention: `Ctrl+=/-/0` over a 16/22/32/48 px ladder (results/columns rebuild in place; row count, selection state, and column chain preserved).
+- Tests: zoom ladder + GUI rebuild checks in both app suites (68 + 24 pass).
+
+**User action:** none.
+
 ## Finder: column view — in-Thunar implementation rejected, navigation companion shipped (Phase finder-p0)
 
 **Date:** 2026-10-03

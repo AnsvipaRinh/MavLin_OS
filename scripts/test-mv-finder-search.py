@@ -231,6 +231,15 @@ def test_pure(m):
     check("sort: folders first then casefold",
           [r["name"] for r in ordered] == ["Beta", "zed", "Apple", "b.txt"])
 
+    # --- zoom ladder ---
+    check("zoom: default is ladder start", m.ZOOM_DEFAULT == m.ZOOM_LADDER[0])
+    check("zoom: step up", m.zoom_step(16, +1) == 22)
+    check("zoom: step down", m.zoom_step(22, -1) == 16)
+    check("zoom: clamp at top", m.zoom_step(48, +1) == 48)
+    check("zoom: clamp at bottom", m.zoom_step(16, -1) == 16)
+    check("zoom: unknown size snaps near default",
+          m.zoom_step(999, +1) == 22 and m.zoom_step(999, -1) == 16)
+
 
 class FakeEvent:
     def __init__(self, keyval, state=0):
@@ -292,6 +301,28 @@ def test_gui(m):
         ctrl_f = FakeEvent(Gdk.keyval_from_name("f"),
                            Gdk.ModifierType.CONTROL_MASK)
         check("gui: ctrl+f handled", win2.on_key_press(win2, ctrl_f) is True)
+
+        # Zoom keyboard: Ctrl+= / Ctrl+- / Ctrl+0 (Finder app-level convention)
+        zoom_in = FakeEvent(Gdk.keyval_from_name("equal"),
+                            Gdk.ModifierType.CONTROL_MASK)
+        zoom_out = FakeEvent(Gdk.keyval_from_name("minus"),
+                             Gdk.ModifierType.CONTROL_MASK)
+        zoom_norm = FakeEvent(Gdk.keyval_from_name("0"),
+                              Gdk.ModifierType.CONTROL_MASK)
+        win2.entry.set_text("notes")
+        win2.start_search()
+        pump(win2)
+        rows_before = len(win2.store)
+        size_before = win2.store[0][0].get_width() if rows_before else 0
+        win2.on_key_press(win2, zoom_in)
+        check("gui: ctrl+= zooms in", win2.icon_size == 22)
+        check("gui: zoom rebuilds pixbufs", rows_before and
+              win2.store[0][0].get_width() > size_before)
+        check("gui: zoom preserves rows", len(win2.store) == rows_before)
+        win2.on_key_press(win2, zoom_out)
+        check("gui: ctrl+- zooms out", win2.icon_size == 16)
+        win2.on_key_press(win2, zoom_norm)
+        check("gui: ctrl+0 resets zoom", win2.icon_size == m.ZOOM_DEFAULT)
         win2.disconnect_by_func(Gtk.main_quit)
         win2.destroy()
 

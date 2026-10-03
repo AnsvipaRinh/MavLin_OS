@@ -8,6 +8,12 @@
 - [ ] UCA icons resolve (edit-find, format-justify-fill via Mavericks→Adwaita inheritance)
 - [ ] Esc semantics in the search window do not collide with xfwm4 keybindings on real session
 
+## Finder view/zoom fidelity — hardware validation (phase finder-p0 close-out)
+- [ ] 64px icon default (THUNAR_ZOOM_LEVEL_150_PERCENT) at 2x scaling on 2304×1440 — confirm Mavericks-like proportions; revisit if oversized for the 1152×720 logical space
+- [ ] Ctrl+=/-/0 zoom feel in Thunar (icon/list/compact views) and in mv-finder-search / mv-finder-columns (16/22/32/48 ladder)
+- [ ] Ctrl+1/2/3 view switching does not collide with anything on real session
+- [ ] Per-directory zoom memory works over real GVfs metadata on S3X (folder opened at custom zoom stays zoomed)
+
 ## Browser chrome visual checklist (phase 0.70, pixel validation on HW)
 All states below are covered-by-CSS (gate-validated, see docs/SAFARI_SPEC.md §17)
 but NOT pixel-validated. Screenshot each on MacBook10,1 at 2304×1440:

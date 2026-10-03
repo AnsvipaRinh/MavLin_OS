@@ -19,7 +19,7 @@ import time
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib, Gio  # noqa: E402
+from gi.repository import Gtk, Gdk, GLib, Gio, GdkPixbuf  # noqa: E402
 
 DEFAULT_MAX_RESULTS = 1000
 PLOCATE_LIMIT = 4000
@@ -244,6 +244,40 @@ def icon_for(name, is_dir, size=16):
     return "text-x-generic"
 
 
+# Finder-like icon-size ladder for the results list (Ctrl+= / Ctrl+- / Ctrl+0)
+ZOOM_LADDER = [16, 22, 32, 48]
+ZOOM_DEFAULT = ZOOM_LADDER[0]
+
+
+def zoom_step(size, delta):
+    """Next/previous step on the zoom ladder (clamped). Unknown sizes start at default."""
+    base = ZOOM_LADDER.index(size) if size in ZOOM_LADDER \
+        else ZOOM_LADDER.index(ZOOM_DEFAULT)
+    index = base + delta
+    index = max(0, min(len(ZOOM_LADDER) - 1, index))
+    return ZOOM_LADDER[index]
+
+
+def load_icon_pixbuf(name, size):
+    """Pixbuf for an icon name; falls back to text-x-generic, never raises."""
+    try:
+        theme = Gtk.IconTheme.get_default()
+        if theme is not None:
+            try:
+                return theme.load_icon(name, size,
+                                       Gtk.IconLookupFlags.GENERIC_FALLBACK)
+            except Exception:
+                pass
+            try:
+                return theme.load_icon("text-x-generic", size,
+                                       Gtk.IconLookupFlags.GENERIC_FALLBACK)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return None
+
+
 class FinderSearchWindow(Gtk.Window):
     def __init__(self, root, query=""):
         super().__init__(title="Search")
@@ -267,8 +301,10 @@ class FinderSearchWindow(Gtk.Window):
         self.entry.connect("search-changed", self.on_search_changed)
         hb.pack_end(self.entry)
 
-        # Results store: icon, name, kind, size, location, path, is_dir
-        self.store = Gtk.ListStore(str, str, str, str, str, str, bool)
+        # Results store: icon pixbuf, name, kind, size, location, path, is_dir
+        self.icon_size = ZOOM_DEFAULT
+        self.last_results = []
+        self.store = Gtk.ListStore(GdkPixbuf.Pixbuf, str, str, str, str, str, bool)
         self.tree = Gtk.TreeView(model=self.store)
         self.tree.set_headers_visible(True)
         self.tree.set_search_column(-1)  # our entry is the filter
@@ -277,7 +313,7 @@ class FinderSearchWindow(Gtk.Window):
         col_name = Gtk.CellRendererText()
         name_col = Gtk.TreeViewColumn("Name", col_name, text=1)
         name_col.pack_start(col_icon, False)
-        name_col.add_attribute(col_icon, "icon_name", 0)
+        name_col.add_attribute(col_icon, "pixbuf", 0)
         name_col.set_sort_column_id(1)
         name_col.set_resizable(True)
         name_col.set_expand(True)
@@ -361,16 +397,26 @@ class FinderSearchWindow(Gtk.Window):
 
     def on_key_press(self, _widget, event):
         key = Gdk.keyval_name(event.keyval)
+        ctrl = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
+        if ctrl and key in ("equal", "plus", "KP_Add"):
+            self.set_zoom(zoom_step(self.icon_size, +1))
+            return True
+        if ctrl and key in ("minus", "KP_Subtract"):
+            self.set_zoom(zoom_step(self.icon_size, -1))
+            return True
+        if ctrl and key in ("0", "KP_0"):
+            self.set_zoom(ZOOM_DEFAULT)
+            return True
         if key == "Escape":
             if self.entry.get_text():
                 self.entry.set_text("")
             else:
                 self.destroy()
             return True
-        if key in ("f", "F") and event.state & Gdk.ModifierType.CONTROL_MASK:
+        if ctrl and key in ("f", "F"):
             self.entry.grab_focus()
             return True
-        if key == "l" and event.state & Gdk.ModifierType.CONTROL_MASK:
+        if ctrl and key == "l":
             self.entry.grab_focus()
             self.entry.select_region(0, -1)
             return True
@@ -426,24 +472,9 @@ class FinderSearchWindow(Gtk.Window):
             return False
         self.state = "done"
         self.skipped_count = len(skipped)
-        ordered = sort_results(results)
-        self.store.clear()
-        for r in ordered:
-            location = os.path.dirname(r["path"])
-            try:
-                location = os.path.relpath(location, self.root)
-            except ValueError:
-                pass
-            self.store.append([
-                icon_for(r["name"], r["is_dir"]),
-                r["name"],
-                file_kind(r["name"], r["is_dir"]),
-                "—" if r["is_dir"] else format_size(r["size"]),
-                location,
-                r["path"],
-                r["is_dir"],
-            ])
-        count = len(ordered)
+        self.last_results = sort_results(results)
+        self.fill_rows()
+        count = len(self.last_results)
         self.status_label.set_text("%d result%s" % (count, "" if count == 1 else "s"))
         if count == 0:
             self.set_empty_state("No results for “%s”" % query)
@@ -452,11 +483,39 @@ class FinderSearchWindow(Gtk.Window):
         self.infobar.set_revealed(self.skipped_count > 0)
         return False
 
+    def fill_rows(self):
+        """(Re)build store rows from last_results at the current zoom size."""
+        self.store.clear()
+        for r in self.last_results:
+            location = os.path.dirname(r["path"])
+            try:
+                location = os.path.relpath(location, self.root)
+            except ValueError:
+                pass
+            self.store.append([
+                load_icon_pixbuf(icon_for(r["name"], r["is_dir"]),
+                                 self.icon_size),
+                r["name"],
+                file_kind(r["name"], r["is_dir"]),
+                "—" if r["is_dir"] else format_size(r["size"]),
+                location,
+                r["path"],
+                r["is_dir"],
+            ])
+
+    def set_zoom(self, size):
+        """Finder-like Ctrl+=/-/0 zoom for the results list."""
+        if size == self.icon_size:
+            return
+        self.icon_size = size
+        self.fill_rows()
+
     def apply_error(self, generation, message):
         if generation != self.generation:
             return False
         self.state = "error"
         self.store.clear()
+        self.last_results = []
         self.set_empty_state("Search failed: %s" % message)
         self.status_label.set_text("Search failed")
         return False

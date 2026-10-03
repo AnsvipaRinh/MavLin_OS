@@ -84,6 +84,23 @@ don't steal global shortcuts.
 | Super+C | Copy | Ctrl+C in Firefox/terminal | App-level |
 | Super+F | Find | Ctrl+F in Firefox | App-level |
 
+## Finder / Thunar (app-level accelerators)
+
+Handled inside Thunar natively (binary-verified, Thunar 4.20) — same
+app-level Ctrl split as macOS Cmd:
+
+| Shortcut | Action |
+|---|---|
+| Ctrl+1 | Icon view (Finder default view) |
+| Ctrl+2 | List view |
+| Ctrl+3 | Compact view |
+| Ctrl+= | Zoom in (icon/row size up) |
+| Ctrl+- | Zoom out |
+| Ctrl+0 | Normal size |
+
+mv-finder-search and mv-finder-columns follow the same zoom convention
+(Ctrl+= / Ctrl+- / Ctrl+0 over a 16/22/32/48 px icon ladder).
+
 ## Notes (mv-notes app-level accelerators)
 
 | Shortcut | Action |
