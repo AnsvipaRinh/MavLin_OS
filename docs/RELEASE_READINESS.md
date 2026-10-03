@@ -1,9 +1,9 @@
 # Release Readiness Report — First Public Release
 
 **Date:** 2026-10-03 (forensic-audit correction: 2026-10-03, see `docs/FORENSIC_AUDIT.md`)
-**HEAD:** master (no remotes yet)
-**Tracked files:** 1140
-**Status:** PRE-PUBLICATION — publication procedure defined (§3), user decisions in §3.3 pending; forensic audit passed with findings (see `docs/FORENSIC_AUDIT.md`)
+**HEAD:** main (no remotes yet; renamed from master — decision D3)
+**Tracked files:** 1144
+**Status:** PRE-PUBLICATION — publication procedure **VERIFIED by dry-run** (`docs/FORENSIC_AUDIT.md` §10, all 9 gates); only the numeric GitHub ID + authenticated push remain (§3.1–§3.2)
 
 > **Correction note (forensic audit 2026-10-03):** this report originally
 > stated "1112 tracked files". That count was taken at audit START
@@ -23,13 +23,13 @@
 | 1 | `git status` clean (no unintended WIP) | ✅ (only intended changes staged) |
 | 2 | Complete file inventory reviewed | ✅ 1140 tracked files (1112 at audit start + 28 added by the publication commit itself — see correction note) |
 | 3 | Secret scan (regex sweep, all history) | ✅ CLEAN — independently re-verified by forensic audit: 1898 reachable blobs + 3 unreachable blobs (31.5 MB) swept; 0 credentials/tokens/keys; all keyword hits are legitimate code/docs |
-| 4 | License scan | ✅ All OSI-approved; matrix in `docs/LICENSES.md`; root LICENSE = GPL-3.0-or-later — ⚠️ BUT 3 Apple-derived SVGs are tracked in `docs/isolated-assets/apple-derived/` and marked NON-redistributable in `docs/LICENSES.md` §6 (open decision §3.3-D1) |
+| 4 | License scan | ✅ All OSI-approved; matrix in `docs/LICENSES.md`; root LICENSE = GPL-3.0-or-later; **D1 RESOLVED** — the 3 NON-redistributable Apple-derived SVGs were removed from tree + ALL history (provenance note `docs/isolated-assets/README.md`; current theme SVGs diffed against Apple originals: zero Apple strings; verified by dry-run gates 4–5) |
 | 5 | Private-data scan | ✅ No credentials, cookies, session data, tokens — ⚠️ build-host hardware fingerprint found in `docs/benchmarks/*.json` (redacted this session, see §3.3-D2) |
-| 6 | Absolute-path scan | ✅ All functional `/home/builder` paths sanitized in worktree (see §2); ⚠️ 204 line-occurrences remain in 136 historical blob versions (10 files' old revisions) — public after push unless content-level history rewrite is applied (§3.1 step 3) |
+| 6 | Absolute-path scan | ✅ All functional `/home/builder` paths sanitized in worktree (see §2); the 204 historical line-occurrences (136 blob versions, 10 files) plus 2 superseded-draft paths (`/home/mavericks-lab`, `/home/custompkgs`) are purged by the publication rewrite — verified absent from rewritten history (dry-run gate 6) |
 | 7 | Generated-artifact scan | ✅ `out/` (ISO), `*.pkg.tar.zst`, `pkg/`, sassc output gitignored |
 | 8 | Repository size | ✅ `.git` 5.4M (verified); tracked content 6.2M; working tree 2.8G including gitignored `out/` ISO (original "~10M" claim predates the ISO build) |
 | 9 | Build reproducibility | ⚠️ Packages build repo-local (verified 2026-09-29); ISO build requires Arch host + root — `mkarchiso` present in build env but a full rebuild was NOT re-run this session (last proven 2026-09-29, sha256 recorded in PROGRESS.md) |
-| 10 | Tests | ✅ security-scan 5/5, triage 5/5, check-sync 142 OK / 0 FAIL, check-profile-sync OK, py_compile clean, bash -n clean, sim harness 25 scenarios / 110 assertions pass, spot-run test-mv-calculator (141) + test-mv-notes (41) pass — ⚠️ test-mv-photos has 2 known pre-existing headless failures (documented in PROGRESS.md, not a regression) |
+| 10 | Tests | ✅ security-scan 5/5, triage 5/5, check-sync ALL CHECKS PASSED (142 OK lines), check-profile-sync OK, py_compile clean, bash -n clean, sim harness 25 scenarios / 110 assertions pass, full `test-mv-*.py` suite re-run this session: **21/22 files pass** (the only failures are the 2 known pre-existing headless cases in test-mv-photos — "rotate graceful no backend", "open editor graceful no gthumb" — documented in PROGRESS.md, not a regression) |
 | 11 | CI configuration | ✅ `.github/workflows/ci.yml` (6 jobs, no secrets required) — ⚠️ never executed on real GitHub Actions (REQUIRES EXTERNAL EVIDENCE); one broken step removed this session (unit-tests job ran check-sync through `grep ... || true`, swallowing its exit code — redundant with static-analysis job) |
 | 12 | README | ✅ Public-audience rewrite present |
 | 13 | Contribution documentation | ✅ CONTRIBUTING.md, CONTRIBUTION_PROTOCOL.md, VIBE_CODING.md, UI_UX_CONTRIBUTION.md, SECURITY.md, SECURITY_MODEL.md, CODE_OF_CONDUCT.md, PR template, 6 issue templates |
@@ -78,36 +78,40 @@ publication time — it must NOT be guessed or fabricated.
    doc-blob versions (DECISIONS/ENVIRONMENT/PUBLIC_AUDIT/RELEASE_READINESS
    history). Content-level removal requires `--replace-text` in the same rewrite.
 
-**Procedure (publication step only — NOT executed now):**
+**Procedure — VERIFIED by dry-run 2026-10-03 (all 9 gates passed;
+gate list and evidence in `docs/FORENSIC_AUDIT.md` §10).** Implemented
+as reproducible tooling — do NOT hand-roll the filter-repo commands:
 
 ```bash
-# 0. Backup first (fresh clone + bundle); work ONLY on the publication copy
-git clone --no-local /path/to/repo mavericks-publish && cd mavericks-publish
+# 0. The numeric ID must come from the authenticated GitHub profile
+#    (gh auth status) — it must NOT be guessed or fabricated.
+#    Dry-run first (throwaway clone, TEST identity):
+./scripts/contrib/publication-rewrite/publication-rewrite.sh \
+  "<numeric-id>+Ansvipa_Rinh@users.noreply.github.com"
 
-# 1. mailmap: BOTH current identities -> public identity (ID from gh auth status)
-git filter-repo --mailmap <(cat <<'EOF'
-<original-author-name> <original-author-email> Ansvipa_Rinh <ID+Ansvipa_Rinh@users.noreply.github.com>
-Mavericks Linux Agent <agent@mavericks-linux.local> Ansvipa_Rinh <ID+Ansvipa_Rinh@users.noreply.github.com>
-EOF
-)
+# The tool works on its own fresh clone (the source repo is never
+# modified), runs 4 filter-repo passes (mailmap → replace-text →
+# Apple-path invert → Apple-blob strip), then verifies 9 gates and
+# refuses to bless the result unless ALL pass. Branch is already
+# main (D3 done).
 
-# 2. content: strip personal name/email from every historical blob version
-git filter-repo --replace-text <(cat <<'EOF'
-<original-author-name>==><project author>
-<original-author-email>==><project-author@local>
-EOF
-)
-
-# 3. branch rename (CI + GITHUB_SETUP.md expect main)
-git branch -m master main
-
-# 4. remote + push (separate authenticated step — never performed by the agent)
-git remote add origin https://github.com/Ansvipa_Rinh/MavLinOS.git
-git push -u origin main
+# 1. remote + push (separate authenticated step — never performed
+#    by the agent):
+git -C <rewritten-copy> remote add origin https://github.com/Ansvipa_Rinh/MavLinOS.git
+git -C <rewritten-copy> push -u origin main
 ```
 
-Requires `git-filter-repo` (pip). **Destructive to history** — only on a
-backed-up copy, immediately before the first push.
+Requires `git-filter-repo` (pip; the script resolves it via PATH or
+`python3 -m git_filter_repo`). **Destructive to history** — backup
+first; run only immediately before the first push.
+
+**Known, documented consequences (proven by the dry-run gates):**
+ALL commit IDs change (the root commit is in the affected set);
+commit messages stay byte-identical except 7-char commit-ID
+references, which necessarily point to the new IDs; the published
+copy's own publication tooling appears in redacted form (its rules
+contain the old identities by design — the functional copy stays in
+this local repository).
 
 ### 3.2 GitHub authentication
 
@@ -118,15 +122,14 @@ confirmed ownership). Remote NOT added. Onboarding procedure:
 
 ### 3.3 Open decisions from forensic audit (2026-10-03)
 
-- **D1 — Apple-derived assets (REQUIRES USER DECISION).** 3 SVGs in
-  `docs/isolated-assets/apple-derived/` contain explicit Apple logo vector
-  paths and "Mac OS X 10.9 Mavericks" text; `docs/LICENSES.md` §6 marks them
-  NON-redistributable. Isolation prevents *installation* but not
-  *redistribution* — in a public repo they would still be published (and they
-  exist in history inside the theme tree). Options: (i) remove from tree +
-  history before push (replace with a provenance note; the theme already uses
-  replacement generics since commit `522ab98`) — recommended; (ii) keep with
-  documented license rationale (legal risk); (iii) move to a private repo.
+- **D1 — Apple-derived assets — RESOLVED (user chose option i, executed
+  2026-10-03).** The 3 SVGs were removed from the tree
+  (`docs/isolated-assets/apple-derived/` → provenance note
+  `docs/isolated-assets/README.md`); `docs/LICENSES.md` and
+  `docs/DECISIONS.md` (OS-4a) record the decision; the archived
+  originals are removed from ALL history by publication passes 3–4
+  (30 blob IDs, each independently proven Apple-derived). Current
+  theme SVGs contain zero Apple strings (diffed against the originals).
 - **D2 — Build-host hardware fingerprint in benchmark data (FIXED conservatively
   this session — user may override).** `docs/benchmarks/*.json` (14 files)
   recorded the build host verbatim: `AMD Ryzen 7 5800HS with Radeon Graphics`,
@@ -135,9 +138,10 @@ confirmed ownership). Remote NOT added. Onboarding procedure:
   numbers preserved). If the user considers CPU model non-personal, the
   original strings can be restored from history. Note: the previous audit was
   self-contradictory on this (§3.2 "PRIVATE-KEEP-LOCAL" vs §3.4 "kept tracked").
-- **D3 — Branch rename timing (DECIDED: at publication step).** `master` →
-  `main` happens inside the §3.1 procedure (step 3), not before — so the
-  history rewrite and the rename land in the same publication pass.
+- **D3 — Branch rename — DONE.** `master` → `main` was performed
+  locally (2026-10-03) before the rewrite tooling was finalized, so
+  the verified rewrite runs on `main` directly; CI and
+  GITHUB_SETUP.md expect `main`.
 
 ## 4. What was changed this session
 
@@ -161,8 +165,18 @@ confirmed ownership). Remote NOT added. Onboarding procedure:
 
 ## 5. Remaining blockers
 
-1. **Publication procedure §3.1** — history rewrite (mailmap + replace-text) on a backed-up copy; needs the numeric GitHub ID from authenticated profile; changes all 329 commit IDs (root commit is in the affected set)
-2. **Open decisions §3.3** — D1 Apple-derived assets (user decision required), D2 benchmark fingerprint redaction (done, may be overridden), D3 branch rename (scheduled inside §3.1)
-3. **User action §3.2** — install `gh`, `gh auth login`, create repo, add remote, push (procedure in `docs/GITHUB_SETUP.md`)
+1. **Publication execution §3.1** — the procedure itself is VERIFIED
+   (dry-run, all 9 gates: `docs/FORENSIC_AUDIT.md` §10); execution
+   needs only the numeric GitHub ID from the authenticated profile
+   (must not be fabricated); changes all commit IDs (the root commit
+   is in the affected set)
+2. **D2** — benchmark fingerprint redaction done; user may override
+   (originals recoverable from history)
+3. **User action §3.2** — install `gh`, `gh auth login`, create the
+   `MavLinOS` repo, run the rewrite tool with the real noreply
+   address, add remote, push (procedure in `docs/GITHUB_SETUP.md`)
+4. **External evidence (not blockers for preparation):** first
+   GitHub Actions run (F7), ISO rebuild + QEMU boot on an Arch host
+   with root, real-hardware validation (`docs/NEEDS_HARDWARE_TEST.md`)
 
 No other blockers. All offline work is complete.

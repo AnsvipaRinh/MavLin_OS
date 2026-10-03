@@ -6,8 +6,11 @@
 report was provided by the user as **claims, not facts**. This audit
 re-verified every publication-relevant claim against the repository
 itself, optimized for **finding problems**, not for publication polish.
-**Constraints honored:** no GitHub auth, no remote, no push, no history
-rewrite, no branch rename (all deferred to the publication step).
+**Constraints honored:** no GitHub auth, no remote, no push. No
+history rewrite was executed on this repository — the rewrite
+procedure was implemented as tooling and verified by dry-run on
+throwaway clones only (§10). Branch renamed `master` → `main`
+locally (decision D3).
 
 **Method:**
 
@@ -36,7 +39,7 @@ rewrite, no branch rename (all deferred to the publication step).
 | 6 | "contribution pipeline реализован" | **TRUE** | `scripts/contrib/{discover,fetch-pr,security-scan,triage}.sh`, `lab/tests/contrib/` (2 suites + 5 fixture PRs), both suites 5/5 — re-executed this session |
 | 7 | "security scan 5/5; triage 5/5" | **TRUE — re-executed** | `python3 lab/tests/contrib/test_security_scan.py` → 5/5; `test_triage.py` → 5/5 |
 | 8 | "check-sync/profile-sync проходят" | **TRUE, but count claims stale** | check-sync emits **142 OK lines** (not "221"/"227" as README/PROGRESS state — those figures predate script evolution). check-profile-sync OK |
-| 9 | "commit b27af3d" | **TRUE** | HEAD = `b27af3d`, tree clean, single branch `master`, **no remotes**, no tags |
+| 9 | "commit b27af3d" | **TRUE** (stale SHA) | At audit time: HEAD = `b27af3d`, tree clean, single branch, **no remotes**, no tags. Since then the branch was renamed `master` → `main` (D3) and further commits landed — HEAD moves; the no-remotes/no-tags invariants still hold |
 | 10 | "остаются только Git author identity и GitHub authentication" | **FALSE — incomplete** | At least F5 (Apple-derived assets), F6 (CI exit-code swallowing), F10 (build-host fingerprint) were unresolved and unreported |
 
 ## 2. The flagged contradiction — resolved
@@ -87,7 +90,7 @@ Reconciliation (both numbers are real, different methodologies):
 
 ## 4. Findings (problem-first, as instructed)
 
-### F1 — Personal identity in commit metadata (4 commits, incl. root) — USER DECISION TAKEN, execution deferred
+### F1 — Personal identity in commit metadata (4 commits, incl. root) — DECISION TAKEN; procedure VERIFIED (§10); only numeric ID pending
 
 - Commits: `82386e5` (root, "init project skeleton"), `020723d`,
   `87f5122`, `a1f13a6`. Author **and** committer carry the personal
@@ -99,8 +102,12 @@ Reconciliation (both numbers are real, different methodologies):
   `Ansvipa_Rinh <ID+Ansvipa_Rinh@users.noreply.github.com>`; the numeric
   GitHub ID must come from the authenticated profile (must not be
   fabricated) — hence execution is a publication step.
+- **Dry-run verification (2026-10-03):** the full 4-pass procedure
+  executed on a throwaway clone with a TEST identity passes all
+  9 verification gates — see §10. Only the numeric GitHub ID
+  remains pending.
 
-### F2 — Personal identity in file content (17 historical + 13 current lines) — FIXED in worktree; history via §3.1 step 2
+### F2 — Personal identity in file content (17 historical + 13 current lines) — FIXED in worktree; history removal verified by dry-run (§10)
 
 - Current docs (sanitized this session, audit facts preserved):
   `docs/DECISIONS.md` (2), `docs/ENVIRONMENT.md` (1),
@@ -113,6 +120,11 @@ Reconciliation (both numbers are real, different methodologies):
 
 - Low sensitivity (build username + local paths), but factually
   contradicts "history clean" after push. Worktree is functionally clean.
+- **Publication purge (added 2026-10-03):** the rewrite now also
+  neutralizes these — rule `/home/builder==><build-host>` (plus two
+  single occurrences in superseded drafts: `/home/mavericks-lab` →
+  `<target-host>`, `/home/custompkgs` → `<build-host>`). Verified
+  absent from the rewritten history by a dedicated gate (§10).
 
 ### F4 — Stale audit figures in publication docs — FIXED this session
 
@@ -121,9 +133,9 @@ Reconciliation (both numbers are real, different methodologies):
   intact (they are point-in-time records; rewriting them would falsify
   the log).
 
-### F5 — Apple-derived assets tracked for publication — **REQUIRES USER DECISION (D1)**
+### F5 — Apple-derived assets tracked for publication — **RESOLVED (D1: user chose option i — not published; executed 2026-10-03)**
 
-- `docs/isolated-assets/apple-derived/` holds 3 SVGs
+- `docs/isolated-assets/apple-derived/` held 3 SVGs
   (`help-about.svg`, `preferences-desktop-display.svg`,
   `preferences-desktop-mouse.svg`) containing explicit Apple logo vector
   paths and "Mac OS X 10.9 Mavericks" text. `docs/LICENSES.md` §6 marks
@@ -134,11 +146,20 @@ Reconciliation (both numbers are real, different methodologies):
   they also exist in history inside the theme tree (pre-isolation
   commits). This conflicts with the project's own legal rule (AGENTS.md
   §5: no copying Apple proprietary assets).
-- Options (documented in RELEASE_READINESS.md §3.3-D1): (i) remove from
-  tree + history before push, replaced by a provenance note —
-  **recommended** (the theme already ships replacement generics since
-  `522ab98`); (ii) keep with documented license rationale (legal risk);
-  (iii) move to a private repository.
+- **Resolution (user decision 2026-10-03, option i):**
+  (1) removed from the tree (`git rm docs/isolated-assets/apple-derived/`)
+  and replaced by a provenance note (`docs/isolated-assets/README.md`);
+  (2) `docs/LICENSES.md` §4/§6/§8/§9/§10 and `docs/DECISIONS.md`
+  entry OS-4a updated to record the decision; (3) the archived
+  originals are removed from ALL history by the publication rewrite
+  (pass 3: `--invert-paths` on the directory; pass 4:
+  `--strip-blobs-with-id` on the 30 pre-`522ab98` Apple-derived blob
+  versions — IDs in
+  `scripts/contrib/publication-rewrite/03-apple-derived-blob-ids.txt`,
+  each independently proven to be an Apple-derived pre-replacement
+  version). The theme ships generic replacements since `522ab98`, and
+  the current tree's SVGs were diffed against the Apple originals to
+  confirm zero Apple strings. Verified by dry-run gates 4–5 (§10).
 
 ### F6 — CI job swallowed check-sync exit code — FIXED this session
 
@@ -207,9 +228,10 @@ Reconciliation (both numbers are real, different methodologies):
 | ENVIRONMENT.md sudoers trap note (`vsevolod` user) | Yes (personal local account) | No (the last-match-wins lesson is the fact) | Yes → `<build-user-2>` | **Sanitized** |
 | PUBLIC_AUDIT.md §1.9/§3.2/§3.3 (author listing, verdicts, mailmap example) | Yes | No | Yes → `<original-author-name> <original-author-email>` | **Sanitized; verdicts updated to the user's actual decision** |
 | RELEASE_READINESS.md §3.1 (identity + mailmap example) | Yes | No | Yes → placeholders + target identity | **Sanitized; procedure rewritten to user's decision** |
-| Commit metadata (4 commits) | Yes | No | Yes (mailmap) | **Deferred to publication step (needs GitHub numeric ID)** |
-| Old doc-blob content (17 email occurrences) | Yes | No | Yes (`--replace-text`) | **Deferred to publication step** |
+| Commit metadata (4 commits) | Yes | No | Yes (mailmap) | **Procedure verified by dry-run (§10); execution pending the numeric GitHub ID** |
+| Old doc-blob content (17 email occurrences) | Yes | No | Yes (`--replace-text`) | **Procedure verified by dry-run (§10)** |
 | `builder` username (13 files) | Indirectly (build container account) | **Yes** — build env is functionally described | Placeholders would reduce clarity | **Kept (F9)** |
+| `/home/builder` in 136 historical blob versions | Indirectly (build-container paths) | No (worktree is functionally clean without them) | Yes → `<build-host>` | **Purged by the publication rewrite — verified (§10)** |
 | Benchmark host strings (14 JSONs) | Indirectly (machine fingerprint) | Partially (host context matters for interpreting numbers, but exact model is not required) | Yes → `<build-host-cpu>`/`<build-host-platform>` | **Sanitized (D2, overridable)** |
 
 ## 6. `.opencode/` security/privacy audit (user-requested)
@@ -263,6 +285,18 @@ Tracked (public by user decision): `agents/orchestrator.md` (299 lines),
 6. Updated DECISIONS.md entry 7 to the user's taken decision (option b,
    expanded scope, root-commit consequence).
 7. Added this report; updated PROGRESS.md (OS-FORENSIC section).
+8. **Continuation session (publication prep):** executed D1
+   (Apple-asset removal + provenance note); completed the full
+   public-identity/naming audit — project renamed to **MavLinOS**
+   across README, CONTRIBUTING, templates, GITHUB_SETUP,
+   project-meta.json, PKGBUILDs (url + maintainer line), boot
+   entries, firstboot scripts, config headers (both sides of the
+   sync pair), uBlock backup, orchestrator/agent docs; repo URL
+   `github.com/Ansvipa_Rinh/MavLinOS`; internal package/ISO
+   identifiers (`mavericks-*`) deliberately unchanged; renamed
+   branch `master` → `main`; implemented the publication rewrite
+   as tooling (`scripts/contrib/publication-rewrite/`) and
+   verified it by dry-run — §10.
 
 **Not done (by explicit instruction):** history rewrite, branch rename,
 remote add, GitHub auth, push, Apple-asset removal (D1 awaits user),
@@ -271,9 +305,96 @@ publication procedure remaps it to the `Ansvipa_Rinh` identity.
 
 ## 9. Residual risk register (before first push)
 
-1. D1 Apple-derived SVGs — user decision (recommended: remove +
-   provenance note, also via history rewrite).
-2. Publication procedure §3.1 — needs authenticated GitHub numeric ID;
-   changes all 329 commit IDs; run only on a backed-up copy.
+1. D1 Apple-derived SVGs — **RESOLVED** (removed from tree + all
+   history; provenance note; §10).
+2. Publication procedure §3.1 — **VERIFIED by dry-run (§10)**;
+   execution needs the numeric GitHub ID from the authenticated
+   profile (must not be fabricated); changes all commit IDs; run
+   only on a backed-up copy.
 3. First CI run may surface fixture/environment issues (F7).
 4. ISO rebuild + QEMU boot — re-verify on an Arch host with root.
+
+## 10. Publication rewrite — verified dry-run evidence (2026-10-03)
+
+The publication procedure (RELEASE_READINESS.md §3.1) was
+implemented as reproducible tooling
+(`scripts/contrib/publication-rewrite/`) and verified end-to-end
+on a throwaway clone with a **TEST identity**
+(`TEST+Ansvipa_Rinh@users.noreply.github.com` — deliberately not
+a real GitHub address). The dry-run is repeatable:
+
+```bash
+./scripts/contrib/publication-rewrite/publication-rewrite.sh \
+  "<numeric-id>+Ansvipa_Rinh@users.noreply.github.com"
+```
+
+**Procedure (4 filter-repo passes on a fresh clone):**
+
+1. `--mailmap` — both source identities (the personal identity
+   on 4 commits incl. the root, and the local agent alias on
+   325 commits) → the public identity.
+2. `--replace-text` — 6 literal rules (`02-replace-text.txt`):
+   personal name, personal email, bare personal username,
+   `/home/builder`, `/home/mavericks-lab`, `/home/custompkgs`
+   → neutral placeholders; applied to every historical blob
+   version.
+3. `--path … --invert-paths` — removes the archived
+   Apple-derived originals directory from ALL history (D1).
+4. `--strip-blobs-with-id` — removes the 30 pre-`522ab98`
+   Apple-derived icon blob versions still reachable in history
+   (IDs in `03-apple-derived-blob-ids.txt`, each independently
+   proven to be an Apple-derived pre-replacement version).
+
+**Verification gates — all 9 passed:**
+
+1. commit count preserved (334 at dry-run time);
+2. single author+committer identity (the public one);
+3. personal name/email/username absent from all history
+   content (case-insensitive);
+4. Apple-derived path absent from all history;
+5. all 30 target blobs stripped (0 remain);
+6. private absolute build paths (`/home/builder` et al.)
+   absent from all history content;
+7. HEAD tree identical to source after EXACTLY the intended
+   neutralizations — verified by `git archive` of both trees,
+   a sed replication DERIVED from the rules file itself, and
+   `diff -r --no-dereference` (the archiso profile ships
+   symlinks);
+8. commit messages identical modulo rewritten commit-ID
+   references (positional 7-char remap);
+9. `git fsck --full` clean.
+
+**The gates caught two real corruption modes during
+development** (both fixed before any real execution — the
+safety design works):
+
+- *mailmap bracket loss:* an early sed dropped the angle
+  brackets around the new email, so the mailmap parser read
+  the whole line as one name and silently kept the old emails
+  — caught by gate 2.
+- *replace-text comments:* `git-filter-repo --replace-text`
+  does not support comments; a bare `#` comment line became a
+  rule replacing every `#` in every file with `***REMOVED***`
+  — caught by gate 7. The rules file now contains only rule
+  lines (documentation lives in the script header).
+
+**Unavoidable, documented consequences of the rewrite (by
+design, not bugs):**
+
+- ALL commit IDs change (the root commit is in the affected
+  set). Commit messages are byte-identical except 7-char
+  references to other commits, which necessarily point to the
+  new IDs (gate 8 proves nothing else changed).
+- The published copy's own tooling/audit files are themselves
+  redacted: the mailmap's old-identity keys and the replace
+  rules contain the personal strings — they must, to function;
+  the published versions show the neutralized placeholders.
+  The tooling in the published repo is therefore
+  reference-only; the functional copy lives in this local
+  repository.
+
+**Remaining before the real run:** the numeric GitHub ID from
+the authenticated profile (must not be fabricated), then the
+manual steps printed by the script (the branch is already
+`main`; `remote add` + `push` are authenticated,
+user-performed actions — never performed by the agent).
