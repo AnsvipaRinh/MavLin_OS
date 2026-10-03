@@ -6,7 +6,7 @@
   "isDraft": false,
   "headRefName": "feat/backup-service",
   "baseRefName": "main",
-  "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "contributor2" } },
+  "headRepository": { "name": "MavLinOS", "owner": { "login": "contributor2" } },
   "headRepositoryOwner": { "login": "contributor2" },
   "author": { "login": "contributor2" },
   "createdAt": "2025-09-22T10:00:00Z",

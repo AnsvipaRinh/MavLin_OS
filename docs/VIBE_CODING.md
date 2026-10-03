@@ -28,7 +28,7 @@ should work in this repository. You do not need OpenCode installed.
 ./scripts/check-sync.sh --check-repos
 ```
 
-221 checks: config mirrors, shell/XML/desktop/PKGBUILD syntax, py_compile,
+144 checks: config mirrors, shell/XML/desktop/PKGBUILD syntax, py_compile,
 Firefox seed validation, ISO security (sshd off, root locked), secret scan.
 **Must pass.** No exceptions.
 

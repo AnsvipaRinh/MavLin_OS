@@ -1,26 +1,107 @@
-# MavLinOS — MacBook 12" (MacBook10,1) Desktop Environment
+# MavLinOS
 
-Formerly named "Mavericks Linux" (repo slug `macbook12-macos-linux`); renamed to **MavLinOS** for the first public release. A Linux desktop that behaves and looks like **macOS Mavericks (10.9)** — skeuomorphic,
-not modern flat macOS — built on Arch + Xfce + mature Linux backends. Target hardware:
-**MacBook10,1 (Mid 2017, A1534)**, fanless Core m3-7Y32, 2304×1440 HiDPI, single USB-C.
+**MavLinOS is a Linux-based operating system whose user interface and user
+experience are as close as technically possible to macOS Mavericks (10.9).**
 
-**This is not:** a macOS clone, a GNOME/KDE theme, Electron-based, or a "pretty Linux" distro.
-It is a Mavericks-era UX layer over standard Linux userspace.
+Built on Arch Linux + Xfce, reusing mature Linux components wherever that is
+reasonable. The goal is **not** a visual skin — it is the **Mavericks-era
+interaction model**:
+
+- window chrome and titlebar behavior
+- the global menu bar and standard application menus
+- the Dock (running-app indicators, magnification, trash)
+- system applications: Finder, Spotlight, Launchpad, Mission Control,
+  Control Center, Notification Center, Quick Look, System Preferences, and more
+- dialogs, sheets, alerts and context menus
+- animations and transitions
+- keyboard shortcuts, including a global shortcut layer
+- window management (spaces, minimize, zoom, fullscreen)
+- notifications
+- file management behavior (selection, drag-and-drop, Open With, Get Info,
+  trash, eject)
+- system interactions and application behavior
+- the overall logic and *feel* of working in the system
+
+**This is not:** a macOS clone, a GNOME/KDE theme, an icon pack, a visual
+skin, an Electron app, or a "pretty Linux" distro. Linux internals stay
+Linux — only the user-facing interaction layers follow Mavericks.
+
+- **Repository:** https://github.com/AnsvipaRinh/MavLinOS
+- **Public author:** Ansvipa_Rinh
+- **License:** GPL-3.0-or-later (root `LICENSE`; per-package matrix in
+  `docs/LICENSES.md`)
 
 ---
 
-## Status (2026-10-02, pre-hardware)
+## Two goals
+
+1. **Mavericks UI/UX fidelity** — the interaction model above, in the
+   skeuomorphic 10.9 visual language (textures, gradients, glassy Dock),
+   not modern flat macOS.
+2. **Maximal practical optimization** — low resource usage, low power draw
+   and fast interaction on weak hardware, including through specialized
+   hardware profiles (see below).
+
+---
+
+## Architecture: generic core + hardware profiles
+
+MavLinOS is explicitly split into two layers:
+
+**Generic MavLinOS core** (machine-independent):
+
+- common UI/UX and the Mavericks interaction model
+- system applications
+- themes (GTK/Xfce/Dock, icons, cursors)
+- animations and transitions
+- window management
+- system integrations (D-Bus, systemd/logind, UDisks2, NetworkManager,
+  BlueZ, PipeWire, …)
+- general logic and performance architecture
+
+**Hardware profiles** (machine-specific):
+
+- CPU/GPU-specific tuning
+- power management
+- drivers and firmware integration
+- input devices
+- audio
+- Wi-Fi/Bluetooth
+- display
+- storage
+- thermal behavior
+- boot/runtime configuration
+- other machine-specific specifics
+
+The current **MacBook10,1 (Mid 2017) profile is one specialized profile —
+not the definition of the project.** Hardware-specific optimizations live in
+profiles and must not pollute the generic core without necessity.
+
+**Future:** a person with another computer (another MacBook or any other
+compatible machine) can create a new hardware profile and get:
+**MavLinOS core + their hardware profile → an optimized build for that
+machine.** See `ARCHITECTURE.md` and `configs/profiles/`.
+
+---
+
+## Current implementation status (2026-10, pre-hardware)
 
 | Layer | Status | Notes |
 |-------|--------|-------|
 | **Core desktop (P0)** | PARTIALLY IMPLEMENTED | Finder/Spotlight/Launchpad/Mission Control/Control Center/Notification Center/Quick Look/Dock/Menu Bar/Window Management/Global Dialogs/File Chooser/Context Menus/Keyboard Layer/Trash/Archive/Power UI — functional pre-hardware, hardware validation pending |
 | **System apps (P1)** | PARTIALLY IMPLEMENTED | Activity Monitor, System Info, Disk Utility, Screenshot, TextEdit, Calculator, Notes, Reminders, Calendar, Music, Console, Keychain, Font Book, Color Meter, Stickies, Voice Memos — Mavericks UI over mature backends; HW validation pending |
-| **P2 / Future** | DEFERRED / EXCLUDED | AirDrop, Time Machine UI, Automator/Shortcuts, Grapher, Migration Assistant, App Store, Software Update polish — explicitly not in scope for current phase |
+| **P2 / Future** | DEFERRED / EXCLUDED | AirDrop, Time Machine UI, Automator/Shortcuts, Grapher, Migration Assistant, App Store, Software Update polish — explicitly not in scope for the current phase |
 | **Excluded** | EXCLUDED | Contacts, TV, Podcasts, Siri, AirPlay, Chess, Game Center, dedicated Printer Discovery, Image Capture, Terminal replacement, mandatory account/password infra |
 
-**Hardware-dependent items** (require real MacBook10,1): Wi-Fi (BCM43602), audio (Cirrus CS42L83), applespi keyboard/trackpad, S3X NVMe resume, display/brightness/thermal calibration, HiDPI pixel validation, power measurements. See `docs/NEEDS_HARDWARE_TEST.md`.
+**Hardware-dependent items** (require real MacBook10,1): Wi-Fi (BCM43602),
+audio (Cirrus CS42L83), applespi keyboard/trackpad, S3X NVMe resume,
+display/brightness/thermal calibration, HiDPI pixel validation, power
+measurements. See `docs/NEEDS_HARDWARE_TEST.md`. Native keyboard/trackpad
+support (applespi) is best-effort; an external USB-C keyboard/mouse is the
+recommended bring-up interface.
 
-**No MacBook screenshots exist** (hardware not yet available). All UI claims are pre-hardware implementation status only.
+**No MacBook screenshots exist** (hardware not yet available). All UI claims
+are pre-hardware implementation status only.
 
 ---
 
@@ -30,7 +111,7 @@ It is a Mavericks-era UX layer over standard Linux userspace.
 # 1. Build local packages (mavericks-apps, mavericks-theme, macbook12-audio-driver)
 ./scripts/build-local-pkgs.sh
 
-# 2. Run pre-commit gate (142 checks: mirrors, syntax, security, ISO hardening)
+# 2. Run pre-commit gate (144 checks: mirrors, syntax, security, ISO hardening)
 ./scripts/check-sync.sh --check-repos
 
 # 3. Build ISO (requires root for mkarchiso; run on Arch host or CI)
@@ -48,8 +129,8 @@ qemu-system-x86_64 \
 ```
 
 **QEMU tests:** Sim backend (rootless, deterministic) — 25/25 scenarios pass.
-QEMU backend — 7/25 pass (network boot); command-channel scenarios blocked on 9p virtfs.
-Mac backend — documented stub only. See `docs/LAB_HARNESS.md`.
+QEMU backend — 7/25 pass (network boot); command-channel scenarios blocked on
+9p virtfs. Mac backend — documented stub only. See `docs/LAB_HARNESS.md`.
 
 ---
 
@@ -83,7 +164,7 @@ Mac backend — documented stub only. See `docs/LAB_HARNESS.md`.
 
 | File | Purpose |
 |------|---------|
-| `docs/AGENTS.md` | Autonomous agent constitution (read first) |
+| `AGENTS.md` | Autonomous agent constitution (read first) |
 | `docs/HARDWARE.md` | MacBook10,1 spec + base config |
 | `docs/PROGRESS.md` | Phase-by-phase implementation log |
 | `docs/APPS.md` | 46-objective application inventory + statuses |
@@ -103,24 +184,49 @@ Mac backend — documented stub only. See `docs/LAB_HARNESS.md`.
 | `docs/VIBE_CODING.md` | External agent workflow |
 | `docs/UI_UX_CONTRIBUTION.md` | Fidelity axes + completion criteria |
 | `docs/GITHUB_SETUP.md` | First-time GitHub publish walkthrough |
-| `docs/RELEASE_READINESS.md` | Pre-publication audit + remaining user decisions |
+| `docs/RELEASE_READINESS.md` | Pre-publication audit + publication procedure |
 | `docs/LICENSES.md` | Full license matrix (all packages + backends) |
 
 ---
 
-## Profiles (OS-2c)
+## Hardware profiles (OS-2c)
 
 Two build profiles in `configs/profiles/` selected at ISO build time:
 
 - **generic** — baseline Arch + Xfce + Mavericks theme, no MacBook drivers
-- **macbook10,1** — + applespi, brcmfmac/broadcom-wl, Cirrus audio, S3X NVMe, `pcie_port_pm=off`, `i915.enable_psr=0`
+- **macbook10,1** — + applespi, brcmfmac/broadcom-wl, Cirrus audio, S3X NVMe,
+  `pcie_port_pm=off`, `i915.enable_psr=0`
 
-Selector: `scripts/apply-hardware-selection.sh` (interactive, runs on first boot).
+Selector: `scripts/apply-hardware-selection.sh` (interactive, runs on first
+boot). The generic profile is the clean core; the MacBook profile is the
+reference hardware profile. New profiles follow the same separation rule:
+**never add machine-specific configuration to the generic profile.**
+
+---
+
+## Contributing
+
+Community participation is welcome across: **UI, UX, animations, window
+management, applications, system integrations, performance, hardware profiles,
+compatibility, documentation, testing, and tooling** — for example an animation
+improvement, a window-behavior fix, a more precise Mavericks-like interaction,
+an application improvement, or a hardware profile for a specific computer.
+
+Public contributions are treated as **untrusted external input**: every
+contribution passes the existing contribution/security/validation pipeline
+(static security scan, classification, isolated build-agent testing, fidelity
+and regression audit) before a human integration decision. **A community idea
+can become part of the main MavLinOS codebase if it passes review and truly
+fits the project goals — no contribution is accepted automatically.**
+
+Start with `CONTRIBUTING.md` and `docs/CONTRIBUTION_PROTOCOL.md`.
 
 ---
 
 ## License
 
-Project code: GPL-3.0-or-later (root `LICENSE`); per-package: GPL-2.0-or-later (mavericks-apps), GPL-3.0-or-later (mavericks-theme). Full matrix: `docs/LICENSES.md`.
-Upstream components retain their licenses (see `docs/APPS.md` backend column).
-No Apple proprietary code/assets/resources. Visual fidelity via reimplementation only.
+Project code: GPL-3.0-or-later (root `LICENSE`); per-package: GPL-2.0-or-later
+(mavericks-apps), GPL-3.0-or-later (mavericks-theme). Full matrix:
+`docs/LICENSES.md`. Upstream components retain their licenses (see
+`docs/APPS.md` backend column). No Apple proprietary code/assets/resources.
+Visual fidelity via reimplementation only.

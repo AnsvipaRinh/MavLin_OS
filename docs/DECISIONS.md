@@ -1,5 +1,18 @@
 # DECISIONS
 
+## 2026-10-03 — Ling 3.1 Flash Free = first-priority builder (protocol v15)
+
+**Date:** 2026-10-03
+**Context:** User request: make Ling 3.1 Flash Free (OpenCode Zen / Z.ai) the default first-priority model for the builder, if not already among subagent models. Audit found it ABSENT from the chain (only ling-3.0-flash-fin existed, experimental #7). Live check: `opencode/ling-3.1-flash-free` is served by Zen (present in GET /provider, 8444 models) — and is the model this orchestrator session itself runs on.
+
+**Changes:**
+- Chain: new order 1 `ling-3.1-flash-free`, worker `build` (primary-worker). All other entries shifted; nemotron-3-ultra (former primary 2026-09-26..2026-10-02) demoted to order 6 with NEW hidden pin `build-i` (opencode.jsonc) so it stays runtime-reachable; ranks below proven fallbacks, above experimental pins.
+- Project + global `opencode.jsonc`: agent.build.model = `opencode/ling-3.1-flash-free`.
+- Orchestrator allow-list + all worker-pool texts: `build-b..build-i`; protocol v14 → v15.
+
+**Verified:** worker_pins() returns 9 pins (build→ling first); resolve_next_worker prefers build/ling when eligible; chain orders 1..10 unique; tests green.
+**User action:** none for selection (resolver reads config live). A server restart is needed only to load the new build-i agent definition — same as any worker-pool change; not needed for the primary pin switch to matter on new Tasks.
+
 ## 2026-10-02 — Fossil orchestrator + narrow stall window (live 4-min idle case)
 
 **Date:** 2026-10-02
@@ -7,7 +20,7 @@
 
 **Findings (all verified live, no guessing):**
 1. The driving orchestrator (`ses_f2270870`, "MavLinOS") was created 2026-09-26 — BEFORE the entire task_id architecture (v2+). All its Task calls carry EMPTY task_id with the full initial prompt. It runs the original prompt text forever; no code change can reach it. Continuation machinery is NOT broken — it is simply never invoked by this fossil session (contrast: same-session resume+complete proven on other sessions).
-2. `stalled_generation` limit=3 missed the real stall: 9 completed tool rounds buried the user prompt 11 messages back. Widened to limit=8 (still bounded; full-history download was already worse via `live_context`).
+2. `stalled_generation` limit=3 missed the real stall: 9 completed tool rounds buried the user prompt 11 messages back. Final fix (commit e2c8609): dropped the prompt-window scan entirely — an assistant message cannot exist without a preceding user prompt (platform invariant), so window scanning is pure downside; stall = newest assistant message, finish=None, 0 output tokens, no tool parts, no error, age > threshold.
 3. `?directory=<repo>` scoping verified: unfiltered list returned 6 sessions, scoped 100 incl. the stuck child with parentID. Discovery now always passes explicit scope.
 
 **Changes:** stall window 3→8 + deep-stall test; DECISIONS entry. No protocol bump (no new commands/allow-entries; v12 prompt already covers everything).
@@ -2388,7 +2401,7 @@ may be added under any path.
 
 6. **triage.sh routing model.** REJECTED → `dangerous` (no topical routing). REQUIRES_SECURITY_REVIEW → adds `OS-SEC-REVIEW` objective, topical classification still computed. Every matching category adds its objective (PR can route to several review sessions); classification = first/highest-priority match. File-type refinement only sets classification when text analysis found nothing. Word-boundary fixes for `ux` (in "linux"), bare `ui`/`ci`/`iso`. Integration checked before backend (cross-component signals are more specific than service/daemon keywords). Validated 5/5.
 
-7. **Git author identity rewrite before first public push — USER DECISION (b), 2026-10-03.** History contains 4 commits by the original author under a personal identity (real name + personal email, redacted from this repo per publication policy) + 325 by `Mavericks Linux Agent <agent@mavericks-linux.local>` (temporary local alias of the previous agent — NOT a public identity). User decision: rewrite ALL commits to the public project identity `Ansvipa_Rinh <ID+Ansvipa_Rinh@users.noreply.github.com>` before the first push. The numeric GitHub ID cannot be fabricated — it is obtained after GitHub authentication, so the rewrite happens only at publication time. Scope: the 4 personal-identity commits include the ROOT commit (`82386e5`), so any mailmap rewrite changes ALL 329 commit IDs, not just 4. Content mentions of the personal name/email (17 occurrences in old doc blobs, 13 lines in 4 current docs) are removed in the same rewrite via `git filter-repo --replace-text`. Exact procedure: `docs/RELEASE_READINESS.md` §3.1; forensic evidence: `docs/FORENSIC_AUDIT.md`. Not performed yet (requires GitHub numeric ID + explicit publication step).
+7. **Git author identity rewrite before first public push — USER DECISION (b), 2026-10-03.** History contains 4 commits by the original author under a personal identity (real name + personal email, redacted from this repo per publication policy) + 325 by `Mavericks Linux Agent <agent@mavericks-linux.local>` (temporary local alias of the previous agent — NOT a public identity). User decision: rewrite ALL commits to the public project identity `Ansvipa_Rinh <336997779+AnsvipaRinh@users.noreply.github.com>` before the first push. The numeric GitHub ID (336997779) was obtained 2026-10-03 from the authenticated GitHub profile (`gh api user`: login `AnsvipaRinh`, id `336997779`); the noreply email follows GitHub's `<id>+<login>@users.noreply.github.com` format (the login has no underscore — the repo lives at github.com/AnsvipaRinh/MavLinOS). Scope: the 4 personal-identity commits include the ROOT commit (`82386e5`), so any mailmap rewrite changes ALL 329 commit IDs, not just 4. Content mentions of the personal name/email (17 occurrences in old doc blobs, 13 lines in 4 current docs) are removed in the same rewrite via `git filter-repo --replace-text`. Exact procedure: `docs/RELEASE_READINESS.md` §3.1; forensic evidence: `docs/FORENSIC_AUDIT.md`. Not performed yet (explicit publication step; the target identity is now concrete).
 
 8. **CODE_OF_CONDUCT = Contributor Covenant 2.1** (standard, well-understood by contributors); enforcement contact = private report to maintainers per SECURITY.md (no public email published).
 

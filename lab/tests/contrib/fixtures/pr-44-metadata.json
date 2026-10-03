@@ -6,7 +6,7 @@
   "isDraft": false,
   "headRefName": "docs/readme-install",
   "baseRefName": "main",
-  "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "doc-writer" } },
+  "headRepository": { "name": "MavLinOS", "owner": { "login": "doc-writer" } },
   "headRepositoryOwner": { "login": "doc-writer" },
   "author": { "login": "doc-writer" },
   "createdAt": "2025-09-20T12:00:00Z",

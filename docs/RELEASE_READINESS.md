@@ -59,9 +59,14 @@
 
 User decision (2026-10-03): rewrite history before the first public push so
 that NO personal identity remains — neither in commit metadata nor in file
-content. Target public identity: `Ansvipa_Rinh <ID+Ansvipa_Rinh@users.noreply.github.com>`.
-The numeric GitHub ID must be read from the authenticated GitHub profile at
-publication time — it must NOT be guessed or fabricated.
+content. Target public identity: `Ansvipa_Rinh <336997779+AnsvipaRinh@users.noreply.github.com>`.
+The numeric GitHub ID was obtained from the authenticated GitHub
+profile (2026-10-03: `gh api user` → login `AnsvipaRinh`, id
+`336997779`). The noreply email follows GitHub's
+`<id>+<login>@users.noreply.github.com` format — the login has NO
+underscore (the repo lives at github.com/AnsvipaRinh/MavLinOS);
+`Ansvipa_Rinh` is the author display name, `AnsvipaRinh` is the
+login used in the email.
 
 **Scope (verified by forensic audit):**
 
@@ -87,7 +92,7 @@ as reproducible tooling — do NOT hand-roll the filter-repo commands:
 #    (gh auth status) — it must NOT be guessed or fabricated.
 #    Dry-run first (throwaway clone, TEST identity):
 ./scripts/contrib/publication-rewrite/publication-rewrite.sh \
-  "<numeric-id>+Ansvipa_Rinh@users.noreply.github.com"
+  "336997779+AnsvipaRinh@users.noreply.github.com"
 
 # The tool works on its own fresh clone (the source repo is never
 # modified), runs 4 filter-repo passes (mailmap → replace-text →
@@ -97,7 +102,7 @@ as reproducible tooling — do NOT hand-roll the filter-repo commands:
 
 # 1. remote + push (separate authenticated step — never performed
 #    by the agent):
-git -C <rewritten-copy> remote add origin https://github.com/Ansvipa_Rinh/MavLinOS.git
+git -C <rewritten-copy> remote add origin https://github.com/AnsvipaRinh/MavLinOS.git
 git -C <rewritten-copy> push -u origin main
 ```
 

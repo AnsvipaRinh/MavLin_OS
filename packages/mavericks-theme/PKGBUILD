@@ -4,7 +4,7 @@ pkgver=1.0.0
 pkgrel=2
 pkgdesc="OS X 10.9 Mavericks skeuomorphic theme for Xfce/GTK3 - textures, shadows, glass, leather/paper"
 arch=('any')
-url="https://github.com/Ansvipa_Rinh/MavLinOS"
+url="https://github.com/AnsvipaRinh/MavLinOS"
 license=('GPL-3.0-or-later')
 depends=('gtk3' 'plank' 'xfce4-panel' 'thunar' 'xfce4-settings' 'hicolor-icon-theme' 'adwaita-icon-theme')
 # NOTE: no gtk-engine-murrine — theme is GTK3-only (gtk-3.0/gtk-3.20, no

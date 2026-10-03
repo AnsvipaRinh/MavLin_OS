@@ -3,7 +3,7 @@
 
 iso_name="mavericks-linux"
 iso_label="MAVERICKS"
-iso_publisher="MavLinOS <https://github.com/Ansvipa_Rinh/MavLinOS>"
+iso_publisher="MavLinOS <https://github.com/AnsvipaRinh/MavLinOS>"
 iso_application="MavLinOS Live/Install DVD"
 iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
 install_dir="mavericks"

@@ -6,7 +6,7 @@
   "isDraft": false,
   "headRefName": "fix/applespi-mb101",
   "baseRefName": "main",
-  "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "hw-contrib" } },
+  "headRepository": { "name": "MavLinOS", "owner": { "login": "hw-contrib" } },
   "headRepositoryOwner": { "login": "hw-contrib" },
   "author": { "login": "hw-contrib" },
   "createdAt": "2025-09-18T08:00:00Z",

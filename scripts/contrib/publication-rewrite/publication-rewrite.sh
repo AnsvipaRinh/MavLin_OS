@@ -13,8 +13,9 @@
 # Usage:
 #   scripts/contrib/publication-rewrite.sh <GITHUB_NOREPLY_EMAIL> [source-repo]
 #
-#   <GITHUB_NOREPLY_EMAIL>  REQUIRED. The account's real noreply address,
-#                           format <numeric-id>+Ansvipa_Rinh@users.noreply.github.com.
+#   <GITHUB_NOREPLY_EMAIL>  REQUIRED. The account's real noreply
+#                           address, format <numeric-id>+<login>@users.noreply.github.com
+#                           (this account: 336997779+AnsvipaRinh@users.noreply.github.com).
 #                           Obtain it AFTER GitHub authentication:
 #                             gh api user --jq '"\(.id)+\(.login)@users.noreply.github.com"'
 #                           or GitHub Settings -> Emails. NEVER fabricate the
@@ -63,15 +64,16 @@ die() { echo "FATAL: $*" >&2; exit 1; }
 [ -n "$NOREPLY_EMAIL" ] || die "usage: $0 <GITHUB_NOREPLY_EMAIL> [source-repo]
 
 GITHUB_NOREPLY_EMAIL is REQUIRED and must be the account's real noreply
-address (format: <numeric-id>+Ansvipa_Rinh@users.noreply.github.com).
+address (format: <numeric-id>+<login>@users.noreply.github.com —
+this account: 336997779+AnsvipaRinh@users.noreply.github.com).
 Obtain it after GitHub authentication:
   gh api user --jq '\"\\(.id)+\\(.login)@users.noreply.github.com\"'
 The numeric ID must NOT be fabricated."
 
 case "$NOREPLY_EMAIL" in
-  *"+Ansvipa_Rinh@users.noreply.github.com") ;;
+  *"+AnsvipaRinh@users.noreply.github.com") ;;
   *) die "refusing: '$NOREPLY_EMAIL' does not look like the account noreply
-address (expected pattern: <numeric-id>+Ansvipa_Rinh@users.noreply.github.com).
+address (expected pattern: <numeric-id>+AnsvipaRinh@users.noreply.github.com).
 If your GitHub account uses a different noreply form, edit this check
 deliberately — but the default guard exists to prevent publishing under
 a made-up identity." ;;
@@ -291,9 +293,9 @@ if verify_rewrite; then
   echo "REWRITE VERIFIED. Rewritten repo: $WORKDIR"
   echo "Next steps (manual, authenticated):"
   echo "  git -C $WORKDIR branch -M main        # if not already main"
-  echo "  git -C $WORKDIR remote add origin https://github.com/Ansvipa_Rinh/MavLinOS.git"
+  echo "  git -C $WORKDIR remote add origin https://github.com/AnsvipaRinh/MavLinOS.git"
   echo "  git -C $WORKDIR push -u origin main"
-  echo "  git -C $SOURCE_REPO remote add origin https://github.com/Ansvipa_Rinh/MavLinOS.git"
+  echo "  git -C $SOURCE_REPO remote add origin https://github.com/AnsvipaRinh/MavLinOS.git"
   echo "  # then replace the local repo with the rewritten copy, or push from the copy"
 else
   echo

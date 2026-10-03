@@ -6,7 +6,7 @@
   "isDraft": false,
   "headRefName": "exploit/rce",
   "baseRefName": "main",
-  "headRepository": { "name": "macbook12-macos-linux", "owner": { "login": "attacker" } },
+  "headRepository": { "name": "MavLinOS", "owner": { "login": "attacker" } },
   "headRepositoryOwner": { "login": "attacker" },
   "author": { "login": "attacker" },
   "createdAt": "2025-09-21T00:00:00Z",

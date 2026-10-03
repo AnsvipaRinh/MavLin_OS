@@ -2,10 +2,18 @@
 
 This document defines the end-to-end flow for external contributions to the MavLinOS project — from PR/issue discovery through human merge. **No auto-merge is ever performed.**
 
+**Community value:** a community idea can become part of the main
+MavLinOS codebase if it passes review and truly fits the project
+goals (Mavericks UI/UX fidelity, practical optimization, clean
+generic-core/hardware-profile separation). No contribution is
+accepted automatically — public contributions are **untrusted
+external input** by definition.
+
 ---
 
 ## 1. Principles
 
+- **Untrusted input**: public contributions are untrusted external input. Contributor code is never executed during review; static analysis only, and build-agent testing happens in isolated ephemeral environments.
 - **Least privilege**: CI and tooling use scoped `gh` tokens / SSH keys with minimal permissions (read PRs, read issues, write comments). No passwords. No credentials in repo.
 - **Human gate**: Every integration decision requires explicit human approval. Automation prepares, classifies, and audits — humans decide.
 - **Branch protection**: `main` branch is protected. Required status checks: CI build, security scan pass, triage classification.

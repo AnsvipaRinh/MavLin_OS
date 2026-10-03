@@ -1,5 +1,33 @@
 # Contributing to MavLinOS
 
+MavLinOS is a Linux-based operating system whose UI/UX is as close as
+technically possible to macOS Mavericks (10.9) — the full interaction
+model (window chrome, menu bar, Dock, system apps, dialogs, context
+menus, animations, transitions, keyboard shortcuts, window management,
+notifications, file management, application behavior), not just a
+visual skin. It is built on Arch + Xfce with a **generic core** plus
+**hardware profiles** (the current MacBook10,1 profile is one
+specialized profile, not the definition of the project). See
+`README.md` and `ARCHITECTURE.md`.
+
+## Contribution model
+
+Participation areas: **UI, UX, animations, window management,
+applications, system integrations, performance, hardware profiles,
+compatibility, documentation, testing, tooling** — e.g. an animation
+improvement, a window-behavior fix, a more precise Mavericks-like
+interaction, an application improvement, or a hardware profile for a
+specific computer.
+
+Public contributions are **untrusted external input**. They do not
+land automatically: every contribution passes the existing
+contribution/security/validation pipeline (static security scan,
+triage classification, isolated build-agent testing, fidelity and
+regression audit) before a human integration decision. **A community
+idea can become part of the main MavLinOS codebase if it passes
+review and truly fits the project goals.** Full flow:
+`docs/CONTRIBUTION_PROTOCOL.md`.
+
 ## Setup (one-time)
 
 ```bash
@@ -12,7 +40,7 @@ sudo pacman -S base-devel git python python-gobject gtk3 libnotify rofi plocate 
 pip install --user -r packages/mavericks-apps/requirements.txt 2>/dev/null || true
 
 # Clone
-git clone https://github.com/Ansvipa_Rinh/MavLinOS
+git clone https://github.com/AnsvipaRinh/MavLinOS
 cd MavLinOS
 ```
 
@@ -56,7 +84,7 @@ Every user-facing change must satisfy:
 - **No Electron / Java / heavy web UI** — GTK3/X11/native only
 - **No arbitrary script execution** on host (see `SECURITY.md`)
 - **Power baseline frozen** (Section 7 AGENTS.md): TLP powersave, zram, no thermald/ananicy/powertop-auto-tune
-- **Every change** must pass `./scripts/check-sync.sh --check-repos` (221 checks)
+- **Every change** must pass `./scripts/check-sync.sh --check-repos` (144 checks)
 
 ## Commit Style
 

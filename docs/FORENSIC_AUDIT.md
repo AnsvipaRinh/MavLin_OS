@@ -99,9 +99,10 @@ Reconciliation (both numbers are real, different methodologies):
 - **Scope consequence:** the affected set includes the root commit, so a
   mailmap rewrite changes **all 329 commit IDs**, not 4. Documented in
   RELEASE_READINESS.md §3.1; user chose option (b) with target identity
-  `Ansvipa_Rinh <ID+Ansvipa_Rinh@users.noreply.github.com>`; the numeric
-  GitHub ID must come from the authenticated profile (must not be
-  fabricated) — hence execution is a publication step.
+  `Ansvipa_Rinh <336997779+AnsvipaRinh@users.noreply.github.com>`; the
+  numeric ID was obtained 2026-10-03 from the authenticated profile
+  (`gh api user`: login `AnsvipaRinh`, id `336997779`) — execution is
+  the publication step.
 - **Dry-run verification (2026-10-03):** the full 4-pass procedure
   executed on a throwaway clone with a TEST identity passes all
   9 verification gates — see §10. Only the numeric GitHub ID
@@ -292,7 +293,7 @@ Tracked (public by user decision): `agents/orchestrator.md` (299 lines),
    project-meta.json, PKGBUILDs (url + maintainer line), boot
    entries, firstboot scripts, config headers (both sides of the
    sync pair), uBlock backup, orchestrator/agent docs; repo URL
-   `github.com/Ansvipa_Rinh/MavLinOS`; internal package/ISO
+   `github.com/AnsvipaRinh/MavLinOS`; internal package/ISO
    identifiers (`mavericks-*`) deliberately unchanged; renamed
    branch `master` → `main`; implemented the publication rewrite
    as tooling (`scripts/contrib/publication-rewrite/`) and
@@ -325,7 +326,7 @@ a real GitHub address). The dry-run is repeatable:
 
 ```bash
 ./scripts/contrib/publication-rewrite/publication-rewrite.sh \
-  "<numeric-id>+Ansvipa_Rinh@users.noreply.github.com"
+  "336997779+AnsvipaRinh@users.noreply.github.com"
 ```
 
 **Procedure (4 filter-repo passes on a fresh clone):**
@@ -393,8 +394,10 @@ design, not bugs):**
   reference-only; the functional copy lives in this local
   repository.
 
-**Remaining before the real run:** the numeric GitHub ID from
-the authenticated profile (must not be fabricated), then the
-manual steps printed by the script (the branch is already
+**Remaining before the real run:** run the tool with the real
+identity `336997779+AnsvipaRinh@users.noreply.github.com` (numeric
+ID 336997779 obtained 2026-10-03 via `gh api user` on the
+authenticated profile — login `AnsvipaRinh`, no underscore), then
+the manual steps printed by the script (the branch is already
 `main`; `remote add` + `push` are authenticated,
 user-performed actions — never performed by the agent).
