@@ -221,6 +221,39 @@ verify_rewrite() {
   fi
   rm -rf "$WORKDIR/.tree-check-src" "$WORKDIR/.tree-check-new"
 
+  # Commit messages must be byte-identical modulo references to
+  # other commit IDs — those necessarily change in ANY full-history
+  # rewrite (filter-repo never edits message text itself). Pair
+  # commits by position (the rewrite preserves graph topology and
+  # order) and remap every 7-char hash reference before diffing.
+  git -C "$SOURCE_REPO" log --reverse --format='%H' \
+    | cut -c1-7 > "$WORKDIR/.old-ids"
+  git log --reverse --format='%H' | cut -c1-7 > "$WORKDIR/.new-ids"
+  if [ "$(wc -l < "$WORKDIR/.old-ids")" \
+       != "$(sort -u "$WORKDIR/.old-ids" | wc -l)" ]; then
+    echo "  [FAIL] short-hash collision: cannot build message map"; fail=1
+  else
+    git -C "$SOURCE_REPO" log --reverse --format='%B' \
+      > "$WORKDIR/.src-msg"
+    git log --reverse --format='%B' > "$WORKDIR/.new-msg"
+    : > "$WORKDIR/.hash-map.sed"
+    paste "$WORKDIR/.old-ids" "$WORKDIR/.new-ids" \
+      | while IFS="$(printf '\t')" read -r old new; do
+          [ "$old" != "$new" ] \
+            && printf 's/\\b%s\\b/%s/g\n' "$old" "$new"
+        done >> "$WORKDIR/.hash-map.sed"
+    sed -E -f "$WORKDIR/.hash-map.sed" "$WORKDIR/.src-msg" \
+      > "$WORKDIR/.src-msg-remapped"
+    if diff -u "$WORKDIR/.src-msg-remapped" "$WORKDIR/.new-msg" \
+         > "$WORKDIR/.msg-diff.txt" 2>&1; then
+      echo "  [OK] commit messages identical (modulo rewritten commit-ID references)"
+    else
+      echo "  [FAIL] commit messages differ beyond hash references:"
+      head -30 "$WORKDIR/.msg-diff.txt" | sed 's/^/    /'
+      fail=1
+    fi
+  fi
+
   if git fsck --full >/dev/null 2>&1; then
     echo "  [OK] git fsck --full clean"
   else
