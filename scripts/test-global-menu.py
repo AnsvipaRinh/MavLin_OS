@@ -15,6 +15,8 @@ FINDER = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-finder-columns"
 NOTES = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-notes")
 CALENDAR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calendar")
 MUSIC = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-music")
+PREVIEW = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-preview")
+PHOTOS = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-photos")
 XFWM = Path("configs/desktop/xfce/xfwm4.xml")
 APPLE_PLUGIN = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c")
 APPLE_DESKTOP = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
@@ -127,6 +129,18 @@ def main():
     assert "build_music_menu" in music
     for action in ("Previous Track", "Play / Pause", "Next Track", "Songs", "Albums", "Artists", "Queue", "Mini Player"):
         assert action in music, f"Music menu missing {action}"
+    preview = PREVIEW.read_text(encoding="utf-8")
+    assert "build_preview_menu" in preview
+    for action in ("Previous Page", "Next Page", "Fullscreen", "Previous File", "Next File",
+                   "Text Annotation", "Shape Annotation", "Signature"):
+        assert action in preview, f"Preview menu missing {action}"
+    photos = PHOTOS.read_text(encoding="utf-8")
+    assert "build_photos_menu" in photos
+    assert "Gtk.Application(application_id=" in photos
+    assert "Gtk.main_quit()" not in photos
+    for action in ("Import Photos…", "New Album…", "All Photos", "Favorites",
+                   "Recently Added", "Moments", "Start / Stop Slideshow"):
+        assert action in photos, f"Photos menu missing {action}"
     assert "build_notes_menu" in notes
     for action in ("New Note", "New Folder", "Export Note…", "Print…", "Find"):
         assert action in notes, f"Notes menu missing {action}"
