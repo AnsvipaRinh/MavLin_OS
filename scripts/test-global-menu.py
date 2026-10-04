@@ -105,6 +105,7 @@ def main():
     assert entries["plugin-5"].get("value") == "clock"
     assert entries["plugin-6"].get("value") == "actions"
     assert entries["plugin-7"].get("value") == "genmon"
+    assert entries["plugin-7"].find("./property[@name='update-period']").get("value") == "30000"
     assert entries["plugin-3"].find("./property[@name='expand']").get("value") == "true"
 
     xsettings = ET.parse(XSETTINGS).getroot()
