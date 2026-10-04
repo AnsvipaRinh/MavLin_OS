@@ -1,5 +1,39 @@
 # DECISIONS
 
+## 2026-10-04 — Standing rules fixed in AGENTS.md §8: PUBLISH RULE, ISSUE #1 RULE, GLM REMOVAL RULE
+
+**Context:** Three user directives were given verbally/in-chat and
+had to become permanent project rules (not session-scoped
+instructions):
+
+1. **PUBLISH RULE** — «когда сделано что-то новое — выкладывать на
+   гитхаб с комментами». Every completed objective → descriptive
+   commit (what/why; RU allowed) → push to origin promptly.
+   `docs/PROGRESS.md` is the public changelog (updated with every
+   push); `docs/DECISIONS.md` in the same commit. Silent local-only
+   work is not "done". If push auth is unavailable, record the exact
+   blocker in PROGRESS.md and continue (not a stop condition).
+2. **ISSUE #1 RULE** — https://github.com/AnsvipaRinh/MavLinOS/issues/1.
+   Large but proven-necessary architectural work is NEVER deferred
+   "because it is large". It is decomposed into small, independently
+   testable objectives: target architecture + migration boundary →
+   compatibility layers/adapters → migrate one surface at a time →
+   regression after every step → working fallback during migration.
+   Hardware-dependent validation is recorded as an explicit LATER
+   validation, never as a reason to postpone the architecture itself.
+   Examples: global menu, Mission Control overview layer, replacing
+   rofi surfaces when the fidelity ceiling is proven.
+3. **GLM REMOVAL RULE** — see the GLM entry below; the rule prevents
+   re-adding zai-coding-plan/glm-5.3 to the rotation (permanent, not
+   a cooldown).
+
+**Placement:** AGENTS.md §8 (git discipline / standing rules), where
+every session reads them. The dead predecessor session had drafted
+these rules inside the §14.2 orchestration loop; moved to §8 — they
+are standing rules, not loop steps.
+
+**User action:** none.
+
 ## 2026-10-04 — README legibility close-out: repo map, real QEMU screenshots, Finder status
 
 **Context:** README was written for a contributor who cannot ask
