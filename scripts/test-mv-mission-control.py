@@ -20,7 +20,11 @@ PACKAGES = os.path.join(ROOT, "archiso-profile", "releng", "packages.x86_64")
 
 
 def load_script():
-    spec = importlib.util.spec_from_file_location("mv_mission_control", SCRIPT)
+    import shutil
+    import tempfile
+    tmp = tempfile.mktemp(suffix=".py", prefix="mv_mission_control_")
+    shutil.copy2(SCRIPT, tmp)
+    spec = importlib.util.spec_from_file_location("mv_mission_control", tmp)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
