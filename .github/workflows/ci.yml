@@ -156,6 +156,10 @@ jobs:
         run: |
           python3 scripts/test-terminal-key.py
 
+      - name: Panel clock contract
+        run: |
+          python3 scripts/test-panel-clock.py
+
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest
