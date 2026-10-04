@@ -522,21 +522,18 @@ def main():
                         help="preset action (default: chooser)")
     parser.add_argument("--status", action="store_true",
                         help="print capability summary and exit (no dialog)")
-    args = parser.parse_args()
+    args, _unknown = parser.parse_known_args()
 
     if args.status:
         print(status_report())
         return 0
 
-    from gi.repository import Gtk
-    win = PowerUI(preset=args.action)
-    win.show_all()
-    Gtk.main()
-    return 0
-
-
-if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")
     from mavericks_appmenu import run_application
-    sys.exit(run_application(
-        "com.mavlinos.PowerUI", "Power UI", PowerUI, sys.argv))
+    window_factory = lambda: PowerUI(preset=args.action)
+    return run_application(
+        "com.mavlinos.PowerUI", "Power UI", window_factory,
+        sys.argv)
+
+if __name__ == "__main__":
+    sys.exit(main())
