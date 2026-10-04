@@ -92,7 +92,6 @@ xarchiver
 xdg-user-dirs
 xdg-utils
 xdotool
-xfce4-genmon-plugin
 xfce4-notifyd
 xfce4-panel
 xfce4-power-manager
@@ -108,3 +107,4 @@ xorg-xinit
 xorg-xrandr
 zram-generator
 zsh
+
