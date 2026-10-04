@@ -6,10 +6,10 @@
 # Only options that differ from upstream defaults (or lock behavior) are set
 # below; everything else falls back to upstream defaults.
 #
-# Energy model: NO daemon. The Super+Tab hotkey (when E-MC is applied) runs
-# `skippy-xd` with no arguments = one-shot expose, process exits on
-# select/Escape. Daemon mode (--start-daemon) is deliberately NOT used:
-# it would be a permanent wakeup source for previews of minimized windows.
+# Energy model: NO IDLE daemon. The normal Super+Tab path may start
+# --start-daemon only for the duration of capture/expose, then always stops it.
+# The daemon is intentionally ephemeral so minimized/other-workspace thumbnails
+# can be captured without adding a persistent wakeup source.
 
 [system]
 # xfwm4 is EWMH-compliant, _NET_CLIENT_LIST works (same as upstream default).
