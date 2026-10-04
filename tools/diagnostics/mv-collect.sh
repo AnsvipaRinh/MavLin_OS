@@ -60,6 +60,10 @@ runsh "dmesg -T | grep -iE 'snd|hda|cirrus|cs42' | head -40"
 run aplay -l
 run arecord -l
 run wpctl status 2>/dev/null || true
+runsh "for f in /sys/module/snd_hda_intel/parameters/power_save /sys/module/snd_hda_intel/parameters/power_save_controller; do [ -r \"$f\" ] && { echo \"--- $f\"; cat \"$f\"; }; done"
+runsh "for d in /sys/class/sound/card*/device/power; do [ -d \"$d\" ] || continue; echo \"--- $d\"; for f in control runtime_status runtime_active_time runtime_suspended_time; do printf '%s=' \"$f\"; cat \"$d/$f\" 2>/dev/null || true; done; done"
+runsh "for f in /sys/class/sound/card*/device/power_state /sys/class/sound/card*/device/power/runtime_status; do [ -r \"$f\" ] && { echo \"--- $f\"; cat \"$f\"; }; done"
+runsh "pw-top -b -n 1 2>/dev/null || true"
 
 # 7 NVMe
 run nvme list
