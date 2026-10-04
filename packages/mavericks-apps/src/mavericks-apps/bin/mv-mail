@@ -1,158 +1,203 @@
-import sys
 #!/usr/bin/env python3
 """mv-mail — Mavericks-like Mail wrapper for Geary.
-Adds Mavericks visual theme and integration.
+Adds the Mavericks sidebar shell around the Geary backend. On-demand, no
+daemon. License: GPL-2.0-or-later.
+
+Backend selection (pure, testable): prefer the "geary" executable; fall
+back to any desktop file declaring Geary as its Mail UserAgent. If neither
+is present, the UI shows an install hint instead of launching nothing.
 """
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib, Gio
-
-class MailWrapper(Gtk.Window):
-    def __init__(self):
-        super().__init__(title="Mail")
-        self.set_default_size(1000, 650)
-        
-        self.apply_css()
-        
-        hb = Gtk.HeaderBar(title="Mail", show_close_button=True)
-        self.set_titlebar(hb)
-        
-        search = Gtk.SearchEntry(placeholder_text="Search mail...")
-        search.set_hexpand(True)
-        hb.pack_start(search)
-        
-        new_msg = Gtk.Button(label="New Message")
-        new_msg.get_style_context().add_class("mavericks-toolbar-btn")
-        new_msg.get_style_context().add_class("suggested-action")
-        new_msg.connect("clicked", self.new_message)
-        hb.pack_end(new_msg)
-        
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
-        
-        sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        sidebar.set_size_request(220, -1)
-        sidebar.get_style_context().add_class("mail-sidebar")
-        
-        accounts_frame = Gtk.Frame(label="Mailboxes")
-        accounts_frame.get_style_context().add_class("mail-sidebar-frame")
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        vbox.set_border_width(8)
-        
-        mailboxes = ["Inbox", "VIPs", "Flagged", "Sent", "Drafts", "Archive", "Trash"]
-        for mb in mailboxes:
-            btn = Gtk.Button(label=mb)
-            btn.get_style_context().add_class("sidebar-item")
-            btn.set_halign(Gtk.Align.START)
-            vbox.pack_start(btn, False, False, 0)
-        accounts_frame.add(vbox)
-        sidebar.pack_start(accounts_frame, False, False, 0)
-        
-        smart_frame = Gtk.Frame(label="Smart Mailboxes")
-        smart_frame.get_style_context().add_class("mail-sidebar-frame")
-        vbox2 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        vbox2.set_border_width(8)
-        for smb in ["Today", "Unread", "Attachments", "Flagged"]:
-            btn = Gtk.Button(label=smb)
-            btn.get_style_context().add_class("sidebar-item")
-            btn.set_halign(Gtk.Align.START)
-            vbox2.pack_start(btn, False, False, 0)
-        smart_frame.add(vbox2)
-        sidebar.pack_start(smart_frame, False, False, 0)
-        
-        sidebar_sw = Gtk.ScrolledWindow()
-        sidebar_sw.add(sidebar)
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        paned.add1(sidebar_sw)
-        
-        self.content = Gtk.Label(label="Launching Geary...")
-        self.content.get_style_context().add_class("mail-content")
-        paned.add2(self.content)
-        paned.set_position(240)
-        
-        GLib.timeout_add(100, self.launch_geary)
-        self.show_all()
-
-    def apply_css(self):
-        css = b"""
-        .mail-sidebar {
-            background: #f5f0e8;
-            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
-            border-right: 1px solid #d4c8b8;
-        }
-        .mail-sidebar > viewport { background: transparent; }
-        .mail-sidebar-frame {
-            border: none;
-            background: transparent;
-        }
-        .mail-sidebar-frame > label {
-            font-weight: bold;
-            color: #666;
-            font-size: 9pt;
-            margin-bottom: 4px;
-        }
-        .sidebar-item {
-            background: transparent;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 12px;
-            margin: 2px 8px;
-        }
-        .sidebar-item:hover {
-            background: rgba(0,122,255,0.15);
-        }
-        .mail-content {
-            background: #f5f0e8;
-            font-family: "San Francisco", sans-serif;
-            font-size: 14pt;
-            color: #666;
-        }
-        """
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css)
-        screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-
-    def new_message(self, _):
-        print("New message")
-
-    def launch_geary(self):
-        try:
-            subprocess.Popen(["geary"])
-            self.content.set_markup('<span size="x-large" weight="bold">📧 Mail</span>\n\n<span color="#666">Geary launched in background.\nUse the sidebar to navigate mailboxes.</span>')
-        except FileNotFoundError:
-            self.content.set_markup('<span color="#ff3b30">Geary not installed</span>\n\n<span color="#666">Install with: sudo pacman -S geary</span>')
-        return False
-
+import os
+import re
+import shutil
 import subprocess
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+
+DESKTOP_DIRS = ["/usr/share/applications",
+                os.path.expanduser("~/.local/share/applications")]
 
 
-def build_mail_menu(app, app_name, get_window, add_action):
-    def w():
-        return get_window()
-    add_action("launch", lambda: w().launch_geary() if w() else None)
-    add_action("close", lambda: w().destroy() if w() else None)
-    add_action("quit", app.quit)
-    menu = Gio.Menu()
-    m = Gio.Menu()
-    m.append("About Mail", "app.about")
-    m.append("Quit Mail", "app.quit")
-    menu.append_submenu("Mail", m)
-    m = Gio.Menu()
-    m.append("Open Mail", "app.launch")
-    m.append("Close Window", "app.close")
-    menu.append_submenu("File", m)
-    m = Gio.Menu()
-    m.append("Close Window", "app.close")
-    menu.append_submenu("Window", m)
-    return menu
+def find_mail_backend():
+    """Return argv list that opens the mail client, or None."""
+    if shutil.which("geary"):
+        return ["geary"]
+    # Fallback: honor the Mail UserAgent declared by installed desktop
+    # entries (same convention xdg-settings / mimeapps.list use).
+    for d in DESKTOP_DIRS:
+        if not os.path.isdir(d):
+            continue
+        try:
+            files = sorted(os.listdir(d))
+        except OSError:
+            continue
+        for fn in files:
+            if not fn.endswith(".desktop"):
+                continue
+            try:
+                with open(os.path.join(d, fn)) as f:
+                    text = f.read()
+            except OSError:
+                continue
+            ua = re.search(r"^Mail UserAgent=(.+)$", text, re.M)
+            if ua and "geary" in ua.group(1).lower():
+                exe = re.search(r"^Exec=(\S+)", text, re.M)
+                if exe and shutil.which(exe.group(1)):
+                    return [exe.group(1)]
+    return None
+
+
+CSS = b"""
+.mail-sidebar {
+    background: #f5f0e8;
+    background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+    border-right: 1px solid #d4c8b8;
+}
+.mail-sidebar > viewport { background: transparent; }
+.mail-sidebar-frame {
+    border: none;
+    background: transparent;
+}
+.mail-sidebar-frame > label {
+    font-weight: bold;
+    color: #666;
+    font-size: 9pt;
+    margin-bottom: 4px;
+}
+.sidebar-item {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    margin: 2px 8px;
+}
+.sidebar-item:hover {
+    background: rgba(0,122,255,0.15);
+}
+.mail-content {
+    background: #f5f0e8;
+    font-family: "San Francisco", sans-serif;
+    font-size: 14pt;
+    color: #666;
+}
+"""
+
+MAILBOXES = ["Inbox", "VIPs", "Flagged", "Sent", "Drafts", "Archive", "Trash"]
+SMART_MAILBOXES = ["Today", "Unread", "Attachments", "Flagged"]
+
+
+def build_window_class(Gtk, Gdk, GLib):
+    """MailWrapper is built lazily inside a factory so importing this
+    module (and testing find_mail_backend) works without GObject
+    introspection installed."""
+
+    class MailWrapper(Gtk.Window):
+        def __init__(self):
+            super().__init__(title="Mail")
+            self.set_default_size(1000, 650)
+            self.set_icon_name("mail-unread")
+
+            self.apply_css()
+
+            hb = Gtk.HeaderBar(title="Mail", show_close_button=True)
+            self.set_titlebar(hb)
+
+            search = Gtk.SearchEntry(placeholder_text="Search mail...")
+            search.set_hexpand(True)
+            hb.pack_start(search)
+
+            new_msg = Gtk.Button(label="New Message")
+            new_msg.get_style_context().add_class("mavericks-toolbar-btn")
+            new_msg.get_style_context().add_class("suggested-action")
+            new_msg.connect("clicked", self.new_message)
+            hb.pack_end(new_msg)
+
+            paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+            self.add(paned)
+
+            sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            sidebar.set_size_request(220, -1)
+            sidebar.get_style_context().add_class("mail-sidebar")
+
+            sidebar.pack_start(self._frame("Mailboxes", MAILBOXES), False, False, 0)
+            sidebar.pack_start(self._frame("Smart Mailboxes", SMART_MAILBOXES),
+                               False, False, 0)
+
+            sidebar_sw = Gtk.ScrolledWindow()
+            sidebar_sw.add(sidebar)
+            paned.add1(sidebar_sw)
+
+            self.content = Gtk.Label(label="Launching Mail\u2026")
+            self.content.get_style_context().add_class("mail-content")
+            paned.add2(self.content)
+            paned.set_position(240)
+
+            GLib.timeout_add(100, self.launch_backend)
+
+        def _frame(self, title, items):
+            frame = Gtk.Frame(label=title)
+            frame.get_style_context().add_class("mail-sidebar-frame")
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            box.set_border_width(8)
+            for name in items:
+                btn = Gtk.Button(label=name)
+                btn.get_style_context().add_class("sidebar-item")
+                btn.set_halign(Gtk.Align.START)
+                box.pack_start(btn, False, False, 0)
+            frame.add(box)
+            return frame
+
+        def apply_css(self):
+            provider = Gtk.CssProvider()
+            provider.load_from_data(CSS)
+            screen = Gdk.Screen.get_default()
+            Gtk.StyleContext.add_provider_for_screen(
+                screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        def new_message(self, _):
+            self.launch_backend()
+
+        def launch_backend(self):
+            argv = find_mail_backend()
+            if argv is None:
+                self.content.set_markup(
+                    '<span color="#ff3b30">Geary not installed</span>\n\n'
+                    '<span color="#666">Install with: sudo pacman -S geary</span>')
+                return False
+            try:
+                subprocess.Popen(argv)
+            except OSError:
+                self.content.set_markup(
+                    '<span color="#ff3b30">Could not launch %s</span>' % argv[0])
+                return False
+            self.content.set_markup(
+                '<span size="x-large" weight="bold">\U0001F4E7 Mail</span>\n\n'
+                '<span color="#666">%s launched in background.\n'
+                'Use the sidebar to navigate mailboxes.</span>' % argv[0])
+            return False
+
+    return MailWrapper
+
+
+def get_window_class():
+    Gtk, Gdk, GLib = _gtk_mods()
+    return build_window_class(Gtk, Gdk, GLib)
+
+
+def _gtk_mods():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, Gdk, GLib
+    return Gtk, Gdk, GLib
+
+
+def main():
+    Gtk, _Gdk, _GLib = _gtk_mods()
+    w = get_window_class()()
+    w.connect("destroy", Gtk.main_quit)
+    w.show_all()
+    Gtk.main()
+    return 0
+
 
 if __name__ == "__main__":
-    sys.path.insert(0, "/usr/share/mavericks-apps")
-    from mavericks_appmenu import run_application
-    sys.exit(run_application(
-        "com.mavlinos.Mail", "Mail", MailWrapper, sys.argv,
-        build_mail_menu))
+    import sys
+    sys.exit(main())
