@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """mv-launchpad — Paginated, folder-aware Launchpad for rofi script mode.
 Features:
-- Pagination (Left/Right arrows, Page Up/Down)
+- Pagination (Page Up/Down custom controls; standard arrow-key item navigation)
 - Folders (configurable, stored in ~/.config/mv-launchpad/folders.json)
 - Search filtering within Launchpad
 - Keyboard navigation
-- App reordering (drag positions stored)
+- Persisted custom app positions (configuration-driven; no drag-and-drop UI)
 - Default folder presets on first run
 - Empty state handling
 - Robust .desktop parsing with fallbacks
@@ -13,6 +13,7 @@ Features:
 import os
 import sys
 import json
+import copy
 import subprocess
 import gi
 gi.require_version("Gtk", "3.0")
@@ -87,12 +88,20 @@ def _icon_exists(icon_name):
 
 
 def load_folders(apps=None):
-    """Load and normalize folder configuration, creating defaults safely."""
+    """Load and normalize folder configuration, auto-populating only on first run."""
+    config_exists = FOLDERS_FILE.exists()
     try:
         with open(FOLDERS_FILE, "r") as fp:
-            raw = json.load(fp) if FOLDERS_FILE.exists() else {}
+            raw = json.load(fp) if config_exists else {}
     except (OSError, json.JSONDecodeError, TypeError):
         raw = {}
+
+    if not config_exists:
+        folders = copy.deepcopy(DEFAULT_FOLDERS)
+        if apps:
+            _auto_populate_default_folders(folders, apps)
+        save_folders(folders)
+        return folders
 
     folders = {}
     if isinstance(raw, dict):
@@ -109,16 +118,10 @@ def load_folders(apps=None):
             folders[folder_id] = {"name": name, "apps": app_ids}
 
     for folder_id, folder_data in DEFAULT_FOLDERS.items():
-        folders.setdefault(folder_id, {
-            "name": folder_data["name"],
-            "apps": list(folder_data["apps"]),
-        })
+        folders.setdefault(folder_id, copy.deepcopy(folder_data))
 
-    if apps:
-        _auto_populate_default_folders(folders, apps)
     save_folders(folders)
     return folders
-
 
 def _auto_populate_default_folders(folders, apps):
     """Auto-populate default folders with relevant apps on first run."""
@@ -474,7 +477,7 @@ def main():
 
     # Add navigation hints at the end
     if total_pages > 1:
-        nav = f"Page {page + 1}/{total_pages} — ←/→ or PgUp/PgDn to navigate"
+        nav = f"Page {page + 1}/{total_pages} — PgUp/PgDn to navigate"
         print(f"\0icon\x1fgo-previous\0info\x1f{nav}")
 
     return 0
