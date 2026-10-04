@@ -3,6 +3,7 @@
 
 import importlib.util
 import os
+import time
 import unittest
 from unittest import mock
 
@@ -34,7 +35,7 @@ class MissionControlTests(unittest.TestCase):
 
         with mock.patch.object(self.mod.shutil, "which", return_value="/usr/bin/skippy-xd"), \
              mock.patch.object(self.mod.subprocess, "run", side_effect=fake_run), \
-             mock.patch.object(self.mod.time, "sleep"):
+             mock.patch.object(time, "sleep"):
             self.assertTrue(self.mod.run_native_expose())
 
         self.assertIn(
