@@ -172,6 +172,10 @@ jobs:
         run: |
           python3 scripts/test-lock-screen.py
 
+      - name: Window chrome contract
+        run: |
+          python3 scripts/test-window-chrome.py
+
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest
