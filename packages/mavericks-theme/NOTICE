@@ -22,14 +22,26 @@ This software is free software: you can redistribute it and/or modify it under t
 
 ## 2. Poppy OS X Revieve Cursors
 
-**License**: Unknown (pending verification with author kayover/sziberov)  
+**License**: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)  
 **Repository**: https://github.com/sziberov/Poppy-OS-X-Revieve  
 **Author**: kayover (sziberov)  
 
 Components:
 - `cursors-poppy/` — Mavericks-style cursor theme
 
-**Status**: Used with attribution. License verification in progress (Issue #2).
+**License Summary**:
+You are free to:
+- Share — copy and redistribute the material in any medium or format
+- Adapt — remix, transform, and build upon the material for any purpose, even commercially
+
+Under the following terms:
+- **Attribution**: You must give appropriate credit, provide a link to the license, and indicate if changes were made
+- **ShareAlike**: If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original
+
+Full license text: https://creativecommons.org/licenses/by-sa/4.0/legalcode
+
+**Attribution Notice**:
+"Poppy OS X Cursors" by kayover is licensed under CC BY-SA 4.0
 
 ---
 
@@ -60,11 +72,13 @@ Components:
 When redistributing this theme:
 1. Include this NOTICE file
 2. Preserve B00merang GPL-3.0 license in LICENSE file
-3. Attribute Poppy cursors to kayover/sziberov
+3. Attribute Poppy cursors to kayover with CC BY-SA 4.0 notice
 4. Acknowledge Apple Inc. trademark rights to Mavericks wallpapers
+5. If modifying cursors, distribute under CC BY-SA 4.0 (ShareAlike requirement)
 
 ---
 
 **Generated**: 2026-10-04  
+**Updated**: 2026-10-04 (Poppy license verified via fork: AnsvipaRinh/Poppy-OS-X-Revieve)  
 **Issue**: #2 (Poppy OS X Revieve Audit)  
-**Objective**: 3 (Legal compliance)
+**Objectives**: 1 (License verification) ✅, 3 (Legal compliance) ✅
