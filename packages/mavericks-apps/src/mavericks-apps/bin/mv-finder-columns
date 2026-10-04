@@ -341,9 +341,10 @@ def main():
     if not os.path.isdir(root):
         print("mv-finder-columns: not a folder: %s" % root, file=sys.stderr)
         return 2
-    ColumnsWindow(root)
-    Gtk.main()
-    return 0
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    return run_application(
+        "com.mavlinos.Finder", "Finder", lambda: ColumnsWindow(root), sys.argv)
 
 
 if __name__ == "__main__":
