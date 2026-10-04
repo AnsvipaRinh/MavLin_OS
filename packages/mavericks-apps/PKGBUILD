@@ -1,7 +1,7 @@
 # Maintainer: Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL>
 pkgname=mavericks-apps
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Mavericks-like system apps for Xfce (settings, activity, console, control, notes, HUD)"
 arch=('x86_64')
 url="https://github.com/AnsvipaRinh/MavLinOS"
@@ -10,22 +10,23 @@ depends=('gtk3' 'xfce4-genmon-plugin' 'python-gobject' 'python-cairo' 'gtksource
           'thunar' 'rofi' 'xfce4-screenshooter' 'trash-cli' 'xarchiver'
           'networkmanager' 'pavucontrol' 'upower' 'bluez-utils'
           'gnome-disk-utility' 'xfce4-notifyd' 'libnotify' 'xdotool'
-          'libsecret' 'fontconfig' 'restic')
+          'libsecret' 'fontconfig' 'restic'
+          'wmctrl' 'xorg-xprop')
 optdepends=('poppler-glib: PDF preview in Quick Look'
             'ffmpeg: media metadata in Quick Look, screen recording'
             'ffmpegthumbnailer: video thumbnails'
             'evince: full PDF reading'
-                        'plocate: fast file search for Spotlight file mode'
+            'plocate: fast file search for Spotlight file mode'
             'pipewire: Voice Memos recording/playback backend'
             'pulseaudio: Voice Memos fallback backend (parec/paplay)'
             'seahorse: full Passwords and Keys GUI alongside mv-keychain'
             'gnome-keyring: secret daemon used by the libsecret backend'
-             'gnome-font-viewer: optional Open-in-Font-Viewer handoff in Font Book'
-             'gcolor3: optional Open-in-Picker handoff in Digital Color Meter'
-             'espeak-ng: pronunciation audio in Dictionary'
-             'dictd: offline WordNet definitions in Dictionary (dict protocol)'
-             'localsend-bin: LocalSend GUI backend for AirDrop receive (AUR)'
-             'localsend-cli-bin: LocalSend CLI backend for AirDrop send (AUR)')
+            'gnome-font-viewer: optional Open-in-Font-Viewer handoff in Font Book'
+            'gcolor3: optional Open-in-Picker handoff in Digital Color Meter'
+            'espeak-ng: pronunciation audio in Dictionary'
+            'dictd: offline WordNet definitions in Dictionary (dict protocol)'
+            'localsend-bin: LocalSend GUI backend for AirDrop receive (AUR)'
+            'localsend-cli-bin: LocalSend CLI backend for AirDrop send (AUR)')
 makedepends=('pkgconf' 'xfce4-panel')
 # NOTE: sources live in ./src/mavericks-apps/ (repo-local, reproducible).
 # Build with: makepkg -si (from this directory). No network fetch required.

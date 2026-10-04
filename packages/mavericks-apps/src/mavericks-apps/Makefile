@@ -1,17 +1,27 @@
-# Makefile for mavericks-apps — only mv-hud needs compilation.
+# Makefile for mavericks-apps — mv-hud + mv-apple panel plugin.
 # Target CPU: Kaby Lake-Y (m3-7Y32). No -march=native (ISO builds on any host).
 CC ?= cc
-CFLAGS ?= -march=skylake -mtune=skylake -O2 -pipe -fno-plt
+CFLAGS ?= -march=skylake -mtune=skylake -O2 -pipe -fno-plt -fPIC
 LDFLAGS ?= -Wl,-O1,--sort-common,--as-needed -s
 PREFIX ?= /usr
+PANEL_CFLAGS := $(shell pkg-config --cflags libxfce4panel-2.0 gtk+-3.0 2>/dev/null)
+PANEL_LIBS := $(shell pkg-config --libs libxfce4panel-2.0 gtk+-3.0 2>/dev/null)
 
-all: mv-hud
+all: mv-hud libmv-apple.so
 
 mv-hud: bin/mv-hud.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
+libmv-apple.so: panel/mv-apple.c
+	@if [ -z "$(PANEL_CFLAGS)" ]; then \
+	  echo "WARN: libxfce4panel-2.0 not found — building stub object skipped"; \
+	  echo "/* stub */" > $@.c; $(CC) -shared -fPIC -o $@ $@.c; rm -f $@.c; \
+	else \
+	  $(CC) $(CFLAGS) $(PANEL_CFLAGS) -shared -o $@ $< $(PANEL_LIBS) $(LDFLAGS); \
+	fi
+
 clean:
-	rm -f mv-hud
+	rm -f mv-hud libmv-apple.so
 
 install: all
 	install -Dm755 mv-hud "$(DESTDIR)$(PREFIX)/bin/mv-hud"
@@ -23,6 +33,7 @@ install: all
 	         bin/mv-keychain bin/mv-fontbook bin/mv-colormeter bin/mv-stickies bin/mv-notify-send bin/mv-notification-center bin/mv-diskutil bin/mv-airdrop bin/mv-timemachine bin/mv-ytplayer \
 	         bin/mv-finder-search bin/mv-finder-columns bin/mv-brightness \
 	         bin/mv-quit-app bin/mv-minimize-window bin/mv-hide-app bin/mv-close-window \
+	         bin/mv-force-quit bin/mv-recent-items \
 	         bin/mv_launchpad_edit.py; do \
 		install -Dm755 "$$f" "$(DESTDIR)$(PREFIX)/bin/$$(basename $$f)"; \
 	done
@@ -38,6 +49,12 @@ install: all
 	install -m644 config/xfce4-keyboard-shortcuts.xml "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/mv-ytplayer-bookmarklet.html "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -Dm644 ../../../../configs/mv-ytplayer/codec-policy.conf "$(DESTDIR)/etc/mv-ytplayer/codec-policy.conf"
+	install -d "$(DESTDIR)$(PREFIX)/lib/xfce4/panel/plugins"
+	install -Dm755 libmv-apple.so "$(DESTDIR)$(PREFIX)/lib/xfce4/panel/plugins/libmv-apple.so"
+	install -d "$(DESTDIR)$(PREFIX)/share/xfce4/panel/plugins"
+	install -m644 panel/mv-apple.desktop "$(DESTDIR)$(PREFIX)/share/xfce4/panel/plugins/mv-apple.desktop"
+	install -d "$(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps"
+	install -m644 icons/mv-apple.svg "$(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/mv-apple.svg"
 	install -Dm644 config/mv-reminders-check.timer \
 		"$(DESTDIR)/usr/lib/systemd/user/mv-reminders-check.timer"
 	install -Dm644 config/mv-reminders-check.service \
