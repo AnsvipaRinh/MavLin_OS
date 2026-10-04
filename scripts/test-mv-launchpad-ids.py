@@ -11,9 +11,10 @@ def test_migration_contract():
     source = SCRIPT.read_text(encoding="utf-8")
     assert "def _canonical_app_ids(apps):" in source
     assert "def _migrate_app_id(app_id, canonical, legacy):" in source
-    assert "migrated_ids = [_migrate_app_id(app_id, canonical, legacy) for app_id in app_ids]" in source
+    assert "migrated_ids, migrated = _migrate_app_ids(app_ids, apps)" in source
+    assert "changed = changed or migrated" in source
     assert "positions = load_positions(apps)" in source
-    assert "save_positions(positions)" in source
+    assert "def migrate_positions(" not in source
 
 
 def test_ambiguous_legacy_ids_are_not_guessed():
