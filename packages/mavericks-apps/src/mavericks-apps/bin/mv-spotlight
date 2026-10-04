@@ -8,6 +8,7 @@ Features:
 - Recent items (from GTK recently-used)
 - System actions (Settings, Control Center, etc.)
 """
+import ast
 import os
 import sys
 import subprocess
@@ -185,9 +186,42 @@ def evaluate_calculator(query):
     math_pattern = r'^[\d\s\+\-\*\/\.\%\(\)]+$'
     if re.match(math_pattern, q):
         try:
-            # Safe eval for basic math
-            allowed = {"__builtins__": None, "math": math}
-            result = eval(q, allowed, {"math": math})
+            # Evaluate only arithmetic AST nodes. The regex above limits the
+            # character set, while the AST whitelist makes the safety contract
+            # explicit and avoids eval entirely.
+            tree = ast.parse(q, mode="eval")
+            allowed_nodes = (
+                ast.Expression, ast.Constant, ast.UnaryOp, ast.BinOp,
+                ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod, ast.Pow,
+                ast.UAdd, ast.USub, ast.FloorDiv,
+            )
+            if any(not isinstance(node, allowed_nodes) for node in ast.walk(tree)):
+                raise ValueError("unsupported calculator expression")
+            def calculate(node):
+                if isinstance(node, ast.Expression):
+                    return calculate(node.body)
+                if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+                    return node.value
+                if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+                    value = calculate(node.operand)
+                    return +value if isinstance(node.op, ast.UAdd) else -value
+                if isinstance(node, ast.BinOp):
+                    left, right = calculate(node.left), calculate(node.right)
+                    operations = {
+                        ast.Add: lambda: left + right,
+                        ast.Sub: lambda: left - right,
+                        ast.Mult: lambda: left * right,
+                        ast.Div: lambda: left / right,
+                        ast.FloorDiv: lambda: left // right,
+                        ast.Mod: lambda: left % right,
+                        ast.Pow: lambda: left ** right,
+                    }
+                    for operator, operation in operations.items():
+                        if isinstance(node.op, operator):
+                            return operation()
+                raise ValueError("unsupported calculator expression")
+
+            result = calculate(tree)
             results.append({
                 "name": f"{result}",
                 "info": f"Calculator: {q} = {result}",
