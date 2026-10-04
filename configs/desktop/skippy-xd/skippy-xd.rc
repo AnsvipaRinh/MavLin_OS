@@ -23,6 +23,11 @@ exposeLayout = cosmos
 # Keep rows compact on 2304x1440 without tiny thumbnails.
 distance = 50
 
+[filter]
+# Include windows from other xfwm4 virtual desktops in native expose.
+showShadow = true
+switchShowAllDesktops = true
+
 [appearance]
 # Slightly faster than upstream 200ms: snappier on HD 615, still animated.
 animationDuration = 150
