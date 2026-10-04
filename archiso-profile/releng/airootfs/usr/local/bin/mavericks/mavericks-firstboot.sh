@@ -75,10 +75,8 @@ done
 grep -H "^options" /boot/loader/entries/*.conf 2>/dev/null || true
 
 log "3/8 TLP + power fragment policy"
-# Generic TLP baseline is already in the image when packaged; ensure enabled.
 systemctl enable tlp.service 2>/dev/null || true
 if ! macbook_profile; then
-  # Generic hardware must not keep MacBook-only power fragment if present.
   rm -f /etc/tlp.d/99-mavericks-power.conf
 fi
 rm -f /etc/tlp.d/10-experiment.conf
@@ -107,17 +105,48 @@ else
 fi
 systemctl enable fstrim.timer 2>/dev/null || true
 
+# Seed GTK/Thunar bookmarks for the primary non-root user (Finder sidebar).
+seed_bookmarks() {
+  local user="$1"
+  local home
+  home="$(getent passwd "$user" | cut -d: -f6)"
+  [[ -n "$home" && -d "$home" ]] || return 0
+  local template="/etc/skel/.gtk-bookmarks.template"
+  local out_gtk="$home/.gtk-bookmarks"
+  local out_gtk3="$home/.config/gtk-3.0/bookmarks"
+  local content
+  if [[ -f "$template" ]]; then
+    content="$(sed "s|@HOME@|$home|g; /^#/d; /^$/d" "$template")"
+  else
+    content="file://$home/Desktop Desktop
+file://$home/Documents Documents
+file://$home/Downloads Downloads
+file://$home/Music Music
+file://$home/Pictures Pictures
+file://$home/Movies Movies"
+  fi
+  printf '%s\n' "$content" > "$out_gtk"
+  mkdir -p "$(dirname "$out_gtk3")"
+  printf '%s\n' "$content" > "$out_gtk3"
+  chown "$user:$user" "$out_gtk" "$out_gtk3" 2>/dev/null || true
+  mkdir -p "$home/Movies" "$home/Desktop" "$home/Documents" "$home/Downloads" \
+           "$home/Music" "$home/Pictures"
+  chown -R "$user:$user" "$home/Movies" "$home/Desktop" "$home/Documents" \
+        "$home/Downloads" "$home/Music" "$home/Pictures" 2>/dev/null || true
+  log "seeded GTK bookmarks for $user"
+}
+
 log "7/8 session services + index"
 systemctl enable lightdm.service 2>/dev/null || true
 systemctl enable bluetooth.service 2>/dev/null || true
 systemctl enable plocate-updatedb.timer 2>/dev/null || true
 rm -f /etc/systemd/journald.conf.d/volatile-storage.conf 2>/dev/null || true
 
-# Per-user timers for the invoking non-root user (if any)
 TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || true)}"
 if [[ -n "$TARGET_USER" && "$TARGET_USER" != "root" ]]; then
   sudo -u "$TARGET_USER" systemctl --user enable mv-reminders-check.timer 2>/dev/null || true
   sudo -u "$TARGET_USER" systemctl --user enable mv-calendar-check.timer 2>/dev/null || true
+  seed_bookmarks "$TARGET_USER"
 fi
 
 log "8/8 MacBook NVRAM (profile-gated)"
