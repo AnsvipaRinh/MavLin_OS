@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""Mavericks-style Force Quit Applications dialog."""
+
+import os
+import signal
+import sys
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+
+
+def processes():
+    rows = []
+    for name in os.listdir("/proc"):
+        if not name.isdigit():
+            continue
+        pid = int(name)
+        if pid in (os.getpid(), os.getppid(), 1):
+            continue
+        try:
+            with open("/proc/%d/comm" % pid, encoding="utf-8") as f:
+                proc = f.read().strip()
+            if proc:
+                rows.append((proc, pid))
+        except (OSError, UnicodeError):
+            pass
+    return sorted(rows, key=lambda x: x[0].lower())
+
+
+class ForceQuit(Gtk.Dialog):
+    def __init__(self):
+        super().__init__(title="Force Quit Applications", modal=True)
+        self.set_default_size(430, 330)
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        self.force_button = self.add_button("Force Quit", Gtk.ResponseType.OK)
+        self.force_button.set_sensitive(False)
+
+        box = self.get_content_area()
+        box.set_spacing(8)
+        box.set_border_width(12)
+        box.pack_start(
+            Gtk.Label(label="Select an application to force quit."),
+            False, False, 0)
+
+        self.store = Gtk.ListStore(str, int)
+        self.tree = Gtk.TreeView(model=self.store)
+        self.tree.set_headers_visible(False)
+        self.tree.append_column(
+            Gtk.TreeViewColumn("Application", Gtk.CellRendererText(), text=0))
+        self.tree.get_selection().connect("changed", self.on_selection)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.add(self.tree)
+        box.pack_start(scroll, True, True, 0)
+        self.refresh()
+        self.show_all()
+
+    def refresh(self):
+        self.store.clear()
+        for name, pid in processes():
+            self.store.append([name, pid])
+
+    def on_selection(self, selection):
+        _model, iterator = selection.get_selected()
+        self.force_button.set_sensitive(iterator is not None)
+
+    def force_quit(self):
+        _model, iterator = self.tree.get_selection().get_selected()
+        if iterator is None:
+            return
+        pid = self.store[iterator][1]
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError as exc:
+            error = Gtk.MessageDialog(
+                transient_for=self,
+                modal=True,
+                message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK,
+                text="Could not force quit process %d: %s" % (pid, exc))
+            error.run()
+            error.destroy()
+
+
+def main():
+    dialog = ForceQuit()
+    response = dialog.run()
+    if response == Gtk.ResponseType.OK:
+        dialog.force_quit()
+    dialog.destroy()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
