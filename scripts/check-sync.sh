@@ -95,7 +95,7 @@ while IFS= read -r -d '' f; do
 done < <(find packages -name "*.desktop" -print0 2>/dev/null)
 
 echo "--- PKGBUILD parse ---"
-for d in packages/mavericks-apps packages/mavericks-theme packages/epiphany-mavericks-theme; do
+for d in packages/*/; do
   (cd "$d" && makepkg --printsrcinfo >/dev/null 2>&1) && ok "pkgbuild $d" || bad "pkgbuild $d"
 done
 
