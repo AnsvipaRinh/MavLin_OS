@@ -293,6 +293,15 @@ def get_page(structure, page):
                 "icon": "folder",
                 "count": len(folder["apps"])
             })
+        # Add "Edit Launchpad" entry on page 0 (main grid only, not searching, not in folder)
+        if not structure.get("query") and not structure.get("open_folder"):
+            items.append({
+                "type": "edit",
+                "id": "edit_launchpad",
+                "name": "Edit Launchpad…",
+                "icon": "preferences-desktop-icon-theme",
+                "info": "edit"
+            })
 
     # Then add apps
     start = page * ITEMS_PER_PAGE
@@ -319,6 +328,8 @@ def format_item(item, index):
         return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fback"
     elif item["type"] == "empty":
         return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fempty"
+    elif item["type"] == "edit":
+        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fedit"
     else:
         return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fapp:{item['id']}"
 
@@ -358,6 +369,18 @@ def main():
                 "query": "",
                 "open_folder": None,
             }, separators=(",", ":"))
+        elif rofi_info == "edit":
+            try:
+                subprocess.Popen(
+                    ["mv-launchpad-edit"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+            except OSError as exc:
+                print(f"Launch failed: {exc}", file=sys.stderr)
+                return 1
+            return 0
         else:
             return 0
 
@@ -437,7 +460,15 @@ def main():
 
     # Add navigation hints at the end
     if total_pages > 1:
-        nav = f"Page {page + 1}/{total_pages} — ←/→ or PgUp/PgDn to navigate"
+        # Mavericks-style page dots: ● for current, ○ for others
+        dots = []
+        for p in range(total_pages):
+            if p == page:
+                dots.append("●")
+            else:
+                dots.append("○")
+        dots_str = " ".join(dots)
+        nav = f"{dots_str}  —  ←/→ or PgUp/PgDn to navigate"
         print(f"\0icon\x1fgo-previous\0info\x1f{nav}")
 
     return 0

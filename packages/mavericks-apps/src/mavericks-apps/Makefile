@@ -33,10 +33,10 @@ install: all
 	         bin/mv-keychain bin/mv-fontbook bin/mv-colormeter bin/mv-stickies bin/mv-notify-send bin/mv-notification-center bin/mv-diskutil bin/mv-airdrop bin/mv-timemachine bin/mv-ytplayer \
 	         bin/mv-finder-search bin/mv-finder-columns bin/mv-brightness \
 	         bin/mv-quit-app bin/mv-minimize-window bin/mv-hide-app bin/mv-close-window \
-	         bin/mv-force-quit bin/mv-recent-items \
-	         bin/mv_launchpad_edit.py; do \
+	         bin/mv-force-quit bin/mv-recent-items; do \
 		install -Dm755 "$$f" "$(DESTDIR)$(PREFIX)/bin/$$(basename $$f)"; \
 	done
+	install -Dm755 bin/mv_launchpad_edit.py "$(DESTDIR)$(PREFIX)/bin/mv-launchpad-edit"
 	install -Dm755 bin/mv_desktop_cache.py "$(DESTDIR)$(PREFIX)/bin/mv_desktop_cache.py"
 	install -d "$(DESTDIR)$(PREFIX)/share/applications"
 	install -m644 desktop/*.desktop "$(DESTDIR)$(PREFIX)/share/applications/"
