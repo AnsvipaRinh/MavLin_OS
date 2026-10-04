@@ -125,6 +125,21 @@ jobs:
       # of this job piped check-sync through `grep ... || true`, which swallowed
       # its exit code and could never fail — removed by the forensic audit
       # (docs/FORENSIC_AUDIT.md, finding F6).
+
+      - name: Lab lifecycle and harness tests
+        run: |
+          for test in lab/tests/test_agent_protocol.py \
+                     lab/tests/test_agent_state.py \
+                     lab/tests/test_agent_deploy.py \
+                     lab/tests/test_agent_boot.py \
+                     lab/tests/test_agent_identity.py \
+                     lab/tests/test_host_store.py \
+                     lab/tests/test_e2e.py \
+                     lab/harness/tests/test_harness.py; do
+            echo "=== $test ==="
+            python3 "$test"
+          done
+
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest
