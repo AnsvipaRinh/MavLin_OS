@@ -136,7 +136,11 @@ def test_rofi_theme_has_mavericks_styling():
 def test_rofi_selection_actions():
     """Rofi script callbacks must launch apps and navigate folders safely."""
     source = open(SCRIPT).read()
-    assert 'os.environ.get("ROFI_RETV", "0")' in source
+    # Presence-based rofi detection (PR #35): RETV unset -> CLI mode,
+    # set -> rofi callback mode. Asserts the current contract, not the
+    # older default-value form os.environ.get("ROFI_RETV", "0").
+    assert 'os.environ.get("ROFI_RETV")' in source
+    assert 'rofi_retv is not None' in source
     assert 'os.environ.get("ROFI_INFO", "")' in source
     assert 'rofi_info.startswith("app:")' in source
     assert '["gtk-launch", desktop_id]' in source
