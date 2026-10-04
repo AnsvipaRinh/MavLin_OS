@@ -16,15 +16,12 @@ def install_application_menu(app, app_name, get_window):
         action.connect("activate", lambda *_: callback())
         app.add_action(action)
 
-    def current_window():
-        return get_window()
-
-    add_action("about", lambda: _show_about(current_window(), app_name))
+    add_action("about", lambda: _show_about(get_window(), app_name))
     add_action("quit", app.quit)
     add_action("close-window",
-               lambda: current_window().destroy() if current_window() else None)
+               lambda: get_window().destroy() if get_window() else None)
     add_action("minimize",
-               lambda: current_window().iconify() if current_window() else None)
+               lambda: get_window().iconify() if get_window() else None)
 
     menu = Gio.Menu()
 
@@ -48,6 +45,38 @@ def install_application_menu(app, app_name, get_window):
 
     app.set_app_menu(menu)
     return menu
+
+
+def run_application(app_id, app_name, window_factory, argv=None):
+    """Run a single-window GTK application with global-menu integration.
+
+    window_factory is called when the application is activated. The returned
+    Gtk.Window becomes owned by Gtk.Application and is shown once.
+    """
+    app = Gtk.Application(application_id=app_id)
+    state = {"window": None}
+
+    def startup(application):
+        install_application_menu(
+            application, app_name, lambda: state["window"])
+
+    def activate(application):
+        window = state["window"]
+        if window is None or not window.get_realized():
+            window = window_factory()
+            state["window"] = window
+            application.add_window(window)
+
+            def on_destroy(_window):
+                state["window"] = None
+
+            window.connect("destroy", on_destroy)
+        window.show_all()
+        window.present()
+
+    app.connect("startup", startup)
+    app.connect("activate", activate)
+    return app.run(argv)
 
 
 def _show_about(window, app_name):
