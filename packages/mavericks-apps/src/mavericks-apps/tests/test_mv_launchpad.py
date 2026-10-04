@@ -170,6 +170,14 @@ def test_page_navigation_callbacks():
     print("PASS: test_page_navigation_callbacks")
 
 
+def test_only_one_atomic_json_writer_exists():
+    """Launchpad must have exactly one atomic JSON persistence helper."""
+    source = open(SCRIPT).read()
+    assert source.count("def _atomic_save_json(") == 1
+    assert "def _atomic_json_save(" not in source
+    print("PASS: test_only_one_atomic_json_writer_exists")
+
+
 def test_launchpad_config_writes_are_atomic():
     """Folder and position configs must be replaced atomically after fsync."""
     source = open(SCRIPT).read()
