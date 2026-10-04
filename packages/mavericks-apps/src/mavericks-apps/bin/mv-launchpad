@@ -317,13 +317,14 @@ def format_item(item, index):
 
 
 def main():
-    rofi_retv = os.environ.get("ROFI_RETV", "0")
+    rofi_retv = os.environ.get("ROFI_RETV")
+    rofi_mode = rofi_retv is not None
     rofi_info = os.environ.get("ROFI_INFO", "")
     rofi_data = os.environ.get("ROFI_DATA", "")
 
     # Rofi script mode invokes us with the selected row as argv[1]. Use
     # ROFI_INFO as a stable action ID instead of treating the row as a page.
-    if rofi_retv == "1":
+    if rofi_mode and rofi_retv == "1":
         if rofi_info.startswith("app:"):
             desktop_id = rofi_info[4:]
             if desktop_id:
@@ -368,13 +369,18 @@ def main():
         open_folder = None
 
     # Direct CLI compatibility: mv-launchpad <page> [query] [open_folder]
-    if rofi_retv != "1" and len(sys.argv) > 1:
+    if not rofi_mode and len(sys.argv) > 1:
         try:
             page = int(sys.argv[1])
         except ValueError:
             page = 0
         query = sys.argv[2].strip() if len(sys.argv) > 2 else query
         open_folder = sys.argv[3].strip() if len(sys.argv) > 3 else open_folder
+
+    # Rofi script mode passes the current search text as argv[1] on retv=0.
+    if rofi_mode and rofi_retv == "0":
+        query = sys.argv[1].strip() if len(sys.argv) > 1 else ""
+        page = 0
 
     # Load data
     apps = load_desktop_apps()
