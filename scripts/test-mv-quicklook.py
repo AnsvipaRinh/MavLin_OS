@@ -8,6 +8,7 @@ PATH = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-qui
 text = open(PATH, encoding="utf-8").read()
 
 checks = [
+    ("video FPS uses non-integer-safe division", 'float(fps[0]) / float(fps[1])' in text),
     ("PDF paths use GLib filename-to-URI conversion",
      "GLib.filename_to_uri(path, None)" in text),
     ("Escape destroys the preview window",
