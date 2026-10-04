@@ -4,10 +4,11 @@
 Logs to ~/.local/share/mavericks/notifications.json (max 500 entries).
 No daemon; on-demand logging. License: GPL-2.0-or-later.
 """
-import json, os, subprocess, time, uuid
+import fcntl, json, os, subprocess, time, uuid
 
 STORE_DIR = os.path.expanduser("~/.local/share/mavericks")
 STORE_FILE = os.path.join(STORE_DIR, "notifications.json")
+LOCK_FILE = os.path.join(STORE_DIR, "notifications.lock")
 MAX_ENTRIES = 500
 
 def load():
