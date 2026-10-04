@@ -17,6 +17,7 @@ CALENDAR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calendar")
 MUSIC = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-music")
 PREVIEW = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-preview")
 PHOTOS = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-photos")
+AIRDROP = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-airdrop")
 STICKIES = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-stickies")
 REMINDERS = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-reminders")
 XFWM = Path("configs/desktop/xfce/xfwm4.xml")
@@ -27,6 +28,7 @@ FORCE_QUIT = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-force-quit"
 RECENT_ITEMS = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-recent-items")
 
 NATIVE_APPS = {
+    "airdrop": "AirDrop",
     "about": "About This Mac",
     "activity": "Activity",
     "calendar": "Calendar",
@@ -153,9 +155,13 @@ def main():
     control = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-control").read_text(encoding="utf-8")
     power_ui = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-power-ui").read_text(encoding="utf-8")
     photos = PHOTOS.read_text(encoding="utf-8")
+    airdrop = AIRDROP.read_text(encoding="utf-8")
     assert "build_photos_menu" in photos
     assert "Gtk.Application(application_id=" in photos
     assert "Gtk.main_quit()" not in photos
+    assert "Gtk.main()" not in airdrop
+    assert "Gtk.main_quit()" not in airdrop
+    assert "run_application(" in airdrop
     assert "Gtk.main()" not in control
     assert "Gtk.main_quit()" not in control
     assert "Gtk.main()" not in power_ui
