@@ -56,6 +56,13 @@ class MissionControlTests(unittest.TestCase):
             ["/usr/bin/skippy-xd", "--stop-daemon"],
         )
 
+    def test_iso_declares_x11_runtime_tools(self):
+        packages = os.path.join(ROOT, "archiso-profile", "releng", "packages.x86_64")
+        with open(packages, encoding="utf-8") as fh:
+            package_names = set(fh.read().split())
+        self.assertIn("wmctrl", package_names)
+        self.assertIn("xorg-xprop", package_names)
+
     def test_native_backend_is_optional(self):
         with mock.patch.object(self.mod.shutil, "which", return_value=None):
             self.assertFalse(self.mod.run_native_expose())
