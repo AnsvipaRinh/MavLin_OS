@@ -77,9 +77,15 @@ def main():
     # Build hints dict
     hints = {}
     for h in args.hint:
-        if ":" in h:
-            k, v = h.split(":", 1)
-            hints[k] = v
+        # notify-send hint syntax is TYPE:NAME:VALUE.
+        parts = h.split(":", 2)
+        if len(parts) == 3:
+            _hint_type, name, value = parts
+            hints[name] = value
+        elif len(parts) == 2:
+            # Keep compatibility with the existing shorthand NAME:VALUE form.
+            name, value = parts
+            hints[name] = value
 
     # Log the notification
     log_notification(args.app_name, args.summary or "", args.body or "",
