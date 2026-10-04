@@ -19,6 +19,12 @@ SHORTCUT_PATHS = [
         "xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml",
     ),
 ]
+MIMEAPPS_PATHS = [
+    os.path.join(REPO, "configs/desktop/mimeapps.list"),
+    os.path.join(
+        REPO, "archiso-profile/releng/airootfs/etc/skel/.config/mimeapps.list"
+    ),
+]
 
 cfg = configparser.ConfigParser(interpolation=None, strict=False)
 cfg.optionxform = str
@@ -41,13 +47,17 @@ if not exec_line.startswith("mv-finder-columns"):
 if exec_line.split() and exec_line.split()[0] == "thunar":
     errors.append("Finder desktop entry must not launch plain Thunar")
 
+mime = entry.get("MimeType", "")
+for need in ("inode/directory", "inode/mount-point"):
+    if need not in mime:
+        errors.append("Finder desktop MimeType must include %s" % need)
+
 target = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-finder-columns"
 )
 if not os.path.isfile(target):
     errors.append("mv-finder-columns implementation is missing")
 
-# Super+Shift+F must open Finder UI, not plain Thunar
 needle_ok = 'name="&lt;Super&gt;&lt;Shift&gt;f" type="string" value="mv-finder-columns"'
 needle_bad = 'name="&lt;Super&gt;&lt;Shift&gt;f" type="string" value="thunar"'
 for path in SHORTCUT_PATHS:
@@ -62,11 +72,26 @@ for path in SHORTCUT_PATHS:
             "Super+Shift+F must launch mv-finder-columns in %s" % path
         )
 
+for path in MIMEAPPS_PATHS:
+    if not os.path.isfile(path):
+        errors.append("mimeapps.list missing: %s" % path)
+        continue
+    text = open(path, encoding="utf-8").read()
+    if "inode/directory=mv-finder.desktop" not in text:
+        errors.append(
+            "mimeapps.list must default inode/directory to mv-finder.desktop (%s)"
+            % path
+        )
+    if "inode/directory=thunar.desktop" in text:
+        errors.append("mimeapps.list must not prefer thunar.desktop for directories")
+
 if errors:
     for error in errors:
         print("FAIL - %s" % error)
     sys.exit(1)
 
 print("ok - Finder desktop entry launches mv-finder-columns")
+print("ok - Finder desktop MimeType covers directories")
 print("ok - mv-finder-columns implementation exists")
 print("ok - Super+Shift+F keyboard shortcut launches mv-finder-columns")
+print("ok - mimeapps.list defaults directories to Finder")
