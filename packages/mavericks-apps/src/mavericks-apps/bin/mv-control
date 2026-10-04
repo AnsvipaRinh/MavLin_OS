@@ -839,7 +839,7 @@ class ControlCenter(Gtk.Window):
 
     def on_open_notification_center(self, _):
         run_async(["mv-notification-center"])
-        Gtk.main_quit()
+        self.destroy()
 
     # ==================== Common ====================
 
@@ -874,13 +874,6 @@ class ControlCenter(Gtk.Window):
             Gtk.main_quit()
             return True
         return False
-
-
-def main():
-    w = ControlCenter()
-    w.connect("destroy", Gtk.main_quit)
-    Gtk.main()
-    return 0
 
 
 if __name__ == "__main__":
