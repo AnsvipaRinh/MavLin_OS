@@ -58,7 +58,8 @@ def test_pagination_hint_present():
     # The pagination hint should be present at the end of output
     # Format: \0icon\x1fgo-previous\x1fPage N/M — ←/→ or PgUp/PgDn to navigate
     assert "Page" in stdout, "Expected pagination hint containing 'Page'"
-    assert "←/→" in stdout, "Expected navigation arrows in pagination hint"
+    assert "PgUp/PgDn" in stdout, "Expected Page Up/Down navigation hint"
+    assert "←/→" not in stdout, "Arrow keys must not be advertised as page controls"
     print("PASS: test_pagination_hint_present")
 
 
@@ -90,7 +91,7 @@ def test_keyboard_navigation_hints():
     # Check for typical rofi script mode info patterns
     has_info = "info" in stdout.lower()
     # Or check for navigation-related content
-    has_navigation = "←/→" in stdout or "PgUp" in stdout
+    has_navigation = "PgUp" in stdout or "PgDn" in stdout
     assert has_info or has_navigation, "Expected info or navigation hints in output"
     print("PASS: test_keyboard_navigation_hints")
 
@@ -205,6 +206,16 @@ def test_folder_config_is_normalized():
     assert 'isinstance(app_id, str)' in source
     assert 'folders.setdefault(folder_id' in source
     print("PASS: test_folder_config_is_normalized")
+
+
+def test_folder_autopopulation_is_first_run_only():
+    """Auto-population must not re-add apps after an existing config is edited."""
+    source = open(SCRIPT).read()
+    assert "config_exists = FOLDERS_FILE.exists()" in source
+    assert "if not config_exists and apps:" in source
+    load_source = source[source.index("def load_folders"):source.index("def _auto_populate_default_folders")]
+    assert "if apps:" not in load_source
+    print("PASS: test_folder_autopopulation_is_first_run_only")
 
 
 def test_full_integration_basic():
