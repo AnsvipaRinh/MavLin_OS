@@ -1487,7 +1487,6 @@ def build_photos_menu(app, app_name, get_window, add_action):
     def w():
         return get_window()
 
-    add_action("about", lambda: None)
     add_action("import", lambda: w().on_import(None) if w() else None)
     add_action("new-album", lambda: w().on_new_album(None) if w() else None)
     add_action("slideshow", lambda: w().on_slideshow_toggle(None) if w() else None)
