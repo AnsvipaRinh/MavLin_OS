@@ -55,7 +55,14 @@ def load_app():
     loader = importlib.machinery.SourceFileLoader("mv_calendar", APP_PATH)
     spec = importlib.util.spec_from_loader("mv_calendar", loader)
     mod = importlib.util.module_from_spec(spec)
-    loader.exec_module(mod)
+    # The app gates its Gtk import on argv (headless --check-upcoming path);
+    # emulate that while loading so the suite runs on non-Arch hosts too.
+    saved_argv = sys.argv
+    sys.argv = ["mv-calendar", "--check-upcoming"]
+    try:
+        loader.exec_module(mod)
+    finally:
+        sys.argv = saved_argv
     return mod
 
 

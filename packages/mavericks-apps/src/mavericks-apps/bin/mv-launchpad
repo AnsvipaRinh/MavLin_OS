@@ -13,10 +13,16 @@ Features:
 import os
 import sys
 import json
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
 from pathlib import Path
+
+
+def _gtk():
+    """Lazy Gtk load so pure logic (.desktop cache, folders, pagination)
+    imports headless on non-Arch hosts."""
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    return Gtk
 
 import mv_desktop_cache
 
@@ -73,6 +79,7 @@ def load_desktop_apps():
 def _icon_exists(icon_name):
     """Check if an icon exists in the current icon theme."""
     try:
+        Gtk = _gtk()
         icon_theme = Gtk.IconTheme.get_default()
         if icon_theme.has_icon(icon_name):
             return True
