@@ -1824,7 +1824,6 @@ def build_calendar_menu(app, app_name, get_window, add_action):
     def w():
         return get_window()
 
-    add_action("about", lambda: None)
     add_action("new-event", lambda: w().new_event(None) if w() else None)
     add_action("today", lambda: w().go_today(None) if w() else None)
     add_action("previous", lambda: w().prev_period(None) if w() else None)
