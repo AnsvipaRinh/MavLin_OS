@@ -14,6 +14,7 @@ ok()  { echo "OK: $*"; }
 
 PAIRS=(
   "scripts/install/mavericks-firstboot.sh:archiso-profile/releng/airootfs/usr/local/bin/mavericks/mavericks-firstboot.sh"
+  "scripts/install/mavericks-profile-select.sh:archiso-profile/releng/airootfs/usr/local/bin/mavericks/mavericks-profile-select.sh"
   "scripts/install/extract-brcmfmac-nvram.sh:archiso-profile/releng/airootfs/usr/local/bin/mavericks/extract-brcmfmac-nvram.sh"
   "tools/diagnostics/mv-collect.sh:archiso-profile/releng/airootfs/usr/local/bin/mavericks/mv-collect.sh"
   "tools/diagnostics/mv-power.sh:archiso-profile/releng/airootfs/usr/local/bin/mavericks/mv-power.sh"
