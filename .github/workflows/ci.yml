@@ -124,6 +124,10 @@ jobs:
         run: |
           python3 scripts/test-finder-launcher.py
 
+      - name: Global menu integration gate
+        run: |
+          python3 scripts/test-global-menu.py
+
       # NOTE: check-sync.sh is enforced by the static-analysis job ("Full sync
       # check" step runs ./scripts/check-sync.sh directly). A previous version
       # of this job piped check-sync through `grep ... || true`, which swallowed
