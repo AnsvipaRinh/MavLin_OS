@@ -208,18 +208,67 @@ def minimize_window(win_id):
 
 
 def run_native_expose():
-    """Run daemon-free skippy-xd expose across all virtual desktops."""
+    """Run an ephemeral skippy-xd session, priming every workspace first.
+
+    The daemon exists only for the duration of Mission Control.  Cycling
+    through workspaces while it is alive lets skippy-xd cache real thumbnails
+    for windows that xfwm4 normally leaves unmapped on other workspaces.
+    """
     skippy = shutil.which("skippy-xd")
-    if not skippy:
+    wmctrl = shutil.which("wmctrl")
+    if not skippy or not wmctrl:
         return False
+
+    original_workspace = get_active_workspace()
+    daemon_started = False
+
     try:
+        start = subprocess.run(
+            [skippy, "--start-daemon"],
+            timeout=5,
+        )
+        if start.returncode != 0:
+            return False
+        daemon_started = True
+
+        # Give the daemon a moment to establish its X connection.
+        import time
+        time.sleep(0.15)
+
+        workspace_count = get_workspace_count()
+        for workspace in range(workspace_count):
+            subprocess.run(
+                [wmctrl, "-s", str(workspace)],
+                timeout=2,
+                check=False,
+            )
+            time.sleep(0.12)
+
+        # Restore the user's original desktop before opening Mission Control.
+        subprocess.run(
+            [wmctrl, "-s", str(original_workspace)],
+            timeout=2,
+            check=False,
+        )
+        time.sleep(0.08)
+
         result = subprocess.run(
-            [skippy, "--desktop", "-1"],
-            timeout=30
+            [skippy, "--expose", "--desktop", "-1"],
+            timeout=300,
         )
         return result.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
+    finally:
+        if daemon_started:
+            try:
+                subprocess.run(
+                    [skippy, "--stop-daemon"],
+                    timeout=5,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                pass
 
 
 def main():
