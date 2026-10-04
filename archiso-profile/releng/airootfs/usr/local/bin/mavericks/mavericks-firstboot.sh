@@ -27,11 +27,8 @@ fi
 
 # Hardware profile — written by mavericks-profile-select.sh at install
 # time (MAVERICKS_PROFILE=generic|macbook10,1) and sourced here so the
-# selection actually drives firstboot behavior. Absent config = legacy
-# graceful-missing behavior: MacBook fragments apply when their files
-# exist (repo checkout present). Explicit generic profile = MacBook
-# fragments skipped entirely (generic hardware must not get Apple
-# kernel params, Cirrus/Broadcom quirks, or S3X NVMe tuning).
+# selection actually drives firstboot behavior. Unknown hardware is generic
+# by policy; MacBook-specific fragments are never enabled by absence alone.
 PROFILE_CONF="/etc/mavericks/profile.conf"
 MAVERICKS_PROFILE=""
 if [[ -f "$PROFILE_CONF" ]]; then
@@ -80,8 +77,7 @@ grep -H "^options" /boot/loader/entries/*.conf || true
 log "3/7 TLP baseline (generic + MacBook fragment)"
 # Power fragment is MacBook10,1-only (fanless Core M tuning); on generic
 # hardware TLP/kernel defaults apply and no stale fragment may remain.
-if macbook_profile; then
-else
+if ! macbook_profile; then
   rm -f /etc/tlp.d/99-mavericks-power.conf
 fi
 rm -f /etc/tlp.d/10-experiment.conf
@@ -95,8 +91,7 @@ rm -f /etc/sysctl.d/99-mavericks.conf
 log "5/7 network: NetworkManager owns Wi-Fi on installed system"
 # NM tuning: connectivity-check off (generic) + wpa_supplicant backend
 # (MacBook10,1 fragment only — generic uses NM compile-time default)
-if macbook_profile; then
-else
+if ! macbook_profile; then
   rm -f /etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf
 fi
 systemctl disable --now iwd.service 2>/dev/null || true
@@ -149,7 +144,7 @@ log "6/8 take pre-change snapshot"
   # journald: persistent on installed system (ISO uses volatile)
   rm -f /etc/systemd/journald.conf.d/volatile-storage.conf 2>/dev/null || true
   
-  log "9/9 NVRAM placeholder check + local app/theme packages"
+  log "9/9 MacBook NVRAM provisioning"
   if macbook_profile; then
     /usr/local/bin/mavericks/extract-brcmfmac-nvram.sh || true
   fi
