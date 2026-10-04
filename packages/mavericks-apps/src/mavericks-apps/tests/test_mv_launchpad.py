@@ -170,6 +170,19 @@ def test_page_navigation_callbacks():
     print("PASS: test_page_navigation_callbacks")
 
 
+def test_launchpad_config_writes_are_atomic():
+    """Folder and position configs must be replaced atomically after fsync."""
+    source = open(SCRIPT).read()
+    assert "def _atomic_save_json(path, data):" in source
+    assert "tempfile.mkstemp(" in source
+    assert 'dir=str(CONFIG_DIR)' in source
+    assert "os.fsync(fp.fileno())" in source
+    assert "os.replace(tmp_path, path)" in source
+    assert "_atomic_save_json(FOLDERS_FILE, folders)" in source
+    assert "_atomic_save_json(POSITIONS_FILE, positions)" in source
+    print("PASS: test_launchpad_config_writes_are_atomic")
+
+
 def test_folder_pages_reserve_back_cell():
     """Folder pages must fit the 7x5 grid including the Back item."""
     source = open(SCRIPT).read()
@@ -309,6 +322,7 @@ if __name__ == "__main__":
         test_config_writes_are_atomic,
         test_many_top_level_folders_are_paginated,
         test_folder_cells_count_toward_pagination,
+        test_launchpad_config_writes_are_atomic,
         test_folder_pages_reserve_back_cell,
         test_folder_members_are_not_duplicated_on_main_grid,
         test_position_conflicts_and_invalid_values_do_not_drop_apps,
