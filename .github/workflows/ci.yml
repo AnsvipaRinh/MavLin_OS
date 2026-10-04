@@ -184,6 +184,10 @@ jobs:
         run: |
           python3 scripts/test-workspaces.py
 
+      - name: Alt+Tab cycle contract
+        run: |
+          python3 scripts/test-alt-tab.py
+
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest
