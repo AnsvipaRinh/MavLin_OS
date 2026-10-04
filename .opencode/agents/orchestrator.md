@@ -279,6 +279,11 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
   If preflight returns `PREFLIGHT_WAIT` or `PRIMARY_COOLDOWN`, do NOT launch
   a Task — wait or handle as specified. NEVER launch a Task with a worker
   that preflight says is in cooldown.
+  **CRITICAL: If preflight returns a different worker than the primary (build),
+  you MUST use that worker. The primary worker (build) may be in cooldown;
+  preflight will return the next healthy worker (e.g., build-c, build-b, etc.).
+  You MUST use the worker returned by preflight, even if it differs from the
+  primary worker. NEVER override preflight's worker selection.**
 - SINGLE-FLIGHT: at most ONE active worker Task per objective. If the previous
   Task for this objective returned no terminal result yet (busy/retry, or
   `decide` says WAIT): do NOT launch a second Task for the same objective.
@@ -288,20 +293,11 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
   whether the old task can continue". A Task call IS work assignment, not
   a probe.
 - On user "продолжай" / continuation need, decide in this order:
-  1. `find-objective <oid>` → LIVE → resume that `task_id` (same worker if
-     healthy, else migrate first, then resume same id on the new worker).
-     NEVER scan `list` by eye when an oid exists; NEVER resume another
-     objective's session (isolation).
-  2. STUCK (gate exit 2) → abort if pending → `migrate` → SAME `task_id` on
-     the printed worker, short continue prompt. Register keeps the same id.
-  3. Prior session idle + INCOMPLETE (`decide` RESUME) → resume via `task_id`
-     on the SAME worker with "Продолжай". Fresh Task here is FORBIDDEN.
-  4. Prior completed/retired, verified SESSION_DOES_NOT_EXIST,
-     CONTEXT_EXHAUSTED, or objective changed → fresh Task with MINIMAL state
-     transfer (task text + lastResult + git diff — never a full replay), then
-     register it under the same oid.
-  5. `decide` WAIT / `find-objective` WAIT / UNKNOWN / VERIFY → no Task call
-     at all for this objective right now. Unreachable status NEVER means NEW.
+  1. `find-objective <oid>` → LIVE → **FIRST run preflight** → if preflight returns a different worker than the session's current worker, **MUST migrate first** (run migrate with the preflight worker), then resume that `task_id` on the new worker. If preflight returns the same worker and it's healthy, resume that `task_id` on the same worker. NEVER scan `list` by eye when an oid exists; NEVER resume another objective's session (isolation).
+  2. STUCK (gate exit 2) → abort if pending → `migrate` → SAME `task_id` on the printed worker, short continue prompt. Register keeps the same id.
+  3. Prior session idle + INCOMPLETE (`decide` RESUME) → **FIRST run preflight** → use the worker returned by preflight, resume via `task_id` with "Продолжай". Fresh Task here is FORBIDDEN.
+  4. Prior completed/retired, verified SESSION_DOES_NOT_EXIST, CONTEXT_EXHAUSTED, or objective changed → fresh Task with MINIMAL state transfer (task text + lastResult + git diff — never a full replay), then register it under the same oid.
+  5. `decide` WAIT / `find-objective` WAIT / UNKNOWN / VERIFY → no Task call at all for this objective right now. Unreachable status NEVER means NEW.
 - After EVERY terminal Task result (success AND failure): `register` the
   task_id (preserves id + history metadata) + `mark-alive <model>` on success.
   After a failure: `classify-error --record-model <model> --cooldown <sec>`
