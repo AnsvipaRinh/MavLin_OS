@@ -1,3 +1,32 @@
+# DECISIONS
+
+## 2026-10-04 — fledge-alpha removed from rotation entirely (US-only geo-blocked)
+
+**Context:** User-approved removal of `opencode/fledge-alpha-free` from the
+fallback chain. Evidence: fledge-alpha is US-only geo-blocked (users in
+Poland, Spain, France, China receive "not available in your country";
+US VPN works). From Poland it is permanently unreachable. This mirrors the
+GLM removal (commit 20f5561) — config-only removal, not temporary cooldown.
+
+**Decisions:**
+- Deleted fledge-alpha from `.opencode/model-fallback.json` chain entirely
+  (was order 6, worker build-d). No chain entries, no worker pins remain.
+- Added fledge-alpha to `never` list (like GLM removal, but no cooldown
+  memory needed — geo-block is permanent for non-US users).
+- Removed build-d worker block from `opencode.jsonc`.
+- Chain renumbered 1-9 (orders 7-10 → 6-9).
+- Verified: `scripts/session-reuse.py models` shows zero fledge candidates;
+  `preflight` never offers build-d.
+
+**Verification:**
+- `models` output: fledge-alpha absent
+- `preflight`: no build-d in candidate list
+- Chain now: 1=Ling (build-j), 2=North Mini (build-b), 3=Free Router (null),
+  4=LongCat (build-c), 5=Nemotron 3 Ultra (build-i), 6=Ling 3.0 Fin (build-e),
+  7=MiMo (build-f), 8=Space Bunny (build-g), 9=Nemotron 3.5 Lightning (build-h)
+
+---
+
 ## 2026-10-04 — Poppy OS X Revieve Prior-Art Audit
 
 **Context:** Deep prior-art audit of Poppy OS X Revieve per GitHub issue #2. Static inspection only (cloned to /tmp, never executed).

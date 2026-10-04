@@ -9,8 +9,8 @@
   //   chain model so auto "cheaper model" pick stays in-chain.
   // Worker pool (2026-09-29+, see DECISIONS.md): build is the
   // primary worker; build-b..build-j are HIDDEN subagent fallbacks pinned to
-  // other chain entries (build-d..g EXPERIMENTAL since 2026-10-02; build-j =
-  // Ling, demoted from primary 2026-10-03). Runtime agent rotation = Task subagent_type switch
+  // other chain entries (build-e..g EXPERIMENTAL since 2026-10-02; build-j =
+  // Ling, demoted from primary 2026-10-03; build-d removed 2026-10-04). Runtime agent rotation = Task subagent_type switch
   // (no server restart, no config paste). mode=subagent + hidden=true keeps
   // them out of the Tab picker and @-menu; they are invokable ONLY via the
   // Task tool when the orchestrator's task allow-list permits. NEVER pin any
@@ -58,20 +58,10 @@
         }
       }
     },
-    // Experimental fallback workers (2026-10-02, user request; chain #6-9).
+    // Experimental fallback workers (2026-10-02, user request; chain #6-8).
     // Same shape as build-b/build-c; only the model pin differs. Ranked
     // after all proven workers; live Task use is their real proof.
-    "build-d": {
-      "mode": "subagent",
-      "hidden": true,
-      "model": "opencode/fledge-alpha-free",
-      "description": "Implementation worker (fallback D, EXPERIMENTAL): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
-      "permission": {
-        "task": {
-          "*": "deny"
-        }
-      }
-    },
+    // build-d (fledge-alpha) removed 2026-10-04 per user approval (US-only geo-blocked).
     "build-e": {
       "mode": "subagent",
       "hidden": true,

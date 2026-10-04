@@ -8,9 +8,10 @@
     "muse-spark-1.2-contributor-free",
     "muse-spark-1.3",
     "muse-spark-1.2",
-    "muse-spark"
+    "muse-spark",
+    "fledge-alpha"
   ],
-  "never_reason": "User 2026-09-26: Muse Spark is NOT an allowed worker (Task sub-agent). The resolver always excludes these substrings, even with --all. Picker visibility: Muse Spark MUST remain available in /models for ORCHESTRATOR selection (user explicitly uses it). No provider.blacklist — that would hide it from the picker. Execution safety comes ONLY from the build pin + small_model (agents cannot switch models at runtime). User 2026-10-04: GLM removed from everywhere entirely (no chain entries, no worker pins, no never entries) — cooldown memory unreliable, config-only removal.",
+  "never_reason": "User 2026-09-26: Muse Spark is NOT an allowed worker (Task sub-agent). The resolver always excludes these substrings, even with --all. Picker visibility: Muse Spark MUST remain available in /models for ORCHESTRATOR selection (user explicitly uses it). No provider.blacklist — that would hide it from the picker. Execution safety comes ONLY from the build pin + small_model (agents cannot switch models at runtime). User 2026-10-04: GLM removed from everywhere entirely (no chain entries, no worker pins, no never entries) — cooldown memory unreliable, config-only removal. User 2026-10-04: fledge-alpha added to never list — US-only geo-blocked test model (Poland/Spain/France/China get 'not available in your country'), removed per user approval.",
   "chain": [
     {
       "order": 1,
@@ -60,18 +61,9 @@
       "worker_reason": "Former primary (2026-09-26..2026-10-02), demoted twice since. Proven worker, kept runtime-reachable via the build-i pin; ranks below the other proven fallbacks, above the experimental pins.",
       "label": "Nemotron 3 Ultra Free (Zen; former primary 2026-09-26..2026-10-02)"
     },
+    
     {
       "order": 6,
-      "role": "fallback-experimental",
-      "provider": "opencode",
-      "match": "fledge-alpha",
-      "want": "opencode/fledge-alpha-free",
-      "worker": "build-d",
-      "worker_reason": "EXPERIMENTAL (added 2026-10-02 at user request): metadata-verified only (exists, toolcall:true, 1M context). Live generation quality unproven — real Tasks are the proof. Ranked after all proven workers.",
-      "label": "Fledge Alpha Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
-    },
-    {
-      "order": 7,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "ling-3.0-flash-fin",
@@ -81,7 +73,7 @@
       "label": "Ling 3.0 Flash Fin Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 8,
+      "order": 7,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "mimo-v2.6-flash",
@@ -91,7 +83,7 @@
       "label": "MiMo V2.6 Flash Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 9,
+      "order": 8,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "space-bunny",
@@ -101,7 +93,7 @@
       "label": "Space Bunny Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 10,
+      "order": 9,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "nemotron-3.5-lightning",
@@ -111,8 +103,9 @@
       "label": "Nemotron 3.5 Lightning Free (Zen; demoted to end of list 2026-10-04)"
     }
   ],
-  "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 2-3; Zen login for 1, 4-10. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry.",
+  "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 2-3; Zen login for 1, 4-9. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry.",
   "history": [
+    "2026-10-04: fledge-alpha REMOVED ENTIRELY per user approval — US-only geo-blocked test model (Poland/Spain/France/China get 'not available in your country'; US VPN works). Chain entry deleted (was order 6, worker build-d), build-d worker block removed from opencode.jsonc, fledge-alpha added to never list. Chain renumbered 1-9.",
     "2026-10-04: Nemotron 3.5 Lightning demoted to end of chain (order 10) at user request after repeated instability; chain renumbered 1-10 (duplicate order 9 fixed).",
     "2026-10-04: GLM 5.3 REMOVED ENTIRELY per user directive — cooldown memory unreliable, config-only removal. Ling 3.1 Flash Free promoted to primary (order 1, worker build-j). GLM 5.3/4.5-flash added to never list. primaryWorker updated to build-j.",
     "2026-10-03 (afternoon): GLM 5.3 Coding Plan becomes order 1 / primary (user: '4.5 больше нет, юзаешь себя же и как агента — кодинг план 5.3, первым приоритетом'). Ling demoted to order 2 with new build-j pin. glm-4.5-flash removed from all pins (not in the Coding Plan model set).",
