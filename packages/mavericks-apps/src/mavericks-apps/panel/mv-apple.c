@@ -35,7 +35,7 @@ static void popup_menu(GtkWidget *button, gpointer data)
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
     gtk_widget_show(sep);
 
-    add_item(menu, "Force Quit…", "mv-activity");
+    add_item(menu, "Force Quit…", "mv-force-quit");
 
     sep = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
@@ -57,6 +57,7 @@ static void construct(XfcePanelPlugin *plugin)
     gtk_widget_set_name(label, "mavlinos-apple-menu");
     gtk_widget_set_tooltip_text(button, "Apple menu");
     gtk_container_add(GTK_CONTAINER(button), label);
+    gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
     gtk_container_add(GTK_CONTAINER(plugin), button);
     xfce_panel_plugin_add_action_widget(plugin, button);
     g_signal_connect(button, "clicked", G_CALLBACK(popup_menu), plugin);
