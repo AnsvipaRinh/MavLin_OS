@@ -57,14 +57,21 @@ def desktop_dirs():
     return unique
 
 
-def _fingerprint():
-    """Hash locale + recursive per-dir/file metadata used to build the cache."""
+def _fingerprint(dirs=None):
+    """Hash locale + recursive per-dir/file metadata used to build the cache.
+
+    ``dirs`` optionally pins the directory set so callers can keep the
+    fingerprint and the subsequent scan consistent when ``desktop_dirs``
+    has been monkeypatched (e.g. by tests).
+    """
+    if dirs is None:
+        dirs = desktop_dirs()
     h = hashlib.sha1()
     count = 0
-    h.update(b"locale\\x00")
-    h.update("\\x00".join(_locale_candidates()).encode("utf-8", "replace"))
-    h.update(b"\\x00")
-    for d in desktop_dirs():
+    h.update(b"locale\x00")
+    h.update("\x00".join(_locale_candidates()).encode("utf-8", "replace"))
+    h.update(b"\x00")
+    for d in dirs:
         if not os.path.isdir(d):
             continue
         for root, dirs, names in os.walk(d, followlinks=False):
@@ -72,15 +79,15 @@ def _fingerprint():
             names.sort()
             try:
                 dst = os.stat(root)
-                h.update(b"dir\\x00")
+                h.update(b"dir\x00")
                 h.update(root.encode("utf-8", "replace"))
-                h.update(b"\\x00")
+                h.update(b"\x00")
                 h.update(str(dst.st_mtime_ns).encode())
-                h.update(b"\\x00")
+                h.update(b"\x00")
                 h.update(str(dst.st_ctime_ns).encode())
-                h.update(b"\\x00")
+                h.update(b"\x00")
                 h.update(str(dst.st_ino).encode())
-                h.update(b"\\x00")
+                h.update(b"\x00")
             except OSError:
                 continue
             dir_count = 0
@@ -92,24 +99,24 @@ def _fingerprint():
                     st = os.stat(path, follow_symlinks=False)
                 except OSError:
                     continue
-                h.update(b"file\\x00")
+                h.update(b"file\x00")
                 h.update(path.encode("utf-8", "replace"))
-                h.update(b"\\x00")
+                h.update(b"\x00")
                 h.update(str(st.st_mtime_ns).encode())
-                h.update(b"\\x00")
+                h.update(b"\x00")
                 h.update(str(st.st_ctime_ns).encode())
-                h.update(b"\\x00")
+                h.update(b"\x00")
                 h.update(str(st.st_ino).encode())
-                h.update(b"\\x00")
+                h.update(b"\x00")
                 h.update(str(st.st_size).encode())
-                h.update(b"\\x00")
+                h.update(b"\x00")
                 count += 1
                 dir_count += 1
-            h.update(b"count\\x00")
+            h.update(b"count\x00")
             h.update(root.encode("utf-8", "replace"))
-            h.update(b"\\x00")
+            h.update(b"\x00")
             h.update(str(dir_count).encode())
-            h.update(b"\\x00")
+            h.update(b"\x00")
     return h.hexdigest(), count
 
 
@@ -232,7 +239,11 @@ def load_desktop_entries():
     The first occurrence of a desktop filename wins because desktop_dirs()
     is ordered user-local > /usr/local > /usr/share.
     """
-    fp, count = _fingerprint()
+    # Resolve the *effective* desktop_dirs at call time: tests and callers may
+    # reassign the module-level name after import (monkeypatch). Bind once so
+    # _fingerprint() and the scan below hash/iterate the exact same dir set.
+    dirs = desktop_dirs()
+    fp, count = _fingerprint(dirs)
     path = os.path.expanduser(_CACHE_PATH)
     data = _read_json_safe(path)
     if isinstance(data, dict):
@@ -244,7 +255,7 @@ def load_desktop_entries():
 
     entries = []
     seen_ids = set()
-    for d in desktop_dirs():
+    for d in dirs:
         if not os.path.isdir(d):
             continue
         try:

@@ -109,6 +109,9 @@ class Sandbox:
 def test_xdg_application_paths(mod):
     """Desktop discovery must honor XDG_DATA_HOME/XDG_DATA_DIRS precedence."""
     sb = Sandbox(mod)
+    # This test exercises the *real* desktop_dirs() env-var logic, so undo
+    # the Sandbox monkeypatch that pins dirs to a single fake directory.
+    mod.desktop_dirs = sb.old_dirs
     old = {key: os.environ.get(key) for key in ("XDG_DATA_HOME", "XDG_DATA_DIRS")}
     try:
         custom_home = os.path.join(sb.tmp, "xdg-home")
@@ -151,8 +154,11 @@ def test_recursive_desktop_ids(mod):
             f.write(DESKTOP_FILE)
         entries = mod.load_desktop_entries()
         check("desktop-id: nested entry discovered", len(entries) == 1, repr(entries))
-        check("desktop-id: nested path becomes foo-bar.desktop",
-              entries[0].get("desktop_id") == "foo-bar.desktop", repr(entries))
+        # freedesktop desktop-file ID: subdirectories are flattened with '-',
+        # the filename itself keeps its '.desktop' extension.
+        # foo/bar/Nested.desktop -> "foo-bar-Nested.desktop"
+        check("desktop-id: nested path becomes foo-bar-Nested.desktop",
+              entries[0].get("desktop_id") == "foo-bar-Nested.desktop", repr(entries))
     finally:
         sb.close()
 
@@ -164,7 +170,7 @@ def test_parse(mod):
         e = mod._parse_desktop_file(p)
         check("parse: valid entry", e is not None)
         check("parse: name", e and e["name"] == "Test App", repr(e and e["name"]))
-        check("parse: exec % stripped", e and e["exec"] == "testapp ",
+        check("parse: exec % stripped", e and e["exec"] == "testapp",
               repr(e and e["exec"]))
         check("parse: icon", e and e["icon"] == "test-icon", repr(e and e["icon"]))
         check("parse: categories", e and e["categories"] == "Utility;",
