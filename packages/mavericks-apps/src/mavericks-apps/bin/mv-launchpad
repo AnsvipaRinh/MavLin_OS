@@ -283,10 +283,16 @@ def build_launchpad_structure(apps, folders, positions, query="", open_folder=No
                     "apps": folder_apps
                 })
 
-    first_page_capacity = max(1, ITEMS_PER_PAGE - len(structure["folders"]))
-    if structure["folders"]:
-        remaining_after_first = max(0, len(ordered) - first_page_capacity)
-        structure["total_pages"] = 1 + ((remaining_after_first + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE if remaining_after_first else 0)
+    # Top-level folders are real grid cells. If there are more folders than
+    # fit on one page, paginate the folder grid before showing standalone apps.
+    folder_pages = max(1, (len(structure["folders"]) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE) if structure["folders"] else 0
+    first_app_capacity = ITEMS_PER_PAGE - len(structure["folders"]) if folder_pages == 1 else 0
+    if folder_pages:
+        remaining_after_first = max(0, len(ordered) - first_app_capacity)
+        structure["total_pages"] = folder_pages + (
+            (remaining_after_first + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+            if remaining_after_first else 0
+        )
     else:
         structure["total_pages"] = max(1, (len(ordered) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
 
@@ -320,9 +326,14 @@ def get_page(structure, page):
             })
         return items
 
-    # First add folders (only on page 0)
-    if page == 0:
-        for folder in structure["folders"]:
+    # Top-level folders occupy the grid before standalone apps. If folders
+    # exceed one page, subsequent pages continue the folder grid.
+    folder_count = len(structure["folders"])
+    folder_pages = max(1, (folder_count + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE) if folder_count else 0
+    if folder_pages and page < folder_pages:
+        start = page * ITEMS_PER_PAGE
+        end = start + ITEMS_PER_PAGE
+        for folder in structure["folders"][start:end]:
             items.append({
                 "type": "folder",
                 "id": folder["id"],
@@ -330,17 +341,20 @@ def get_page(structure, page):
                 "icon": "folder",
                 "count": len(folder["apps"])
             })
-
-    # Then add apps. Top-level folders consume grid cells on page 0.
-    if page == 0:
-        capacity = max(1, ITEMS_PER_PAGE - len(structure["folders"]))
-        start = 0
-        end = capacity
+        if folder_pages == 1:
+            app_start = 0
+            app_end = ITEMS_PER_PAGE - folder_count
+            page_apps = structure["apps"][app_start:app_end]
+        else:
+            page_apps = []
     else:
-        first_capacity = max(1, ITEMS_PER_PAGE - len(structure["folders"]))
-        start = first_capacity + (page - 1) * ITEMS_PER_PAGE
+        if folder_pages == 1:
+            first_capacity = ITEMS_PER_PAGE - folder_count
+            start = first_capacity + (page - 1) * ITEMS_PER_PAGE
+        else:
+            start = (page - folder_pages) * ITEMS_PER_PAGE
         end = start + ITEMS_PER_PAGE
-    page_apps = structure["apps"][start:end]
+        page_apps = structure["apps"][start:end]
 
     for app in page_apps:
         items.append({
