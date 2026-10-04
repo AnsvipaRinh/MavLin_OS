@@ -27,10 +27,6 @@
       <property name="XF86AudioNext" type="string" value="mv-music --media-key next"/>
       <property name="XF86AudioPrev" type="string" value="mv-music --media-key prev"/>
       <property name="XF86AudioStop" type="string" value="mv-music --media-key stop"/>
-      <property name="XF86MonBrightnessUp" type="string" value="brightnessctl set +5%"/>
-      <property name="XF86MonBrightnessDown" type="string" value="brightnessctl set 5%-"/>
-      <property name="XF86Eject" type="string" value="mv-eject"/>
-      <property name="&lt;Super&gt;e" type="string" value="thunar"/>
     </property>
   </property>
   <property name="xfwm4" type="empty">
