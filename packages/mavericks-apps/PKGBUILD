@@ -27,7 +27,7 @@ optdepends=('poppler-glib: PDF preview in Quick Look'
              'dictd: offline WordNet definitions in Dictionary (dict protocol)'
              'localsend-bin: LocalSend GUI backend for AirDrop receive (AUR)'
              'localsend-cli-bin: LocalSend CLI backend for AirDrop send (AUR)')
-makedepends=()
+makedepends=('pkgconf' 'xfce4-panel')
 # NOTE: sources live in ./src/mavericks-apps/ (repo-local, reproducible).
 # Build with: makepkg -si (from this directory). No network fetch required.
 build() {
