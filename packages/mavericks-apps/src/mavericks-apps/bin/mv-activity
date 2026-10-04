@@ -3,7 +3,7 @@
 Single 2s GLib timeout while OPEN; zero cost when closed. No daemon.
 Tabs: CPU / Memory / Energy / Disk / Network. Search + quit + details.
 License: GPL-2.0-or-later."""
-import os, time
+import os, sys, time
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
@@ -194,7 +194,7 @@ class Activity(Gtk.Window):
             return "Unavailable."
 
 if __name__ == "__main__":
-    w = Activity()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.ActivityMonitor", "Activity Monitor", Activity, sys.argv))
