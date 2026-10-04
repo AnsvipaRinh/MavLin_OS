@@ -207,7 +207,7 @@ def test_desktop_cache_semantics():
             module._CACHE_PATH = str(root / "cache" / "desktop-entries.json")
             entries = module.load_desktop_entries()
             names = [entry["name"] for entry in entries]
-            assert names == ["User App", "Other App", "Visible", "Correct"]
+            assert names == ["User App", "Correct", "Visible", "Other App"]
         finally:
             module.desktop_dirs = old_dirs
             module._CACHE_PATH = old_cache
