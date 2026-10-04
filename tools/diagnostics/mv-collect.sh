@@ -66,6 +66,9 @@ run nvme list
 run nvme smart-log /dev/nvme0 2>/dev/null || true
 run cat /sys/module/nvme_core/parameters/default_ps_max_latency_us 2>/dev/null || true
 run cat /sys/module/pcie_aspm/parameters/policy 2>/dev/null || true
+runsh "for d in /sys/class/nvme/nvme*; do [ -e \"$d\" ] || continue; echo \"--- $d\"; basename \"$d\"; cat \"$d\device\power/control\" 2>/dev/null || true; cat \"$d\device\power/runtime_status\" 2>/dev/null || true; cat \"$d\device\power/runtime_active_time\" 2>/dev/null || true; cat \"$d\device\power/runtime_suspended_time\" 2>/dev/null || true; done"
+runsh "for d in /sys/bus/pci/devices/*; do [ -e \"$d\" ] || continue; cls=\$(cat \"$d\class\" 2>/dev/null || true); case \"$cls\" in 0x010802*|0x020000*|0x028000*|0x030000*|0x040300*) echo \"--- $d class=$cls\"; basename \"$d\"; printf 'control='; cat \"$d\power/control\" 2>/dev/null || true; printf 'runtime_status='; cat \"$d\power/runtime_status\" 2>/dev/null || true; printf 'aspm_policy='; cat \"$d\link_state\" 2>/dev/null || true; done"
+runsh "for f in /sys/kernel/debug/dri/*/i915_{psr,fbc}_status /sys/kernel/debug/dri/*/i915_frequency_info; do [ -r \"$f\" ] && { echo \"--- $f\"; cat \"$f\"; }; done"
 
 # 8 Battery
 run upower -i /org/freedesktop/UPower/devices/battery_BAT0 2>/dev/null || true
