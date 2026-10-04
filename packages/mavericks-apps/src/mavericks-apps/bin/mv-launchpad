@@ -176,9 +176,18 @@ def build_launchpad_structure(apps, folders, positions, query="", open_folder=No
         query: Search query string
         open_folder: Folder ID to show (for folder navigation)
     """
-    # Filter apps by query
+    # Apps assigned to a Launchpad folder are represented by the folder on
+    # the main page, not duplicated as standalone icons. During search we keep
+    # them discoverable so search can still find apps inside folders.
+    folder_member_ids = {
+        app_id
+        for folder_data in folders.values()
+        for app_id in folder_data.get("apps", [])
+    }
     filtered_apps = []
     for app in apps:
+        if not query and app["id"] in folder_member_ids:
+            continue
         if not query or query.lower() in app["name"].lower():
             filtered_apps.append(app)
 
