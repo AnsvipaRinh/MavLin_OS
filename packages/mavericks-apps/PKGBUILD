@@ -1,7 +1,7 @@
 # Maintainer: Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL>
 pkgname=mavericks-apps
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Mavericks-like system apps for Xfce (settings, activity, console, control, notes, HUD)"
 arch=('x86_64')
 url="https://github.com/AnsvipaRinh/MavLinOS"
@@ -25,7 +25,8 @@ optdepends=('poppler-glib: PDF preview in Quick Look'
              'espeak-ng: pronunciation audio in Dictionary'
              'dictd: offline WordNet definitions in Dictionary (dict protocol)'
              'localsend-bin: LocalSend GUI backend for AirDrop receive (AUR)'
-             'localsend-cli-bin: LocalSend CLI backend for AirDrop send (AUR)')
+             'localsend-cli-bin: LocalSend CLI backend for AirDrop send (AUR)'
+             'skippy-xd-git: optional native Exposé-style Mission Control surface (AUR)')
 makedepends=('pkgconf' 'xfce4-panel')
 # NOTE: sources live in ./src/mavericks-apps/ (repo-local, reproducible).
 # Build with: makepkg -si (from this directory). No network fetch required.
