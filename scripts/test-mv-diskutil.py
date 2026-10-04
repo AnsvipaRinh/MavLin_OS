@@ -11,6 +11,7 @@ Usage:
 
 Exit 0 = all tests passed."""
 import os
+import shutil
 import subprocess
 import sys
 import importlib.util
@@ -40,6 +41,127 @@ def check(name, cond, detail=""):
         ok(name)
     else:
         bad(name, detail)
+
+
+def run_portable_tests(mv):
+    """Unit tests for the pure property parsers. These exercise the exact
+    code paths used by enumerate_devices() without needing gi or a DBus
+    daemon, so they run on any host."""
+    V = mv._as_variant
+
+    # module imports headless at all
+    check("portable: module has shim", hasattr(mv, "_ShimVariant"))
+    check("portable: lazy gio gate", callable(mv._gio))
+
+    # --- drive parsing -------------------------------------------------
+    drive_ifaces = {
+        mv.IFACE_DRIVE: {
+            "Model": V("SSD 850 250GB"),
+            "Vendor": V("Samsung"),
+            "Serial": V("S123456789"),
+            "Size": V(250059350016),
+            "ConnectionBus": V("sata"),
+            "Ejectable": V(False),
+            "Removable": V(False),
+            "Media": V("solid-state"),
+        },
+        mv.IFACE_DRIVE_ATA: {
+            "SmartUpdated": V(1759489000),
+            "SmartFailing": V(False),
+            "SmartPowerOnSeconds": V(36000000),
+            "SmartTemperature": V(300.0),
+            "SmartBadSectors": V(0),
+        },
+    }
+    d = mv._drive_from_path("/org/freedesktop/UDisks2/drives/Samsung", drive_ifaces)
+    check("portable: drive model", d["model"] == "SSD 850 250GB")
+    check("portable: drive size int", d["size"] == 250059350016)
+    check("portable: drive not nvme", d["nvme"] is False)
+    check("portable: drive smart parsed", d["smart"] is not None)
+    check("portable: drive smart temp", d["smart"]["temperature"] == 300.0)
+    check("portable: drive smart failing", d["smart"]["failing"] is False)
+    check("portable: drive no-iface -> None",
+          mv._drive_from_path("/x", {}) is None)
+
+    nvme_ifaces = dict(drive_ifaces)
+    nvme_ifaces[mv.IFACE_DRIVE] = dict(drive_ifaces[mv.IFACE_DRIVE],
+                                       ConnectionBus=V("nvme"))
+    nvme_ifaces[mv.IFACE_NVME] = {}
+    dn = mv._drive_from_path("/x", nvme_ifaces)
+    check("portable: nvme flagged", dn["nvme"] is True)
+
+    # --- block parsing --------------------------------------------------
+    block_ifaces = {
+        mv.IFACE_BLOCK: {
+            "Device": V(b"/dev/sdb1\x00"),
+            "Size": V(31000000000),
+            "IdType": V("vfat"),
+            "IdLabel": V("USBSTICK"),
+            "IdUUID": V("ABCD-1234"),
+        },
+        mv.IFACE_FS: {"MountPoints": V([b"/media/USBSTICK"])},
+        mv.IFACE_PARTITION: {
+            "Number": V(1), "Type": V("c"),
+            "Offset": V(1048576), "Table": V("/org/.../drives/Generic"),
+        },
+    }
+    b = mv._block_from_path("/y", block_ifaces)
+    check("portable: block device stripped", b["device"] == "/dev/sdb1")
+    check("portable: block fs", b["fs_type"] == "vfat")
+    check("portable: block uuid", b["uuid"] == "ABCD-1234")
+    check("portable: block mount decoded",
+          b["mount_points"] == [b"/media/USBSTICK"], repr(b["mount_points"]))
+    check("portable: block partition number", b["partition_number"] == 1)
+    check("portable: block no-iface -> None",
+          mv._block_from_path("/y", {}) is None)
+
+    # unmounted filesystem (no MountPoints key value set)
+    b2 = mv._block_from_path("/y", {
+        mv.IFACE_BLOCK: {"Device": V("/dev/sdc1"), "Size": V(1),
+                         "IdType": V("ext4")},
+    })
+    check("portable: block str device", b2["device"] == "/dev/sdc1")
+    check("portable: block no fs -> empty mounts", b2["mount_points"] == [])
+
+    # --- helpers --------------------------------------------------------
+    check("portable: human_size GB", mv.human_size(250059350016) == "250.1 GB")
+    check("portable: human_size MB", mv.human_size(5 * 10 ** 6) == "5.0 MB")
+    check("portable: human_size bytes", mv.human_size(999) == "999 bytes")
+    check("portable: temp plain float",
+          abs(mv.smart_temperature_c(300.0) - 26.85) < 0.01)
+    check("portable: temp variant duck-type",
+          abs(mv.smart_temperature_c(V(300.0)) - 26.85) < 0.01)
+    check("portable: temp None", mv.smart_temperature_c(None) is None)
+
+    # --- accessor coverage on every parser type -------------------------
+    sv = mv._ShimVariant(True)
+    check("portable: shim bool", sv.get_boolean() is True)
+    sv = mv._ShimVariant(42)
+    check("portable: shim uint64", sv.get_uint64() == 42)
+    sv = mv._ShimVariant(["a", "b"])
+    check("portable: shim strv", sv.get_strv() == ["a", "b"])
+    sv = mv._ShimVariant(b"raw")
+    check("portable: shim bytes", sv.get_data_as_bytes().get_data() == b"raw")
+
+    # _v_* tolerate both wrapped and raw values
+    check("portable: _v_str wrapped", mv._v_str(V("x")) == "x")
+    check("portable: _v_str raw", mv._v_str("x") == "x")
+    check("portable: _v_str none", mv._v_str(None) == "")
+    check("portable: _v_int wrapped", mv._v_int(V(7)) == 7)
+    check("portable: _v_bool wrapped", mv._v_bool(V(False)) is False)
+    check("portable: _v_bytes str", mv._v_bytes("abc") == b"abc")
+    check("portable: _v_strv wrapped", mv._v_strv(V(["z"])) == ["z"])
+
+    # live DBus path must fail loudly (not silently) without gi
+    if mv.GLib is False:
+        try:
+            mv.enumerate_devices()
+            check("portable: enumerate raises without gi", False,
+                  "no exception")
+        except mv._NoGio:
+            check("portable: enumerate raises without gi", True)
+    else:
+        ok("portable: gi present, skipping _NoGio assertion")
 
 
 def ensure_bus():
@@ -73,17 +195,30 @@ def load_app():
 
 
 def main():
+    # Portable section: pure parser unit tests run on ANY host.
+    mv = load_app()
+    run_portable_tests(mv)
+
+    # Integration section: needs PyGObject + a DBus daemon + the mock service.
+    try:
+        import gi
+    except ImportError:
+        print("SKIP - integration section (no PyGObject on this host)")
+        print("\n%d passed, %d failed" % (PASSED, len(FAILURES)))
+        return 1 if FAILURES else 0
+    if not shutil.which("dbus-daemon"):
+        print("SKIP - integration section (no dbus-daemon on this host)")
+        print("\n%d passed, %d failed" % (PASSED, len(FAILURES)))
+        return 1 if FAILURES else 0
+
+    gi.require_version("GLib", "2.0")
+    gi.require_version("Gio", "2.0")
+    from gi.repository import GLib, Gio
+
     addr, _bus_proc = ensure_bus()
     mock = start_mock(addr)
     os.environ["DBUS_SYSTEM_BUS_ADDRESS"] = addr
     try:
-        import gi
-        gi.require_version("GLib", "2.0")
-        gi.require_version("Gio", "2.0")
-        from gi.repository import GLib, Gio
-
-        mv = load_app()
-
         SATA = "/org/freedesktop/UDisks2/drives/Samsung_SSD_850_250GB_S123456789"
         USB = "/org/freedesktop/UDisks2/drives/Generic_Flash_Disk_ABCDEF"
         SDA1 = "/org/freedesktop/UDisks2/block_devices/sda1"

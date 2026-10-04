@@ -14,7 +14,7 @@
 
 | Block / Scope | Who | Since (UTC) | Objective / Issue | Status |
 |---|---|---|---|---|
-| *(none)* | — | — | — | — |
+| packages/mavericks-apps/.../bin/mv-diskutil + scripts/test-mv-diskutil.py | Qwen | 2026-10-05 | Portability: lazy-Gtk/DBus shim so unit tests run on non-Arch hosts | ACTIVE |
 
 Example row format (do not leave examples as ACTIVE):
 `| Mission Control ISO deps | Grok | 2026-10-04 20:20 | #1 | DONE |`

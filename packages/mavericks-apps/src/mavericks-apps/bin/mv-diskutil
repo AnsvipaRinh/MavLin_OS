@@ -7,14 +7,68 @@ info display. Destructive operations (format / partition / erase) are
 intentionally NOT implemented — the UI directs the user to gnome-disks.
 On-demand only: no daemon, no polling, exits on close.
 
+Headless portability: the pure DBus-parsing helpers below work against
+plain dicts and a minimal Variant shim (no GObject Introspection), so
+they are unit-testable on any host. The real GLib.Variant is used when
+gi is available (runtime path). The GTK UI is built lazily via
+build_diskutil_class().
+
 License: GPL-2.0-or-later."""
 import os
-import gi
-gi.require_version("Gtk", "3.0")
-gi.require_version("Gio", "2.0")
-gi.require_version("Gdk", "3.0")
-gi.require_version("Pango", "1.0")
-from gi.repository import Gtk, Gio, GLib, Gdk, Pango
+
+try:  # runtime: real introspection bindings when present
+    import gi
+    gi.require_version("GLib", "2.0")
+    gi.require_version("Gio", "2.0")
+    from gi.repository import GLib
+except ImportError:  # headless test host: property parsers below are
+                     # duck-typed (hasattr on Variant accessors), so no
+                     # GLib symbol is needed at module level.
+    GLib = False
+
+
+class _ShimVariant:
+    """Minimal stand-in for GLib.Variant covering the accessor surface
+    used by the property parsers below (test hosts without gi)."""
+
+    __slots__ = ("_v",)
+
+    def __init__(self, v):
+        self._v = v
+
+    def get_string(self):
+        return str(self._v)
+
+    def get_uint64(self):
+        return int(self._v)
+
+    def get_boolean(self):
+        return bool(self._v)
+
+    def get_double(self):
+        return float(self._v)
+
+    def get_strv(self):
+        return list(self._v)
+
+    def get_data_as_bytes(self):
+        class _B:
+            def __init__(self, d):
+                self._d = d
+
+            def get_data(self):
+                return self._d
+        return _B(self._v if isinstance(self._v, bytes)
+                  else str(self._v).encode("utf-8"))
+
+
+def _as_variant(v):
+    """Wrap plain Python values as Variant-like objects when gi is
+    absent, so the same parser code paths are exercised in tests."""
+    if GLib is not False or v is None or hasattr(v, "get_string"):
+        return v
+    return _ShimVariant(v)
+
 
 UDISKS_BUS = "org.freedesktop.UDisks2"
 UDISKS_ROOT = "/org/freedesktop/UDisks2"
@@ -36,7 +90,7 @@ class UDisksUnavailable(Exception):
 def _v_str(v):
     if v is None:
         return ""
-    if isinstance(v, GLib.Variant):
+    if hasattr(v, "get_string"):
         return v.get_string()
     return str(v)
 
@@ -44,7 +98,7 @@ def _v_str(v):
 def _v_int(v):
     if v is None:
         return 0
-    if isinstance(v, GLib.Variant):
+    if hasattr(v, "get_uint64"):
         return v.get_uint64()
     return int(v)
 
@@ -52,7 +106,7 @@ def _v_int(v):
 def _v_bool(v):
     if v is None:
         return False
-    if isinstance(v, GLib.Variant):
+    if hasattr(v, "get_boolean"):
         return v.get_boolean()
     return bool(v)
 
@@ -60,7 +114,7 @@ def _v_bool(v):
 def _v_bytes(v):
     if v is None:
         return b""
-    if isinstance(v, GLib.Variant):
+    if hasattr(v, "get_data_as_bytes"):
         try:
             data = v.get_data_as_bytes().get_data()
             return bytes(data) if data else b""
@@ -74,12 +128,30 @@ def _v_bytes(v):
 def _v_strv(v):
     if v is None:
         return []
-    if isinstance(v, GLib.Variant):
+    if hasattr(v, "get_strv"):
         return v.get_strv()
     return list(v)
 
 
+class _NoGio(Exception):
+    """Raised when live DBus calls are attempted without PyGObject."""
+
+
+def _gio():
+    """Lazy Gio/GLib import: the pure property parsers above run on any
+    host; only live UDisks2 DBus traffic needs introspection bindings."""
+    try:
+        import gi
+    except ImportError:
+        raise _NoGio("PyGObject not available")
+    gi.require_version("Gio", "2.0")
+    gi.require_version("GLib", "2.0")
+    from gi.repository import Gio, GLib
+    return Gio, GLib
+
+
 def get_connection():
+    Gio, GLib = _gio()
     addr = os.environ.get("DBUS_SYSTEM_BUS_ADDRESS")
     if addr:
         flags = (Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT |
@@ -89,12 +161,14 @@ def get_connection():
 
 
 def _call_sync(conn, path, iface, method, params, result_type, timeout=5000):
+    Gio, GLib = _gio()
     return conn.call_sync(UDISKS_BUS, path, iface, method, params,
                           GLib.VariantType(result_type),
                           Gio.DBusCallFlags.NONE, timeout, None)
 
 
 def _check_service(conn):
+    Gio, GLib = _gio()
     try:
         conn.call_sync("org.freedesktop.DBus", "/", "org.freedesktop.DBus",
                        "GetNameOwner", GLib.Variant("(s)", (UDISKS_BUS,)),
@@ -104,6 +178,7 @@ def _check_service(conn):
 
 
 def _get_managed_objects(conn):
+    Gio, GLib = _gio()
     result = _call_sync(conn, UDISKS_ROOT, "org.freedesktop.DBus.ObjectManager",
                         "GetManagedObjects", None, "(a{oa{sa{sv}}})")
     return result.unpack()[0]
@@ -113,7 +188,7 @@ def _smart_from_ata(iface_props):
     if not iface_props:
         return None
     temp = iface_props.get("SmartTemperature")
-    if isinstance(temp, GLib.Variant):
+    if hasattr(temp, "get_double"):
         temp = temp.get_double()
     return {
         "updated": _v_int(iface_props.get("SmartUpdated")),
@@ -171,6 +246,7 @@ def _block_from_path(path, ifaces):
 
 
 def enumerate_devices():
+    Gio, GLib = _gio()
     """Returns (devices, error). devices: list of drive dicts, each with
     a 'blocks' list of partition/volume dicts. error: None or a string
     describing why UDisks2 is unavailable."""
@@ -206,6 +282,7 @@ def enumerate_devices():
 
 
 def mount_filesystem(conn, path):
+    Gio, GLib = _gio()
     proxy = Gio.DBusProxy.new_sync(conn, Gio.DBusProxyFlags.DO_NOT_AUTO_START, None,
                                    UDISKS_BUS, path, IFACE_FS, None)
     result = proxy.call_sync("Mount", GLib.Variant("(a{sv})", ({},)),
@@ -214,6 +291,7 @@ def mount_filesystem(conn, path):
 
 
 def unmount_filesystem(conn, path):
+    Gio, GLib = _gio()
     proxy = Gio.DBusProxy.new_sync(conn, Gio.DBusProxyFlags.DO_NOT_AUTO_START, None,
                                    UDISKS_BUS, path, IFACE_FS, None)
     proxy.call_sync("Unmount", GLib.Variant("(a{sv})", ({},)),
@@ -221,6 +299,7 @@ def unmount_filesystem(conn, path):
 
 
 def eject_drive(conn, path):
+    Gio, GLib = _gio()
     proxy = Gio.DBusProxy.new_sync(conn, Gio.DBusProxyFlags.DO_NOT_AUTO_START, None,
                                    UDISKS_BUS, path, IFACE_DRIVE, None)
     proxy.call_sync("Eject", GLib.Variant("(a{sv})", ({},)),
@@ -228,6 +307,7 @@ def eject_drive(conn, path):
 
 
 def smart_get_attributes(conn, path):
+    Gio, GLib = _gio()
     proxy = Gio.DBusProxy.new_sync(conn, Gio.DBusProxyFlags.DO_NOT_AUTO_START, None,
                                    UDISKS_BUS, path, IFACE_DRIVE_ATA, None)
     result = proxy.call_sync("SmartGetAttributes", GLib.Variant("(a{sv})", ({},)),
@@ -246,458 +326,472 @@ def human_size(n):
 def smart_temperature_c(t):
     if t is None:
         return None
-    if isinstance(t, GLib.Variant):
+    if hasattr(t, "get_double"):
         t = t.get_double()
     return float(t) - 273.15
 
 
-class DiskUtilWindow(Gtk.Window):
-    def __init__(self):
-        super().__init__(title="Disk Utility")
-        self.set_default_size(880, 560)
-        self.conn = None
-        self.devices = []
-        self.error = None
-        self.selected = None
+def build_diskutil_class():
+    """GTK UI is built lazily so the module imports without gi/display."""
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    gi.require_version("Pango", "1.0")
+    from gi.repository import Gtk, Gdk, Pango
 
-        hb = Gtk.HeaderBar(title="Disk Utility", show_close_button=True)
-        refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic",
-                                                    Gtk.IconSize.BUTTON)
-        refresh_btn.set_tooltip_text("Refresh")
-        refresh_btn.connect("clicked", lambda _: self.refresh())
-        hb.pack_start(refresh_btn)
-        self.set_titlebar(hb)
+    class DiskUtilWindow(Gtk.Window):
+        def __init__(self):
+            super().__init__(title="Disk Utility")
+            self.set_default_size(880, 560)
+            self.conn = None
+            self.devices = []
+            self.error = None
+            self.selected = None
 
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
+            hb = Gtk.HeaderBar(title="Disk Utility", show_close_button=True)
+            refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic",
+                                                        Gtk.IconSize.BUTTON)
+            refresh_btn.set_tooltip_text("Refresh")
+            refresh_btn.connect("clicked", lambda _: self.refresh())
+            hb.pack_start(refresh_btn)
+            self.set_titlebar(hb)
 
-        self.listbox = Gtk.ListBox()
-        self.listbox.set_selection_mode(Gtk.SelectionMode.BROWSE)
-        self.listbox.connect("row-selected", self.on_row_selected)
-        sidebar_sw = Gtk.ScrolledWindow()
-        sidebar_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        sidebar_sw.add(self.listbox)
-        sidebar_sw.set_size_request(240, -1)
-        paned.add1(sidebar_sw)
+            paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+            self.add(paned)
 
-        self.detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        self.detail.set_border_width(20)
-        detail_sw = Gtk.ScrolledWindow()
-        detail_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        detail_sw.add(self.detail)
-        paned.add2(detail_sw)
-        paned.set_position(240)
+            self.listbox = Gtk.ListBox()
+            self.listbox.set_selection_mode(Gtk.SelectionMode.BROWSE)
+            self.listbox.connect("row-selected", self.on_row_selected)
+            sidebar_sw = Gtk.ScrolledWindow()
+            sidebar_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            sidebar_sw.add(self.listbox)
+            sidebar_sw.set_size_request(240, -1)
+            paned.add1(sidebar_sw)
 
-        self.connect("key-press-event", self.on_key_press)
-        self.apply_css()
-        self.refresh()
-        self.show_all()
+            self.detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+            self.detail.set_border_width(20)
+            detail_sw = Gtk.ScrolledWindow()
+            detail_sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            detail_sw.add(self.detail)
+            paned.add2(detail_sw)
+            paned.set_position(240)
 
-    def apply_css(self):
-        css = b"""
-        .mv-diskutil-sidebar {
-            background: #f5f0e8;
-            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
-            border-right: 1px solid #d4c8b8;
-        }
-        .mv-diskutil-sidebar > viewport { background: transparent; }
-        .mv-diskutil-section-header {
-            color: #6b6157;
-            font-size: 11px;
-            font-weight: bold;
-            padding: 10px 12px 4px 12px;
-        }
-        .mv-diskutil-row { padding: 6px 12px; }
-        .mv-diskutil-row-selected { background: #4a90d9; }
-        .mv-diskutil-row-selected label { color: #ffffff; }
-        .mv-diskutil-empty { color: #6b6157; }
-        .mv-diskutil-title { font-size: 20px; font-weight: bold; color: #3a352f; }
-        .mv-diskutil-subtitle { color: #6b6157; }
-        .mv-diskutil-info-label { color: #6b6157; }
-        .mv-diskutil-frame-title { font-weight: bold; color: #3a352f; }
-        """
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css)
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(), provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            self.connect("key-press-event", self.on_key_press)
+            self.apply_css()
+            self.refresh()
+            self.show_all()
 
-    def refresh(self):
-        try:
-            self.conn = get_connection()
-            self.devices, self.error = enumerate_devices()
-        except Exception:
-            self.devices, self.error = [], "cannot-connect"
-        self.selected = None
-        self.rebuild_sidebar()
-        self.rebuild_detail()
+        def apply_css(self):
+            css = b"""
+            .mv-diskutil-sidebar {
+                background: #f5f0e8;
+                background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+                border-right: 1px solid #d4c8b8;
+            }
+            .mv-diskutil-sidebar > viewport { background: transparent; }
+            .mv-diskutil-section-header {
+                color: #6b6157;
+                font-size: 11px;
+                font-weight: bold;
+                padding: 10px 12px 4px 12px;
+            }
+            .mv-diskutil-row { padding: 6px 12px; }
+            .mv-diskutil-row-selected { background: #4a90d9; }
+            .mv-diskutil-row-selected label { color: #ffffff; }
+            .mv-diskutil-empty { color: #6b6157; }
+            .mv-diskutil-title { font-size: 20px; font-weight: bold; color: #3a352f; }
+            .mv-diskutil-subtitle { color: #6b6157; }
+            .mv-diskutil-info-label { color: #6b6157; }
+            .mv-diskutil-frame-title { font-weight: bold; color: #3a352f; }
+            """
+            provider = Gtk.CssProvider()
+            provider.load_from_data(css)
+            Gtk.StyleContext.add_provider_for_screen(
+                Gdk.Screen.get_default(), provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-    def rebuild_sidebar(self):
-        for child in self.listbox.get_children():
-            self.listbox.remove(child)
-        if self.error:
-            return
-        if not self.devices:
-            row = Gtk.ListBoxRow()
-            row.selectable = False
-            lbl = Gtk.Label(label="No disks or volumes found.")
-            lbl.get_style_context().add_class("mv-diskutil-empty")
-            lbl.set_line_wrap(True)
-            row.add(lbl)
-            self.listbox.add(row)
-            self.listbox.show_all()
-            return
-        groups = [("Internal", lambda d: not d["removable"]),
-                  ("External", lambda d: d["removable"])]
-        for title, pred in groups:
-            group = [d for d in self.devices if pred(d)]
-            if not group:
-                continue
-            header = Gtk.ListBoxRow()
-            header.selectable = False
-            hlbl = Gtk.Label(label=title.upper())
-            hlbl.get_style_context().add_class("mv-diskutil-section-header")
-            hlbl.set_xalign(0)
-            header.add(hlbl)
-            self.listbox.add(header)
-            for drive in group:
-                self.listbox.add(self.make_sidebar_row(
-                    "drive", drive["path"],
-                    "drive-removable-media" if drive["removable"] else "drive-harddisk",
-                    drive["model"] or "Disk"))
-                for block in drive["blocks"]:
-                    label = block["label"] or block["fs_type"] or block["device"]
+        def refresh(self):
+            try:
+                self.conn = get_connection()
+                self.devices, self.error = enumerate_devices()
+            except Exception:
+                self.devices, self.error = [], "cannot-connect"
+            self.selected = None
+            self.rebuild_sidebar()
+            self.rebuild_detail()
+
+        def rebuild_sidebar(self):
+            for child in self.listbox.get_children():
+                self.listbox.remove(child)
+            if self.error:
+                return
+            if not self.devices:
+                row = Gtk.ListBoxRow()
+                row.selectable = False
+                lbl = Gtk.Label(label="No disks or volumes found.")
+                lbl.get_style_context().add_class("mv-diskutil-empty")
+                lbl.set_line_wrap(True)
+                row.add(lbl)
+                self.listbox.add(row)
+                self.listbox.show_all()
+                return
+            groups = [("Internal", lambda d: not d["removable"]),
+                      ("External", lambda d: d["removable"])]
+            for title, pred in groups:
+                group = [d for d in self.devices if pred(d)]
+                if not group:
+                    continue
+                header = Gtk.ListBoxRow()
+                header.selectable = False
+                hlbl = Gtk.Label(label=title.upper())
+                hlbl.get_style_context().add_class("mv-diskutil-section-header")
+                hlbl.set_xalign(0)
+                header.add(hlbl)
+                self.listbox.add(header)
+                for drive in group:
                     self.listbox.add(self.make_sidebar_row(
-                        "block", block["path"], "drive-multidisk", label, indent=True))
-        self.listbox.show_all()
+                        "drive", drive["path"],
+                        "drive-removable-media" if drive["removable"] else "drive-harddisk",
+                        drive["model"] or "Disk"))
+                    for block in drive["blocks"]:
+                        label = block["label"] or block["fs_type"] or block["device"]
+                        self.listbox.add(self.make_sidebar_row(
+                            "block", block["path"], "drive-multidisk", label, indent=True))
+            self.listbox.show_all()
 
-    def make_sidebar_row(self, kind, path, icon_name, label, indent=False):
-        row = Gtk.ListBoxRow()
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        if indent:
-            box.set_margin_left(24)
-        image = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
-        box.pack_start(image, False, False, 0)
-        lbl = Gtk.Label(label=label)
-        lbl.set_xalign(0)
-        lbl.set_ellipsize(Pango.EllipsizeMode.END)
-        box.pack_start(lbl, True, True, 0)
-        row.add(box)
-        row.get_style_context().add_class("mv-diskutil-row")
-        row.mv_kind = kind
-        row.mv_path = path
-        return row
+        def make_sidebar_row(self, kind, path, icon_name, label, indent=False):
+            row = Gtk.ListBoxRow()
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            if indent:
+                box.set_margin_left(24)
+            image = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
+            box.pack_start(image, False, False, 0)
+            lbl = Gtk.Label(label=label)
+            lbl.set_xalign(0)
+            lbl.set_ellipsize(Pango.EllipsizeMode.END)
+            box.pack_start(lbl, True, True, 0)
+            row.add(box)
+            row.get_style_context().add_class("mv-diskutil-row")
+            row.mv_kind = kind
+            row.mv_path = path
+            return row
 
-    def on_row_selected(self, listbox, row):
-        if row is None or not getattr(row, "mv_kind", None):
-            return
-        self.selected = (row.mv_kind, row.mv_path)
-        self.rebuild_detail()
+        def on_row_selected(self, listbox, row):
+            if row is None or not getattr(row, "mv_kind", None):
+                return
+            self.selected = (row.mv_kind, row.mv_path)
+            self.rebuild_detail()
 
-    def find_item(self, kind, path):
-        if kind == "drive":
-            for drive in self.devices:
-                if drive["path"] == path:
-                    return drive
-        else:
-            for drive in self.devices:
-                for block in drive["blocks"]:
-                    if block["path"] == path:
-                        return block
-        return None
+        def find_item(self, kind, path):
+            if kind == "drive":
+                for drive in self.devices:
+                    if drive["path"] == path:
+                        return drive
+            else:
+                for drive in self.devices:
+                    for block in drive["blocks"]:
+                        if block["path"] == path:
+                            return block
+            return None
 
-    def rebuild_detail(self):
-        for child in self.detail.get_children():
-            self.detail.remove(child)
-        if self.error:
-            self.pack_empty_state(self.error)
-        elif self.selected is None:
-            self.pack_empty_state("no-selection")
-        else:
-            item = self.find_item(*self.selected)
-            if item is None:
+        def rebuild_detail(self):
+            for child in self.detail.get_children():
+                self.detail.remove(child)
+            if self.error:
+                self.pack_empty_state(self.error)
+            elif self.selected is None:
                 self.pack_empty_state("no-selection")
-            elif item["kind"] == "drive":
-                self.detail.pack_drive(item)
             else:
-                self.detail.pack_block(item)
-        self.detail.show_all()
+                item = self.find_item(*self.selected)
+                if item is None:
+                    self.pack_empty_state("no-selection")
+                elif item["kind"] == "drive":
+                    self.detail.pack_drive(item)
+                else:
+                    self.detail.pack_block(item)
+            self.detail.show_all()
 
-    def pack_empty_state(self, reason):
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        box.set_halign(Gtk.Align.CENTER)
-        box.set_valign(Gtk.Align.CENTER)
-        if reason == "not-available":
-            box.pack_start(Gtk.Image.new_from_icon_name("dialog-error",
-                                                        Gtk.IconSize.DIALOG), False, False, 0)
-            box.pack_start(self.make_label("Storage Service Unavailable", "mv-diskutil-title"), False, False, 0)
-            box.pack_start(self.make_label(
-                "Disk Utility could not reach UDisks2 (org.freedesktop.UDisks2)\n"
-                "on the system bus. The storage service may not be running.",
-                "mv-diskutil-empty"), False, False, 0)
-            box.pack_start(self.make_label(
-                "You can still manage disks with gnome-disks from the terminal.",
-                "mv-diskutil-empty"), False, False, 0)
-        elif reason == "cannot-connect":
-            box.pack_start(Gtk.Image.new_from_icon_name("dialog-error",
-                                                        Gtk.IconSize.DIALOG), False, False, 0)
-            box.pack_start(self.make_label("Cannot Connect to System Bus",
-                                          "mv-diskutil-title"), False, False, 0)
-        elif reason == "no-selection":
-            box.pack_start(self.make_label("Select a disk or volume in the sidebar.",
-                                          "mv-diskutil-empty"), False, False, 0)
-        else:
-            box.pack_start(self.make_label("No disks or volumes found.",
-                                          "mv-diskutil-empty"), False, False, 0)
-        self.detail.pack_start(box, True, True, 0)
-
-    def make_label(self, text, style=None):
-        lbl = Gtk.Label(label=text)
-        lbl.set_line_wrap(True)
-        if style:
-            lbl.get_style_context().add_class(style)
-        return lbl
-
-    def pack_drive(self, drive):
-        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
-        icon_name = "drive-removable-media" if drive["removable"] else "drive-harddisk"
-        header.pack_start(Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.DIALOG),
-                          False, False, 0)
-        titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        titles.pack_start(self.make_label(drive["model"] or "Disk", "mv-diskutil-title"), False, False, 0)
-        subtitle = "%s · %s" % (drive["connection_bus"].upper() or "—",
-                                human_size(drive["size"]))
-        titles.pack_start(self.make_label(subtitle, "mv-diskutil-subtitle"), False, False, 0)
-        header.pack_start(titles, False, False, 0)
-        self.detail.pack_start(header, False, False, 0)
-
-        info = [
-            ("Model", drive["model"] or "—"),
-            ("Vendor", drive["vendor"] or "—"),
-            ("Serial", drive["serial"] or "—"),
-            ("Capacity", human_size(drive["size"])),
-            ("Connection", drive["connection_bus"] or "—"),
-            ("Media", drive["media"] or "—"),
-            ("S.M.A.R.T. Status", self.smart_text(drive["smart"])),
-        ]
-        self.detail.pack_start(self.make_info_grid(info), False, False, 0)
-
-        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        first_aid = Gtk.Button(label="First Aid")
-        first_aid.connect("clicked", lambda _: self.show_first_aid(drive=drive))
-        buttons.pack_start(first_aid, False, False, 0)
-        if drive["ejectable"]:
-            eject = Gtk.Button(label="Eject")
-            eject.connect("clicked", lambda _: self.run_action(
-                "eject", drive["path"]))
-            buttons.pack_start(eject, False, False, 0)
-        self.detail.pack_start(buttons, False, False, 0)
-
-        if drive["nvme"]:
-            self.detail.pack_start(self.make_s3x_section(drive), False, False, 0)
-
-        note = Gtk.Label(label="Formatting and partitioning are not available in this "
-                               "frontend — use gnome-disks for those operations.")
-        note.get_style_context().add_class("mv-diskutil-empty")
-        note.set_line_wrap(True)
-        self.detail.pack_end(note, False, False, 0)
-
-    def pack_block(self, block):
-        title = block["label"] or block["fs_type"] or block["device"]
-        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
-        header.pack_start(Gtk.Image.new_from_icon_name("drive-multidisk",
-                                                      Gtk.IconSize.DIALOG), False, False, 0)
-        titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        titles.pack_start(self.make_label(title, "mv-diskutil-title"), False, False, 0)
-        titles.pack_start(self.make_label(block["device"], "mv-diskutil-subtitle"), False, False, 0)
-        header.pack_start(titles, False, False, 0)
-        self.detail.pack_start(header, False, False, 0)
-
-        if block["mount_points"]:
-            try:
-                st = os.statvfs(block["mount_points"][0])
-                free = st.f_bfree * st.f_frsize
-                total = st.f_blocks * st.f_frsize
-                used = total - free
-                bar = Gtk.ProgressBar()
-                bar.set_fraction(used / total if total else 0)
-                bar.set_text("%s free of %s" % (human_size(free), human_size(total)))
-                bar.set_show_text(True)
-                self.detail.pack_start(bar, False, False, 0)
-            except OSError:
-                pass
-
-        info = [
-            ("Capacity", human_size(block["size"])),
-            ("File System", block["fs_type"] or "—"),
-            ("Label", block["label"] or "—"),
-            ("UUID", block["uuid"] or "—"),
-            ("Mount Point", ", ".join(block["mount_points"]) or "Not mounted"),
-            ("Device", block["device"] or "—"),
-        ]
-        if block["partition_number"]:
-            info.append(("Partition Type", block["partition_type"] or "—"))
-        self.detail.pack_start(self.make_info_grid(info), False, False, 0)
-
-        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        first_aid = Gtk.Button(label="First Aid")
-        first_aid.connect("clicked", lambda _: self.show_first_aid(block=block))
-        buttons.pack_start(first_aid, False, False, 0)
-        if block["mount_points"]:
-            unmount = Gtk.Button(label="Unmount")
-            unmount.connect("clicked", lambda _: self.run_action(
-                "unmount", block["path"]))
-            buttons.pack_start(unmount, False, False, 0)
-        else:
-            mount = Gtk.Button(label="Mount")
-            mount.connect("clicked", lambda _: self.run_action(
-                "mount", block["path"]))
-            buttons.pack_start(mount, False, False, 0)
-        self.detail.pack_start(buttons, False, False, 0)
-
-        note = Gtk.Label(label="Formatting and partitioning are not available in this "
-                               "frontend — use gnome-disks for those operations.")
-        note.get_style_context().add_class("mv-diskutil-empty")
-        note.set_line_wrap(True)
-        self.detail.pack_end(note, False, False, 0)
-
-    def make_info_grid(self, rows):
-        grid = Gtk.Grid()
-        grid.set_column_spacing(24)
-        grid.set_row_spacing(8)
-        for i, (label, value) in enumerate(rows):
-            l = Gtk.Label(label=label)
-            l.get_style_context().add_class("mv-diskutil-info-label")
-            l.set_xalign(0)
-            v = Gtk.Label(label=value)
-            v.set_xalign(0)
-            v.set_selectable(True)
-            v.set_ellipsize(Pango.EllipsizeMode.END)
-            grid.attach(l, 0, i, 1, 1)
-            grid.attach(v, 1, i, 1, 1)
-        return grid
-
-    def smart_text(self, smart):
-        if smart is None:
-            return "Not Available"
-        return "Failing" if smart["failing"] else "Verified"
-
-    def make_s3x_section(self, drive):
-        frame = Gtk.Frame()
-        frame.set_shadow_type(Gtk.ShadowType.NONE)
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        box.set_border_width(12)
-        title = Gtk.Label(label="APPLE S3X NVME")
-        title.get_style_context().add_class("mv-diskutil-frame-title")
-        title.set_xalign(0)
-        box.pack_start(title, False, False, 0)
-        smart = drive["smart"]
-        rows = [
-            ("Controller", drive["model"] or "Apple S3X"),
-            ("Connection", "NVMe (PCIe)"),
-            ("S.M.A.R.T.", self.smart_text(smart) if smart else "Available on hardware"),
-        ]
-        box.pack_start(self.make_info_grid(rows), False, False, 0)
-        note = Gtk.Label(label="Apple S3X controller telemetry (NVMe SMART log, "
-                               "power/thermal data) is displayed here when running "
-                               "on MacBook10,1 hardware.")
-        note.get_style_context().add_class("mv-diskutil-empty")
-        note.set_line_wrap(True)
-        box.pack_start(note, False, False, 0)
-        frame.add(box)
-        return frame
-
-    def show_first_aid(self, drive=None, block=None):
-        dialog = Gtk.Dialog(title="First Aid", transient_for=self, modal=True)
-        dialog.set_default_size(420, 300)
-        dialog.add_button("Close", Gtk.ResponseType.CLOSE)
-        content = dialog.get_content_area()
-        content.set_border_width(16)
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        if drive is not None:
-            box.pack_start(self.make_label(drive["model"] or "Disk", "mv-diskutil-title"), False, False, 0)
-            smart = drive["smart"]
-            if smart:
-                temp = smart_temperature_c(smart["temperature"])
-                rows = [
-                    ("S.M.A.R.T. Status", self.smart_text(smart)),
-                    ("Temperature", "%.0f °C" % temp if temp is not None else "—"),
-                    ("Power-On Hours", "%d" % (smart["power_on_seconds"] // 3600)),
-                    ("Bad Sectors", "%d" % smart["bad_sectors"]),
-                ]
-                box.pack_start(self.make_info_grid(rows), False, False, 0)
-            try:
-                attrs = smart_get_attributes(self.conn, drive["path"])
-                if attrs:
-                    attr_rows = []
-                    for attr_id, attr in attrs[:8]:
-                        name = attr.get("name", "")
-                        pretty = attr.get("pretty", "")
-                        if isinstance(name, GLib.Variant):
-                            name = name.get_string()
-                        if isinstance(pretty, GLib.Variant):
-                            pretty = pretty.get_string()
-                        attr_rows.append(("%s %s" % (attr_id, name), pretty or "—"))
-                    box.pack_start(self.make_info_grid(attr_rows), False, False, 0)
-            except (GLib.Error, UDisksUnavailable):
-                pass
-            else:
-                box.pack_start(self.make_label("S.M.A.R.T. data is not available for this drive.",
-                                              "mv-diskutil-empty"), False, False, 0)
-            if drive["nvme"]:
+        def pack_empty_state(self, reason):
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+            box.set_halign(Gtk.Align.CENTER)
+            box.set_valign(Gtk.Align.CENTER)
+            if reason == "not-available":
+                box.pack_start(Gtk.Image.new_from_icon_name("dialog-error",
+                                                            Gtk.IconSize.DIALOG), False, False, 0)
+                box.pack_start(self.make_label("Storage Service Unavailable", "mv-diskutil-title"), False, False, 0)
                 box.pack_start(self.make_label(
-                    "Apple S3X NVMe controller diagnostics appear here on hardware.",
+                    "Disk Utility could not reach UDisks2 (org.freedesktop.UDisks2)\n"
+                    "on the system bus. The storage service may not be running.",
                     "mv-diskutil-empty"), False, False, 0)
-        else:
-            box.pack_start(self.make_label(block["label"] or block["device"],
-                                          "mv-diskutil-title"), False, False, 0)
-            box.pack_start(self.make_info_grid([
+                box.pack_start(self.make_label(
+                    "You can still manage disks with gnome-disks from the terminal.",
+                    "mv-diskutil-empty"), False, False, 0)
+            elif reason == "cannot-connect":
+                box.pack_start(Gtk.Image.new_from_icon_name("dialog-error",
+                                                            Gtk.IconSize.DIALOG), False, False, 0)
+                box.pack_start(self.make_label("Cannot Connect to System Bus",
+                                              "mv-diskutil-title"), False, False, 0)
+            elif reason == "no-selection":
+                box.pack_start(self.make_label("Select a disk or volume in the sidebar.",
+                                              "mv-diskutil-empty"), False, False, 0)
+            else:
+                box.pack_start(self.make_label("No disks or volumes found.",
+                                              "mv-diskutil-empty"), False, False, 0)
+            self.detail.pack_start(box, True, True, 0)
+
+        def make_label(self, text, style=None):
+            lbl = Gtk.Label(label=text)
+            lbl.set_line_wrap(True)
+            if style:
+                lbl.get_style_context().add_class(style)
+            return lbl
+
+        def pack_drive(self, drive):
+            header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+            icon_name = "drive-removable-media" if drive["removable"] else "drive-harddisk"
+            header.pack_start(Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.DIALOG),
+                              False, False, 0)
+            titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            titles.pack_start(self.make_label(drive["model"] or "Disk", "mv-diskutil-title"), False, False, 0)
+            subtitle = "%s · %s" % (drive["connection_bus"].upper() or "—",
+                                    human_size(drive["size"]))
+            titles.pack_start(self.make_label(subtitle, "mv-diskutil-subtitle"), False, False, 0)
+            header.pack_start(titles, False, False, 0)
+            self.detail.pack_start(header, False, False, 0)
+
+            info = [
+                ("Model", drive["model"] or "—"),
+                ("Vendor", drive["vendor"] or "—"),
+                ("Serial", drive["serial"] or "—"),
+                ("Capacity", human_size(drive["size"])),
+                ("Connection", drive["connection_bus"] or "—"),
+                ("Media", drive["media"] or "—"),
+                ("S.M.A.R.T. Status", self.smart_text(drive["smart"])),
+            ]
+            self.detail.pack_start(self.make_info_grid(info), False, False, 0)
+
+            buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            first_aid = Gtk.Button(label="First Aid")
+            first_aid.connect("clicked", lambda _: self.show_first_aid(drive=drive))
+            buttons.pack_start(first_aid, False, False, 0)
+            if drive["ejectable"]:
+                eject = Gtk.Button(label="Eject")
+                eject.connect("clicked", lambda _: self.run_action(
+                    "eject", drive["path"]))
+                buttons.pack_start(eject, False, False, 0)
+            self.detail.pack_start(buttons, False, False, 0)
+
+            if drive["nvme"]:
+                self.detail.pack_start(self.make_s3x_section(drive), False, False, 0)
+
+            note = Gtk.Label(label="Formatting and partitioning are not available in this "
+                                   "frontend — use gnome-disks for those operations.")
+            note.get_style_context().add_class("mv-diskutil-empty")
+            note.set_line_wrap(True)
+            self.detail.pack_end(note, False, False, 0)
+
+        def pack_block(self, block):
+            title = block["label"] or block["fs_type"] or block["device"]
+            header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
+            header.pack_start(Gtk.Image.new_from_icon_name("drive-multidisk",
+                                                          Gtk.IconSize.DIALOG), False, False, 0)
+            titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            titles.pack_start(self.make_label(title, "mv-diskutil-title"), False, False, 0)
+            titles.pack_start(self.make_label(block["device"], "mv-diskutil-subtitle"), False, False, 0)
+            header.pack_start(titles, False, False, 0)
+            self.detail.pack_start(header, False, False, 0)
+
+            if block["mount_points"]:
+                try:
+                    st = os.statvfs(block["mount_points"][0])
+                    free = st.f_bfree * st.f_frsize
+                    total = st.f_blocks * st.f_frsize
+                    used = total - free
+                    bar = Gtk.ProgressBar()
+                    bar.set_fraction(used / total if total else 0)
+                    bar.set_text("%s free of %s" % (human_size(free), human_size(total)))
+                    bar.set_show_text(True)
+                    self.detail.pack_start(bar, False, False, 0)
+                except OSError:
+                    pass
+
+            info = [
+                ("Capacity", human_size(block["size"])),
                 ("File System", block["fs_type"] or "—"),
+                ("Label", block["label"] or "—"),
                 ("UUID", block["uuid"] or "—"),
                 ("Mount Point", ", ".join(block["mount_points"]) or "Not mounted"),
-            ]), False, False, 0)
-        box.pack_start(self.make_label(
-            "First Aid displays volume information only. File system repairs "
-            "(fsck) are not performed automatically — unmount the volume and "
-            "use gnome-disks or the command line to run fsck.",
-            "mv-diskutil-empty"), False, False, 0)
-        content.add(box)
-        dialog.show_all()
-        dialog.run()
-        dialog.destroy()
+                ("Device", block["device"] or "—"),
+            ]
+            if block["partition_number"]:
+                info.append(("Partition Type", block["partition_type"] or "—"))
+            self.detail.pack_start(self.make_info_grid(info), False, False, 0)
 
-    def run_action(self, action, path):
-        try:
-            conn = self.conn or get_connection()
-            if action == "mount":
-                mount_filesystem(conn, path)
-            elif action == "unmount":
-                unmount_filesystem(conn, path)
-            elif action == "eject":
-                eject_drive(conn, path)
+            buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            first_aid = Gtk.Button(label="First Aid")
+            first_aid.connect("clicked", lambda _: self.show_first_aid(block=block))
+            buttons.pack_start(first_aid, False, False, 0)
+            if block["mount_points"]:
+                unmount = Gtk.Button(label="Unmount")
+                unmount.connect("clicked", lambda _: self.run_action(
+                    "unmount", block["path"]))
+                buttons.pack_start(unmount, False, False, 0)
             else:
+                mount = Gtk.Button(label="Mount")
+                mount.connect("clicked", lambda _: self.run_action(
+                    "mount", block["path"]))
+                buttons.pack_start(mount, False, False, 0)
+            self.detail.pack_start(buttons, False, False, 0)
+
+            note = Gtk.Label(label="Formatting and partitioning are not available in this "
+                                   "frontend — use gnome-disks for those operations.")
+            note.get_style_context().add_class("mv-diskutil-empty")
+            note.set_line_wrap(True)
+            self.detail.pack_end(note, False, False, 0)
+
+        def make_info_grid(self, rows):
+            grid = Gtk.Grid()
+            grid.set_column_spacing(24)
+            grid.set_row_spacing(8)
+            for i, (label, value) in enumerate(rows):
+                l = Gtk.Label(label=label)
+                l.get_style_context().add_class("mv-diskutil-info-label")
+                l.set_xalign(0)
+                v = Gtk.Label(label=value)
+                v.set_xalign(0)
+                v.set_selectable(True)
+                v.set_ellipsize(Pango.EllipsizeMode.END)
+                grid.attach(l, 0, i, 1, 1)
+                grid.attach(v, 1, i, 1, 1)
+            return grid
+
+        def smart_text(self, smart):
+            if smart is None:
+                return "Not Available"
+            return "Failing" if smart["failing"] else "Verified"
+
+        def make_s3x_section(self, drive):
+            frame = Gtk.Frame()
+            frame.set_shadow_type(Gtk.ShadowType.NONE)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            box.set_border_width(12)
+            title = Gtk.Label(label="APPLE S3X NVME")
+            title.get_style_context().add_class("mv-diskutil-frame-title")
+            title.set_xalign(0)
+            box.pack_start(title, False, False, 0)
+            smart = drive["smart"]
+            rows = [
+                ("Controller", drive["model"] or "Apple S3X"),
+                ("Connection", "NVMe (PCIe)"),
+                ("S.M.A.R.T.", self.smart_text(smart) if smart else "Available on hardware"),
+            ]
+            box.pack_start(self.make_info_grid(rows), False, False, 0)
+            note = Gtk.Label(label="Apple S3X controller telemetry (NVMe SMART log, "
+                                   "power/thermal data) is displayed here when running "
+                                   "on MacBook10,1 hardware.")
+            note.get_style_context().add_class("mv-diskutil-empty")
+            note.set_line_wrap(True)
+            box.pack_start(note, False, False, 0)
+            frame.add(box)
+            return frame
+
+        def show_first_aid(self, drive=None, block=None):
+            dialog = Gtk.Dialog(title="First Aid", transient_for=self, modal=True)
+            dialog.set_default_size(420, 300)
+            dialog.add_button("Close", Gtk.ResponseType.CLOSE)
+            content = dialog.get_content_area()
+            content.set_border_width(16)
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+            if drive is not None:
+                box.pack_start(self.make_label(drive["model"] or "Disk", "mv-diskutil-title"), False, False, 0)
+                smart = drive["smart"]
+                if smart:
+                    temp = smart_temperature_c(smart["temperature"])
+                    rows = [
+                        ("S.M.A.R.T. Status", self.smart_text(smart)),
+                        ("Temperature", "%.0f °C" % temp if temp is not None else "—"),
+                        ("Power-On Hours", "%d" % (smart["power_on_seconds"] // 3600)),
+                        ("Bad Sectors", "%d" % smart["bad_sectors"]),
+                    ]
+                    box.pack_start(self.make_info_grid(rows), False, False, 0)
+                try:
+                    attrs = smart_get_attributes(self.conn, drive["path"])
+                    if attrs:
+                        attr_rows = []
+                        for attr_id, attr in attrs[:8]:
+                            name = attr.get("name", "")
+                            pretty = attr.get("pretty", "")
+                            if isinstance(name, GLib.Variant):
+                                name = name.get_string()
+                            if isinstance(pretty, GLib.Variant):
+                                pretty = pretty.get_string()
+                            attr_rows.append(("%s %s" % (attr_id, name), pretty or "—"))
+                        box.pack_start(self.make_info_grid(attr_rows), False, False, 0)
+                except (GLib.Error, UDisksUnavailable):
+                    pass
+                else:
+                    box.pack_start(self.make_label("S.M.A.R.T. data is not available for this drive.",
+                                                  "mv-diskutil-empty"), False, False, 0)
+                if drive["nvme"]:
+                    box.pack_start(self.make_label(
+                        "Apple S3X NVMe controller diagnostics appear here on hardware.",
+                        "mv-diskutil-empty"), False, False, 0)
+            else:
+                box.pack_start(self.make_label(block["label"] or block["device"],
+                                              "mv-diskutil-title"), False, False, 0)
+                box.pack_start(self.make_info_grid([
+                    ("File System", block["fs_type"] or "—"),
+                    ("UUID", block["uuid"] or "—"),
+                    ("Mount Point", ", ".join(block["mount_points"]) or "Not mounted"),
+                ]), False, False, 0)
+            box.pack_start(self.make_label(
+                "First Aid displays volume information only. File system repairs "
+                "(fsck) are not performed automatically — unmount the volume and "
+                "use gnome-disks or the command line to run fsck.",
+                "mv-diskutil-empty"), False, False, 0)
+            content.add(box)
+            dialog.show_all()
+            dialog.run()
+            dialog.destroy()
+
+        def run_action(self, action, path):
+            try:
+                conn = self.conn or get_connection()
+                if action == "mount":
+                    mount_filesystem(conn, path)
+                elif action == "unmount":
+                    unmount_filesystem(conn, path)
+                elif action == "eject":
+                    eject_drive(conn, path)
+                else:
+                    return
+            except GLib.Error as e:
+                self.show_error(str(e.message if hasattr(e, "message") else e))
                 return
-        except GLib.Error as e:
-            self.show_error(str(e.message if hasattr(e, "message") else e))
-            return
-        self.refresh()
+            self.refresh()
 
-    def show_error(self, msg):
-        dialog = Gtk.MessageDialog(transient_for=self, modal=True,
-                                   message_type=Gtk.MessageType.ERROR,
-                                   buttons=Gtk.ButtonsType.OK, text=msg)
-        dialog.run()
-        dialog.destroy()
+        def show_error(self, msg):
+            dialog = Gtk.MessageDialog(transient_for=self, modal=True,
+                                       message_type=Gtk.MessageType.ERROR,
+                                       buttons=Gtk.ButtonsType.OK, text=msg)
+            dialog.run()
+            dialog.destroy()
 
-    def on_key_press(self, widget, event):
-        if event.keyval == Gdk.keyval_from_name("Escape"):
-            Gtk.main_quit()
-            return True
-        return False
+        def on_key_press(self, widget, event):
+            if event.keyval == Gdk.keyval_from_name("Escape"):
+                Gtk.main_quit()
+                return True
+            return False
+
+    return DiskUtilWindow
 
 
 def main():
-    win = DiskUtilWindow()
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    window_cls = build_diskutil_class()
+    win = window_cls()
     win.connect("destroy", Gtk.main_quit)
     Gtk.main()
 
