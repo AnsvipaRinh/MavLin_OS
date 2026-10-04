@@ -2,7 +2,7 @@
 <channel name="xfce4-keyboard-shortcuts" version="1.0">
   <property name="commands" type="empty">
     <property name="default" type="empty">
-      <property name="&lt;Super&gt;space" type="string" value="rofi -show -modi 'spotlight:/usr/bin/mv-spotlight' -theme /usr/share/mavericks-apps/rofi-mavericks.rasi -preview-script /usr/bin/mv-spotlight-preview -show-preview"/>
+      <property name="&lt;Super&gt;space" type="string" value="rofi -show -modi 'spotlight:/usr/bin/mv-spotlight' -theme /usr/share/mavericks-apps/rofi-mavericks.rasi"/>
       <property name="&lt;Super&gt;l" type="string" value="rofi -show -modi 'launchpad:/usr/bin/mv-launchpad' -theme /usr/share/mavericks-apps/rofi-launchpad.rasi"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;l" type="string" value="/usr/bin/mv-launchpad-edit"/>
       <property name="&lt;Super&gt;Tab" type="string" value="mv-mission-control --native"/>
