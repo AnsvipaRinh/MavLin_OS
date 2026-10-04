@@ -17,6 +17,8 @@ CALENDAR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calendar")
 MUSIC = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-music")
 PREVIEW = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-preview")
 PHOTOS = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-photos")
+STICKIES = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-stickies")
+REMINDERS = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-reminders")
 XFWM = Path("configs/desktop/xfce/xfwm4.xml")
 APPLE_PLUGIN = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c")
 APPLE_DESKTOP = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
@@ -141,6 +143,17 @@ def main():
     for action in ("Import Photos…", "New Album…", "All Photos", "Favorites",
                    "Recently Added", "Moments", "Start / Stop Slideshow"):
         assert action in photos, f"Photos menu missing {action}"
+    stickies = STICKIES.read_text(encoding="utf-8")
+    assert "build_stickies_menu" in stickies
+    for action in ("New Note", "Print Note…", "Find in Stickies…",
+                   "Delete Note", "Collapse / Expand Note"):
+        assert action in stickies, f"Stickies menu missing {action}"
+    reminders = REMINDERS.read_text(encoding="utf-8")
+    assert "build_reminders_menu" in reminders
+    for action in ("New Task", "New List", "Edit Selected Task",
+                   "Toggle Completed", "Delete Selected Task",
+                   "Clear Completed", "Find Reminders", "Rename List", "Delete List"):
+        assert action in reminders, f"Reminders menu missing {action}"
     assert "build_notes_menu" in notes
     for action in ("New Note", "New Folder", "Export Note…", "Print…", "Find"):
         assert action in notes, f"Notes menu missing {action}"
