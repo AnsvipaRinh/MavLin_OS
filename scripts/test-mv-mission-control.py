@@ -28,7 +28,7 @@ class MissionControlTests(unittest.TestCase):
              mock.patch.object(self.mod.subprocess, "run", return_value=mock.Mock(returncode=0)) as run:
             self.assertTrue(self.mod.run_native_expose())
         run.assert_called_once_with(
-            ["/usr/bin/skippy-xd", "--expose", "--desktop", "-1"],
+            ["/usr/bin/skippy-xd", "--desktop", "-1"],
             timeout=30,
         )
 
