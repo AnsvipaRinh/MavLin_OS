@@ -232,3 +232,110 @@ Dangling commits indicate session recovery failure. The unsupervised session was
 - Cannot recover full audit completeness without fresh data collection
 - Test infrastructure requires re-implementation
 - Documentation gaps will affect future audits and onboarding
+
+---
+
+## 2026-10-04 — External Work Triage (qwen-port-work branch)
+
+**Context:** Automated triage of all inbound external work per continuous integration duty. Base commit 151a616 (prior audit: PRs #3-8, global menu 46b4c3d). One external contributor branch: `origin/qwen-port-work` (10 commits by qwen.ai[bot]). Five owner PRs pending (#3, #4, #5, #6, #19), one owner feature branch pending (#7 global menu).
+
+### Audit Scope
+- All origin/main commits vs 151a616 (30 commits, all owner)
+- All remote branches (8 owner feature/fix, 1 external qwen-port-work)
+- All open PRs (5 owner, 0 external)
+- All issues (2 owner — mandatory per OWNER-ISSUES RULE)
+- Deep static audit of qwen-port-work (113 files, +5929/-6096 lines)
+
+### Key Findings: qwen-port-work
+
+**ACCEPTED (9 items):**
+1. Lazy GTK factory pattern across 12 apps (mv-calculator, mv-finder-columns, mv-finder-search, mv-diskutil, mv-keychain, mv-stickies, mv-power-ui, mv-launchpad, mv-settings, mv-about, mv-calendar, mv-reminders) — enables headless CI testing, zero runtime cost
+2. ShimVariant duck-typing for GLib.Variant (mv-diskutil, mv-keychain) — DBus/Secret headless testing
+3. mv_launchpad_edit.py (428 lines) — GTK3 dialog for Launchpad rearrangement (drag-drop, Ctrl+↑/↓, persists positions.json)
+4. Launchpad pagination dots + Super+Shift+L keybinding — Mavericks visual fidelity
+5. Pure logic extraction for calculator/finder/diskutil/keychain/stickies/power-ui/settings/about/calendar/reminders
+6. Bug fixes: mv-mail/mv-eject/mv-rename with portable tests
+7. Test coverage: mv-stickies (72), mv-finder-columns (24), mv-finder-search (68), mv-diskutil (34), mv-power-ui (43), mv-keychain (18), mv-about (162 lines), mv-settings (130 lines), mv-launchpad (13), mv-calendar (9), mv-reminders (9)
+8. mv-calendar/mv-reminders coverage revival
+9. WORK_CLAIMS.md board creation — good practice
+
+**ADAPT (1 item):**
+- failover-guard-plugin.js deleted — move to `.opencode/scripts/` if needed, not in runtime packages
+
+**REJECTED (3 items — CRITICAL):**
+1. **DELETE mavericks_appmenu.py** (97 lines) — breaks global menu integration (PR #7). Apps lose GMenu export to panel.
+2. **DELETE mv-apple panel plugin** (mv-apple.c/.desktop/.svg) — breaks Apple menu () with 7 Mavericks commands. Core feature.
+3. **DELETE mv_dialogs.py** (249 lines) — removes shared Mavericks dialog helpers (SheetDialog, alert, confirm_discard, confirm_delete). No replacement; apps fall back to stock GTK dialogs.
+
+**NEEDS-HUMAN (1 item):**
+- REMOVE packages/mavericks-theme/NOTICE — attribution file removal; verify Poppy/OS X Revieve theme license permits this
+
+### Collision Analysis
+qwen-port-work **directly reverts PR #7 (global menu + Apple menu)** which is a mandatory owner directive. PR #7 adds:
+- vala-panel-appmenu package
+- mavericks_appmenu.py helper
+- mv-apple native C panel plugin
+- Gtk.Application lifecycle migration for ALL apps
+- Force Quit / Recent Items dialogs
+
+qwen-port-work deletes the helper, plugin, and dialog infrastructure. **Cannot merge qwen-port-work as-is.**
+
+### Owner PRs Status
+| PR | Branch | CI | Mergeable | Action |
+|----|--------|----|-----------|--------|
+| #3 | ci/theme-validation-gate | FAIL (Static, Unit, Contrib) | UNKNOWN | Fix CI, merge |
+| #4 | fix/self-contained-firstboot | FAIL (Static, Profile Sync, Contrib) | UNKNOWN | Fix CI, merge |
+| #5 | fix/finder-launcher | - | UNKNOWN | Verify, merge |
+| #6 | fix/panel-config-validity | FAIL (Static, Contrib) | UNKNOWN | Fix CI, merge |
+| #7 | feat/global-menu-appmenu | - | - | **MANDATORY** merge --no-ff |
+| #19 | feat/xfwm-double-click-notify-sync | - | CONFLICTING | Rebase on main, merge |
+
+### Decisions
+
+1. **MERGE PR #7 (feat/global-menu-appmenu) FIRST** — mandatory owner directive, implements core Mavericks desktop metaphor (global menu + Apple menu + app menus)
+2. **FIX CI on PR #3, #4, #6** — unblock owner PRs
+3. **REBASE AND MERGE PR #19** — resolve conflict with main
+4. **CHERRY-PICK ACCEPTED qwen improvements** onto post-PR#7 main:
+   - Lazy GTK factory pattern for all 12 apps
+   - ShimVariant for DBus/Secret
+   - mv_launchpad_edit.py + pagination dots + Super+Shift+L
+   - All bug fixes + test additions
+   - WORK_CLAIMS.md (integrate, not replace)
+5. **PRESERVE from current HEAD:** mavericks_appmenu.py, mv-apple plugin, mv_dialogs.py, global menu integration
+6. **REJECT qwen deletions** of global menu components
+7. **NEEDS-HUMAN:** Verify NOTICE removal license compliance before accepting
+8. **RUN FULL GATE SUITE** post-merge: check-sync.sh, all test scripts, pytest mavericks-apps tests
+9. **PUSH TO ORIGIN** per PUBLISH RULE
+
+### Verification Commands
+```bash
+# After merging PR #7 and cherry-picking qwen ACCEPTED items:
+./scripts/check-sync.sh
+python3 scripts/test-dock-launchers.py
+python3 scripts/test-window-keys.py
+python3 scripts/test-network-stack.py
+python3 scripts/test-global-menu.py
+python3 scripts/test-panel-config.py
+python3 scripts/test-finder-launcher.py
+python3 scripts/test-mv-finder-columns.py
+python3 scripts/test-mv-finder-search.py
+python3 scripts/test-mv-diskutil.py
+python3 scripts/test-mv-stickies.py
+python3 scripts/test-mv-keychain.py
+python3 scripts/test-mv-power-ui.py
+python3 scripts/test-mv-calendar.py
+python3 scripts/test-mv-reminders.py
+python3 -m pytest packages/mavericks-apps/src/mavericks-apps/tests/
+```
+
+### Impact on Project Objectives (§13.2 Canonical Inventory)
+- **P0 Global Menu / Apple Menu / App Menus:** RESTORED via PR #7 (was deleted by qwen)
+- **P0 Launchpad:** IMPROVED via qwen ACCEPTED items (pagination dots, edit dialog, Super+Shift+L)
+- **P0 Finder:** IMPROVED via qwen ACCEPTED items (headless logic, tests)
+- **P0 Mission Control / Spotlight / Control Center / Notification Center / Quick Look / Preview / Screenshot / Activity Monitor / System Info / Disk Utility / System Settings / Power UI / Trash / Archive Utility / Menu Bar / Dock / Application Menu / Global Dialogs / File Chooser / Context Menus / Keyboard Shortcuts / Desktop / Window Management:** Unchanged
+- **P1 Applications:** mv-calculator, mv-stickies, mv-diskutil, mv-keychain, mv-about, mv-settings, mv-calendar, mv-reminders — all IMPROVED via headless tests
+
+### Next Steps
+1. Execute merge/fix/cherry-pick sequence above
+2. Update PROGRESS.md with current status
+3. Continue P0 application completion per §13.8 autonomous loop
