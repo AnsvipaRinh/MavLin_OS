@@ -476,7 +476,7 @@ def main():
 
     # Add navigation hints at the end
     if total_pages > 1:
-        nav = f"Page {page + 1}/{total_pages} — ←/→ or PgUp/PgDn to navigate"
+        nav = f"Page {page + 1}/{total_pages} — PgUp/PgDn to navigate"
         print(f"\0icon\x1fgo-previous\0info\x1f{nav}")
 
     return 0
