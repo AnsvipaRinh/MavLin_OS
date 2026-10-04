@@ -154,6 +154,10 @@ def main():
     assert "build_photos_menu" in photos
     assert "Gtk.Application(application_id=" in photos
     assert "Gtk.main_quit()" not in photos
+    assert "Gtk.main()" not in control
+    assert "Gtk.main_quit()" not in control
+    assert "Gtk.main()" not in power_ui
+    assert "Gtk.main_quit()" not in power_ui
     assert "sys.exit(main())" in photos
     for action in ("Import Photos…", "New Album…", "All Photos", "Favorites",
                    "Recently Added", "Start / Stop Slideshow"):
