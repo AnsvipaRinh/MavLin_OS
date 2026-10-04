@@ -273,7 +273,12 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
   `scripts/session-reuse.py stuck --threshold 600` (exit 2 = STUCK) +
   `scripts/session-reuse.py stalled <id> --threshold 600` for idle sessions
   (exit 2 = status-blind provider wait: 0-token shell, abort it).
-  STUCK/STALLED → `abort` if still running, then `migrate` (same `task_id`).
+  **CRITICAL: You MUST use the worker/model returned by preflight.**
+  If preflight returns `PREFLIGHT_OK subagent_type=<worker> model=<model>`,
+  you MUST use that exact `subagent_type` in your Task call.
+  If preflight returns `PREFLIGHT_WAIT` or `PRIMARY_COOLDOWN`, do NOT launch
+  a Task — wait or handle as specified. NEVER launch a Task with a worker
+  that preflight says is in cooldown.
 - SINGLE-FLIGHT: at most ONE active worker Task per objective. If the previous
   Task for this objective returned no terminal result yet (busy/retry, or
   `decide` says WAIT): do NOT launch a second Task for the same objective.
