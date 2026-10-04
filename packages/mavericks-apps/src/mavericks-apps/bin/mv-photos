@@ -756,7 +756,6 @@ def run_gui(application=None):
     if application is not None:
         application.add_window(win)
         return win
-    Gtk.main()
     return win
 
 

@@ -94,6 +94,8 @@ xdg-utils
 xdotool
 xfce4-notifyd
 xfce4-panel
+vala-panel-appmenu
+appmenu-gtk-module
 xfce4-power-manager
 xfce4-screensaver
 xfce4-screenshooter

@@ -214,7 +214,8 @@ def main():
         if command not in lifecycle_exceptions:
             assert "run_application" in app, f"{app_name} does not use the global-menu runner"
         assert "Gtk.main()" not in app, f"{app_name} still owns a private Gtk.main loop"
-        assert "Gtk.Application" in app, f"{app_name} does not use Gtk.Application"
+        uses_global_menu = "run_application" in app or "Gtk.Application" in app
+        assert uses_global_menu, f"{app_name} does not use Gtk.Application or run_application"
 
     print("OK: global menu integration contract")
 

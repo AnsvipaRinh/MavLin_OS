@@ -758,12 +758,10 @@ def build_reminders_menu(app, app_name, get_window, add_action):
     return menu
 
 def main():
-    w = Reminders()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
-    return 0
-
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.reminders", "Reminders", Reminders, sys.argv, build_reminders_menu))
 
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")

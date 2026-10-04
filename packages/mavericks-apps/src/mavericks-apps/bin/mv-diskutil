@@ -692,16 +692,16 @@ class DiskUtilWindow(Gtk.Window):
 
     def on_key_press(self, widget, event):
         if event.keyval == Gdk.keyval_from_name("Escape"):
-            Gtk.main_quit()
+            # Gtk.main_quit() # removed by migration
             return True
         return False
 
 
 def main():
-    win = DiskUtilWindow()
-    win.connect("destroy", Gtk.main_quit)
-    Gtk.main()
-
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.DiskUtility", "Disk Utility", DiskUtilWindow, sys.argv))
 
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")

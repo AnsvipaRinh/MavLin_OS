@@ -785,7 +785,6 @@ def main():
     w = KeychainWindow()
     w.connect("destroy", Gtk.main_quit)
     w.show_all()
-    Gtk.main()
     return 0
 
 

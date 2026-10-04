@@ -996,15 +996,10 @@ class VoiceMemos(Gtk.Window):
 
 
 def main():
-    open_path = sys.argv[1] if len(sys.argv) > 1 else None
-    if open_path and not os.path.isfile(open_path):
-        print("mv-voice: not a file: %s" % open_path, file=sys.stderr)
-        open_path = None
-    w = VoiceMemos(open_path=open_path)
-    w.connect("destroy", Gtk.main_quit)
-    Gtk.main()
-    return 0
-
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.voice", "Voice Memos", VoiceMemos, sys.argv))
 
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")

@@ -789,20 +789,10 @@ if _GUI:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Time Machine — browse and restore backups "
-                    "(restic backend, btrfs local snapshots)")
-    parser.add_argument("--check-due", action="store_true",
-                        help="timer entry: backup when due, then exit")
-    args = parser.parse_args()
-
-    if args.check_due:
-        sys.exit(check_due())
-
-    win = TimeMachineWindow()
-    win.show_all()
-    Gtk.main()
-
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.TimeMachine", "Time Machine", TimeMachineWindow, sys.argv))
 
 if __name__ == "__main__":
     main()

@@ -661,12 +661,10 @@ class FontBookWindow(Gtk.Window):
 
 
 def main():
-    w = FontBookWindow()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
-    return 0
-
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.fontbook", "Font Book", FontBookWindow, sys.argv))
 
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")

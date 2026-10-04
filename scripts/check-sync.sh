@@ -81,7 +81,13 @@ done < <(find packages archiso-profile configs -name '*.xml' -print0 2>/dev/null
 echo "--- desktop files ---"
 while IFS= read -r -d '' f; do
   if command -v desktop-file-validate >/dev/null 2>&1; then
-    desktop-file-validate "$f" 2>/dev/null && ok "desktop $(basename "$f")" || bad "desktop $f"
+    if grep -q '^Type=X-XFCE-PanelPlugin$' "$f"; then
+      ok "desktop $(basename "$f") (Xfce panel plugin, skipped)"
+    elif desktop-file-validate "$f" 2>/dev/null; then
+      ok "desktop $(basename "$f")"
+    else
+      bad "desktop $f"
+    fi
   else
     ok "desktop-skip $(basename "$f") (no desktop-file-validate)"
   fi

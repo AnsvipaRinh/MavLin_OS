@@ -99,7 +99,7 @@ else
   rm -f /etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf
 fi
 systemctl disable --now iwd.service 2>/dev/null || true
-systemctl disable --now systemd-networkd.service 2>/dev/null || true
+systemctl disable --now systemd-networkd.service systemd-networkd-wait-online.service 2>/dev/null || true
 # NOTE: keep systemd-resolved enabled — /etc/resolv.conf points at its stub;
 # disabling it would break DNS. NetworkManager cooperates with resolved.
 systemctl enable NetworkManager.service

@@ -542,28 +542,10 @@ class FinderSearchWindow(Gtk.Window):
 
 
 def main():
-    args = sys.argv[1:]
-    if args and args[0] in ("-h", "--help"):
-        print("usage: mv-finder-search [FOLDER] [QUERY]\n"
-              "  FOLDER  search root (default: current directory)\n"
-              "  QUERY   initial search text")
-        return 0
-    if len(args) > 2:
-        print("usage: mv-finder-search [FOLDER] [QUERY]", file=sys.stderr)
-        return 2
-    root = args[0] if args else os.getcwd()
-    query = args[1] if len(args) > 1 else ""
-
-    if not os.path.isdir(root):
-        print("mv-finder-search: not a folder: %s" % root, file=sys.stderr)
-        return 2
-
-    win = FinderSearchWindow(root, query)
-    if not os.access(root, os.R_OK):
-        win.apply_error(win.generation, "cannot read %s (permission denied)" % root)
-    Gtk.main()
-    return 0
-
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.FinderSearch", "Finder Search", FinderSearchWindow, sys.argv))
 
 if __name__ == "__main__":
     sys.exit(main())

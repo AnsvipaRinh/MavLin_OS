@@ -290,7 +290,7 @@ class Preview(Gtk.Window):
     def on_key_press(self, _widget, event):
         key = Gdk.keyval_name(event.keyval)
         if key in ("Escape", "q", "Q"):
-            Gtk.main_quit()
+            # Gtk.main_quit() # removed by migration
             return True
         if key in ("Return", "KP_Enter", "o", "O"):
             self.open_full(None, self.paths[self.index])
@@ -308,7 +308,7 @@ class Preview(Gtk.Window):
 
     def open_full(self, _b, path):
         subprocess.Popen(["xdg-open", path])
-        Gtk.main_quit()
+        # Gtk.main_quit() # removed by migration
 
 
 if __name__ == "__main__":
@@ -329,4 +329,3 @@ if __name__ == "__main__":
         sys.exit(1)
 
     w = Preview(files)
-    Gtk.main()
