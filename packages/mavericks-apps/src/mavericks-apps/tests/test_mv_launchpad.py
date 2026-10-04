@@ -234,6 +234,15 @@ def test_position_booleans_are_rejected():
     print("PASS: test_position_booleans_are_rejected")
 
 
+def test_corrupt_folder_config_is_not_overwritten():
+    """Corrupt folders.json must not be replaced with defaults."""
+    source = open(SCRIPT).read()
+    assert 'config_valid = False' in source
+    assert 'if config_exists and not config_valid:' in source
+    assert 'Preserve a corrupt/unreadable user file' in source
+    print("PASS: test_corrupt_folder_config_is_not_overwritten")
+
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
