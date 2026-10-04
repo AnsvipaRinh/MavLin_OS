@@ -1,0 +1,15 @@
+[Unit]
+Description=MavLinOS one-time post-install hardware/profile setup
+After=local-fs.target network-online.target
+Wants=network-online.target
+ConditionPathExists=/usr/local/bin/mavericks/mavericks-firstboot.sh
+ConditionPathExists=!/etc/mavericks/firstboot-complete
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mavericks/mavericks-firstboot.sh
+ExecStartPost=/usr/bin/install -Dm644 /dev/null /etc/mavericks/firstboot-complete
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
