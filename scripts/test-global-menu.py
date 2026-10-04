@@ -10,6 +10,7 @@ PACKAGES = Path("archiso-profile/releng/packages.x86_64")
 PKGBUILD = Path("packages/vala-panel-appmenu/PKGBUILD")
 APPMENU_HELPER = Path("packages/mavericks-apps/src/mavericks-apps/lib/mavericks_appmenu.py")
 CALCULATOR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calculator")
+TEXTEDIT = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-textedit")
 XFWM = Path("configs/desktop/xfce/xfwm4.xml")
 APPLE_PLUGIN = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c")
 APPLE_DESKTOP = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
@@ -108,6 +109,11 @@ def main():
     assert "app.set_app_menu(menu)" in helper
     assert "application.add_window(window)" in helper
     assert "window.present()" in helper
+    assert "menu_builder=None" in helper
+    textedit = TEXTEDIT.read_text(encoding="utf-8")
+    assert "build_textedit_menu" in textedit
+    for action in ("New", "Open…", "Save", "Undo", "Redo", "Cut", "Copy", "Paste", "Find", "Bold", "Italic", "Underline"):
+        assert action in textedit, f"TextEdit menu missing {action}"
     calculator = CALCULATOR.read_text(encoding="utf-8")
     assert "com.mavlinos.Calculator" in calculator
     assert "install_application_menu" in calculator
