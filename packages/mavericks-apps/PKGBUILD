@@ -28,7 +28,7 @@ optdepends=('poppler-glib: PDF preview in Quick Look'
              'dictd: offline WordNet definitions in Dictionary (dict protocol)'
              'localsend-bin: LocalSend GUI backend for AirDrop receive (AUR)'
              'localsend-cli-bin: LocalSend CLI backend for AirDrop send (AUR)'
-            'skippy-xd: optional native Exposé-style Mission Control surface')
+            'skippy-xd-git: optional native Exposé-style Mission Control surface (AUR)')
 makedepends=()
 # NOTE: sources live in ./src/mavericks-apps/ (repo-local, reproducible).
 # Build with: makepkg -si (from this directory). No network fetch required.
