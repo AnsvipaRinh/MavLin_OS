@@ -148,6 +148,15 @@ def main():
     for action in ("New Note", "Print Note…", "Find in Stickies…",
                    "Delete Note", "Collapse / Expand Note"):
         assert action in stickies, f"Stickies menu missing {action}"
+    mail = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-mail").read_text(encoding="utf-8")
+    assert "build_mail_menu" in mail
+    for action in ("New Message", "Open Mail", "Close Window"):
+        assert action in mail, f"Mail menu missing {action}"
+    keychain = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-keychain").read_text(encoding="utf-8")
+    assert "build_keychain_menu" in keychain
+    for action in ("New Password Item", "Password Generator", "Find",
+                   "Delete Selected Item", "Lock Keychain Items"):
+        assert action in keychain, f"Keychain menu missing {action}"
     reminders = REMINDERS.read_text(encoding="utf-8")
     assert "build_reminders_menu" in reminders
     for action in ("New Task", "New List", "Edit Selected Task",
