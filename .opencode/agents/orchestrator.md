@@ -137,6 +137,19 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
     **CRITICAL: If you see "Free Usage Exceeded", "rate limit", "quota exceeded", "quota exceeded", "rate limit", or any quota/rate-limit error in the Task result, you MUST IMMEDIATELY execute the failure recovery protocol below. Do NOT wait for user. Do NOT ask for confirmation. Execute the recovery commands NOW.**
     **⚠️ CRITICAL: The OpenCode server MUST be restarted after any plugin/config changes for the failover-guard plugin to load. If you haven't restarted OpenCode since the last plugin/config change, the failover guard will NOT work. Restart OpenCode/desktop now if you haven't already.**
 
+    **MANDATORY FAILURE RECOVERY CHECKLIST — YOU MUST EXECUTE EVERY STEP IN ORDER:**
+    □ a) Extract failure info: task_id, model, error_text, oid from Task result
+    □ b) Run: `bash -c 'scripts/session-reuse.py classify-error --record-model <model> --cooldown <sec> "<error_text>"'`
+    □ c) Read classification verdict from output
+    □ d) If verdict is MODEL_QUOTA/MODEL_RATE_LIMIT/MODEL_TIMEOUT/PROVIDER_ERROR/FREE_USAGE_EXHAUSTED:
+       □ Run: `bash -c 'scripts/session-reuse.py migrate <task_id> --objective "<objective>" --delay <observed_delay>'`
+       □ Run: `bash -c 'scripts/session-reuse.py register <task_id> --agent <new_worker> --objective "<objective>" --task "<task_text>" --model <new_model> --oid <oid> --failure <verdict>'`
+       □ Verify new worker is healthy via preflight
+       □ Continue loop with new worker — DO NOT wait for user
+    □ If verdict is NETWORK/CONTEXT/SESSION/AGENT/PROJECT/AUTH/UNKNOWN: follow recovery matrix, NO auto-migration
+    □ **VERIFICATION:** After recovery, run preflight again to confirm new worker is healthy
+    □ Continue autonomous loop IMMEDIATELY — do NOT wait for user
+
     a) Extract the failure information from the last Task result:
        - task_id (the subagent session id returned by the Task tool)
        - model (the worker model that executed the Task)
@@ -266,9 +279,9 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
     is unrecoverable (SESSION_UNAVAILABLE after verification, CONTEXT_EXHAUSTED,
     SESSION_ERROR) — never merely because the worker changes.
 - BEFORE every Task call run preflight + watchdog-ensure + stuck-gate:
-  **YOU MUST RUN THESE EXACT BASH COMMANDS IN ORDER:**
-  1. `bash -c 'scripts/session-reuse.py preflight'` — parse output:
-     - `PREFLIGHT_OK subagent_type=<worker> model=<model>` → use that `subagent_type`
+  **YOU MUST RUN THESE EXACT BASH COMMANDS IN ORDER. DO NOT SKIP ANY STEP.**
+  1. `bash -c 'scripts/session-reuse.py preflight'` — YOU MUST RUN THIS COMMAND. Parse output:
+     - `PREFLIGHT_OK subagent_type=<worker> model=<model>` → use that `subagent_type` in your Task call
      - `PRIMARY_COOLDOWN <worker> (<model> retry-in <time>): do NOT launch primary` → do NOT launch, use the worker from `PREFLIGHT_OK` line
      - `PREFLIGHT_WAIT` / `PREFLIGHT_UNAVAILABLE` → do NOT launch Task
   2. `python3 scripts/task-watchdog.py --ensure --all`
@@ -285,6 +298,13 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
   You MUST use the worker returned by preflight, even if it differs from the
   primary worker. NEVER override preflight's worker selection.**
   **⚠️ CRITICAL: The OpenCode server MUST be restarted after any plugin/config changes for the failover-guard plugin to load. If you haven't restarted OpenCode since the last plugin/config change, the failover guard will NOT work. Restart OpenCode/desktop now if you haven't already.**
+  **⚠️ MANDATORY CHECKLIST BEFORE EVERY TASK CALL:**
+  - [ ] I ran `bash -c 'scripts/session-reuse.py preflight'` and captured output
+  - [ ] I parsed the output and extracted the `subagent_type` 
+  - [ ] I used THAT EXACT `subagent_type` in my Task call
+  - [ ] I did NOT use the primary worker if preflight returned a different worker
+  - [ ] I ran watchdog-ensure and stuck-gate
+  - [ ] I did NOT skip any step
 - SINGLE-FLIGHT: at most ONE active worker Task per objective. If the previous
   Task for this objective returned no terminal result yet (busy/retry, or
   `decide` says WAIT): do NOT launch a second Task for the same objective.
