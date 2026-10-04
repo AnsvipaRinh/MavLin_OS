@@ -7,7 +7,7 @@ OUT="${1:-/tmp/mavericks-repo}"
 mkdir -p "$OUT"
 # Default set: packages consumed by the ISO / installed system.
 # epiphany-mavericks-theme is DEFERRED (Firefox ESR is the browser) — build only with --all.
-PKGS="mavericks-apps mavericks-theme macbook12-audio-driver"
+PKGS="mavericks-apps mavericks-theme macbook12-audio-driver vala-panel-appmenu"
 [[ "${2:-}" == "--all" ]] && PKGS="$PKGS epiphany-mavericks-theme"
 for pkg in $PKGS; do
   dir="packages/$pkg"
