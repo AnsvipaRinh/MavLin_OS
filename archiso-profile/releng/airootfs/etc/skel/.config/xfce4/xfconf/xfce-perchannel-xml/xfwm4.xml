@@ -7,6 +7,8 @@
   <property name="general" type="empty">
     <property name="theme" type="string" value="Mavericks"/>
     <property name="title_font" type="string" value="San Francisco 11"/>
+    <!-- Global AppMenu owns the top application menu; maximized windows must not retain a duplicate title bar. -->
+    <property name="titleless_maximize" type="bool" value="true"/>
     <property name="show_dock_shadow" type="bool" value="true"/>
     <property name="show_popup_shadow" type="bool" value="true"/>
     <property name="shadow_delta_height" type="int" value="8"/>
