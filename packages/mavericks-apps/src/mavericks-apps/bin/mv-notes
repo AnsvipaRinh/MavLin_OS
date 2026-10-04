@@ -936,9 +936,6 @@ def build_notes_menu(app, app_name, get_window, add_action):
     add_action("new-folder", lambda: w().add_folder(None) if w() else None)
     add_action("delete", lambda: w().del_note(None) if w() else None)
     add_action("restore", lambda: w().restore_note(None) if w() else None)
-    add_action("delete-folder", lambda: w().delete_folder_action(
-        w()._folder_name(w().fstore[w().fstore.get_iter_first()][0]))
-        if False else None)
     add_action("export", lambda: w().export_note(None) if w() else None)
     add_action("print", lambda: w().print_note(None) if w() else None)
     add_action("find", lambda: w().search.grab_focus() if w() else None)
