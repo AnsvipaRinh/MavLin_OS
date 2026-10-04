@@ -187,6 +187,15 @@ def test_folder_members_are_not_duplicated_on_main_grid():
     print("PASS: test_folder_members_are_not_duplicated_on_main_grid")
 
 
+def test_position_conflicts_and_invalid_values_do_not_drop_apps():
+    """Malformed or colliding persisted positions must preserve every app."""
+    source = open(SCRIPT).read()
+    assert 'isinstance(pos, int)' in source
+    assert 'pos not in positioned' in source
+    assert 'or app_id not in positions' not in source
+    print("PASS: test_position_conflicts_and_invalid_values_do_not_drop_apps")
+
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
@@ -221,6 +230,7 @@ if __name__ == "__main__":
         test_page_navigation_callbacks,
         test_folder_cells_count_toward_pagination,
         test_folder_members_are_not_duplicated_on_main_grid,
+        test_position_conflicts_and_invalid_values_do_not_drop_apps,
         test_full_integration_basic,
     ]
 
