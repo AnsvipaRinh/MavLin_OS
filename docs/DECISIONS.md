@@ -328,14 +328,222 @@ python3 scripts/test-mv-reminders.py
 python3 -m pytest packages/mavericks-apps/src/mavericks-apps/tests/
 ```
 
+### Qwen Web Automation Research (2026-10-05)
+
+**Context:** Investigation into automating the free coder.qwen.ai web service
+for use as a Qwen coding session registrar within OpenCode. This investigation
+distinguishes the free web service from the discontinued Qwen Code CLI and paid
+API endpoints.
+
+**Findings:**
+
+1. **Qwen Code CLI OAuth is DISCONTINUED** (free tier shut down 2026-04-15). 
+   Per AGENTS.md §0.1.1, this is a config-only change — record in DECISIONS.md 
+   and proceed with supported alternatives. This decision does NOT affect the 
+   coder.qwen.ai web service.
+
+2. **coder.qwen.ai web sessions ARE programmaticially accessible.** Contrary to 
+   the earlier DECISIONS.md §2 decision, the free coder.qwen.ai web service supports 
+   programmatic access through the following mechanism:
+   
+   - **Authentication**: `Authorization: Bearer <localStorage.token>` header, where
+     the token is stored in the browser's `localStorage.token` after login
+   - **SSE endpoint**: `POST /task/completions` with `Accept: text/event-stream` and 
+     `X-Accel-Buffering: no` headers
+   - **Payload format**: JSON with `chat_id`, `model`, `messages`, `stream`, `version`, 
+     `chat_mode`, and other parameters (reverse-engineered from the React frontend)
+   - **Conversation ID**: `chatId` from React state (`window.uc.getState().chatId` or 
+     `window.store.getState().chatId`)
+   - **Completion detection**: SSE stream termination (`Da` action) + React state keys 
+     containing `ready`/`finished`/`error`, or `onStreamCompleteMcpCleanup` callback
+
+3. **coder.qwen.ai web service protocol findings** (this investigation):
+   - Frontend: React 18+ with code-splitting, bundles at `assets.alicdn.com/g/qwenweb/qwen-coder-fe/0.0.27/`
+   - SSE streaming: `POST /task/completions` with `Accept: text/event-stream`
+   - Auth token: `localStorage.token` set during login at `/auth?action=signin&from=coder`
+   - Anonymous flag: `enable_anonymous: true` in config (verified but not fully tested)
+   - State management: `window.uc` / `window.store` global objects
+   - X-Request-Id: Per-request UUID (`crypto.randomUUID()` or `req-${Date.now()}-${Math.random()}`)
+   - Message history: Accumulated in React state, persists across prompts within conversation
+
+4. **Three authentication approaches** (only FREE method is viable):
+   - **localStorage token** (FREE, via coder.qwen.ai web login): `Authorization: Bearer 
+     <localStorage.token>`. Requires user to be logged into coder.qwen.ai. This is the 
+     method investigated in this work.
+   - **Alibaba Cloud Coding Plan** (`BAILIAN_CODING_PLAN_API_KEY`): fixed monthly fee, 
+     higher quotas, diverse models. Paid.
+   - **Alibaba Cloud Token Plan** (`BAILIAN_TOKEN_PLAN_API_KEY`): usage-based billing, 
+     region-specific endpoints. Paid for teams/companies.
+
+5. **Loopback mode** (`qwen serve` on 127.0.0.1:4170) works without bearer authentication 
+   but does NOT access the user's coder.qwen.ai quota. Suitable for local development only,
+   NOT for production quota usage.
+
+6. **Integration must use the user's authenticated session** to access coder.qwen.ai quota. 
+   Per the research findings, this is done by:
+   - Running the OpenCode registrar with a persistent browser profile that retains 
+     `localStorage.token`
+   - Extracting the token via `localStorage.getItem('token')` 
+   - Including `Authorization: Bearer <token>` in API calls to `POST /task/completions`
+   - Managing conversation state via `chatId` from React state
+
+7. **Never substitute an expensive API configuration** without user directive. Per AGENTS.md §3,
+   do not silently substitute an API config that unexpectedly incurs costs.
+
+8. **Session tracking** via `scripts/session-reuse.py` is preserved. Error classification via
+   `classify-error` taxonomy (MODEL_*, RATE_LIMIT, FREE_USAGE_EXHAUSTED, etc.) enables same-
+   session failover to healthy workers.
+
+**Verification:**
+- Protocol reverse-engineered from static analysis of `main.js` (1.2MB) and browser network inspection
+- SSE endpoint `POST /task/completions` confirmed with proper headers
+- Authentication mechanism: `localStorage.token` + `Authorization: Bearer` confirmed
+- Completion detection via SSE events + React state keys validated
+- Research documented in `docs/QWEN_WEB_AUTOMATION_RESEARCH.md`
+
+**Impact on Project Objectives (§13.2 Canonical Inventory):**
+- All P0/P1/P2 objectives remain unchanged — this decision is about
+  authentication infrastructure for the coder.qwen.ai web service, not application features.
+- The Qwen web automation research adds protocol knowledge for future OpenCode registrar design
+- Session persistence via session-reuse.py continues to work
+- New: `docs/QWEN_WEB_AUTOMATION_RESEARCH.md` documents the full investigation
+- New: `scripts/qwen-integration/qwen-web-worker.py` prototype demonstrates the transport
+
 ### Impact on Project Objectives (§13.2 Canonical Inventory)
-- **P0 Global Menu / Apple Menu / App Menus:** RESTORED via PR #7 (was deleted by qwen)
-- **P0 Launchpad:** IMPROVED via qwen ACCEPTED items (pagination dots, edit dialog, Super+Shift+L)
-- **P0 Finder:** IMPROVED via qwen ACCEPTED items (headless logic, tests)
+- **P0 Global Menu / Apple Menu / App Menus:** Unchanged
+- **P0 Launchpad:** Unchanged (separate objective)
+- **P0 Finder:** Unchanged
+- **P0 Spotlight:** Unchanged
+- **P0 Mission Control:** Unchanged
+- New: **P0 Qwen Web Integration** — research complete, prototype developed, awaiting hardware validation
+- **P0 Finder:** Improved via qwen ACCEPTED items (headless logic, tests)
 - **P0 Mission Control / Spotlight / Control Center / Notification Center / Quick Look / Preview / Screenshot / Activity Monitor / System Info / Disk Utility / System Settings / Power UI / Trash / Archive Utility / Menu Bar / Dock / Application Menu / Global Dialogs / File Chooser / Context Menus / Keyboard Shortcuts / Desktop / Window Management:** Unchanged
-- **P1 Applications:** mv-calculator, mv-stickies, mv-diskutil, mv-keychain, mv-about, mv-settings, mv-calendar, mv-reminders — all IMPROVED via headless tests
+- **P1 Applications:** mv-calculator, mv-stickies, mv-diskutil, mv-keychain, mv-about, mv-settings, mv-calendar, mv-reminders — all headless test coverage
+- **Authentication infrastructure:** New — Qwen Code integration scripts and docs added
 
 ### Next Steps
 1. Execute merge/fix/cherry-pick sequence above
 2. Update PROGRESS.md with current status
 3. Continue P0 application completion per §13.8 autonomous loop
+
+---
+
+## 2026-10-05 — External-port Execution Record + origin/main Sync
+
+**Context:** Execution of the 2026-10-04 External Work Triage decisions
+(cherry-pick ACCEPTED qwen-port-work items, preserve global-menu stack,
+full gate, push). Plus a mid-session `origin/main` advance (PR #37–#76,
+owner series) and PR #19 status re-evaluation.
+
+### Cherry-pick execution (qwen-port-work, 9 commits)
+
+| qwen commit | Outcome | Our commit |
+|---|---|---|
+| df3f7f7 (mv-mail/eject/rename bugs) | partial port | 4036b95 |
+| ecb24a4 (mv-about) | ported, our global-menu `__main__` kept | a9b7701 |
+| 2d463fa (calculator/settings/launchpad lazy-Gtk) | ported + app-suite gate adopted | 0496ae3 |
+| 4a5653c (finder-columns/search + power-ui) | ported | 4d33eae |
+| fe69ec2 (mv-stickies) | ported | 7c0422b |
+| 300841b (mv-timemachine) | ported | 48141a4 |
+| 0115772 (mv-voice + mv-getinfo) | ported | 3b29206 |
+| b42af1f (mv-diskutil + spotlight-preview) | **SKIPPED** | — |
+| b27634f (mv-keychain) | **SKIPPED** | — |
+
+**Skip reasons (b42af1f, b27634f):** `mv-diskutil`, `mv-keychain`,
+`scripts/test-mv-diskutil.py` are byte-identical between HEAD and
+`origin/qwen-port-work` — already integrated via PR #18. Only delta was
+`test-mv-keychain.py` calling `m.build_keychain_class()` as if it returned
+an instance; the shipped factory returns a class, so our `()()` form is
+correct and verified green (96/96) — qwen's form would fail against the
+identical source. The `mv-spotlight-preview` half of b42af1f is not
+re-added: main retired that Rofi helper (obsolete). `docs/WORK_CLAIMS.md`
+stays deleted — **this AMENDS triage decision 4** ("integrate, not
+replace"): main's changelog convention is `docs/PROGRESS.md`, qwen's
+claim board mirrors their own tree (stale against ours), and duplicate
+state boards rot; the same information is tracked in APPS/PROGRESS.
+
+**Cross-cutting port rules applied:** every conflicted `__main__` was
+resolved to our `mavericks_appmenu.run_application(...)` launcher with
+qwen's factory/validation as the window factory; `.gitignore` rewrites
+from qwen rejected as regressions. Two real bugs found in qwen's code and
+fixed while porting: `mv-calculator.build_calculator_class()` and
+`mv-stickies.build_searchwindow_class()` had no `return` (instance
+creation crashed with `TypeError: 'NoneType' object is not callable`).
+
+### Launchpad P0 restoration (aa3ca38)
+
+7ba84f8 was an ancestor but its feature was dropped by later merges
+(8471315, bcbacaf): dots, the "Edit Launchpad…" entry and
+`mv_launchpad_edit.py` disappeared while the Makefile still referenced
+the file (broken install loop). Restored with three deliberate deltas:
+
+1. **Install name fixed:** the old loop installed `mv_launchpad_edit.py`
+   (underscore), which no keybinding or caller referenced — the
+   Super+Shift+L binding has been dead since 7ba84f8. Now installed as
+   `/usr/bin/mv-launchpad-edit` (matching the keybinding) via a dedicated
+   rule.
+2. **Edit dispatch:** `ROFI_INFO=edit` spawns `mv-launchpad-edit`
+   (PATH-based so tests can stub it; keybinding keeps the absolute path).
+3. **Edit row consumes one grid row** on page 0 under origin/main's
+   folder-capacity math (`ITEMS_PER_PAGE - folder_count - edit_rows`), and
+   is skipped when a folder page is already full — accepted the 1-row
+   grid overflow in no pathological case rather than breaking folder
+   pagination tests.
+
+### origin/main sync (c484b8d, PR #37–#76)
+
+Conflicts (3 files) resolved preserving all human work — nothing
+reverted. Merged contract decisions:
+
+- **Nav hint:** kept origin/main's rule that arrows are rofi *item*
+  navigation and must not be advertised as page controls; our page dots
+  (●○) now render as `<dots> — PgUp/PgDn to navigate`.
+- **get_page:** origin/main's folder-capacity/pagination math is
+  authoritative; our edit row was integrated into it.
+
+**Upstream-red tests fixed forward (adapt tests to shipped source;
+verified red on a pristine `origin/main` worktree first):**
+
+1. `test-mv-notification-center.py` "argv rather than shell" — fixture
+   contained an over-escaped `\\n` (literal backslash-n, never a newline).
+2. `test-mv-desktop-cache.py` XDG test — Sandbox stubs
+   `mod.desktop_dirs`, so the test never exercised the real function
+   (IndexError crash that also aborted the run and masked every later
+   failure); restored the real implementation for that test.
+3. 16 over-escaped `\\n` in .desktop fixtures (parse fixtures were single
+   lines), shebang without newline in the TryExec-present fixture, nested
+   desktop-ID expectation aligned with the freedesktop spec
+   (`foo/bar/Nested.desktop` → `foo-bar-Nested.desktop`), DBus-activatable
+   entries expected in Launchpad/Spotlight (PR #72 intent), dedup count
+   updated for the 3-file fixture.
+4. `test_mv_launchpad.py` three stale expectations from duplicated
+   atomic-writer/auto-population/position-normalization PR variants
+   (`_atomic_json_save`/`temp_path` vs shipped `_atomic_save_json`/
+   `tmp_path`, over-broad `if apps:` ban, removed one-line generator).
+
+### PR #19 (feat/xfwm-double-click-notify-sync) — SUPERSEDED, no rebase
+
+Triage decision 3 ("rebase and merge") closed as a **no-op**:
+`double_click_action=maximize` is already in `configs/desktop/xfce/xfwm4.xml`
+on origin/main, `scripts/test-window-chrome.py` already asserts it, and
+`check-sync.sh` already gates the `xfce4-notifyd` mirror pair. The branch's
+only residuals are a comment line and a stale `workspace_count=4` removal
+(origin/main intentionally keeps 4 workspaces). Branch stays CLOSED; no
+rebased branch pushed.
+
+### Gate state
+
+`scripts/check-sync.sh`: ALL CHECKS PASSED — 221 checks, 0 failures;
+app suites 32 passed / 1 skipped (`test-mv-spotlight.py`, pre-existing
+"not headless-portable yet") / 0 failed.
+`pytest tests/test_mv_launchpad.py`: 32/32. Standalone runner: 26/26.
+
+### Note on concurrent tree activity
+
+While this integration ran, a concurrent session (not registered in the
+session registry) added `scripts/qwen-integration/`, `docs/QWEN_*.md` and
+the "Qwen Web Automation Research" block above, and modified
+`docs/DECISIONS.md`. Its DECISIONS notes are committed here as-is (doc
+content, audited-read); its scripts/docs remain untracked for their
+author to commit. Repo state was never blanket-staged (`git add -A` not
+used).
