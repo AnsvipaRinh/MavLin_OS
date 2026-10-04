@@ -189,6 +189,25 @@ def test_environment_filters(mod):
         check("desktop environment: cache invalidates on XDG_CURRENT_DESKTOP",
               "only-xfce.desktop" not in names and "only-gnome.desktop" in names,
               repr(names))
+
+        # TryExec resolution depends on PATH and must invalidate the cache too.
+        tryexec_bin = os.path.join(sb.tmp, "tryexec-bin")
+        os.makedirs(tryexec_bin)
+        tryexec_path = os.path.join(tryexec_bin, "mv-test-tryexec")
+        with open(tryexec_path, "w") as fp:
+            fp.write("#!/bin/sh\\n")
+        os.chmod(tryexec_path, 0o755)
+        sb.write("try-present.desktop", DESKTOP_FILE + "TryExec=mv-test-tryexec;\\n")
+        os.environ["PATH"] = tryexec_bin
+        entries = mod.load_desktop_entries()
+        names = [os.path.basename(e["path"]) for e in entries]
+        check("desktop environment: TryExec present on PATH kept",
+              "try-present.desktop" in names, repr(names))
+        os.environ["PATH"] = os.path.join(sb.tmp, "empty-path")
+        entries = mod.load_desktop_entries()
+        names = [os.path.basename(e["path"]) for e in entries]
+        check("desktop environment: cache invalidates on PATH",
+              "try-present.desktop" not in names, repr(names))
     finally:
         for key, value in old.items():
             if value is None:
