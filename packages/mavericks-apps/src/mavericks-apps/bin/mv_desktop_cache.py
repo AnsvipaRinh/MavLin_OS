@@ -36,9 +36,12 @@ def desktop_dirs():
 
 
 def _fingerprint():
-    """Hash of per-dir (mtime_ns, count) + per-file (mtime_ns, size)."""
+    """Hash of locale + per-dir/file metadata used to build the cache."""
     h = hashlib.sha1()
     count = 0
+    h.update(b"locale\\x00")
+    h.update("\\x00".join(_locale_candidates()).encode("utf-8", "replace"))
+    h.update(b"\\x00")
     for d in desktop_dirs():
         if not os.path.isdir(d):
             continue
