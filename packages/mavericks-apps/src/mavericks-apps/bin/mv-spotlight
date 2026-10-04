@@ -10,6 +10,7 @@ Features:
 """
 import ast
 import os
+import shlex
 import sys
 import subprocess
 import re
@@ -305,7 +306,7 @@ def format_result(item):
     else:
         icon = item.get("icon", "text-x-generic")
         info = item.get("info", f"File: {os.path.dirname(item['path'])}")
-        action = f"xdg-open '{item['path']}'"
+        action = f"xdg-open -- {shlex.quote(item['path'])}"
         return f"{item['name']}\0icon\x1f{icon}\0info\x1f{info}\0action\x1f{action}"
 
 
@@ -324,7 +325,7 @@ def main():
                 name = os.path.basename(path)
                 cat = categorize_file(path, name)
                 icon = path if name.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".tiff", ".ico")) else get_icon_for_file(name, path)
-                print(f"{name}\0icon\x1f{icon}\0info\x1f{cat}: {os.path.dirname(path)}\0action\x1fxdg-open '{path}'")
+                print(f"{name}\0icon\x1f{icon}\0info\x1f{cat}: {os.path.dirname(path)}\0action\x1fxdg-open -- {shlex.quote(path)}")
         else:
             print("No recent items\0icon\x1fdialog-information\0info\x1fNo recently used files found")
         return 0
