@@ -27,7 +27,7 @@ if not exec_line.startswith("mv-finder-columns "):
     errors.append(
         "Finder desktop entry must launch mv-finder-columns, got: %s" % exec_line
     )
-if "thunar" == exec_line.split()[0] if exec_line.split() else False:
+if exec_line.split() and exec_line.split()[0] == "thunar":
     errors.append("Finder desktop entry must not launch plain Thunar")
 
 target = os.path.join(
