@@ -10,6 +10,14 @@ PACKAGES = Path("archiso-profile/releng/packages.x86_64")
 PKGBUILD = Path("packages/vala-panel-appmenu/PKGBUILD")
 APPMENU_HELPER = Path("packages/mavericks-apps/src/mavericks-apps/lib/mavericks_appmenu.py")
 CALCULATOR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calculator")
+NATIVE_APPS = {
+    "activity": "Activity",
+    "calendar": "Calendar",
+    "console": "Console",
+    "dictionary": "Dictionary",
+    "notes": "Notes",
+    "textedit": "TextEdit",
+}
 
 
 def main():
@@ -50,10 +58,19 @@ def main():
     helper = APPMENU_HELPER.read_text(encoding="utf-8")
     assert "Gtk.Application" in helper
     assert "app.set_app_menu(menu)" in helper
+    assert "application.add_window(window)" in helper
+    assert "window.present()" in helper
     calculator = CALCULATOR.read_text(encoding="utf-8")
     assert "com.mavlinos.Calculator" in calculator
     assert "install_application_menu" in calculator
     assert "Gtk.main()" not in calculator
+
+    for command, app_name in NATIVE_APPS.items():
+        app = Path(
+            "packages/mavericks-apps/src/mavericks-apps/bin/mv-" + command
+        ).read_text(encoding="utf-8")
+        assert "run_application" in app, f"{app_name} does not use the global-menu runner"
+        assert "Gtk.main()" not in app, f"{app_name} still owns a private Gtk.main loop"
 
     print("OK: global menu integration contract")
 
