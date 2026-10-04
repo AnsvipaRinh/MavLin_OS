@@ -6,12 +6,13 @@ History viewer for notifications logged by mv-notify-send.
 Groups by app, supports clear actions, DND status, keyboard navigation.
 No persistent daemon; reads JSON log on demand. License: GPL-2.0-or-later.
 """
-import json, os, sys, time
+import fcntl, json, os, sys, time
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
 STORE_FILE = os.path.expanduser("~/.local/share/mavericks/notifications.json")
+LOCK_FILE = os.path.expanduser("~/.local/share/mavericks/notifications.lock")
 
 def load_notifications():
     try:
@@ -235,21 +236,30 @@ class NotificationCenter(Gtk.Window):
 
     def clear_app(self, app_name):
         """Clear all notifications for a specific app."""
-        data = load_notifications()
-        filtered = [n for n in data if n.get("app_name", "System") != app_name]
-        self.save_filtered(filtered)
+        def keep(item):
+            return item.get("app_name", "System") != app_name
+        self.mutate_history(keep)
         self.refresh()
 
     def on_clear_all(self, _):
-        self.save_filtered([])
+        self.mutate_history(lambda _item: False)
         self.refresh()
 
-    def save_filtered(self, data):
+    def mutate_history(self, keep):
+        """Atomically read, filter, and replace notification history."""
         os.makedirs(os.path.dirname(STORE_FILE), exist_ok=True)
-        tmp = STORE_FILE + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(data, f)
-        os.replace(tmp, STORE_FILE)
+        with open(LOCK_FILE, "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            data = load_notifications()
+            filtered = [item for item in data if keep(item)]
+            tmp = STORE_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(filtered, f, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, STORE_FILE)
+        os.chmod(STORE_FILE, 0o600)
 
     def on_dnd_toggle(self, switch, _):
         set_dnd_status(switch.get_active())
