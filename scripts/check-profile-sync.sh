@@ -107,6 +107,12 @@ check_file "$REPO_ROOT/scripts/install/mavericks-profile-select.sh" \
     ((ERRORS++))
 }
 
+# Legacy hardware-selection entry point must not carry a second driver-selection tree.
+if grep -q 'broadcom-wl-dkms\|macbook12-bluetooth-driver\|epiphany-mavericks-theme' "$REPO_ROOT/scripts/apply-hardware-selection.sh"; then
+    echo "ERROR: legacy hardware selector still contains obsolete package branches"
+    ((ERRORS++))
+fi
+
 # firstboot must use installed runtime assets, not a source checkout
 if grep -q 'REPO_DIR.*archiso-profile\|Clone the repo\|repo checkout not found' "$AIROOTFS/usr/local/bin/mavericks/mavericks-firstboot.sh"; then
     echo "ERROR: firstboot still depends on a source-tree checkout"
