@@ -214,7 +214,7 @@ def run_native_expose():
         return False
     try:
         result = subprocess.run(
-            [skippy, "--expose", "--desktop", "-1"],
+            [skippy, "--desktop", "-1"],
             timeout=30
         )
         return result.returncode == 0
