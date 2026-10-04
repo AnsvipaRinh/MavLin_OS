@@ -513,7 +513,6 @@ def build_stickies_menu(app, app_name, get_window, add_action):
     def w():
         return get_window()
 
-    add_action("about", lambda: None)
     add_action("new", lambda: w().app.create_sticky() if w() else None)
     add_action("find", lambda: w().app.open_search() if w() else None)
     add_action("print", lambda: w().print_note(None) if w() else None)
