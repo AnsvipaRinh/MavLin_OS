@@ -13,6 +13,8 @@ CALCULATOR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calculator"
 TEXTEDIT = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-textedit")
 FINDER = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-finder-columns")
 NOTES = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-notes")
+CALENDAR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calendar")
+MUSIC = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-music")
 XFWM = Path("configs/desktop/xfce/xfwm4.xml")
 APPLE_PLUGIN = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c")
 APPLE_DESKTOP = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
@@ -117,6 +119,14 @@ def main():
     assert "build_finder_menu" in finder
     for action in ("Open in Thunar…", "Zoom In", "Zoom Out", "Actual Size", "Back", "Home"):
         assert action in finder, f"Finder menu missing {action}"
+    calendar = CALENDAR.read_text(encoding="utf-8")
+    assert "build_calendar_menu" in calendar
+    for action in ("New Event", "Import…", "Export…", "Month", "Week", "Day", "Today", "Sync EDS"):
+        assert action in calendar, f"Calendar menu missing {action}"
+    music = MUSIC.read_text(encoding="utf-8")
+    assert "build_music_menu" in music
+    for action in ("Previous Track", "Play / Pause", "Next Track", "Songs", "Albums", "Artists", "Queue", "Mini Player"):
+        assert action in music, f"Music menu missing {action}"
     assert "build_notes_menu" in notes
     for action in ("New Note", "New Folder", "Export Note…", "Print…", "Find"):
         assert action in notes, f"Notes menu missing {action}"
