@@ -178,6 +178,15 @@ def test_folder_cells_count_toward_pagination():
     print("PASS: test_folder_cells_count_toward_pagination")
 
 
+def test_folder_members_are_not_duplicated_on_main_grid():
+    """Apps inside folders must not also appear as standalone main-page items."""
+    source = open(SCRIPT).read()
+    assert 'folder_member_ids = {' in source
+    assert 'if not query and app["id"] in folder_member_ids:' in source
+    assert 'for folder_data in folders.values()' in source
+    print("PASS: test_folder_members_are_not_duplicated_on_main_grid")
+
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
@@ -211,6 +220,7 @@ if __name__ == "__main__":
         test_rofi_live_search_callback,
         test_page_navigation_callbacks,
         test_folder_cells_count_toward_pagination,
+        test_folder_members_are_not_duplicated_on_main_grid,
         test_full_integration_basic,
     ]
 
