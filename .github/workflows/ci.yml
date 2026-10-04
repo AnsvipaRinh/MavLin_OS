@@ -168,6 +168,10 @@ jobs:
         run: |
           python3 scripts/test-appmenu-module.py
 
+      - name: Lock screen contract
+        run: |
+          python3 scripts/test-lock-screen.py
+
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest
