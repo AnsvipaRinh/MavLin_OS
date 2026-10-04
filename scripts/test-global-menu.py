@@ -150,6 +150,8 @@ def main():
     for action in ("Previous Page", "Next Page", "Fullscreen", "Previous File", "Next File",
                    "Text Annotation", "Shape Annotation", "Signature"):
         assert action in preview, f"Preview menu missing {action}"
+    control = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-control").read_text(encoding="utf-8")
+    power_ui = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-power-ui").read_text(encoding="utf-8")
     photos = PHOTOS.read_text(encoding="utf-8")
     assert "build_photos_menu" in photos
     assert "Gtk.Application(application_id=" in photos
