@@ -33,7 +33,9 @@ def main():
     assert settings["ShellShowsAppmenu"] == "true"
     assert settings["Modules"] == "appmenu-gtk-module"
 
-    assert "vala-panel-appmenu" in set(PACKAGES.read_text(encoding="utf-8").split())
+    package_names = set(PACKAGES.read_text(encoding="utf-8").split())
+    assert "vala-panel-appmenu" in package_names
+    assert "appmenu-gtk-module" in package_names
     build = PKGBUILD.read_text(encoding="utf-8")
     assert "-Dxfce=enabled" in build
     assert "-Dregistrar=enabled" in build
