@@ -1,5 +1,17 @@
 # PROGRESS — MacBook 12 MavLinOS
 
+### Prior-art audit — Poppy OS X Revieve (2026-10-04, без железа)
+- [x] Cloned https://github.com/sziberov/Poppy-OS-X-Revieve to /tmp for static inspection (read-only, untrusted input)
+- [x] Inventory: theme-only repo (GTK3 CSS 8367 lines, 568 SVG + 34 PNG icons, 13 base cursors, Plank theme, GNOME Shell theme, Metacity theme). Zero application code, zero scripts, zero daemons.
+- [x] Quality verdicts: GTK3 CSS = B (adapt-port, but ours is better — modular SCSS, Xfce-optimized); Icons = B (ours more comprehensive); Cursors = A (reuse-as-is, Artistic License 1.0); Plank = C (ours better); GNOME Shell/Metacity = D (wrong DE/WM); Fonts = D (unclear provenance)
+- [x] Legal: No top-level LICENSE. Only cursors have explicit license (Artistic 1.0, GPL-compatible). GTK CSS/icons/Plank = unknown license → DO NOT IMPORT without explicit permission
+- [x] Energy: ZERO runtime cost (theme-only). No daemons, no polling, no background processes.
+- [x] Comparison: MavLinOS is already better in every comparable area (GTK3 theme, icons, Plank, cursors). Poppy has zero applications vs our 40+.
+- [x] Reuse map: 1 accepted (cursors, pending legal verification), 7 rejected (GTK CSS, icons, Plank, GNOME Shell, Metacity, fonts, applications)
+- [x] Integration objectives: Import Poppy cursors as alternative (pending legal verification + X11 rendering test)
+- [x] Deliverable: docs/POPPY_AUDIT.md
+- [x] Gate: check-sync.sh ALL CHECKS PASSED
+
 ### Finder P0 — view/zoom fidelity close-out (2026-10-03, без железа)
 - [x] Evidence pass on installed Thunar 4.20.10 binary: in-window accelerators (Ctrl+1/2/3 view switch, Ctrl+=/-/0 zoom incl. KP_ variants), real thunarrc zoom keys (Last{Icon,Details,Compact}ViewZoomLevel), per-directory zoom memory via GVFS metadata, native icon-view reflow on resize.
 - [x] thunarrc: removed dead `LastViewZoomLevel` key (never read by Thunar — binary evidence), added real `LastDetailsViewZoomLevel`/`LastCompactViewZoomLevel`, icon view default 64px (`THUNAR_ZOOM_LEVEL_150_PERCENT` = Mavericks Finder default; was 48px Thunar-ism). Mirror synced (check-sync green).

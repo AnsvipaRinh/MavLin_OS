@@ -1,3 +1,49 @@
+## 2026-10-04 — Poppy OS X Revieve Prior-Art Audit
+
+**Context:** Deep prior-art audit of Poppy OS X Revieve per GitHub issue #2. Static inspection only (cloned to /tmp, never executed).
+
+**Findings:**
+- Poppy is a **theme-only** repository: GTK3 CSS (8367 lines), icons (568 SVG + 34 PNG), cursors (13 base), Plank theme, GNOME Shell theme, Metacity theme.
+- **Zero application code**, zero scripts, zero daemons, zero desktop integration.
+- Designed for GNOME Shell + Ubuntu, not Xfce/Arch.
+
+**Quality verdicts:**
+| Component | Verdict | Reason |
+|-----------|---------|--------|
+| GTK3 CSS | B (adapt-port) | Comprehensive but monolithic, GNOME-specific. Ours is modular SCSS, Xfce-optimized. |
+| Icons | B (adapt-port) | macOS-style but limited coverage. Ours is more comprehensive with HiDPI. |
+| Cursors | A (reuse-as-is) | High quality, Artistic License 1.0 (GPL-compatible). |
+| Plank theme | C (reference) | Minimal. Ours has reflection, zoom, separators, Slingscold. |
+| GNOME Shell | D (reject) | Wrong DE. |
+| Metacity | D (reject) | Wrong WM. |
+| Fonts | D (reject) | Unclear provenance, potentially proprietary. |
+
+**Legal:**
+- No top-level LICENSE file. Only cursors have explicit license (Artistic 1.0).
+- GTK CSS, icons, Plank theme = unknown license → DO NOT IMPORT without explicit permission from sziberov.
+- Cursors = Artistic License 1.0, GPL-3.0-or-later compatible.
+
+**Energy:** ZERO runtime cost (theme-only). No daemons, no polling.
+
+**Decisions:**
+1. **REJECT** GTK3 CSS — ours is better (modular, Xfce-optimized, build system).
+2. **REJECT** icons — ours is more comprehensive (HiDPI, symbolic, app/device/emblem/action/category/filesystem icons).
+3. **REJECT** Plank theme — ours is better (reflection, zoom, separators, Slingscold, Mission Control).
+4. **REJECT** GNOME Shell theme — wrong DE.
+5. **REJECT** Metacity theme — wrong WM.
+6. **REJECT** fonts — unclear provenance.
+7. **ACCEPT** cursors — Artistic License 1.0, GPL-compatible, high quality. Import as alternative cursor set pending legal verification + X11 rendering test.
+
+**Integration objective:**
+- Import Poppy cursors to `packages/mavericks-theme/src/mavericks-theme/cursors/` as alternative set.
+- Add attribution in `docs/APPS.md`.
+- Test cursor rendering in X11.
+- Commit.
+
+**Recommendation:** Do not invest significant effort in integrating Poppy assets. Focus on improving our own theme and applications instead.
+
+---
+
 ## 2026-10-04 — Incident Loss Recovery
 
 **Context:** Dangling commits/loss occurred during unsupervised session recovery. Critical work was lost from tree commits.
