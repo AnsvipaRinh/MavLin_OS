@@ -163,6 +163,16 @@ def test_fingerprint(mod):
         sb.close()
 
 
+def test_cache_writer_uses_unique_atomic_tempfiles(mod):
+    """Cache writes must not share a fixed .tmp path between concurrent writers."""
+    source = open(MOD_PATH).read()
+    check("cache writer: tempfile module imported", "import tempfile" in source)
+    check("cache writer: unique mkstemp", "tempfile.mkstemp" in source)
+    check("cache writer: fsync before replace", "os.fsync(cache_file.fileno())" in source)
+    check("cache writer: atomic replace", "os.replace(tmp_path, path)" in source)
+    check("cache writer: cleanup on failure", "os.unlink(tmp_path)" in source)
+    check("cache writer: no fixed tmp path", 'tmp = path + ".tmp"' not in source)
+
 def test_cache_hit_skips_reads(mod):
     sb = Sandbox(mod)
     try:
