@@ -265,14 +265,11 @@ class NotificationCenter(Gtk.Window):
         return True
 
 def main():
-    w = NotificationCenter()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
-    return 0
-
-if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")
     from mavericks_appmenu import run_application
-    sys.exit(run_application(
-        "com.mavlinos.NotificationCenter", "Notification Center", NotificationCenter, sys.argv))
+    return run_application(
+        "com.mavlinos.NotificationCenter", "Notification Center",
+        NotificationCenter, sys.argv)
+
+if __name__ == "__main__":
+    sys.exit(main())
