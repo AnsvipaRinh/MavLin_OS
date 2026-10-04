@@ -206,9 +206,31 @@ def minimize_window(win_id):
         return False
 
 
+def run_native_expose():
+    """Run native skippy-xd paging when installed, without a daemon."""
+    import shutil
+
+    skippy = shutil.which("skippy-xd")
+    if not skippy:
+        return False
+    try:
+        # Paging is the closest available Mission Control metaphor: it shows
+        # virtual desktops and their windows rather than a text list.
+        result = subprocess.run([skippy, "--paging"], timeout=30)
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def main():
-    # Handle window actions from rofi
-    if len(sys.argv) > 1:
+    # Native Mission Control is optional. If skippy-xd is unavailable or
+    # fails, fall back to the existing rofi implementation below.
+    if len(sys.argv) > 1 and sys.argv[1] == "--native":
+        if run_native_expose():
+            return 0
+        sys.argv = [sys.argv[0]]
+
+    # Handle window actions from rofi    if len(sys.argv) > 1:
         if sys.argv[1] == "--list":
             windows, err = get_windows()
             if err:
