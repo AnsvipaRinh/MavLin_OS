@@ -216,7 +216,7 @@ def build_launchpad_structure(apps, folders, positions, query="", open_folder=No
             pos = positions[app_id]
             # Treat persisted positions as untrusted user configuration.
             # Invalid types and duplicate slots must never drop an app.
-            if isinstance(pos, int) and 0 <= pos < len(filtered_apps) and pos not in positioned:
+            if isinstance(pos, int) and not isinstance(pos, bool) and 0 <= pos < len(filtered_apps) and pos not in positioned:
                 positioned[pos] = app
             else:
                 remaining.append(app)

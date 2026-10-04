@@ -227,6 +227,13 @@ def test_position_config_is_normalized():
     print("PASS: test_position_config_is_normalized")
 
 
+def test_position_booleans_are_rejected():
+    """JSON booleans must not be accepted as integer Launchpad positions."""
+    source = open(SCRIPT).read()
+    assert 'isinstance(pos, int) and not isinstance(pos, bool)' in source
+    print("PASS: test_position_booleans_are_rejected")
+
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
