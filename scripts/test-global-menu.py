@@ -78,8 +78,18 @@ def check_apple_plugin():
     assert "X-XFCE-Internal=false" in desktop
     assert "viewBox=" in icon and "<path" in icon
 
+def check_force_quit():
+    force_quit = FORCE_QUIT.read_text(encoding="utf-8")
+    assert 'xdotool' in force_quit
+    assert '--onlyvisible' in force_quit
+    assert 'getwindowpid' in force_quit
+    assert 'signal.SIGKILL' in force_quit
+    assert 'os.listdir("/proc")' not in force_quit
+
+
 def main():
     check_apple_plugin()
+    check_force_quit()
     panel = ET.parse(PANEL).getroot()
     plugins = panel.find("./property[@name='plugins']")
     ids = [v.get("value") for v in panel.findall("./property[@name='panels']/property[@name='panel-1']/property[@name='plugin-ids']/value")]
