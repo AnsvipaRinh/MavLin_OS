@@ -147,6 +147,15 @@ def test_rofi_preview_integration():
     assert "rofi -show -modi 'spotlight:/usr/bin/mv-spotlight'" in shortcut_text
 
 
+def test_calculator_safety_contract():
+    from pathlib import Path
+    source = (Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight").read_text(encoding="utf-8")
+    assert "import ast" in source
+    assert 'ast.parse(q, mode="eval")' in source
+    assert "eval(q, allowed" not in source
+    assert "ast.Pow" in source
+
+
 def test_main_subprocess():
     import subprocess
 
@@ -182,6 +191,7 @@ if __name__ == "__main__":
         ("get_icon_for_file", test_get_icon_for_file),
         ("rank_app_match", test_rank_app_match),
         ("rofi_preview_integration", test_rofi_preview_integration),
+        ("calculator_safety_contract", test_calculator_safety_contract),
         ("main_subprocess", test_main_subprocess),
     ]
 
