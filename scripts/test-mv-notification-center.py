@@ -7,6 +7,10 @@ path = os.path.join(ROOT, "packages/mavericks-apps/src/mavericks-apps/bin/mv-not
 src = open(path, encoding="utf-8").read()
 
 checks = [
+    ("valid executable shebang", src.startswith("#!/usr/bin/env python3\n")),
+    ("notification rows are activatable", 'row.set_activatable(True)' in src),
+    ("notification URL handler exists", "def on_notification_activate" in src),
+    ("URL targets use xdg-open", '["xdg-open", target]' in src),
     ("uses X11 monitor geometry", "get_monitor_workarea" in src),
     ("right-aligns panel", "workarea.x + workarea.width - width" in src),
     ("fills monitor workarea height", "self.resize(width, workarea.height)" in src),
