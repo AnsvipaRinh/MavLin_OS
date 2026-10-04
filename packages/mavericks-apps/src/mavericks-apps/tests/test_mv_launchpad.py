@@ -136,7 +136,8 @@ def test_rofi_theme_has_mavericks_styling():
 def test_rofi_selection_actions():
     """Rofi script callbacks must launch apps and navigate folders safely."""
     source = open(SCRIPT).read()
-    assert 'os.environ.get("ROFI_RETV", "0")' in source
+    assert 'os.environ.get("ROFI_RETV")' in source
+    assert 'rofi_mode = rofi_retv is not None' in source
     assert 'os.environ.get("ROFI_INFO", "")' in source
     assert 'rofi_info.startswith("app:")' in source
     assert '["gtk-launch", desktop_id]' in source
@@ -166,6 +167,15 @@ def test_page_navigation_callbacks():
     assert "-kb-custom-1 'Page_Down'" in desktop
     assert "-kb-custom-2 'Page_Up'" in desktop
     print("PASS: test_page_navigation_callbacks")
+
+
+def test_folder_cells_count_toward_pagination():
+    """Top-level folders must consume cells in the first Launchpad grid page."""
+    source = open(SCRIPT).read()
+    assert 'first_page_capacity = max(1, ITEMS_PER_PAGE - len(structure["folders"]))' in source
+    assert 'start = first_capacity + (page - 1) * ITEMS_PER_PAGE' in source
+    assert 'remaining_after_first = max(0, len(ordered) - first_page_capacity)' in source
+    print("PASS: test_folder_cells_count_toward_pagination")
 
 
 def test_full_integration_basic():
@@ -200,6 +210,7 @@ if __name__ == "__main__":
         test_rofi_selection_actions,
         test_rofi_live_search_callback,
         test_page_navigation_callbacks,
+        test_folder_cells_count_toward_pagination,
         test_full_integration_basic,
     ]
 
