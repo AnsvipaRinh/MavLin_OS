@@ -89,6 +89,19 @@ def rank_app_match(query, app):
 # ──────────────────────────────────────────────
 # Test functions
 # ──────────────────────────────────────────────
+def _load_spotlight_module(name):
+    """Load the extension-less mv-spotlight script as a Python module."""
+    import importlib.util
+    import importlib.machinery
+    from pathlib import Path
+    module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight"
+    loader = importlib.machinery.SourceFileLoader(name, str(module_path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
 def test_categorize_file():
     assert categorize_file("", "img.jpg") == "Images"
     assert categorize_file("", "report.pdf") == "Documents"
@@ -191,15 +204,15 @@ def test_desktop_cache_semantics():
         system = root / "system"
         user.mkdir()
         system.mkdir()
-        (system / "same.desktop").write_text("[Desktop Entry]\\nName=System App\\nExec=system-app\\n", encoding="utf-8")
-        (user / "same.desktop").write_text("[Desktop Entry]\\nName=User App\\nExec=user-app\\n", encoding="utf-8")
-        (system / "other.desktop").write_text("[Desktop Entry]\\nName=Other App\\nExec=other-app\\n", encoding="utf-8")
+        (system / "same.desktop").write_text("[Desktop Entry]\nName=System App\nExec=system-app\n", encoding="utf-8")
+        (user / "same.desktop").write_text("[Desktop Entry]\nName=User App\nExec=user-app\n", encoding="utf-8")
+        (system / "other.desktop").write_text("[Desktop Entry]\nName=Other App\nExec=other-app\n", encoding="utf-8")
         noisy = system / "noisy.desktop"
-        noisy.write_text("[Desktop Entry]\\nName=Visible\\nExec=visible\\nComment=NoDisplay=true is text, not a key\\n", encoding="utf-8")
+        noisy.write_text("[Desktop Entry]\nName=Visible\nExec=visible\nComment=NoDisplay=true is text, not a key\n", encoding="utf-8")
         hidden = system / "hidden.desktop"
-        hidden.write_text("[Desktop Entry]\\nName=Hidden\\nExec=hidden\\nHidden=true\\n", encoding="utf-8")
+        hidden.write_text("[Desktop Entry]\nName=Hidden\nExec=hidden\nHidden=true\n", encoding="utf-8")
         action_only = system / "action.desktop"
-        action_only.write_text("[Desktop Action Foo]\\nName=Wrong\\nExec=wrong\\n\\n[Desktop Entry]\\nName=Correct\\nExec=correct\\n", encoding="utf-8")
+        action_only.write_text("[Desktop Action Foo]\nName=Wrong\nExec=wrong\n\n[Desktop Entry]\nName=Correct\nExec=correct\n", encoding="utf-8")
         old_dirs = module.desktop_dirs
         old_cache = module._CACHE_PATH
         try:
@@ -217,10 +230,7 @@ def test_recent_items_file_uri_parsing():
     import tempfile
     from pathlib import Path
 
-    module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight"
-    spec = importlib.util.spec_from_file_location("mv_spotlight_recent_test", module_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = _load_spotlight_module('mv_spotlight_recent_test')
 
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
@@ -249,10 +259,7 @@ def test_recent_items_file_uri_parsing():
 def test_recursive_desktop_ids_are_preserved():
     import importlib.util
     from pathlib import Path
-    module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight"
-    spec = importlib.util.spec_from_file_location("mv_spotlight_ids_test", module_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = _load_spotlight_module('mv_spotlight_ids_test')
     original = module.mv_desktop_cache.load_desktop_entries
     try:
         module.mv_desktop_cache.load_desktop_entries = lambda: [{
@@ -273,23 +280,34 @@ def test_recursive_desktop_ids_are_preserved():
 def test_main_subprocess():
     import subprocess
 
+    import os
+    script = os.environ.get("MV_SPOTLIGHT_PATH", "/usr/bin/mv-spotlight")
+    if not os.path.exists(script):
+        alt = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "packages", "mavericks-apps", "src", "mavericks-apps", "bin", "mv-spotlight")
+        if os.path.exists(alt):
+            script = alt
+        else:
+            print("SKIP main_subprocess: mv-spotlight not installed and repo path not found")
+            return
+
     # Calculator query
     result = subprocess.run(
-        ["/usr/bin/mv-spotlight", "2+2"],
+        [script, "2+2"],
         capture_output=True, text=True, timeout=5
     )
     assert result.returncode >= 0, f"mv-spotlight crashed on '2+2': {result.stderr}"
 
     # Empty query
     result = subprocess.run(
-        ["/usr/bin/mv-spotlight"],
+        [script],
         capture_output=True, text=True, timeout=5
     )
     assert result.returncode >= 0, f"mv-spotlight crashed on empty query: {result.stderr}"
 
     # Non-matching query
     result = subprocess.run(
-        ["/usr/bin/mv-spotlight", "nonexistent_query_xyz"],
+        [script, "nonexistent_query_xyz"],
         capture_output=True, text=True, timeout=5
     )
     assert result.returncode >= 0, f"mv-spotlight crashed on nonexistent query: {result.stderr}"

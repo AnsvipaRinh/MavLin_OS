@@ -271,9 +271,13 @@ def load_desktop_entries():
 
 
 def _save_desktop_entries(entries, fp, count):
-    """Persist the desktop cache with a unique, same-directory atomic write."""
-    cdir = os.path.expanduser(_CACHE_DIR)
+    """Persist the desktop cache with a unique, same-directory atomic write.
+
+    Honors module-level reassignment of _CACHE_PATH (tests redirect the
+    cache into a temp dir); _CACHE_DIR is only the default location.
+    """
     path = os.path.expanduser(_CACHE_PATH)
+    cdir = os.path.dirname(path) or os.path.expanduser(_CACHE_DIR)
     tmp_path = None
     try:
         os.makedirs(cdir, exist_ok=True)
