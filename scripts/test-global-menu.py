@@ -113,7 +113,7 @@ def main():
     assert "install_application_menu" in calculator
     assert "Gtk.main()" not in calculator
 
-    lifecycle_exceptions = {"stickies", "music"}
+    lifecycle_exceptions = {"stickies", "music", "preview"}
     for command, app_name in NATIVE_APPS.items():
         app = Path(
             "packages/mavericks-apps/src/mavericks-apps/bin/mv-" + command
