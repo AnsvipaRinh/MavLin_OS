@@ -231,6 +231,13 @@ Exec=testapp
         sb.close()
 
 
+def test_fingerprint_tracks_replacement_metadata(mod):
+    """File replacement metadata must invalidate the desktop cache."""
+    source = open(MOD_PATH).read()
+    check("fingerprint: ctime tracked", "st.st_ctime_ns" in source)
+    check("fingerprint: inode tracked", "st.st_ino" in source)
+
+
 def test_cache_invalidation(mod):
     sb = Sandbox(mod)
     try:
