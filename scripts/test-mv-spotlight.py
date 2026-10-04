@@ -131,6 +131,22 @@ def test_rank_app_match():
     pass
 
 
+def test_rofi_preview_integration():
+    from pathlib import Path
+
+    theme = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/config/rofi-mavericks.rasi"
+    shortcuts = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/config/xfce4-keyboard-shortcuts.xml"
+    theme_text = theme.read_text(encoding="utf-8")
+    shortcut_text = shortcuts.read_text(encoding="utf-8")
+
+    assert "children: [ inputbar, listview-split ];" in theme_text
+    assert "children: [ listview, icon-current-entry ];" in theme_text
+    assert "icon-current-entry" in theme_text
+    assert "-preview-script" not in shortcut_text
+    assert "-show-preview" not in shortcut_text
+    assert "rofi -show -modi 'spotlight:/usr/bin/mv-spotlight'" in shortcut_text
+
+
 def test_main_subprocess():
     import subprocess
 
@@ -165,6 +181,7 @@ if __name__ == "__main__":
         ("categorize_file", test_categorize_file),
         ("get_icon_for_file", test_get_icon_for_file),
         ("rank_app_match", test_rank_app_match),
+        ("rofi_preview_integration", test_rofi_preview_integration),
         ("main_subprocess", test_main_subprocess),
     ]
 
