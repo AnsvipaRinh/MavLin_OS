@@ -49,11 +49,14 @@ cd MavLinOS
 ## First Contribution Path
 
 1. **Read** `AGENTS.md` (constitution), `docs/HARDWARE.md`, `docs/APPS.md`, `docs/NEEDS_HARDWARE_TEST.md`
-2. **Pick** a `PARTIALLY IMPLEMENTED` or `EXPERIMENT READY` item from `docs/APPS.md` (P0 before P1)
-3. **Implement** the feasible pre-hardware gap (UI, integration, keyboard, dialogs, MIME, theme)
-4. **Test** locally: `./scripts/check-sync.sh --check-repos` + relevant `test-mv-*.py`
-5. **Commit** small logical units (`feat:`, `fix:`, `theme:`, `docs:`)
-6. **Update** `docs/APPS.md`, `docs/PROGRESS.md`, `docs/DECISIONS.md` for your change
+2. **Check claims** `docs/WORK_CLAIMS.md` — if an ACTIVE claim exists for your target block, pick another or coordinate.
+3. **Claim** your block: add a row to `docs/WORK_CLAIMS.md` (Block/scope | Your-GitHub-Handle | Since (UTC) | Objective/issue | ACTIVE) via commit.
+4. **Pick** a `PARTIALLY IMPLEMENTED` or `EXPERIMENT READY` item from `docs/APPS.md` (P0 before P1)
+5. **Implement** the feasible pre-hardware gap (UI, integration, keyboard, dialogs, MIME, theme)
+6. **Test** locally: `./scripts/check-sync.sh --check-repos` + relevant `test-mv-*.py`
+7. **Commit** small logical units (`feat:`, `fix:`, `theme:`, `docs:`)
+8. **Release** your claim: remove the row or mark DONE in the same commit.
+9. **Update** `docs/APPS.md`, `docs/PROGRESS.md`, `docs/DECISIONS.md` for your change
 
 ## Profile Rules (from OS-2c)
 

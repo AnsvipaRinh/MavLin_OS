@@ -104,7 +104,15 @@ Mavericks-themed Arch + Xfce desktop on any x86_64 machine. Use it for:
 
 ---
 
-## 7. Commit & Update Cycle
+## 7. Work Claims (mandatory before editing)
+
+Before starting work on any block (file group / subsystem / objective scope):
+1. Check `docs/WORK_CLAIMS.md` — if an ACTIVE claim exists for the same block, WAIT.
+2. Add your claim to `docs/WORK_CLAIMS.md` (Block/scope | Who | Since | Objective/issue | Status ACTIVE).
+3. Do the work.
+4. On completion, remove the claim or mark DONE in the same commit.
+
+## 8. Commit & Update Cycle
 
 After implementing a feasible gap:
 
