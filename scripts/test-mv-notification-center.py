@@ -14,6 +14,7 @@ checks = [
     ("URL targets use xdg-open", '["xdg-open", target]' in src),
     ("desktop-entry hint uses gtk-launch", '["gtk-launch", desktop_id]' in src),
     ("desktop-entry hint is validated", 're.fullmatch(r"[A-Za-z0-9._-]+", desktop_id)' in src),
+    ("desktop-entry hint uses argv rather than shell", 'subprocess.Popen(\\n                    ["gtk-launch", desktop_id]' in src),
     ("uses X11 monitor geometry", "get_monitor_workarea" in src),
     ("right-aligns panel", "workarea.x + workarea.width - width" in src),
     ("fills monitor workarea height", "self.resize(width, workarea.height)" in src),
