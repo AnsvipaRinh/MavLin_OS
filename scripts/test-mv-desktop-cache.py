@@ -140,6 +140,26 @@ def test_xdg_application_paths(mod):
         sb.close()
 
 
+def test_nested_desktop_entry_id(mod):
+    """Nested desktop files must retain their XDG desktop entry ID."""
+    sb = Sandbox(mod)
+    try:
+        nested = os.path.join(sb.desktop, "vendor")
+        os.makedirs(nested)
+        path = os.path.join(nested, "nested.desktop")
+        with open(path, "w") as f:
+            f.write(DESKTOP_FILE)
+        e = mod._parse_desktop_file(path)
+        check("nested: parser returns desktop ID",
+              e and e["desktop_id"] == "vendor/nested.desktop", repr(e))
+        entries = mod.load_desktop_entries()
+        check("nested: discovery includes entry",
+              len(entries) == 1 and entries[0]["desktop_id"] == "vendor/nested.desktop",
+              repr(entries))
+    finally:
+        sb.close()
+
+
 def test_parse(mod):
     sb = Sandbox(mod)
     try:
@@ -392,6 +412,7 @@ def test_integration(mod):
 def main():
     mod = load_module("mv_desktop_cache", MOD_PATH)
     test_xdg_application_paths(mod)
+    test_nested_desktop_entry_id(mod)
     test_parse(mod)
     test_fingerprint(mod)
     test_cache_writer_uses_unique_atomic_tempfiles(mod)
