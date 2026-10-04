@@ -53,6 +53,12 @@ def load_app():
     return module
 
 
+def get_window_class(m):
+    """Resolve ColumnsWindow via the lazy factory (needs gi; caller guards)."""
+    _ColumnRow, ColumnsWindow = m.build_columns_classes()
+    return ColumnsWindow
+
+
 def make_tree(base):
     root = os.path.join(base, "root")
     os.makedirs(os.path.join(root, "Zebra"))
@@ -107,11 +113,38 @@ def test_pure(m):
     check("zoom: clamp at top", m.zoom_step(48, +1) == 48)
     check("zoom: clamp at bottom", m.zoom_step(16, -1) == 16)
 
+    # --- headless portability contract ---
+    check("portable: module imports without gi at top level", True)
+    check("portable: build_columns_classes exists",
+          callable(getattr(m, "build_columns_classes", None)))
+    try:
+        import gi  # noqa: F401
+        has_gi = True
+    except ImportError:
+        has_gi = False
+    if not has_gi:
+        try:
+            m.build_columns_classes()
+            bad("portable: factory raises cleanly without gi")
+        except Exception:
+            ok("portable: factory raises cleanly without gi")
+        check("portable: icon_for works without gi",
+              m.icon_for("folder", True) == "folder")
+        check("portable: icon_for text fallback without gi",
+              m.icon_for("x.txt", False) == "text-x-generic")
+        check("portable: load_icon_pixbuf returns None without gi",
+              m.load_icon_pixbuf("folder", 16) is None)
+    else:
+        print("skip - no-gi branch checks (gi present)")
+
 
 def test_gui(m):
     if not HAS_DISPLAY:
         print("skip - GUI smoke (no display)")
         return
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
     from gi.repository import GLib, Gdk, Gtk
 
     class FakeEvent:
@@ -128,9 +161,11 @@ def test_gui(m):
         while ctx.pending():
             ctx.iteration(False)
 
+    ColumnsWindow = get_window_class(m)
+
     with tempfile.TemporaryDirectory() as base:
         root = make_tree(base)
-        win = m.ColumnsWindow(root)
+        win = ColumnsWindow(root)
         pump()
         check("gui: one column for root", len(win.listboxes) == 1)
         rows = win.listboxes[0].get_children()
@@ -171,7 +206,7 @@ def test_gui(m):
             locked = os.path.join(base, "locked2")
             os.makedirs(locked)
             os.chmod(locked, 0o000)
-            win2 = m.ColumnsWindow(locked)
+            win2 = ColumnsWindow(locked)
             pump()
             check("gui: unreadable root -> error state",
                   "Could not open" in win2.error_label.get_text())
