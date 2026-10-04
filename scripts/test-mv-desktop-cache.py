@@ -210,6 +210,15 @@ def test_parse(mod):
         check("parse: missing Name rejected", mod._parse_desktop_file(p) is None)
         p = sb.write("noexec.desktop", "[Desktop Entry]\nName=Foo\n")
         check("parse: missing Exec rejected", mod._parse_desktop_file(p) is None)
+        p = sb.write("dbus.desktop", "[Desktop Entry]\nName=DBus App\nDBusActivatable=true\n")
+        dbus_entry = mod._parse_desktop_file(p)
+        check("parse: DBusActivatable without Exec kept", dbus_entry is not None, repr(dbus_entry))
+        check("parse: DBusActivatable flag retained", dbus_entry and dbus_entry["dbus_activatable"] is True,
+              repr(dbus_entry))
+        check("parse: DBusActivatable without Exec has empty exec", dbus_entry and dbus_entry["exec"] == "",
+              repr(dbus_entry))
+        p = sb.write("dbus-false.desktop", "[Desktop Entry]\nName=DBus False\nDBusActivatable=false\n")
+        check("parse: DBusActivatable=false still requires Exec", mod._parse_desktop_file(p) is None)
         check("parse: missing file -> None",
               mod._parse_desktop_file(os.path.join(sb.desktop, "nope.desktop")) is None)
     finally:
@@ -426,6 +435,22 @@ def test_integration(mod):
         # duplicate stem in a second dir must NOT happen (single dir here),
         # but Hidden filtering must apply through the apps
         sb.write("hidden.desktop", DESKTOP_FILE + "Hidden=true\n")
+
+        sb.write("dbus.desktop", """[Desktop Entry]
+Name=DBus App
+DBusActivatable=true
+Icon=applications-system
+""")
+
+        cached_entries = mod.load_desktop_entries()
+        dbus_entries = [e for e in cached_entries if e.get("desktop_id") == "dbus.desktop"]
+        check("integration: DBus-activatable entry reaches cache", len(dbus_entries) == 1,
+              repr(dbus_entries))
+        check("integration: DBus-activatable flag survives cache",
+              dbus_entries and dbus_entries[0].get("dbus_activatable") is True,
+              repr(dbus_entries))
+        check("integration: DBus-activatable entry keeps empty Exec",
+              dbus_entries and dbus_entries[0].get("exec") == "", repr(dbus_entries))
 
         lp = load_app("mv-launchpad")
         apps = lp.load_desktop_apps()
