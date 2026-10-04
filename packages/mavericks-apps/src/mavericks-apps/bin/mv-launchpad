@@ -114,6 +114,23 @@ def _migrate_app_ids(ids, apps):
             migrated.append(canonical_id)
     return migrated, changed
 
+def _canonical_app_ids(apps):
+    """Build exact and unambiguous legacy-basename mappings for persisted state."""
+    canonical = {app["id"] for app in apps}
+    by_stem = {}
+    for app in apps:
+        stem = Path(app["id"]).stem
+        by_stem.setdefault(stem, []).append(app["id"])
+    legacy = {stem: ids[0] for stem, ids in by_stem.items() if stem not in canonical and len(ids) == 1}
+    return canonical, legacy
+
+
+def _migrate_app_id(app_id, canonical, legacy):
+    """Resolve a persisted app ID while preserving ambiguous legacy IDs."""
+    if app_id in canonical:
+        return app_id
+    return legacy.get(app_id, app_id)
+
 def load_folders(apps=None):
     """Load and normalize folder configuration without overwriting user edits."""
     config_exists = FOLDERS_FILE.exists()
@@ -132,6 +149,8 @@ def load_folders(apps=None):
             "apps": list(folder_data["apps"]),
         } for folder_id, folder_data in DEFAULT_FOLDERS.items()}
 
+    canonical, legacy = _canonical_app_ids(apps or [])
+    changed = False
     folders = {}
     if isinstance(raw, dict):
         for folder_id, folder_data in raw.items():
@@ -163,7 +182,8 @@ def load_folders(apps=None):
     if not config_exists and apps:
         _auto_populate_default_folders(folders, apps)
 
-    save_folders(folders)
+    if changed or not config_exists:
+        save_folders(folders)
     return folders
 def _auto_populate_default_folders(folders, apps):
     """Auto-populate default folders with relevant apps on first run."""
@@ -227,8 +247,8 @@ def save_folders(folders):
     _atomic_save_json(FOLDERS_FILE, folders)
 
 
-def load_positions():
-    """Load custom app positions, rejecting malformed top-level JSON."""
+def load_positions(apps=None):
+    """Load custom app positions and migrate unambiguous legacy IDs."""
     if not POSITIONS_FILE.exists():
         return {}
     try:
@@ -241,8 +261,20 @@ def load_positions():
         return {}
 
     # JSON object keys are strings; retain values for build_launchpad_structure()
-    # to validate as untrusted position data.
-    return {app_id: position for app_id, position in raw.items() if isinstance(app_id, str)}
+    # to validate as untrusted position data. Legacy basename IDs are migrated
+    # only when exactly one current app has that basename.
+    canonical, legacy = _canonical_app_ids(apps or [])
+    positions = {}
+    changed = False
+    for app_id, position in raw.items():
+        if not isinstance(app_id, str):
+            continue
+        migrated_id = _migrate_app_id(app_id, canonical, legacy)
+        positions[migrated_id] = position
+        changed = changed or migrated_id != app_id
+    if changed:
+        save_positions(positions)
+    return positions
 
 
 def migrate_positions(positions, apps):
@@ -536,7 +568,7 @@ def main():
     # Load data
     apps = load_desktop_apps()
     folders = load_folders(apps)
-    positions = load_positions()
+    positions = load_positions(apps)
     positions, positions_migrated = migrate_positions(positions, apps)
     if positions_migrated:
         save_positions(positions)
