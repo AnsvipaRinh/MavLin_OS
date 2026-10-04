@@ -47,8 +47,10 @@ runsh "cat /proc/interrupts | grep -i spi || echo '(no spi irq)'"
 run lspci -nn -d 14e4:
 runsh "dmesg -T | grep -iE 'brcm|wl|firmware' | head -40"
 run iw dev
+runsh "for i in /sys/class/net/wl*; do [ -d \"$i\" ] || continue; iface=\$(basename \"$i\"); echo \"--- $iface power_save\"; iw dev \"$iface\" get power_save 2>/dev/null || true; done"
 run nmcli general status 2>/dev/null || true
 run nmcli device status 2>/dev/null || true
+runsh "nmcli -f NAME,802-11-wireless.powersave connection show --active 2>/dev/null || true"
 run bluetoothctl show 2>/dev/null || true
 runsh "dmesg -T | grep -iE 'bluetooth|btusb|hci' | head -20"
 
@@ -77,6 +79,10 @@ for f in scaling_driver scaling_governor energy_performance_preference; do
 done > "$OUT/cpu-hwp.txt"
 run cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
 run cat /sys/devices/system/cpu/intel_pstate/hwp_dynamic_boost 2>/dev/null || true
+run cat /sys/devices/system/cpu/cpuidle/current_driver 2>/dev/null || true
+run cat /sys/devices/system/cpu/cpuidle/current_governor 2>/dev/null || true
+runsh "for f in /sys/devices/system/cpu/cpu0/cpuidle/state*/{name,latency,target_residency,usage,time}; do [ -f \"$f\" ] && printf '%s: ' \"$f\" && cat \"$f\"; done"
+runsh "grep -E 'CONFIG_(NO_HZ|HZ=)' /proc/config.gz 2>/dev/null | head -20 || true"
 run turbostat --show Busy%,Bzy_MHz,PkgTmp,PkgWatt --interval 2 --num_iterations 5 2>&1 || true
 
 # 10 zram/VM
