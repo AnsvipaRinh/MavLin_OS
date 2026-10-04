@@ -156,6 +156,10 @@ echo "--- finder small helpers (mv-rename/mv-eject/mv-mail) ---"
 python3 scripts/test-mv-finder-small.py >/dev/null 2>&1 \
   && ok "finder small helpers tests" || bad "finder small helpers tests"
 
+echo "--- mv-about headless collectors ---"
+python3 scripts/test-mv-about.py >/dev/null 2>&1 \
+  && ok "mv-about tests" || bad "mv-about tests"
+
 echo "--- P1-M1 firefox seed: profiles.ini activates mavericks.default ---"
 python3 - <<'PYEOF' && ok "firefox seed profiles.ini" || bad "firefox seed profiles.ini"
 import configparser, sys
