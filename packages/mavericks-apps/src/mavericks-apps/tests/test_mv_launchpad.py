@@ -180,6 +180,16 @@ def test_folder_pages_reserve_back_cell():
     print("PASS: test_folder_pages_reserve_back_cell")
 
 
+def test_many_top_level_folders_are_paginated():
+    """More than one 7x5 page of folders must not be dropped or overflow the grid."""
+    source = open(SCRIPT).read()
+    assert 'folder_pages = max(1, (len(structure["folders"]) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)' in source
+    assert 'start = page * ITEMS_PER_PAGE' in source
+    assert 'start = (page - folder_pages) * ITEMS_PER_PAGE' in source
+    assert 'if folder_pages == 1' in source
+    print("PASS: test_many_top_level_folders_are_paginated")
+
+
 def test_folder_cells_count_toward_pagination():
     """Top-level folders must consume cells in the first Launchpad grid page."""
     source = open(SCRIPT).read()
@@ -285,6 +295,7 @@ if __name__ == "__main__":
         test_rofi_selection_actions,
         test_rofi_live_search_callback,
         test_page_navigation_callbacks,
+        test_many_top_level_folders_are_paginated,
         test_folder_cells_count_toward_pagination,
         test_folder_pages_reserve_back_cell,
         test_folder_members_are_not_duplicated_on_main_grid,
