@@ -21,6 +21,10 @@ fi
 # Select hardware exactly once unless the administrator already supplied a
 # profile override. Unknown hardware is intentionally treated as generic.
 PROFILE_CONF="/etc/mavericks/profile.conf"
+if [[ -f /etc/mavericks/firstboot-complete ]]; then
+  log "firstboot already completed; nothing to do."
+  exit 0
+fi
 if [[ ! -f "$PROFILE_CONF" ]]; then
   "$PROFILE_SELECTOR"
 fi
