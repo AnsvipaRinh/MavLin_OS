@@ -43,11 +43,11 @@ def _fingerprint():
             continue
         try:
             dst = os.stat(d)
-            h.update(b"dir\\x00")
+            h.update(b"dir\x00")
             h.update(d.encode("utf-8", "replace"))
-            h.update(b"\\x00")
+            h.update(b"\x00")
             h.update(str(dst.st_mtime_ns).encode())
-            h.update(b"\\x00")
+            h.update(b"\x00")
         except OSError:
             continue
         try:
@@ -63,20 +63,20 @@ def _fingerprint():
                 st = os.stat(path)
             except OSError:
                 continue
-            h.update(b"file\\x00")
+            h.update(b"file\x00")
             h.update(path.encode("utf-8", "replace"))
-            h.update(b"\\x00")
+            h.update(b"\x00")
             h.update(str(st.st_mtime_ns).encode())
-            h.update(b"\\x00")
+            h.update(b"\x00")
             h.update(str(st.st_size).encode())
-            h.update(b"\\x00")
+            h.update(b"\x00")
             count += 1
             dir_count += 1
-        h.update(b"count\\x00")
+        h.update(b"count\x00")
         h.update(d.encode("utf-8", "replace"))
-        h.update(b"\\x00")
+        h.update(b"\x00")
         h.update(str(dir_count).encode())
-        h.update(b"\\x00")
+        h.update(b"\x00")
     return h.hexdigest(), count
 
 
