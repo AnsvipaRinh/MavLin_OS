@@ -377,6 +377,11 @@ def main():
         query = sys.argv[2].strip() if len(sys.argv) > 2 else query
         open_folder = sys.argv[3].strip() if len(sys.argv) > 3 else open_folder
 
+    # Rofi script mode passes the current search text as argv[1] on retv=0.
+    if rofi_mode and rofi_retv == "0":
+        query = sys.argv[1].strip() if len(sys.argv) > 1 else ""
+        page = 0
+
     # Load data
     apps = load_desktop_apps()
     folders = load_folders(apps)
