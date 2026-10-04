@@ -207,16 +207,16 @@ def minimize_window(win_id):
 
 
 def run_native_expose():
-    """Run native skippy-xd paging when installed, without a daemon."""
+    """Run native skippy-xd expose across desktops when installed, without a daemon."""
     import shutil
 
     skippy = shutil.which("skippy-xd")
     if not skippy:
         return False
     try:
-        # Paging is the closest available Mission Control metaphor: it shows
-        # virtual desktops and their windows rather than a text list.
-        result = subprocess.run([skippy, "--paging"], timeout=30)
+        # Expose with desktop=-1 is the one-shot path that works without a daemon,
+        # while still including windows from all virtual desktops.
+        result = subprocess.run([skippy, "--expose", "--desktop", "-1"], timeout=30)
         return result.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
