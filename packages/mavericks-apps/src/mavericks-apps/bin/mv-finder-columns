@@ -357,9 +357,6 @@ def build_finder_menu(app, app_name, get_window, add_action):
     file_menu.append("Close Window", "app.close")
     menu.append_submenu("File", file_menu)
 
-    edit_menu = Gio.Menu()
-    menu.append_submenu("Edit", edit_menu)
-
     view_menu = Gio.Menu()
     view_menu.append("Zoom In", "app.zoom-in")
     view_menu.append("Zoom Out", "app.zoom-out")
