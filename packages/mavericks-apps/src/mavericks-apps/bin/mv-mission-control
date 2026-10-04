@@ -15,6 +15,7 @@ Features:
 import sys
 import subprocess
 import re
+import shutil
 
 
 def get_windows():
@@ -208,8 +209,6 @@ def minimize_window(win_id):
 
 def run_native_expose():
     """Run native skippy-xd expose across desktops when installed, without a daemon."""
-    import shutil
-
     skippy = shutil.which("skippy-xd")
     if not skippy:
         return False
