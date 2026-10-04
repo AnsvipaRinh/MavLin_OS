@@ -1,85 +1,118 @@
 #!/usr/bin/env python3
 """mv-settings — Mavericks-like System Settings launcher (on-demand, exits on close).
 Backend: existing Xfce/GNOME tools + direct syscalls. No daemon.
+Pure logic (PAGES table, search filter) importable headless; Gtk loaded lazily.
 License: GPL-2.0-or-later."""
-import subprocess
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+import shutil, subprocess
+
+def _gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    return Gtk
 
 # (label, icon-name, command-argv or None for built-in page)
+# Icon names: prefer names that exist in the Mavericks icon theme
+# (packages/mavericks-theme/.../icons); Adwaita/hicolor fallbacks are OK but
+# scripts/test-mv-settings.py audits this table against the theme source.
 PAGES = [
     ("General", "preferences-system", None),
-    ("Appearance", "preferences-desktop-theme", ["xfce4-appearance-settings"]),
-    ("Desktop & Dock", "preferences-desktop-wallpaper",
-     ["xfce4-desktop-settings"]),
+    ("Appearance", "color-picker", ["xfce4-appearance-settings"]),
+    ("Desktop & Dock", "folder", ["xfce4-desktop-settings"]),
     ("Displays", "video-display", ["xfce4-display-settings"]),
-    ("Wallpaper", "preferences-background", ["xfce4-desktop-settings"]),
-    ("Network", "network-wired", ["nm-connection-editor"]),
-    ("Bluetooth", "bluetooth", ["blueman-manager"]),
-    ("Sound", "audio-card", ["pavucontrol"]),
-    ("Notifications", "notification", ["xfce4-notifyd-config"]),
+    ("Wallpaper", "image-x-generic", ["xfce4-desktop-settings"]),
+    ("Network", "computer", ["nm-connection-editor"]),
+    ("Bluetooth", "audio-x-generic", ["blueman-manager"]),
+    ("Sound", "preferences-desktop-sound", ["pavucontrol"]),
+    ("Notifications", "appointment", ["xfce4-notifyd-config"]),
     ("Keyboard", "input-keyboard", ["xfce4-keyboard-settings"]),
     ("Mouse", "input-mouse", ["xfce4-mouse-settings"]),
-    ("Energy Saver", "battery", ["xfce4-power-manager-settings"]),
-    ("Date & Time", "preferences-system-time", ["xfce4-settings-manager"]),
-    ("Language & Region", "preferences-desktop-locale", ["xfce4-settings-manager"]),
-    ("Users", "system-users", None),
-    ("Startup Items", "system-run", ["xfce4-session-settings"]),
+    ("Energy Saver", "display", ["xfce4-power-manager-settings"]),
+    ("Date & Time", "gnome-clocks", ["xfce4-settings-manager"]),
+    ("Language & Region", "preferences-system", ["xfce4-settings-manager"]),
+    ("Users", "dialog-password", None),
+    ("Startup Items", "system-file-manager", ["xfce4-session-settings"]),
     ("Storage", "drive-harddisk", ["gnome-disks"]),
     ("About", "help-about", ["mv-about"]),
 ]
 
-class Settings(Gtk.Window):
-    def __init__(self):
-        super().__init__(title="System Settings")
-        self.set_default_size(760, 520)
-        self.set_icon_name("preferences-system")
-        hb = Gtk.HeaderBar(title="System Settings", show_close_button=True)
-        self.set_titlebar(hb)
-        search = Gtk.SearchEntry(placeholder_text="Search settings")
-        search.connect("search-changed", self.on_search)
-        hb.pack_start(search)
-        self.flow = Gtk.FlowBox(homogeneous=True, min_children_per_line=4,
-                                selection_mode=Gtk.SelectionMode.NONE,
-                                margin=12, row_spacing=6, column_spacing=6)
-        sw = Gtk.ScrolledWindow()
-        sw.add(self.flow)
-        self.add(sw)
-        self.buttons = []
-        for label, icon, cmd in PAGES:
-            b = Gtk.Button()
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-            img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
-            box.pack_start(img, False, False, 0)
-            box.pack_start(Gtk.Label(label=label), False, False, 0)
-            b.add(box)
-            b.set_tooltip_text(label if cmd else label + " (coming soon)")
-            if cmd:
-                b.connect("clicked", self.launch, cmd)
-            else:
-                b.set_sensitive(False)
-            self.flow.add(b)
-            self.buttons.append((label.lower(), b))
-        self.search = search
+def page_is_available(cmd):
+    """True if a page's backend tool can actually be launched here.
+    cmd=None means an unimplemented built-in page -> not available."""
+    if not cmd:
+        return False
+    return shutil.which(cmd[0]) is not None
 
-    def on_search(self, entry):
-        q = entry.get_text().lower()
-        for label, b in self.buttons:
-            b.set_visible(q in label)
+def filter_pages(query):
+    """Search semantics shared by the UI: case-insensitive substring match
+    on the page label. Returns the matching PAGES rows in table order."""
+    q = query.lower()
+    return [row for row in PAGES if q in row[0].lower()]
 
-    def launch(self, _btn, cmd):
-        try:
-            subprocess.Popen(cmd)
-        except FileNotFoundError:
-            d = Gtk.MessageDialog(transient_for=self, modal=True,
-                message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK,
-                text="%s is not installed yet" % cmd[0])
-            d.run()
-            d.destroy()
+def build_settings_class():
+    """Build the GUI class lazily so PAGES/filter_pages import headless."""
+    Gtk = _gtk()
+
+    class Settings(Gtk.Window):
+        def __init__(self):
+            super().__init__(title="System Settings")
+            self.set_default_size(760, 520)
+            self.set_icon_name("preferences-system")
+            hb = Gtk.HeaderBar(title="System Settings", show_close_button=True)
+            self.set_titlebar(hb)
+            search = Gtk.SearchEntry(placeholder_text="Search settings")
+            search.connect("search-changed", self.on_search)
+            hb.pack_start(search)
+            self.flow = Gtk.FlowBox(homogeneous=True, min_children_per_line=4,
+                                    selection_mode=Gtk.SelectionMode.NONE,
+                                    margin=12, row_spacing=6, column_spacing=6)
+            sw = Gtk.ScrolledWindow()
+            sw.add(self.flow)
+            self.add(sw)
+            self.buttons = []
+            for label, icon, cmd in PAGES:
+                b = Gtk.Button()
+                box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+                img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
+                box.pack_start(img, False, False, 0)
+                box.pack_start(Gtk.Label(label=label), False, False, 0)
+                b.add(box)
+                if not cmd:
+                    tip = label + " (coming soon)"
+                elif not page_is_available(cmd):
+                    tip = label + " (%s not installed)" % cmd[0]
+                else:
+                    tip = label
+                b.set_tooltip_text(tip)
+                if cmd and page_is_available(cmd):
+                    b.connect("clicked", self.launch, cmd)
+                else:
+                    b.set_sensitive(False)
+                self.flow.add(b)
+                self.buttons.append((label.lower(), b))
+            self.search = search
+
+        def on_search(self, entry):
+            q = entry.get_text().lower()
+            for label, b in self.buttons:
+                b.set_visible(q in label)
+
+        def launch(self, _btn, cmd):
+            try:
+                subprocess.Popen(cmd)
+            except FileNotFoundError:
+                d = Gtk.MessageDialog(transient_for=self, modal=True,
+                    message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK,
+                    text="%s is not installed yet" % cmd[0])
+                d.run()
+                d.destroy()
+
+    return Settings
+
 
 if __name__ == "__main__":
-    w = Settings()
+    Gtk = _gtk()
+    w = build_settings_class()()
     w.connect("destroy", Gtk.main_quit)
     w.show_all()
     Gtk.main()
