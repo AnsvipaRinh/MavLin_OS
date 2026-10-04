@@ -224,8 +224,14 @@ def test_parse(mod):
         e = mod._parse_desktop_file(p)
         check("parse: valid entry", e is not None)
         check("parse: name", e and e["name"] == "Test App", repr(e and e["name"]))
-        check("parse: exec % stripped", e and e["exec"] == "testapp ",
+        check("parse: exec field code removed", e and e["exec"] == "testapp",
               repr(e and e["exec"]))
+        p = sb.write("quoted.desktop", '[Desktop Entry]\\nName=Quoted\\nExec="test app" --mode %U %%done\\n')
+        quoted = mod._parse_desktop_file(p)
+        check("parse: quoted Exec preserved", quoted and quoted["exec"] == '"test app" --mode  %done',
+              repr(quoted and quoted["exec"]))
+        p = sb.write("invalid-exec.desktop", "[Desktop Entry]\\nName=Invalid\\nExec=testapp %X\\n")
+        check("parse: unknown Exec field code rejected", mod._parse_desktop_file(p) is None)
         check("parse: icon", e and e["icon"] == "test-icon", repr(e and e["icon"]))
         check("parse: categories", e and e["categories"] == "Utility;",
               repr(e and e["categories"]))
