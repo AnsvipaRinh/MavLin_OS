@@ -1819,6 +1819,69 @@ if _GUI:
             dialog.destroy()
 
 
+
+def build_calendar_menu(app, app_name, get_window, add_action):
+    def w():
+        return get_window()
+
+    add_action("about", lambda: None)
+    add_action("new-event", lambda: w().new_event(None) if w() else None)
+    add_action("today", lambda: w().go_today(None) if w() else None)
+    add_action("previous", lambda: w().prev_period(None) if w() else None)
+    add_action("next", lambda: w().next_period(None) if w() else None)
+    add_action("month", lambda: w().view_btns["month"].set_active(True) if w() else None)
+    add_action("week", lambda: w().view_btns["week"].set_active(True) if w() else None)
+    add_action("day", lambda: w().view_btns["day"].set_active(True) if w() else None)
+    add_action("find", lambda: w().search.grab_focus() if w() else None)
+    add_action("edit-event", lambda: w().edit_event(w().selected_id)
+               if w() and w().selected_id else None)
+    add_action("delete-event", lambda: w().delete_event(w().selected_id)
+               if w() and w().selected_id else None)
+    add_action("import", lambda: w().import_ics_gui(None) if w() else None)
+    add_action("export", lambda: w().export_ics_gui(None) if w() else None)
+    add_action("sync", lambda: w().sync_eds_gui(None) if w() else None)
+    add_action("calendars", lambda: w().show_calendars(None) if w() else None)
+    add_action("close", lambda: w().destroy() if w() else None)
+    add_action("quit", app.quit)
+
+    menu = Gio.Menu()
+    app_menu = Gio.Menu()
+    app_menu.append("About Calendar", "app.about")
+    app_menu.append("Quit Calendar", "app.quit")
+    menu.append_submenu("Calendar", app_menu)
+
+    file_menu = Gio.Menu()
+    file_menu.append("New Event", "app.new-event")
+    file_menu.append("Import…", "app.import")
+    file_menu.append("Export…", "app.export")
+    file_menu.append("Close Window", "app.close")
+    menu.append_submenu("File", file_menu)
+
+    edit_menu = Gio.Menu()
+    edit_menu.append("Edit Selected Event", "app.edit-event")
+    edit_menu.append("Delete Selected Event", "app.delete-event")
+    edit_menu.append("Find", "app.find")
+    menu.append_submenu("Edit", edit_menu)
+
+    view_menu = Gio.Menu()
+    view_menu.append("Month", "app.month")
+    view_menu.append("Week", "app.week")
+    view_menu.append("Day", "app.day")
+    menu.append_submenu("View", view_menu)
+
+    go_menu = Gio.Menu()
+    go_menu.append("Today", "app.today")
+    go_menu.append("Previous Period", "app.previous")
+    go_menu.append("Next Period", "app.next")
+    menu.append_submenu("Go", go_menu)
+
+    window_menu = Gio.Menu()
+    window_menu.append("Calendars…", "app.calendars")
+    window_menu.append("Sync EDS", "app.sync")
+    window_menu.append("Close Window", "app.close")
+    menu.append_submenu("Window", window_menu)
+    return menu
+
 # ------------------------------------------------------------ CLI (timer)
 
 def check_upcoming_cli():
@@ -1854,7 +1917,8 @@ def main():
     sys.path.insert(0, "/usr/share/mavericks-apps")
     from mavericks_appmenu import run_application
     return run_application(
-        "com.mavlinos.Calendar", "Calendar", CalendarWindow, sys.argv)
+        "com.mavlinos.Calendar", "Calendar", CalendarWindow, sys.argv,
+        build_calendar_menu)
 
 
 if __name__ == "__main__":
