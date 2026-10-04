@@ -201,6 +201,36 @@ def test_cache_hit_skips_reads(mod):
         sb.close()
 
 
+def test_locale_invalidation(mod):
+    """Localized desktop names must refresh when the active locale changes."""
+    sb = Sandbox(mod)
+    old = {key: os.environ.get(key) for key in ("LANGUAGE", "LC_MESSAGES", "LANG")}
+    try:
+        for key in old:
+            os.environ.pop(key, None)
+        sb.write("localized.desktop", """[Desktop Entry]
+Name=English App
+Name[ru]=Русское приложение
+Name[en]=English App
+Exec=testapp
+""")
+        os.environ["LANGUAGE"] = "en"
+        entries = mod.load_desktop_entries()
+        check("locale: English name cached", entries[0]["name"] == "English App",
+              repr(entries))
+        os.environ["LANGUAGE"] = "ru"
+        entries = mod.load_desktop_entries()
+        check("locale: change invalidates cache",
+              entries[0]["name"] == "Русское приложение", repr(entries))
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        sb.close()
+
+
 def test_cache_invalidation(mod):
     sb = Sandbox(mod)
     try:
@@ -309,6 +339,7 @@ def main():
     test_fingerprint(mod)
     test_cache_hit_skips_reads(mod)
     test_cache_invalidation(mod)
+    test_locale_invalidation(mod)
     test_corrupt_cache(mod)
     test_integration(mod)
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")
