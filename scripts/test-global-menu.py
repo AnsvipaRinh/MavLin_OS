@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Validate the MavLinOS global-menu integration contract."""
+
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+PANEL = Path("archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml")
+XSETTINGS = Path("archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml")
+PACKAGES = Path("archiso-profile/releng/packages.x86_64")
+PKGBUILD = Path("packages/vala-panel-appmenu/PKGBUILD")
+
+
+def main():
+    panel = ET.parse(PANEL).getroot()
+    plugins = panel.find("./property[@name='plugins']")
+    ids = [v.get("value") for v in panel.findall("./property[@name='panels']/property[@name='panel-1']/property[@name='plugin-ids']/value")]
+    assert ids == [str(i) for i in range(1, 7)], f"unexpected panel plugin IDs: {ids}"
+
+    entries = {p.get("name"): p for p in plugins}
+    assert entries["plugin-1"].get("value") == "appmenu"
+    assert entries["plugin-2"].get("value") == "separator"
+    assert entries["plugin-3"].get("value") == "systray"
+    assert entries["plugin-4"].get("value") == "clock"
+    assert entries["plugin-5"].get("value") == "actions"
+    assert entries["plugin-6"].get("value") == "genmon"
+    assert entries["plugin-2"].find("./property[@name='expand']").get("value") == "true"
+
+    xsettings = ET.parse(XSETTINGS).getroot()
+    gtk = xsettings.find("./property[@name='Gtk']")
+    assert gtk is not None
+    settings = {p.get("name"): p.get("value") for p in gtk}
+    assert settings["ShellShowsMenubar"] == "true"
+    assert settings["ShellShowsAppmenu"] == "true"
+    assert settings["Modules"] == "appmenu-gtk-module"
+
+    assert "vala-panel-appmenu" in set(PACKAGES.read_text(encoding="utf-8").split())
+    build = PKGBUILD.read_text(encoding="utf-8")
+    assert "-Dxfce=enabled" in build
+    assert "-Dregistrar=enabled" in build
+    for disabled in ("-Dmate=disabled", "-Dbudgie=disabled", "-Dvalapanel=disabled"):
+        assert disabled in build
+
+    print("OK: global menu integration contract")
+
+
+if __name__ == "__main__":
+    main()
