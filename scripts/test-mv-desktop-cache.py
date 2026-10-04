@@ -210,6 +210,15 @@ def test_parse(mod):
         check("parse: missing Name rejected", mod._parse_desktop_file(p) is None)
         p = sb.write("noexec.desktop", "[Desktop Entry]\nName=Foo\n")
         check("parse: missing Exec rejected", mod._parse_desktop_file(p) is None)
+        p = sb.write("dbus.desktop", "[Desktop Entry]\nName=DBus App\nDBusActivatable=true\n")
+        dbus_entry = mod._parse_desktop_file(p)
+        check("parse: DBusActivatable without Exec kept", dbus_entry is not None, repr(dbus_entry))
+        check("parse: DBusActivatable flag retained", dbus_entry and dbus_entry["dbus_activatable"] is True,
+              repr(dbus_entry))
+        check("parse: DBusActivatable without Exec has empty exec", dbus_entry and dbus_entry["exec"] == "",
+              repr(dbus_entry))
+        p = sb.write("dbus-false.desktop", "[Desktop Entry]\nName=DBus False\nDBusActivatable=false\n")
+        check("parse: DBusActivatable=false still requires Exec", mod._parse_desktop_file(p) is None)
         check("parse: missing file -> None",
               mod._parse_desktop_file(os.path.join(sb.desktop, "nope.desktop")) is None)
     finally:
