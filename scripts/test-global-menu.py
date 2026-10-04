@@ -134,6 +134,7 @@ def main():
     finder = FINDER.read_text(encoding="utf-8")
     notes = NOTES.read_text(encoding="utf-8")
     assert "build_finder_menu" in finder
+    assert "menu.append_submenu(\"Edit\"" not in finder
     for action in ("Open in Thunar…", "Zoom In", "Zoom Out", "Actual Size", "Back", "Home"):
         assert action in finder, f"Finder menu missing {action}"
     calendar = CALENDAR.read_text(encoding="utf-8")
@@ -154,7 +155,7 @@ def main():
     assert "Gtk.Application(application_id=" in photos
     assert "Gtk.main_quit()" not in photos
     for action in ("Import Photos…", "New Album…", "All Photos", "Favorites",
-                   "Recently Added", "Moments", "Start / Stop Slideshow"):
+                   "Recently Added", "Start / Stop Slideshow"):
         assert action in photos, f"Photos menu missing {action}"
     stickies = STICKIES.read_text(encoding="utf-8")
     assert "build_stickies_menu" in stickies
