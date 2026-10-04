@@ -134,6 +134,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
     **AUTOMATICALLY** execute the documented failure-recovery protocol BEFORE proceeding to objective selection.
     This prevents model/provider failures from falling through to the "wait for user" state.
     **Do NOT wait for user input. Do NOT ask for confirmation. Execute immediately.**
+    **CRITICAL: If you see "Free Usage Exceeded", "rate limit", "quota exceeded", "quota exceeded", "rate limit", or any quota/rate-limit error in the Task result, you MUST IMMEDIATELY execute the failure recovery protocol below. Do NOT wait for user. Do NOT ask for confirmation. Execute the recovery commands NOW.**
 
     a) Extract the failure information from the last Task result:
        - task_id (the subagent session id returned by the Task tool)
@@ -141,24 +142,24 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
        - error_text (the failure message from the Task result)
        - oid (the objective ID for this task)
 
-    b) Run error classification:
-       `scripts/session-reuse.py classify-error --record-model <model> --cooldown <sec> "<error_text>"`
+    b) **IMMEDIATELY** run error classification via bash tool:
+       `bash -c 'scripts/session-reuse.py classify-error --record-model <model> --cooldown <sec> "<error_text>"'`
        (provider retry delay when known from error text, else 3h default)
 
     c) If the classification verdict is a model/provider failure requiring same-session migration:
        MODEL_QUOTA (10), MODEL_RATE_LIMIT (11), MODEL_TIMEOUT (13),
        PROVIDER_ERROR (14), FREE_USAGE_EXHAUSTED (18)
 
-       Then **AUTOMATICALLY** invoke the existing migration mechanism:
-       `scripts/session-reuse.py migrate <task_id> --objective "<objective>" --delay <observed_delay>`
+       Then **IMMEDIATELY** invoke the migration via bash tool:
+       `bash -c 'scripts/session-reuse.py migrate <task_id> --objective "<objective>" --delay <observed_delay>'`
        (observed_delay from classify-error output or provider retry text; 0 = default 3h)
 
        This records the dead-model cooldown, selects the next healthy worker from the
        fallback chain, re-points the session registrar, and prints the Task block for
        resuming the SAME task_id on the new worker.
 
-    d) **AUTOMATICALLY** re-register the task_id with the new worker:
-       `scripts/session-reuse.py register <task_id> --agent <new_worker> --objective "<objective>" --task "<task_text>" --model <new_model> --oid <oid> --failure <verdict>`
+    d) **IMMEDIATELY** re-register the task_id with the new worker via bash tool:
+       `bash -c 'scripts/session-reuse.py register <task_id> --agent <new_worker> --objective "<objective>" --task "<task_text>" --model <new_model> --oid <oid> --failure <verdict>'`
        This preserves the session history, objective, and oid while updating the worker/model.
 
     e) Continue the autonomous loop IMMEDIATELY — do NOT wait for user "продолжай".
@@ -171,18 +172,19 @@ f) Duplicate protection: track the last processed task_id + failure hash in a lo
    **This check runs BEFORE classification; if duplicate, skip to next loop iteration.**
 
 g) Non-model failures (NETWORK, CONTEXT, SESSION, AGENT, PROJECT, AUTH, UNKNOWN):
-   Do NOT automatically migrate. Follow the existing recovery matrix:
-   NETWORK → same session, same worker, no cooldown; CONTEXT/SESSION → replacement
-   session with minimal transfer; PROJECT → fix code, no rotation; etc.
-   Delegate to `build` for diagnosis if needed.
+        Do NOT automatically migrate. Follow the existing recovery matrix:
+        NETWORK → same session, same worker, no cooldown; CONTEXT/SESSION → replacement
+        session with minimal transfer; PROJECT → fix code, no rotation; etc.
+        Delegate to `build` for diagnosis if needed.
 
-    g) Non-model failures (NETWORK, CONTEXT, SESSION, AGENT, PROJECT, AUTH, UNKNOWN):
-       Do NOT automatically migrate. Follow the existing recovery matrix:
-       NETWORK → same session, same worker, no cooldown; CONTEXT/SESSION → replacement
-       session with minimal transfer; PROJECT → fix code, no rotation; etc.
-       Delegate to `build` for diagnosis if needed.
+    h) **SPECIFIC HANDLING FOR "FREE USAGE EXCEEDED" / QUOTA ERRORS:**
+        If the error text contains "Free Usage Exceeded", "rate limit", "quota exceeded", "rate limit", "quota exceeded", or any quota/rate-limit error:
+        1. **IMMEDIATELY** run: `bash -c 'scripts/session-reuse.py classify-error --record-model <model> --cooldown <seconds> "<error_text>"'`
+        2. **IMMEDIATELY** run: `bash -c 'scripts/session-reuse.py migrate <task_id> --objective "<objective>" --delay <seconds>'`
+        3. **IMMEDIATELY** run: `bash -c 'scripts/session-reuse.py register <task_id> --agent <new_worker> --objective "<objective>" --task "<task_text>" --model <new_model> --oid <oid> --failure <verdict>'`
+        4. **IMMEDIATELY** continue the loop with the new worker — do NOT wait for user.
 
-    h) Genuine success: do nothing — proceed normally.
+    i) Genuine success: do nothing — proceed normally.
 
 3. OBJECTIVE SELECTION:
     After the gate completion guard, select the highest-priority unfinished objective (AGENTS.md section 10, P0 before P1 before P2).
