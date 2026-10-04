@@ -152,7 +152,7 @@ def test_calculator_safety_contract():
     source = (Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight").read_text(encoding="utf-8")
     assert "import ast" in source
     assert 'ast.parse(q, mode="eval")' in source
-    assert "eval(q, allowed" not in source
+    assert "eval(" not in source
     assert "ast.Pow" in source
 
 
