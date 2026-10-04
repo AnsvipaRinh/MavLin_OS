@@ -14,11 +14,18 @@ NATIVE_APPS = {
     "about": "About This Mac",
     "activity": "Activity",
     "calendar": "Calendar",
+    "colormeter": "Digital Color Meter",
+    "diskutil": "Disk Utility",
     "finder-columns": "Finder",
+    "fontbook": "Font Book",
     "console": "Console",
     "dictionary": "Dictionary",
     "notes": "Notes",
+    "photos": "Photos",
+    "preview": "Preview",
+    "reminders": "Reminders",
     "settings": "System Preferences",
+    "voice": "Voice Memos",
     "textedit": "TextEdit",
 }
 
