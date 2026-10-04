@@ -289,7 +289,7 @@ def main():
             for path in recent:
                 name = os.path.basename(path)
                 cat = categorize_file(path, name)
-                icon = get_icon_for_file(name, path)
+                icon = path if name.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".tiff", ".ico")) else get_icon_for_file(name, path)
                 print(f"{name}\0icon\x1f{icon}\0info\x1f{cat}: {os.path.dirname(path)}\0action\x1fxdg-open '{path}'")
         else:
             print("No recent items\0icon\x1fdialog-information\0info\x1fNo recently used files found")
@@ -350,7 +350,7 @@ def main():
             categorized[cat].append({
                 "path": path,
                 "name": name,
-                "icon": get_icon_for_file(name, path),
+                "icon": path if name.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".tiff", ".ico")) else get_icon_for_file(name, path),
                 "source": "file"
             })
 
