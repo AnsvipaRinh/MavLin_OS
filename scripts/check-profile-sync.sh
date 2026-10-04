@@ -68,6 +68,19 @@ check_file "$REPO_ROOT/configs/profiles/fragments/99-mavericks-display.conf" \
     "$AIROOTFS/usr/local/share/mavericks/profiles/fragments/99-mavericks-display.conf" \
     "display fragment"
 
+check_file "$REPO_ROOT/scripts/install/mavericks-profile-select.sh" \
+    "$AIROOTFS/usr/local/bin/mavericks/mavericks-profile-select.sh" \
+    "installed profile selector"
+
+[[ -f "$AIROOTFS/etc/systemd/system/mavericks-firstboot.service" ]] || {
+    echo "ERROR: firstboot systemd unit missing in airootfs"
+    ((ERRORS++))
+}
+[[ -L "$AIROOTFS/etc/systemd/system/multi-user.target.wants/mavericks-firstboot.service" ]] || {
+    echo "ERROR: firstboot systemd unit is not enabled in airootfs"
+    ((ERRORS++))
+}
+
 # MacBook-specific airootfs files (not mirrored from configs/profiles/, but must exist)
 [[ -f "$AIROOTFS/etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf" ]] || {
     echo "ERROR: MacBook Wi-Fi backend fragment missing in airootfs"
