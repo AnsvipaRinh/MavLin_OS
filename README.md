@@ -33,6 +33,57 @@ Linux — only the user-facing interaction layers follow Mavericks.
 
 ---
 
+## Screenshots — the real build running (QEMU/OVMF, unretouched)
+
+Framebuffer captures of the actual ISO (`out/`) booted in QEMU+OVMF.
+Not mockups, not design comps — the shipped theme, Dock, panel and apps:
+
+| | |
+|---|---|
+| ![Boot menu](docs/screenshots/boot-menu.png) | **Boot** — systemd-boot (UEFI), MavLinOS entry |
+
+Desktop, Finder, Spotlight and login captures are pending: each requires
+a full desktop boot under TCG (tens of minutes per steady-state frame),
+so they are added one at a time as verified captures land in
+`docs/screenshots/`. No placeholders are linked.
+
+Hardware screenshots on the real MacBook10,1 will be added when hardware
+arrives (`docs/NEEDS_HARDWARE_TEST.md`).
+
+---
+
+## What am I looking at? (repository map)
+
+This repo contains **an operating system** plus the **development
+automation** that builds it. If you browse the file tree, separate the two:
+
+**The OS itself — everything that lands in the ISO:**
+
+- `archiso-profile/` — mkarchiso profile: ~750 packages, UEFI +
+  systemd-boot, live/install environment. **This is where the Linux is.**
+- `packages/` — the MavLinOS layer:
+  - `mavericks-apps/` — the system applications: Finder helpers, Spotlight,
+    Launchpad, Mission Control, Control Center, Notification Center,
+    Settings, Activity Monitor, Disk Utility, and more. Python + GTK3 —
+    the same approach GNOME system utilities use; the heavy lifting stays
+    in mature backends (Thunar/GVfs, plocate, rofi, UDisks2, GStreamer).
+  - `mavericks-theme/` — Mavericks GTK3/Xfce/Plank theme, icon theme,
+    cursor theme (SCSS sources compiled to CSS, as GTK themes upstream do).
+  - `macbook12-audio-driver/` — Cirrus CS42L83 DKMS driver (MacBook target).
+- `configs/` — source of truth for the desktop: Xfce/LightDM/Thunar/Plank
+  settings, Firefox ESR chrome, kernel-cmdline hardware profiles
+  (`configs/profiles/`: `generic` core + `macbook10,1` profile).
+
+**Development automation — NOT part of the OS, NOT in the ISO:**
+
+- `scripts/`, `tools/` — build, validation gates, diagnostics, dev setup.
+- `lab/` — A/B deploy + 25-scenario failure-injection test harness.
+- `.opencode/`, `AGENTS.md`, `opencode.jsonc` — the autonomous-agent
+  constitution and orchestration config this project is developed with
+  (process infrastructure; safe to ignore if you only want the OS).
+
+---
+
 ## Two goals
 
 1. **Mavericks UI/UX fidelity** — the interaction model above, in the
@@ -88,7 +139,8 @@ machine.** See `ARCHITECTURE.md` and `configs/profiles/`.
 
 | Layer | Status | Notes |
 |-------|--------|-------|
-| **Core desktop (P0)** | PARTIALLY IMPLEMENTED | Finder/Spotlight/Launchpad/Mission Control/Control Center/Notification Center/Quick Look/Dock/Menu Bar/Window Management/Global Dialogs/File Chooser/Context Menus/Keyboard Layer/Trash/Archive/Power UI — functional pre-hardware, hardware validation pending |
+| **Finder** | IMPLEMENTED — HARDWARE VALIDATION REQUIRED | Sidebar/bookmarks/navigation/views/context menus/Get Info/Open With/Rename/Trash/Eject/Quick Look/keyboard/MIME/dialogs + recursive search + column browser companion (see `docs/APPS.md` Finder row; commits `dfd8b04`, `a76050d`); visual validation on real 2304×1440 pending |
+| **Core desktop (P0, rest)** | PARTIALLY IMPLEMENTED | Spotlight/Launchpad/Mission Control/Control Center/Notification Center/Quick Look/Dock/Menu Bar/Window Management/Global Dialogs/File Chooser/Context Menus/Keyboard Layer/Trash/Archive/Power UI — functional pre-hardware, hardware validation pending |
 | **System apps (P1)** | PARTIALLY IMPLEMENTED | Activity Monitor, System Info, Disk Utility, Screenshot, TextEdit, Calculator, Notes, Reminders, Calendar, Music, Console, Keychain, Font Book, Color Meter, Stickies, Voice Memos — Mavericks UI over mature backends; HW validation pending |
 | **P2 / Future** | DEFERRED / EXCLUDED | AirDrop, Time Machine UI, Automator/Shortcuts, Grapher, Migration Assistant, App Store, Software Update polish — explicitly not in scope for the current phase |
 | **Excluded** | EXCLUDED | Contacts, TV, Podcasts, Siri, AirPlay, Chess, Game Center, dedicated Printer Discovery, Image Capture, Terminal replacement, mandatory account/password infra |
@@ -100,8 +152,8 @@ measurements. See `docs/NEEDS_HARDWARE_TEST.md`. Native keyboard/trackpad
 support (applespi) is best-effort; an external USB-C keyboard/mouse is the
 recommended bring-up interface.
 
-**No MacBook screenshots exist** (hardware not yet available). All UI claims
-are pre-hardware implementation status only.
+The screenshot above is a QEMU capture of the real build; on-hardware visual
+validation happens when the machine arrives.
 
 ---
 
@@ -120,12 +172,12 @@ sudo mkarchiso -v -w /tmp/archiso-build -o out/ archiso-profile/
 # 4. Smoke test in QEMU+OVMF (UEFI, no KVM required)
 qemu-system-x86_64 \
   -machine q35,accel=tcg \
-  -cpu host \
-  -m 4G \
-  -bios /usr/share/edk2/x64/OVMF_CODE.fd \
-  -drive file=out/mavlinos-*.iso,format=raw,if=virtio \
-  -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
-  -display gtk,gl=on
+  -cpu max -m 4G \
+  -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
+  -drive if=pflash,format=raw,file=/tmp/OVMF_VARS.fd \
+  -cdrom out/mavericks-linux-*.iso \
+  -netdev user,id=net0 -device e1000,netdev=net0 \
+  -vga std -display gtk
 ```
 
 **QEMU tests:** Sim backend (rootless, deterministic) — 25/25 scenarios pass.
@@ -136,35 +188,46 @@ QEMU backend — 7/25 pass (network boot); command-channel scenarios blocked on
 
 ## Repository Structure
 
+Split by role — **OS content** (top) vs **development automation** (bottom):
+
 ```
 .
-├── AGENTS.md                 # Autonomous agent instructions (this project's constitution)
+# --- the operating system (lands in the ISO) ---
 ├── archiso-profile/          # mkarchiso profile (UEFI, systemd-boot, ~750 pkgs)
 ├── configs/                  # Source configs (mirrored to archiso-profile by check-sync)
 │   ├── desktop/              # Xfce, LightDM, Plank, Thunar, skippy-xd, fonts
 │   ├── firefox/              # Firefox ESR userChrome.css + user.js (Mavericks Safari 7)
 │   ├── mv-ytplayer/          # Codec policy for mpv+yt-dlp video path
 │   ├── network/              # NetworkManager pin + connectivity off
-│   └── profiles/             # Kernel cmdline profiles (baseline + 12 experiments)
-├── docs/                     # All project documentation (see index below)
-├── lab/                      # Remote lab control plane (agent + harness + 25 scenarios)
+│   └── profiles/             # Kernel cmdline profiles (generic + macbook10,1)
 ├── packages/                 # Arch packages (repo-local, no AUR in default ISO)
-│   ├── mavericks-apps/       # 23 custom apps (mv-*) + desktop files + rofi themes
+│   ├── mavericks-apps/       # System applications (mv-*) + desktop files + rofi themes
 │   ├── mavericks-theme/      # GTK3/Xfce/Plank theme + icon + cursor (SCSS → CSS)
 │   ├── macbook12-audio-driver/  # Cirrus CS42L83 DKMS (tanisperez fork, pinned)
 │   └── epiphany-mavericks-theme/  # DEFERRED (not in ISO)
+# --- development automation (NOT in the ISO) ---
 ├── scripts/                  # Build, test, bench, install, diagnostics
-├── tools/                    # Ad-hoc utilities
-└── .opencode/                # Orchestrator + worker config (project-local)
+├── tools/                    # Ad-hoc utilities (incl. wsl-environment-setup.sh)
+├── lab/                      # Remote lab control plane (agent + harness + 25 scenarios)
+├── docs/                     # All project documentation (see index below)
+├── .opencode/                # Orchestrator + worker config (project-local)
+├── AGENTS.md                 # Autonomous agent constitution (process infra)
+└── opencode.jsonc            # Agent permission config
 ```
 
 ---
 
 ## Documentation Index
 
+Reading order for people: **README (this file) → `CONTRIBUTING.md` →
+`ARCHITECTURE.md`**. `AGENTS.md` is the agent constitution — process
+infrastructure, not required human reading.
+
 | File | Purpose |
 |------|---------|
-| `AGENTS.md` | Autonomous agent constitution (read first) |
+| `CONTRIBUTING.md` | How to contribute (read first as a human) |
+| `ARCHITECTURE.md` | Layer diagram + profiles + lab harness |
+| `AGENTS.md` | Autonomous agent constitution (process infra, not OS) |
 | `docs/HARDWARE.md` | MacBook10,1 spec + base config |
 | `docs/PROGRESS.md` | Phase-by-phase implementation log |
 | `docs/APPS.md` | 46-objective application inventory + statuses |
@@ -175,10 +238,7 @@ QEMU backend — 7/25 pass (network boot); command-channel scenarios blocked on
 | `docs/KEYBOARD.md` | Global Super-layer shortcut map |
 | `docs/DECISIONS.md` | Every non-obvious decision + rationale |
 | `docs/LAB_HARNESS.md` | A/B deploy + 25 failure-injection scenarios |
-| `CONTRIBUTING.md` | Contribution guide (this repo) |
 | `SECURITY.md` | Threat model + review verdicts + responsible disclosure |
-| `CODE_OF_CONDUCT.md` | Community rules (Contributor Covenant 2.1) |
-| `ARCHITECTURE.md` | Layer diagram + profiles + lab harness |
 | `docs/CONTRIBUTION_PROTOCOL.md` | End-to-end contribution flow (discovery → human merge) |
 | `docs/SECURITY_MODEL.md` | Threat model, isolation guarantees, no-secrets-in-CI |
 | `docs/VIBE_CODING.md` | External agent workflow |

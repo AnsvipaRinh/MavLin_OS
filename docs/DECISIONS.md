@@ -1,5 +1,41 @@
 # DECISIONS
 
+## 2026-10-04 — README legibility close-out: repo map, real QEMU screenshots, Finder status
+
+**Context:** README was written for a contributor who cannot ask
+questions. New readers could not tell the OS apart from the
+development automation, had no visual reference (only prose), and
+the status table lagged the Finder reality (dfd8b04, a76050d).
+
+**Decisions:**
+- **Screenshots first (~top of file):** real framebuffer captures of
+  the shipped ISO booted in QEMU+OVMF (UEFI, TCG, `-vga std`,
+  `screendump` via QMP monitor, hash-deduped 20s sampling). No
+  mockups, no design comps. Method: `qemu-system-x86_64
+  -machine q35,accel=tcg -cpu max -m 4G` + OVMF 4M pflash +
+  ISO as cdrom; monitor socket + `socat`; frames saved only when
+  their md5 changes. Boot menu captured at the 15s systemd-boot
+  timeout window; desktop/greeter captured as steady-state frames.
+  On-hardware captures come later (`docs/NEEDS_HARDWARE_TEST.md`).
+- **"What am I looking at?" repo map:** explicitly splits the OS
+  (archiso-profile/, packages/, configs/ — everything that lands
+  in the ISO) from development automation (scripts/, lab/, tools/,
+  .opencode/, AGENTS.md — not part of the OS). Python mv-* apps
+  documented as GTK3 system applications (the same approach GNOME
+  system utilities use), not scripts.
+- **AGENTS.md** labelled "autonomous agent constitution — process
+  infrastructure, not required human reading"; human reading order
+  is README → CONTRIBUTING → ARCHITECTURE.
+- **Status table:** Finder promoted to
+  IMPLEMENTED — HARDWARE VALIDATION REQUIRED (recursive search
+  dfd8b04, column browser + view/zoom fidelity a76050d, verified
+  against docs/APPS.md Finder row). Remaining P0 surfaces stay
+  PARTIALLY IMPLEMENTED.
+- **QEMU command** in the build section corrected to the actually
+  tested invocation (OVMF 4M pflash pair, e1000 nic, `-cpu max`).
+
+**User action:** none.
+
 ## Finder: view/zoom fidelity — app-level Ctrl keys, 64px icon default, dead thunarrc key removed (Phase finder-p0)
 
 **Date:** 2026-10-03
