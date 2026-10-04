@@ -60,12 +60,19 @@ def check(name, cond, detail=""):
         bad(name, detail)
 
 
-def load_app():
-    loader = importlib.machinery.SourceFileLoader("mv_timemachine", APP_PATH)
-    spec = importlib.util.spec_from_loader("mv_timemachine", loader)
-    module = importlib.util.module_from_spec(spec)
-    loader.exec_module(module)
-    return module
+def load_app(argv=("mv-timemachine",)):
+    # GUI mode (default argv) exposes the lazily built TimeMachineWindow class
+    # for the display-gated smoke tests; timer argv keeps it headless.
+    old_argv = sys.argv
+    sys.argv = list(argv)
+    try:
+        loader = importlib.machinery.SourceFileLoader("mv_timemachine", APP_PATH)
+        spec = importlib.util.spec_from_loader("mv_timemachine", loader)
+        module = importlib.util.module_from_spec(spec)
+        loader.exec_module(module)
+        return module
+    finally:
+        sys.argv = old_argv
 
 
 def fake_proc(returncode=0, stdout=b"", stderr=b""):
@@ -285,7 +292,7 @@ def test_gui(m):
     m.CONFIG_DIR = os.path.join(tmp, "config")
     m.TARGET_FILE = os.path.join(m.CONFIG_DIR, "target")
     try:
-        win = m.TimeMachineWindow()
+        win = m.build_timemachine_class()()
         win.show_all()
         while Gtk.events_pending():
             Gtk.main_iteration()
@@ -296,7 +303,7 @@ def test_gui(m):
         win.destroy()
 
         m.save_target("/mnt/backup")
-        win = m.TimeMachineWindow()
+        win = m.build_timemachine_class()()
         win.show_all()
         while Gtk.events_pending():
             Gtk.main_iteration()
@@ -339,6 +346,34 @@ def main():
                        capture_output=True, text=True, timeout=60)
     check("timer path skips Gtk import", p.stdout.strip() == "NOGTK",
           (p.stdout + p.stderr).strip()[:200])
+
+    # Portability: module must import on hosts WITHOUT PyGObject at all
+    # (headless CI), and the GUI class must come from the lazy factory.
+    nogi_code = (
+        "import sys, types\n"
+        "sys.argv = ['mv-timemachine']\n"
+        "class _Blocker:\n"
+        "    def find_spec(self, name, path=None, target=None):\n"
+        "        if name == 'gi' or name.startswith('gi.'):\n"
+        "            raise ImportError('PyGObject blocked for portability test')\n"
+        "        return None\n"
+        "sys.meta_path.insert(0, _Blocker())\n"
+        "import importlib.machinery as im, importlib.util as iu\n"
+        "ld = im.SourceFileLoader('app', %r)\n"
+        "sp = iu.spec_from_loader('app', ld)\n"
+        "m = iu.module_from_spec(sp)\n"
+        "ld.exec_module(m)\n"
+        "print('IMPORT_OK')\n"
+        "print('FACTORY_NONE' if m.build_timemachine_class() is None else 'BAD')\n"
+        % APP_PATH)
+    p2 = subprocess.run([sys.executable, "-c", nogi_code],
+                        capture_output=True, text=True, timeout=60)
+    check("imports without PyGObject (headless host)",
+          "IMPORT_OK" in p2.stdout, (p2.stdout + p2.stderr).strip()[-250:])
+    check("build_timemachine_class returns None without gi",
+          "FACTORY_NONE" in p2.stdout, (p2.stdout + p2.stderr).strip()[-250:])
+
+
     print("---")
     if bad.failures:
         print("%d FAILED, %d passed" % (len(bad.failures), ok.count))

@@ -34,20 +34,17 @@ import sys
 import time
 from datetime import datetime, timezone
 
-# Timer one-shots (--check-due) are pure Python + libsecret; defining the GUI
-# class only in GUI mode keeps the Gtk import out of the hourly timer path.
+# Timer one-shots (--check-due) are pure Python + libsecret; the GUI class is
+# built lazily via build_timemachine_class(), so importing this module on hosts
+# without PyGObject works and unit tests can exercise the pure logic headless.
 _GUI = len(sys.argv) <= 1 or sys.argv[1] != "--check-due"
 
-import gi
 try:
+    import gi
     gi.require_version("Secret", "1")
     from gi.repository import Secret
-except (ValueError, ImportError):
+except (ImportError, ValueError):
     Secret = None
-
-if _GUI:
-    gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, Gdk, GLib
 
 RESTIC = "restic"
 BTRFS = "btrfs"
@@ -334,7 +331,15 @@ STARFIELD_CSS = """
 """
 
 
-if _GUI:
+def build_timemachine_class():
+    """Build the GUI class on demand (lazy Gtk); returns None without PyGObject."""
+    try:
+        import gi
+        gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk, Gdk, GLib
+    except (ImportError, ValueError):
+        return None
+
     class TimeMachineWindow(Gtk.Window):
         def __init__(self):
             super().__init__(title="Time Machine")
@@ -787,6 +792,8 @@ if _GUI:
                 return True
             return False
 
+    return TimeMachineWindow
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -799,7 +806,13 @@ def main():
     if args.check_due:
         sys.exit(check_due())
 
-    win = TimeMachineWindow()
+    WinClass = build_timemachine_class()
+    if WinClass is None:
+        print("mv-timemachine: PyGObject (gi) is required for the GUI; "
+              "install python-gobject.", file=sys.stderr)
+        return 1
+    from gi.repository import Gtk
+    win = WinClass()
     win.show_all()
     Gtk.main()
 
