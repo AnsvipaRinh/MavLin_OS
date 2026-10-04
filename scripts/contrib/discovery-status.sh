@@ -5,12 +5,12 @@
 # Returns clear status: OK|EMPTY|FILE_NOT_FOUND|UNAVAILABLE|AUTH_INVALID|RATE_LIMITED|EXECUTION_ERROR|DISCOVERY_FAILED
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-STATE_DIR="${REPO_ROOT}/lab/contrib"
+STATE_DIR="${MAVERICKS_STATE_DIR:-${REPO_ROOT}/lab/contrib}"
 BACKLOG_FILE="${STATE_DIR}/backlog.json"
 
 # Exit codes for status function:
 # 0 - OK (with items)
-# 1 - UNAVAILABLE (GitHub unavailable)
+# 1 - EMPTY (no actionable items) or UNAVAILABLE (GitHub unavailable)
 # 2 - AUTH_INVALID (GitHub auth invalid)
 # 3 - RATE_LIMITED (GitHub rate limited)
 # 4 - FILE_NOT_FOUND (file missing)
@@ -72,6 +72,16 @@ get_discovery_status() {
                 return 1
             fi
             ;;
+        "EMPTY")
+            json_output=$(jq -n \
+                --arg status "EMPTY" \
+                --arg reason "discovery completed successfully, no actionable items" \
+                --arg exit_code "1" \
+                --argjson count "$total_count" \
+                '{status: $status, reason: $reason, exit_code: ($exit_code | tonumber), total_count: $count}')
+            echo "$json_output"
+            return 1
+            ;;
         "UNAVAILABLE")
             json_output=$(jq -n \
                 --arg status "UNAVAILABLE" \
@@ -106,7 +116,7 @@ get_discovery_status() {
             # DISCOVERY_FAILED for unknown/disconnected status
             json_output=$(jq -n \
                 --arg status "DISCOVERY_FAILED" \
-                --arg reason "discovery completed with status: ${discovery_status}"' \
+                --arg reason "discovery completed with status: ${discovery_status}" \
                 --arg exit_code "5" \
                 --argjson count "$total_count" \
                 '{status: $status, reason: $reason, exit_code: ($exit_code | tonumber), total_count: $count}')

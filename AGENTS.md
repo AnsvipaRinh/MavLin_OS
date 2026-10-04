@@ -1088,11 +1088,19 @@ until a genuine blocker (14.3) or project-level completion (13.11):
 READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.md, git)
 → GITHUB DISCOVERY GATE (mandatory — external contribution backlog has priority):
     run scripts/contrib/discover.sh → parse lab/contrib/backlog.json
+    → gate status via scripts/contrib/discovery-status.sh (read-only wrapper;
+      handles OK / EMPTY / FILE_NOT_FOUND / UNAVAILABLE / AUTH_INVALID /
+      RATE_LIMITED / DISCOVERY_FAILED / EXECUTION_ERROR)
     → if OK + total_count > 0: run scripts/contrib/backlog.sh --refine
        → route each work_queue item to Build workers via session-reuse (oid = objective)
        → single-flight per oid, resume existing sessions, re-scan after each item
+       → external-gate-closed only when workqueue total = 0 AND status = EMPTY
     → if EMPTY / UNAVAILABLE / AUTH_INVALID / RATE_LIMITED (after 2 retries): proceed
-→ SELECT highest-priority unfinished executable objective (P0 → P1 → P2)
+    → read-only deadlock is NOT acceptable: if the gate cannot run (no discover.sh,
+      no network), classify as UNAVAILABLE and proceed — do NOT block internal
+      objectives indefinitely
+→ SELECT highest-priority unfinished executable objective (P0>P1>P2)
+  only after external-gate-closed: enumerate internal oids/sessions, then select
 → TASK LIFECYCLE (stuck-gate → single-flight → resume-via-task_id OR fresh OR migrate)
 → VERIFY result (git status/diff/log; state files) + register returned task_id
 → IMMEDIATELY launch next Task
