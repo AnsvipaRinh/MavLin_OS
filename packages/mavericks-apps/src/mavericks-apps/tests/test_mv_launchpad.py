@@ -170,6 +170,16 @@ def test_page_navigation_callbacks():
     print("PASS: test_page_navigation_callbacks")
 
 
+def test_folder_pages_reserve_back_cell():
+    """Folder pages must fit the 7x5 grid including the Back item."""
+    source = open(SCRIPT).read()
+    assert "FOLDER_PAGE_CAPACITY = ITEMS_PER_PAGE - 1" in source
+    assert 'len(folder_apps) + FOLDER_PAGE_CAPACITY - 1' in source
+    assert 'start = page * FOLDER_PAGE_CAPACITY' in source
+    assert 'end = start + FOLDER_PAGE_CAPACITY' in source
+    print("PASS: test_folder_pages_reserve_back_cell")
+
+
 def test_folder_cells_count_toward_pagination():
     """Top-level folders must consume cells in the first Launchpad grid page."""
     source = open(SCRIPT).read()
@@ -276,6 +286,7 @@ if __name__ == "__main__":
         test_rofi_live_search_callback,
         test_page_navigation_callbacks,
         test_folder_cells_count_toward_pagination,
+        test_folder_pages_reserve_back_cell,
         test_folder_members_are_not_duplicated_on_main_grid,
         test_position_conflicts_and_invalid_values_do_not_drop_apps,
         test_folder_config_is_normalized,
