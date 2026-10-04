@@ -1,0 +1,4 @@
+# Mavericks: allow seat user to adjust display / keyboard backlight without root.
+# systemd-logind uaccess tags the device for the active session.
+ACTION=="add", SUBSYSTEM=="backlight", TAG+="uaccess"
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="*kbd_backlight*", TAG+="uaccess"

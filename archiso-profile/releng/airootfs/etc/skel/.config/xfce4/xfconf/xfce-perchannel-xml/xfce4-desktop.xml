@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- xfce4-desktop — Mavericks wallpaper (source of truth; installed to ~/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml) -->
+<!-- xfce4-desktop — Mavericks wallpaper + desktop icons (Home/Trash/removable) -->
 <channel name="xfce4-desktop" version="1.0">
   <property name="backdrop" type="empty">
     <property name="screen0" type="empty">
@@ -10,6 +10,15 @@
           <property name="image-path" type="string" value="/usr/share/backgrounds/mavericks/mavericks-desktop.png"/>
         </property>
       </property>
+    </property>
+  </property>
+  <property name="desktop-icons" type="empty">
+    <property name="style" type="int" value="2"/>
+    <property name="file-icons" type="empty">
+      <property name="show-home" type="bool" value="true"/>
+      <property name="show-filesystem" type="bool" value="false"/>
+      <property name="show-trash" type="bool" value="true"/>
+      <property name="show-removable" type="bool" value="true"/>
     </property>
   </property>
 </channel>

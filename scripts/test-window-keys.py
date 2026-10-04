@@ -43,6 +43,14 @@ for rel in SCRIPTS:
     if not os.path.isfile(os.path.join(REPO, rel)):
         errors.append("script missing: %s" % rel)
 
+mk = open(
+    os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/Makefile"),
+    encoding="utf-8",
+).read()
+for name in ("mv-quit-app", "mv-minimize-window", "mv-hide-app", "mv-close-window"):
+    if name not in mk:
+        errors.append("Makefile does not install %s" % name)
+
 if errors:
     for e in errors:
         print("FAIL - %s" % e)
@@ -50,3 +58,4 @@ if errors:
 
 print("ok - Super+Q/M/H/W window shortcuts wired")
 print("ok - mv-quit-app / minimize / hide / close scripts present")
+print("ok - Makefile installs window helpers")

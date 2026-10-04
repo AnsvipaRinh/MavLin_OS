@@ -47,6 +47,7 @@ PAIRS=(
   "packages/mavericks-apps/src/mavericks-apps/config/xfce4-keyboard-shortcuts.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml"
   "configs/desktop/skippy-xd/skippy-xd.rc:archiso-profile/releng/airootfs/etc/skel/.config/skippy-xd/skippy-xd.rc"
   "configs/desktop/mimeapps.list:archiso-profile/releng/airootfs/etc/skel/.config/mimeapps.list"
+  "configs/udev/90-mavericks-backlight.rules:archiso-profile/releng/airootfs/etc/udev/rules.d/90-mavericks-backlight.rules"
 )
 
 echo "--- mirrors ---"
@@ -94,8 +95,6 @@ while IFS= read -r -d '' f; do
 done < <(find packages -name '*.desktop' -print0 2>/dev/null)
 
 echo "--- PKGBUILD parse ---"
-# Prefer makepkg --printsrcinfo when available (Arch/dev hosts).
-# On Ubuntu CI runners makepkg is absent — fall back to bash -n syntax only.
 if command -v makepkg >/dev/null 2>&1; then
   for d in packages/mavericks-apps packages/mavericks-theme packages/epiphany-mavericks-theme; do
     (cd "$d" && makepkg --printsrcinfo >/dev/null 2>&1) && ok "pkgbuild $d" || bad "pkgbuild $d"

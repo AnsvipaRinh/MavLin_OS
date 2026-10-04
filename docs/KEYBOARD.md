@@ -64,6 +64,13 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | XF86AudioLowerVolume | Volume -5% | pactl |
 | XF86AudioMute | Mute toggle | pactl |
 
+## Display brightness
+
+| Shortcut | Action | Backend |
+|---|---|---|
+| XF86MonBrightnessUp | Brightness +5% | mv-brightness (sysfs + udev uaccess) |
+| XF86MonBrightnessDown | Brightness -5% | mv-brightness (sysfs + udev uaccess) |
+
 ## Window tiling (xfwm4)
 
 | Shortcut | Action | Backend |
@@ -101,4 +108,4 @@ These are **not** globally bound (to avoid stealing browser/editor shortcuts):
 
 - Source of truth: `packages/mavericks-apps/.../xfce4-keyboard-shortcuts.xml` (mirrored into airootfs skel)
 - `mv-*` scripts ship via the `mavericks-apps` package
-- Regression gates: `scripts/test-finder-launcher.py`, `scripts/test-window-keys.py`
+- Regression gates: `scripts/test-finder-launcher.py`, `scripts/test-window-keys.py`, `scripts/test-brightness-keys.py`, `scripts/test-backlight-udev.py`

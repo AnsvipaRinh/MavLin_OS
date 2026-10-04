@@ -1,62 +1,66 @@
 #!/usr/bin/env bash
-# mavericks-firstboot.sh — run ONCE after install on MacBook10,1 (as root)
-# Applies Phase 0.3 baseline, installs desktop/firefox configs, enables services.
-# Idempotent. Reboot after.
+# mavericks-firstboot.sh — one-shot post-install setup (as root)
+# Self-contained: does NOT require a Git checkout on the target machine.
+# Idempotent via /etc/mavericks/firstboot-complete. Reboot after first run.
 set -euo pipefail
-REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-# firstboot runs from a repo checkout (cloned to the installed system or the
-# live ISO build host). Fall back to well-known checkout locations; fail fast
-# with a clear message instead of dying obscurely mid-script.
-if [[ ! -d "$REPO_DIR/archiso-profile" ]]; then
-  for cand in /root/MavLinOS /usr/local/src/MavLinOS; do
-    if [[ -d "$cand/archiso-profile" ]]; then REPO_DIR="$cand"; break; fi
-  done
-fi
-if [[ ! -d "$REPO_DIR/archiso-profile" ]]; then
-  echo "[firstboot] ERROR: repo checkout not found."
-  echo "[firstboot] Clone the repo (e.g. to /root/MavLinOS) and re-run."
-  exit 1
-fi
+
 log() { echo "[firstboot] $*"; }
 
-# Hardware profile — written by mavericks-profile-select.sh at install
-# time (MAVERICKS_PROFILE=generic|macbook10,1) and sourced here so the
-# selection actually drives firstboot behavior. Absent config = legacy
-# graceful-missing behavior: MacBook fragments apply when their files
-# exist (repo checkout present). Explicit generic profile = MacBook
-# fragments skipped entirely (generic hardware must not get Apple
-# kernel params, Cirrus/Broadcom quirks, or S3X NVMe tuning).
+PROFILE_SELECTOR="/usr/local/bin/mavericks/mavericks-profile-select.sh"
+PROFILE_STORE="/usr/local/share/mavericks/profiles"
 PROFILE_CONF="/etc/mavericks/profile.conf"
+COMPLETE_MARKER="/etc/mavericks/firstboot-complete"
+
+if [[ -f "$COMPLETE_MARKER" ]]; then
+  log "firstboot already completed ($COMPLETE_MARKER); nothing to do."
+  exit 0
+fi
+
+if [[ ! -x "$PROFILE_SELECTOR" ]]; then
+  echo "[firstboot] ERROR: installed profile selector missing: $PROFILE_SELECTOR" >&2
+  exit 1
+fi
+if [[ ! -d "$PROFILE_STORE" ]]; then
+  echo "[firstboot] ERROR: installed profile store missing: $PROFILE_STORE" >&2
+  exit 1
+fi
+
+# Select profile once (unknown hardware → generic).
+if [[ ! -f "$PROFILE_CONF" ]]; then
+  log "No profile config yet — running selector"
+  "$PROFILE_SELECTOR"
+fi
+
 MAVERICKS_PROFILE=""
 if [[ -f "$PROFILE_CONF" ]]; then
   # shellcheck disable=SC1090
   source "$PROFILE_CONF"
   log "profile: ${MAVERICKS_PROFILE:-unknown}"
 else
-  log "profile config absent ($PROFILE_CONF) — legacy fragment behavior"
+  log "WARNING: profile.conf still absent after selector — treating as generic"
+  MAVERICKS_PROFILE="generic"
 fi
+
+# Explicit equality only: absence must never enable MacBook fragments.
 macbook_profile() {
-  [[ -z "$MAVERICKS_PROFILE" || "$MAVERICKS_PROFILE" == "macbook10,1" ]]
+  [[ "${MAVERICKS_PROFILE:-}" == "macbook10,1" ]]
 }
 
-log "1/7 hostname/locale/time"
-hostnamectl set-hostname mavericks-macbook 2>/dev/null || echo mavericks-macbook > /etc/hostname
+log "1/8 hostname/locale/time"
+hostnamectl set-hostname mavericks-linux 2>/dev/null || echo mavericks-linux > /etc/hostname
 ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime 2>/dev/null || true
 hwclock --systohc 2>/dev/null || true
 
-log "2/7 bootloader entries = baseline CMDLINE (base + fragments)"
-# Base cmdline (generic, always applied)
+log "2/8 bootloader entries = baseline + profile fragments"
 BASE_CMDLINE="quiet loglevel=3"
-# MacBook-specific fragments (graceful-missing: only append if file exists
-# AND the selected profile is macbook10,1 — generic hardware must not
-# receive Apple-specific kernel parameters)
-FRAGMENT_DIR="$REPO_DIR/configs/profiles/fragments"
+FRAGMENT_DIR="$PROFILE_STORE/fragments"
 MACBOOK_FRAGMENTS=()
 if macbook_profile; then
-  [[ -f "$FRAGMENT_DIR/99-mavericks-s3x.conf" ]] && MACBOOK_FRAGMENTS+=("$(cat "$FRAGMENT_DIR/99-mavericks-s3x.conf" | grep -v '^#' | tr -d '\n')")
-  [[ -f "$FRAGMENT_DIR/99-mavericks-display.conf" ]] && MACBOOK_FRAGMENTS+=("$(cat "$FRAGMENT_DIR/99-mavericks-display.conf" | grep -v '^#' | tr -d '\n')")
+  [[ -f "$FRAGMENT_DIR/99-mavericks-s3x.conf" ]] && \
+    MACBOOK_FRAGMENTS+=("$(grep -v '^#' "$FRAGMENT_DIR/99-mavericks-s3x.conf" | tr -d '\n')")
+  [[ -f "$FRAGMENT_DIR/99-mavericks-display.conf" ]] && \
+    MACBOOK_FRAGMENTS+=("$(grep -v '^#' "$FRAGMENT_DIR/99-mavericks-display.conf" | tr -d '\n')")
 fi
-# Compose final cmdline
 FINAL_CMDLINE="$BASE_CMDLINE"
 for frag in "${MACBOOK_FRAGMENTS[@]}"; do
   [[ -n "$frag" ]] && FINAL_CMDLINE="$FINAL_CMDLINE $frag"
@@ -65,113 +69,91 @@ log "Composed cmdline: $FINAL_CMDLINE"
 for f in /boot/loader/entries/*.conf; do
   [[ -f "$f" ]] || continue
   if grep -q "^options" "$f"; then
-    # preserve root= PARTUUID lines, replace trailing options after 'rw '
     sed -i -E "s/^(options +.*rootflags=[^ ]+ *) .*/\1 $FINAL_CMDLINE/" "$f" || true
   fi
 done
-grep -H "^options" /boot/loader/entries/*.conf || true
+grep -H "^options" /boot/loader/entries/*.conf 2>/dev/null || true
 
-log "3/7 TLP baseline (generic + MacBook fragment)"
-install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/tlp.d/99-mavericks.conf" /etc/tlp.d/99-mavericks.conf
-# Power fragment is MacBook10,1-only (fanless Core M tuning); on generic
-# hardware TLP/kernel defaults apply and no stale fragment may remain.
-if macbook_profile; then
-  install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/tlp.d/99-mavericks-power.conf" /etc/tlp.d/99-mavericks-power.conf
-else
+log "3/8 TLP + power fragment policy"
+systemctl enable tlp.service 2>/dev/null || true
+if ! macbook_profile; then
   rm -f /etc/tlp.d/99-mavericks-power.conf
 fi
 rm -f /etc/tlp.d/10-experiment.conf
-systemctl enable tlp.service
 
-log "4/7 zram"
-install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/systemd/zram-generator.conf.d/99-mavericks.conf" /etc/systemd/zram-generator.conf.d/99-mavericks.conf
-systemctl enable systemd-zram-setup@zram0.service
-# No sysctl overrides in baseline (kernel defaults). Remove stale file if present.
+log "4/8 zram"
+systemctl enable systemd-zram-setup@zram0.service 2>/dev/null || true
 rm -f /etc/sysctl.d/99-mavericks.conf
 
-log "5/7 network: NetworkManager owns Wi-Fi on installed system"
-# NM tuning: connectivity-check off (generic) + wpa_supplicant backend
-# (MacBook10,1 fragment only — generic uses NM compile-time default)
-install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks.conf" /etc/NetworkManager/conf.d/99-mavericks.conf
-if macbook_profile; then
-  install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf" /etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf
-else
+log "5/8 network: NetworkManager owns Wi-Fi"
+if ! macbook_profile; then
   rm -f /etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf
 fi
 systemctl disable --now iwd.service 2>/dev/null || true
-systemctl disable --now systemd-networkd.service systemd-networkd-wait-online.service 2>/dev/null || true
-# NOTE: keep systemd-resolved enabled — /etc/resolv.conf points at its stub;
-# disabling it would break DNS. NetworkManager cooperates with resolved.
-systemctl enable NetworkManager.service
+systemctl disable --now systemd-networkd.service 2>/dev/null || true
+systemctl enable NetworkManager.service 2>/dev/null || true
 systemctl enable systemd-resolved.service 2>/dev/null || true
 systemctl mask ModemManager.service 2>/dev/null || true
 systemctl disable sshd.service reflector.service 2>/dev/null || true
-# Security (P0-J1): lock root on the installed system (defense-in-depth; the
-# ISO airootfs shadow is locked at packaging time). Remote bring-up is
-# key-based SSH as the unprivileged mavericks-lab user (lab/agent/install.sh
-# is the explicit opt-in that enables sshd) — never root login.
 passwd -l root 2>/dev/null || true
 
-log "6/8 take pre-change snapshot"
-  # Pre-change snapshot hook for firstboot
-  if command -v btrfs >/dev/null 2>&1 && mountpoint -q "/@snapshots"; then
-    /usr/local/bin/mavericks/mv-snapshot-take "firstboot-$(date +%Y%m%d%H%M%S)" "Firstboot pre-change system snapshot"
+log "6/8 snapshot (best-effort) + fstrim"
+if command -v btrfs >/dev/null 2>&1 && mountpoint -q "/@snapshots" 2>/dev/null; then
+  /usr/local/bin/mavericks/mv-snapshot-take "firstboot-$(date +%Y%m%d%H%M%S)" "Firstboot pre-change" 2>/dev/null || true
+else
+  log "not on btrfs /@snapshots — skip snapshot"
+fi
+systemctl enable fstrim.timer 2>/dev/null || true
+
+# Seed GTK/Thunar bookmarks for the primary non-root user (Finder sidebar).
+seed_bookmarks() {
+  local user="$1"
+  local home
+  home="$(getent passwd "$user" | cut -d: -f6)"
+  [[ -n "$home" && -d "$home" ]] || return 0
+  local template="/etc/skel/.gtk-bookmarks.template"
+  local out_gtk="$home/.gtk-bookmarks"
+  local out_gtk3="$home/.config/gtk-3.0/bookmarks"
+  local content
+  if [[ -f "$template" ]]; then
+    content="$(sed "s|@HOME@|$home|g; /^#/d; /^$/d" "$template")"
   else
-    log "WARN: not on btrfs filesystem, skipping snapshot for firstboot (logged)"
+    content="file://$home/Desktop Desktop
+file://$home/Documents Documents
+file://$home/Downloads Downloads
+file://$home/Music Music
+file://$home/Pictures Pictures
+file://$home/Movies Movies"
   fi
-  
-  log "7/8 enable fstrim timer"
-  systemctl enable fstrim.timer 2>/dev/null || true
-  log "8/8 desktop + firefox skel for new users"
-  cp -r "$REPO_DIR/archiso-profile/releng/airootfs/etc/skel/." /etc/skel/
-  install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/lightdm/lightdm.conf" /etc/lightdm/lightdm.conf
-  install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/etc/lightdm/lightdm-gtk-greeter.conf" /etc/lightdm/lightdm-gtk-greeter.conf
-  install -Dm644 "$REPO_DIR/archiso-profile/releng/airootfs/usr/lib/firefox/distribution/policies.json" /usr/lib/firefox/distribution/policies.json
-  # Thunar Finder surface for the invoking (live) user + bookmarks with real $HOME
-  TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || true)}"
-  if [[ -n "$TARGET_USER" && "$TARGET_USER" != "root" ]]; then
-    UH=$(eval echo "~$TARGET_USER")
-    mkdir -p "$UH/.config/Thunar"
-    cp /etc/skel/.config/Thunar/thunarrc "$UH/.config/Thunar/thunarrc" 2>/dev/null || true
-    cp /etc/skel/.config/Thunar/uca.xml "$UH/.config/Thunar/uca.xml" 2>/dev/null || true
-    sed "s|USER_PLACEHOLDER|$TARGET_USER|g" /etc/skel/.gtk-bookmarks.template > "$UH/.gtk-bookmarks" 2>/dev/null || true
-    mkdir -p "$UH/.config/xfce4/xfconf/xfce-perchannel-xml"
-    cp /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml \
-       "$UH/.config/xfce4/xfconf/xfce-perchannel-xml/" 2>/dev/null || true
-    chown -R "$TARGET_USER:$(id -gn "$TARGET_USER")" "$UH/.config/Thunar" "$UH/.gtk-bookmarks" 2>/dev/null || true
-    # Reminders hourly nudge (user timer, oneshot notify only)
-    sudo -u "$TARGET_USER" systemctl --user enable mv-reminders-check.timer 2>/dev/null || true
-    # Calendar upcoming-event nudge (user timer, oneshot notify only)
-    sudo -u "$TARGET_USER" systemctl --user enable mv-calendar-check.timer 2>/dev/null || true
-  fi
-  systemctl enable lightdm.service
-  systemctl enable bluetooth.service
-  # Spotlight file index: without the plocate DB, Super+Space file search is
-  # empty. Cheap daily oneshot (not a resident daemon).
-  systemctl enable plocate-updatedb.timer
-  # journald: persistent on installed system (ISO uses volatile)
-  rm -f /etc/systemd/journald.conf.d/volatile-storage.conf 2>/dev/null || true
-  
-  log "9/9 NVRAM placeholder check + local app/theme packages"
-  if macbook_profile; then
-    "$REPO_DIR/scripts/install/extract-brcmfmac-nvram.sh" || true
-  fi
-  # mavericks-apps/theme are NOT in upstream repos. Prefer nearby built package
-  # files (ISO build output, checkout dir, live medium), then configured repo.
-  LOCAL_PKGS=(mavericks-apps mavericks-theme)
-  PKG_FILES=()
-  for d in "$REPO_DIR/out" "$REPO_DIR" /run/archiso/bootmnt/mavericks /root; do
-    for p in "${LOCAL_PKGS[@]}"; do
-      for f in "$d"/"$p"-*.pkg.tar.zst; do
-        [[ -f "$f" ]] && PKG_FILES+=("$f")
-      done
-    done
-  done
-  if (( ${#PKG_FILES[@]} )); then
-    log "(installing local packages: ${PKG_FILES[*]})"
-    pacman -U --needed --noconfirm "${PKG_FILES[@]}" || log "(local pkg install reported errors)"
-  else
-    pacman -Sy --needed --noconfirm "${LOCAL_PKGS[@]}" 2>/dev/null \
-      || log "(mavericks-apps/theme NOT installed: no .pkg.tar.zst found and no [mavericks] repo; build with scripts/build-local-pkgs.sh)"
-  fi
-  log "Done. REBOOT, then run tools/diagnostics/mv-collect.sh as root."
+  printf '%s\n' "$content" > "$out_gtk"
+  mkdir -p "$(dirname "$out_gtk3")"
+  printf '%s\n' "$content" > "$out_gtk3"
+  chown "$user:$user" "$out_gtk" "$out_gtk3" 2>/dev/null || true
+  mkdir -p "$home/Movies" "$home/Desktop" "$home/Documents" "$home/Downloads" \
+           "$home/Music" "$home/Pictures"
+  chown -R "$user:$user" "$home/Movies" "$home/Desktop" "$home/Documents" \
+        "$home/Downloads" "$home/Music" "$home/Pictures" 2>/dev/null || true
+  log "seeded GTK bookmarks for $user"
+}
+
+log "7/8 session services + index"
+systemctl enable lightdm.service 2>/dev/null || true
+systemctl enable bluetooth.service 2>/dev/null || true
+systemctl enable plocate-updatedb.timer 2>/dev/null || true
+rm -f /etc/systemd/journald.conf.d/volatile-storage.conf 2>/dev/null || true
+
+TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || true)}"
+if [[ -n "$TARGET_USER" && "$TARGET_USER" != "root" ]]; then
+  sudo -u "$TARGET_USER" systemctl --user enable mv-reminders-check.timer 2>/dev/null || true
+  sudo -u "$TARGET_USER" systemctl --user enable mv-calendar-check.timer 2>/dev/null || true
+  seed_bookmarks "$TARGET_USER"
+fi
+
+log "8/8 MacBook NVRAM (profile-gated)"
+if macbook_profile && [[ -x /usr/local/bin/mavericks/extract-brcmfmac-nvram.sh ]]; then
+  /usr/local/bin/mavericks/extract-brcmfmac-nvram.sh || true
+fi
+
+mkdir -p "$(dirname "$COMPLETE_MARKER")"
+install -Dm644 /dev/null "$COMPLETE_MARKER"
+log "Done. Marker: $COMPLETE_MARKER. REBOOT recommended."

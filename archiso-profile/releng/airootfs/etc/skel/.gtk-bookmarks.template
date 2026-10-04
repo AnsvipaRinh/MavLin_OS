@@ -1,9 +1,8 @@
-file:///home/USER_PLACEHOLDER/Desktop/Desktop
-file:///home/USER_PLACEHOLDER/Documents/Documents
-file:///home/USER_PLACEHOLDER/Downloads/Downloads
-file:///home/USER_PLACEHOLDER/Music/Music
-file:///home/USER_PLACEHOLDER/Pictures/Pictures
-file:///home/USER_PLACEHOLDER/Movies/Movies
-file:///Computer
-file:///home/USER_PLACEHOLDER/.local/share/trash/ Trash
-file:///tmp
+# Mavericks-like places (firstboot rewrites @HOME@ → real home).
+# Format: URI [label]
+file://@HOME@/Desktop Desktop
+file://@HOME@/Documents Documents
+file://@HOME@/Downloads Downloads
+file://@HOME@/Music Music
+file://@HOME@/Pictures Pictures
+file://@HOME@/Movies Movies
