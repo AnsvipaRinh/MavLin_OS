@@ -14,7 +14,8 @@
 
 | Block / Scope | Who | Since (UTC) | Objective / Issue | Status |
 |---|---|---|---|---|
-| packages/mavericks-apps/.../bin/mv-diskutil + scripts/test-mv-diskutil.py | Qwen | 2026-10-05 | Portability: lazy-Gtk/DBus shim so unit tests run on non-Arch hosts | ACTIVE |
+| packages/mavericks-apps/.../bin/mv-diskutil + scripts/test-mv-diskutil.py | Qwen | 2026-10-05 | Portability: lazy-Gtk/DBus shim so unit tests run on non-Arch hosts | DONE (b42af1f) |
+| packages/mavericks-apps/.../bin/mv-keychain + scripts/test-mv-keychain.py | Qwen | 2026-10-05 | Portability: lazy-Gtk/Secret shim, headless pure-logic tests on non-Arch hosts | ACTIVE |
 
 Example row format (do not leave examples as ACTIVE):
 `| Mission Control ISO deps | Grok | 2026-10-04 20:20 | #1 | DONE |`

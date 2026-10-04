@@ -434,9 +434,13 @@ def grid_entries(dlg):
 
 
 def test_gui_smoke(m, td):
-    import gi
-    gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, Gdk
+    try:
+        import gi
+        gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk, Gdk
+    except (ImportError, ValueError):
+        print("SKIP - gui smoke (no PyGObject on this host)")
+        return
     if not Gtk.init_check()[0]:
         print("ok - gui smoke skipped (no display)")
         return
@@ -446,7 +450,7 @@ def test_gui_smoke(m, td):
         FakeCollection("system", "System", locked=True),
     ]))
     with mock.patch.object(m, "Secret", fake_secret):
-        win = m.KeychainWindow()
+        win = m.build_keychain_class()
         try:
             for _ in range(20):
                 Gtk.main_iteration_do(False)
@@ -578,7 +582,7 @@ def test_gui_smoke(m, td):
 
     # unavailable states
     with mock.patch.object(m, "Secret", None):
-        win2 = m.KeychainWindow()
+        win2 = m.build_keychain_class()
         try:
             for _ in range(10):
                 Gtk.main_iteration_do(False)
@@ -592,7 +596,7 @@ def test_gui_smoke(m, td):
             win2.destroy()
 
     with mock.patch.object(m, "Secret", make_fake_secret(service=None)):
-        win3 = m.KeychainWindow()
+        win3 = m.build_keychain_class()
         try:
             for _ in range(10):
                 Gtk.main_iteration_do(False)
@@ -605,7 +609,7 @@ def test_gui_smoke(m, td):
 
     with mock.patch.object(m, "Secret", make_fake_secret(
             service=FakeService([FakeCollection("login", "login", items=[])]))):
-        win4 = m.KeychainWindow()
+        win4 = m.build_keychain_class()
         try:
             for _ in range(10):
                 Gtk.main_iteration_do(False)

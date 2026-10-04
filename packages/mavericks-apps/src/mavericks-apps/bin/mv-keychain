@@ -12,15 +12,33 @@ import string
 import subprocess
 import sys
 
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk
+try:
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, Gdk
+    HAS_GTK = True
+except (ImportError, ValueError):
+    Gtk = None
+    Gdk = None
+    HAS_GTK = False
 
 try:
     gi.require_version("Secret", "1")
     from gi.repository import Secret
-except (ValueError, ImportError):
+except (ImportError, NameError, ValueError):
     Secret = None
+
+
+def _gtk():
+    """Return (Gtk, Gdk), lazily importing PyGObject on first use."""
+    global Gtk, Gdk, HAS_GTK
+    if not HAS_GTK:
+        import gi
+        gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk as _Gtk, Gdk as _Gdk
+        Gtk, Gdk = _Gtk, _Gdk
+        HAS_GTK = True
+    return Gtk, Gdk
 
 KEYCHAIN_UNAVAILABLE = (
     "The keychain service is unavailable.\n"
@@ -55,10 +73,11 @@ def get_collections():
 
     Falls back to the well-known keychain list when libsecret or the
     secret daemon is absent (locked=None means state unknown)."""
+    _S = Secret
     if Secret is None:
         return [dict(name=n, label=l, locked=None) for n, l in DEFAULT_COLLECTIONS]
     try:
-        service = Secret.Service.get_sync(Secret.ServiceFlags.NONE, None)
+        service = _S.Service.get_sync(_S.ServiceFlags.NONE, None)
         cols = service.get_collections() or []
         out = []
         for c in cols:
@@ -77,19 +96,20 @@ def get_collections():
 def list_items(collection_name):
     """Items in a collection: [{'label', 'attributes', 'locked',
     'schema_name', '_item'}]. None = service unavailable, [] = empty."""
+    _S = Secret
     if Secret is None:
         return None
     try:
-        service = Secret.Service.get_sync(Secret.ServiceFlags.NONE, None)
+        service = _S.Service.get_sync(_S.ServiceFlags.NONE, None)
         target = None
         for c in service.get_collections() or []:
             if collection_name in (c.get_name(), c.get_label()):
                 target = c
                 break
         if target is None:
-            target = Secret.Collection.for_alias_sync(
-                Secret.COLLECTION_DEFAULT,
-                Secret.CollectionFlags.NONE, None)
+            target = _S.Collection.for_alias_sync(
+                _S.COLLECTION_DEFAULT,
+                _S.CollectionFlags.NONE, None)
         if target is None:
             return []
         out = []
@@ -115,6 +135,7 @@ def get_item_secret(item):
 
     The secret is never logged, never stored on disk, and never placed in
     any widget property that outlives the detail pane."""
+    _S = Secret
     it = item.get("_item") if isinstance(item, dict) else None
     if it is None or Secret is None:
         return None
@@ -131,22 +152,24 @@ def get_item_secret(item):
 
 
 def _generic_schema(attributes):
-    return Secret.Schema(
-        "org.freedesktop.Secret.Generic", Secret.SchemaFlags.NONE,
-        {k: Secret.SchemaAttributeType.STRING for k in attributes})
+    _S = Secret
+    return _S.Schema(
+        "org.freedesktop.Secret.Generic", _S.SchemaFlags.NONE,
+        {k: _S.SchemaAttributeType.STRING for k in attributes})
 
 
 def store_password(label, attributes, password, collection=None):
     """Store a password item in the secret service. Returns True on success."""
+    _S = Secret
     if Secret is None:
         return False
     attrs = {str(k): str(v) for k, v in (attributes or {}).items() if str(v) != ""}
     if not attrs or not label or password is None:
         return False
     try:
-        Secret.password_store_sync(
+        _S.password_store_sync(
             _generic_schema(attrs), attrs,
-            collection or Secret.COLLECTION_DEFAULT, label, password, None)
+            collection or _S.COLLECTION_DEFAULT, label, password, None)
         return True
     except Exception:
         return False
@@ -154,6 +177,7 @@ def store_password(label, attributes, password, collection=None):
 
 def delete_item(item):
     """Delete an item from its collection. Returns True on success."""
+    _S = Secret
     it = item.get("_item") if isinstance(item, dict) else None
     if it is None or Secret is None:
         return False
@@ -168,6 +192,7 @@ def lock_items(items):
 
     Unlocking happens lazily: the daemon prompts when a secret is next
     accessed (get_item_secret)."""
+    _S = Secret
     if Secret is None:
         return 0
     locked = 0
@@ -177,7 +202,7 @@ def lock_items(items):
         if it is None or not attrs:
             continue
         try:
-            Secret.password_lock_sync(_generic_schema(attrs), dict(attrs), None)
+            _S.password_lock_sync(_generic_schema(attrs), dict(attrs), None)
             locked += 1
         except Exception:
             continue
@@ -300,489 +325,501 @@ def parse_openssl_cert_output(output):
     return details if details else None
 
 
-class KeychainWindow(Gtk.Window):
-    def __init__(self):
-        super().__init__(title="Keychain Access")
-        self.set_default_size(900, 520)
+_KEYCHAIN_CLS = None
 
-        self.collections = []
-        self.current_collection = None
-        self.items = []
 
-        self.apply_css()
+def build_keychain_class():
+    """Construct (once) and return the GTK-backed KeychainWindow class."""
+    global _KEYCHAIN_CLS
+    if _KEYCHAIN_CLS is None:
+        Gtk, Gdk = _gtk()
+        class KeychainWindow(Gtk.Window):
+            def __init__(self):
+                super().__init__(title="Keychain Access")
+                self.set_default_size(900, 520)
 
-        hb = Gtk.HeaderBar(title="Keychain Access", show_close_button=True)
-        self.set_titlebar(hb)
+                self.collections = []
+                self.current_collection = None
+                self.items = []
 
-        self.new_btn = Gtk.Button.new_from_icon_name(
-            "list-add", Gtk.IconSize.SMALL_TOOLBAR)
-        self.new_btn.set_tooltip_text("New Password Item (Ctrl+N)")
-        self.new_btn.connect("clicked", self.on_new_item)
-        hb.pack_start(self.new_btn)
+                self.apply_css()
 
-        self.gen_btn = Gtk.Button.new_from_icon_name(
-            "dialog-password", Gtk.IconSize.SMALL_TOOLBAR)
-        self.gen_btn.set_tooltip_text("Password Generator (Ctrl+G)")
-        self.gen_btn.connect("clicked", self.on_generator)
-        hb.pack_start(self.gen_btn)
+                hb = Gtk.HeaderBar(title="Keychain Access", show_close_button=True)
+                self.set_titlebar(hb)
 
-        self.lock_btn = Gtk.Button.new_from_icon_name(
-            "changes-prevent-symbolic", Gtk.IconSize.SMALL_TOOLBAR)
-        self.lock_btn.set_tooltip_text("Lock this keychain (Ctrl+L)")
-        self.lock_btn.connect("clicked", self.on_lock)
-        hb.pack_start(self.lock_btn)
+                self.new_btn = Gtk.Button.new_from_icon_name(
+                    "list-add", Gtk.IconSize.SMALL_TOOLBAR)
+                self.new_btn.set_tooltip_text("New Password Item (Ctrl+N)")
+                self.new_btn.connect("clicked", self.on_new_item)
+                hb.pack_start(self.new_btn)
 
-        self.search = Gtk.SearchEntry(placeholder_text="Search items...")
-        self.search.set_hexpand(True)
-        self.search.connect("changed", self.on_search_changed)
-        hb.pack_end(self.search)
+                self.gen_btn = Gtk.Button.new_from_icon_name(
+                    "dialog-password", Gtk.IconSize.SMALL_TOOLBAR)
+                self.gen_btn.set_tooltip_text("Password Generator (Ctrl+G)")
+                self.gen_btn.connect("clicked", self.on_generator)
+                hb.pack_start(self.gen_btn)
 
-        paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.root_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                self.lock_btn = Gtk.Button.new_from_icon_name(
+                    "changes-prevent-symbolic", Gtk.IconSize.SMALL_TOOLBAR)
+                self.lock_btn.set_tooltip_text("Lock this keychain (Ctrl+L)")
+                self.lock_btn.connect("clicked", self.on_lock)
+                hb.pack_start(self.lock_btn)
 
-        self.sidebar_store = Gtk.ListStore(str, str, str)
-        self.sidebar = Gtk.TreeView(model=self.sidebar_store)
-        self.sidebar.set_headers_visible(False)
-        self.sidebar.get_selection().connect(
-            "changed", self.on_collection_selected)
-        col = Gtk.TreeViewColumn()
-        cell_icon = Gtk.CellRendererPixbuf()
-        cell_text = Gtk.CellRendererText()
-        col.pack_start(cell_icon, False)
-        col.pack_start(cell_text, True)
-        col.add_attribute(cell_icon, "icon-name", 1)
-        col.add_attribute(cell_text, "text", 2)
-        self.sidebar.append_column(col)
-        self.sidebar.get_style_context().add_class("keychain-sidebar")
-        sw = Gtk.ScrolledWindow()
-        sw.add(self.sidebar)
-        paned.add1(sw)
+                self.search = Gtk.SearchEntry(placeholder_text="Search items...")
+                self.search.set_hexpand(True)
+                self.search.connect("changed", self.on_search_changed)
+                hb.pack_end(self.search)
 
-        right = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
-        paned.add2(right)
+                paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+                self.root_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
-        self.store = Gtk.ListStore(str, str, str)
-        self.view = Gtk.TreeView(model=self.store)
-        self.view.get_selection().connect("changed", self.on_item_selected)
-        for i, title in enumerate(("Name", "Kind")):
-            col = Gtk.TreeViewColumn(title, Gtk.CellRendererText(), text=i)
-            col.set_resizable(True)
-            self.view.append_column(col)
-        vsw = Gtk.ScrolledWindow()
-        vsw.add(self.view)
-        right.add1(vsw)
+                self.sidebar_store = Gtk.ListStore(str, str, str)
+                self.sidebar = Gtk.TreeView(model=self.sidebar_store)
+                self.sidebar.set_headers_visible(False)
+                self.sidebar.get_selection().connect(
+                    "changed", self.on_collection_selected)
+                col = Gtk.TreeViewColumn()
+                cell_icon = Gtk.CellRendererPixbuf()
+                cell_text = Gtk.CellRendererText()
+                col.pack_start(cell_icon, False)
+                col.pack_start(cell_text, True)
+                col.add_attribute(cell_icon, "icon-name", 1)
+                col.add_attribute(cell_text, "text", 2)
+                self.sidebar.append_column(col)
+                self.sidebar.get_style_context().add_class("keychain-sidebar")
+                sw = Gtk.ScrolledWindow()
+                sw.add(self.sidebar)
+                paned.add1(sw)
 
-        self.detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        self.detail.get_style_context().add_class("keychain-content")
-        self.detail.set_border_width(12)
-        self.detail_label = Gtk.Label(label="Select an item to view its details.")
-        self.detail_label.set_halign(Gtk.Align.START)
-        self.detail_label.set_line_wrap(True)
-        self.detail_label.get_style_context().add_class("keychain-detail-title")
-        self.detail.pack_start(self.detail_label, False, False, 0)
+                right = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
+                paned.add2(right)
 
-        self.attr_grid = Gtk.Grid(column_spacing=12, row_spacing=4)
-        self.attr_grid.get_style_context().add_class("keychain-attrs")
-        self.detail.pack_start(self.attr_grid, False, False, 0)
+                self.store = Gtk.ListStore(str, str, str)
+                self.view = Gtk.TreeView(model=self.store)
+                self.view.get_selection().connect("changed", self.on_item_selected)
+                for i, title in enumerate(("Name", "Kind")):
+                    col = Gtk.TreeViewColumn(title, Gtk.CellRendererText(), text=i)
+                    col.set_resizable(True)
+                    self.view.append_column(col)
+                vsw = Gtk.ScrolledWindow()
+                vsw.add(self.view)
+                right.add1(vsw)
 
-        self.secret_label = Gtk.Label(label="Password")
-        self.secret_label.set_halign(Gtk.Align.START)
-        self.detail.pack_start(self.secret_label, False, False, 0)
+                self.detail = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+                self.detail.get_style_context().add_class("keychain-content")
+                self.detail.set_border_width(12)
+                self.detail_label = Gtk.Label(label="Select an item to view its details.")
+                self.detail_label.set_halign(Gtk.Align.START)
+                self.detail_label.set_line_wrap(True)
+                self.detail_label.get_style_context().add_class("keychain-detail-title")
+                self.detail.pack_start(self.detail_label, False, False, 0)
 
-        secret_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        self.secret_entry = Gtk.Entry()
-        self.secret_entry.set_visibility(False)
-        self.secret_entry.set_editable(False)
-        self.secret_entry.set_hexpand(True)
-        secret_row.pack_start(self.secret_entry, True, True, 0)
-        self.show_secret = Gtk.CheckButton(label="Show password")
-        self.show_secret.connect("toggled", self.on_show_secret_toggled)
-        secret_row.pack_start(self.show_secret, False, False, 0)
-        self.copy_secret = Gtk.Button(label="Copy")
-        self.copy_secret.connect("clicked", self.on_copy_secret)
-        secret_row.pack_start(self.copy_secret, False, False, 0)
-        self.detail.pack_start(secret_row, False, False, 0)
+                self.attr_grid = Gtk.Grid(column_spacing=12, row_spacing=4)
+                self.attr_grid.get_style_context().add_class("keychain-attrs")
+                self.detail.pack_start(self.attr_grid, False, False, 0)
 
-        self.copy_attr_btn = Gtk.Button(label="Copy Attribute")
-        self.copy_attr_btn.set_sensitive(False)
-        self.copy_attr_btn.connect("clicked", self.on_copy_attribute)
-        self.detail.pack_start(self.copy_attr_btn, False, False, 0)
+                self.secret_label = Gtk.Label(label="Password")
+                self.secret_label.set_halign(Gtk.Align.START)
+                self.detail.pack_start(self.secret_label, False, False, 0)
 
-        self.del_btn = Gtk.Button(label="Delete Item")
-        self.del_btn.get_style_context().add_class("destructive-action")
-        self.del_btn.connect("clicked", self.on_delete_item)
-        self.detail.pack_start(self.del_btn, False, False, 0)
+                secret_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                self.secret_entry = Gtk.Entry()
+                self.secret_entry.set_visibility(False)
+                self.secret_entry.set_editable(False)
+                self.secret_entry.set_hexpand(True)
+                secret_row.pack_start(self.secret_entry, True, True, 0)
+                self.show_secret = Gtk.CheckButton(label="Show password")
+                self.show_secret.connect("toggled", self.on_show_secret_toggled)
+                secret_row.pack_start(self.show_secret, False, False, 0)
+                self.copy_secret = Gtk.Button(label="Copy")
+                self.copy_secret.connect("clicked", self.on_copy_secret)
+                secret_row.pack_start(self.copy_secret, False, False, 0)
+                self.detail.pack_start(secret_row, False, False, 0)
 
-        dsw = Gtk.ScrolledWindow()
-        dsw.add(self.detail)
-        right.add2(dsw)
+                self.copy_attr_btn = Gtk.Button(label="Copy Attribute")
+                self.copy_attr_btn.set_sensitive(False)
+                self.copy_attr_btn.connect("clicked", self.on_copy_attribute)
+                self.detail.pack_start(self.copy_attr_btn, False, False, 0)
 
-        self.error_bar = Gtk.InfoBar()
-        self.error_bar.set_message_type(Gtk.MessageType.ERROR)
-        self.error_bar.get_content_area().add(Gtk.Label(label=""))
-        self.error_bar.set_no_show_all(True)
-        self.root_box.pack_start(paned, True, True, 0)
-        self.root_box.pack_start(self.error_bar, False, False, 0)
-        self.add(self.root_box)
+                self.del_btn = Gtk.Button(label="Delete Item")
+                self.del_btn.get_style_context().add_class("destructive-action")
+                self.del_btn.connect("clicked", self.on_delete_item)
+                self.detail.pack_start(self.del_btn, False, False, 0)
 
-        self.load_collections()
-        self.show_all()
-        self.error_bar.hide()
+                dsw = Gtk.ScrolledWindow()
+                dsw.add(self.detail)
+                right.add2(dsw)
 
-    def apply_css(self):
-        css = b"""
-        .keychain-sidebar {
-            background: #f5f0e8;
-            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
-            border-right: 1px solid #d4c8b8;
-        }
-        .keychain-sidebar > viewport { background: transparent; }
-        .keychain-content {
-            background: #f5f0e8;
-        }
-        .keychain-detail-title {
-            font-size: 14pt;
-            font-weight: bold;
-            color: #333;
-        }
-        .keychain-attrs {
-            background: #fffdf8;
-            border: 1px solid #d4c8b8;
-            border-radius: 4px;
-            padding: 10px;
-        }
-        .keychain-attrs label {
-            color: #444;
-        }
-        """
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css)
-        screen = Gdk.Screen.get_default()
-        if screen is not None:
-            Gtk.StyleContext.add_provider_for_screen(
-                screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+                self.error_bar = Gtk.InfoBar()
+                self.error_bar.set_message_type(Gtk.MessageType.ERROR)
+                self.error_bar.get_content_area().add(Gtk.Label(label=""))
+                self.error_bar.set_no_show_all(True)
+                self.root_box.pack_start(paned, True, True, 0)
+                self.root_box.pack_start(self.error_bar, False, False, 0)
+                self.add(self.root_box)
 
-    def show_error(self, text):
-        self.error_bar.get_content_area().get_children()[0].set_label(text)
-        self.error_bar.show()
+                self.load_collections()
+                self.show_all()
+                self.error_bar.hide()
 
-    def load_collections(self):
-        self.collections = get_collections()
-        self.sidebar_store.clear()
-        for c in self.collections:
-            icon = "changes-prevent-symbolic" if c.get("locked") else ""
-            self.sidebar_store.append([c["name"], icon, c["label"]])
-        if self.collections:
-            self.sidebar.get_selection().select_path(Gtk.TreePath.new_first())
-        self.refresh_items()
+            def apply_css(self):
+                css = b"""
+                .keychain-sidebar {
+                    background: #f5f0e8;
+                    background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
+                    border-right: 1px solid #d4c8b8;
+                }
+                .keychain-sidebar > viewport { background: transparent; }
+                .keychain-content {
+                    background: #f5f0e8;
+                }
+                .keychain-detail-title {
+                    font-size: 14pt;
+                    font-weight: bold;
+                    color: #333;
+                }
+                .keychain-attrs {
+                    background: #fffdf8;
+                    border: 1px solid #d4c8b8;
+                    border-radius: 4px;
+                    padding: 10px;
+                }
+                .keychain-attrs label {
+                    color: #444;
+                }
+                """
+                provider = Gtk.CssProvider()
+                provider.load_from_data(css)
+                screen = Gdk.Screen.get_default()
+                if screen is not None:
+                    Gtk.StyleContext.add_provider_for_screen(
+                        screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-    def on_collection_selected(self, selection):
-        model, treeiter = selection.get_selected()
-        if treeiter is None:
-            return
-        self.current_collection = model[treeiter][0]
-        self.refresh_items()
+            def show_error(self, text):
+                self.error_bar.get_content_area().get_children()[0].set_label(text)
+                self.error_bar.show()
 
-    def refresh_items(self):
-        self.items = []
-        self.store.clear()
-        self.selected_item = None
-        self.render_detail()
-        if Secret is None:
-            self.show_error(LIBSECRET_UNAVAILABLE)
-            return
-        self.error_bar.hide()
-        if not self.current_collection:
-            return
-        items = list_items(self.current_collection)
-        if items is None:
-            self.show_error(KEYCHAIN_UNAVAILABLE)
-            return
-        self.error_bar.hide()
-        self.items = items
-        self.populate_store()
+            def load_collections(self):
+                self.collections = get_collections()
+                self.sidebar_store.clear()
+                for c in self.collections:
+                    icon = "changes-prevent-symbolic" if c.get("locked") else ""
+                    self.sidebar_store.append([c["name"], icon, c["label"]])
+                if self.collections:
+                    self.sidebar.get_selection().select_path(Gtk.TreePath.new_first())
+                self.refresh_items()
 
-    def populate_store(self):
-        self.store.clear()
-        query = self.search.get_text().lower()
-        for item in self.items:
-            label = item.get("label") or "(untitled)"
-            kind = classify_item(item)
-            if query and query not in label.lower() \
-                    and not any(query in str(v).lower()
-                                for v in item.get("attributes", {}).values()):
-                continue
-            self.store.append([label, kind, label])
+            def on_collection_selected(self, selection):
+                model, treeiter = selection.get_selected()
+                if treeiter is None:
+                    return
+                self.current_collection = model[treeiter][0]
+                self.refresh_items()
 
-    def on_search_changed(self, entry):
-        self.populate_store()
+            def refresh_items(self):
+                self.items = []
+                self.store.clear()
+                self.selected_item = None
+                self.render_detail()
+                if Secret is None:
+                    self.show_error(LIBSECRET_UNAVAILABLE)
+                    return
+                self.error_bar.hide()
+                if not self.current_collection:
+                    return
+                items = list_items(self.current_collection)
+                if items is None:
+                    self.show_error(KEYCHAIN_UNAVAILABLE)
+                    return
+                self.error_bar.hide()
+                self.items = items
+                self.populate_store()
 
-    def on_item_selected(self, selection):
-        model, treeiter = selection.get_selected()
-        if treeiter is None:
-            self.selected_item = None
-        else:
-            visible = [r[2] for r in self.store]
-            label = model[treeiter][0]
-            self.selected_item = next(
-                (i for i in self.items if (i.get("label") or "(untitled)") == label),
-                None)
-        self.render_detail()
+            def populate_store(self):
+                self.store.clear()
+                query = self.search.get_text().lower()
+                for item in self.items:
+                    label = item.get("label") or "(untitled)"
+                    kind = classify_item(item)
+                    if query and query not in label.lower() \
+                            and not any(query in str(v).lower()
+                                        for v in item.get("attributes", {}).values()):
+                        continue
+                    self.store.append([label, kind, label])
 
-    def render_detail(self):
-        for child in self.attr_grid.get_children():
-            child.destroy()
-        item = self.selected_item
-        if item is None:
-            self.detail_label.set_text(
-                "Select an item to view its details."
-                if self.items or Secret is None else "No items in this keychain.")
-            self.secret_entry.set_text("")
-            self.show_secret.set_active(False)
-            self.show_secret.set_sensitive(False)
-            self.copy_secret.set_sensitive(False)
-            self.copy_attr_btn.set_sensitive(False)
-            self.del_btn.set_sensitive(False)
-            return
-        label = item.get("label") or "(untitled)"
-        kind = classify_item(item)
-        self.detail_label.set_text("%s — %s" % (label, kind))
-        row = 0
+            def on_search_changed(self, entry):
+                self.populate_store()
 
-        # Show certificate details if this is a certificate
-        if kind == "Certificate":
-            cert_details = get_certificate_details(item)
-            if cert_details:
-                cert_grid = Gtk.Grid(column_spacing=12, row_spacing=6)
-                cert_grid.get_style_context().add_class("keychain-attrs")
+            def on_item_selected(self, selection):
+                model, treeiter = selection.get_selected()
+                if treeiter is None:
+                    self.selected_item = None
+                else:
+                    visible = [r[2] for r in self.store]
+                    label = model[treeiter][0]
+                    self.selected_item = next(
+                        (i for i in self.items if (i.get("label") or "(untitled)") == label),
+                        None)
+                self.render_detail()
+
+            def render_detail(self):
+                for child in self.attr_grid.get_children():
+                    child.destroy()
+                item = self.selected_item
+                if item is None:
+                    self.detail_label.set_text(
+                        "Select an item to view its details."
+                        if self.items or Secret is None else "No items in this keychain.")
+                    self.secret_entry.set_text("")
+                    self.show_secret.set_active(False)
+                    self.show_secret.set_sensitive(False)
+                    self.copy_secret.set_sensitive(False)
+                    self.copy_attr_btn.set_sensitive(False)
+                    self.del_btn.set_sensitive(False)
+                    return
+                label = item.get("label") or "(untitled)"
+                kind = classify_item(item)
+                self.detail_label.set_text("%s — %s" % (label, kind))
+                row = 0
+
+                # Show certificate details if this is a certificate
+                if kind == "Certificate":
+                    cert_details = get_certificate_details(item)
+                    if cert_details:
+                        cert_grid = Gtk.Grid(column_spacing=12, row_spacing=6)
+                        cert_grid.get_style_context().add_class("keychain-attrs")
                 
-                cert_fields = [
-                    ("Subject", cert_details.get("subject")),
-                    ("Issuer", cert_details.get("issuer")),
-                    ("Valid From", cert_details.get("not_before")),
-                    ("Valid Until", cert_details.get("not_after")),
-                    ("Serial Number", cert_details.get("serial_number")),
-                    ("Version", cert_details.get("version")),
-                    ("Signature Algorithm", cert_details.get("signature_algorithm")),
-                    ("SHA-256 Fingerprint", cert_details.get("fingerprint")),
-                ]
+                        cert_fields = [
+                            ("Subject", cert_details.get("subject")),
+                            ("Issuer", cert_details.get("issuer")),
+                            ("Valid From", cert_details.get("not_before")),
+                            ("Valid Until", cert_details.get("not_after")),
+                            ("Serial Number", cert_details.get("serial_number")),
+                            ("Version", cert_details.get("version")),
+                            ("Signature Algorithm", cert_details.get("signature_algorithm")),
+                            ("SHA-256 Fingerprint", cert_details.get("fingerprint")),
+                        ]
 
-                for field_name, field_value in cert_fields:
-                    if field_value:
-                        k = Gtk.Label(label="%s:" % field_name)
+                        for field_name, field_value in cert_fields:
+                            if field_value:
+                                k = Gtk.Label(label="%s:" % field_name)
+                                k.get_style_context().add_class("keychain-attrs")
+                                k.set_halign(Gtk.Align.END)
+                                v = Gtk.Label(label=field_value)
+                                v.get_style_context().add_class("keychain-attrs")
+                                v.set_halign(Gtk.Align.START)
+                                v.set_selectable(True)
+                                v.set_line_wrap(True)
+                                v.set_max_width_chars(60)
+                                cert_grid.attach(k, 0, row, 1, 1)
+                                cert_grid.attach(v, 1, row, 1, 1)
+                                row += 1
+
+                        self.detail.pack_start(cert_grid, False, False, 0)
+                        cert_grid.show_all()
+                    else:
+                        no_cert = Gtk.Label(label="Certificate details unavailable (openssl required)")
+                        no_cert.get_style_context().add_class("keychain-attrs")
+                        no_cert.set_halign(Gtk.Align.START)
+                        self.attr_grid.attach(no_cert, 0, row, 2, 1)
+                        row += 1
+                else:
+                    for key, value in sorted(item.get("attributes", {}).items()):
+                        k = Gtk.Label(label="%s:" % key)
                         k.get_style_context().add_class("keychain-attrs")
                         k.set_halign(Gtk.Align.END)
-                        v = Gtk.Label(label=field_value)
+                        v = Gtk.Label(label=str(value))
                         v.get_style_context().add_class("keychain-attrs")
                         v.set_halign(Gtk.Align.START)
                         v.set_selectable(True)
-                        v.set_line_wrap(True)
-                        v.set_max_width_chars(60)
-                        cert_grid.attach(k, 0, row, 1, 1)
-                        cert_grid.attach(v, 1, row, 1, 1)
+                        self.attr_grid.attach(k, 0, row, 1, 1)
+                        self.attr_grid.attach(v, 1, row, 1, 1)
                         row += 1
 
-                self.detail.pack_start(cert_grid, False, False, 0)
-                cert_grid.show_all()
-            else:
-                no_cert = Gtk.Label(label="Certificate details unavailable (openssl required)")
-                no_cert.get_style_context().add_class("keychain-attrs")
-                no_cert.set_halign(Gtk.Align.START)
-                self.attr_grid.attach(no_cert, 0, row, 2, 1)
-                row += 1
-        else:
-            for key, value in sorted(item.get("attributes", {}).items()):
-                k = Gtk.Label(label="%s:" % key)
-                k.get_style_context().add_class("keychain-attrs")
-                k.set_halign(Gtk.Align.END)
-                v = Gtk.Label(label=str(value))
-                v.get_style_context().add_class("keychain-attrs")
-                v.set_halign(Gtk.Align.START)
-                v.set_selectable(True)
-                self.attr_grid.attach(k, 0, row, 1, 1)
-                self.attr_grid.attach(v, 1, row, 1, 1)
-                row += 1
+                if row == 0:
+                    none_label = Gtk.Label(label="(no attributes)")
+                    none_label.get_style_context().add_class("keychain-attrs")
+                    none_label.set_halign(Gtk.Align.START)
+                    self.attr_grid.attach(none_label, 0, row, 2, 1)
+                    row += 1
+                self.attr_grid.show_all()
+                self.secret_entry.set_text("")
+                self.show_secret.set_sensitive(True)
+                self.copy_secret.set_sensitive(False)
+                self.copy_attr_btn.set_sensitive(row > 0)
+                self.del_btn.set_sensitive(True)
+                self._secret_loaded = False
 
-        if row == 0:
-            none_label = Gtk.Label(label="(no attributes)")
-            none_label.get_style_context().add_class("keychain-attrs")
-            none_label.set_halign(Gtk.Align.START)
-            self.attr_grid.attach(none_label, 0, row, 2, 1)
-            row += 1
-        self.attr_grid.show_all()
-        self.secret_entry.set_text("")
-        self.show_secret.set_sensitive(True)
-        self.copy_secret.set_sensitive(False)
-        self.copy_attr_btn.set_sensitive(row > 0)
-        self.del_btn.set_sensitive(True)
-        self._secret_loaded = False
+            def on_show_secret_toggled(self, button):
+                if not button.get_active():
+                    self.secret_entry.set_text("")
+                    self.secret_entry.set_visibility(False)
+                    self.copy_secret.set_sensitive(False)
+                    self._secret_loaded = False
+                    return
+                data = get_item_secret(self.selected_item)
+                if data is None:
+                    self.detail_label.set_text("This item is locked or unavailable.")
+                    return
+                self.secret_entry.set_text(data.decode("utf-8", "replace"))
+                self.secret_entry.set_visibility(True)
+                self.copy_secret.set_sensitive(True)
+                self._secret_loaded = True
 
-    def on_show_secret_toggled(self, button):
-        if not button.get_active():
-            self.secret_entry.set_text("")
-            self.secret_entry.set_visibility(False)
-            self.copy_secret.set_sensitive(False)
-            self._secret_loaded = False
-            return
-        data = get_item_secret(self.selected_item)
-        if data is None:
-            self.detail_label.set_text("This item is locked or unavailable.")
-            return
-        self.secret_entry.set_text(data.decode("utf-8", "replace"))
-        self.secret_entry.set_visibility(True)
-        self.copy_secret.set_sensitive(True)
-        self._secret_loaded = True
+            def on_copy_secret(self, button):
+                if not self._secret_loaded:
+                    return
+                text = self.secret_entry.get_text()
+                clipboard = Gtk.Clipboard.get_default(Gdk.Display.get_default())
+                clipboard.set_text(text, -1)
 
-    def on_copy_secret(self, button):
-        if not self._secret_loaded:
-            return
-        text = self.secret_entry.get_text()
-        clipboard = Gtk.Clipboard.get_default(Gdk.Display.get_default())
-        clipboard.set_text(text, -1)
+            def on_copy_attribute(self, button):
+                if self.selected_item is None:
+                    return
+                attrs = self.selected_item.get("attributes") or {}
+                if not attrs:
+                    return
+                key = sorted(attrs.keys())[0]
+                clipboard = Gtk.Clipboard.get_default(Gdk.Display.get_default())
+                clipboard.set_text(str(attrs[key]), -1)
 
-    def on_copy_attribute(self, button):
-        if self.selected_item is None:
-            return
-        attrs = self.selected_item.get("attributes") or {}
-        if not attrs:
-            return
-        key = sorted(attrs.keys())[0]
-        clipboard = Gtk.Clipboard.get_default(Gdk.Display.get_default())
-        clipboard.set_text(str(attrs[key]), -1)
+            def on_new_item(self, button):
+                dlg = Gtk.Dialog(title="New Password Item", parent=self,
+                                 flags=Gtk.DialogFlags.MODAL)
+                dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
+                dlg.add_button("Add", Gtk.ResponseType.OK)
+                content = dlg.get_content_area()
+                grid = Gtk.Grid(column_spacing=10, row_spacing=6)
+                grid.set_border_width(12)
+                content.add(grid)
+                fields = {}
+                for row, (name, ph) in enumerate((
+                        ("Label:", "e.g. Example account"),
+                        ("Account:", "username"),
+                        ("Where:", "example.com"))):
+                    grid.attach(Gtk.Label(label=name), 0, row, 1, 1)
+                    entry = Gtk.Entry(placeholder_text=ph)
+                    entry.set_hexpand(True)
+                    grid.attach(entry, 1, row, 1, 1)
+                    fields[name] = entry
+                grid.attach(Gtk.Label(label="Password:"), 0, 3, 1, 1)
+                pw_entry = Gtk.Entry()
+                grid.attach(pw_entry, 1, 3, 1, 1)
+                gen = Gtk.Button(label="Generate")
+                grid.attach(gen, 2, 3, 1, 1)
+                dlg.show_all()
 
-    def on_new_item(self, button):
-        dlg = Gtk.Dialog(title="New Password Item", parent=self,
-                         flags=Gtk.DialogFlags.MODAL)
-        dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dlg.add_button("Add", Gtk.ResponseType.OK)
-        content = dlg.get_content_area()
-        grid = Gtk.Grid(column_spacing=10, row_spacing=6)
-        grid.set_border_width(12)
-        content.add(grid)
-        fields = {}
-        for row, (name, ph) in enumerate((
-                ("Label:", "e.g. Example account"),
-                ("Account:", "username"),
-                ("Where:", "example.com"))):
-            grid.attach(Gtk.Label(label=name), 0, row, 1, 1)
-            entry = Gtk.Entry(placeholder_text=ph)
-            entry.set_hexpand(True)
-            grid.attach(entry, 1, row, 1, 1)
-            fields[name] = entry
-        grid.attach(Gtk.Label(label="Password:"), 0, 3, 1, 1)
-        pw_entry = Gtk.Entry()
-        grid.attach(pw_entry, 1, 3, 1, 1)
-        gen = Gtk.Button(label="Generate")
-        grid.attach(gen, 2, 3, 1, 1)
-        dlg.show_all()
+                def on_generate(_btn):
+                    pw_entry.set_text(generate_password(16, True, True, True))
+                gen.connect("clicked", on_generate)
 
-        def on_generate(_btn):
-            pw_entry.set_text(generate_password(16, True, True, True))
-        gen.connect("clicked", on_generate)
+                response = dlg.run()
+                if response == Gtk.ResponseType.OK:
+                    label = fields["Label:"].get_text().strip()
+                    attributes = {
+                        "account": fields["Account:"].get_text().strip(),
+                        "where": fields["Where:"].get_text().strip(),
+                    }
+                    attributes = {k: v for k, v in attributes.items() if v}
+                    if label and attributes:
+                        ok = store_password(label, attributes, pw_entry.get_text(),
+                                            self.current_collection)
+                        if ok:
+                            self.refresh_items()
+                        else:
+                            self.show_error(
+                                "The item could not be stored. "
+                                "Is the keychain service available?")
+                dlg.destroy()
 
-        response = dlg.run()
-        if response == Gtk.ResponseType.OK:
-            label = fields["Label:"].get_text().strip()
-            attributes = {
-                "account": fields["Account:"].get_text().strip(),
-                "where": fields["Where:"].get_text().strip(),
-            }
-            attributes = {k: v for k, v in attributes.items() if v}
-            if label and attributes:
-                ok = store_password(label, attributes, pw_entry.get_text(),
-                                    self.current_collection)
-                if ok:
+            def on_generator(self, button):
+                dlg = Gtk.Dialog(title="Password Generator", parent=self,
+                                 flags=Gtk.DialogFlags.MODAL)
+                dlg.add_button("Close", Gtk.ResponseType.CLOSE)
+                content = dlg.get_content_area()
+                grid = Gtk.Grid(column_spacing=10, row_spacing=6)
+                grid.set_border_width(12)
+                content.add(grid)
+                grid.attach(Gtk.Label(label="Length:"), 0, 0, 1, 1)
+                length = Gtk.SpinButton.new_with_range(4, 64, 1)
+                length.set_value(16)
+                grid.attach(length, 1, 0, 1, 1)
+                opts = {}
+                for col, (name, default) in enumerate((
+                        ("Uppercase (A-Z)", True), ("Digits (0-9)", True),
+                        ("Symbols (!@#…)", True))):
+                    cb = Gtk.CheckButton(label=name)
+                    cb.set_active(default)
+                    grid.attach(cb, col, 1, 1, 1)
+                    opts[name] = cb
+                result = Gtk.Entry()
+                result.set_editable(False)
+                grid.attach(result, 0, 2, 2, 1)
+                strength = Gtk.Label(label="")
+                strength.set_halign(Gtk.Align.START)
+                grid.attach(strength, 0, 3, 2, 1)
+                copy_btn = Gtk.Button(label="Copy")
+                grid.attach(copy_btn, 2, 2, 1, 1)
+                dlg.show_all()
+
+                def regenerate(_btn=None):
+                    pw = generate_password(
+                        int(length.get_value()),
+                        opts["Uppercase (A-Z)"].get_active(),
+                        opts["Digits (0-9)"].get_active(),
+                        opts["Symbols (!@#…)"].get_active())
+                    result.set_text(pw)
+                    bits = password_strength(pw)
+                    strength.set_text("Approximately %.0f bits of entropy" % bits)
+                    return pw
+
+                for cb in opts.values():
+                    cb.connect("toggled", regenerate)
+                length.connect("value-changed", regenerate)
+
+                def on_copy(_btn):
+                    clipboard = Gtk.Clipboard.get_default(Gdk.Display.get_default())
+                    clipboard.set_text(result.get_text(), -1)
+                copy_btn.connect("clicked", on_copy)
+
+                regenerate()
+                dlg.run()
+                dlg.destroy()
+
+            def on_lock(self, button):
+                if not self.items:
+                    return
+                n = lock_items(self.items)
+                if n:
                     self.refresh_items()
-                else:
-                    self.show_error(
-                        "The item could not be stored. "
-                        "Is the keychain service available?")
-        dlg.destroy()
 
-    def on_generator(self, button):
-        dlg = Gtk.Dialog(title="Password Generator", parent=self,
-                         flags=Gtk.DialogFlags.MODAL)
-        dlg.add_button("Close", Gtk.ResponseType.CLOSE)
-        content = dlg.get_content_area()
-        grid = Gtk.Grid(column_spacing=10, row_spacing=6)
-        grid.set_border_width(12)
-        content.add(grid)
-        grid.attach(Gtk.Label(label="Length:"), 0, 0, 1, 1)
-        length = Gtk.SpinButton.new_with_range(4, 64, 1)
-        length.set_value(16)
-        grid.attach(length, 1, 0, 1, 1)
-        opts = {}
-        for col, (name, default) in enumerate((
-                ("Uppercase (A-Z)", True), ("Digits (0-9)", True),
-                ("Symbols (!@#…)", True))):
-            cb = Gtk.CheckButton(label=name)
-            cb.set_active(default)
-            grid.attach(cb, col, 1, 1, 1)
-            opts[name] = cb
-        result = Gtk.Entry()
-        result.set_editable(False)
-        grid.attach(result, 0, 2, 2, 1)
-        strength = Gtk.Label(label="")
-        strength.set_halign(Gtk.Align.START)
-        grid.attach(strength, 0, 3, 2, 1)
-        copy_btn = Gtk.Button(label="Copy")
-        grid.attach(copy_btn, 2, 2, 1, 1)
-        dlg.show_all()
+            def on_delete_item(self, button):
+                item = self.selected_item
+                if item is None:
+                    return
+                label = item.get("label") or "(untitled)"
+                dlg = Gtk.MessageDialog(
+                    parent=self, flags=Gtk.DialogFlags.MODAL,
+                    type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.NONE,
+                    message_format="Delete “%s”?" % label)
+                dlg.format_secondary_text("This cannot be undone.")
+                dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
+                dlg.add_button("Delete", Gtk.ResponseType.OK)
+                response = dlg.run()
+                dlg.destroy()
+                if response == Gtk.ResponseType.OK:
+                    if delete_item(item):
+                        self.refresh_items()
+                    else:
+                        self.show_error("The item could not be deleted.")
 
-        def regenerate(_btn=None):
-            pw = generate_password(
-                int(length.get_value()),
-                opts["Uppercase (A-Z)"].get_active(),
-                opts["Digits (0-9)"].get_active(),
-                opts["Symbols (!@#…)"].get_active())
-            result.set_text(pw)
-            bits = password_strength(pw)
-            strength.set_text("Approximately %.0f bits of entropy" % bits)
-            return pw
-
-        for cb in opts.values():
-            cb.connect("toggled", regenerate)
-        length.connect("value-changed", regenerate)
-
-        def on_copy(_btn):
-            clipboard = Gtk.Clipboard.get_default(Gdk.Display.get_default())
-            clipboard.set_text(result.get_text(), -1)
-        copy_btn.connect("clicked", on_copy)
-
-        regenerate()
-        dlg.run()
-        dlg.destroy()
-
-    def on_lock(self, button):
-        if not self.items:
-            return
-        n = lock_items(self.items)
-        if n:
-            self.refresh_items()
-
-    def on_delete_item(self, button):
-        item = self.selected_item
-        if item is None:
-            return
-        label = item.get("label") or "(untitled)"
-        dlg = Gtk.MessageDialog(
-            parent=self, flags=Gtk.DialogFlags.MODAL,
-            type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.NONE,
-            message_format="Delete “%s”?" % label)
-        dlg.format_secondary_text("This cannot be undone.")
-        dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dlg.add_button("Delete", Gtk.ResponseType.OK)
-        response = dlg.run()
-        dlg.destroy()
-        if response == Gtk.ResponseType.OK:
-            if delete_item(item):
-                self.refresh_items()
-            else:
-                self.show_error("The item could not be deleted.")
+        _KEYCHAIN_CLS = KeychainWindow
+    return _KEYCHAIN_CLS
 
 
 def main():
-    w = KeychainWindow()
+    Gtk, _Gdk = _gtk()
+    w = build_keychain_class()()
     w.connect("destroy", Gtk.main_quit)
     w.show_all()
     Gtk.main()
