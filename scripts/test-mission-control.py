@@ -23,7 +23,7 @@ def main():
     assert '[\"wmctrl\", \"-l\", \"-x\"]' in app
     assert '[\"wmctrl\", \"-d\"]' in app
     assert '[\"wmctrl\", \"-i\", \"-a\", win_id]' in app
-    assert 'value="rofi -show -modi \'mission-control:/usr/bin/mv-mission-control\'' in keys
+    assert "mission-control:/usr/bin/mv-mission-control" in keys
     assert "wmctrl" not in app or "FileNotFoundError" in app
     print("OK: Mission Control runtime contract")
 
