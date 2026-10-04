@@ -47,13 +47,13 @@ jobs:
           done
 
       - name: Profile sync check
-        run: ./scripts/check-profile-sync.sh
+        run: bash scripts/check-profile-sync.sh
 
       - name: Panel configuration validation
         run: python3 scripts/test-panel-config.py
 
       - name: Full sync check
-        run: ./scripts/check-sync.sh
+        run: bash scripts/check-sync.sh
 
   secret-scan:
     name: Secret Scan
@@ -144,7 +144,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check profile sync
-        run: ./scripts/check-profile-sync.sh
+        # bash: Contents-API rewrites may leave mode 100644 (no +x)
+        run: bash scripts/check-profile-sync.sh
 
   contribution-format:
     name: Contribution Format
