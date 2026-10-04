@@ -286,20 +286,6 @@ def load_positions(apps=None):
     return positions
 
 
-def migrate_positions(positions, apps):
-    """Translate legacy position keys when the basename mapping is unambiguous."""
-    legacy_map = _legacy_id_map(apps)
-    migrated = {}
-    changed = False
-    for app_id, position in positions.items():
-        canonical_id = legacy_map.get(app_id, app_id)
-        if canonical_id != app_id:
-            changed = True
-        if canonical_id not in migrated:
-            migrated[canonical_id] = position
-    return migrated, changed
-
-
 def save_positions(positions):
     """Save custom app positions atomically."""
     _atomic_save_json(POSITIONS_FILE, positions)
@@ -578,9 +564,6 @@ def main():
     apps = load_desktop_apps()
     folders = load_folders(apps)
     positions = load_positions(apps)
-    positions, positions_migrated = migrate_positions(positions, apps)
-    if positions_migrated:
-        save_positions(positions)
 
     # Build structure
     structure = build_launchpad_structure(apps, folders, positions, query, open_folder)
