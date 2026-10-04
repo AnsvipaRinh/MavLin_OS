@@ -140,6 +140,23 @@ def test_xdg_application_paths(mod):
         sb.close()
 
 
+def test_recursive_desktop_ids(mod):
+    """Nested application entries use the freedesktop desktop-file ID."""
+    sb = Sandbox(mod)
+    try:
+        nested = os.path.join(sb.desktop, "foo", "bar")
+        os.makedirs(nested)
+        path = os.path.join(nested, "Nested.desktop")
+        with open(path, "w") as f:
+            f.write(DESKTOP_FILE)
+        entries = mod.load_desktop_entries()
+        check("desktop-id: nested entry discovered", len(entries) == 1, repr(entries))
+        check("desktop-id: nested path becomes foo-bar.desktop",
+              entries[0].get("desktop_id") == "foo-bar.desktop", repr(entries))
+    finally:
+        sb.close()
+
+
 def test_parse(mod):
     sb = Sandbox(mod)
     try:
@@ -366,8 +383,8 @@ def test_integration(mod):
               repr([a for a in apps if a["name"] == "Test App"]))
         check("launchpad: sorted by name",
               [a["name"] for a in apps] == names)
-        check("launchpad: id = stem",
-              {a["id"] for a in apps} == {"aaa", "bbb"},
+        check("launchpad: canonical desktop IDs",
+              {a["id"] for a in apps} == {"aaa.desktop", "bbb.desktop"},
               repr({a["id"] for a in apps}))
 
         sp = load_app("mv-spotlight")
@@ -393,6 +410,7 @@ def main():
     mod = load_module("mv_desktop_cache", MOD_PATH)
     test_xdg_application_paths(mod)
     test_parse(mod)
+    test_recursive_desktop_ids(mod)
     test_fingerprint(mod)
     test_cache_writer_uses_unique_atomic_tempfiles(mod)
     test_cache_hit_skips_reads(mod)

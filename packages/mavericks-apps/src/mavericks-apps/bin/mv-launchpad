@@ -62,7 +62,7 @@ def load_desktop_apps():
         elif not icon:
             icon = "application-x-executable"
         apps.append({
-            "id": desktop_id,
+            "id": e.get("desktop_id", Path(e["path"]).stem),
             "name": e["name"],
             "exec": e["exec"],
             "icon": icon,
