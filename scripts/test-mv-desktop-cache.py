@@ -299,6 +299,21 @@ def test_cache_invalidation(mod):
         sb.close()
 
 
+def test_missing_cache_is_not_quarantined(mod):
+    """A first-run cache miss must not create a fake corrupt-cache artifact."""
+    sb = Sandbox(mod)
+    try:
+        cache = sb.cache_path()
+        check("missing: cache initially absent", not os.path.exists(cache))
+        data = mod._read_json_safe(cache)
+        check("missing: returns cache miss", data is None)
+        parent = os.path.dirname(cache)
+        leftovers = [f for f in os.listdir(parent)] if os.path.isdir(parent) else []
+        check("missing: no quarantine artifact", leftovers == [], repr(leftovers))
+    finally:
+        sb.close()
+
+
 def test_corrupt_cache(mod):
     sb = Sandbox(mod)
     try:
@@ -383,6 +398,7 @@ def main():
     test_cache_hit_skips_reads(mod)
     test_cache_invalidation(mod)
     test_locale_invalidation(mod)
+    test_missing_cache_is_not_quarantined(mod)
     test_corrupt_cache(mod)
     test_integration(mod)
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")
