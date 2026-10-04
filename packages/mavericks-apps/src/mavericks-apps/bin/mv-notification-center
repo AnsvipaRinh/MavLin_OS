@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import sys
 """mv-notification-center — Mavericks-style Notification Center.
 
 History viewer for notifications logged by mv-notify-send.
@@ -274,7 +273,7 @@ class NotificationCenter(Gtk.Window):
             if value:
                 candidates.append(value)
         body = item.get("body", "")
-        candidates.extend(re.findall(r"https?://[^\\s<>]+", body))
+        candidates.extend(re.findall(r"https?://[^\s<>]+", body))
         for target in candidates:
             if target.startswith(("http://", "https://")):
                 try:
