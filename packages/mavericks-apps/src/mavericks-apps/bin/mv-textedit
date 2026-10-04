@@ -8,6 +8,7 @@ Mavericks leather toolbar, ruler.
 """
 import os
 import sys
+import sys
 import json
 import time
 import cairo
@@ -720,10 +721,11 @@ class TextEdit(Gtk.Window):
 
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else None
-    w = TextEdit(path)
-    w.connect("destroy", Gtk.main_quit)
-    Gtk.main()
-    return 0
+    def factory():
+        return TextEdit(path)
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    return run_application("com.mavlinos.TextEdit", "TextEdit", factory, sys.argv)
 
 
 if __name__ == "__main__":
