@@ -160,6 +160,10 @@ jobs:
         run: |
           python3 scripts/test-panel-clock.py
 
+      - name: Apple menu packaging contract
+        run: |
+          python3 scripts/test-apple-menu-packaging.py
+
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest
