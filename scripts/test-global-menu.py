@@ -154,6 +154,7 @@ def main():
     assert "build_photos_menu" in photos
     assert "Gtk.Application(application_id=" in photos
     assert "Gtk.main_quit()" not in photos
+    assert "sys.exit(main())" in photos
     for action in ("Import Photos…", "New Album…", "All Photos", "Favorites",
                    "Recently Added", "Start / Stop Slideshow"):
         assert action in photos, f"Photos menu missing {action}"
@@ -181,15 +182,19 @@ def main():
     for action in ("New Note", "New Folder", "Export Note…", "Print…", "Find"):
         assert action in notes, f"Notes menu missing {action}"
     textedit = TEXTEDIT.read_text(encoding="utf-8")
+    assert 'add_action("about", lambda: None)' not in textedit
     assert "build_textedit_menu" in textedit
     for action in ("New", "Open…", "Save", "Undo", "Redo", "Cut", "Copy", "Paste", "Find", "Bold", "Italic", "Underline"):
         assert action in textedit, f"TextEdit menu missing {action}"
+    custom_menu_apps = (finder, notes, calendar, music, preview, photos, stickies, reminders, mail, keychain, textedit)
+    for custom_app in custom_menu_apps:
+        assert 'add_action("about", lambda: None)' not in custom_app, "custom menu overrides shared About action"
     calculator = CALCULATOR.read_text(encoding="utf-8")
     assert "com.mavlinos.Calculator" in calculator
     assert "install_application_menu" in calculator
     assert "Gtk.main()" not in calculator
 
-    lifecycle_exceptions = {"stickies", "music", "preview"}
+    lifecycle_exceptions = {"stickies", "music", "preview", "photos"}
     for command, app_name in NATIVE_APPS.items():
         app = Path(
             "packages/mavericks-apps/src/mavericks-apps/bin/mv-" + command
