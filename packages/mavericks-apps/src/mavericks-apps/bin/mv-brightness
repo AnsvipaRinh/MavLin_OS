@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""mv-brightness — adjust display backlight via sysfs (no extra packages).
+
+Usage:
+  mv-brightness up|down|+|-[step%]
+  mv-brightness set <0-100>
+  mv-brightness get
+
+Default step is 5%. Reads/writes /sys/class/backlight/*/brightness.
+"""
+from __future__ import annotations
+
+import os
+import sys
+
+
+def find_device() -> tuple[str, int, int] | None:
+    base = "/sys/class/backlight"
+    if not os.path.isdir(base):
+        return None
+    names = sorted(os.listdir(base))
+    preferred = [n for n in names if n in ("intel_backlight", "acpi_video0", "apple_gmux_backlight")]
+    order = preferred + [n for n in names if n not in preferred]
+    for name in order:
+        path = os.path.join(base, name)
+        try:
+            with open(os.path.join(path, "max_brightness")) as fh:
+                mx = int(fh.read().strip())
+            with open(os.path.join(path, "brightness")) as fh:
+                cur = int(fh.read().strip())
+            if mx > 0:
+                return path, cur, mx
+        except OSError:
+            continue
+    return None
+
+
+def write_brightness(path: str, value: int, mx: int) -> None:
+    value = max(1, min(mx, value))  # avoid total black on some panels
+    with open(os.path.join(path, "brightness"), "w") as fh:
+        fh.write(str(value))
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) < 2:
+        print("Usage: mv-brightness up|down|set <pct>|get", file=sys.stderr)
+        return 2
+    dev = find_device()
+    if not dev:
+        print("No backlight device under /sys/class/backlight", file=sys.stderr)
+        return 1
+    path, cur, mx = dev
+    cmd = argv[1].lower()
+    step_pct = 5
+    if len(argv) >= 3 and cmd in ("up", "down", "+", "-"):
+        try:
+            step_pct = max(1, min(50, int(argv[2].rstrip("%"))))
+        except ValueError:
+            pass
+    if cmd in ("get", "status"):
+        print(cur * 100 // mx)
+        return 0
+    if cmd == "set":
+        if len(argv) < 3:
+            print("Usage: mv-brightness set <0-100>", file=sys.stderr)
+            return 2
+        try:
+            pct = max(0, min(100, int(argv[2].rstrip("%"))))
+        except ValueError:
+            return 2
+        write_brightness(path, max(1, pct * mx // 100), mx)
+        return 0
+    if cmd in ("up", "+"):
+        delta = max(1, mx * step_pct // 100)
+        write_brightness(path, cur + delta, mx)
+        return 0
+    if cmd in ("down", "-"):
+        delta = max(1, mx * step_pct // 100)
+        write_brightness(path, cur - delta, mx)
+        return 0
+    print("Unknown command:", cmd, file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

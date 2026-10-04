@@ -33,6 +33,8 @@
       <property name="XF86AudioNext" type="string" value="mv-music --media-key next"/>
       <property name="XF86AudioPrev" type="string" value="mv-music --media-key prev"/>
       <property name="XF86AudioStop" type="string" value="mv-music --media-key stop"/>
+      <property name="XF86MonBrightnessUp" type="string" value="mv-brightness up"/>
+      <property name="XF86MonBrightnessDown" type="string" value="mv-brightness down"/>
     </property>
   </property>
   <property name="xfwm4" type="empty">
