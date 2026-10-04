@@ -206,90 +206,18 @@ def minimize_window(win_id):
     except Exception:
         return False
 
-\n\ndef run_native_expose():\n    """Run daemon-free skippy-xd expose across all virtual desktops."""\n    skippy = shutil.which("skippy-xd")\n    if not skippy:\n        return False\n    try:\n        result = subprocess.run(\n            [skippy, "--expose", "--desktop", "-1"],\n            timeout=30\n        )\n        return result.returncode == 0\n    except (OSError, subprocess.TimeoutExpired):\n        return False\n
 
-def main():
-    # Native Mission Control is optional; retain rofi as the safe fallback.
-    if len(sys.argv) > 1 and sys.argv[1] == "--native":
-        if run_native_expose():
-            return 0
-        sys.argv = [sys.argv[0]]
-
-    # Handle window actions from rofi
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "--list":
-            windows, err = get_windows()
-            if err:
-                print(f"Error: {err}", file=sys.stderr)
-                return 1
-            for w in windows or []:
-                print(f"{w['id']}  Desk {w['desktop']}  {w['class']}  {w['title']}")
-            return 0
-        elif sys.argv[1] == "--activate" and len(sys.argv) > 2:
-            return 0 if activate_window(sys.argv[2]) else 1
-        elif sys.argv[1] == "--close" and len(sys.argv) > 2:
-            return 0 if close_window(sys.argv[2]) else 1
-        elif sys.argv[1] == "--minimize" and len(sys.argv) > 2:
-            return 0 if minimize_window(sys.argv[2]) else 1
-
-    windows, err = get_windows()
-    if err:
-        # Show error as a single selectable item that does nothing
-        print(f"Error\0icon\x1fdialog-error\0info\x1f{err}")
-        return 0
-    if not windows:
-        print("No windows\0icon\x1fdialog-information\0info\x1fNo windows found")
-        return 0
-
-    active_ws = get_active_workspace()
-    active_win = get_active_window_id()
-    ws_count = get_workspace_count()
-
-    # Group by workspace
-    by_desktop = {}
-    for w in windows:
-        desk = w["desktop"]
-        if desk not in by_desktop:
-            by_desktop[desk] = []
-        by_desktop[desk].append(w)
-
-    # Output all workspaces in order, active first
-    desks = sorted(by_desktop.keys())
-    # Move active to front
-    if active_ws in desks:
-        desks.remove(active_ws)
-        desks.insert(0, active_ws)
-
-    # Add empty workspaces at the end
-    for i in range(ws_count):
-        if str(i) not in by_desktop:
-            by_desktop[str(i)] = []
-            if str(i) not in desks:
-                desks.append(str(i))
-
-    for desk in desks:
-        ws_label = f"Desktop {desk}"
-        if desk == str(active_ws):
-            ws_label += " ●"
-            # Active workspace category with special styling
-            print(f"{ws_label}\0class\x1factive")
-        else:
-            print(ws_label)
-        if not by_desktop[desk]:
-            print("(empty)\0icon\x1fworkspace\0info\x1fWorkspace {desk} is empty".format(desk=desk))
-        for w in by_desktop[desk]:
-            icon = get_window_icon(w["class"])
-            is_active = w["id"].lower() == (active_win or "").lower()
-            title = w["title"]
-            if is_active:
-                title = "▸ " + title
-            info = f"Workspace {w['desktop']} — {w['class']}"
-            if is_active:
-                info += " (active)"
-            print(f"{title}\0icon\x1f{icon}\0info\x1f{info}\0meta\x1f{w['id']}")
-
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+def run_native_expose():
+    """Run daemon-free skippy-xd expose across all virtual desktops."""
+    skippy = shutil.which("skippy-xd")
+    if not skippy:
+        return False
+    try:
+        result = subprocess.run(
+            [skippy, "--expose", "--desktop", "-1"],
+            timeout=30
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+)
