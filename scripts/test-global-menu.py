@@ -13,6 +13,7 @@ CALCULATOR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calculator"
 XFWM = Path("configs/desktop/xfce/xfwm4.xml")
 APPLE_PLUGIN = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c")
 APPLE_DESKTOP = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
+APPLE_ICON = Path("packages/mavericks-apps/src/mavericks-apps/icons/mv-apple.svg")
 
 NATIVE_APPS = {
     "about": "About This Mac",
@@ -46,6 +47,7 @@ NATIVE_APPS = {
 def check_apple_plugin():
     text = APPLE_PLUGIN.read_text()
     desktop = APPLE_DESKTOP.read_text()
+    icon = APPLE_ICON.read_text()
     assert "XFCE_PANEL_PLUGIN_REGISTER(construct)" in text
     assert "About This Mac" in text
     assert "System Preferences" in text
@@ -55,6 +57,7 @@ def check_apple_plugin():
     assert "xfce4-session-logout" in text
     assert "Type=X-XFCE-PanelPlugin" in desktop
     assert "X-XFCE-Internal=false" in desktop
+    assert "viewBox=" in icon and "<path" in icon
 
 def main():
     check_apple_plugin()
