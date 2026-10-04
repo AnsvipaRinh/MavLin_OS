@@ -212,6 +212,38 @@ def test_desktop_cache_semantics():
             module.desktop_dirs = old_dirs
             module._CACHE_PATH = old_cache
 
+def test_recent_items_file_uri_parsing():
+    import importlib.util
+    import tempfile
+    from pathlib import Path
+
+    module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight"
+    spec = importlib.util.spec_from_file_location("mv_spotlight_recent_test", module_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        target = root / "My File.txt"
+        target.write_text("recent", encoding="utf-8")
+        xbel = root / "recently-used.xbel"
+        href = "file://" + str(target).replace(" ", "%20")
+        xbel.write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<xbel xmlns="http://www.freedesktop.org/standards/desktop-bookmarks">'
+            f'<bookmark href="{href}" />'
+            '<bookmark href="https://example.com/not-a-file" />'
+            '</xbel>',
+            encoding="utf-8",
+        )
+        old_recent = module.RECENT_FILE
+        try:
+            module.RECENT_FILE = xbel
+            assert module.get_recent_items(5) == [str(target)]
+        finally:
+            module.RECENT_FILE = old_recent
+
+
 
 def test_main_subprocess():
     import subprocess
@@ -251,6 +283,7 @@ if __name__ == "__main__":
         ("calculator_safety_contract", test_calculator_safety_contract),
         ("file_action_quoting_contract", test_file_action_quoting_contract),
         ("desktop_cache_semantics", test_desktop_cache_semantics),
+        ("recent_items_file_uri_parsing", test_recent_items_file_uri_parsing),
         ("main_subprocess", test_main_subprocess),
     ]
 

@@ -17,6 +17,7 @@ import re
 import math
 import shutil
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 import mv_desktop_cache
 
@@ -164,14 +165,19 @@ def get_recent_items(limit=5):
         import xml.etree.ElementTree as ET
         tree = ET.parse(RECENT_FILE)
         root = tree.getroot()
-        # namespace handling
-        ns = {"bookmark": "http://www.w3.org/2001/XMLSchema-instance"}
-        for bookmark in root.findall(".//{http://www.ecma-international.org/standards/ecma-323/2004/}bookmark"):
+        # GTK/GLib stores XBEL bookmarks using the freedesktop namespace.
+        # Match the local bookmark element by name so namespace URI changes do
+        # not make the recent-items view silently empty.
+        for bookmark in root.iter():
+            if bookmark.tag.rsplit("}", 1)[-1] != "bookmark":
+                continue
             href = bookmark.get("href", "")
-            if href.startswith("file://"):
-                path = href[7:]  # remove file://
-                if os.path.exists(path):
-                    items.append(path)
+            parsed = urlparse(href)
+            if parsed.scheme != "file" or parsed.netloc not in ("", "localhost"):
+                continue
+            path = unquote(parsed.path)
+            if path and os.path.exists(path):
+                items.append(path)
             if len(items) >= limit:
                 break
     except Exception:
