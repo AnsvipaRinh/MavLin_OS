@@ -1,12 +1,34 @@
 #!/usr/bin/env python3
 """mv-eject — Finder-like eject/unmount for removable devices.
-Handles: USB drives, SD cards, mounted volumes.
+Handles: USB drives, SD cards, mounted volumes (GIO UnixMount).
+
+Bug fixed 2026-10-05: the old code called the ASYNC unmount_with_operation()
+with a no-op callback and returned immediately; with no main loop running,
+the process exited before GIO ever started the unmount — nothing happened.
+Now uses the sync API (this is a short-lived CLI by design), reports real
+errors, and falls back to a polite umount(8) for non-GIO mount points.
+License: GPL-2.0-or-later.
 """
 import os
 import sys
-import gi
-gi.require_version("Gio", "2.0")
-from gi.repository import Gio
+
+
+def find_mount(mounts, arg):
+    """Find a Gio.Mount matching arg by mount path or device file."""
+    abspath = os.path.abspath(arg)
+    for mount in mounts:
+        root = mount.get_root()
+        if root and root.get_path() == abspath:
+            return mount
+    if os.path.exists(arg):
+        for mount in mounts:
+            try:
+                device = mount.get_device()
+            except Exception:
+                device = None
+            if device and device.get_device_file() == arg:
+                return mount
+    return None
 
 
 def main():
@@ -14,46 +36,47 @@ def main():
         print("Usage: mv-eject <mount-point-or-device>", file=sys.stderr)
         return 1
 
+    import gi
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gio
+
+    rc = 0
     for arg in sys.argv[1:]:
         try:
-            # Try to find the mount
             mounts = Gio.UnixMountMonitor.get().get_mounts()
-            mount_to_eject = None
+            mount = find_mount(mounts, arg)
 
-            for mount in mounts:
-                root = mount.get_root()
-                if root and root.get_path() == os.path.abspath(arg):
-                    mount_to_eject = mount
-                    break
-
-            # If not found by path, try by device file
-            if not mount_to_eject and os.path.exists(arg):
-                for mount in mounts:
-                    device = mount.get_device()
-                    if device and device.get_device_file() == arg:
-                        mount_to_eject = mount
-                        break
-
-            if not mount_to_eject:
-                print(f"No mount found for: {arg}", file=sys.stderr)
+            if mount is None:
+                # Not a GIO-tracked mount: try a plain umount for directories
+                # under /media//run/media (Finder-style fallback).
+                abspath = os.path.abspath(arg)
+                if os.path.isdir(abspath) and (
+                        abspath.startswith("/media/")
+                        or abspath.startswith("/run/media/")):
+                    ret = os.system("umount %r 2>/dev/null || umount -l %r"
+                                    % (abspath, abspath))
+                    if ret == 0:
+                        print("Ejected: %s" % arg)
+                        continue
+                print("No mount found for: %s" % arg, file=sys.stderr)
+                rc = 1
                 continue
 
-            # Try to unmount
-            if mount_to_eject.can_unmount():
-                mount_to_eject.unmount_with_operation(
-                    Gio.MountUnmountFlags.FORCE,
-                    None,  # GMountOperation
-                    None,  # cancellable
-                    lambda source, result, user_data: None
-                )
-                print(f"Ejected: {arg}")
-            else:
-                print(f"Cannot eject (busy): {arg}", file=sys.stderr)
+            if not mount.can_unmount():
+                print("Cannot eject (busy): %s" % arg, file=sys.stderr)
+                rc = 1
+                continue
+
+            op = Gio.MountOperation()
+            mount.unmount_with_operation(
+                Gio.MountUnmountFlags.FORCE, op, None)
+            print("Ejected: %s" % arg)
 
         except Exception as e:
-            print(f"Error ejecting {arg}: {e}", file=sys.stderr)
+            print("Error ejecting %s: %s" % (arg, e), file=sys.stderr)
+            rc = 1
 
-    return 0
+    return rc
 
 
 if __name__ == "__main__":
