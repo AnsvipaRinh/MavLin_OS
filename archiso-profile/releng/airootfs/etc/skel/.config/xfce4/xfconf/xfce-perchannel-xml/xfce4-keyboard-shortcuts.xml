@@ -38,8 +38,8 @@
   <property name="xfwm4" type="empty">
     <property name="default" type="empty">
       <property name="&lt;Super&gt;Up" type="string" value="tile_up_key"/>
-      <property name="&lt;Super&gt;Left" type="string" value="tile_left_key"/>
       <property name="&lt;Super&gt;Down" type="string" value="tile_down_key"/>
+      <property name="&lt;Super&gt;Left" type="string" value="tile_left_key"/>
       <property name="&lt;Super&gt;Right" type="string" value="tile_right_key"/>
       <property name="&lt;Super&gt;&lt;Alt&gt;Right" type="string" value="right_workspace_key"/>
       <property name="&lt;Super&gt;&lt;Alt&gt;Left" type="string" value="left_workspace_key"/>

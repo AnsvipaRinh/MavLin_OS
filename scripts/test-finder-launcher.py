@@ -60,6 +60,7 @@ if not os.path.isfile(target):
 
 needle_ok = 'name="&lt;Super&gt;&lt;Shift&gt;f" type="string" value="mv-finder-columns"'
 needle_bad = 'name="&lt;Super&gt;&lt;Shift&gt;f" type="string" value="thunar"'
+needle_e = 'name="&lt;Super&gt;e" type="string" value="mv-finder-columns"'
 for path in SHORTCUT_PATHS:
     if not os.path.isfile(path):
         errors.append("keyboard shortcuts file missing: %s" % path)
@@ -71,6 +72,8 @@ for path in SHORTCUT_PATHS:
         errors.append(
             "Super+Shift+F must launch mv-finder-columns in %s" % path
         )
+    if needle_e not in text:
+        errors.append("Super+E must launch mv-finder-columns in %s" % path)
 
 for path in MIMEAPPS_PATHS:
     if not os.path.isfile(path):
@@ -95,3 +98,4 @@ print("ok - Finder desktop MimeType covers directories")
 print("ok - mv-finder-columns implementation exists")
 print("ok - Super+Shift+F keyboard shortcut launches mv-finder-columns")
 print("ok - mimeapps.list defaults directories to Finder")
+print("ok - Super+E keyboard shortcut launches mv-finder-columns")
