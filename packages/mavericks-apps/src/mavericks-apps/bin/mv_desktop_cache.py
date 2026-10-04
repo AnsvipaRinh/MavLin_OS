@@ -245,16 +245,24 @@ def load_desktop_entries():
         if not os.path.isdir(d):
             continue
         try:
-            names = sorted(os.listdir(d))
+            walk = os.walk(d)
         except OSError:
             continue
-        for name in names:
-            if not name.endswith(".desktop") or name in seen_ids:
-                continue
-            seen_ids.add(name)
-            e = _parse_desktop_file(os.path.join(d, name))
-            if e is not None:
-                entries.append(e)
+        for root, dirs, names in walk:
+            dirs.sort()
+            for name in sorted(names):
+                if not name.endswith(".desktop"):
+                    continue
+                path = os.path.join(root, name)
+                rel = os.path.relpath(path, d)
+                desktop_id = rel.replace(os.sep, "-")
+                if desktop_id in seen_ids:
+                    continue
+                seen_ids.add(desktop_id)
+                e = _parse_desktop_file(path)
+                if e is not None:
+                    e["desktop_id"] = desktop_id
+                    entries.append(e)
     _save_desktop_entries(entries, fp, count)
     return entries
 
