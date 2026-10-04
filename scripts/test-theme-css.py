@@ -12,8 +12,9 @@ Checks:
   (backdrop-filter, prefers-contrast, prefers-reduced-motion,
   prefers-color-scheme, color-mix(), light-dark(), accent-color,
   gtk-icon-palette, font-feature-settings, font-variation-settings)
-- sassc compiles gtk-3.0 and gtk-3.20 without error (skipped if sassc
-  absent)
+- sassc compiles gtk-3.0 and gtk-3.20 without error (sassc binary;
+  falls back to libsass-python when sassc is absent; skipped only if
+  neither is available)
 - Compiled CSS contains zero @use/@import lines
 - Gtk.CssProvider loads compiled CSS with zero parsing errors
   (skipped if GTK3 introspection absent)
@@ -81,10 +82,24 @@ def scan_sources():
 
 def compile_target(target, out_path):
     src = os.path.join(THEME, target, "gtk.scss")
-    r = subprocess.run(
-        ["sassc", "-t", "compressed", src, out_path],
-        capture_output=True, text=True)
-    return r
+    if shutil.which("sassc"):
+        r = subprocess.run(
+            ["sassc", "-t", "compressed", src, out_path],
+            capture_output=True, text=True)
+        return r.returncode, (r.stderr.strip()[:200] if r.returncode else "")
+    # libsass-python fallback (same engine family as sassc; keeps the
+    # compile gate active in environments without the sassc binary)
+    try:
+        import sass
+    except ImportError:
+        return None, ""
+    try:
+        css = sass.compile(filename=src)
+    except Exception as e:  # CompileError on SCSS syntax problems
+        return 1, str(e)[:200]
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(css)
+    return 0, ""
 
 
 def parse_with_gtk(css_path):
@@ -110,21 +125,27 @@ def parse_with_gtk(css_path):
 
 def main():
     sassc = shutil.which("sassc")
+    have_libsass = False
     if not sassc:
-        print("SKIP: sassc not available (compile/parse gates disabled)")
+        try:
+            import sass  # noqa: F401
+            have_libsass = True
+        except ImportError:
+            pass
+        if not have_libsass:
+            print("SKIP: sassc/libsass not available (compile gate disabled)")
 
     hits = scan_sources()
     check("scss sources free of @use/GTK4 constructs", not hits,
           "; ".join(hits[:5]))
 
     compiled = {}
-    if sassc:
+    if sassc or have_libsass:
         for target in TARGETS:
             out = os.path.join(tempfile.mkdtemp(), target + ".css")
-            r = compile_target(target, out)
-            check("sassc compiles %s" % target, r.returncode == 0,
-                  r.stderr.strip()[:200])
-            if r.returncode == 0:
+            rc, err = compile_target(target, out)
+            check("sass compiles %s" % target, rc == 0, err)
+            if rc == 0:
                 compiled[target] = out
 
     try:
