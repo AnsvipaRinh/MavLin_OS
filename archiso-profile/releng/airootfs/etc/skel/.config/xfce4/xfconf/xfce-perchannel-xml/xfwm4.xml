@@ -9,7 +9,7 @@
     <property name="title_font" type="string" value="San Francisco 11"/>
     <!-- Mavericks traffic lights: Close / Hide / Maximize on the left. -->
     <property name="button_layout" type="string" value="CHM|"/>
-    <property name="title_alignment" type="string" value="center"/>
+    <property name="title_alignment" type="string" value="center"/>\n    <!-- Mavericks titlebar double-click performs Zoom/Maximize, not Shade. -->\n    <property name="double_click_action" type="string" value="maximize"/>
     <!-- Global AppMenu owns the top application menu; maximized windows must not retain a duplicate title bar. -->
     <property name="titleless_maximize" type="bool" value="true"/>
     <property name="show_dock_shadow" type="bool" value="true"/>
