@@ -175,6 +175,44 @@ def test_file_action_quoting_contract():
     assert "xdg-open --" in source
 
 
+def test_desktop_cache_semantics():
+    import importlib.util
+    import tempfile
+    from pathlib import Path
+
+    module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv_desktop_cache.py"
+    spec = importlib.util.spec_from_file_location("mv_desktop_cache_semantics", module_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        user = root / "user"
+        system = root / "system"
+        user.mkdir()
+        system.mkdir()
+        (system / "same.desktop").write_text("[Desktop Entry]\\nName=System App\\nExec=system-app\\n", encoding="utf-8")
+        (user / "same.desktop").write_text("[Desktop Entry]\\nName=User App\\nExec=user-app\\n", encoding="utf-8")
+        (system / "other.desktop").write_text("[Desktop Entry]\\nName=Other App\\nExec=other-app\\n", encoding="utf-8")
+        noisy = system / "noisy.desktop"
+        noisy.write_text("[Desktop Entry]\\nName=Visible\\nExec=visible\\nComment=NoDisplay=true is text, not a key\\n", encoding="utf-8")
+        hidden = system / "hidden.desktop"
+        hidden.write_text("[Desktop Entry]\\nName=Hidden\\nExec=hidden\\nHidden=true\\n", encoding="utf-8")
+        action_only = system / "action.desktop"
+        action_only.write_text("[Desktop Action Foo]\\nName=Wrong\\nExec=wrong\\n\\n[Desktop Entry]\\nName=Correct\\nExec=correct\\n", encoding="utf-8")
+        old_dirs = module.desktop_dirs
+        old_cache = module._CACHE_PATH
+        try:
+            module.desktop_dirs = lambda: [str(user), str(system)]
+            module._CACHE_PATH = str(root / "cache" / "desktop-entries.json")
+            entries = module.load_desktop_entries()
+            names = [entry["name"] for entry in entries]
+            assert names == ["User App", "Other App", "Visible", "Correct"]
+        finally:
+            module.desktop_dirs = old_dirs
+            module._CACHE_PATH = old_cache
+
+
 def test_main_subprocess():
     import subprocess
 
@@ -212,6 +250,7 @@ if __name__ == "__main__":
         ("rofi_preview_integration", test_rofi_preview_integration),
         ("calculator_safety_contract", test_calculator_safety_contract),
         ("file_action_quoting_contract", test_file_action_quoting_contract),
+        ("desktop_cache_semantics", test_desktop_cache_semantics),
         ("main_subprocess", test_main_subprocess),
     ]
 
