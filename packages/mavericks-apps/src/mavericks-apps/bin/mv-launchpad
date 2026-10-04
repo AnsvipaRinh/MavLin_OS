@@ -25,6 +25,7 @@ CONFIG_DIR = Path.home() / ".config" / "mv-launchpad"
 FOLDERS_FILE = CONFIG_DIR / "folders.json"
 POSITIONS_FILE = CONFIG_DIR / "positions.json"
 ITEMS_PER_PAGE = 35  # 7 columns x 5 rows
+FOLDER_PAGE_CAPACITY = ITEMS_PER_PAGE - 1  # Reserve one cell for the Back item
 
 # Default folder presets (Mavericks-style)
 DEFAULT_FOLDERS = {
@@ -261,7 +262,7 @@ def build_launchpad_structure(apps, folders, positions, query="", open_folder=No
                     break
         structure["apps"] = folder_apps
         structure["folders"] = []  # No sub-folders for now
-        structure["total_pages"] = max(1, (len(folder_apps) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+        structure["total_pages"] = max(1, (len(folder_apps) + FOLDER_PAGE_CAPACITY - 1) // FOLDER_PAGE_CAPACITY)
         structure["folder_name"] = folder_data.get("name", open_folder)
         return structure
 
@@ -306,8 +307,8 @@ def get_page(structure, page):
             "icon": "go-previous",
             "info": "Return to Launchpad"
         })
-        start = page * ITEMS_PER_PAGE
-        end = start + ITEMS_PER_PAGE
+        start = page * FOLDER_PAGE_CAPACITY
+        end = start + FOLDER_PAGE_CAPACITY
         page_apps = structure["apps"][start:end]
         for app in page_apps:
             items.append({
