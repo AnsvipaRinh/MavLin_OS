@@ -222,6 +222,7 @@ def run_native_expose():
     original_workspace = get_active_workspace()
     daemon_started = False
 
+    import time
     try:
         start = subprocess.run(
             [skippy, "--start-daemon"],
@@ -232,7 +233,6 @@ def run_native_expose():
         daemon_started = True
 
         # Give the daemon a moment to establish its X connection.
-        import time
         time.sleep(0.15)
 
         workspace_count = get_workspace_count()
@@ -244,14 +244,6 @@ def run_native_expose():
             )
             time.sleep(0.12)
 
-        # Restore the user's original desktop before opening Mission Control.
-        subprocess.run(
-            [wmctrl, "-s", str(original_workspace)],
-            timeout=2,
-            check=False,
-        )
-        time.sleep(0.08)
-
         result = subprocess.run(
             [skippy, "--expose", "--desktop", "-1"],
             timeout=300,
@@ -260,6 +252,15 @@ def run_native_expose():
     except (OSError, subprocess.TimeoutExpired):
         return False
     finally:
+        # Never leave the user on a different workspace if expose aborts.
+        try:
+            subprocess.run(
+                [wmctrl, "-s", str(original_workspace)],
+                timeout=2,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
         if daemon_started:
             try:
                 subprocess.run(
