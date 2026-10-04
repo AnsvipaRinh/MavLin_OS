@@ -5,9 +5,29 @@ Opens a GTK dialog to rename the item, Finder-style.
 """
 import os
 import sys
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+
+
+def _gtk():
+    """Lazy Gtk import: validate_new_name/main-arg paths stay testable
+    on hosts without GObject introspection (project portability rule)."""
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    return Gtk
+
+
+def validate_new_name(target, new_name):
+    """Pure rename validation. Returns (ok, new_path_or_error_message)."""
+    dirname = os.path.dirname(target)
+    basename = os.path.basename(target)
+    if not new_name or new_name == basename:
+        return True, None  # no-op, not an error
+    if "/" in new_name or new_name in (".", ".."):
+        return False, "Name cannot contain '/'"
+    new_path = os.path.join(dirname, new_name)
+    if os.path.exists(new_path):
+        return False, "An item with that name already exists: %s" % new_name
+    return True, new_path
 
 
 def main():
@@ -24,6 +44,8 @@ def main():
 
     dirname = os.path.dirname(target)
     basename = os.path.basename(target)
+
+    Gtk = _gtk()
 
     dialog = Gtk.Dialog(title="Rename", transient_for=None)
     dialog.set_modal(True)
@@ -44,7 +66,11 @@ def main():
 
     entry = Gtk.Entry()
     entry.set_text(basename)
-    entry.select_region(0, len(basename))
+    # Finder semantics: preselect the name WITHOUT the extension so typing
+    # replaces only the stem; dotfiles / no-extension keep full selection.
+    stem, dot, _ext = basename.rpartition(".")
+    sel_end = len(stem) if (dot and stem) else len(basename)
+    entry.select_region(0, sel_end)
     entry.set_activates_default(True)
     box.pack_start(entry, False, False, 0)
 
