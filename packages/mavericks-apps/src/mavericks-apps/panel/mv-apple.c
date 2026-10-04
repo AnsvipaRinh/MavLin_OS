@@ -35,6 +35,7 @@ static void popup_menu(GtkWidget *button, gpointer data)
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
     gtk_widget_show(sep);
 
+    add_item(menu, "Recent Items", "mv-recent-items");
     add_item(menu, "Force Quit…", "mv-force-quit");
 
     sep = gtk_separator_menu_item_new();
@@ -44,6 +45,12 @@ static void popup_menu(GtkWidget *button, gpointer data)
     add_item(menu, "Sleep", "systemctl suspend");
     add_item(menu, "Restart…", "systemctl reboot");
     add_item(menu, "Shut Down…", "systemctl poweroff");
+
+    sep = gtk_separator_menu_item_new();
+    gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
+    gtk_widget_show(sep);
+
+    add_item(menu, "Lock Screen", "xfce4-screensaver-command --lock");
     add_item(menu, "Log Out…", "xfce4-session-logout");
 
     gtk_widget_show_all(menu);
