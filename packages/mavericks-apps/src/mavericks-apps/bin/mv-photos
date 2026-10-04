@@ -1494,10 +1494,7 @@ def build_photos_menu(app, app_name, get_window, add_action):
     add_action("all", lambda: w().on_sidebar_click(None, "all") if w() else None)
     add_action("favorites", lambda: w().on_sidebar_click(None, "favorites") if w() else None)
     add_action("recent", lambda: w().on_sidebar_click(None, "recent") if w() else None)
-    add_action("moments", lambda: w().on_moment_date_click(None, w().current_moment)
-               if w() and w().current_moment else None)
     add_action("search", lambda: w().search_entry.grab_focus() if w() else None)
-    add_action("stop-slideshow", lambda: w()._stop_slideshow() if w() else None)
     add_action("close", lambda: w().destroy() if w() else None)
     add_action("quit", app.quit)
 
@@ -1521,12 +1518,10 @@ def build_photos_menu(app, app_name, get_window, add_action):
     view_menu.append("All Photos", "app.all")
     view_menu.append("Favorites", "app.favorites")
     view_menu.append("Recently Added", "app.recent")
-    view_menu.append("Moments", "app.moments")
     menu.append_submenu("View", view_menu)
 
     window_menu = Gio.Menu()
     window_menu.append("Start / Stop Slideshow", "app.slideshow")
-    window_menu.append("Stop Slideshow", "app.stop-slideshow")
     window_menu.append("Close Window", "app.close")
     menu.append_submenu("Window", window_menu)
     return menu
