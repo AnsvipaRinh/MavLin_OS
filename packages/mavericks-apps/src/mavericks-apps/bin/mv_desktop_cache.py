@@ -146,6 +146,26 @@ def _locale_candidates():
     return candidates
 
 
+def _unescape_value(value):
+    """Decode desktop-entry escapes used by string/localestring/iconstring values."""
+    result = []
+    i = 0
+    escapes = {"s": " ", "n": "\n", "t": "\t", "r": "\r", "\\": "\\", ";": ";"}
+    while i < len(value):
+        if value[i] != "\\":
+            result.append(value[i])
+            i += 1
+            continue
+        if i + 1 >= len(value):
+            return None
+        code = value[i + 1]
+        if code not in escapes:
+            return None
+        result.append(escapes[code])
+        i += 2
+    return "".join(result)
+
+
 def _parse_bool(value):
     return value.strip().lower() == "true"
 
@@ -257,14 +277,20 @@ def _parse_desktop_file(path):
     name = ""
     for locale_key in _locale_candidates():
         if locale_key in localized_names:
-            name = localized_names[locale_key]
+            name = _unescape_value(localized_names[locale_key])
+            if name is None:
+                return None
             break
     if not name:
-        name = values.get("Name", "").strip()
+        name = _unescape_value(values.get("Name", "").strip())
+    if name is None:
+        return None
 
     exec_cmd = values.get("Exec", "").strip()
-    icon = values.get("Icon", "").strip()
-    categories = values.get("Categories", "").strip()
+    icon = _unescape_value(values.get("Icon", "").strip())
+    categories = _unescape_value(values.get("Categories", "").strip())
+    if icon is None or categories is None:
+        return None
     dbus_activatable = _parse_bool(values.get("DBusActivatable", "false"))
     if not name or (not exec_cmd and not dbus_activatable):
         return None
