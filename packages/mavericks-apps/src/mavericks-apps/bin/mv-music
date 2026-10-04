@@ -1808,7 +1808,6 @@ def build_music_menu(app, app_name, get_window, add_action):
     def w():
         return get_window()
 
-    add_action("about", lambda: None)
     add_action("play-pause", lambda: w().controller.play_pause() if w() else None)
     add_action("previous", lambda: w().controller.previous_track() if w() else None)
     add_action("next", lambda: w().controller.next_track() if w() else None)
