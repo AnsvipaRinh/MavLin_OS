@@ -85,14 +85,22 @@ check_file "$REPO_ROOT/configs/profiles/fragments/99-mavericks-display.conf" \
     echo "ERROR: NVRAM script missing in airootfs"
     ((ERRORS++))
 }
+[[ -f "$AIROOTFS/usr/local/bin/mavericks/mavericks-profile-select.sh" ]] || {
+    echo "ERROR: profile selector missing in airootfs"
+    ((ERRORS++))
+}
 [[ -f "$AIROOTFS/usr/local/bin/mavericks/mavericks-firstboot.sh" ]] || {
     echo "ERROR: firstboot script missing in airootfs"
     ((ERRORS++))
 }
 
-# firstboot script must source profile config
-if ! grep -q 'source.*PROFILE_CONF' "$AIROOTFS/usr/local/bin/mavericks/mavericks-firstboot.sh"; then
-    echo "ERROR: firstboot does not source profile config"
+# firstboot must use installed runtime assets, not a source checkout
+if grep -q 'REPO_DIR.*archiso-profile\|Clone the repo\|repo checkout not found' "$AIROOTFS/usr/local/bin/mavericks/mavericks-firstboot.sh"; then
+    echo "ERROR: firstboot still depends on a source-tree checkout"
+    ((ERRORS++))
+fi
+if ! grep -q 'PROFILE_STORE=.*usr/local/share/mavericks/profiles' "$AIROOTFS/usr/local/bin/mavericks/mavericks-firstboot.sh"; then
+    echo "ERROR: firstboot does not use installed profile store"
     ((ERRORS++))
 fi
 
