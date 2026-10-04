@@ -88,6 +88,8 @@ run cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
 run cat /sys/devices/system/cpu/intel_pstate/hwp_dynamic_boost 2>/dev/null || true
 run cat /sys/devices/system/cpu/cpuidle/current_driver 2>/dev/null || true
 run cat /sys/devices/system/cpu/cpuidle/current_governor 2>/dev/null || true
+runsh "for f in /sys/devices/system/cpu/cpuidle/low_power_idle_{cpu,system}_residency_us; do [ -r \"$f\" ] && { echo \"--- $f\"; cat \"$f\"; }; done"
+runsh "for f in /sys/devices/system/cpu/cpu*/power/energy_perf_bias /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do [ -r \"$f\" ] && { echo \"$f: $(cat \"$f\")\"; }; done"
 runsh "for f in /sys/devices/system/cpu/cpu0/cpuidle/state*/{name,latency,target_residency,usage,time}; do [ -f \"$f\" ] && printf '%s: ' \"$f\" && cat \"$f\"; done"
 runsh "grep -E 'CONFIG_(NO_HZ|HZ=)' /proc/config.gz 2>/dev/null | head -20 || true"
 run turbostat --show Busy%,Bzy_MHz,PkgTmp,PkgWatt --interval 2 --num_iterations 5 2>&1 || true
