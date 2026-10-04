@@ -35,7 +35,7 @@
     <property name="plugin-6" type="string" value="actions"/>
     <property name="plugin-7" type="string" value="genmon">
       <property name="command" type="string" value="mv-hud"/>
-      <property name="update-period" type="int" value="5000"/>
+      <property name="update-period" type="int" value="30000"/>
     </property>
   </property>
 </channel>
