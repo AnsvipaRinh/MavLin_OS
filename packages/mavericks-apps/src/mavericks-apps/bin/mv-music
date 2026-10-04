@@ -1375,7 +1375,6 @@ class MusicWindow(Gtk.Window):
     def on_destroy(self, *_):
         self._closed = True
         self.controller.close()
-        Gtk.main_quit()
 
     def on_configure(self, _w, _ev):
         w, h = self.get_size()
@@ -1807,40 +1806,57 @@ class MiniPlayerWindow(Gtk.Window):
 # -------------------------------------------------------------------- main
 
 def main():
-    args = [a for a in sys.argv[1:]]
-    if args and args[0] == "--media-key":
-        sys.exit(media_key_cli(args[1] if len(args) > 1 else ""))
+    args = list(sys.argv)
+    if len(args) > 1 and args[1] == "--media-key":
+        return media_key_cli(args[2] if len(args) > 2 else "")
 
     root = (os.environ.get(LIBRARY_ENV)
             or os.path.expanduser(
                 (load_state().get("library")) or DEFAULT_LIBRARY))
-    warnings = []
 
-    def on_warn(msg):
-        warnings.append(msg)
+    app = Gtk.Application(application_id="com.mavlinos.Music")
+    state = {"window": None, "tracks": [], "warnings": [], "errors": 0}
 
-    state = load_state(on_warn=on_warn)
-    tracks, errors = scan_library(root)
+    def startup(application):
+        from mavericks_appmenu import install_application_menu
+        install_application_menu(
+            application, "Music",
+            lambda: state["window"])
 
-    if not Gtk.init_check()[0]:
-        sys.stderr.write("no display available\n")
-        sys.exit(3)
+    def activate(application):
+        if state["window"] is not None:
+            state["window"].present()
+            return
 
-    controller = MprisController()
-    win = MusicWindow(tracks, state, controller)
-    if errors:
-        win._show_error(
-            "Some files could not be read (%d skipped)." % errors)
-    for msg in warnings:
-        win._show_error(msg)
-    win.connect("key-press-event", win.on_key_press)
-    if state.get("geometry", {}).get("mini"):
-        GLib.idle_add(win.open_mini_player)
-    Gtk.main()
+        warnings = state["warnings"]
+        def on_warn(msg):
+            warnings.append(msg)
+
+        saved = load_state(on_warn=on_warn)
+        tracks, errors = scan_library(root)
+        state["tracks"], state["errors"] = tracks, errors
+        controller = MprisController()
+        win = MusicWindow(tracks, saved, controller)
+        state["window"] = win
+        application.add_window(win)
+
+        if errors:
+            win._show_error(
+                "Some files could not be read (%d skipped)." % errors)
+        for msg in warnings:
+            win._show_error(msg)
+        win.connect("key-press-event", win.on_key_press)
+        win.connect("destroy", lambda *_: state.update(window=None))
+        if saved.get("geometry", {}).get("mini"):
+            GLib.idle_add(win.open_mini_player)
+        win.show_all()
+        win.present()
+
+    app.connect("startup", startup)
+    app.connect("activate", activate)
+    return app.run(args)
 
 
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")
-    from mavericks_appmenu import run_application
-    sys.exit(run_application(
-        "com.mavlinos.Music", "Music", MusicWindow, sys.argv))
+    sys.exit(main())
