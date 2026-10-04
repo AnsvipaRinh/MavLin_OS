@@ -229,6 +229,27 @@ def test_pure(m):
         check("_bluez_get_objects handles error",
               w6b._bluez_get_objects() is None)
 
+    w7 = bare_window(m)
+    with mock.patch.object(m, "sh", return_value="wlan0:wifi:connected\nlo:loopback:connected"):
+        check("wifi disconnect discovers active device",
+              w7.get_wifi_device() == "wlan0")
+    with mock.patch.object(m, "sh", return_value=""):
+        check("wifi disconnect has no hardcoded wlan0",
+              w7.get_wifi_device() is None)
+
+    adapter_on = {
+        "/org/bluez/hci0": {"org.bluez.Adapter1": {"Powered": True}},
+    }
+    adapter_off = {
+        "/org/bluez/hci0": {"org.bluez.Adapter1": {"Powered": False}},
+    }
+    with mock.patch.object(w7, "_bluez_get_objects", return_value=adapter_on):
+        check("bluetooth enabled follows adapter Powered=true",
+              w7.get_bt_enabled() is True)
+    with mock.patch.object(w7, "_bluez_get_objects", return_value=adapter_off):
+        check("bluetooth disabled follows adapter Powered=false",
+              w7.get_bt_enabled() is False)
+
 
 def test_gui_smoke(m):
     import gi

@@ -7,6 +7,10 @@
   <property name="general" type="empty">
     <property name="theme" type="string" value="Mavericks"/>
     <property name="title_font" type="string" value="San Francisco 11"/>
+    <!-- Mavericks traffic lights: Close / Hide / Maximize on the left. -->
+    <property name="button_layout" type="string" value="CHM|"/>
+    <property name="title_alignment" type="string" value="center"/>
+    <property name="double_click_action" type="string" value="maximize"/>
     <!-- Global AppMenu owns the top application menu; maximized windows must not retain a duplicate title bar. -->
     <property name="titleless_maximize" type="bool" value="true"/>
     <property name="show_dock_shadow" type="bool" value="true"/>
@@ -30,6 +34,7 @@
     <property name="wrap_windows" type="bool" value="false"/>
     <property name="wrap_workspaces" type="bool" value="false"/>
     <property name="scroll_workspaces" type="bool" value="true"/>
+    <property name="workspace_count" type="int" value="4"/>
     <property name="focus_delay" type="int" value="0"/>
     <property name="focus_hint" type="bool" value="true"/>
     <property name="click_to_focus" type="bool" value="true"/>

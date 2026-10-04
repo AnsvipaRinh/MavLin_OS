@@ -156,6 +156,38 @@ jobs:
         run: |
           python3 scripts/test-terminal-key.py
 
+      - name: Panel clock contract
+        run: |
+          python3 scripts/test-panel-clock.py
+
+      - name: Apple menu packaging contract
+        run: |
+          python3 scripts/test-apple-menu-packaging.py
+
+      - name: App menu Python module contract
+        run: |
+          python3 scripts/test-appmenu-module.py
+
+      - name: Lock screen contract
+        run: |
+          python3 scripts/test-lock-screen.py
+
+      - name: Window chrome contract
+        run: |
+          python3 scripts/test-window-chrome.py
+
+      - name: Notifyd config contract
+        run: |
+          python3 scripts/test-notifyd-config.py
+
+      - name: Workspaces contract
+        run: |
+          python3 scripts/test-workspaces.py
+
+      - name: Alt+Tab cycle contract
+        run: |
+          python3 scripts/test-alt-tab.py
+
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest

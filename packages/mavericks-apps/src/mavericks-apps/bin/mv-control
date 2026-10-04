@@ -177,6 +177,15 @@ class ControlCenter(Gtk.Window):
         result = sh(["nmcli", "-t", "-f", "WIFI", "radio"])
         return result == "enabled"
 
+    def get_wifi_device(self):
+        """Return the active Wi-Fi device name, if any."""
+        result = sh(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device", "status"])
+        for line in result.splitlines():
+            parts = line.split(":")
+            if len(parts) >= 3 and parts[1] == "wifi" and parts[2] == "connected":
+                return parts[0]
+        return None
+
     def on_wifi_toggle(self, switch, _):
         run_async(["nmcli", "radio", "wifi", "on" if switch.get_active() else "off"])
         GLib.timeout_add_seconds(2, self.refresh_wifi_list)
@@ -267,7 +276,9 @@ class ControlCenter(Gtk.Window):
 
         if active:
             # Disconnect
-            run_async(["nmcli", "device", "disconnect", "wlan0"])
+            device = self.get_wifi_device()
+            if device:
+                run_async(["nmcli", "device", "disconnect", device])
             GLib.timeout_add_seconds(2, self.refresh_wifi_list)
         elif security and security != "--":
             # Secured network - show password dialog
@@ -406,8 +417,11 @@ class ControlCenter(Gtk.Window):
         objects = self._bluez_get_objects()
         if objects is None:
             return False
-        return any("org.bluez.Adapter1" in interfaces
-                   for interfaces in objects.values())
+        for interfaces in objects.values():
+            adapter = interfaces.get("org.bluez.Adapter1")
+            if adapter is not None:
+                return bool(adapter.get("Powered", False))
+        return False
 
     def on_bt_toggle(self, switch, _):
         run_async(["bluetoothctl", "power", "on" if switch.get_active() else "off"])

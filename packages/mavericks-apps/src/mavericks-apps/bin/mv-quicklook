@@ -119,7 +119,7 @@ class Preview(Gtk.Window):
     def build(self, path, ext):
         if ext == ".pdf" and _ensure_poppler() is not None:
             try:
-                doc = _POPPLER.Document.new_from_file("file://" + path, None)
+                doc = _POPPLER.Document.new_from_file(GLib.filename_to_uri(path, None), None)
                 page = doc.get_page(0)
                 w, h = page.get_size()
                 scale = min(620 / w, 460 / h, 2.0)
@@ -290,7 +290,7 @@ class Preview(Gtk.Window):
     def on_key_press(self, _widget, event):
         key = Gdk.keyval_name(event.keyval)
         if key in ("Escape", "q", "Q"):
-            # Gtk.main_quit() # removed by migration
+            self.destroy()
             return True
         if key in ("Return", "KP_Enter", "o", "O"):
             self.open_full(None, self.paths[self.index])
@@ -329,3 +329,4 @@ if __name__ == "__main__":
         sys.exit(1)
 
     w = Preview(files)
+    Gtk.main()

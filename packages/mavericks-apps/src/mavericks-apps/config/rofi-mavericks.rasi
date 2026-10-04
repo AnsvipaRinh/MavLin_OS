@@ -26,8 +26,19 @@ window {
     background-color: @background;
 }
 mainbox {
-    children: [ inputbar, listview ];
+    children: [ inputbar, listview-split ];
     spacing: 10px;
+}
+listview-split {
+    orientation: horizontal;
+    spacing: 12px;
+    children: [ listview, icon-current-entry ];
+}
+icon-current-entry {
+    size: 180px;
+    expand: false;
+    vertical-align: 0.5;
+    horizontal-align: 0.5;
 }
 inputbar {
     children: [ prompt, entry ];

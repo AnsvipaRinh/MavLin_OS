@@ -2,10 +2,10 @@
 <channel name="xfce4-keyboard-shortcuts" version="1.0">
   <property name="commands" type="empty">
     <property name="default" type="empty">
-      <property name="&lt;Super&gt;space" type="string" value="rofi -show -modi 'spotlight:/usr/bin/mv-spotlight' -theme /usr/share/mavericks-apps/rofi-mavericks.rasi -preview-script /usr/bin/mv-spotlight-preview -show-preview"/>
+      <property name="&lt;Super&gt;space" type="string" value="rofi -show -modi 'spotlight:/usr/bin/mv-spotlight' -theme /usr/share/mavericks-apps/rofi-mavericks.rasi"/>
       <property name="&lt;Super&gt;l" type="string" value="rofi -show -modi 'launchpad:/usr/bin/mv-launchpad' -theme /usr/share/mavericks-apps/rofi-launchpad.rasi"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;l" type="string" value="/usr/bin/mv-launchpad-edit"/>
-      <property name="&lt;Super&gt;Tab" type="string" value="rofi -show -modi 'mission-control:/usr/bin/mv-mission-control' -theme /usr/share/mavericks-apps/rofi-mission-control.rasi"/>
+      <property name="&lt;Super&gt;Tab" type="string" value="mv-mission-control --native"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;4" type="string" value="mv-shot -i -c"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;3" type="string" value="mv-shot -m"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;5" type="string" value="mv-shot -i"/>
@@ -23,6 +23,7 @@
       <property name="&lt;Primary&gt;&lt;Alt&gt;Delete" type="string" value="mv-power-ui logout"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;c" type="string" value="mv-calendar"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;t" type="string" value="xfce4-terminal"/>
+      <property name="&lt;Primary&gt;&lt;Alt&gt;l" type="string" value="xfce4-screensaver-command --lock"/>
       <property name="&lt;Super&gt;i" type="string" value="mv-getinfo $HOME"/>
       <property name="&lt;Super&gt;o" type="string" value="mv-openwith $HOME"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;v" type="string" value="mv-notification-center"/>
@@ -40,12 +41,18 @@
   </property>
   <property name="xfwm4" type="empty">
     <property name="default" type="empty">
+      <property name="&lt;Alt&gt;Tab" type="string" value="cycle_windows_key"/>
+      <property name="&lt;Alt&gt;&lt;Shift&gt;Tab" type="string" value="cycle_reverse_windows_key"/>
       <property name="&lt;Super&gt;Up" type="string" value="tile_up_key"/>
       <property name="&lt;Super&gt;Down" type="string" value="tile_down_key"/>
       <property name="&lt;Super&gt;Left" type="string" value="tile_left_key"/>
       <property name="&lt;Super&gt;Right" type="string" value="tile_right_key"/>
       <property name="&lt;Super&gt;&lt;Alt&gt;Right" type="string" value="right_workspace_key"/>
       <property name="&lt;Super&gt;&lt;Alt&gt;Left" type="string" value="left_workspace_key"/>
+      <property name="&lt;Super&gt;1" type="string" value="workspace_1_key"/>
+      <property name="&lt;Super&gt;2" type="string" value="workspace_2_key"/>
+      <property name="&lt;Super&gt;3" type="string" value="workspace_3_key"/>
+      <property name="&lt;Super&gt;4" type="string" value="workspace_4_key"/>
     </property>
   </property>
 </channel>
