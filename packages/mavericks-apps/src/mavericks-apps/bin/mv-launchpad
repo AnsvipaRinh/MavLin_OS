@@ -286,22 +286,24 @@ def build_launchpad_structure(apps, folders, positions, query="", open_folder=No
         structure["folder_name"] = folder_data.get("name", open_folder)
         return structure
 
-    # Add folders (only top-level folders shown on main pages)
-    for folder_id, folder_data in folders.items():
-        if "apps" in folder_data and folder_data["apps"]:
-            # Filter folder apps by query too
-            folder_apps = []
-            for app_id in folder_data["apps"]:
-                for app in apps:
-                    if app["id"] == app_id and (not query or query.lower() in app["name"].lower()):
-                        folder_apps.append(app)
-                        break
-            if folder_apps:
-                structure["folders"].append({
-                    "id": folder_id,
-                    "name": folder_data.get("name", folder_id),
-                    "apps": folder_apps
-                })
+    # Search results represent applications, not folder containers. Folder
+    # icons remain available only in the normal Launchpad grid; apps assigned
+    # to folders are deliberately kept searchable above.
+    if not query:
+        for folder_id, folder_data in folders.items():
+            if "apps" in folder_data and folder_data["apps"]:
+                folder_apps = []
+                for app_id in folder_data["apps"]:
+                    for app in apps:
+                        if app["id"] == app_id:
+                            folder_apps.append(app)
+                            break
+                if folder_apps:
+                    structure["folders"].append({
+                        "id": folder_id,
+                        "name": folder_data.get("name", folder_id),
+                        "apps": folder_apps
+                    })
 
     # Top-level folders are real grid cells. If there are more folders than
     # fit on one page, paginate the folder grid before showing standalone apps.
