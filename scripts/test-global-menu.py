@@ -11,6 +11,8 @@ PKGBUILD = Path("packages/vala-panel-appmenu/PKGBUILD")
 APPMENU_HELPER = Path("packages/mavericks-apps/src/mavericks-apps/lib/mavericks_appmenu.py")
 CALCULATOR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calculator")
 TEXTEDIT = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-textedit")
+FINDER = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-finder-columns")
+NOTES = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-notes")
 XFWM = Path("configs/desktop/xfce/xfwm4.xml")
 APPLE_PLUGIN = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c")
 APPLE_DESKTOP = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
@@ -110,6 +112,14 @@ def main():
     assert "application.add_window(window)" in helper
     assert "window.present()" in helper
     assert "menu_builder=None" in helper
+    finder = FINDER.read_text(encoding="utf-8")
+    notes = NOTES.read_text(encoding="utf-8")
+    assert "build_finder_menu" in finder
+    for action in ("Open in Thunar…", "Zoom In", "Zoom Out", "Actual Size", "Back", "Home"):
+        assert action in finder, f"Finder menu missing {action}"
+    assert "build_notes_menu" in notes
+    for action in ("New Note", "New Folder", "Export Note…", "Print…", "Find"):
+        assert action in notes, f"Notes menu missing {action}"
     textedit = TEXTEDIT.read_text(encoding="utf-8")
     assert "build_textedit_menu" in textedit
     for action in ("New", "Open…", "Save", "Undo", "Redo", "Cut", "Copy", "Paste", "Find", "Bold", "Italic", "Underline"):
