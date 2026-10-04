@@ -8,6 +8,8 @@ PANEL = Path("archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce
 XSETTINGS = Path("archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml")
 PACKAGES = Path("archiso-profile/releng/packages.x86_64")
 PKGBUILD = Path("packages/vala-panel-appmenu/PKGBUILD")
+APPMENU_HELPER = Path("packages/mavericks-apps/src/mavericks-apps/lib/mavericks_appmenu.py")
+CALCULATOR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calculator")
 
 
 def main():
@@ -41,6 +43,14 @@ def main():
     assert "-Dregistrar=enabled" in build
     for disabled in ("-Dmate=disabled", "-Dbudgie=disabled", "-Dvalapanel=disabled"):
         assert disabled in build
+
+    helper = APPMENU_HELPER.read_text(encoding="utf-8")
+    assert "Gtk.Application" in helper
+    assert "app.set_app_menu(menu)" in helper
+    calculator = CALCULATOR.read_text(encoding="utf-8")
+    assert "com.mavlinos.Calculator" in calculator
+    assert "install_application_menu" in calculator
+    assert "Gtk.main()" not in calculator
 
     print("OK: global menu integration contract")
 
