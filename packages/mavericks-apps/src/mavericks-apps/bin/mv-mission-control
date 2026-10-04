@@ -15,6 +15,7 @@ Features:
 import sys
 import subprocess
 import re
+import shutil
 
 
 def get_windows():
@@ -205,8 +206,15 @@ def minimize_window(win_id):
     except Exception:
         return False
 
+\n\ndef run_native_expose():\n    """Run daemon-free skippy-xd expose across all virtual desktops."""\n    skippy = shutil.which("skippy-xd")\n    if not skippy:\n        return False\n    try:\n        result = subprocess.run(\n            [skippy, "--expose", "--desktop", "-1"],\n            timeout=30\n        )\n        return result.returncode == 0\n    except (OSError, subprocess.TimeoutExpired):\n        return False\n
 
 def main():
+    # Native Mission Control is optional; retain rofi as the safe fallback.
+    if len(sys.argv) > 1 and sys.argv[1] == "--native":
+        if run_native_expose():
+            return 0
+        sys.argv = [sys.argv[0]]
+
     # Handle window actions from rofi
     if len(sys.argv) > 1:
         if sys.argv[1] == "--list":
