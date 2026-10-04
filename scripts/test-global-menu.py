@@ -14,6 +14,7 @@ XFWM = Path("configs/desktop/xfce/xfwm4.xml")
 APPLE_PLUGIN = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c")
 APPLE_DESKTOP = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
 APPLE_ICON = Path("packages/mavericks-apps/src/mavericks-apps/icons/mv-apple.svg")
+FORCE_QUIT = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-force-quit")
 
 NATIVE_APPS = {
     "about": "About This Mac",
@@ -48,9 +49,12 @@ def check_apple_plugin():
     text = APPLE_PLUGIN.read_text()
     desktop = APPLE_DESKTOP.read_text()
     icon = APPLE_ICON.read_text()
+    force_quit = FORCE_QUIT.read_text()
     assert "XFCE_PANEL_PLUGIN_REGISTER(construct)" in text
     assert "About This Mac" in text
     assert "System Preferences" in text
+    assert "mv-force-quit" in text
+    assert "signal.SIGKILL" in force_quit
     assert "systemctl suspend" in text
     assert "systemctl reboot" in text
     assert "systemctl poweroff" in text
