@@ -95,7 +95,7 @@ def main():
     panel = ET.parse(PANEL).getroot()
     plugins = panel.find("./property[@name='plugins']")
     ids = [v.get("value") for v in panel.findall("./property[@name='panels']/property[@name='panel-1']/property[@name='plugin-ids']/value")]
-    assert ids == [str(i) for i in range(1, 8)], f"unexpected panel plugin IDs: {ids}"
+    assert ids == [str(i) for i in range(1, 7)], f"unexpected panel plugin IDs: {ids}"
 
     entries = {p.get("name"): p for p in plugins}
     assert entries["plugin-1"].get("value") == "mv-apple"
@@ -103,9 +103,7 @@ def main():
     assert entries["plugin-3"].get("value") == "separator"
     assert entries["plugin-4"].get("value") == "systray"
     assert entries["plugin-5"].get("value") == "clock"
-    assert entries["plugin-6"].get("value") == "actions"
-    assert entries["plugin-7"].get("value") == "genmon"
-    assert entries["plugin-7"].find("./property[@name='update-period']").get("value") == "30000"
+    assert entries["plugin-6"].get("value") == "power-manager-plugin"
     assert entries["plugin-3"].find("./property[@name='expand']").get("value") == "true"
 
     xsettings = ET.parse(XSETTINGS).getroot()
