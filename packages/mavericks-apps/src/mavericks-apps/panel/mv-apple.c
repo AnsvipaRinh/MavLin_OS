@@ -8,10 +8,15 @@ static void launch(const gchar *command)
         g_error_free(error);
 }
 
+static void activate_command(GtkWidget *item, gpointer data)
+{
+    launch((const gchar *)data);
+}
+
 static void add_item(GtkWidget *menu, const gchar *label, const gchar *command)
 {
     GtkWidget *item = gtk_menu_item_new_with_label(label);
-    g_signal_connect_swapped(item, "activate", G_CALLBACK(launch), g_strdup(command));
+    g_signal_connect(item, "activate", G_CALLBACK(activate_command), g_strdup(command));
     g_object_set_data_full(G_OBJECT(item), "mv-command", g_strdup(command), g_free);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
     gtk_widget_show(item);
@@ -29,8 +34,7 @@ static void popup_menu(GtkWidget *button, gpointer data)
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
     gtk_widget_show(sep);
 
-    add_item(menu, "App Store…", "mv-photos --store");
-    add_item(menu, "Recent Items", "mv-finder-columns $HOME");
+    add_item(menu, "Force Quit…", "mv-activity");
 
     sep = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
