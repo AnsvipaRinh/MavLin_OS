@@ -4,6 +4,7 @@ PDF/images viewer with thumbnail sidebar and annotation toolbar.
 Backend: poppler-glib (same as evince) for PDF; GdkPixbuf for images.
 No daemon, no Electron. License: GPL-2.0-or-later."""
 import os
+import subprocess
 import sys
 import gi
 gi.require_version("Gtk", "3.0")
@@ -38,7 +39,7 @@ class Preview(Gtk.Window):
         self.paths = [p for p in paths if os.path.isfile(p)]
         if not self.paths:
             self.show_error("No valid files to open")
-            GLib.timeout_add(100, Gtk.main_quit)
+            GLib.timeout_add(100, self.destroy)
             return
 
         self.index = 0
@@ -53,7 +54,6 @@ class Preview(Gtk.Window):
         self.load_file(self.paths[self.index])
 
         self.connect("key-press-event", self.on_key_press)
-        self.connect("destroy", Gtk.main_quit)
         self.show_all()
 
     def apply_css(self):
@@ -340,7 +340,7 @@ class Preview(Gtk.Window):
 
         # Navigation
         if key in ("Escape", "q", "Q"):
-            Gtk.main_quit()
+            self.destroy()
             return True
         if key in ("Left", "KP_Left", "Up", "KP_Up", "p", "P"):
             if state & Gdk.ModifierType.CONTROL_MASK:
@@ -410,7 +410,7 @@ class Preview(Gtk.Window):
 
     def open_external(self, _):
         subprocess.Popen(["xdg-open", self.current_path])
-        Gtk.main_quit()
+        self.destroy()
 
     def show_error(self, msg):
         for child in self.get_children():
@@ -428,15 +428,43 @@ class Preview(Gtk.Window):
         box.pack_start(lbl, False, False, 0)
 
         btn = Gtk.Button(label="Close")
-        btn.connect("clicked", lambda *_: Gtk.main_quit())
+        btn.connect("clicked", lambda *_: self.destroy())
         box.pack_start(btn, False, False, 0)
 
         self.add(box)
         self.show_all()
 
 
+def main():
+    args = sys.argv[1:]
+    if not args:
+        print("usage: mv-preview FILE...", file=sys.stderr)
+        return 2
+
+    app = Gtk.Application(application_id="com.mavlinos.Preview")
+    state = {"window": None}
+
+    def startup(application):
+        from mavericks_appmenu import install_application_menu
+        install_application_menu(
+            application, "Preview",
+            lambda: state["window"])
+
+    def activate(application):
+        if state["window"] is not None:
+            state["window"].present()
+            return
+        window = Preview(args)
+        state["window"] = window
+        application.add_window(window)
+        window.connect("destroy", lambda *_: state.update(window=None))
+        window.show_all()
+        window.present()
+
+    app.connect("startup", startup)
+    app.connect("activate", activate)
+    return app.run(sys.argv)
+
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")
-    from mavericks_appmenu import run_application
-    sys.exit(run_application(
-        "com.mavlinos.preview", "Preview", Preview, sys.argv))
+    sys.exit(main())
