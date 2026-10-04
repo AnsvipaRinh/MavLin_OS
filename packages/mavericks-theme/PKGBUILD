@@ -45,7 +45,7 @@ package() {
     install -dm755 "${pkgdir}/usr/share/plank/themes/Mavericks"
     cp -r plank/* "${pkgdir}/usr/share/plank/themes/Mavericks/" 2>/dev/null || true
 
-    # Cursor theme
+    # Cursor theme (Mavericks-Cursors)
     install -dm755 "${pkgdir}/usr/share/icons/Mavericks-Cursors"
     cp -r cursors/* "${pkgdir}/usr/share/icons/Mavericks-Cursors/" 2>/dev/null || true
     # Create cursor theme index
@@ -55,6 +55,11 @@ Name=Mavericks-Cursors
 Comment=macOS Mavericks style cursors
 Inherits=Adwaita
 EOF
+
+    # Cursor theme (Poppy-Cursors) — alternative, Artistic License 1.0
+    install -dm755 "${pkgdir}/usr/share/icons/Poppy-Cursors"
+    cp -r cursors-poppy/* "${pkgdir}/usr/share/icons/Poppy-Cursors/" 2>/dev/null || true
+    # Poppy-Cursors index.theme is included in source
 
     # Xfce panel theme (menu bar style)
     install -dm755 "${pkgdir}/usr/share/xfce4/panel/themes/Mavericks"

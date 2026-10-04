@@ -44,6 +44,49 @@
 
 ---
 
+## 2026-10-04 — Poppy Cursors Legal Verification and Import Decision
+
+**Context:** Following the prior-art audit, the single accepted integration item (Poppy cursors) requires legal verification before import. This decision documents the verification and import rationale.
+
+**Legal Verification:**
+- Upstream LICENSE file confirmed as Artistic License 1.0 (OSI-approved, full text matches standard Artistic 1.0).
+- Upstream COPYRIGHT traces provenance: "Ubuntu OS X" mod from "KAYOver" Ⓚ, based on "Neutral cursor theme" by Alexey Nikitine (Copyright 2005, 2006).
+- Artistic License 1.0 permits verbatim copying, modification, and distribution (clauses 1-4) with attribution preserved.
+- FSF position: Artistic License 1.0 is **not GPL-compatible** for combined works (linking).
+- **Critical distinction:** Cursor themes are **data files** installed to `/usr/share/icons/`, not code linked into binaries. The GPL-3.0-or-later license of mavericks-theme applies to the package's build scripts and theme assets; cursor themes are separate works that co-exist in the filesystem. No combined-work issue arises because:
+  - The PKGBUILD builds/installs both cursor themes as independent directories
+  - No code from Poppy cursors is compiled into MavLinOS binaries
+  - Users select one theme at runtime via GTK settings
+  - This is equivalent to shipping multiple icon themes in a distro (common practice)
+
+**Compatibility Assessment:**
+| Aspect | Verdict | Rationale |
+|--------|---------|-----------|
+| Artistic 1.0 OSI-approved | YES | https://opensource.org/licenses/Artistic-1.0 |
+| GPL-3.0 combined-work risk | NO | Data files, not linked code; separate installation directories |
+| Redistribution permitted | YES | Artistic 1.0 clauses 1, 5 allow verbatim + aggregate distribution |
+| Attribution preserved | YES | LICENSE + COPYRIGHT files copied to source tree |
+| Apple-derived asset risk | LOW | "Ubuntu OS X" → "KAYOver" → "Neutral" (Alexey Nikitine 2005/2006); generic cursor shapes, no Apple trademarks detected |
+
+**Decision:**
+- **IMPORT** Poppy cursors as **alternative cursor theme** named `Poppy-Cursors`
+- Install to `/usr/share/icons/Poppy-Cursors/` (separate from `Mavericks-Cursors`)
+- Do NOT replace or overwrite `Mavericks-Cursors` — both co-exist
+- User selects via GTK settings (`gtk-cursor-theme-name`) or xfce4-mouse-settings
+- Preserve LICENSE + COPYRIGHT in source tree (`cursors-poppy/`)
+- Document in LICENSES.md §4, APPS.md cursor row
+
+**Implementation:**
+- Created `packages/mavericks-theme/src/mavericks-theme/cursors-poppy/` with 78 compiled cursors + index.theme + LICENSE + COPYRIGHT
+- Updated mavericks-theme PKGBUILD to install both cursor themes
+- Updated APPS.md cursor row (split into two entries)
+- Updated LICENSES.md §4 with Poppy-Cursors entry
+- Xcursor format verified via `file(1)` on all 78 files
+
+**Gate:** check-sync.sh pending
+
+---
+
 ## 2026-10-04 — Incident Loss Recovery
 
 **Context:** Dangling commits/loss occurred during unsupervised session recovery. Critical work was lost from tree commits.

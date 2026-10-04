@@ -1,0 +1,12 @@
+[Icon Theme]
+Name=Poppy-Cursors
+Comment=macOS-style cursors from Poppy OS X Revieve (Artistic License 1.0)
+Inherits=Adwaita
+Directories=cursors
+
+[cursors]
+Size=32
+Context=Cursors
+Type=Fixed
+MinSize=16
+MaxSize=64

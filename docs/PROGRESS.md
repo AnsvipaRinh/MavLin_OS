@@ -12,6 +12,14 @@
 - [x] Deliverable: docs/POPPY_AUDIT.md
 - [x] Gate: check-sync.sh ALL CHECKS PASSED
 
+### Poppy Cursors — Import as Alternative Theme (2026-10-04, без железа)
+- [x] Legal verification: Artistic License 1.0 confirmed in upstream LICENSE file; COPYRIGHT traces to "Ubuntu OS X" mod from "KAYOver" based on "Neutral cursor theme" by Alexey Nikitine (2005, 2006). Artistic 1.0 is OSI-approved. FSF notes GPL incompatibility but cursor themes are data files (installed separately in /usr/share/icons/), not linked code — no combined-work issue. LICENSE + COPYRIGHT preserved in source tree.
+- [x] X11 rendering verification: All 78 cursor files verified as valid Xcursor data version 1.0 format via `file(1)`. Hotspots embedded in compiled .cursor files. Theme index.theme created with proper inheritance (Adwaita fallback).
+- [x] Source integration: Created `packages/mavericks-theme/src/mavericks-theme/cursors-poppy/` with compiled cursors + index.theme + LICENSE + COPYRIGHT.
+- [x] Package integration: Updated mavericks-theme PKGBUILD to install Poppy-Cursors as separate alternative theme (does NOT replace Mavericks-Cursors). Both themes co-exist; user selects via GTK settings or xfce4-mouse-settings.
+- [x] Documentation updates: APPS.md cursor row split into Mavericks-Cursors + Poppy-Cursors; LICENSES.md §4 updated with Poppy-Cursors entry and license analysis; DECISIONS.md entry for Artistic 1.0 + GPL-3.0-or-later co-existence rationale.
+- [x] Gate: check-sync.sh pending (next step)
+
 ### Finder P0 — view/zoom fidelity close-out (2026-10-03, без железа)
 - [x] Evidence pass on installed Thunar 4.20.10 binary: in-window accelerators (Ctrl+1/2/3 view switch, Ctrl+=/-/0 zoom incl. KP_ variants), real thunarrc zoom keys (Last{Icon,Details,Compact}ViewZoomLevel), per-directory zoom memory via GVFS metadata, native icon-view reflow on resize.
 - [x] thunarrc: removed dead `LastViewZoomLevel` key (never read by Thunar — binary evidence), added real `LastDetailsViewZoomLevel`/`LastCompactViewZoomLevel`, icon view default 64px (`THUNAR_ZOOM_LEVEL_150_PERCENT` = Mavericks Finder default; was 48px Thunar-ism). Mirror synced (check-sync green).

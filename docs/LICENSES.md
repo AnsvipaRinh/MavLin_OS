@@ -69,6 +69,7 @@ Generated 2026-10-02. All determinations are establishable facts; no legal claim
 |---|---|---|---|---|
 | Icon theme (Mavericks) | 457 icon files (PNG/SVG, 16–512px + scalable; verified by `git ls-files`) | GPL-3.0-or-later (PKGBUILD) | **YES (current tree)** | All 457 files are original/generic designs. The 3 formerly Apple-derived icons (`help-about`, `preferences-desktop-display`, `preferences-desktop-mouse` — 30 files across sizes) have been generic replacements since `522ab98`; the Apple-derived ORIGINALS were removed from the repo entirely (user decision D1, 2026-10-03, see §6/§8). Pre-`522ab98` history is purged by the publication rewrite (§8). |
 | Cursor theme (Mavericks-Cursors) | 13 base + 30+ symlinks | GPL-3.0-or-later (PKGBUILD) | Yes | Original SVG/PNG sources; compiled to .cursor format |
+| Cursor theme (Poppy-Cursors) | 78 cursors (compiled .cursor + symlinks) | Artistic License 1.0 (upstream) | Yes | Imported from Poppy OS X Revieve (sziberov/Poppy-OS-X-Revieve). Derived from "Ubuntu OS X" mod of "KAYOver" based on "Neutral cursor theme" by Alexey Nikitine (2005, 2006). Artistic License 1.0 is OSI-approved; FSF notes GPL incompatibility but cursor themes are data files installed separately, not linked code. LICENSE + COPYRIGHT preserved in source tree. |
 | Wallpaper (mavericks-desktop.png) | 1 file (2304×1440) | GPL-3.0-or-later (PKGBUILD) | Yes | Original blue-green gradient; no Apple asset detected |
 
 ## 5. Copied/Adapted Code from Other Projects
