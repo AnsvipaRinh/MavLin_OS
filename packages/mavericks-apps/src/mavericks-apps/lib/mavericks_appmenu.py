@@ -18,7 +18,6 @@ def install_application_menu(app, app_name, get_window, menu_builder=None):
 
     add_action("about", lambda: _show_about(get_window(), app_name))
     add_action("quit", app.quit)
-    add_action("hide", lambda: get_window().iconify() if get_window() else None)
     add_action("close-window",
                lambda: get_window().destroy() if get_window() else None)
     add_action("minimize",
@@ -81,19 +80,6 @@ def run_application(app_id, app_name, window_factory, argv=None, menu_builder=No
     app.connect("startup", startup)
     app.connect("activate", activate)
     return app.run(argv)
-
-
-def window_call(get_window, method):
-    """Invoke a real window method from a global-menu action.
-
-    Degrades gracefully: if the window is gone (closed between menu
-    export and activation) the action is a no-op instead of a crash.
-    """
-    def _activate(*_args):
-        w = get_window()
-        if w is not None:
-            getattr(w, method)(None)
-    return _activate
 
 
 def _show_about(window, app_name):

@@ -726,9 +726,6 @@ if _GUI:
                                  message_type=Gtk.MessageType.WARNING,
                                  buttons=Gtk.ButtonsType.OK,
                                  text="Calendar store warning")
-            d.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            d.set_default_size(420, -1)
             d.format_secondary_text("\n".join(self.store_warnings))
             d.run()
             d.destroy()
@@ -1221,9 +1218,6 @@ if _GUI:
                                  message_type=Gtk.MessageType.WARNING,
                                  buttons=Gtk.ButtonsType.NONE,
                                  text="Delete event?")
-            d.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            d.set_default_size(420, -1)
             d.format_secondary_text('"%s" will be permanently removed.'
                                     % ev["title"])
             d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
@@ -1317,9 +1311,6 @@ if _GUI:
             d = Gtk.MessageDialog(transient_for=self, modal=False,
                                  message_type=Gtk.MessageType.INFO,
                                  buttons=Gtk.ButtonsType.OK, text=text)
-            d.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            d.set_default_size(420, -1)
             d.run()
             d.destroy()
 
@@ -1327,9 +1318,6 @@ if _GUI:
             d = Gtk.MessageDialog(transient_for=self, modal=True,
                                  message_type=Gtk.MessageType.ERROR,
                                  buttons=Gtk.ButtonsType.OK, text=text)
-            d.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            d.set_default_size(420, -1)
             d.run()
             d.destroy()
 
@@ -1597,9 +1585,6 @@ if _GUI:
                 d = Gtk.MessageDialog(transient_for=self, modal=True,
                                      message_type=Gtk.MessageType.WARNING,
                                      buttons=Gtk.ButtonsType.OK, text=err)
-                d.get_style_context().add_class("message")
-                # message-dialog alert layout lives in mavericks-theme dialog.message
-                d.set_default_size(420, -1)
                 d.run()
                 d.destroy()
                 return None
@@ -1773,9 +1758,6 @@ if _GUI:
                                      message_type=Gtk.MessageType.WARNING,
                                      buttons=Gtk.ButtonsType.NONE,
                                      text="Delete account?")
-                d.get_style_context().add_class("message")
-                # message-dialog alert layout lives in mavericks-theme dialog.message
-                d.set_default_size(420, -1)
                 d.format_secondary_text('Account "%s" and all its calendars and events '
                                         "will be permanently removed." % item["name"])
                 d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
@@ -1789,9 +1771,6 @@ if _GUI:
                                      message_type=Gtk.MessageType.WARNING,
                                      buttons=Gtk.ButtonsType.NONE,
                                      text="Delete calendar?")
-                d.get_style_context().add_class("message")
-                # message-dialog alert layout lives in mavericks-theme dialog.message
-                d.set_default_size(420, -1)
                 d.format_secondary_text('Calendar "%s" and its events will be permanently '
                                         "removed." % item["name"])
                 d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """mv-launchpad — Paginated, folder-aware Launchpad for rofi script mode.
 Features:
-- Pagination (Left/Right arrows, Page Up/Down)
+- Pagination (Page Up/Down; standard arrow-key item navigation)
 - Folders (configurable, stored in ~/.config/mv-launchpad/folders.json)
 - Search filtering within Launchpad
 - Keyboard navigation
-- App reordering (drag positions stored)
+- Persisted custom app positions (configuration-driven; no drag-and-drop UI)
 - Default folder presets on first run
 - Empty state handling
 - Robust .desktop parsing with fallbacks
@@ -13,6 +13,8 @@ Features:
 import os
 import sys
 import json
+import subprocess
+import tempfile
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -24,6 +26,7 @@ CONFIG_DIR = Path.home() / ".config" / "mv-launchpad"
 FOLDERS_FILE = CONFIG_DIR / "folders.json"
 POSITIONS_FILE = CONFIG_DIR / "positions.json"
 ITEMS_PER_PAGE = 35  # 7 columns x 5 rows
+FOLDER_PAGE_CAPACITY = ITEMS_PER_PAGE - 1  # Reserve one cell for the Back item
 
 # Default folder presets (Mavericks-style)
 DEFAULT_FOLDERS = {
@@ -48,8 +51,10 @@ def load_desktop_apps():
     apps = []
     seen_ids = set()
     for e in mv_desktop_cache.load_desktop_entries():
-        desktop_id = Path(e["path"]).stem
-        # Skip duplicates (user overrides system)
+        desktop_id = e.get("desktop_id", Path(e["path"]).name)
+        # The shared cache already resolves user/system precedence by canonical
+        # desktop ID. Keep the same canonical identity here so nested entries
+        # with identical basenames are not accidentally collapsed.
         if desktop_id in seen_ids:
             continue
         icon = e["icon"]
@@ -86,32 +91,54 @@ def _icon_exists(icon_name):
 
 
 def load_folders(apps=None):
-    """Load folder configuration, creating defaults on first run."""
-    if not FOLDERS_FILE.exists():
-        folders = DEFAULT_FOLDERS.copy()
-        if apps:
-            _auto_populate_default_folders(folders, apps)
-        save_folders(folders)
-        return folders
+    """Load and normalize folder configuration without overwriting user edits."""
+    config_exists = FOLDERS_FILE.exists()
+    config_valid = False
     try:
         with open(FOLDERS_FILE, "r") as fp:
-            folders = json.load(fp)
-        # Ensure default folders exist
-        for fid, fdata in DEFAULT_FOLDERS.items():
-            if fid not in folders:
-                folders[fid] = fdata.copy()
-        if apps:
-            _auto_populate_default_folders(folders, apps)
-        save_folders(folders)
-        return folders
-    except Exception:
-        folders = DEFAULT_FOLDERS.copy()
-        if apps:
-            _auto_populate_default_folders(folders, apps)
-        save_folders(folders)
-        return folders
+            raw = json.load(fp)
+        config_valid = isinstance(raw, dict)
+    except (OSError, json.JSONDecodeError, TypeError):
+        raw = {}
 
+    if config_exists and not config_valid:
+        # Preserve a corrupt/unreadable user file rather than silently replacing it.
+        return {folder_id: {
+            "name": folder_data["name"],
+            "apps": list(folder_data["apps"]),
+        } for folder_id, folder_data in DEFAULT_FOLDERS.items()}
 
+    folders = {}
+    if isinstance(raw, dict):
+        for folder_id, folder_data in raw.items():
+            if not isinstance(folder_id, str) or not isinstance(folder_data, dict):
+                continue
+            name = folder_data.get("name", folder_id)
+            app_ids = folder_data.get("apps", [])
+            if not isinstance(name, str):
+                name = folder_id
+            if not isinstance(app_ids, list):
+                app_ids = []
+            app_ids = [app_id for app_id in app_ids if isinstance(app_id, str)]
+            folders[folder_id] = {"name": name, "apps": app_ids}
+
+    # Default folders are created only on first run. Once folders.json
+    # exists, missing defaults are intentional user configuration and must not
+    # be silently recreated on every Launchpad invocation.
+    if not config_exists:
+        for folder_id, folder_data in DEFAULT_FOLDERS.items():
+            folders.setdefault(folder_id, {
+                "name": folder_data["name"],
+                "apps": list(folder_data["apps"]),
+            })
+
+    # Auto-population is a first-run migration only. Re-running Launchpad must
+    # never silently re-add an app that the user removed from folders.json.
+    if not config_exists and apps:
+        _auto_populate_default_folders(folders, apps)
+
+    save_folders(folders)
+    return folders
 def _auto_populate_default_folders(folders, apps):
     """Auto-populate default folders with relevant apps on first run."""
     # Map of folder ID to keywords for auto-population
@@ -134,35 +161,67 @@ def _auto_populate_default_folders(folders, apps):
                     break
 
 
-def save_folders(folders):
-    """Save folder configuration."""
+def _atomic_save_json(path, data):
+    """Atomically replace a JSON config file after flushing it to disk."""
+    import tempfile
+
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    tmp_path = None
     try:
-        with open(FOLDERS_FILE, "w") as fp:
-            json.dump(folders, fp, indent=2)
+        fd, tmp_path = tempfile.mkstemp(
+            prefix=f".{path.name}.", suffix=".tmp", dir=str(CONFIG_DIR)
+        )
+        with os.fdopen(fd, "w") as fp:
+            json.dump(data, fp, indent=2)
+            fp.write("\n")
+            fp.flush()
+            os.fsync(fp.fileno())
+        os.replace(tmp_path, path)
+        tmp_path = None
+        try:
+            dir_fd = os.open(CONFIG_DIR, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
     except Exception:
         pass
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+
+def save_folders(folders):
+    """Save folder configuration atomically."""
+    _atomic_save_json(FOLDERS_FILE, folders)
 
 
 def load_positions():
-    """Load custom app positions."""
+    """Load custom app positions, rejecting malformed top-level JSON."""
     if not POSITIONS_FILE.exists():
         return {}
     try:
         with open(POSITIONS_FILE, "r") as fp:
-            return json.load(fp)
-    except Exception:
+            raw = json.load(fp)
+    except (OSError, json.JSONDecodeError, TypeError):
         return {}
+
+    if not isinstance(raw, dict):
+        return {}
+
+    # JSON object keys are strings; retain values for build_launchpad_structure()
+    # to validate as untrusted position data.
+    return {app_id: position for app_id, position in raw.items() if isinstance(app_id, str)}
 
 
 def save_positions(positions):
-    """Save custom app positions."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    try:
-        with open(POSITIONS_FILE, "w") as fp:
-            json.dump(positions, fp, indent=2)
-    except Exception:
-        pass
+    """Save custom app positions atomically."""
+    _atomic_save_json(POSITIONS_FILE, positions)
 
 
 def build_launchpad_structure(apps, folders, positions, query="", open_folder=None):
@@ -175,9 +234,18 @@ def build_launchpad_structure(apps, folders, positions, query="", open_folder=No
         query: Search query string
         open_folder: Folder ID to show (for folder navigation)
     """
-    # Filter apps by query
+    # Apps assigned to a Launchpad folder are represented by the folder on
+    # the main page, not duplicated as standalone icons. During search we keep
+    # them discoverable so search can still find apps inside folders.
+    folder_member_ids = {
+        app_id
+        for folder_data in folders.values()
+        for app_id in folder_data.get("apps", [])
+    }
     filtered_apps = []
     for app in apps:
+        if not query and app["id"] in folder_member_ids:
+            continue
         if not query or query.lower() in app["name"].lower():
             filtered_apps.append(app)
 
@@ -188,7 +256,9 @@ def build_launchpad_structure(apps, folders, positions, query="", open_folder=No
         app_id = app["id"]
         if app_id in positions:
             pos = positions[app_id]
-            if 0 <= pos < len(filtered_apps):
+            # Treat persisted positions as untrusted user configuration.
+            # Invalid types and duplicate slots must never drop an app.
+            if isinstance(pos, int) and not isinstance(pos, bool) and 0 <= pos < len(filtered_apps) and pos not in positioned:
                 positioned[pos] = app
             else:
                 remaining.append(app)
@@ -203,11 +273,11 @@ def build_launchpad_structure(apps, folders, positions, query="", open_folder=No
         elif remaining:
             ordered.append(remaining.pop(0))
 
-    # Build folder structure
+    # Build folder structure. Folders occupy real grid cells on page 0.
     structure = {
         "folders": [],
         "apps": ordered,
-        "total_pages": max(1, (len(ordered) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE),
+        "total_pages": 1,
         "query": query,
         "open_folder": open_folder,
         "empty": len(filtered_apps) == 0 and not query and not open_folder
@@ -224,26 +294,41 @@ def build_launchpad_structure(apps, folders, positions, query="", open_folder=No
                     break
         structure["apps"] = folder_apps
         structure["folders"] = []  # No sub-folders for now
-        structure["total_pages"] = max(1, (len(folder_apps) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+        structure["total_pages"] = max(1, (len(folder_apps) + FOLDER_PAGE_CAPACITY - 1) // FOLDER_PAGE_CAPACITY)
         structure["folder_name"] = folder_data.get("name", open_folder)
         return structure
 
-    # Add folders (only top-level folders shown on main pages)
-    for folder_id, folder_data in folders.items():
-        if "apps" in folder_data and folder_data["apps"]:
-            # Filter folder apps by query too
-            folder_apps = []
-            for app_id in folder_data["apps"]:
-                for app in apps:
-                    if app["id"] == app_id and (not query or query.lower() in app["name"].lower()):
-                        folder_apps.append(app)
-                        break
-            if folder_apps:
-                structure["folders"].append({
-                    "id": folder_id,
-                    "name": folder_data.get("name", folder_id),
-                    "apps": folder_apps
-                })
+    # Search results represent applications, not folder containers. Folder
+    # icons remain available only in the normal Launchpad grid; apps assigned
+    # to folders are deliberately kept searchable above.
+    if not query:
+        for folder_id, folder_data in folders.items():
+            if "apps" in folder_data and folder_data["apps"]:
+                folder_apps = []
+                for app_id in folder_data["apps"]:
+                    for app in apps:
+                        if app["id"] == app_id:
+                            folder_apps.append(app)
+                            break
+                if folder_apps:
+                    structure["folders"].append({
+                        "id": folder_id,
+                        "name": folder_data.get("name", folder_id),
+                        "apps": folder_apps
+                    })
+
+    # Top-level folders are real grid cells. If there are more folders than
+    # fit on one page, paginate the folder grid before showing standalone apps.
+    folder_pages = max(1, (len(structure["folders"]) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE) if structure["folders"] else 0
+    first_app_capacity = ITEMS_PER_PAGE - len(structure["folders"]) if folder_pages == 1 else 0
+    if folder_pages:
+        remaining_after_first = max(0, len(ordered) - first_app_capacity)
+        structure["total_pages"] = folder_pages + (
+            (remaining_after_first + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+            if remaining_after_first else 0
+        )
+    else:
+        structure["total_pages"] = max(1, (len(ordered) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
 
     return structure
 
@@ -262,8 +347,8 @@ def get_page(structure, page):
             "icon": "go-previous",
             "info": "Return to Launchpad"
         })
-        start = page * ITEMS_PER_PAGE
-        end = start + ITEMS_PER_PAGE
+        start = page * FOLDER_PAGE_CAPACITY
+        end = start + FOLDER_PAGE_CAPACITY
         page_apps = structure["apps"][start:end]
         for app in page_apps:
             items.append({
@@ -275,9 +360,14 @@ def get_page(structure, page):
             })
         return items
 
-    # First add folders (only on page 0)
-    if page == 0:
-        for folder in structure["folders"]:
+    # Top-level folders occupy the grid before standalone apps. If folders
+    # exceed one page, subsequent pages continue the folder grid.
+    folder_count = len(structure["folders"])
+    folder_pages = max(1, (folder_count + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE) if folder_count else 0
+    if folder_pages and page < folder_pages:
+        start = page * ITEMS_PER_PAGE
+        end = start + ITEMS_PER_PAGE
+        for folder in structure["folders"][start:end]:
             items.append({
                 "type": "folder",
                 "id": folder["id"],
@@ -285,11 +375,20 @@ def get_page(structure, page):
                 "icon": "folder",
                 "count": len(folder["apps"])
             })
-
-    # Then add apps
-    start = page * ITEMS_PER_PAGE
-    end = start + ITEMS_PER_PAGE
-    page_apps = structure["apps"][start:end]
+        if folder_pages == 1:
+            app_start = 0
+            app_end = ITEMS_PER_PAGE - folder_count
+            page_apps = structure["apps"][app_start:app_end]
+        else:
+            page_apps = []
+    else:
+        if folder_pages == 1:
+            first_capacity = ITEMS_PER_PAGE - folder_count
+            start = first_capacity + (page - 1) * ITEMS_PER_PAGE
+        else:
+            start = (page - folder_pages) * ITEMS_PER_PAGE
+        end = start + ITEMS_PER_PAGE
+        page_apps = structure["apps"][start:end]
 
     for app in page_apps:
         items.append({
@@ -306,27 +405,93 @@ def get_page(structure, page):
 def format_item(item, index):
     """Format item for rofi script mode."""
     if item["type"] == "folder":
-        return f"{item['name']} ({item['count']})\0icon\x1f{item['icon']}\0info\x1fFolder: {item['count']} apps"
+        return f"{item['name']} ({item['count']})\0icon\x1f{item['icon']}\0info\x1ffolder:{item['id']}"
     elif item["type"] == "back":
-        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1f{item.get('info', '')}"
+        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fback"
     elif item["type"] == "empty":
-        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1f{item.get('info', '')}"
+        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fempty"
     else:
-        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fApplication"
+        return f"{item['name']}\0icon\x1f{item['icon']}\0info\x1fapp:{item['id']}"
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: mv-launchpad <page> [query] [open_folder]", file=sys.stderr)
-        return 1
+    rofi_retv = os.environ.get("ROFI_RETV")
+    rofi_mode = rofi_retv is not None
+    rofi_info = os.environ.get("ROFI_INFO", "")
+    rofi_data = os.environ.get("ROFI_DATA", "")
+
+    # Rofi script mode invokes us with the selected row as argv[1]. Use
+    # ROFI_INFO as a stable action ID instead of treating the row as a page.
+    if rofi_mode and rofi_retv in ("10", "11"):
+        try:
+            state = json.loads(rofi_data) if rofi_data else {}
+        except json.JSONDecodeError:
+            state = {}
+        try:
+            page = int(state.get("page", 0))
+        except (ValueError, TypeError):
+            page = 0
+        page += 1 if rofi_retv == "10" else -1
+        state["page"] = max(0, page)
+        rofi_data = json.dumps(state, separators=(",", ":"))
+
+    if rofi_mode and rofi_retv == "1":
+        if rofi_info.startswith("app:"):
+            desktop_id = rofi_info[4:]
+            if desktop_id:
+                try:
+                    subprocess.Popen(
+                        ["gtk-launch", desktop_id],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True,
+                    )
+                except OSError as exc:
+                    print(f"Launch failed: {exc}", file=sys.stderr)
+                    return 1
+            return 0
+        if rofi_info.startswith("folder:"):
+            rofi_data = json.dumps({
+                "page": 0,
+                "query": "",
+                "open_folder": rofi_info[7:],
+            }, separators=(",", ":"))
+        elif rofi_info == "back":
+            rofi_data = json.dumps({
+                "page": 0,
+                "query": "",
+                "open_folder": None,
+            }, separators=(",", ":"))
+        else:
+            return 0
 
     try:
-        page = int(sys.argv[1])
-    except ValueError:
-        page = 0
+        state = json.loads(rofi_data) if rofi_data else {}
+    except json.JSONDecodeError:
+        state = {}
 
-    query = sys.argv[2].strip() if len(sys.argv) > 2 else ""
-    open_folder = sys.argv[3].strip() if len(sys.argv) > 3 else None
+    try:
+        page = int(state.get("page", 0))
+    except (ValueError, TypeError):
+        page = 0
+    query = str(state.get("query", "")).strip()
+    open_folder = state.get("open_folder")
+    if open_folder == "":
+        open_folder = None
+
+    # Direct CLI compatibility: mv-launchpad <page> [query] [open_folder]
+    if not rofi_mode and len(sys.argv) > 1:
+        try:
+            page = int(sys.argv[1])
+        except ValueError:
+            page = 0
+        query = sys.argv[2].strip() if len(sys.argv) > 2 else query
+        open_folder = sys.argv[3].strip() if len(sys.argv) > 3 else open_folder
+
+    # Rofi script mode passes the current search text as argv[1] on retv=0.
+    if rofi_mode and rofi_retv == "0":
+        query = sys.argv[1].strip() if len(sys.argv) > 1 else ""
+        page = 0
 
     # Load data
     apps = load_desktop_apps()
@@ -363,13 +528,20 @@ def main():
     # Get items for page
     items = get_page(structure, page)
 
+    # Persist enough state for the next Rofi script-mode callback.
+    print("\0data\x1f" + json.dumps({
+        "page": page,
+        "query": query,
+        "open_folder": open_folder,
+    }, separators=(",", ":")))
+
     # Output for rofi
     for i, item in enumerate(items):
         print(format_item(item, i))
 
     # Add navigation hints at the end
     if total_pages > 1:
-        nav = f"Page {page + 1}/{total_pages} — ←/→ or PgUp/PgDn to navigate"
+        nav = f"Page {page + 1}/{total_pages} — PgUp/PgDn to navigate"
         print(f"\0icon\x1fgo-previous\0info\x1f{nav}")
 
     return 0

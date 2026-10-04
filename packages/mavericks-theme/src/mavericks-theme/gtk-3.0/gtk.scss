@@ -320,11 +320,32 @@ combobox {
     padding: 6px 30px 6px 12px;
 }
 
-/* Menus: single source of truth is _menus.scss (imported above).
-   The former inline "frosted glass" menu/menuitem/separator overrides here
-   duplicated and silently fought the partial (flat hover vs Mavericks aqua
-   gradient, rounded card vs square Mavericks menu). Do NOT re-add inline
-   menu rules — edit _menus.scss instead. */
+/* Menus - frosted glass */
+menu,
+.context-menu {
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0,0,0,0.15);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+menuitem {
+    padding: 6px 24px;
+    margin: 2px 8px;
+    border-radius: 4px;
+
+    &:hover,
+    &:selected {
+        background-color: shade($theme_selected_bg_color, 1.1);
+        color: $theme_selected_fg_color;
+    }
+}
+
+separator {
+    margin: 4px 8px;
+    border-top: 1px solid rgba(0,0,0,0.1);
+}
 
 /* Scrollbars - thin, overlay style */
 scrollbar {

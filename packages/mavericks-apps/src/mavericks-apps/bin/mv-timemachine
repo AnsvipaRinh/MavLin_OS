@@ -560,9 +560,6 @@ if _GUI:
                 parent=self, modal=True, message_type=Gtk.MessageType.QUESTION,
                 buttons=Gtk.ButtonsType.OK_CANCEL,
                 text="Choose a backup passphrase")
-            dialog.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            dialog.set_default_size(420, -1)
             dialog.format_secondary_text(
                 "This encrypts every snapshot. It is stored in the login "
                 "keychain when available, and never written to disk in "
@@ -719,9 +716,6 @@ if _GUI:
             confirm = Gtk.MessageDialog(
                 parent=self, modal=True, message_type=Gtk.MessageType.WARNING,
                 buttons=Gtk.ButtonsType.OK_CANCEL, text="Restore snapshot?")
-            confirm.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            confirm.set_default_size(420, -1)
             confirm.format_secondary_text(
                 "Files from the selected snapshot will be copied into:\n%s\n"
                 "Existing files are not overwritten unless they differ."
@@ -763,9 +757,6 @@ if _GUI:
                 parent=self, modal=True, message_type=Gtk.MessageType.WARNING,
                 buttons=Gtk.ButtonsType.OK_CANCEL,
                 text="Restore local snapshot (destructive)?")
-            confirm.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            confirm.set_default_size(420, -1)
             confirm.format_secondary_text(
                 "This replaces the current @ and @home subvolumes with:\n%s\n"
                 "A safety snapshot of the current state is taken first. "

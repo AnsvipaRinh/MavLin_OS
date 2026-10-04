@@ -774,88 +774,27 @@ def build_diskutil_class():
             dialog = Gtk.MessageDialog(transient_for=self, modal=True,
                                        message_type=Gtk.MessageType.ERROR,
                                        buttons=Gtk.ButtonsType.OK, text=msg)
-            dialog.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            dialog.set_default_size(420, -1)
             dialog.run()
             dialog.destroy()
 
         def on_key_press(self, widget, event):
             if event.keyval == Gdk.keyval_from_name("Escape"):
-                self.destroy()
+                Gtk.main_quit()
                 return True
             return False
 
     return DiskUtilWindow
 
 
-def _selected_field(win, field):
-    """Resolve the selected sidebar item's field for global-menu actions."""
-    if win is None or not getattr(win, "selected", None):
-        return None
-    kind, path = win.selected
-    item = win.find_item(kind, path)
-    return item.get(field) if item else None
-
-
-def build_diskutil_menu(app, app_name, get_window, add_action):
-    """GMenu for the global menu bar. Every entry activates a real
-    DiskUtilWindow method through shared actions — no stubs."""
-
-    def win():
-        return get_window()
-
-    Gio, _GLib = _gio()
-
-    add_action("refresh", lambda: win().refresh() if win() else None)
-    add_action("mount", lambda: win() and _selected_field(win(), "path")
-               and win().run_action("mount", _selected_field(win(), "path")))
-    add_action("unmount", lambda: win() and _selected_field(win(), "path")
-               and win().run_action("unmount", _selected_field(win(), "path")))
-    add_action("eject", lambda: win() and _selected_field(win(), "path")
-               and win().run_action("eject", _selected_field(win(), "path")))
-    add_action("first-aid", lambda: win().show_first_aid() if win() else None)
-
-    menu = Gio.Menu()
-
-    app_menu = Gio.Menu()
-    app_menu.append("About Disk Utility", "app.about")
-    app_menu.append("Hide Disk Utility", "app.hide")
-    app_menu.append("Quit Disk Utility", "app.quit")
-    menu.append_submenu("Disk Utility", app_menu)
-
-    file_menu = Gio.Menu()
-    file_menu.append("Refresh", "app.refresh")
-    file_menu.append_separator()
-    file_menu.append("Mount", "app.mount")
-    file_menu.append("Unmount", "app.unmount")
-    file_menu.append("Eject", "app.eject")
-    file_menu.append("First Aid…", "app.first-aid")
-    file_menu.append_separator()
-    file_menu.append("Close Window", "app.close-window")
-    menu.append_submenu("File", file_menu)
-
-    window_menu = Gio.Menu()
-    window_menu.append("Minimize", "app.minimize")
-    menu.append_submenu("Window", window_menu)
-
-    help_menu = Gio.Menu()
-    help_menu.append("Disk Utility Help", "app.about")
-    menu.append_submenu("Help", help_menu)
-    return menu
-
-
 def main():
-    import sys
-    sys.path.insert(0, "/usr/share/mavericks-apps")
-    from mavericks_appmenu import run_application
-
-    def factory():
-        return build_diskutil_class()()
-
-    return run_application("com.mavlinos.DiskUtility", "Disk Utility",
-                           factory, sys.argv, build_diskutil_menu)
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    window_cls = build_diskutil_class()
+    win = window_cls()
+    win.connect("destroy", Gtk.main_quit)
+    Gtk.main()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

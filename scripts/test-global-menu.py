@@ -190,11 +190,6 @@ def main():
                    "Toggle Completed", "Delete Selected Task",
                    "Clear Completed", "Find Reminders", "Rename List", "Delete List"):
         assert action in reminders, f"Reminders menu missing {action}"
-    diskutil = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-diskutil").read_text(encoding="utf-8")
-    assert "build_diskutil_menu" in diskutil
-    assert "com.mavlinos.DiskUtility" in diskutil
-    for action in ("Refresh", "Mount", "Unmount", "Eject", "First Aid"):
-        assert action in diskutil, f"Disk Utility menu missing {action}"
     assert "build_notes_menu" in notes
     for action in ("New Note", "New Folder", "Export Note…", "Print…", "Find"):
         assert action in notes, f"Notes menu missing {action}"

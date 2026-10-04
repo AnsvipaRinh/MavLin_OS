@@ -734,9 +734,6 @@ class ControlCenter(Gtk.Window):
         dialog = Gtk.MessageDialog(parent=self, flags=Gtk.DialogFlags.MODAL,
                                     type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK,
                                     message_format=message)
-        dialog.get_style_context().add_class("message")
-        # message-dialog alert layout lives in mavericks-theme dialog.message
-        dialog.set_default_size(420, -1)
         dialog.set_title(title)
         dialog.run()
         dialog.destroy()

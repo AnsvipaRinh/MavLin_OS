@@ -339,19 +339,3 @@ python3 -m pytest packages/mavericks-apps/src/mavericks-apps/tests/
 1. Execute merge/fix/cherry-pick sequence above
 2. Update PROGRESS.md with current status
 3. Continue P0 application completion per §13.8 autonomous loop
-
-## 2026-10-05 — Message-Dialog Theme Adoption: Explicit Per-Site Classes Over Global Hook
-
-### Context
-The theme layer (d3db5d8) implemented the Mavericks alert layout under `dialog.message`, but GTK's built-in `.message` class is applied by GtkMessageDialog only in some code paths/versions; relying on implicit styling left the new selectors dead code. The P0 gap "no alert-icon layout" remained functionally closed only on paper.
-
-### Decision
-Adopt explicitly: every `Gtk.MessageDialog` construction site in mv-* apps calls `get_style_context().add_class("message")` and sets a 420px default width (Mavericks alert proportions). Applied mechanically via idempotent patcher `scripts/patch-message-dialog-classes.py` (43 sites, 20 files), guarded by static gate `scripts/test-message-dialog-adoption.py` which fails if any MessageDialog site lacks the class.
-
-### Rejected alternatives
-- Monkey-patch hook (`mv_style.install()`): hidden magic, breaks introspection/debugging, adds import cost to hot startup path of every app — violates perf criteria (no needless imports on launch paths).
-- CSS selector without class (`messagedialog` node name): already covered by existing generic dialog styles; the specific alert layout requires opt-in semantics because not all dialogs want icon-without-plate treatment.
-
-### Consequences
-- New apps must add the class (enforced by adoption gate in CI).
-- Visual confirmation still pending X session (docs/NEEDS_HARDWARE_TEST.md phase 0.62).

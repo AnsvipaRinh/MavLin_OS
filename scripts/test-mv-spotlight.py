@@ -154,6 +154,16 @@ def test_calculator_safety_contract():
     assert 'ast.parse(q, mode="eval")' in source
     assert "eval(" not in source
     assert "ast.Pow" in source
+    assert "len(nodes) > 64" in source
+    assert "abs(exponent) > 1000" in source
+
+
+def test_desktop_launch_contract():
+    from pathlib import Path
+    source = (Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight").read_text(encoding="utf-8")
+    assert '"desktop_id": os.path.basename(e["path"])' in source
+    assert "gtk-launch" in source
+    assert 'shlex.quote(desktop_id)' in source
 
 
 def test_file_action_quoting_contract():
@@ -163,6 +173,101 @@ def test_file_action_quoting_contract():
     assert "shlex.quote(item['path'])" in source
     assert "shlex.quote(path)" in source
     assert "xdg-open --" in source
+
+
+def test_desktop_cache_semantics():
+    import importlib.util
+    import tempfile
+    from pathlib import Path
+
+    module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv_desktop_cache.py"
+    spec = importlib.util.spec_from_file_location("mv_desktop_cache_semantics", module_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        user = root / "user"
+        system = root / "system"
+        user.mkdir()
+        system.mkdir()
+        (system / "same.desktop").write_text("[Desktop Entry]\\nName=System App\\nExec=system-app\\n", encoding="utf-8")
+        (user / "same.desktop").write_text("[Desktop Entry]\\nName=User App\\nExec=user-app\\n", encoding="utf-8")
+        (system / "other.desktop").write_text("[Desktop Entry]\\nName=Other App\\nExec=other-app\\n", encoding="utf-8")
+        noisy = system / "noisy.desktop"
+        noisy.write_text("[Desktop Entry]\\nName=Visible\\nExec=visible\\nComment=NoDisplay=true is text, not a key\\n", encoding="utf-8")
+        hidden = system / "hidden.desktop"
+        hidden.write_text("[Desktop Entry]\\nName=Hidden\\nExec=hidden\\nHidden=true\\n", encoding="utf-8")
+        action_only = system / "action.desktop"
+        action_only.write_text("[Desktop Action Foo]\\nName=Wrong\\nExec=wrong\\n\\n[Desktop Entry]\\nName=Correct\\nExec=correct\\n", encoding="utf-8")
+        old_dirs = module.desktop_dirs
+        old_cache = module._CACHE_PATH
+        try:
+            module.desktop_dirs = lambda: [str(user), str(system)]
+            module._CACHE_PATH = str(root / "cache" / "desktop-entries.json")
+            entries = module.load_desktop_entries()
+            names = [entry["name"] for entry in entries]
+            assert names == ["User App", "Correct", "Visible", "Other App"]
+        finally:
+            module.desktop_dirs = old_dirs
+            module._CACHE_PATH = old_cache
+
+def test_recent_items_file_uri_parsing():
+    import importlib.util
+    import tempfile
+    from pathlib import Path
+
+    module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight"
+    spec = importlib.util.spec_from_file_location("mv_spotlight_recent_test", module_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        target = root / "My File.txt"
+        target.write_text("recent", encoding="utf-8")
+        xbel = root / "recently-used.xbel"
+        href = "file://" + str(target).replace(" ", "%20")
+        xbel.write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<xbel xmlns="http://www.freedesktop.org/standards/desktop-bookmarks">'
+            f'<bookmark href="{href}" />'
+            '<bookmark href="https://example.com/not-a-file" />'
+            '</xbel>',
+            encoding="utf-8",
+        )
+        old_recent = module.RECENT_FILE
+        try:
+            module.RECENT_FILE = xbel
+            assert module.get_recent_items(5) == [str(target)]
+        finally:
+            module.RECENT_FILE = old_recent
+
+
+
+
+def test_recursive_desktop_ids_are_preserved():
+    import importlib.util
+    from pathlib import Path
+    module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight"
+    spec = importlib.util.spec_from_file_location("mv_spotlight_ids_test", module_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    original = module.mv_desktop_cache.load_desktop_entries
+    try:
+        module.mv_desktop_cache.load_desktop_entries = lambda: [{
+            "path": "/apps/foo/bar.desktop",
+            "desktop_id": "foo-bar.desktop",
+            "name": "Nested App",
+            "exec": "nested-app",
+            "icon": "",
+            "categories": "",
+        }]
+        apps = module.load_desktop_apps()
+        assert apps[0]["desktop_id"] == "foo-bar.desktop"
+    finally:
+        module.mv_desktop_cache.load_desktop_entries = original
+
 
 
 def test_main_subprocess():
@@ -202,6 +307,9 @@ if __name__ == "__main__":
         ("rofi_preview_integration", test_rofi_preview_integration),
         ("calculator_safety_contract", test_calculator_safety_contract),
         ("file_action_quoting_contract", test_file_action_quoting_contract),
+        ("desktop_cache_semantics", test_desktop_cache_semantics),
+        ("recent_items_file_uri_parsing", test_recent_items_file_uri_parsing),
+        ("recursive_desktop_ids_are_preserved", test_recursive_desktop_ids_are_preserved),
         ("main_subprocess", test_main_subprocess),
     ]
 

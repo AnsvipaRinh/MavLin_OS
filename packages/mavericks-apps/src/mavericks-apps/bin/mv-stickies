@@ -308,9 +308,6 @@ class StickyNote(Gtk.Window):
                 transient_for=self, modal=True,
                 message_type=Gtk.MessageType.ERROR,
                 buttons=Gtk.ButtonsType.OK, text="Printing unavailable")
-            err.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            err.set_default_size(420, -1)
             err.format_secondary_text("The python-cairo package is required.")
             err.run()
             err.destroy()
@@ -344,9 +341,6 @@ class StickyNote(Gtk.Window):
             transient_for=self, modal=True,
             message_type=Gtk.MessageType.WARNING,
             buttons=Gtk.ButtonsType.NONE, text="Delete this note?")
-        d.get_style_context().add_class("message")
-        # message-dialog alert layout lives in mavericks-theme dialog.message
-        d.set_default_size(420, -1)
         d.format_secondary_text("The note will be permanently removed.")
         d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
                       "Delete", Gtk.ResponseType.OK)
@@ -509,9 +503,6 @@ class StickiesApp:
             transient_for=self.stickies[0] if self.stickies else None,
             modal=True, message_type=Gtk.MessageType.WARNING,
             buttons=Gtk.ButtonsType.OK, text="Stickies store warning")
-        d.get_style_context().add_class("message")
-        # message-dialog alert layout lives in mavericks-theme dialog.message
-        d.set_default_size(420, -1)
         d.format_secondary_text("\n".join(self.store_warnings))
         d.run()
         d.destroy()

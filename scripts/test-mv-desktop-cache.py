@@ -106,6 +106,57 @@ class Sandbox:
         return path
 
 
+def test_xdg_application_paths(mod):
+    """Desktop discovery must honor XDG_DATA_HOME/XDG_DATA_DIRS precedence."""
+    sb = Sandbox(mod)
+    old = {key: os.environ.get(key) for key in ("XDG_DATA_HOME", "XDG_DATA_DIRS")}
+    try:
+        custom_home = os.path.join(sb.tmp, "xdg-home")
+        custom_system = os.path.join(sb.tmp, "xdg-system")
+        os.makedirs(os.path.join(custom_home, "applications"))
+        os.makedirs(os.path.join(custom_system, "applications"))
+        os.environ["XDG_DATA_HOME"] = custom_home
+        os.environ["XDG_DATA_DIRS"] = custom_system
+        dirs = mod.desktop_dirs()
+        check("xdg: custom user applications path first",
+              dirs[0] == os.path.join(custom_home, "applications"), repr(dirs))
+        check("xdg: custom system applications path second",
+              dirs[1] == os.path.join(custom_system, "applications"), repr(dirs))
+        user = os.path.join(custom_home, "applications", "same.desktop")
+        system = os.path.join(custom_system, "applications", "same.desktop")
+        with open(user, "w") as f:
+            f.write(DESKTOP_FILE)
+        with open(system, "w") as f:
+            f.write(DESKTOP_FILE_2)
+        entries = mod.load_desktop_entries()
+        check("xdg: user entry overrides system entry",
+              len(entries) == 1 and entries[0]["name"] == "Test App", repr(entries))
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        sb.close()
+
+
+def test_recursive_desktop_ids(mod):
+    """Nested application entries use the freedesktop desktop-file ID."""
+    sb = Sandbox(mod)
+    try:
+        nested = os.path.join(sb.desktop, "foo", "bar")
+        os.makedirs(nested)
+        path = os.path.join(nested, "Nested.desktop")
+        with open(path, "w") as f:
+            f.write(DESKTOP_FILE)
+        entries = mod.load_desktop_entries()
+        check("desktop-id: nested entry discovered", len(entries) == 1, repr(entries))
+        check("desktop-id: nested path becomes foo-bar.desktop",
+              entries[0].get("desktop_id") == "foo-bar.desktop", repr(entries))
+    finally:
+        sb.close()
+
+
 def test_parse(mod):
     sb = Sandbox(mod)
     try:
@@ -163,6 +214,40 @@ def test_fingerprint(mod):
         sb.close()
 
 
+def test_recursive_fingerprint_invalidation(mod):
+    """Nested desktop entries must participate in cache invalidation."""
+    sb = Sandbox(mod)
+    try:
+        nested = os.path.join(sb.desktop, "nested")
+        os.makedirs(nested)
+        path = os.path.join(nested, "nested.desktop")
+        with open(path, "w") as f:
+            f.write(DESKTOP_FILE)
+        fp1, count1 = mod._fingerprint()
+        check("recursive fingerprint: nested file counted", count1 == 1)
+        os.remove(path)
+        fp2, count2 = mod._fingerprint()
+        check("recursive fingerprint: nested removal changes key", fp2 != fp1)
+        check("recursive fingerprint: nested removal changes count", count2 == 0)
+        with open(path, "w") as f:
+            f.write(DESKTOP_FILE)
+        fp3, count3 = mod._fingerprint()
+        check("recursive fingerprint: nested re-add changes key", fp3 != fp2)
+        check("recursive fingerprint: nested re-add counted", count3 == 1)
+    finally:
+        sb.close()
+
+
+def test_cache_writer_uses_unique_atomic_tempfiles(mod):
+    """Cache writes must not share a fixed .tmp path between concurrent writers."""
+    source = open(MOD_PATH).read()
+    check("cache writer: tempfile module imported", "import tempfile" in source)
+    check("cache writer: unique mkstemp", "tempfile.mkstemp" in source)
+    check("cache writer: fsync before replace", "os.fsync(cache_file.fileno())" in source)
+    check("cache writer: atomic replace", "os.replace(tmp_path, path)" in source)
+    check("cache writer: cleanup on failure", "os.unlink(tmp_path)" in source)
+    check("cache writer: no fixed tmp path", 'tmp = path + ".tmp"' not in source)
+
 def test_cache_hit_skips_reads(mod):
     sb = Sandbox(mod)
     try:
@@ -191,6 +276,43 @@ def test_cache_hit_skips_reads(mod):
         sb.close()
 
 
+def test_locale_invalidation(mod):
+    """Localized desktop names must refresh when the active locale changes."""
+    sb = Sandbox(mod)
+    old = {key: os.environ.get(key) for key in ("LANGUAGE", "LC_MESSAGES", "LANG")}
+    try:
+        for key in old:
+            os.environ.pop(key, None)
+        sb.write("localized.desktop", """[Desktop Entry]
+Name=English App
+Name[ru]=Русское приложение
+Name[en]=English App
+Exec=testapp
+""")
+        os.environ["LANGUAGE"] = "en"
+        entries = mod.load_desktop_entries()
+        check("locale: English name cached", entries[0]["name"] == "English App",
+              repr(entries))
+        os.environ["LANGUAGE"] = "ru"
+        entries = mod.load_desktop_entries()
+        check("locale: change invalidates cache",
+              entries[0]["name"] == "Русское приложение", repr(entries))
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        sb.close()
+
+
+def test_fingerprint_tracks_replacement_metadata(mod):
+    """File replacement metadata must invalidate the desktop cache."""
+    source = open(MOD_PATH).read()
+    check("fingerprint: ctime tracked", "st.st_ctime_ns" in source)
+    check("fingerprint: inode tracked", "st.st_ino" in source)
+
+
 def test_cache_invalidation(mod):
     sb = Sandbox(mod)
     try:
@@ -214,6 +336,21 @@ def test_cache_invalidation(mod):
         os.remove(os.path.join(sb.desktop, "b.desktop"))
         entries = mod.load_desktop_entries()
         check("invalidation: remove re-parses", len(entries) == 1, f"n={len(entries)}")
+    finally:
+        sb.close()
+
+
+def test_missing_cache_is_not_quarantined(mod):
+    """A first-run cache miss must not create a fake corrupt-cache artifact."""
+    sb = Sandbox(mod)
+    try:
+        cache = sb.cache_path()
+        check("missing: cache initially absent", not os.path.exists(cache))
+        data = mod._read_json_safe(cache)
+        check("missing: returns cache miss", data is None)
+        parent = os.path.dirname(cache)
+        leftovers = [f for f in os.listdir(parent)] if os.path.isdir(parent) else []
+        check("missing: no quarantine artifact", leftovers == [], repr(leftovers))
     finally:
         sb.close()
 
@@ -270,8 +407,8 @@ def test_integration(mod):
               repr([a for a in apps if a["name"] == "Test App"]))
         check("launchpad: sorted by name",
               [a["name"] for a in apps] == names)
-        check("launchpad: id = stem",
-              {a["id"] for a in apps} == {"aaa", "bbb"},
+        check("launchpad: canonical desktop IDs",
+              {a["id"] for a in apps} == {"aaa.desktop", "bbb.desktop"},
               repr({a["id"] for a in apps}))
 
         sp = load_app("mv-spotlight")
@@ -295,10 +432,16 @@ def test_integration(mod):
 
 def main():
     mod = load_module("mv_desktop_cache", MOD_PATH)
+    test_xdg_application_paths(mod)
     test_parse(mod)
+    test_recursive_desktop_ids(mod)
     test_fingerprint(mod)
+    test_cache_writer_uses_unique_atomic_tempfiles(mod)
+    test_recursive_fingerprint_invalidation(mod)
     test_cache_hit_skips_reads(mod)
     test_cache_invalidation(mod)
+    test_locale_invalidation(mod)
+    test_missing_cache_is_not_quarantined(mod)
     test_corrupt_cache(mod)
     test_integration(mod)
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")

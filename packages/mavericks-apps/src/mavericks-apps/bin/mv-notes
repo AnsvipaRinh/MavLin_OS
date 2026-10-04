@@ -351,9 +351,6 @@ class Notes(Gtk.Window):
             dlg = Gtk.MessageDialog(
                 self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
                 Gtk.ButtonsType.OK, "Notes store warning")
-            dlg.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            dlg.set_default_size(420, -1)
             dlg.format_secondary_text(msg)
             dlg.run()
             dlg.destroy()
@@ -679,9 +676,6 @@ class Notes(Gtk.Window):
         dlg = Gtk.MessageDialog(
             self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
             Gtk.ButtonsType.YES_NO, "Delete note forever?")
-        dlg.get_style_context().add_class("message")
-        # message-dialog alert layout lives in mavericks-theme dialog.message
-        dlg.set_default_size(420, -1)
         dlg.format_secondary_text(
             "This permanently deletes the note. This cannot be undone.")
         if dlg.run() != Gtk.ResponseType.YES:
@@ -700,9 +694,6 @@ class Notes(Gtk.Window):
         dlg = Gtk.MessageDialog(
             self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
             Gtk.ButtonsType.YES_NO, "Empty Recently Deleted?")
-        dlg.get_style_context().add_class("message")
-        # message-dialog alert layout lives in mavericks-theme dialog.message
-        dlg.set_default_size(420, -1)
         dlg.format_secondary_text(
             "All notes in Recently Deleted will be permanently deleted.")
         if dlg.run() != Gtk.ResponseType.YES:
@@ -721,9 +712,6 @@ class Notes(Gtk.Window):
         dlg = Gtk.MessageDialog(
             self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
             Gtk.ButtonsType.YES_NO, 'Delete folder "%s"?' % folder)
-        dlg.get_style_context().add_class("message")
-        # message-dialog alert layout lives in mavericks-theme dialog.message
-        dlg.set_default_size(420, -1)
         dlg.format_secondary_text(
             "Its notes will be moved to Recently Deleted.")
         if dlg.run() != Gtk.ResponseType.YES:
@@ -757,9 +745,6 @@ class Notes(Gtk.Window):
                 err = Gtk.MessageDialog(
                     self, Gtk.DialogFlags.MODAL, Gtk.MessageType.ERROR,
                     Gtk.ButtonsType.OK, "Export failed")
-                err.get_style_context().add_class("message")
-                # message-dialog alert layout lives in mavericks-theme dialog.message
-                err.set_default_size(420, -1)
                 err.format_secondary_text(str(e))
                 err.run()
                 err.destroy()
@@ -773,9 +758,6 @@ class Notes(Gtk.Window):
             err = Gtk.MessageDialog(
                 self, Gtk.DialogFlags.MODAL, Gtk.MessageType.ERROR,
                 Gtk.ButtonsType.OK, "Printing unavailable")
-            err.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            err.set_default_size(420, -1)
             err.format_secondary_text("The python-cairo package is required.")
             err.run()
             err.destroy()

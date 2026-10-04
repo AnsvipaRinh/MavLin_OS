@@ -120,9 +120,6 @@ class Activity(Gtk.Window):
         d = Gtk.MessageDialog(transient_for=self, modal=True,
             message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.OK_CANCEL,
             text="Quit process %d?" % pid)
-        d.get_style_context().add_class("message")
-        # message-dialog alert layout lives in mavericks-theme dialog.message
-        d.set_default_size(420, -1)
         if d.run() == Gtk.ResponseType.OK:
             try:
                 os.kill(pid, 15)
@@ -130,9 +127,6 @@ class Activity(Gtk.Window):
                 ed = Gtk.MessageDialog(transient_for=self, modal=True,
                     message_type=Gtk.MessageType.ERROR,
                     buttons=Gtk.ButtonsType.OK, text=str(e))
-                ed.get_style_context().add_class("message")
-                # message-dialog alert layout lives in mavericks-theme dialog.message
-                ed.set_default_size(420, -1)
                 ed.run()
                 ed.destroy()
         d.destroy()

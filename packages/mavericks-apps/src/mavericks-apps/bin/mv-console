@@ -740,9 +740,6 @@ class Console(Gtk.Window):
                         type=Gtk.MessageType.ERROR,
                         buttons=Gtk.ButtonsType.OK,
                         message_format="Could not export:\n%s" % e)
-                    err.get_style_context().add_class("message")
-                    # message-dialog alert layout lives in mavericks-theme dialog.message
-                    err.set_default_size(420, -1)
                     err.run()
                     err.destroy()
         finally:

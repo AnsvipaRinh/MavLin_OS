@@ -532,9 +532,6 @@ if _GUI:
                                  message_type=Gtk.MessageType.WARNING,
                                  buttons=Gtk.ButtonsType.NONE,
                                  text="Delete task?")
-            d.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            d.set_default_size(420, -1)
             d.format_secondary_text('"%s" will be permanently removed '
                                     "from the list." % task["title"])
             d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
@@ -555,9 +552,6 @@ if _GUI:
                                  message_type=Gtk.MessageType.WARNING,
                                  buttons=Gtk.ButtonsType.NONE,
                                  text="Clear completed tasks?")
-            d.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            d.set_default_size(420, -1)
             d.format_secondary_text('%d completed task(s) will be removed '
                                     'from "%s".' % (len(done), self.cur))
             d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
@@ -592,9 +586,6 @@ if _GUI:
                                      message_type=Gtk.MessageType.INFO,
                                      buttons=Gtk.ButtonsType.OK,
                                      text="Cannot delete the last list.")
-                d.get_style_context().add_class("message")
-                # message-dialog alert layout lives in mavericks-theme dialog.message
-                d.set_default_size(420, -1)
                 d.run()
                 d.destroy()
                 return
@@ -603,9 +594,6 @@ if _GUI:
                                  message_type=Gtk.MessageType.WARNING,
                                  buttons=Gtk.ButtonsType.NONE,
                                  text="Delete list?")
-            d.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            d.set_default_size(420, -1)
             d.format_secondary_text('"%s" and its %d task(s) will be '
                                     "permanently removed." % (self.cur, n))
             d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
@@ -715,9 +703,6 @@ if _GUI:
                                  message_type=Gtk.MessageType.WARNING,
                                  buttons=Gtk.ButtonsType.OK,
                                  text="Reminders store warning")
-            d.get_style_context().add_class("message")
-            # message-dialog alert layout lives in mavericks-theme dialog.message
-            d.set_default_size(420, -1)
             d.format_secondary_text("\n".join(self.store_warnings))
             d.run()
             d.destroy()
