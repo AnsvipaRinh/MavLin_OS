@@ -20,7 +20,6 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update -qq
-          # xmllint binary comes from libxml2-utils (there is no "xmllint" package)
           sudo apt-get install -y -qq -o Acquire::Retries=3 \
             shellcheck desktop-file-utils python3 libxml2-utils
 
@@ -141,7 +140,10 @@ jobs:
         run: |
           python3 scripts/test-brightness-keys.py
 
-      # NOTE: check-sync.sh is enforced by the static-analysis job.
+      - name: Backlight udev contract
+        run: |
+          python3 scripts/test-backlight-udev.py
+
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest
