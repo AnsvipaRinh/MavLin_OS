@@ -1,20 +1,28 @@
 # Makefile for mavericks-apps — only mv-hud needs compilation.
 # Target CPU: Kaby Lake-Y (m3-7Y32). No -march=native (ISO builds on any host).
 CC ?= cc
+PKG_CONFIG ?= pkg-config
+PANEL_CFLAGS := $(shell $(PKG_CONFIG) --cflags libxfce4panel-2.0)
+PANEL_LIBS := $(shell $(PKG_CONFIG) --libs libxfce4panel-2.0)
 CFLAGS ?= -march=skylake -mtune=skylake -O2 -pipe -fno-plt
 LDFLAGS ?= -Wl,-O1,--sort-common,--as-needed -s
 PREFIX ?= /usr
 
-all: mv-hud
+all: mv-hud mv-apple
 
 mv-hud: bin/mv-hud.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
+mv-apple: panel/mv-apple.c
+	$(CC) $(CFLAGS) $(PANEL_CFLAGS) -o $@ $< $(PANEL_LIBS) $(LDFLAGS)
+
 clean:
-	rm -f mv-hud
+	rm -f mv-hud mv-apple
 
 install: all
 	install -Dm755 mv-hud "$(DESTDIR)$(PREFIX)/bin/mv-hud"
+	install -Dm755 mv-apple "$(DESTDIR)$(PREFIX)/lib/xfce4/panel/plugins/libmv-apple.so"
+	install -Dm644 panel/mv-apple.desktop "$(DESTDIR)$(PREFIX)/share/xfce4/panel/plugins/mv-apple.desktop"
 	for f in bin/mv-settings bin/mv-about bin/mv-activity bin/mv-console \
 	         bin/mv-control bin/mv-power-ui bin/mv-shot bin/mv-quicklook \
 	         bin/mv-quicklook-thunar bin/mv-spotlight-preview \
