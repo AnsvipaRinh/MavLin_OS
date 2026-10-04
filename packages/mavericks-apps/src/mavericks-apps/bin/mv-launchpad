@@ -164,7 +164,8 @@ def load_folders(apps=None):
                 app_ids = []
             app_ids = [app_id for app_id in app_ids if isinstance(app_id, str)]
             if apps:
-                app_ids, _ = _migrate_app_ids(app_ids, apps)
+                app_ids, migrated = _migrate_app_ids(app_ids, apps)
+                changed = changed or migrated
             folders[folder_id] = {"name": name, "apps": app_ids}
 
     # Default folders are created only on first run. Once folders.json
