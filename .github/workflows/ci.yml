@@ -80,8 +80,8 @@ jobs:
               "glpat-[A-Za-z0-9]{20,}"
               "xox[baprs]-[0-9a-zA-Z-]{10,}"
               "sk_live_[0-9a-zA-Z]{24,}"
-              "sk_test_[0-9a-zA-Z]{24,}"
               "rk_live_[0-9a-zA-Z]{24,}"
+              "sk_test_[0-9a-zA-Z]{24,}"
               "rk_test_[0-9a-zA-Z]{24,}"
               "AIza[0-9A-Za-z\\-_]{35}"
               "ya29\\.[0-9A-Za-z\\-_]+"
@@ -133,6 +133,10 @@ jobs:
       - name: Dock default launchers gate
         run: |
           python3 scripts/test-dock-launchers.py
+
+      - name: Window Super-key contract
+        run: |
+          python3 scripts/test-window-keys.py
 
       # NOTE: check-sync.sh is enforced by the static-analysis job ("Full sync
       # check" step runs ./scripts/check-sync.sh directly). A previous version
