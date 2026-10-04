@@ -537,14 +537,30 @@ def main():
         print("mv-stickies: another instance is already running",
               file=sys.stderr)
         return 0
-    app = StickiesApp()
-    app.startup()
-    Gtk.main()
-    return 0
+
+    app = Gtk.Application(application_id="com.mavlinos.Stickies")
+    state = {"stickies": None}
+
+    def startup(application):
+        from mavericks_appmenu import install_application_menu
+        install_application_menu(
+            application, "Stickies",
+            lambda: state["stickies"].stickies[0]
+            if state["stickies"] and state["stickies"].stickies else None)
+
+    def activate(application):
+        if state["stickies"] is None:
+            state["stickies"] = StickiesApp()
+            state["stickies"].startup()
+        for sticky in state["stickies"].stickies:
+            sticky.present()
+
+    app.connect("startup", startup)
+    app.connect("activate", activate)
+    return app.run(sys.argv)
 
 
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")
-    from mavericks_appmenu import run_application
-    sys.exit(run_application(
-        "com.mavlinos.Stickies", "Stickies", StickiesApp, sys.argv))
+    from mavericks_appmenu import install_application_menu
+    sys.exit(main())
