@@ -436,22 +436,7 @@ class Preview(Gtk.Window):
 
 
 if __name__ == "__main__":
-    import subprocess
-    if len(sys.argv) < 2:
-        print("usage: mv-preview <file> [file...]", file=sys.stderr)
-        sys.exit(2)
-
-    files = sys.argv[1:]
-    if len(files) == 1 and os.path.isdir(files[0]):
-        try:
-            files = sorted(os.path.join(files[0], f) for f in os.listdir(files[0])
-                           if os.path.isfile(os.path.join(files[0], f)))
-        except OSError:
-            pass
-
-    if not files:
-        print("No valid files to preview", file=sys.stderr)
-        sys.exit(1)
-
-    w = Preview(files)
-    Gtk.main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.preview", "Preview", Preview, sys.argv))
