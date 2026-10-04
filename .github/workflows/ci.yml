@@ -148,6 +148,10 @@ jobs:
         run: |
           python3 scripts/test-desktop-icons.py
 
+      - name: Bookmarks seed contract
+        run: |
+          python3 scripts/test-bookmarks-seed.py
+
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest
