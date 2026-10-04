@@ -1,11 +1,11 @@
 pkgname=vala-panel-appmenu
 pkgver=25.04
-pkgrel=1
+pkgrel=2
 pkgdesc='Global Menu plugin for Xfce panel'
 arch=('x86_64')
 url='https://gitlab.com/vala-panel-project/vala-panel-appmenu'
 license=('LGPL-3.0-or-later')
-depends=('appmenu-gtk-module' 'dconf' 'gtk3' 'libdbusmenu-glib' 'libwnck3' 'libxkbcommon' 'xfce4-panel' 'xfconf')
+depends=('appmenu-gtk-module' 'dconf' 'gtk3' 'libdbusmenu-glib' 'libwnck3' 'libxkbcommon' 'xfce4-panel' 'xfconf' 'appmenu-gtk-module')
 makedepends=('gettext' 'gobject-introspection' 'meson' 'pkgconf' 'vala')
 provides=('xfce4-appmenu-plugin')
 conflicts=('xfce4-appmenu-plugin')
