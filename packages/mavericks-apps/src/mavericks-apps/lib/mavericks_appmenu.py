@@ -50,7 +50,7 @@ def install_application_menu(app, app_name, get_window, menu_builder=None):
     return menu
 
 
-def run_application(app_id, app_name, window_factory, argv=None):
+def run_application(app_id, app_name, window_factory, argv=None, menu_builder=None):
     """Run a single-window GTK application with global-menu integration.
 
     window_factory is called when the application is activated. The returned
@@ -61,7 +61,7 @@ def run_application(app_id, app_name, window_factory, argv=None):
 
     def startup(application):
         install_application_menu(
-            application, app_name, lambda: state["window"])
+            application, app_name, lambda: state["window"], menu_builder)
 
     def activate(application):
         window = state["window"]
