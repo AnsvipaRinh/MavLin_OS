@@ -71,7 +71,6 @@ jobs:
             gitleaks detect --source . --no-git --verbose
           else
             echo "gitleaks not installed; running lightweight regex scan"
-            # Common secret patterns - documented fallback
             patterns=(
               "AKIA[0-9A-Z]{16}"
               "gh[pousr]_[A-Za-z0-9]{36,}"
@@ -138,11 +137,11 @@ jobs:
         run: |
           python3 scripts/test-window-keys.py
 
-      # NOTE: check-sync.sh is enforced by the static-analysis job ("Full sync
-      # check" step runs ./scripts/check-sync.sh directly). A previous version
-      # of this job piped check-sync through `grep ... || true`, which swallowed
-      # its exit code and could never fail — removed by the forensic audit
-      # (docs/FORENSIC_AUDIT.md, finding F6).
+      - name: Brightness key contract
+        run: |
+          python3 scripts/test-brightness-keys.py
+
+      # NOTE: check-sync.sh is enforced by the static-analysis job.
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest
@@ -152,7 +151,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check profile sync
-        # bash: Contents-API rewrites may leave mode 100644 (no +x)
         run: bash scripts/check-profile-sync.sh
 
   contribution-format:
