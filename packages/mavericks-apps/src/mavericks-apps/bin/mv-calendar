@@ -1851,10 +1851,10 @@ def main():
         return check_upcoming_cli()
     if len(sys.argv) > 1 and sys.argv[1] == "--sync":
         return sync_eds_cli()
-    w = CalendarWindow()
-    w.connect("destroy", Gtk.main_quit)
-    Gtk.main()
-    return 0
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    return run_application(
+        "com.mavlinos.Calendar", "Calendar", CalendarWindow, sys.argv)
 
 
 if __name__ == "__main__":
