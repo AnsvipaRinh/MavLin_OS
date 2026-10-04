@@ -2,7 +2,7 @@
 Type=Application
 Name=Finder
 Comment=File Manager (Mavericks)
-Exec=thunar %U
+Exec=mv-finder-columns %U
 Icon=folder
 Categories=System;FileTools;
 StartupNotify=true
