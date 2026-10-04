@@ -31,10 +31,6 @@
     </property>
     <property name="plugin-4" type="string" value="systray"/>
     <property name="plugin-5" type="string" value="clock"/>
-    <property name="plugin-6" type="string" value="actions"/>
-    <property name="plugin-7" type="string" value="genmon">
-      <property name="command" type="string" value="mv-hud"/>
-      <property name="update-period" type="int" value="30000"/>
-    </property>
+    <property name="plugin-6" type="string" value="power-manager-plugin"/>
   </property>
 </channel>
