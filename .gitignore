@@ -5,4 +5,4 @@ __pycache__/
 # Environment variables (sensitive)
 .env
 .env.local
-.env.*.local
+.env.*.local*.bundle
