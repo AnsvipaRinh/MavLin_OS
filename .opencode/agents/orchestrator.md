@@ -135,6 +135,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
     This prevents model/provider failures from falling through to the "wait for user" state.
     **Do NOT wait for user input. Do NOT ask for confirmation. Execute immediately.**
     **CRITICAL: If you see "Free Usage Exceeded", "rate limit", "quota exceeded", "quota exceeded", "rate limit", or any quota/rate-limit error in the Task result, you MUST IMMEDIATELY execute the failure recovery protocol below. Do NOT wait for user. Do NOT ask for confirmation. Execute the recovery commands NOW.**
+    **⚠️ CRITICAL: The OpenCode server MUST be restarted after any plugin/config changes for the failover-guard plugin to load. If you haven't restarted OpenCode since the last plugin/config change, the failover guard will NOT work. Restart OpenCode/desktop now if you haven't already.**
 
     a) Extract the failure information from the last Task result:
        - task_id (the subagent session id returned by the Task tool)
@@ -265,15 +266,14 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
     is unrecoverable (SESSION_UNAVAILABLE after verification, CONTEXT_EXHAUSTED,
     SESSION_ERROR) — never merely because the worker changes.
 - BEFORE every Task call run preflight + watchdog-ensure + stuck-gate:
-  `scripts/session-reuse.py preflight` (offline: skips cooldown models —
-  NEVER launch a known-dead model just to watch it fail) →
-  `python3 scripts/task-watchdog.py --ensure --all` (self-maintaining: ALIVE
-  or freshly spawned; a foreground Task without a watchdog has no runtime
-  failover) →
-  `scripts/session-reuse.py stuck --threshold 600` (exit 2 = STUCK) +
-  `scripts/session-reuse.py stalled <id> --threshold 600` for idle sessions
-  (exit 2 = status-blind provider wait: 0-token shell, abort it).
-  **CRITICAL: You MUST use the worker/model returned by preflight.**
+  **YOU MUST RUN THESE EXACT BASH COMMANDS IN ORDER:**
+  1. `bash -c 'scripts/session-reuse.py preflight'` — parse output:
+     - `PREFLIGHT_OK subagent_type=<worker> model=<model>` → use that `subagent_type`
+     - `PRIMARY_COOLDOWN <worker> (<model> retry-in <time>): do NOT launch primary` → do NOT launch, use the worker from `PREFLIGHT_OK` line
+     - `PREFLIGHT_WAIT` / `PREFLIGHT_UNAVAILABLE` → do NOT launch Task
+  2. `python3 scripts/task-watchdog.py --ensure --all`
+  3. `scripts/session-reuse.py stuck --threshold 600` + `stalled <id> --threshold 600`
+  **CRITICAL: You MUST use the exact `subagent_type` returned by preflight.**
   If preflight returns `PREFLIGHT_OK subagent_type=<worker> model=<model>`,
   you MUST use that exact `subagent_type` in your Task call.
   If preflight returns `PREFLIGHT_WAIT` or `PRIMARY_COOLDOWN`, do NOT launch
@@ -284,6 +284,7 @@ TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a ne
   preflight will return the next healthy worker (e.g., build-c, build-b, etc.).
   You MUST use the worker returned by preflight, even if it differs from the
   primary worker. NEVER override preflight's worker selection.**
+  **⚠️ CRITICAL: The OpenCode server MUST be restarted after any plugin/config changes for the failover-guard plugin to load. If you haven't restarted OpenCode since the last plugin/config change, the failover guard will NOT work. Restart OpenCode/desktop now if you haven't already.**
 - SINGLE-FLIGHT: at most ONE active worker Task per objective. If the previous
   Task for this objective returned no terminal result yet (busy/retry, or
   `decide` says WAIT): do NOT launch a second Task for the same objective.
