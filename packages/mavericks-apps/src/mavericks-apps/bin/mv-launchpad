@@ -14,6 +14,7 @@ import os
 import sys
 import json
 import subprocess
+import tempfile
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -154,14 +155,38 @@ def _auto_populate_default_folders(folders, apps):
                     break
 
 
-def save_folders(folders):
-    """Save folder configuration."""
+def _atomic_json_save(path, data):
+    """Atomically replace a JSON config file after syncing its contents."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    temp_path = None
     try:
-        with open(FOLDERS_FILE, "w") as fp:
-            json.dump(folders, fp, indent=2)
+        fd, temp_path = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(CONFIG_DIR))
+        with os.fdopen(fd, "w") as fp:
+            json.dump(data, fp, indent=2)
+            fp.write("\n")
+            fp.flush()
+            os.fsync(fp.fileno())
+        os.replace(temp_path, path)
+        temp_path = None
+        try:
+            dir_fd = os.open(CONFIG_DIR, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
     except Exception:
-        pass
+        if temp_path:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+
+
+def save_folders(folders):
+    """Save folder configuration atomically."""
+    _atomic_json_save(FOLDERS_FILE, folders)
 
 
 def load_positions():
@@ -183,13 +208,8 @@ def load_positions():
 
 
 def save_positions(positions):
-    """Save custom app positions."""
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    try:
-        with open(POSITIONS_FILE, "w") as fp:
-            json.dump(positions, fp, indent=2)
-    except Exception:
-        pass
+    """Save custom app positions atomically."""
+    _atomic_json_save(POSITIONS_FILE, positions)
 
 
 def build_launchpad_structure(apps, folders, positions, query="", open_folder=None):
