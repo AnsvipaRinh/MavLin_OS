@@ -120,11 +120,15 @@ def load_folders(apps=None):
             app_ids = [app_id for app_id in app_ids if isinstance(app_id, str)]
             folders[folder_id] = {"name": name, "apps": app_ids}
 
-    for folder_id, folder_data in DEFAULT_FOLDERS.items():
-        folders.setdefault(folder_id, {
-            "name": folder_data["name"],
-            "apps": list(folder_data["apps"]),
-        })
+    # Default folders are created only on first run. Once folders.json
+    # exists, missing defaults are intentional user configuration and must not
+    # be silently recreated on every Launchpad invocation.
+    if not config_exists:
+        for folder_id, folder_data in DEFAULT_FOLDERS.items():
+            folders.setdefault(folder_id, {
+                "name": folder_data["name"],
+                "apps": list(folder_data["apps"]),
+            })
 
     # Auto-population is a first-run migration only. Re-running Launchpad must
     # never silently re-add an app that the user removed from folders.json.
