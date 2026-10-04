@@ -6,12 +6,13 @@ History viewer for notifications logged by mv-notify-send.
 Groups by app, supports clear actions, DND status, keyboard navigation.
 No persistent daemon; reads JSON log on demand. License: GPL-2.0-or-later.
 """
-import json, os, sys, time
+import fcntl, json, os, sys, time
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib
 
 STORE_FILE = os.path.expanduser("~/.local/share/mavericks/notifications.json")
+LOCK_FILE = os.path.expanduser("~/.local/share/mavericks/notifications.lock")
 
 def load_notifications():
     try:
@@ -246,10 +247,16 @@ class NotificationCenter(Gtk.Window):
 
     def save_filtered(self, data):
         os.makedirs(os.path.dirname(STORE_FILE), exist_ok=True)
-        tmp = STORE_FILE + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(data, f)
-        os.replace(tmp, STORE_FILE)
+        with open(LOCK_FILE, "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            tmp = STORE_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, STORE_FILE)
+        os.chmod(STORE_FILE, 0o600)
 
     def on_dnd_toggle(self, switch, _):
         set_dnd_status(switch.get_active())
