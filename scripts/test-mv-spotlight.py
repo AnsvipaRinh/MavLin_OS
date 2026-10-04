@@ -156,6 +156,15 @@ def test_calculator_safety_contract():
     assert "ast.Pow" in source
 
 
+def test_file_action_quoting_contract():
+    from pathlib import Path
+    source = (Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight").read_text(encoding="utf-8")
+    assert "import shlex" in source
+    assert "shlex.quote(item['path'])" in source
+    assert "shlex.quote(path)" in source
+    assert "xdg-open --" in source
+
+
 def test_main_subprocess():
     import subprocess
 
@@ -192,6 +201,7 @@ if __name__ == "__main__":
         ("rank_app_match", test_rank_app_match),
         ("rofi_preview_integration", test_rofi_preview_integration),
         ("calculator_safety_contract", test_calculator_safety_contract),
+        ("file_action_quoting_contract", test_file_action_quoting_contract),
         ("main_subprocess", test_main_subprocess),
     ]
 
