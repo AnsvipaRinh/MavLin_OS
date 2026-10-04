@@ -188,3 +188,6 @@ jobs:
     steps:
       - name: Skip - requires MacBook10,1 hardware
         run: echo "Hardware tests skipped - no Mac hardware in CI"
+    - name: Finder launcher regression gate
+      run: python3 scripts/test-finder-launcher.py
+
