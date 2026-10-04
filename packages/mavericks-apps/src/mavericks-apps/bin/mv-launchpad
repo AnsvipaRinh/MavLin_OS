@@ -51,7 +51,7 @@ def load_desktop_apps():
     apps = []
     seen_ids = set()
     for e in mv_desktop_cache.load_desktop_entries():
-        desktop_id = Path(e["path"]).stem
+        desktop_id = e.get("desktop_id") or Path(e["path"]).stem
         # Skip duplicates (user overrides system)
         if desktop_id in seen_ids:
             continue
