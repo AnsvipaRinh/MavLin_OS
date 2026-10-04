@@ -180,6 +180,17 @@ def test_folder_pages_reserve_back_cell():
     print("PASS: test_folder_pages_reserve_back_cell")
 
 
+def test_config_writes_are_atomic():
+    """Launchpad config writes must use a temp file, fsync, and atomic replace."""
+    source = open(SCRIPT).read()
+    assert 'tempfile.mkstemp' in source
+    assert 'os.fsync(fp.fileno())' in source
+    assert 'os.replace(temp_path, path)' in source
+    assert '_atomic_json_save(FOLDERS_FILE, folders)' in source
+    assert '_atomic_json_save(POSITIONS_FILE, positions)' in source
+    print("PASS: test_config_writes_are_atomic")
+
+
 def test_many_top_level_folders_are_paginated():
     """More than one 7x5 page of folders must not be dropped or overflow the grid."""
     source = open(SCRIPT).read()
@@ -295,6 +306,7 @@ if __name__ == "__main__":
         test_rofi_selection_actions,
         test_rofi_live_search_callback,
         test_page_navigation_callbacks,
+        test_config_writes_are_atomic,
         test_many_top_level_folders_are_paginated,
         test_folder_cells_count_toward_pagination,
         test_folder_pages_reserve_back_cell,
