@@ -58,7 +58,8 @@ def test_pagination_hint_present():
     # The pagination hint should be present at the end of output
     # Format: \0icon\x1fgo-previous\x1fPage N/M — ←/→ or PgUp/PgDn to navigate
     assert "Page" in stdout, "Expected pagination hint containing 'Page'"
-    assert "←/→" in stdout, "Expected navigation arrows in pagination hint"
+    assert "PgUp/PgDn" in stdout, "Expected Page Up/Down navigation hint"
+    assert "←/→" not in stdout, "Arrow keys must remain available for item navigation"
     print("PASS: test_pagination_hint_present")
 
 
@@ -206,6 +207,17 @@ def test_folder_config_is_normalized():
     assert 'folders.setdefault(folder_id' in source
     print("PASS: test_folder_config_is_normalized")
 
+def test_default_folder_population_is_first_run_only():
+    """Default folder auto-population must never re-add user-removed apps."""
+    source = open(SCRIPT).read()
+    assert 'config_exists = FOLDERS_FILE.exists()' in source
+    assert 'if not config_exists:' in source
+    assert 'if apps:\n            _auto_populate_default_folders(folders, apps)' in source
+    assert 'if apps:\n        _auto_populate_default_folders(folders, apps)' not in source
+    assert 'copy.deepcopy(DEFAULT_FOLDERS)' in source
+    print("PASS: test_default_folder_population_is_first_run_only")
+
+
 
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
@@ -243,6 +255,7 @@ if __name__ == "__main__":
         test_folder_members_are_not_duplicated_on_main_grid,
         test_position_conflicts_and_invalid_values_do_not_drop_apps,
         test_folder_config_is_normalized,
+        test_default_folder_population_is_first_run_only,
         test_full_integration_basic,
     ]
 
