@@ -206,14 +206,18 @@ def _parse_desktop_file(path):
 
 
 def _read_json_safe(path):
-    """Read JSON cache; quarantine corrupt files and treat as a miss."""
+    """Read JSON cache; quarantine corrupt files and treat a miss safely."""
     try:
         with open(path) as f:
             return json.load(f)
+    except FileNotFoundError:
+        return None
     except (OSError, ValueError):
         pass
+
+    quarantine = "%s.corrupt-%d-%d" % (path, time.time_ns(), os.getpid())
     try:
-        os.replace(path, "%s.corrupt-%d" % (path, int(time.time())))
+        os.replace(path, quarantine)
     except OSError:
         pass
     return None
