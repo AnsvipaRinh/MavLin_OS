@@ -116,6 +116,7 @@ def main():
 
     package_names = set(PACKAGES.read_text(encoding="utf-8").split())
     assert "vala-panel-appmenu" in package_names
+    assert "xfce4-genmon-plugin" not in package_names
     assert "appmenu-gtk-module" in package_names
     build = PKGBUILD.read_text(encoding="utf-8")
     assert "-Dxfce=enabled" in build
