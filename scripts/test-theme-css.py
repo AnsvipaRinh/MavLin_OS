@@ -22,6 +22,7 @@ Checks:
 Usage: python3 scripts/test-theme-css.py
 Exit 0 = all checks passed."""
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -165,6 +166,14 @@ def main():
             css = f.read()
         check("%s: zero @use/@import in compiled css" % target,
               "@use" not in css and "@import" not in css)
+        # Single-source-of-truth guard (phase 0.62 coherence fix): the inline
+        # "frosted glass" menu/menuitem/separator overrides were removed from
+        # gtk.scss because they silently fought _menus.scss (flat hover beat
+        # the Mavericks aqua gradient; rounded card beat square menus).
+        # Regressions here mean someone re-added duplicate inline menu rules.
+        check("%s: no duplicate inline frosted-glass menu card" % target,
+              not re.search(r"\bmenu\b[^{}]*\{[^}]*border-radius:\s*6px", css),
+              "inline menu card override present again")
         if have_gtk:
             raised, n_err = parse_with_gtk(path)
             check("%s: Gtk.CssProvider loads without error" % target,
