@@ -154,6 +154,8 @@ def test_calculator_safety_contract():
     assert 'ast.parse(q, mode="eval")' in source
     assert "eval(" not in source
     assert "ast.Pow" in source
+    assert "len(nodes) > 64" in source
+    assert "abs(exponent) > 1000" in source
 
 
 def test_file_action_quoting_contract():
