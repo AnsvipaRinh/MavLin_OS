@@ -197,7 +197,31 @@ def evaluate_calculator(query):
             )
             if any(not isinstance(node, allowed_nodes) for node in ast.walk(tree)):
                 raise ValueError("unsupported calculator expression")
-            result = eval(compile(tree, "<calculator>", "eval"), {"__builtins__": {}}, {})
+            def calculate(node):
+                if isinstance(node, ast.Expression):
+                    return calculate(node.body)
+                if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+                    return node.value
+                if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+                    value = calculate(node.operand)
+                    return +value if isinstance(node.op, ast.UAdd) else -value
+                if isinstance(node, ast.BinOp):
+                    left, right = calculate(node.left), calculate(node.right)
+                    operations = {
+                        ast.Add: lambda: left + right,
+                        ast.Sub: lambda: left - right,
+                        ast.Mult: lambda: left * right,
+                        ast.Div: lambda: left / right,
+                        ast.FloorDiv: lambda: left // right,
+                        ast.Mod: lambda: left % right,
+                        ast.Pow: lambda: left ** right,
+                    }
+                    for operator, operation in operations.items():
+                        if isinstance(node.op, operator):
+                            return operation()
+                raise ValueError("unsupported calculator expression")
+
+            result = calculate(tree)
             results.append({
                 "name": f"{result}",
                 "info": f"Calculator: {q} = {result}",
