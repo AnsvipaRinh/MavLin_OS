@@ -232,3 +232,50 @@ Dangling commits indicate session recovery failure. The unsupervised session was
 - Cannot recover full audit completeness without fresh data collection
 - Test infrastructure requires re-implementation
 - Documentation gaps will affect future audits and onboarding
+
+---
+
+## 2026-10-04 — Launchpad P0: Pagination, Edit Mode, Keyboard Shortcuts
+
+**Context:** Launchpad was PARTIALLY IMPLEMENTED with pagination, folders, search, and custom positions, but missing jiggle/rearrange mode, Mavericks-style page dots, and dedicated edit keybinding.
+
+**Decisions:**
+
+1. **Jiggle Mode Approximation via GTK3 Dialog** — rofi script mode cannot support drag-and-drop or in-grid rearrangement. Implemented `mv_launchpad_edit.py` as a separate GTK3 dialog providing:
+   - Drag-and-drop reordering (native GTK TreeView reorderable)
+   - Keyboard shortcuts (Ctrl+↑/↓ to move selected item)
+   - Persists to `positions.json` (same format as existing custom positions)
+   - Launched via "Edit Launchpad…" entry in Launchpad grid (page 0, hidden when searching/in folder)
+   - Also accessible via Super+Shift+L global keybinding
+
+2. **Mavericks-Style Page Dots** — Replaced "Page X/Y — ←/→ or PgUp/PgDn" text with ●○○ dot notation matching Mavericks Launchpad visual language. Dots update per page (● current, ○ others).
+
+3. **App Store Integration Explicitly Excluded** — No Linux equivalent to Mac App Store exists; a pacman wrapper would be a renamed Linux tool violating §9 fake-completion rule. Recorded as EXCLUDED in APPS.md and RESEARCH_P2_CLOSE.md.
+
+4. **Edit Entry Visibility Rules** — "Edit Launchpad…" entry only appears on page 0 of main grid (not when searching, not inside folders). This avoids clutter and matches Mavericks behavior where rearrangement is a top-level action.
+
+5. **Keyboard Shortcut: Super+Shift+L** — Added to xfce4-keyboard-shortcuts.xml for direct edit mode access without opening Launchpad first. Consistent with Super+L (Launchpad) + Shift (modifier for alternate/action).
+
+**Rationale:**
+- rofi script mode is read-only; interactive rearrangement requires a separate GUI
+- GTK3 dialog is lightweight (on-demand, no daemon), reuses existing positions.json
+- Page dots are zero-cost visual improvement (string formatting only)
+- Exclusion of App Store follows project policy: no fake-completion via renamed Linux tools
+
+**Verification:**
+- test_mv_launchpad.py: 13/13 PASS (4 new tests for page dots, edit entry, search hiding)
+- check-sync.sh: 221/221 PASS
+- py_compile: clean for mv-launchpad, mv_launchpad_edit.py
+
+**Files Added/Modified:**
+- packages/mavericks-apps/src/mavericks-apps/bin/mv-launchpad (pagination dots, edit entry)
+- packages/mavericks-apps/src/mavericks-apps/bin/mv_launchpad_edit.py (new GTK3 edit dialog)
+- packages/mavericks-apps/src/mavericks-apps/config/xfce4-keyboard-shortcuts.xml (Super+Shift+L)
+- packages/mavericks-apps/src/mavericks-apps/Makefile (install mv_launchpad_edit.py)
+- packages/mavericks-apps/src/mavericks-apps/tests/test_mv_launchpad.py (13 tests)
+
+**Documentation:**
+- APPS.md: Launchpad → IMPLEMENTED — HARDWARE VALIDATION REQUIRED
+- PROGRESS.md: Launchpad P0 section added
+- NEEDS_HARDWARE_TEST.md: Super+L/Super+Shift+L feel, fullscreen render on 2304×1440
+

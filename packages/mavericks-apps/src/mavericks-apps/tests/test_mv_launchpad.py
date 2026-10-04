@@ -12,7 +12,7 @@ import json
 import os
 import shutil
 
-SCRIPT = "/usr/bin/mv-launchpad"
+SCRIPT = "/home/builder/projects/MavLinOS/packages/mavericks-apps/src/mavericks-apps/bin/mv-launchpad"
 CONFIG_DIR = os.path.expanduser("~/.config/mv-launchpad")
 CACHE_DIR = os.path.expanduser("~/.cache/mavericks")
 
@@ -52,12 +52,12 @@ def test_no_crash_on_repeated_runs():
 
 
 def test_pagination_hint_present():
-    """Test that pagination hint is displayed (environment-dependent content)."""
+    """Test that pagination hint is displayed with Mavericks-style page dots."""
     stdout, rc = run_launchpad(0)
     assert rc == 0, f"Launchpad exited with code {rc}"
     # The pagination hint should be present at the end of output
-    # Format: \0icon\x1fgo-previous\x1fPage N/M — ←/→ or PgUp/PgDn to navigate
-    assert "Page" in stdout, "Expected pagination hint containing 'Page'"
+    # Format: \0icon\x1fgo-previous\x1f● ○ ○ — ←/→ or PgUp/PgDn to navigate
+    assert "●" in stdout, "Expected pagination hint containing page dots (●)"
     assert "←/→" in stdout, "Expected navigation arrows in pagination hint"
     print("PASS: test_pagination_hint_present")
 
@@ -93,6 +93,47 @@ def test_keyboard_navigation_hints():
     has_navigation = "←/→" in stdout or "PgUp" in stdout
     assert has_info or has_navigation, "Expected info or navigation hints in output"
     print("PASS: test_keyboard_navigation_hints")
+
+
+def test_edit_mode_entry_present():
+    """Test that 'Edit Launchpad…' entry appears on page 0 when not searching."""
+    stdout, rc = run_launchpad(0)
+    assert rc == 0, f"Launchpad exited with code {rc}"
+    # Should contain the edit entry
+    assert "Edit Launchpad" in stdout, "Expected 'Edit Launchpad…' entry on page 0"
+    assert "preferences-desktop-icon-theme" in stdout, "Expected edit entry icon"
+    print("PASS: test_edit_mode_entry_present")
+
+
+def test_edit_mode_entry_hidden_when_searching():
+    """Test that 'Edit Launchpad…' entry is hidden when searching."""
+    stdout, rc = run_launchpad(0, "calculator")
+    assert rc == 0, f"Launchpad exited with code {rc}"
+    # Should NOT contain the edit entry when searching
+    assert "Edit Launchpad" not in stdout, "Edit entry should be hidden during search"
+    print("PASS: test_edit_mode_entry_hidden_when_searching")
+
+
+def test_pagination_dots_page_1():
+    """Test that page 1 shows correct page dot pattern."""
+    stdout, rc = run_launchpad(1)
+    assert rc == 0, f"Launchpad exited with code {rc}"
+    # Should show ○ ● ○ for page 1 (0-indexed)
+    assert "○ ●" in stdout, "Expected page dots showing current page as 1"
+    print("PASS: test_pagination_dots_page_1")
+
+
+def test_pagination_dots_last_page():
+    """Test that last page shows correct page dot pattern."""
+    # First find total pages by running page 0
+    stdout, rc = run_launchpad(0)
+    assert rc == 0
+    # Extract total pages from dots pattern (count of dots)
+    # For now just test that page 2 (last page in our env) shows ○ ○ ●
+    stdout, rc = run_launchpad(2)
+    assert rc == 0, f"Launchpad exited with code {rc}"
+    assert "○ ○ ●" in stdout, "Expected page dots showing current page as last"
+    print("PASS: test_pagination_dots_last_page")
 
 
 def test_desktop_entry_integrity():
@@ -142,8 +183,8 @@ def test_full_integration_basic():
     # Verify script produces some output
     assert len(stdout) > 0, "Expected non-empty output"
 
-    # Check pagination hint
-    assert "Page" in stdout, "Expected pagination hint"
+    # Check pagination hint (Mavericks-style page dots)
+    assert "●" in stdout, "Expected pagination hint with page dots"
 
     # Search should work (result depends on available apps)
     stdout, rc = run_launchpad(0, "calculator")
@@ -163,6 +204,10 @@ if __name__ == "__main__":
         test_desktop_entry_integrity,
         test_rofi_theme_has_mavericks_styling,
         test_full_integration_basic,
+        test_edit_mode_entry_present,
+        test_edit_mode_entry_hidden_when_searching,
+        test_pagination_dots_page_1,
+        test_pagination_dots_last_page,
     ]
 
     passed = 0

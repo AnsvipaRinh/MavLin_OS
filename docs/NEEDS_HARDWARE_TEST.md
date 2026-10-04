@@ -335,6 +335,9 @@ procedures or active code reference them:
 - [ ] HUD: mv-hud в genmon показывает ватты RAPL m3-7Y32 (на хосте — graceful `n/a`)
 - [ ] Launchpad: Super+L открывает полноэкранную сетку; поиск фильтрует; папки (Utilities/Other) открываются; Back возвращает; иконки отображаются корректно на 2304x1440
 - [ ] Launchpad: mv-launchpad.desktop доступен в меню приложений и может быть закреплен в Dock
+- [ ] Launchpad: Super+Shift+L открывает mv-launchpad-edit GTK3 диалог для перетаскивания/переупорядочивания приложений; drag-and-drop и Ctrl+↑/↓ работают; изменения сохраняются в positions.json и отражаются в Launchpad после закрытия
+- [ ] Launchpad: Mavericks-style page dots (●○○) отображаются корректно на 2304×1440; переключение страниц Left/Right/PgUp/PgDn обновляет dots
+- [ ] Launchpad: "Edit Launchpad…" запись в сетке (page 0, не в поиске, не в папке) запускает mv-launchpad-edit; запись скрывается при поиске/внутри папки
 
 ## Control Center — hardware validation
 - [ ] Wi-Fi: network list populates, connect to open/secured AP, disconnect works, password prompt appears; NM D-Bus signal-driven refresh fires on scan/connect (phase B: заменил 5s `nmcli dev wifi list` rescan poll; 30s fallback + manual Refresh button) — проверить что спасает battery (rescan energy на BCM43602)
