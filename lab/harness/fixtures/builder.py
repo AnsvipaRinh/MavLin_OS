@@ -23,10 +23,12 @@ Creates the per-scenario fixture layout shared by all backends:
 The QEMU backend additionally builds esp.img (FAT32) + OVMF vars and boots
 it. The sim backend uses the same layout with directories only.
 """
+import glob
 import os
 import shutil
 import struct
 import subprocess
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent.parent
@@ -36,6 +38,41 @@ GUEST_INIT_SRC = Path(__file__).resolve().parent / "guest_init.py"
 # Kernel + initramfs sources (copied to builder-owned locations by the harness)
 KERNEL_SRC = Path("/tmp/mavericks-lab-kernel/vmlinuz-linux-zen")
 INITRD_SRC = Path("/tmp/mavericks-lab-kernel/initramfs-linux-zen.img")
+
+
+def _host_python_binary():
+    """Absolute path of the running interpreter's real python binary."""
+    exe = Path(sys.executable).resolve()
+    if exe.name.startswith("python"):
+        return exe
+    # sys.executable may be a venv wrapper; fall back to versioned name.
+    cand = exe.parent / f"python{sys.version_info.major}.{sys.version_info.minor}"
+    return cand if cand.exists() else exe
+
+
+def _host_python_stdlib_dir():
+    """Path of the host stdlib dir matching _host_python_binary()."""
+    home = getattr(sys, "base_prefix", sys.prefix)
+    ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    for cand in (Path(home) / "lib" / ver, Path("/usr/lib") / ver):
+        if cand.is_dir():
+            return cand
+    raise FileNotFoundError(f"no stdlib dir found for {ver}")
+
+
+def _find_runtime_lib(patterns):
+    """Locate a shared library on the host across common lib dirs."""
+    for pat in patterns:
+        hits = sorted(
+            glob.glob(f"/usr/lib64/{pat}")
+            + glob.glob(f"/usr/lib/{pat}")
+            + glob.glob(f"/usr/lib/x86_64-linux-gnu/{pat}")
+            + glob.glob(f"/lib/x86_64-linux-gnu/{pat}")
+            + glob.glob(f"/lib64/{pat}")
+        )
+        if hits:
+            return Path(hits[0])
+    return None
 
 STDLIB_EXCLUDE = {
     "site-packages", "__pycache__", "idlelib", "tkinter", "turtledemo",
@@ -49,6 +86,11 @@ def _run(cmd, **kw):
 
 def ensure_kernel_sources():
     """Copy kernel + initramfs to builder-owned locations (sudo)."""
+    if os.environ.get("MAVLINOS_LAB_SKIP_FIXTURE_BUILD") == "1":
+        raise RuntimeError(
+            "kernel sources unavailable (MAVLINOS_LAB_SKIP_FIXTURE_BUILD=1); "
+            "QEMU-grade fixtures need an Arch host with /boot/vmlinuz-linux-zen"
+        )
     KERNEL_SRC.parent.mkdir(parents=True, exist_ok=True)
     if not KERNEL_SRC.exists():
         _run(["sudo", "cp", "/boot/vmlinuz-linux-zen", str(KERNEL_SRC)])
@@ -90,34 +132,49 @@ def patch_kernel_cmdline(kernel_path, cmdline):
 def build_initramfs(dest):
     """Build the guest initramfs: python + stdlib + libffi + wrapper + init + agent."""
     dest = Path(dest)
-    if dest.exists():
-        dest.unlink()
+    if os.environ.get("MAVLINOS_LAB_SKIP_FIXTURE_BUILD") == "1":
+        raise RuntimeError(
+            "initramfs build unavailable (MAVLINOS_LAB_SKIP_FIXTURE_BUILD=1); "
+            "QEMU-grade fixture needs an Arch host with /boot/vmlinuz-linux-zen"
+        )
     root = dest.parent / (dest.name + "-root")
     if root.exists():
         shutil.rmtree(root)
     root.mkdir(parents=True)
 
-    # python runtime + shared library deps for lib-dynload C extensions
-    for src, dst in [
-        ("/usr/bin/python3.14", "usr/bin/python3.14"),
-        ("/usr/lib/libpython3.14.so.1.0", "usr/lib/libpython3.14.so.1.0"),
-        ("/usr/lib/libc.so.6", "usr/lib/libc.so.6"),
-        ("/usr/lib/libm.so.6", "usr/lib/libm.so.6"),
-        ("/usr/lib/libffi.so.8", "usr/lib/libffi.so.8"),
-        ("/usr/lib64/ld-linux-x86-64.so.2", "lib64/ld-linux-x86-64.so.2"),
-        ("/usr/lib/libz.so.1", "usr/lib/libz.so.1"),
-        ("/usr/lib/libcrypto.so.3", "usr/lib/libcrypto.so.3"),
-        ("/usr/lib/libssl.so.3", "usr/lib/libssl.so.3"),
-        ("/usr/lib/libbrotlienc.so.1", "usr/lib/libbrotlienc.so.1"),
-        ("/usr/lib/libbrotlidec.so.1", "usr/lib/libbrotlidec.so.1"),
-        ("/usr/lib/libbrotlicommon.so.1", "usr/lib/libbrotlicommon.so.1"),
-        ("/usr/lib/libzstd.so.1", "usr/lib/libzstd.so.1"),
-        ("/usr/lib/liblzma.so.5", "usr/lib/liblzma.so.5"),
-        ("/usr/lib/libgcc_s.so.1", "usr/lib/libgcc_s.so.1"),
-        ("/usr/lib/libkmod.so.2", "usr/lib/libkmod.so.2"),
-        ("/usr/sbin/modprobe", "usr/sbin/modprobe"),
-        ("/usr/sbin/insmod", "usr/sbin/insmod"),
-    ]:
+    # python runtime + shared library deps for lib-dynload C extensions.
+    # Resolved dynamically so the builder works on any host distro/python
+    # version (previously hard-coded to Arch's python3.14 layout).
+    py_bin = _host_python_binary()
+    py_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    guest_py_name = py_bin.name if py_bin.name.startswith("python") else f"python{py_ver}"
+    lib_specs = [
+        ([f"libpython{py_ver}*.so*"], f"usr/lib/libpython{py_ver}.so.1.0"),
+        (["libc.so.6", "libc-*.so"], "usr/lib/libc.so.6"),
+        (["libm.so.6", "libm-*.so"], "usr/lib/libm.so.6"),
+        (["libffi.so.8*", "libffi.so*"], "usr/lib/libffi.so.8"),
+        (["ld-linux-x86-64.so.2", "ld-*.so"], "lib64/ld-linux-x86-64.so.2"),
+        (["libz.so.1*"], "usr/lib/libz.so.1"),
+        (["libcrypto.so.3*"], "usr/lib/libcrypto.so.3"),
+        (["libssl.so.3*"], "usr/lib/libssl.so.3"),
+        (["libbrotlienc.so.1*"], "usr/lib/libbrotlienc.so.1"),
+        (["libbrotlidec.so.1*"], "usr/lib/libbrotlidec.so.1"),
+        (["libbrotlicommon.so.1*"], "usr/lib/libbrotlicommon.so.1"),
+        (["libzstd.so.1*"], "usr/lib/libzstd.so.1"),
+        (["liblzma.so.5*"], "usr/lib/liblzma.so.5"),
+        (["libgcc_s.so.1*"], "usr/lib/libgcc_s.so.1"),
+        (["libkmod.so.2*"], "usr/lib/libkmod.so.2"),
+    ]
+    for patterns, dst in lib_specs:
+        src = _find_runtime_lib(patterns)
+        if src is None or not src.exists():
+            continue
+        d = root / dst
+        d.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, d)
+        d.chmod(0o755)
+
+    for src, dst in [(str(py_bin), f"usr/bin/{guest_py_name}")]:
         s = Path(src)
         if not s.exists():
             continue
@@ -125,13 +182,26 @@ def build_initramfs(dest):
         d.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(s, d)
         d.chmod(0o755)
+    for tool in ("modprobe", "insmod"):
+        src = f"/usr/sbin/{tool}"
+        if not Path(src).exists():
+            src = f"/sbin/{tool}"
+        if Path(src).exists():
+            d = root / f"usr/sbin/{tool}"
+            d.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, d)
+            d.chmod(0o755)
 
-    # python3 symlink
-    os.symlink("python3.14", root / "usr/bin/python3")
+    # python3 symlink (relative link into usr/bin, matching guest layout)
+    bin_dir = root / "usr/bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    py3_link = bin_dir / "python3"
+    if not py3_link.exists():
+        os.symlink(guest_py_name, py3_link)
 
     # trimmed stdlib
-    stdlib_src = Path("/usr/lib/python3.14")
-    stdlib_dst = root / "usr/lib/python3.14"
+    stdlib_src = _host_python_stdlib_dir()
+    stdlib_dst = root / f"usr/lib/{py_ver}"
     stdlib_dst.mkdir(parents=True, exist_ok=True)
     for item in stdlib_src.iterdir():
         if item.name in STDLIB_EXCLUDE:
@@ -148,8 +218,8 @@ def build_initramfs(dest):
         '#include <unistd.h>\n#include <stdlib.h>\n'
         'int main(void){setenv("PYTHONHASHSEED","0",1);'
         'setenv("PYTHONHOME","/usr",1);'
-        'char *a[]={"python3.14","/init.py",NULL};'
-        'execv("/usr/bin/python3.14",a);return 127;}\n'
+        'char *a[]={"' + guest_py_name + '","/init.py",NULL};'
+        'execv("/usr/bin/' + guest_py_name + '",a);return 127;}\n'
     )
     wrapper.chmod(0o644)
     _run(["gcc", "-static", "-o", str(root / "init"), str(wrapper)], check=True)
@@ -362,6 +432,11 @@ def create_fixture(fixture_dir, params):
         (data / "journal.jsonl").write_text("\n".join(lines) + "\n")
 
     # ESP contents (sim uses these as files; qemu copies to image)
+    if os.environ.get("MAVLINOS_LAB_SKIP_FIXTURE_BUILD") == "1":
+        # Simulation-only mode: the sim backend never reads esp/ artifacts,
+        # and data.img is only needed by the QEMU backend. Skip both so the
+        # harness logic tests run on hosts without an Arch kernel/toolchain.
+        return fixture_dir
     ensure_kernel_sources()
     initrd = fixture_dir / "esp/EFI/BOOT/initramfs.img"
     cached = Path("/tmp/mavericks-lab-initramfs-cache.img")

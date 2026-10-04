@@ -8,6 +8,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(REPO / "lab/harness"))
+# The tests import package paths like `lab.harness.fixtures.builder`, so the
+# repo root must be importable regardless of how the file is invoked
+# (CI runs `python3 lab/harness/tests/test_harness.py` with no PYTHONPATH).
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
 
 FAILURES = []
 PASSED = 0

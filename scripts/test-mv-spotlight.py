@@ -134,25 +134,34 @@ def test_rank_app_match():
 def test_main_subprocess():
     import subprocess
 
-    # Calculator query
-    result = subprocess.run(
-        ["/usr/bin/mv-spotlight", "2+2"],
-        capture_output=True, text=True, timeout=5
+    # Run the repository source copy (portable across hosts/CI); fall back to
+    # the installed path only if the source file is absent.
+    src = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight")
+    binary = src if os.path.exists(src) else "/usr/bin/mv-spotlight"
+    env = dict(os.environ)
+    bin_dir = os.path.dirname(binary)
+    src_pkg = os.path.join(REPO, "packages/mavericks-apps/src")
+    existing_path = env.get("PATH", "")
+    env["PATH"] = bin_dir + os.pathsep + existing_path
+    env["PYTHONPATH"] = os.pathsep.join(
+        p for p in (src_pkg, bin_dir, env.get("PYTHONPATH", "")) if p
     )
+
+    def run(args):
+        return subprocess.run(
+            [binary] + args, capture_output=True, text=True, timeout=10, env=env
+        )
+
+    # Calculator query
+    result = run(["2+2"])
     assert result.returncode >= 0, f"mv-spotlight crashed on '2+2': {result.stderr}"
 
     # Empty query
-    result = subprocess.run(
-        ["/usr/bin/mv-spotlight"],
-        capture_output=True, text=True, timeout=5
-    )
+    result = run([])
     assert result.returncode >= 0, f"mv-spotlight crashed on empty query: {result.stderr}"
 
     # Non-matching query
-    result = subprocess.run(
-        ["/usr/bin/mv-spotlight", "nonexistent_query_xyz"],
-        capture_output=True, text=True, timeout=5
-    )
+    result = run(["nonexistent_query_xyz"])
     assert result.returncode >= 0, f"mv-spotlight crashed on nonexistent query: {result.stderr}"
     pass
 

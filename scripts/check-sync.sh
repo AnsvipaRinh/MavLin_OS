@@ -95,9 +95,19 @@ while IFS= read -r -d '' f; do
 done < <(find packages -name "*.desktop" -print0 2>/dev/null)
 
 echo "--- PKGBUILD parse ---"
-for d in packages/mavericks-apps packages/mavericks-theme packages/epiphany-mavericks-theme; do
-  (cd "$d" && makepkg --printsrcinfo >/dev/null 2>&1) && ok "pkgbuild $d" || bad "pkgbuild $d"
-done
+if command -v makepkg >/dev/null 2>&1; then
+  for d in packages/mavericks-apps packages/mavericks-theme packages/epiphany-mavericks-theme; do
+    (cd "$d" && makepkg --printsrcinfo >/dev/null 2>&1) && ok "pkgbuild $d" || bad "pkgbuild $d"
+  done
+else
+  # Non-Arch hosts (e.g. ubuntu-latest CI runners, dev containers) have no
+  # makepkg; fall back to bash syntax parsing of each PKGBUILD so this gate
+  # stays meaningful and portable instead of failing unconditionally.
+  echo "note: makepkg not available; falling back to bash -n on PKGBUILDs"
+  while IFS= read -r -d '' pb; do
+    bash -n "$pb" 2>/dev/null && ok "pkgbuild(bash -n) $pb" || bad "pkgbuild syntax $pb"
+  done < <(find packages -maxdepth 2 -name PKGBUILD -print0 2>/dev/null)
+fi
 
 if [[ "${1:-}" == "--check-repos" ]]; then
   echo "--- ISO package list vs repos ---"
