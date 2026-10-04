@@ -26,6 +26,13 @@ NATIVE_APPS = {
     "reminders": "Reminders",
     "settings": "System Preferences",
     "voice": "Voice Memos",
+    "stickies": "Stickies",
+    "music": "Music",
+    "mail": "Mail",
+    "keychain": "Keychain Access",
+    "power-ui": "Power",
+    "control": "Control Center",
+    "notification-center": "Notification Center",
     "textedit": "TextEdit",
 }
 
