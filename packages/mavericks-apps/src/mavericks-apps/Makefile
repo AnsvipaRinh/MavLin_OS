@@ -48,6 +48,7 @@ install: all
 	install -m644 config/thunar-uca.xml "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/xfce4-keyboard-shortcuts.xml "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/mv-ytplayer-bookmarklet.html "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
+	install -m644 lib/mavericks_appmenu.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mavericks_appmenu.py"
 	install -Dm644 ../../../../configs/mv-ytplayer/codec-policy.conf "$(DESTDIR)/etc/mv-ytplayer/codec-policy.conf"
 	install -d "$(DESTDIR)$(PREFIX)/lib/xfce4/panel/plugins"
 	install -Dm755 libmv-apple.so "$(DESTDIR)$(PREFIX)/lib/xfce4/panel/plugins/libmv-apple.so"
