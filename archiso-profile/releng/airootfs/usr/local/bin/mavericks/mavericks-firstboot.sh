@@ -90,7 +90,7 @@ if ! macbook_profile; then
   rm -f /etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf
 fi
 systemctl disable --now iwd.service 2>/dev/null || true
-systemctl disable --now systemd-networkd.service 2>/dev/null || true
+systemctl disable --now systemd-networkd.service systemd-networkd-wait-online.service 2>/dev/null || true
 systemctl enable NetworkManager.service 2>/dev/null || true
 systemctl enable systemd-resolved.service 2>/dev/null || true
 systemctl mask ModemManager.service 2>/dev/null || true
