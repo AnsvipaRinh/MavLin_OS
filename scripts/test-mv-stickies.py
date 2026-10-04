@@ -306,9 +306,32 @@ def test_gui(m):
                   r.hb.get_title())
 
 
+def test_portable(m):
+    """Headless guarantees introduced by the lazy-Gtk port."""
+    check("module imports without gi", hasattr(m, "HAS_GTK"))
+    if not m.HAS_GTK:
+        for factory in ("build_stickynote_class", "build_searchwindow_class"):
+            try:
+                getattr(m, factory)()
+                bad(factory + " raises without gi", "no exception")
+            except RuntimeError:
+                ok(factory + " raises without gi")
+        rc = None
+        real_stdout = sys.stdout
+        sys.stdout = __import__("io").StringIO()
+        try:
+            rc = m.main()
+        finally:
+            sys.stdout = real_stdout
+        check("main() exits non-zero headless", rc == 1, str(rc))
+    else:
+        ok("gi present: factories callable")
+
+
 def main():
     m = load_app()
     test_pure(m)
+    test_portable(m)
     test_gui(m)
     print("\n%d passed, %d failed" % (ok.count, len(bad.failures)))
     return 1 if bad.failures else 0
