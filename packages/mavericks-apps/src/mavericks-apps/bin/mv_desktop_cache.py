@@ -161,6 +161,32 @@ def _list_value(value):
     return {item.strip() for item in value.split(";") if item.strip()}
 
 
+def _normalize_exec_for_metadata(exec_cmd):
+    """Remove desktop-entry field codes without truncating valid Exec syntax."""
+    result = []
+    i = 0
+    allowed = set("fFuUdDnNickvm")
+    while i < len(exec_cmd):
+        char = exec_cmd[i]
+        if char != "%":
+            result.append(char)
+            i += 1
+            continue
+        if i + 1 >= len(exec_cmd):
+            return None
+        code = exec_cmd[i + 1]
+        if code == "%":
+            result.append("%")
+        elif code in allowed:
+            # Launchpad/Spotlight do not provide file/URL launch context;
+            # retain the surrounding command while removing the placeholder.
+            pass
+        else:
+            return None
+        i += 2
+    return "".join(result).strip()
+
+
 def _try_exec_available(command):
     """Check TryExec without invoking the executable."""
     command = command.strip()
@@ -247,8 +273,8 @@ def _parse_desktop_file(path):
     # Exec is retained only for ranking/metadata. DBus-activatable entries
     # are valid without Exec and are launched by the desktop activation API.
     if exec_cmd:
-        exec_cmd = exec_cmd.split("%", 1)[0].strip()
-        if not exec_cmd and not dbus_activatable:
+        exec_cmd = _normalize_exec_for_metadata(exec_cmd)
+        if exec_cmd is None or (not exec_cmd and not dbus_activatable):
             return None
 
     return {
