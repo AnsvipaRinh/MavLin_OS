@@ -1,5 +1,34 @@
 # DECISIONS
 
+## 2026-10-04 — GLM removed from rotation entirely; nemotron-3.5-lightning demoted to end of chain
+
+**Context:** User directive: GLM (`zai-coding-plan/glm-5.3`) key exhausted,
+removed forever — not a temporary cooldown. Cooldown memory proved
+unreliable for this case (long provider retry delays kept the dead model
+eligible in practice); only config removal is trustworthy.
+
+**Decisions:**
+- Deleted GLM from `.opencode/model-fallback.json` chain entirely
+  (was order 1). No chain entries, no worker pins, no `never` entries
+  remain — the model cannot be resolved by `models`, `preflight`,
+  `decide`, `migrate`, or the failover-guard plugin.
+- `opencode.jsonc`: `build` + `small_model` re-pinned to
+  `opencode/ling-3.1-flash-free` (current healthy chain head).
+  Global `~/.config/opencode/opencode.jsonc`: `build` re-pinned to
+  Ling as well (was GLM — the fallback server path).
+- `nemotron-3.5-lightning-free` demoted to end of chain (order 10)
+  at user request after repeated MODEL_TIMEOUT instability; chain
+  renumbered 1–10 (duplicate order 9 fixed).
+- Verified: `preflight` → `PREFLIGHT_OK subagent_type=build-b`;
+  `models` lists no GLM candidates; `deno check` on the
+  failover-guard plugin is clean.
+- GLM REMOVAL RULE added to AGENTS.md §8 so no future session
+  re-adds the model to the rotation.
+
+**User action:** restart OpenCode/desktop so the fixed plugin
+(`tool.execute.before` hook with correct `task`/`subagent_type`
+field names) loads, then `Продолжай`.
+
 ## 2026-10-04 — Standing rules fixed in AGENTS.md §8: PUBLISH RULE, ISSUE #1 RULE, GLM REMOVAL RULE
 
 **Context:** Three user directives were given verbally/in-chat and

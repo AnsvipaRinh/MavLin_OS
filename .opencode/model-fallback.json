@@ -1,7 +1,7 @@
 {
   "$schema": "mavericks model-fallback-chain v1",
-  "note": "User-defined ordered fallback chain (2026-09-26; primary = Ling 3.1 Flash Free since 2026-10-03). Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts. SESSION != MODEL (2026-09-29 v3/v4 protocol): failover switches the worker (subagent_type) on the SAME session, never a replacement session. Only entries with a 'worker' are runtime-reachable; entries with worker=null are intentionally NOT workers (reason given).",
-  "primaryWorker": "build",
+  "note": "User-defined ordered fallback chain (2026-10-03: GLM 5.3 REMOVED entirely per user directive — cooldown memory unreliable, config-only. Primary = next healthy chain entry via live resolution. Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts. SESSION != MODEL (2026-09-29 v3/v4 protocol): failover switches the worker (subagent_type) on the SAME session, never a replacement session. Since 2026-10-03 (protocol v17) the registrar rotates automatically on watchdog abort / abort-cooldown / decide-cooldown. Only entries with a 'worker' are runtime-reachable; entries with worker=null are intentionally NOT workers (reason given).",
+  "primaryWorker": "build-j",
   "execution": "chain-only",
   "never": [
     "muse-spark-1.3-contributor-free",
@@ -10,7 +10,7 @@
     "muse-spark-1.2",
     "muse-spark"
   ],
-  "never_reason": "User 2026-09-26: Muse Spark is NOT an allowed worker (Task sub-agent). The resolver always excludes these substrings, even with --all. Picker visibility: Muse Spark MUST remain available in /models for ORCHESTRATOR selection (user explicitly uses it). No provider.blacklist — that would hide it from the picker. Execution safety comes ONLY from the build pin + small_model (agents cannot switch models at runtime).",
+  "never_reason": "User 2026-09-26: Muse Spark is NOT an allowed worker (Task sub-agent). The resolver always excludes these substrings, even with --all. Picker visibility: Muse Spark MUST remain available in /models for ORCHESTRATOR selection (user explicitly uses it). No provider.blacklist — that would hide it from the picker. Execution safety comes ONLY from the build pin + small_model (agents cannot switch models at runtime). User 2026-10-04: GLM removed from everywhere entirely (no chain entries, no worker pins, no never entries) — cooldown memory unreliable, config-only removal.",
   "chain": [
     {
       "order": 1,
@@ -18,9 +18,9 @@
       "provider": "opencode",
       "match": "ling-3.1-flash",
       "want": "opencode/ling-3.1-flash-free",
-      "worker": "build",
-      "worker_reason": "PRIMARY WORKER since 2026-10-03 at user request: Ling 3.1 Flash Free (OpenCode Zen / Z.ai) is the default first-priority builder model. Holds continuity of running sessions; chain order governs FALLBACK preference and now also names the primary.",
-      "label": "Ling 3.1 Flash Free (OpenCode Zen / Z.ai; PRIMARY from 2026-10-03, user-selected, live-verified serving)"
+      "worker": "build-j",
+      "worker_reason": "PRIMARY WORKER since 2026-10-04 (GLM 5.3 removed per user directive — cooldown memory unreliable, config-only removal). Former primary 2026-10-03 morning, demoted when GLM 5.3 became primary. Proven worker, kept runtime-reachable via the build-j pin. Live-verified 2026-10-03: HTTP 200, tool_call:true, 1M context.",
+      "label": "Ling 3.1 Flash Free (OpenCode Zen / Z.ai; PRIMARY from 2026-10-04, GLM removed)"
     },
     {
       "order": 2,
@@ -52,26 +52,16 @@
     },
     {
       "order": 5,
-      "role": "sub-agent",
-      "provider": "opencode",
-      "match": "nemotron-3.5-lightning",
-      "want": "opencode/nemotron-3.5-lightning-free",
-      "worker": "build-h",
-      "worker_reason": "RE-ENABLED 2026-10-02 at user request: user verified live that it now solves tasks adequately (2026-09-26 mid-output-stop instability possibly fixed upstream). Residual risk neutralized by design: a mid-output stop is NOT session corruption anymore — same-session resume continues from the stop point. If flakiness returns, cooldown memory + ordering handle it; demote only on fresh evidence.",
-      "label": "Nemotron 3.5 Lightning Free (Zen; re-enabled 2026-10-02, user-verified)"
-    },
-    {
-      "order": 6,
       "role": "fallback",
       "provider": "opencode",
       "match": "nemotron-3-ultra",
       "want": "opencode/nemotron-3-ultra-free",
       "worker": "build-i",
-      "worker_reason": "Former primary (2026-09-26..2026-10-02), DEMOTED 2026-10-03 when the user selected Ling 3.1 Flash Free as first-priority builder. Proven worker, kept runtime-reachable via the build-i pin; ranks below the other proven fallbacks, above the experimental pins.",
-      "label": "Nemotron 3 Ultra Free (Zen; former primary 2026-09-26..2026-10-02, demoted by user choice)"
+      "worker_reason": "Former primary (2026-09-26..2026-10-02), demoted twice since. Proven worker, kept runtime-reachable via the build-i pin; ranks below the other proven fallbacks, above the experimental pins.",
+      "label": "Nemotron 3 Ultra Free (Zen; former primary 2026-09-26..2026-10-02)"
     },
     {
-      "order": 7,
+      "order": 6,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "fledge-alpha",
@@ -81,7 +71,7 @@
       "label": "Fledge Alpha Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 8,
+      "order": 7,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "ling-3.0-flash-fin",
@@ -91,7 +81,7 @@
       "label": "Ling 3.0 Flash Fin Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 9,
+      "order": 8,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "mimo-v2.6-flash",
@@ -101,7 +91,7 @@
       "label": "MiMo V2.6 Flash Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 10,
+      "order": 9,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "space-bunny",
@@ -109,7 +99,23 @@
       "worker": "build-g",
       "worker_reason": "EXPERIMENTAL (added 2026-10-02 at user request): metadata-verified only (exists, toolcall:true, ~1M context). Live generation quality unproven — real Tasks are the proof. Ranked after all proven workers.",
       "label": "Space Bunny Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
+    },
+    {
+      "order": 10,
+      "role": "fallback-experimental",
+      "provider": "opencode",
+      "match": "nemotron-3.5-lightning",
+      "want": "opencode/nemotron-3.5-lightning-free",
+      "worker": "build-h",
+      "worker_reason": "DEMOTED to end of list 2026-10-04 at user request. Mid-output-stop instability observed again; kept runtime-reachable via the build-h pin as last resort only.",
+      "label": "Nemotron 3.5 Lightning Free (Zen; demoted to end of list 2026-10-04)"
     }
   ],
-  "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 2-3; Zen login for 4-10. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry."
+  "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 2-3; Zen login for 1, 4-10. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry.",
+  "history": [
+    "2026-10-04: Nemotron 3.5 Lightning demoted to end of chain (order 10) at user request after repeated instability; chain renumbered 1-10 (duplicate order 9 fixed).",
+    "2026-10-04: GLM 5.3 REMOVED ENTIRELY per user directive — cooldown memory unreliable, config-only removal. Ling 3.1 Flash Free promoted to primary (order 1, worker build-j). GLM 5.3/4.5-flash added to never list. primaryWorker updated to build-j.",
+    "2026-10-03 (afternoon): GLM 5.3 Coding Plan becomes order 1 / primary (user: '4.5 больше нет, юзаешь себя же и как агента — кодинг план 5.3, первым приоритетом'). Ling demoted to order 2 with new build-j pin. glm-4.5-flash removed from all pins (not in the Coding Plan model set).",
+    "2026-10-03 (morning): Ling 3.1 Flash Free was made primary; zai/glm-4.5-flash pins appeared in opencode.jsonc the same morning (ordinary Z.AI endpoint) — superseded the same day by the Coding Plan switch."
+  ]
 }

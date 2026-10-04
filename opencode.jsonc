@@ -8,18 +8,20 @@
   // - background-plane (title/summary/compaction): small_model below,
   //   chain model so auto "cheaper model" pick stays in-chain.
   // Worker pool (2026-09-29+, see DECISIONS.md): build is the
-  // primary worker; build-b..build-g are HIDDEN subagent fallbacks pinned to
-  // other chain entries (build-d..g EXPERIMENTAL since 2026-10-02). Runtime agent rotation = Task subagent_type switch
+  // primary worker; build-b..build-j are HIDDEN subagent fallbacks pinned to
+  // other chain entries (build-d..g EXPERIMENTAL since 2026-10-02; build-j =
+  // Ling, demoted from primary 2026-10-03). Runtime agent rotation = Task subagent_type switch
   // (no server restart, no config paste). mode=subagent + hidden=true keeps
   // them out of the Tab picker and @-menu; they are invokable ONLY via the
   // Task tool when the orchestrator's task allow-list permits. NEVER pin any
   // worker to a model outside .opencode/model-fallback.json (Muse Spark is
   // banned as a worker). Workers must NEVER delegate (task: deny).
-  "small_model": "openrouter/cohere/north-mini-code:free",
+  "small_model": "opencode/ling-3.1-flash-free",
   "agent": {
     "build": {
-      // PRIMARY since 2026-10-03 (user choice): Ling 3.1 Flash Free
-      // (OpenCode Zen / Z.ai) is the default first-priority builder.
+      // PRIMARY since 2026-10-04: Ling 3.1 Flash Free (GLM 5.3 removed per user directive — cooldown memory unreliable, config-only removal).
+      // Live-verified 2026-10-03: HTTP 200, tool_call:true, 1M context. First-priority
+      // builder; the chain below governs fallback order.
       "model": "opencode/ling-3.1-flash-free",
       "description": "Implementation worker: executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
       "permission": {
@@ -131,6 +133,20 @@
         }
       }
     },
+    // Former primary (2026-10-03 morning), demoted when GLM 5.3 Coding Plan
+    // became the first-priority builder (user choice, live-verified). Kept
+    // as a proven fallback worker (chain #2).
+    "build-j": {
+      "mode": "subagent",
+      "hidden": true,
+      "model": "opencode/ling-3.1-flash-free",
+      "description": "Implementation worker (fallback J, former primary): executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
+      "permission": {
+        "task": {
+          "*": "deny"
+        }
+      }
+    },
     "plan": {
       "disable": true
     },
@@ -145,5 +161,6 @@
     "task": {
       "*": "allow"
     }
-  }
+  },
+  "shell": "/bin/bash"
 }
