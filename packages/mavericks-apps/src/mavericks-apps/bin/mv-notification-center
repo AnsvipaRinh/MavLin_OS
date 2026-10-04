@@ -256,12 +256,12 @@ class NotificationCenter(Gtk.Window):
 
     def on_key_press(self, widget, event):
         if event.keyval == 65307:  # Escape
-            Gtk.main_quit()
+            self.destroy()
             return True
         return False
 
     def on_focus_out(self, widget, event):
-        Gtk.main_quit()
+        self.destroy()
         return True
 
 def main():
