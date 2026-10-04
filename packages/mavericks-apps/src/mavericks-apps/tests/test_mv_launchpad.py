@@ -191,11 +191,11 @@ def test_many_top_level_folders_are_paginated():
 
 
 def test_folder_cells_count_toward_pagination():
-    """Top-level folders must consume cells in the first Launchpad grid page."""
+    """Top-level folders must consume real grid cells before standalone apps."""
     source = open(SCRIPT).read()
-    assert 'first_page_capacity = max(1, ITEMS_PER_PAGE - len(structure["folders"]))' in source
+    assert 'first_app_capacity = ITEMS_PER_PAGE - len(structure["folders"]) if folder_pages == 1 else 0' in source
+    assert 'remaining_after_first = max(0, len(ordered) - first_app_capacity)' in source
     assert 'start = first_capacity + (page - 1) * ITEMS_PER_PAGE' in source
-    assert 'remaining_after_first = max(0, len(ordered) - first_page_capacity)' in source
     print("PASS: test_folder_cells_count_toward_pagination")
 
 
