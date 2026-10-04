@@ -115,13 +115,20 @@ def _migrate_app_ids(ids, apps):
     return migrated, changed
 
 def _canonical_app_ids(apps):
-    """Build exact and unambiguous legacy-basename mappings for persisted state."""
+    """Build exact and unambiguous mappings from legacy basenames to canonical IDs."""
     canonical = {app["id"] for app in apps}
-    by_stem = {}
+    by_legacy = {}
     for app in apps:
-        stem = Path(app["id"]).stem
-        by_stem.setdefault(stem, []).append(app["id"])
-    legacy = {stem: ids[0] for stem, ids in by_stem.items() if stem not in canonical and len(ids) == 1}
+        legacy_id = app.get("legacy_id")
+        canonical_id = app.get("id")
+        if not legacy_id or not canonical_id or legacy_id == canonical_id:
+            continue
+        by_legacy.setdefault(legacy_id, []).append(canonical_id)
+    legacy = {
+        legacy_id: ids[0]
+        for legacy_id, ids in by_legacy.items()
+        if len(ids) == 1
+    }
     return canonical, legacy
 
 
@@ -164,7 +171,9 @@ def load_folders(apps=None):
                 app_ids = []
             app_ids = [app_id for app_id in app_ids if isinstance(app_id, str)]
             if apps:
-                app_ids, _ = _migrate_app_ids(app_ids, apps)
+                migrated_ids, migrated = _migrate_app_ids(app_ids, apps)
+                changed = changed or migrated
+                app_ids = migrated_ids
             folders[folder_id] = {"name": name, "apps": app_ids}
 
     # Default folders are created only on first run. Once folders.json
