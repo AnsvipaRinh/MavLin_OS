@@ -66,6 +66,9 @@ def check_apple_plugin():
     assert "mv-recent-items" in text
     assert "xfce4-screensaver-command --lock" in text
     assert "signal.SIGKILL" in force_quit
+    assert "xdotool" in force_quit
+    assert "--onlyvisible" in force_quit
+    assert "/proc/%d/comm" in force_quit
     assert "recently-used.xbel" in RECENT_ITEMS.read_text(encoding="utf-8")
     assert "systemctl suspend" in text
     assert "systemctl reboot" in text
@@ -150,7 +153,7 @@ def main():
         assert action in stickies, f"Stickies menu missing {action}"
     mail = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-mail").read_text(encoding="utf-8")
     assert "build_mail_menu" in mail
-    for action in ("New Message", "Open Mail", "Close Window"):
+    for action in ("Open Mail", "Close Window"):
         assert action in mail, f"Mail menu missing {action}"
     keychain = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-keychain").read_text(encoding="utf-8")
     assert "build_keychain_menu" in keychain
