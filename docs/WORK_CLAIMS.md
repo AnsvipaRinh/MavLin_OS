@@ -19,7 +19,8 @@
 | packages/mavericks-apps/.../bin/mv-finder-columns + scripts/test-mv-finder-columns.py | Qwen | 2026-10-05 | Portability: lazy-Gtk factory so pure-logic tests run on non-Arch hosts | DONE |
 | packages/mavericks-apps/.../bin/mv-finder-search + scripts/test-mv-finder-search.py | Qwen | 2026-10-05 | Portability: lazy-Gtk factory, headless suite (54 passed) | DONE |
 | packages/mavericks-apps/.../bin/mv-power-ui + scripts/test-mv-power-ui.py | Qwen | 2026-10-05 | Portability: lazy-Gtk factory, headless suite (32 passed) | DONE |
-| packages/mavericks-apps/src/mavericks-apps/bin/mv-stickies + scripts/test-mv-stickies.py | Qwen | 2026-10-05 | Portability: lazy-Gtk factory so pure-logic tests run on non-Arch hosts | ACTIVE |
+| packages/mavericks-apps/src/mavericks-apps/bin/mv-stickies + scripts/test-mv-stickies.py | Qwen | 2026-10-05 | Portability: lazy-Gtk factory so pure-logic tests run on non-Arch hosts | DONE |
+| packages/mavericks-apps/src/mavericks-apps/bin/mv-timemachine + scripts/test-mv-timemachine.py | Qwen | 2026-10-05 | Portability: lazy-Gtk factory so pure-logic tests run on non-Arch hosts | ACTIVE |
 
 Example row format (do not leave examples as ACTIVE):
 `| Mission Control ISO deps | Grok | 2026-10-04 20:20 | #1 | DONE |`

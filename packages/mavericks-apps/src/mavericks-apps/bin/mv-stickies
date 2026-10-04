@@ -7,17 +7,32 @@ search across notes, collapse, keyboard shortcuts.
 License: GPL-2.0-or-later."""
 import json
 import os
+import re
 import sys
 import time
 import uuid
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib, Pango
+
+# GTK is loaded lazily so the pure store/geometry logic below can be
+# imported and unit-tested on hosts without PyGObject installed.
+try:
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, Gdk, GLib, Pango
+    HAS_GTK = True
+except (ImportError, ValueError):
+    HAS_GTK = False
 
 try:
     import cairo
 except ImportError:
     cairo = None
+
+
+def _gtk():
+    """Return (Gtk, Gdk, GLib, Pango); raises when PyGObject is absent."""
+    if not HAS_GTK:
+        raise RuntimeError("mv-stickies GUI requires PyGObject (gi)")
+    return Gtk, Gdk, GLib, Pango
 
 STORE = os.path.expanduser("~/.local/share/mv-stickies/stickies.json")
 LOCK = os.path.expanduser("~/.local/share/mv-stickies/instance.lock")
@@ -37,14 +52,49 @@ def _quarantine_path(path):
     return "%s.corrupt-%d" % (path, now())
 
 
+_NAMED_COLORS = {
+    "black": "#000000", "silver": "#c0c0c0", "gray": "#808080",
+    "grey": "#808080", "white": "#ffffff", "maroon": "#800000",
+    "red": "#ff0000", "purple": "#800080", "fuchsia": "#ff00ff",
+    "green": "#008000", "lime": "#00ff00", "olive": "#808000",
+    "yellow": "#ffff00", "navy": "#000080", "blue": "#0000ff",
+    "teal": "#008080", "aqua": "#00ffff", "orange": "#ffa500",
+}
+_HEX_RE = re.compile(r"^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+_RGB_RE = re.compile(
+    r"^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$")
+
+
+def _color_from_string(value):
+    """Parse a color string without GTK. Returns '#rrggbb' or None."""
+    v = value.strip().lower()
+    m = _HEX_RE.match(v)
+    if m:
+        h = m.group(1)
+        if len(h) == 3:
+            h = "".join(c * 2 for c in h)
+        return "#" + h.lower()
+    m = _RGB_RE.match(v)
+    if m:
+        comps = [int(g) for g in m.groups()]
+        if all(0 <= c <= 255 for c in comps):
+            return "#%02x%02x%02x" % tuple(comps)
+    return _NAMED_COLORS.get(v)
+
+
 def normalize_color(value):
     """Any parseable color string → '#rrggbb'; invalid → DEFAULT_COLOR."""
     if isinstance(value, str):
-        rgba = Gdk.RGBA()
-        if rgba.parse(value):
-            return "#%02x%02x%02x" % (int(rgba.red * 255),
-                                        int(rgba.green * 255),
-                                        int(rgba.blue * 255))
+        parsed = _color_from_string(value)
+        if parsed is not None:
+            return parsed
+        if HAS_GTK:
+            # Fall back to the full X11 palette for exotic color names.
+            rgba = Gdk.RGBA()
+            if rgba.parse(value):
+                return "#%02x%02x%02x" % (int(rgba.red * 255),
+                                          int(rgba.green * 255),
+                                          int(rgba.blue * 255))
     return DEFAULT_COLOR
 
 
@@ -146,298 +196,309 @@ def _note_title(text):
     return stripped.split("\n")[0].strip()[:40]
 
 
-class StickyNote(Gtk.Window):
-    def __init__(self, app, data=None):
-        super().__init__(type=Gtk.WindowType.TOPLEVEL)
-        self.app = app
-        if data:
-            self.note_id = data["id"]
-            self.x, self.y = data.get("x", 100), data.get("y", 100)
-            self.width, self.height = data.get("w", 250), data.get("h", 250)
-            self.text = data.get("text", "")
-            self.color = normalize_color(data.get("color"))
-            self.collapsed = bool(data.get("collapsed", False))
-        else:
-            self.note_id = uuid.uuid4().hex[:8]
-            self.x, self.y = (100 + len(app.stickies) * 30,
-                              100 + len(app.stickies) * 30)
-            self.width, self.height = 250, 250
-            self.text = ""
-            self.color = DEFAULT_COLOR
-            self.collapsed = False
+def build_stickynote_class():
+    """Build the StickyNote GTK class lazily (needs Gtk/Gdk/Pango)."""
+    Gtk, Gdk, GLib, Pango = _gtk()
 
-        self.set_default_size(self.width, self.height)
-        self.move(self.x, self.y)
-        self.set_type_hint(Gdk.WindowTypeHint.NORMAL)
-        self.apply_css()
-        self.get_style_context().add_class("sticky-note")
+    class StickyNote(Gtk.Window):
+        def __init__(self, app, data=None):
+            super().__init__(type=Gtk.WindowType.TOPLEVEL)
+            self.app = app
+            if data:
+                self.note_id = data["id"]
+                self.x, self.y = data.get("x", 100), data.get("y", 100)
+                self.width, self.height = data.get("w", 250), data.get("h", 250)
+                self.text = data.get("text", "")
+                self.color = normalize_color(data.get("color"))
+                self.collapsed = bool(data.get("collapsed", False))
+            else:
+                self.note_id = uuid.uuid4().hex[:8]
+                self.x, self.y = (100 + len(app.stickies) * 30,
+                                  100 + len(app.stickies) * 30)
+                self.width, self.height = 250, 250
+                self.text = ""
+                self.color = DEFAULT_COLOR
+                self.collapsed = False
 
-        self.hb = Gtk.HeaderBar()
-        self.hb.set_show_close_button(True)
-        self.set_titlebar(self.hb)
+            self.set_default_size(self.width, self.height)
+            self.move(self.x, self.y)
+            self.set_type_hint(Gdk.WindowTypeHint.NORMAL)
+            self.apply_css()
+            self.get_style_context().add_class("sticky-note")
 
-        rgba = Gdk.RGBA()
-        rgba.parse(self.color)
-        self.color_btn = Gtk.ColorButton()
-        self.color_btn.set_rgba(rgba)
-        self.color_btn.set_tooltip_text("Note color")
-        self.color_btn.connect("color-set", self.on_color_change)
-        self.hb.pack_start(self.color_btn)
+            self.hb = Gtk.HeaderBar()
+            self.hb.set_show_close_button(True)
+            self.set_titlebar(self.hb)
 
-        new_btn = Gtk.Button(label="+")
-        new_btn.set_tooltip_text("New note (Ctrl+N)")
-        new_btn.get_style_context().add_class("mavericks-toolbar-btn")
-        new_btn.connect("clicked", lambda _: app.create_sticky())
-        self.hb.pack_end(new_btn)
+            rgba = Gdk.RGBA()
+            rgba.parse(self.color)
+            self.color_btn = Gtk.ColorButton()
+            self.color_btn.set_rgba(rgba)
+            self.color_btn.set_tooltip_text("Note color")
+            self.color_btn.connect("color-set", self.on_color_change)
+            self.hb.pack_start(self.color_btn)
 
-        print_btn = Gtk.Button(label="Print")
-        print_btn.set_tooltip_text("Print (Ctrl+P)")
-        print_btn.get_style_context().add_class("mavericks-toolbar-btn")
-        print_btn.connect("clicked", self.print_note)
-        self.hb.pack_end(print_btn)
+            new_btn = Gtk.Button(label="+")
+            new_btn.set_tooltip_text("New note (Ctrl+N)")
+            new_btn.get_style_context().add_class("mavericks-toolbar-btn")
+            new_btn.connect("clicked", lambda _: app.create_sticky())
+            self.hb.pack_end(new_btn)
 
-        self.collapse_btn = Gtk.Button(label="–")
-        self.collapse_btn.get_style_context().add_class("mavericks-toolbar-btn")
-        self.collapse_btn.connect("clicked", self.toggle_collapse)
-        self.hb.pack_end(self.collapse_btn)
+            print_btn = Gtk.Button(label="Print")
+            print_btn.set_tooltip_text("Print (Ctrl+P)")
+            print_btn.get_style_context().add_class("mavericks-toolbar-btn")
+            print_btn.connect("clicked", self.print_note)
+            self.hb.pack_end(print_btn)
 
-        self.buf = Gtk.TextBuffer()
-        tv = Gtk.TextView(buffer=self.buf)
-        tv.set_wrap_mode(Gtk.WrapMode.WORD)
-        tv.set_left_margin(16)
-        tv.set_right_margin(16)
-        tv.set_top_margin(16)
-        tv.set_bottom_margin(16)
-        tv.get_style_context().add_class("sticky-editor")
+            self.collapse_btn = Gtk.Button(label="–")
+            self.collapse_btn.get_style_context().add_class("mavericks-toolbar-btn")
+            self.collapse_btn.connect("clicked", self.toggle_collapse)
+            self.hb.pack_end(self.collapse_btn)
 
-        self.sw = Gtk.ScrolledWindow()
-        self.sw.add(tv)
-        self.add(self.sw)
-        self.tv = tv
+            self.buf = Gtk.TextBuffer()
+            tv = Gtk.TextView(buffer=self.buf)
+            tv.set_wrap_mode(Gtk.WrapMode.WORD)
+            tv.set_left_margin(16)
+            tv.set_right_margin(16)
+            tv.set_top_margin(16)
+            tv.set_bottom_margin(16)
+            tv.get_style_context().add_class("sticky-editor")
 
-        self.buf.set_text(self.text)
-        self.buf.connect("changed", self.on_text_change)
+            self.sw = Gtk.ScrolledWindow()
+            self.sw.add(tv)
+            self.add(self.sw)
+            self.tv = tv
 
-        self.connect("configure-event", self.on_configure)
-        self.connect("key-press-event", self.on_key)
-        self.connect("destroy", self.on_destroy)
-        self.show_all()
-        self._apply_collapse()
-        self._update_title()
+            self.buf.set_text(self.text)
+            self.buf.connect("changed", self.on_text_change)
 
-    def apply_css(self):
-        self.provider = Gtk.CssProvider()
-        self.reload_css()
-        screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(
-            screen, self.provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            self.connect("configure-event", self.on_configure)
+            self.connect("key-press-event", self.on_key)
+            self.connect("destroy", self.on_destroy)
+            self.show_all()
+            self._apply_collapse()
+            self._update_title()
 
-    def reload_css(self):
-        css = ("""
-        .sticky-note {
-            background-color: %(color)s;
-            border: 1px solid #e8d8a0;
-        }
-        .sticky-note headerbar {
-            background-color: %(color)s;
-            border-bottom: 1px solid #e8d8a0;
-        }
-        .sticky-editor {
-            background: transparent;
-            font-family: "Bradley Hand", "Z003", "Comic Sans MS", cursive;
-            font-size: 14pt;
-        }
-        .mavericks-toolbar-btn {
-            border-radius: 4px;
-            padding: 4px 10px;
-            margin: 2px;
-        }
-        """ % {"color": self.color}).encode()
-        try:
-            self.provider.load_from_data(css)
-        except GLib.Error as e:
-            print("mv-stickies: CSS failed (%s); using default theme" % e,
-                  file=sys.stderr)
+        def apply_css(self):
+            self.provider = Gtk.CssProvider()
+            self.reload_css()
+            screen = Gdk.Screen.get_default()
+            Gtk.StyleContext.add_provider_for_screen(
+                screen, self.provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-    def _update_title(self):
-        text = self.buf.get_text(self.buf.get_start_iter(),
-                                 self.buf.get_end_iter(), True)
-        self.hb.set_title(_note_title(text))
+        def reload_css(self):
+            css = ("""
+            .sticky-note {
+                background-color: %(color)s;
+                border: 1px solid #e8d8a0;
+            }
+            .sticky-note headerbar {
+                background-color: %(color)s;
+                border-bottom: 1px solid #e8d8a0;
+            }
+            .sticky-editor {
+                background: transparent;
+                font-family: "Bradley Hand", "Z003", "Comic Sans MS", cursive;
+                font-size: 14pt;
+            }
+            .mavericks-toolbar-btn {
+                border-radius: 4px;
+                padding: 4px 10px;
+                margin: 2px;
+            }
+            """ % {"color": self.color}).encode()
+            try:
+                self.provider.load_from_data(css)
+            except GLib.Error as e:
+                print("mv-stickies: CSS failed (%s); using default theme" % e,
+                      file=sys.stderr)
 
-    def _apply_collapse(self):
-        if self.collapsed:
-            self.sw.hide()
-            self.collapse_btn.set_label("+")
-            self.collapse_btn.set_tooltip_text("Expand note")
-            self.resize(self.width, COLLAPSED_HEIGHT)
-        else:
-            self.sw.show()
-            self.collapse_btn.set_label("–")
-            self.collapse_btn.set_tooltip_text("Collapse note")
-            self.resize(self.width, self.height)
+        def _update_title(self):
+            text = self.buf.get_text(self.buf.get_start_iter(),
+                                     self.buf.get_end_iter(), True)
+            self.hb.set_title(_note_title(text))
 
-    def toggle_collapse(self, _b):
-        self.collapsed = not self.collapsed
-        self._apply_collapse()
-        self.save()
+        def _apply_collapse(self):
+            if self.collapsed:
+                self.sw.hide()
+                self.collapse_btn.set_label("+")
+                self.collapse_btn.set_tooltip_text("Expand note")
+                self.resize(self.width, COLLAPSED_HEIGHT)
+            else:
+                self.sw.show()
+                self.collapse_btn.set_label("–")
+                self.collapse_btn.set_tooltip_text("Collapse note")
+                self.resize(self.width, self.height)
 
-    def on_text_change(self, _):
-        self._update_title()
-        self.save()
+        def toggle_collapse(self, _b):
+            self.collapsed = not self.collapsed
+            self._apply_collapse()
+            self.save()
 
-    def on_configure(self, _, event):
-        self.x, self.y = self.get_position()
-        if not self.collapsed:
-            self.width, self.height = self.get_size()
-        self.save()
-        return False
+        def on_text_change(self, _):
+            self._update_title()
+            self.save()
 
-    def on_color_change(self, btn):
-        rgba = btn.get_rgba()
-        self.color = "#%02x%02x%02x" % (int(rgba.red * 255),
-                                         int(rgba.green * 255),
-                                         int(rgba.blue * 255))
-        self.reload_css()
-        self.save()
+        def on_configure(self, _, event):
+            self.x, self.y = self.get_position()
+            if not self.collapsed:
+                self.width, self.height = self.get_size()
+            self.save()
+            return False
 
-    def print_note(self, _b):
-        text = self.buf.get_text(self.buf.get_start_iter(),
-                                 self.buf.get_end_iter(), True)
-        if cairo is None:
-            err = Gtk.MessageDialog(
+        def on_color_change(self, btn):
+            rgba = btn.get_rgba()
+            self.color = "#%02x%02x%02x" % (int(rgba.red * 255),
+                                             int(rgba.green * 255),
+                                             int(rgba.blue * 255))
+            self.reload_css()
+            self.save()
+
+        def print_note(self, _b):
+            text = self.buf.get_text(self.buf.get_start_iter(),
+                                     self.buf.get_end_iter(), True)
+            if cairo is None:
+                err = Gtk.MessageDialog(
+                    transient_for=self, modal=True,
+                    message_type=Gtk.MessageType.ERROR,
+                    buttons=Gtk.ButtonsType.OK, text="Printing unavailable")
+                err.format_secondary_text("The python-cairo package is required.")
+                err.run()
+                err.destroy()
+                return
+            op = Gtk.PrintOperation()
+            pages = paginate(text, 42)
+            op.set_n_pages(len(pages))
+
+            def draw(_op, ctx, pageno):
+                cr = ctx.get_cairo_context()
+                cr.set_source_rgb(1, 1, 1)
+                cr.paint()
+                cr.set_source_rgb(0.1, 0.1, 0.1)
+                cr.select_font_face("Z003", cairo.FONT_SLANT_NORMAL,
+                                    cairo.FONT_WEIGHT_NORMAL)
+                cr.set_font_size(14)
+                cr.move_to(48, 56)
+                cr.show_text(self.hb.get_title())
+                cr.set_font_size(12)
+                y = 84
+                for ln in pages[pageno]:
+                    cr.move_to(48, y)
+                    cr.show_text(ln[:110])
+                    y += 15
+
+            op.connect("draw-page", draw)
+            op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self)
+
+        def confirm_delete(self):
+            d = Gtk.MessageDialog(
                 transient_for=self, modal=True,
-                message_type=Gtk.MessageType.ERROR,
-                buttons=Gtk.ButtonsType.OK, text="Printing unavailable")
-            err.format_secondary_text("The python-cairo package is required.")
-            err.run()
-            err.destroy()
-            return
-        op = Gtk.PrintOperation()
-        pages = paginate(text, 42)
-        op.set_n_pages(len(pages))
+                message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.NONE, text="Delete this note?")
+            d.format_secondary_text("The note will be permanently removed.")
+            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                          "Delete", Gtk.ResponseType.OK)
+            if d.run() == Gtk.ResponseType.OK:
+                self.destroy()
+            d.destroy()
 
-        def draw(_op, ctx, pageno):
-            cr = ctx.get_cairo_context()
-            cr.set_source_rgb(1, 1, 1)
-            cr.paint()
-            cr.set_source_rgb(0.1, 0.1, 0.1)
-            cr.select_font_face("Z003", cairo.FONT_SLANT_NORMAL,
-                                cairo.FONT_WEIGHT_NORMAL)
-            cr.set_font_size(14)
-            cr.move_to(48, 56)
-            cr.show_text(self.hb.get_title())
-            cr.set_font_size(12)
-            y = 84
-            for ln in pages[pageno]:
-                cr.move_to(48, y)
-                cr.show_text(ln[:110])
-                y += 15
+        def on_key(self, _w, ev):
+            ctrl = ev.state & Gdk.ModifierType.CONTROL_MASK
+            if ctrl and ev.keyval == Gdk.KEY_n:
+                self.app.create_sticky()
+                return True
+            if ctrl and ev.keyval == Gdk.KEY_p:
+                self.print_note(None)
+                return True
+            if ctrl and ev.keyval == Gdk.KEY_f:
+                self.app.open_search()
+                return True
+            if ev.keyval == Gdk.KEY_Delete:
+                self.confirm_delete()
+                return True
+            return False
 
-        op.connect("draw-page", draw)
-        op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self)
+        def save(self):
+            data = {
+                "id": self.note_id,
+                "x": self.x, "y": self.y,
+                "w": self.width, "h": self.height,
+                "text": self.buf.get_text(self.buf.get_start_iter(),
+                                          self.buf.get_end_iter(), True),
+                "color": self.color,
+                "collapsed": self.collapsed,
+            }
+            self.app.update_sticky(data)
 
-    def confirm_delete(self):
-        d = Gtk.MessageDialog(
-            transient_for=self, modal=True,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.NONE, text="Delete this note?")
-        d.format_secondary_text("The note will be permanently removed.")
-        d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                      "Delete", Gtk.ResponseType.OK)
-        if d.run() == Gtk.ResponseType.OK:
-            self.destroy()
-        d.destroy()
-
-    def on_key(self, _w, ev):
-        ctrl = ev.state & Gdk.ModifierType.CONTROL_MASK
-        if ctrl and ev.keyval == Gdk.KEY_n:
-            self.app.create_sticky()
-            return True
-        if ctrl and ev.keyval == Gdk.KEY_p:
-            self.print_note(None)
-            return True
-        if ctrl and ev.keyval == Gdk.KEY_f:
-            self.app.open_search()
-            return True
-        if ev.keyval == Gdk.KEY_Delete:
-            self.confirm_delete()
-            return True
-        return False
-
-    def save(self):
-        data = {
-            "id": self.note_id,
-            "x": self.x, "y": self.y,
-            "w": self.width, "h": self.height,
-            "text": self.buf.get_text(self.buf.get_start_iter(),
-                                      self.buf.get_end_iter(), True),
-            "color": self.color,
-            "collapsed": self.collapsed,
-        }
-        self.app.update_sticky(data)
-
-    def on_destroy(self, _w):
-        self.app.remove_sticky(self.note_id)
+        def on_destroy(self, _w):
+            self.app.remove_sticky(self.note_id)
 
 
-class SearchWindow(Gtk.Window):
-    def __init__(self, app):
-        super().__init__(title="Find in Stickies")
-        self.app = app
-        self.set_default_size(380, 320)
-        self.set_type_hint(Gdk.WindowTypeHint.NORMAL)
+    return StickyNote
 
-        hb = Gtk.HeaderBar(title="Find in Stickies", show_close_button=True)
-        self.set_titlebar(hb)
-        self.entry = Gtk.SearchEntry(placeholder_text="Search all notes")
-        self.entry.connect("changed", self.on_search)
-        self.entry.connect("key-press-event", self.on_entry_key)
-        hb.pack_start(self.entry)
 
-        self.store = Gtk.ListStore(str, str)
-        tv = Gtk.TreeView(model=self.store, headers_visible=False)
-        renderer = Gtk.CellRendererText()
-        renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
-        tv.append_column(Gtk.TreeViewColumn("", renderer, text=0))
-        tv.connect("row-activated", self.on_jump)
-        sw = Gtk.ScrolledWindow()
-        sw.add(tv)
-        self.add(sw)
-        self.tv = tv
+def build_searchwindow_class():
+    """Build the SearchWindow GTK class lazily."""
+    Gtk, Gdk, GLib, Pango = _gtk()
 
-        self.refresh()
-        self.connect("destroy", self.on_destroy)
+    class SearchWindow(Gtk.Window):
+        def __init__(self, app):
+            super().__init__(title="Find in Stickies")
+            self.app = app
+            self.set_default_size(380, 320)
+            self.set_type_hint(Gdk.WindowTypeHint.NORMAL)
 
-    def refresh(self):
-        q = self.entry.get_text().strip().lower()
-        self.store.clear()
-        for s in self.app.data["stickies"]:
-            text = s.get("text", "")
-            if not q or q in text.lower():
-                snippet = " ".join(text.split())[:80] or "(empty note)"
-                self.store.append([snippet, s["id"]])
-        if len(self.store):
-            self.tv.get_selection().select_path(Gtk.TreePath.new_first())
+            hb = Gtk.HeaderBar(title="Find in Stickies", show_close_button=True)
+            self.set_titlebar(hb)
+            self.entry = Gtk.SearchEntry(placeholder_text="Search all notes")
+            self.entry.connect("changed", self.on_search)
+            self.entry.connect("key-press-event", self.on_entry_key)
+            hb.pack_start(self.entry)
 
-    def on_search(self, _e):
-        self.refresh()
+            self.store = Gtk.ListStore(str, str)
+            tv = Gtk.TreeView(model=self.store, headers_visible=False)
+            renderer = Gtk.CellRendererText()
+            renderer.set_property("ellipsize", Pango.EllipsizeMode.END)
+            tv.append_column(Gtk.TreeViewColumn("", renderer, text=0))
+            tv.connect("row-activated", self.on_jump)
+            sw = Gtk.ScrolledWindow()
+            sw.add(tv)
+            self.add(sw)
+            self.tv = tv
 
-    def on_jump(self, _tv, path, _col):
-        note_id = self.store[path][1]
-        for s in self.app.stickies:
-            if s.note_id == note_id:
-                s.present()
-                break
+            self.refresh()
+            self.connect("destroy", self.on_destroy)
 
-    def on_entry_key(self, _w, ev):
-        if ev.keyval == Gdk.KEY_Escape:
-            self.destroy()
-            return True
-        return False
+        def refresh(self):
+            q = self.entry.get_text().strip().lower()
+            self.store.clear()
+            for s in self.app.data["stickies"]:
+                text = s.get("text", "")
+                if not q or q in text.lower():
+                    snippet = " ".join(text.split())[:80] or "(empty note)"
+                    self.store.append([snippet, s["id"]])
+            if len(self.store):
+                self.tv.get_selection().select_path(Gtk.TreePath.new_first())
 
-    def on_destroy(self, _w):
-        if self.app.search_win is self:
-            self.app.search_win = None
+        def on_search(self, _e):
+            self.refresh()
+
+        def on_jump(self, _tv, path, _col):
+            note_id = self.store[path][1]
+            for s in self.app.stickies:
+                if s.note_id == note_id:
+                    s.present()
+                    break
+
+        def on_entry_key(self, _w, ev):
+            if ev.keyval == Gdk.KEY_Escape:
+                self.destroy()
+                return True
+            return False
+
+        def on_destroy(self, _w):
+            if self.app.search_win is self:
+                self.app.search_win = None
 
 
 class StickiesApp:
@@ -446,6 +507,8 @@ class StickiesApp:
         self.store_warnings = []
         self.data = load_store(on_warn=self.store_warnings.append)
         self.search_win = None
+        self._note_cls = build_stickynote_class()
+        self._search_cls = build_searchwindow_class()
 
     def startup(self):
         if self.stickies:
@@ -459,7 +522,7 @@ class StickiesApp:
         self._warn_if_needed()
 
     def create_sticky(self, data=None):
-        sticky = StickyNote(self, data)
+        sticky = self._note_cls(self, data)
         self.stickies.append(sticky)
         if data is None:
             self.data["stickies"].append({
@@ -483,7 +546,7 @@ class StickiesApp:
         self.data["stickies"] = [s for s in self.data["stickies"]
                                  if s["id"] != note_id]
         save_store(data=self.data)
-        if not self.stickies:
+        if not self.stickies and HAS_GTK:
             Gtk.main_quit()
 
     def open_search(self):
@@ -491,7 +554,7 @@ class StickiesApp:
             self.search_win.present()
             self.search_win.entry.grab_focus()
             return
-        win = SearchWindow(self)
+        win = self._search_cls(self)
         self.search_win = win
         win.show_all()
         win.entry.grab_focus()
@@ -533,6 +596,10 @@ def acquire_lock():
 
 
 def main():
+    if not HAS_GTK:
+        print("mv-stickies: PyGObject (gi) is required for the GUI; "
+              "install python-gobject.", file=sys.stderr)
+        return 1
     if not acquire_lock():
         print("mv-stickies: another instance is already running",
               file=sys.stderr)
