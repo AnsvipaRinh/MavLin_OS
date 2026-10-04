@@ -795,7 +795,6 @@ def build_keychain_menu(app, app_name, get_window, add_action):
         return get_window()
     def selected():
         return w().selected_item if w() else None
-    add_action("about", lambda: None)
     add_action("new-item", lambda: w().on_new_item(None) if w() else None)
     add_action("generate", lambda: w().on_generator(None) if w() else None)
     add_action("lock", lambda: w().on_lock(None) if w() else None)
