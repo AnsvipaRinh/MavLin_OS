@@ -26,7 +26,6 @@ def build_textedit_menu(app, app_name, get_window, add_action):
     def window():
         return get_window()
 
-    add_action("about", lambda: None)
     add_action("new", lambda: window().new_document() if window() else None)
     add_action("open", lambda: window().open_document() if window() else None)
     add_action("save", lambda: window().save_document() if window() else None)
