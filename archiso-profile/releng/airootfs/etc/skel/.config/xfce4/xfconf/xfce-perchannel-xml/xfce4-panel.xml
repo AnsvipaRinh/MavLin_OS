@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- xfce4-panel — single top menu bar, Mavericks style (no global-menu plugin: perf cost) -->
+<!-- xfce4-panel — single top menu bar, Mavericks style -->
 <channel name="xfce4-panel" version="1.0">
   <property name="panels" type="array">
     <value type="int" value="1"/>
@@ -31,10 +31,9 @@
     <property name="plugin-4" type="string" value="systray"/>
     <property name="plugin-5" type="string" value="clock"/>
     <property name="plugin-6" type="string" value="actions"/>
-    <property name="plugin-7" type="string" value="genmon"/>
-    <property name="plugin-7" type="empty">
+    <property name="plugin-7" type="string" value="genmon">
       <property name="command" type="string" value="mv-hud"/>
-      <property name="interval" type="integer" value="5"/>
+      <property name="update-period" type="int" value="5000"/>
     </property>
   </property>
 </channel>
