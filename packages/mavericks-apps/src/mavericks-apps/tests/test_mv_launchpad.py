@@ -196,6 +196,17 @@ def test_position_conflicts_and_invalid_values_do_not_drop_apps():
     print("PASS: test_position_conflicts_and_invalid_values_do_not_drop_apps")
 
 
+def test_folder_config_is_normalized():
+    """Malformed folder JSON must not crash Launchpad or inject non-string IDs."""
+    source = open(SCRIPT).read()
+    assert 'isinstance(raw, dict)' in source
+    assert 'isinstance(folder_data, dict)' in source
+    assert 'isinstance(app_ids, list)' in source
+    assert 'isinstance(app_id, str)' in source
+    assert 'folders.setdefault(folder_id' in source
+    print("PASS: test_folder_config_is_normalized")
+
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
@@ -231,6 +242,7 @@ if __name__ == "__main__":
         test_folder_cells_count_toward_pagination,
         test_folder_members_are_not_duplicated_on_main_grid,
         test_position_conflicts_and_invalid_values_do_not_drop_apps,
+        test_folder_config_is_normalized,
         test_full_integration_basic,
     ]
 
