@@ -196,7 +196,10 @@ def evaluate_calculator(query):
                 ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod, ast.Pow,
                 ast.UAdd, ast.USub, ast.FloorDiv,
             )
-            if any(not isinstance(node, allowed_nodes) for node in ast.walk(tree)):
+            nodes = list(ast.walk(tree))
+            if len(nodes) > 64:
+                raise ValueError("calculator expression too complex")
+            if any(not isinstance(node, allowed_nodes) for node in nodes):
                 raise ValueError("unsupported calculator expression")
             def calculate(node):
                 if isinstance(node, ast.Expression):
@@ -207,6 +210,10 @@ def evaluate_calculator(query):
                     value = calculate(node.operand)
                     return +value if isinstance(node.op, ast.UAdd) else -value
                 if isinstance(node, ast.BinOp):
+                    if isinstance(node.op, ast.Pow):
+                        exponent = calculate(node.right)
+                        if not isinstance(exponent, int) or abs(exponent) > 1000:
+                            raise ValueError("calculator exponent out of range")
                     left, right = calculate(node.left), calculate(node.right)
                     operations = {
                         ast.Add: lambda: left + right,
