@@ -109,17 +109,20 @@ jobs:
       - name: Install python deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq python3 python3-pip
+          sudo apt-get install -y -qq python3 python3-pip sassc gir1.2-gtk-3.0
           pip3 install --quiet pytest
 
       - name: Run mv-* unit tests
         run: |
           find . -type f -name 'test-mv-*.py' ! -path './.git/*' -exec python3 -m pytest {} -v \;
 
-      - name: Theme validation gates
+      - name: Theme validation
         run: |
-          # Placeholder for theme validation (GTK/CSS syntax, asset checks)
-          echo "Theme validation gates - TODO: implement"
+          python3 scripts/test-theme-css.py
+
+      - name: Finder launcher regression gate
+        run: |
+          python3 scripts/test-finder-launcher.py
 
       # NOTE: check-sync.sh is enforced by the static-analysis job ("Full sync
       # check" step runs ./scripts/check-sync.sh directly). A previous version
