@@ -63,8 +63,8 @@ def load_desktop_apps():
             icon = "application-x-executable"
         elif not icon:
             icon = "application-x-executable"
-        apps.append({
-            "id": desktop_id,
+        apps.append({            "id": desktop_id,
+            "legacy_id": Path(e["path"]).stem,
             "name": e["name"],
             "exec": e["exec"],
             "icon": icon,
@@ -89,6 +89,30 @@ def _icon_exists(icon_name):
         pass
     return False
 
+
+def _legacy_id_map(apps):
+    """Map legacy basename IDs only when they resolve to one canonical app."""
+    candidates = {}
+    for app in apps:
+        legacy_id = app.get("legacy_id")
+        canonical_id = app.get("id")
+        if not legacy_id or not canonical_id or legacy_id == canonical_id:
+            continue
+        candidates.setdefault(legacy_id, set()).add(canonical_id)
+    return {legacy_id: next(iter(ids)) for legacy_id, ids in candidates.items() if len(ids) == 1}
+
+def _migrate_app_ids(ids, apps):
+    """Translate pre-canonical basename IDs without guessing ambiguous cases."""
+    legacy_map = _legacy_id_map(apps)
+    changed = False
+    migrated = []
+    for app_id in ids:
+        canonical_id = legacy_map.get(app_id, app_id)
+        if canonical_id != app_id:
+            changed = True
+        if canonical_id not in migrated:
+            migrated.append(canonical_id)
+    return migrated, changed
 
 def load_folders(apps=None):
     """Load and normalize folder configuration without overwriting user edits."""
@@ -120,6 +144,8 @@ def load_folders(apps=None):
             if not isinstance(app_ids, list):
                 app_ids = []
             app_ids = [app_id for app_id in app_ids if isinstance(app_id, str)]
+            if apps:
+                app_ids, _ = _migrate_app_ids(app_ids, apps)
             folders[folder_id] = {"name": name, "apps": app_ids}
 
     # Default folders are created only on first run. Once folders.json
@@ -217,6 +243,20 @@ def load_positions():
     # JSON object keys are strings; retain values for build_launchpad_structure()
     # to validate as untrusted position data.
     return {app_id: position for app_id, position in raw.items() if isinstance(app_id, str)}
+
+
+def migrate_positions(positions, apps):
+    """Translate legacy position keys when the basename mapping is unambiguous."""
+    legacy_map = _legacy_id_map(apps)
+    migrated = {}
+    changed = False
+    for app_id, position in positions.items():
+        canonical_id = legacy_map.get(app_id, app_id)
+        if canonical_id != app_id:
+            changed = True
+        if canonical_id not in migrated:
+            migrated[canonical_id] = position
+    return migrated, changed
 
 
 def save_positions(positions):
@@ -497,6 +537,9 @@ def main():
     apps = load_desktop_apps()
     folders = load_folders(apps)
     positions = load_positions()
+    positions, positions_migrated = migrate_positions(positions, apps)
+    if positions_migrated:
+        save_positions(positions)
 
     # Build structure
     structure = build_launchpad_structure(apps, folders, positions, query, open_folder)
