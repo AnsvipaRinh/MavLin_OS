@@ -141,25 +141,79 @@ spinbutton,
 textview {
     background-color: $entry_bg_color;
     color: $entry_fg_color;
-    border: 1px solid $border_color;
-    border-radius: $entry_border_radius;
-    padding: 6px 10px;
-    min-height: $entry_min_height;
-    @include inset-shadow();
+    border: none;
+    border-radius: 0;
+    padding: 2px 8px;
+    min-height: 18px;
+    caret-color: currentColor;
+    box-shadow: inset 0 1px rgba(0,0,0,0.36),
+                inset 0 2px rgba(0,0,0,0.145),
+                inset 0 3px rgba(0,0,0,0.035),
+                inset -1px 0 rgba(0,0,0,0.22),
+                inset -2px 0 rgba(0,0,0,0.04),
+                inset 2px 0 rgba(0,0,0,0.04),
+                inset 1px 0 rgba(0,0,0,0.22),
+                inset 0 -1px rgba(0,0,0,0.12);
     @include transition-fast;
 
-    &:focus,
-    &:hover {
-        border-color: $focus_color;
-        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1),
-                    0 0 0 2px rgba(0, 122, 255, 0.2);
+    &:focus {
+        box-shadow: inset 0 1px rgba(0,0,0,0.36),
+                    inset 0 2px rgba(0,0,0,0.145),
+                    inset 0 3px rgba(0,0,0,0.035),
+                    inset -1px 0 rgba(0,0,0,0.22),
+                    inset -2px 0 rgba(0,0,0,0.04),
+                    inset 2px 0 rgba(0,0,0,0.04),
+                    inset 1px 0 rgba(0,0,0,0.22),
+                    inset 0 -1px rgba(0,0,0,0.12),
+                    0 0 2px #71a5d6,
+                    0 0 2px #71a5d6,
+                    0 0 2px #71a5d6,
+                    0 0 2px #71a5d6,
+                    0 0 2px #71a5d6,
+                    0 0 2px #71a5d6,
+                    inset 0 0 0 2px rgba(113,165,214,0.3),
+                    inset 0 0 0 1px #6a9ecf;
     }
 
     &:disabled {
-        background-color: $insensitive_bg_color;
-        color: $insensitive_fg_color;
-        border-color: shade($insensitive_bg_color, 0.8);
+        color: rgba(0,0,0,0.5);
+        background-color: rgba(255,255,255,0.5);
+        box-shadow: inset 0 1px rgba(0,0,0,0.18),
+                    inset 0 2px rgba(0,0,0,0.0725),
+                    inset 0 3px rgba(0,0,0,0.0175),
+                    inset -1px 0 rgba(0,0,0,0.11),
+                    inset -2px 0 rgba(0,0,0,0.02),
+                    inset 2px 0 rgba(0,0,0,0.02),
+                    inset 1px 0 rgba(0,0,0,0.11),
+                    inset 0 -1px rgba(0,0,0,0.06);
     }
+}
+
+entry.search {
+    border-radius: 50px;
+}
+
+entry.flat,
+entry.flat:focus {
+    min-height: 0;
+    padding: 2px;
+    background-image: none;
+    border-color: transparent;
+    border-radius: 6px;
+}
+
+entry image {
+    color: #515151;
+}
+
+entry image.left {
+    padding-left: 0;
+    padding-right: 5px;
+}
+
+entry image.right {
+    padding-right: 0;
+    padding-left: 5px;
 }
 
 /* Spinbutton buttons */
@@ -274,39 +328,75 @@ scale.vertical {
 }
 
 /* ============================================================
-   PROGRESSBAR
+   PROGRESSBAR (Poppy: animated aqua gradient with radial highlight)
    ============================================================ */
 
 progressbar {
-    background-color: shade($bg_color, 0.85);
-    border: 1px solid shade($bg_color, 0.7);
-    border-radius: 6px;
-    min-height: 12px;
-
-    trough {
-        background-color: transparent;
-    }
-
-    progress {
-        background-image: linear-gradient(to bottom,
-            shade($accent_bg_color, 1.1),
-            shade($accent_bg_color, 0.9)
-        );
-        border-radius: 5px;
-        @include inset-shadow();
-        transition: width 0.3s ease-out;
-    }
-
-    /* Pulse animation for indeterminate */
-    &.pulse progress {
-        animation: progress-pulse 1.5s ease-in-out infinite;
-    }
+    padding: 0;
+    font-size: smaller;
+    color: rgba(92, 97, 108, 0.7);
 }
 
-@keyframes progress-pulse {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
+progressbar trough {
+    border: none;
+    border-radius: 3px;
+    background-color: transparent;
+    min-width: 16px;
+    min-height: 16px;
+    padding: 1px;
+    background-image: linear-gradient(to bottom, #cfcfcf, #e0e0e0);
+    box-shadow: 0 1px rgba(255,255,255,0.28),
+                inset 0 1px rgba(0,0,0,0.22),
+                inset 0 2px rgba(0,0,0,0.05),
+                inset 0 3px rgba(0,0,0,0.02),
+                inset -1px 0 rgba(0,0,0,0.22),
+                inset -2px 0 rgba(0,0,0,0.04),
+                inset 1px 0 rgba(0,0,0,0.22),
+                inset 2px 0 rgba(0,0,0,0.04),
+                inset 0 -2px rgba(0,0,0,0.03),
+                inset 0 -1px rgba(0,0,0,0.25);
+}
+
+progressbar.vertical trough {
+    background-image: linear-gradient(to left, #cfcfcf, #e0e0e0);
+}
+
+progressbar progress {
+    border: none;
+    border-radius: 0;
+    box-shadow: -1px 0 rgba(0,0,0,0.175), 1px 0 rgba(0,0,0,0.175);
+    background-color: transparent;
+    background-image: linear-gradient(to bottom, #bbdff7, #aacdf8 1px, rgba(255,216,245,0.3) 50%, transparent 50%, transparent),
+                      radial-gradient(45% 50% at center, rgba(23,163,245,1), rgba(23,163,245,0)),
+                      linear-gradient(to bottom, #00bffb, #00bffb 50%, #00bffb 50%, #9fdef7);
+    background-size: 32px auto;
+    animation: progressbar-hor 1s linear infinite;
+    background-repeat: repeat-x;
+}
+
+progressbar.vertical progress {
+    min-width: 16px;
+    background-image: linear-gradient(to left, #bbdff7, #aacdf8 1px, rgba(255,216,245,0.3) 50%, transparent 50%, transparent),
+                      radial-gradient(50% 45% at center, rgba(23,163,245,1), rgba(23,163,245,0)),
+                      linear-gradient(to left, #00bffb, #00bffb 50%, #00bffb 50%, #9fdef7);
+    background-size: auto 32px;
+    animation: progressbar-ver 1s linear infinite;
+    background-repeat: repeat-y;
+}
+
+@keyframes progressbar-hor {
+    from { background-position: 0px 0px; }
+    to { background-position: -32px 0px; }
+}
+
+@keyframes progressbar-ver {
+    from { background-position: 0px 0px; }
+    to { background-position: 0px -32px; }
+}
+
+progressbar progress.pulse {
+    border-radius: 2px;
+    background-image: none;
 }
 
 /* ============================================================

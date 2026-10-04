@@ -11,76 +11,102 @@
 menu,
 .context-menu,
 .popup-menu {
-    background-color: $menu_bg_color;
-    border: 1px solid rgba(0,0,0,0.1);
-    border-radius: $menu_border_radius;
-    padding: 4px 0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    background-color: #fff;
+    border: 1px solid rgba(0,0,0,0.18);
+    border-radius: 0;
+    padding: 0;
+    text-shadow: none;
     min-width: 180px;
-
-    /* Frosted glass effect via semi-transparent background */
 }
 
-menuitem {
-    padding: $menuitem_padding;
-    margin: $menuitem_margin;
-    border-radius: 4px;
-    color: $menu_fg_color;
-    @include transition-fast;
-
-    &:hover,
-    &:selected {
-        background-color: $menu_selected_bg_color;
-        color: $menu_selected_fg_color;
-    }
-
-    &:disabled {
-        color: shade($menu_fg_color, 0.5);
-    }
-
-    /* Accelerator text */
-    accelerator {
-        color: shade($menu_fg_color, 0.6);
-        font-size: 0.85em;
-        margin-left: 16px;
-    }
-
-    /* Check/radio indicator */
-    check,
-    radio {
-        min-width: 16px;
-        min-height: 16px;
-        margin-right: 12px;
-    }
-
-    /* Submenu arrow */
-    arrow {
-        color: shade($menu_fg_color, 0.5);
-    }
-}
-
-/* Menu separator */
-separator {
-    background-color: rgba(0,0,0,0.1);
-    margin: 4px 8px;
+menu separator,
+.context-menu separator,
+.popup-menu separator {
+    margin: 2px 1px;
+    background-color: #e6e6e6;
     min-height: 1px;
 }
 
-/* Menu bar (top of window) */
-menubar {
-    background-color: transparent;
-    border: none;
-    padding: 0 8px;
+menu menuitem,
+.context-menu menuitem,
+.popup-menu menuitem {
+    min-width: 40px;
+    padding: 0px;
+    border-style: solid;
+    border-width: 0px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-top-color: transparent;
+    border-bottom-color: transparent;
+    font-weight: 500;
+    font-size: 16px;
 
-    menuitem {
-        padding: 4px 12px;
-        border-radius: 4px;
-
-        &:hover,
-        &:selected {
-            background-color: $menu_selected_bg_color;
-        }
+    &:hover,
+    &:selected {
+        color: #fff;
+        background-image: linear-gradient(to bottom, #618cf0, #1c65ed);
+        border-style: solid;
+        border-width: 0px;
+        border-top-width: 1px;
+        border-bottom-width: 1px;
+        border-top-color: #5783e7;
+        border-bottom-color: #0558e3;
     }
+
+    &:disabled {
+        color: #959595;
+    }
+
+    accelerator {
+        color: rgba(51, 51, 51, 0.55);
+    }
+
+    check,
+    radio {
+        min-height: 16px;
+        min-width: 16px;
+        margin-right: 6px;
+        margin-left: 3px;
+    }
+
+    arrow {
+        min-height: 16px;
+        min-width: 16px;
+        margin-left: 10px;
+        -gtk-icon-source: -gtk-icontheme("pan-end-symbolic");
+    }
+}
+
+/* Menubar - Mavericks gradient with highlight lines */
+menubar {
+    -GtkWidget-window-dragging: true;
+    padding: 0px;
+    font-weight: normal;
+    min-height: 22px;
+    background-color: transparent;
+    background-image: linear-gradient(to bottom, #e5e5e5, #a0a0a0);
+    box-shadow: inset 0 1px #fff, inset 0 -1px #000;
+}
+
+menubar > menuitem {
+    padding: 0px 10px;
+    border: solid transparent;
+    border-width: 0;
+    text-shadow: 0 1px rgba(255,255,255,0.25);
+}
+
+menubar > menuitem:hover,
+menubar > menuitem:selected {
+    color: #fff;
+    text-shadow: none;
+    background-color: transparent;
+    background-image: linear-gradient(to bottom, #618cf0, #1c65ed);
+    box-shadow: inset 0px 1px #7693ef, inset 0px -1px #1743d8;
+}
+
+menubar > menuitem:disabled {
+    color: rgba(0,0,0,0.5);
+    border-color: transparent;
 }
 
 /* ============================================================
@@ -97,25 +123,44 @@ tooltip {
 }
 
 /* ============================================================
-   POPOVER
+   POPOVER (Poppy: sharp shadow + highlight border, 4px radius)
    ============================================================ */
 
-popover {
-    background-color: $popover_bg_color;
-    border: 1px solid $popover_border_color;
-    border-radius: $popover_border_radius;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-    padding: $padding_medium;
+popover,
+popover.background {
+    padding: 0;
+    border-radius: 4px;
+    background-clip: border-box;
+    background-image: linear-gradient(to bottom, rgba(246,246,246,0.96), rgba(235,235,235,0.96));
+    background-color: transparent;
+    box-shadow: 0 3px 5px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.18);
+    border: 1px solid #f9f9f9;
+}
 
-    .popover-background {
-        background-color: transparent;
-    }
+popover separator,
+popover.background separator {
+    background-color: rgba(196,196,196,0.98);
+    border-bottom: 1px solid #fcfcfc;
+}
+
+popover > list,
+popover > .view,
+popover > iconview,
+popover > toolbar,
+popover > .inline-toolbar,
+popover.background > list,
+popover.background > .view,
+popover.background > iconview,
+popover.background > toolbar,
+popover.background > .inline-toolbar {
+    border-style: none;
+    background-color: transparent;
 }
 
 /* Popover arrow */
 popover > .popover-arrow {
-    background-color: $popover_bg_color;
-    border: 1px solid $popover_border_color;
+    background-color: rgba(246,246,246,0.96);
+    border: 1px solid #f9f9f9;
 }
 
 /* ============================================================

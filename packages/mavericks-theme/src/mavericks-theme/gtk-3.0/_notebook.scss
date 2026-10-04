@@ -5,7 +5,7 @@
 @import "mixins";
 
 /* ============================================================
-   NOTEBOOK / TABS - SAFARI 7 STYLE
+   NOTEBOOK / TABS - SAFARI 7 STYLE (Poppy-inspired metallic)
    ============================================================ */
 
 notebook {
@@ -17,32 +17,40 @@ notebook {
     header {
         background-color: transparent;
         border: none;
-        padding: 0 4px 0 4px;
+        padding: 0 6px 0 6px;
+        margin: 0 6px 0 6px;
     }
 
     tabs {
         background-color: transparent;
     }
 
-    /* Tab styling */
+    /* Tab styling - Poppy metallic gradient */
     tab {
         background-image: linear-gradient(to bottom,
-            shade($tab_bg_color, 1.08),
-            shade($tab_bg_color, 0.92)
+            #fff,
+            shade(#fff, 0.95) 50%,
+            shade(#fff, 0.93) 50%,
+            shade(#fff, 0.95)
         );
-        border: 1px solid shade($tab_bg_color, 0.6);
+        border: 1px solid #8c8c8c;
+        border-top-color: #969696;
         border-bottom: none;
-        border-radius: $tab_border_radius;
-        padding: $notebook_tab_padding;
-        margin: 0 2px;
-        min-height: $notebook_tab_min_height;
-        @include text-emboss();
-        @include inset-shadow();
+        border-radius: 4px 4px 0 0;
+        box-shadow: 0 1px rgba(0,0,0,0.06),
+                    inset 0 1px rgba(255,255,255,0.35),
+                    inset 1px 0 rgba(255,255,255,0.35),
+                    inset -1px 0 rgba(255,255,255,0.35),
+                    inset 0 -1px rgba(255,255,255,0.35);
+        background-color: transparent;
+        color: #000;
+        padding: 0px 11px;
+        min-width: 19px;
+        min-height: 19px;
         @include transition-fast;
 
-        /* Tab label */
         label {
-            color: $tab_fg_color;
+            color: #000;
             font-weight: 500;
         }
 
@@ -64,31 +72,47 @@ notebook {
         }
     }
 
-    /* Active tab */
-    tab:selected {
-        background-image: linear-gradient(to bottom,
-            shade($selected_tab_bg_color, 1.02),
-            shade($selected_tab_bg_color, 0.98)
-        );
-        border-color: shade($selected_tab_bg_color, 0.5);
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.2),
-                    0 -1px 0 shade($selected_tab_bg_color, 0.5);
-
-        label {
-            color: $selected_tab_fg_color;
-            font-weight: 600;
-        }
-    }
-
     /* Hover on inactive tabs */
     tab:hover:not(:selected) {
         background-image: linear-gradient(to bottom,
-            shade($tab_bg_color, 1.12),
-            shade($tab_bg_color, 0.95)
+            #fff,
+            shade(#fff, 0.96) 50%,
+            shade(#fff, 0.94) 50%,
+            shade(#fff, 0.96)
         );
+    }
+
+    /* Active tab - deep pressed-in shadow */
+    tab:selected {
+        padding: 1px 12px;
+        background-image: linear-gradient(to bottom, #7a7a7a, #8f8f8f);
+        border-width: 0;
+        text-shadow: 0 -1px rgba(0,0,0,0.02),
+                     -1px 0 rgba(0,0,0,0.05),
+                     1px 0 rgba(0,0,0,0.05),
+                     0 1px rgba(0,0,0,0.15),
+                     0 2px rgba(0,0,0,0.05);
+        box-shadow: 0 1px rgba(255,255,255,0.26),
+                    inset 0 1px rgba(0,0,0,0.17),
+                    inset 0 2px rgba(0,0,0,0.10),
+                    inset 0 3px rgba(0,0,0,0.01),
+                    inset 0 4px rgba(0,0,0,0.04),
+                    inset 0 5px rgba(0,0,0,0.01),
+                    inset 1px 0 rgba(0,0,0,0.14),
+                    inset 2px 0 rgba(0,0,0,0.08),
+                    inset 3px 0 rgba(0,0,0,0.03),
+                    inset -3px 0 rgba(0,0,0,0.03),
+                    inset -2px 0 rgba(0,0,0,0.08),
+                    inset -1px 0 rgba(0,0,0,0.14),
+                    inset 0 -4px rgba(255,255,255,0.02),
+                    inset 0 -3px rgba(255,255,255,0.07),
+                    inset 0 -2px rgba(255,255,255,0.02),
+                    inset 0 -1px rgba(0,0,0,0.16);
+        color: #fff;
 
         label {
-            color: shade($tab_fg_color, 0.9);
+            color: #fff;
+            font-weight: 600;
         }
     }
 
@@ -110,15 +134,38 @@ notebook {
             border-radius: $tab_border_radius;
         }
     }
+
+    /* Tab adjacency */
+    header.top > tabs > tab + tab {
+        margin-left: -1px;
+    }
+
+    header.top > tabs > tab:only-child {
+        border-radius: 4px 4px 0 0;
+    }
+
+    header.top > tabs > tab:first-child {
+        border-radius: 4px 0 0 0;
+    }
+
+    header.top > tabs > tab:last-child {
+        border-radius: 0 4px 0 0;
+    }
 }
 
 /* Content area */
-notebook > stack {
-    background-color: $selected_tab_bg_color;
-    border: 1px solid shade($selected_tab_bg_color, 0.6);
-    border-radius: 0 0 4px 4px;
-    border-top: none;
-    margin-top: -1px; /* Overlap with tabs */
+notebook > stack:not(:only-child) {
+    background-color: rgba(0,0,0,0.04);
+    border-radius: 4px;
+    box-shadow: inset 0 1px rgba(0,0,0,0.1),
+                inset 0 2px rgba(0,0,0,0.05),
+                inset 0 3px rgba(0,0,0,0.015),
+                inset 1px 0 rgba(0,0,0,0.08),
+                inset 2px 0 rgba(0,0,0,0.04),
+                inset -2px 0 rgba(0,0,0,0.04),
+                inset -1px 0 rgba(0,0,0,0.08),
+                inset 0 -2px rgba(0,0,0,0.02),
+                inset 0 -1px rgba(0,0,0,0.08);
 }
 
 /* ============================================================
