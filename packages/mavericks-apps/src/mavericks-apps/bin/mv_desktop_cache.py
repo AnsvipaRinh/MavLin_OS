@@ -9,7 +9,7 @@ The parser is intentionally small, but follows the Desktop Entry model
 closely enough for application discovery: only the [Desktop Entry] group
 is read, Hidden/NoDisplay are parsed as booleans, Type=Application is
 honored when present, localized Name keys are selected from the active
-locale, and duplicate desktop IDs use user-local/system precedence.
+locale, and duplicate desktop IDs use user-local/system precedence, including subdirectories.
 
 Invalidation covers every desktop dir's (mtime_ns, file count) plus every
 .desktop file's (mtime_ns, size). Corrupt cache files are quarantined.
@@ -76,32 +76,30 @@ def _fingerprint():
             h.update(b"\x00")
         except OSError:
             continue
-        try:
-            names = sorted(os.listdir(d))
-        except OSError:
-            continue
         dir_count = 0
-        for name in names:
-            if not name.endswith(".desktop"):
-                continue
-            path = os.path.join(d, name)
-            try:
-                st = os.stat(path)
-            except OSError:
-                continue
-            h.update(b"file\x00")
-            h.update(path.encode("utf-8", "replace"))
-            h.update(b"\x00")
-            h.update(str(st.st_mtime_ns).encode())
-            h.update(b"\x00")
-            h.update(str(st.st_ctime_ns).encode())
-            h.update(b"\x00")
-            h.update(str(st.st_ino).encode())
-            h.update(b"\x00")
-            h.update(str(st.st_size).encode())
-            h.update(b"\x00")
-            count += 1
-            dir_count += 1
+        for root, dirnames, names in os.walk(d):
+            dirnames.sort()
+            for name in sorted(names):
+                if not name.endswith(".desktop"):
+                    continue
+                path = os.path.join(root, name)
+                try:
+                    st = os.stat(path)
+                except OSError:
+                    continue
+                h.update(b"file\x00")
+                h.update(path.encode("utf-8", "replace"))
+                h.update(b"\x00")
+                h.update(str(st.st_mtime_ns).encode())
+                h.update(b"\x00")
+                h.update(str(st.st_ctime_ns).encode())
+                h.update(b"\x00")
+                h.update(str(st.st_ino).encode())
+                h.update(b"\x00")
+                h.update(str(st.st_size).encode())
+                h.update(b"\x00")
+                count += 1
+                dir_count += 1
         h.update(b"count\x00")
         h.update(d.encode("utf-8", "replace"))
         h.update(b"\x00")
@@ -138,6 +136,17 @@ def _locale_candidates():
 
 def _parse_bool(value):
     return value.strip().lower() == "true"
+
+
+def _desktop_id_for_path(path):
+    """Return the desktop-file ID relative to its XDG applications root."""
+    normalized = os.path.abspath(path)
+    for directory in desktop_dirs():
+        root = os.path.abspath(directory)
+        prefix = root + os.sep
+        if normalized.startswith(prefix):
+            return os.path.relpath(normalized, root).replace(os.sep, "/")
+    return os.path.basename(path)
 
 
 def _parse_desktop_file(path):
@@ -198,6 +207,7 @@ def _parse_desktop_file(path):
 
     return {
         "path": path,
+        "desktop_id": _desktop_id_for_path(path),
         "name": name,
         "exec": exec_cmd,
         "icon": icon,
@@ -244,17 +254,19 @@ def load_desktop_entries():
     for d in desktop_dirs():
         if not os.path.isdir(d):
             continue
-        try:
-            names = sorted(os.listdir(d))
-        except OSError:
-            continue
-        for name in names:
-            if not name.endswith(".desktop") or name in seen_ids:
-                continue
-            seen_ids.add(name)
-            e = _parse_desktop_file(os.path.join(d, name))
-            if e is not None:
-                entries.append(e)
+        for root, dirnames, names in os.walk(d):
+            dirnames.sort()
+            for name in sorted(names):
+                if not name.endswith(".desktop"):
+                    continue
+                path = os.path.join(root, name)
+                desktop_id = _desktop_id_for_path(path)
+                if desktop_id in seen_ids:
+                    continue
+                seen_ids.add(desktop_id)
+                e = _parse_desktop_file(path)
+                if e is not None:
+                    entries.append(e)
     _save_desktop_entries(entries, fp, count)
     return entries
 
