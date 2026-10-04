@@ -15,6 +15,7 @@ APPLE_PLUGIN = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c
 APPLE_DESKTOP = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
 APPLE_ICON = Path("packages/mavericks-apps/src/mavericks-apps/icons/mv-apple.svg")
 FORCE_QUIT = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-force-quit")
+RECENT_ITEMS = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-recent-items")
 
 NATIVE_APPS = {
     "about": "About This Mac",
@@ -53,8 +54,10 @@ def check_apple_plugin():
     assert "XFCE_PANEL_PLUGIN_REGISTER(construct)" in text
     assert "About This Mac" in text
     assert "System Preferences" in text
-    assert "mv-force-quit" in text
+    assert "mv-recent-items" in text
+    assert "xfce4-screensaver-command --lock" in text
     assert "signal.SIGKILL" in force_quit
+    assert "recently-used.xbel" in RECENT_ITEMS.read_text(encoding="utf-8")
     assert "systemctl suspend" in text
     assert "systemctl reboot" in text
     assert "systemctl poweroff" in text
@@ -110,12 +113,15 @@ def main():
     assert "install_application_menu" in calculator
     assert "Gtk.main()" not in calculator
 
+    lifecycle_exceptions = {"stickies", "music"}
     for command, app_name in NATIVE_APPS.items():
         app = Path(
             "packages/mavericks-apps/src/mavericks-apps/bin/mv-" + command
         ).read_text(encoding="utf-8")
-        assert "run_application" in app, f"{app_name} does not use the global-menu runner"
+        if command not in lifecycle_exceptions:
+            assert "run_application" in app, f"{app_name} does not use the global-menu runner"
         assert "Gtk.main()" not in app, f"{app_name} still owns a private Gtk.main loop"
+        assert "Gtk.Application" in app, f"{app_name} does not use Gtk.Application"
 
     print("OK: global menu integration contract")
 
