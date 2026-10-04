@@ -157,6 +157,17 @@ def test_rofi_live_search_callback():
     print("PASS: test_rofi_live_search_callback")
 
 
+def test_page_navigation_callbacks():
+    """Rofi custom callbacks must map Page Down/Up to script return codes."""
+    source = open(SCRIPT).read()
+    assert 'rofi_retv in ("10", "11")' in source
+    assert 'page += 1 if rofi_retv == "10" else -1' in source
+    desktop = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "desktop", "mv-launchpad.desktop")).read()
+    assert "-kb-custom-1 'Page_Down'" in desktop
+    assert "-kb-custom-2 'Page_Up'" in desktop
+    print("PASS: test_page_navigation_callbacks")
+
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
@@ -188,6 +199,7 @@ if __name__ == "__main__":
         test_rofi_theme_has_mavericks_styling,
         test_rofi_selection_actions,
         test_rofi_live_search_callback,
+        test_page_navigation_callbacks,
         test_full_integration_basic,
     ]
 
