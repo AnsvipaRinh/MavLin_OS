@@ -148,6 +148,15 @@ def test_rofi_selection_actions():
     print("PASS: test_rofi_selection_actions")
 
 
+def test_rofi_live_search_callback():
+    """Rofi retv=0 must use argv[1] as live search text, not as a page number."""
+    source = open(SCRIPT).read()
+    assert 'rofi_mode and rofi_retv == "0"' in source
+    assert 'query = sys.argv[1].strip()' in source
+    assert 'if not rofi_mode and len(sys.argv) > 1:' in source
+    print("PASS: test_rofi_live_search_callback")
+
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
@@ -178,6 +187,7 @@ if __name__ == "__main__":
         test_desktop_entry_integrity,
         test_rofi_theme_has_mavericks_styling,
         test_rofi_selection_actions,
+        test_rofi_live_search_callback,
         test_full_integration_basic,
     ]
 
