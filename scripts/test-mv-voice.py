@@ -200,14 +200,20 @@ def test_trim_wav(m, td):
 
 
 def test_gui_smoke(m, td):
-    import gi
-    gi.require_version("Gtk", "3.0")
-    gi.require_version("Gdk", "3.0")
-    gi.require_version("Gio", "2.0")
-    from gi.repository import Gtk, Gdk
+    try:
+        import gi
+        gi.require_version("Gtk", "3.0")
+        gi.require_version("Gdk", "3.0")
+        gi.require_version("Gio", "2.0")
+        from gi.repository import Gtk, Gdk
+    except ImportError:
+        print("ok - gui smoke skipped (no PyGObject on this host)")
+        return
     if not Gtk.init_check()[0]:
         print("ok - gui smoke skipped (no display)")
         return
+
+    m.build_voice_classes()  # populate module-level GTK widget classes
 
     d = os.path.join(td, "gui")
     os.makedirs(d)

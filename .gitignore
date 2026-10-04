@@ -1,5 +1,7 @@
-# Python bytecode
+# Compiled/Binary files
 __pycache__/
 *.pyc
-# build artifacts
-*.bundle
+
+# Dependency directories
+.venv/
+venv/
