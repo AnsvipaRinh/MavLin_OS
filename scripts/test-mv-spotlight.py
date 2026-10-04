@@ -158,6 +158,14 @@ def test_calculator_safety_contract():
     assert "abs(exponent) > 1000" in source
 
 
+def test_desktop_launch_contract():
+    from pathlib import Path
+    source = (Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight").read_text(encoding="utf-8")
+    assert '"desktop_id": os.path.basename(e["path"])' in source
+    assert "gtk-launch" in source
+    assert 'shlex.quote(desktop_id)' in source
+
+
 def test_file_action_quoting_contract():
     from pathlib import Path
     source = (Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight").read_text(encoding="utf-8")
