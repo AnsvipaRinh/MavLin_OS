@@ -72,6 +72,10 @@ def _fingerprint():
             h.update(b"\x00")
             h.update(str(st.st_mtime_ns).encode())
             h.update(b"\x00")
+            h.update(str(st.st_ctime_ns).encode())
+            h.update(b"\x00")
+            h.update(str(st.st_ino).encode())
+            h.update(b"\x00")
             h.update(str(st.st_size).encode())
             h.update(b"\x00")
             count += 1
