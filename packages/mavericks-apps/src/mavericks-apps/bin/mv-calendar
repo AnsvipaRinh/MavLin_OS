@@ -26,7 +26,7 @@ _GUI = len(sys.argv) <= 1 or sys.argv[1] != "--check-upcoming"
 if _GUI:
     import gi
     gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, GLib, Gdk
+    from gi.repository import Gtk, GLib, Gdk, Gio
 
 # Import EDS sync bridge (always available for headless --sync)
 try:
