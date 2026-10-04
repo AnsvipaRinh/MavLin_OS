@@ -232,19 +232,23 @@ def _parse_desktop_file(path):
     exec_cmd = values.get("Exec", "").strip()
     icon = values.get("Icon", "").strip()
     categories = values.get("Categories", "").strip()
-    if not name or not exec_cmd:
+    dbus_activatable = _parse_bool(values.get("DBusActivatable", "false"))
+    if not name or (not exec_cmd and not dbus_activatable):
         return None
 
-    # Spotlight now launches by desktop ID, so Exec is retained only for
-    # ranking/metadata. Keep the legacy field-code stripping behavior here.
-    exec_cmd = exec_cmd.split("%", 1)[0].strip()
-    if not exec_cmd:
-        return None
+    # Spotlight and Launchpad launch by desktop ID through gtk-launch, so
+    # Exec is retained only for ranking/metadata. DBus-activatable entries
+    # are valid without Exec and are launched by the desktop activation API.
+    if exec_cmd:
+        exec_cmd = exec_cmd.split("%", 1)[0].strip()
+        if not exec_cmd and not dbus_activatable:
+            return None
 
     return {
         "path": path,
         "name": name,
         "exec": exec_cmd,
+        "dbus_activatable": dbus_activatable,
         "icon": icon,
         "categories": categories,
     }
