@@ -23,12 +23,36 @@ class MissionControlTests(unittest.TestCase):
     def setUpClass(cls):
         cls.mod = load_script()
 
-    def test_native_backend_uses_daemon_free_all_desktops_expose(self):
-        with mock.patch.object(self.mod.shutil, "which", return_value="/usr/bin/skippy-xd"),              mock.patch.object(self.mod.subprocess, "run", return_value=mock.Mock(returncode=0)) as run:
+    def test_native_backend_primes_workspaces_then_exposes(self):
+        commands = []
+
+        def fake_run(command, **kwargs):
+            commands.append((command, kwargs))
+            result = mock.Mock(returncode=0)
+            result.stdout = "0  * DG: 0 0 0 0\n"
+            return result
+
+        with mock.patch.object(self.mod.shutil, "which", return_value="/usr/bin/skippy-xd"), \
+             mock.patch.object(self.mod.subprocess, "run", side_effect=fake_run), \
+             mock.patch.object(self.mod.time, "sleep"):
             self.assertTrue(self.mod.run_native_expose())
-        run.assert_called_once_with(
-            ["/usr/bin/skippy-xd", "--desktop", "-1"],
-            timeout=30,
+
+        self.assertIn(
+            (["/usr/bin/skippy-xd", "--start-daemon"], {"timeout": 5}),
+            commands,
+        )
+        self.assertIn(
+            (["/usr/bin/skippy-xd", "--expose", "--desktop", "-1"], {"timeout": 300}),
+            commands,
+        )
+        self.assertIn(
+            (["/usr/bin/skippy-xd", "--stop-daemon"], {"timeout": 5, "check": False}),
+            commands,
+        )
+        self.assertTrue(any(cmd[:2] == ["/usr/bin/wmctrl", "-s"] for cmd, _ in commands))
+        self.assertEqual(
+            commands[-1][0],
+            ["/usr/bin/skippy-xd", "--stop-daemon"],
         )
 
     def test_native_backend_is_optional(self):
