@@ -92,7 +92,7 @@ def load_desktop_apps():
         apps.append({
             "name": e["name"],
             "exec": e["exec"],
-            "desktop_id": os.path.basename(e["path"]),
+            "desktop_id": e.get("desktop_id", os.path.basename(e["path"])),
             "icon": e["icon"] or "application-x-executable",
             "categories": e["categories"],
             "source": "app"

@@ -12,6 +12,8 @@ checks = [
     ("sender uses atomic replacement", "os.replace(tmp, STORE_FILE)" in notify),
     ("sender protects history file", "os.chmod(STORE_FILE, 0o600)" in notify),
     ("sender fsyncs before replace", "os.fsync(f.fileno())" in notify),
+    ("sender parses typed hints", 'h.split(":", 2)' in notify),
+    ("sender stores hint name rather than type", 'hints[name] = value' in notify),
     ("center serializes clears", "fcntl.flock(lock, fcntl.LOCK_EX)" in center),
     ("center protects history file", "os.chmod(STORE_FILE, 0o600)" in center),
 ]

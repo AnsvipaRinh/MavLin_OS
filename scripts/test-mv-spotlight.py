@@ -245,6 +245,31 @@ def test_recent_items_file_uri_parsing():
 
 
 
+
+def test_recursive_desktop_ids_are_preserved():
+    import importlib.util
+    from pathlib import Path
+    module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight"
+    spec = importlib.util.spec_from_file_location("mv_spotlight_ids_test", module_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    original = module.mv_desktop_cache.load_desktop_entries
+    try:
+        module.mv_desktop_cache.load_desktop_entries = lambda: [{
+            "path": "/apps/foo/bar.desktop",
+            "desktop_id": "foo-bar.desktop",
+            "name": "Nested App",
+            "exec": "nested-app",
+            "icon": "",
+            "categories": "",
+        }]
+        apps = module.load_desktop_apps()
+        assert apps[0]["desktop_id"] == "foo-bar.desktop"
+    finally:
+        module.mv_desktop_cache.load_desktop_entries = original
+
+
+
 def test_main_subprocess():
     import subprocess
 
@@ -284,6 +309,7 @@ if __name__ == "__main__":
         ("file_action_quoting_contract", test_file_action_quoting_contract),
         ("desktop_cache_semantics", test_desktop_cache_semantics),
         ("recent_items_file_uri_parsing", test_recent_items_file_uri_parsing),
+        ("recursive_desktop_ids_are_preserved", test_recursive_desktop_ids_are_preserved),
         ("main_subprocess", test_main_subprocess),
     ]
 

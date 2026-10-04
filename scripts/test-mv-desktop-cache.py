@@ -106,6 +106,121 @@ class Sandbox:
         return path
 
 
+def test_xdg_application_paths(mod):
+    """Desktop discovery must honor XDG_DATA_HOME/XDG_DATA_DIRS precedence."""
+    sb = Sandbox(mod)
+    # This test must exercise the real env-sensitive desktop_dirs(), not the
+    # single-fake-dir stub that Sandbox installs for the other tests.
+    mod.desktop_dirs = sb.old_dirs
+    old = {key: os.environ.get(key) for key in ("XDG_DATA_HOME", "XDG_DATA_DIRS")}
+    try:
+        custom_home = os.path.join(sb.tmp, "xdg-home")
+        custom_system = os.path.join(sb.tmp, "xdg-system")
+        os.makedirs(os.path.join(custom_home, "applications"))
+        os.makedirs(os.path.join(custom_system, "applications"))
+        os.environ["XDG_DATA_HOME"] = custom_home
+        os.environ["XDG_DATA_DIRS"] = custom_system
+        dirs = mod.desktop_dirs()
+        check("xdg: custom user applications path first",
+              dirs[0] == os.path.join(custom_home, "applications"), repr(dirs))
+        check("xdg: custom system applications path second",
+              dirs[1] == os.path.join(custom_system, "applications"), repr(dirs))
+        user = os.path.join(custom_home, "applications", "same.desktop")
+        system = os.path.join(custom_system, "applications", "same.desktop")
+        with open(user, "w") as f:
+            f.write(DESKTOP_FILE)
+        with open(system, "w") as f:
+            f.write(DESKTOP_FILE_2)
+        entries = mod.load_desktop_entries()
+        check("xdg: user entry overrides system entry",
+              len(entries) == 1 and entries[0]["name"] == "Test App", repr(entries))
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        sb.close()
+
+
+def test_recursive_desktop_ids(mod):
+    """Nested application entries use the freedesktop desktop-file ID."""
+    sb = Sandbox(mod)
+    try:
+        nested = os.path.join(sb.desktop, "foo", "bar")
+        os.makedirs(nested)
+        path = os.path.join(nested, "Nested.desktop")
+        with open(path, "w") as f:
+            f.write(DESKTOP_FILE)
+        entries = mod.load_desktop_entries()
+        check("desktop-id: nested entry discovered", len(entries) == 1, repr(entries))
+        check("desktop-id: nested path becomes foo-bar-Nested.desktop",
+              entries[0].get("desktop_id") == "foo-bar-Nested.desktop",
+              repr(entries))
+    finally:
+        sb.close()
+
+
+def test_environment_filters(mod):
+    """OnlyShowIn/NotShowIn/TryExec must affect application discovery."""
+    sb = Sandbox(mod)
+    old = {key: os.environ.get(key) for key in ("XDG_CURRENT_DESKTOP", "PATH")}
+    try:
+        os.environ["XDG_CURRENT_DESKTOP"] = "XFCE"
+        sb.write("only-xfce.desktop", DESKTOP_FILE + "OnlyShowIn=XFCE;\n")
+        sb.write("only-gnome.desktop", DESKTOP_FILE + "OnlyShowIn=GNOME;\n")
+        sb.write("not-xfce.desktop", DESKTOP_FILE + "NotShowIn=XFCE;\n")
+        sb.write("not-gnome.desktop", DESKTOP_FILE + "NotShowIn=GNOME;\n")
+        sb.write("try-missing.desktop", DESKTOP_FILE + "TryExec=definitely-not-a-real-command-mv;\n")
+        entries = mod.load_desktop_entries()
+        names = sorted(os.path.basename(e["path"]) for e in entries)
+        check("desktop environment: OnlyShowIn match kept",
+              "only-xfce.desktop" in names, repr(names))
+        check("desktop environment: OnlyShowIn mismatch filtered",
+              "only-gnome.desktop" not in names, repr(names))
+        check("desktop environment: NotShowIn match filtered",
+              "not-xfce.desktop" not in names, repr(names))
+        check("desktop environment: NotShowIn mismatch kept",
+              "not-gnome.desktop" in names, repr(names))
+        check("desktop environment: missing TryExec filtered",
+              "try-missing.desktop" not in names, repr(names))
+
+        # Environment-dependent visibility must invalidate an otherwise valid
+        # cache entry instead of reusing the previous desktop's filtered list.
+        os.environ["XDG_CURRENT_DESKTOP"] = "GNOME"
+        entries = mod.load_desktop_entries()
+        names = sorted(os.path.basename(e["path"]) for e in entries)
+        check("desktop environment: cache invalidates on XDG_CURRENT_DESKTOP",
+              "only-xfce.desktop" not in names and "only-gnome.desktop" in names,
+              repr(names))
+
+        # TryExec resolution depends on PATH and must invalidate the cache too.
+        tryexec_bin = os.path.join(sb.tmp, "tryexec-bin")
+        os.makedirs(tryexec_bin)
+        tryexec_path = os.path.join(tryexec_bin, "mv-test-tryexec")
+        with open(tryexec_path, "w") as fp:
+            fp.write("#!/bin/sh\n")
+        os.chmod(tryexec_path, 0o755)
+        sb.write("try-present.desktop", DESKTOP_FILE + "TryExec=mv-test-tryexec\n")
+        os.environ["PATH"] = tryexec_bin
+        entries = mod.load_desktop_entries()
+        names = [os.path.basename(e["path"]) for e in entries]
+        check("desktop environment: TryExec present on PATH kept",
+              "try-present.desktop" in names, repr(names))
+        os.environ["PATH"] = os.path.join(sb.tmp, "empty-path")
+        entries = mod.load_desktop_entries()
+        names = [os.path.basename(e["path"]) for e in entries]
+        check("desktop environment: cache invalidates on PATH",
+              "try-present.desktop" not in names, repr(names))
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        sb.close()
+
+
 def test_parse(mod):
     sb = Sandbox(mod)
     try:
@@ -113,11 +228,29 @@ def test_parse(mod):
         e = mod._parse_desktop_file(p)
         check("parse: valid entry", e is not None)
         check("parse: name", e and e["name"] == "Test App", repr(e and e["name"]))
-        check("parse: exec % stripped", e and e["exec"] == "testapp",
+        check("parse: exec field code removed", e and e["exec"] == "testapp",
               repr(e and e["exec"]))
+        p = sb.write("quoted.desktop", '[Desktop Entry]\nName=Quoted\nExec="test app" --mode %U %%done\n')
+        quoted = mod._parse_desktop_file(p)
+        check("parse: quoted Exec preserved", quoted and quoted["exec"] == '"test app" --mode  %done',
+              repr(quoted and quoted["exec"]))
+        p = sb.write("invalid-exec.desktop", "[Desktop Entry]\nName=Invalid\nExec=testapp %X\n")
+        check("parse: unknown Exec field code rejected", mod._parse_desktop_file(p) is None)
         check("parse: icon", e and e["icon"] == "test-icon", repr(e and e["icon"]))
         check("parse: categories", e and e["categories"] == "Utility;",
               repr(e and e["categories"]))
+        p = sb.write("escaped.desktop",
+                     "[Desktop Entry]\nName=Foo\\sBar\nExec=testapp\\s--label\\sfoo\n"
+                     "Icon=foo\\sbar\nCategories=Utility\\;Special;\n")
+        escaped = mod._parse_desktop_file(p)
+        check("parse: string escape in Name decoded",
+              escaped and escaped["name"] == "Foo Bar", repr(escaped and escaped["name"]))
+        check("parse: string escape in Icon decoded",
+              escaped and escaped["icon"] == "foo bar", repr(escaped and escaped["icon"]))
+        check("parse: escaped semicolon in Categories decoded",
+              escaped and escaped["categories"] == "Utility;Special;", repr(escaped and escaped["categories"]))
+        p = sb.write("bad-escape.desktop", "[Desktop Entry]\nName=Bad\\qName\nExec=testapp\n")
+        check("parse: unknown string escape rejected", mod._parse_desktop_file(p) is None)
 
         p = sb.write("hidden.desktop", DESKTOP_FILE + "Hidden=true\n")
         check("parse: Hidden=true skipped", mod._parse_desktop_file(p) is None)
@@ -127,6 +260,15 @@ def test_parse(mod):
         check("parse: missing Name rejected", mod._parse_desktop_file(p) is None)
         p = sb.write("noexec.desktop", "[Desktop Entry]\nName=Foo\n")
         check("parse: missing Exec rejected", mod._parse_desktop_file(p) is None)
+        p = sb.write("dbus.desktop", "[Desktop Entry]\nName=DBus App\nDBusActivatable=true\n")
+        dbus_entry = mod._parse_desktop_file(p)
+        check("parse: DBusActivatable without Exec kept", dbus_entry is not None, repr(dbus_entry))
+        check("parse: DBusActivatable flag retained", dbus_entry and dbus_entry["dbus_activatable"] is True,
+              repr(dbus_entry))
+        check("parse: DBusActivatable without Exec has empty exec", dbus_entry and dbus_entry["exec"] == "",
+              repr(dbus_entry))
+        p = sb.write("dbus-false.desktop", "[Desktop Entry]\nName=DBus False\nDBusActivatable=false\n")
+        check("parse: DBusActivatable=false still requires Exec", mod._parse_desktop_file(p) is None)
         check("parse: missing file -> None",
               mod._parse_desktop_file(os.path.join(sb.desktop, "nope.desktop")) is None)
     finally:
@@ -163,6 +305,40 @@ def test_fingerprint(mod):
         sb.close()
 
 
+def test_recursive_fingerprint_invalidation(mod):
+    """Nested desktop entries must participate in cache invalidation."""
+    sb = Sandbox(mod)
+    try:
+        nested = os.path.join(sb.desktop, "nested")
+        os.makedirs(nested)
+        path = os.path.join(nested, "nested.desktop")
+        with open(path, "w") as f:
+            f.write(DESKTOP_FILE)
+        fp1, count1 = mod._fingerprint()
+        check("recursive fingerprint: nested file counted", count1 == 1)
+        os.remove(path)
+        fp2, count2 = mod._fingerprint()
+        check("recursive fingerprint: nested removal changes key", fp2 != fp1)
+        check("recursive fingerprint: nested removal changes count", count2 == 0)
+        with open(path, "w") as f:
+            f.write(DESKTOP_FILE)
+        fp3, count3 = mod._fingerprint()
+        check("recursive fingerprint: nested re-add changes key", fp3 != fp2)
+        check("recursive fingerprint: nested re-add counted", count3 == 1)
+    finally:
+        sb.close()
+
+
+def test_cache_writer_uses_unique_atomic_tempfiles(mod):
+    """Cache writes must not share a fixed .tmp path between concurrent writers."""
+    source = open(MOD_PATH).read()
+    check("cache writer: tempfile module imported", "import tempfile" in source)
+    check("cache writer: unique mkstemp", "tempfile.mkstemp" in source)
+    check("cache writer: fsync before replace", "os.fsync(cache_file.fileno())" in source)
+    check("cache writer: atomic replace", "os.replace(tmp_path, path)" in source)
+    check("cache writer: cleanup on failure", "os.unlink(tmp_path)" in source)
+    check("cache writer: no fixed tmp path", 'tmp = path + ".tmp"' not in source)
+
 def test_cache_hit_skips_reads(mod):
     sb = Sandbox(mod)
     try:
@@ -191,6 +367,43 @@ def test_cache_hit_skips_reads(mod):
         sb.close()
 
 
+def test_locale_invalidation(mod):
+    """Localized desktop names must refresh when the active locale changes."""
+    sb = Sandbox(mod)
+    old = {key: os.environ.get(key) for key in ("LANGUAGE", "LC_MESSAGES", "LANG")}
+    try:
+        for key in old:
+            os.environ.pop(key, None)
+        sb.write("localized.desktop", """[Desktop Entry]
+Name=English App
+Name[ru]=Русское приложение
+Name[en]=English App
+Exec=testapp
+""")
+        os.environ["LANGUAGE"] = "en"
+        entries = mod.load_desktop_entries()
+        check("locale: English name cached", entries[0]["name"] == "English App",
+              repr(entries))
+        os.environ["LANGUAGE"] = "ru"
+        entries = mod.load_desktop_entries()
+        check("locale: change invalidates cache",
+              entries[0]["name"] == "Русское приложение", repr(entries))
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        sb.close()
+
+
+def test_fingerprint_tracks_replacement_metadata(mod):
+    """File replacement metadata must invalidate the desktop cache."""
+    source = open(MOD_PATH).read()
+    check("fingerprint: ctime tracked", "st.st_ctime_ns" in source)
+    check("fingerprint: inode tracked", "st.st_ino" in source)
+
+
 def test_cache_invalidation(mod):
     sb = Sandbox(mod)
     try:
@@ -214,6 +427,21 @@ def test_cache_invalidation(mod):
         os.remove(os.path.join(sb.desktop, "b.desktop"))
         entries = mod.load_desktop_entries()
         check("invalidation: remove re-parses", len(entries) == 1, f"n={len(entries)}")
+    finally:
+        sb.close()
+
+
+def test_missing_cache_is_not_quarantined(mod):
+    """A first-run cache miss must not create a fake corrupt-cache artifact."""
+    sb = Sandbox(mod)
+    try:
+        cache = sb.cache_path()
+        check("missing: cache initially absent", not os.path.exists(cache))
+        data = mod._read_json_safe(cache)
+        check("missing: returns cache miss", data is None)
+        parent = os.path.dirname(cache)
+        leftovers = [f for f in os.listdir(parent)] if os.path.isdir(parent) else []
+        check("missing: no quarantine artifact", leftovers == [], repr(leftovers))
     finally:
         sb.close()
 
@@ -258,11 +486,27 @@ def test_integration(mod):
         # but Hidden filtering must apply through the apps
         sb.write("hidden.desktop", DESKTOP_FILE + "Hidden=true\n")
 
+        sb.write("dbus.desktop", """[Desktop Entry]
+Name=DBus App
+DBusActivatable=true
+Icon=applications-system
+""")
+
+        cached_entries = mod.load_desktop_entries()
+        dbus_entries = [e for e in cached_entries if e.get("desktop_id") == "dbus.desktop"]
+        check("integration: DBus-activatable entry reaches cache", len(dbus_entries) == 1,
+              repr(dbus_entries))
+        check("integration: DBus-activatable flag survives cache",
+              dbus_entries and dbus_entries[0].get("dbus_activatable") is True,
+              repr(dbus_entries))
+        check("integration: DBus-activatable entry keeps empty Exec",
+              dbus_entries and dbus_entries[0].get("exec") == "", repr(dbus_entries))
+
         lp = load_app("mv-launchpad")
         apps = lp.load_desktop_apps()
         names = sorted(a["name"] for a in apps)
-        check("launchpad: apps via cache", names == ["Other App", "Test App"],
-              f"names={names}")
+        check("launchpad: apps via cache",
+              names == ["DBus App", "Other App", "Test App"], f"names={names}")
         # hidden.desktop (Name=Test App) must be filtered: exactly one
         # "Test App" entry remains, from aaa.desktop
         check("launchpad: hidden filtered",
@@ -270,35 +514,43 @@ def test_integration(mod):
               repr([a for a in apps if a["name"] == "Test App"]))
         check("launchpad: sorted by name",
               [a["name"] for a in apps] == names)
-        check("launchpad: id = stem",
-              {a["id"] for a in apps} == {"aaa", "bbb"},
+        check("launchpad: canonical desktop IDs",
+              {a["id"] for a in apps} == {"aaa.desktop", "bbb.desktop", "dbus.desktop"},
               repr({a["id"] for a in apps}))
 
         sp = load_app("mv-spotlight")
         sapps = sp.load_desktop_apps()
         check("spotlight: apps via cache",
-              sorted(a["name"] for a in sapps) == ["Other App", "Test App"],
+              sorted(a["name"] for a in sapps) == ["DBus App", "Other App", "Test App"],
               repr(sapps))
         check("spotlight: source field",
               all(a["source"] == "app" for a in sapps))
         check("spotlight: categories kept",
-              {a["categories"] for a in sapps} == {"Utility;", "Network;WebBrowser;"},
+              {a["categories"] for a in sapps} == {"Utility;", "Network;WebBrowser;", ""},
               repr({a["categories"] for a in sapps}))
 
-        # dedup: same stem in a later dir is skipped (user overrides system)
+        # dedup: the same dir listed twice yields 6 raw matches for 3 files;
+        # stems collapse to the user (first) copy.
         mod.desktop_dirs = lambda: [sb.desktop, sb.desktop]
         apps = lp.load_desktop_apps()
-        check("launchpad: dedup by stem", len(apps) == 2, f"n={len(apps)}")
+        check("launchpad: dedup by stem", len(apps) == 3, f"n={len(apps)}")
     finally:
         sb.close()
 
 
 def main():
     mod = load_module("mv_desktop_cache", MOD_PATH)
+    test_xdg_application_paths(mod)
     test_parse(mod)
+    test_environment_filters(mod)
+    test_recursive_desktop_ids(mod)
     test_fingerprint(mod)
+    test_cache_writer_uses_unique_atomic_tempfiles(mod)
+    test_recursive_fingerprint_invalidation(mod)
     test_cache_hit_skips_reads(mod)
     test_cache_invalidation(mod)
+    test_locale_invalidation(mod)
+    test_missing_cache_is_not_quarantined(mod)
     test_corrupt_cache(mod)
     test_integration(mod)
     print(f"\n{PASSED} passed, {len(FAILURES)} failed")

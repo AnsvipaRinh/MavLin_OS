@@ -58,9 +58,11 @@ def test_pagination_hint_present():
     stdout, rc = run_launchpad(0)
     assert rc == 0, f"Launchpad exited with code {rc}"
     # The pagination hint should be present at the end of output
-    # Format: \0icon\x1fgo-previous\x1f● ○ ○ — ←/→ or PgUp/PgDn to navigate
+    # Format: dots + "PgUp/PgDn to navigate"; arrows are rofi item
+    # navigation, not page controls (contract from PR #37).
     assert "●" in stdout, "Expected pagination hint containing page dots (●)"
-    assert "←/→" in stdout, "Expected navigation arrows in pagination hint"
+    assert "PgUp/PgDn" in stdout, "Expected Page Up/Down navigation hint"
+    assert "←/→" not in stdout, "Arrow keys must not be advertised as page controls"
     print("PASS: test_pagination_hint_present")
 
 
@@ -92,7 +94,7 @@ def test_keyboard_navigation_hints():
     # Check for typical rofi script mode info patterns
     has_info = "info" in stdout.lower()
     # Or check for navigation-related content
-    has_navigation = "←/→" in stdout or "PgUp" in stdout
+    has_navigation = "PgUp" in stdout or "PgDn" in stdout
     assert has_info or has_navigation, "Expected info or navigation hints in output"
     print("PASS: test_keyboard_navigation_hints")
 
@@ -127,14 +129,19 @@ def test_pagination_dots_page_1():
 
 def test_pagination_dots_last_page():
     """Test that last page shows correct page dot pattern."""
-    # First find total pages by running page 0
+    # Derive the total page count from page 0's dots (env-dependent).
     stdout, rc = run_launchpad(0)
     assert rc == 0
-    # Extract total pages from dots pattern (count of dots)
-    # For now just test that page 2 (last page in our env) shows ○ ○ ●
-    stdout, rc = run_launchpad(2)
+    nav = next((f for f in stdout.split("\0") if "PgUp/PgDn" in f), "")
+    total = sum(nav.count(c) for c in "●○")
+    assert total >= 1, "Expected page dots in the pagination hint"
+    expected = " ".join(
+        ["○"] * (total - 1) + ["●"]
+    )
+    stdout, rc = run_launchpad(total - 1)
     assert rc == 0, f"Launchpad exited with code {rc}"
-    assert "○ ○ ●" in stdout, "Expected page dots showing current page as last"
+    assert expected in stdout, (
+        f"Expected last-page dots {expected!r} in {stdout[-200:]!r}")
     print("PASS: test_pagination_dots_last_page")
 
 
@@ -184,6 +191,7 @@ def test_rofi_selection_actions():
     # older default-value form os.environ.get("ROFI_RETV", "0").
     assert 'os.environ.get("ROFI_RETV")' in source
     assert 'rofi_retv is not None' in source
+    assert 'rofi_mode = rofi_retv is not None' in source
     assert 'os.environ.get("ROFI_INFO", "")' in source
     assert 'rofi_info.startswith("app:")' in source
     assert '["gtk-launch", desktop_id]' in source
@@ -240,6 +248,159 @@ def test_edit_entry_launch():
         assert launched, "mv-launchpad-edit stub was never executed"
 
     print("PASS: test_edit_entry_launch")
+def test_page_navigation_callbacks():
+    """Rofi custom callbacks must map Page Down/Up to script return codes."""
+    source = open(SCRIPT).read()
+    assert 'rofi_retv in ("10", "11")' in source
+    assert 'page += 1 if rofi_retv == "10" else -1' in source
+    desktop = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "desktop", "mv-launchpad.desktop")).read()
+    assert "-kb-custom-1 'Page_Down'" in desktop
+    assert "-kb-custom-2 'Page_Up'" in desktop
+    print("PASS: test_page_navigation_callbacks")
+
+
+def test_existing_config_does_not_recreate_deleted_default_folders():
+    """Existing folder config must remain authoritative."""
+    source = open(SCRIPT).read()
+    assert "if not config_exists:" in source
+    assert "Default folders are created only on first run" in source
+    print("PASS: test_existing_config_does_not_recreate_deleted_default_folders")
+
+
+def test_only_one_atomic_json_writer_exists():
+    """Launchpad must have exactly one atomic JSON persistence helper."""
+    source = open(SCRIPT).read()
+    assert source.count("def _atomic_save_json(") == 1
+    assert "def _atomic_json_save(" not in source
+    print("PASS: test_only_one_atomic_json_writer_exists")
+
+
+def test_launchpad_config_writes_are_atomic():
+    """Folder and position configs must be replaced atomically after fsync."""
+    source = open(SCRIPT).read()
+    assert "def _atomic_save_json(path, data):" in source
+    assert "tempfile.mkstemp(" in source
+    assert 'dir=str(CONFIG_DIR)' in source
+    assert "os.fsync(fp.fileno())" in source
+    assert "os.replace(tmp_path, path)" in source
+    assert "_atomic_save_json(FOLDERS_FILE, folders)" in source
+    assert "_atomic_save_json(POSITIONS_FILE, positions)" in source
+    print("PASS: test_launchpad_config_writes_are_atomic")
+
+
+def test_folder_pages_reserve_back_cell():
+    """Folder pages must fit the 7x5 grid including the Back item."""
+    source = open(SCRIPT).read()
+    assert "FOLDER_PAGE_CAPACITY = ITEMS_PER_PAGE - 1" in source
+    assert 'len(folder_apps) + FOLDER_PAGE_CAPACITY - 1' in source
+    assert 'start = page * FOLDER_PAGE_CAPACITY' in source
+    assert 'end = start + FOLDER_PAGE_CAPACITY' in source
+    print("PASS: test_folder_pages_reserve_back_cell")
+
+
+def test_config_writes_are_atomic():
+    """Launchpad config writes must use a temp file, fsync, and atomic replace."""
+    source = open(SCRIPT).read()
+    assert 'tempfile.mkstemp' in source
+    assert 'os.fsync(fp.fileno())' in source
+    assert 'os.replace(tmp_path, path)' in source
+    assert '_atomic_save_json(FOLDERS_FILE, folders)' in source
+    assert '_atomic_save_json(POSITIONS_FILE, positions)' in source
+    print("PASS: test_config_writes_are_atomic")
+
+
+def test_search_hides_folder_containers():
+    """Search results must not duplicate folder apps with folder container rows."""
+    source = open(SCRIPT).read()
+    assert 'if not query:' in source
+    assert 'structure["folders"].append({' in source
+    assert 'if not query and app["id"] in folder_member_ids:' in source
+    print("PASS: test_search_hides_folder_containers")
+
+
+def test_many_top_level_folders_are_paginated():
+    """More than one 7x5 page of folders must not be dropped or overflow the grid."""
+    source = open(SCRIPT).read()
+    assert 'folder_pages = max(1, (len(structure["folders"]) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)' in source
+    assert 'start = page * ITEMS_PER_PAGE' in source
+    assert 'start = (page - folder_pages) * ITEMS_PER_PAGE' in source
+    assert 'if folder_pages == 1' in source
+    print("PASS: test_many_top_level_folders_are_paginated")
+
+
+def test_folder_cells_count_toward_pagination():
+    """Top-level folders must consume real grid cells before standalone apps."""
+    source = open(SCRIPT).read()
+    assert 'first_app_capacity = ITEMS_PER_PAGE - len(structure["folders"]) if folder_pages == 1 else 0' in source
+    assert 'remaining_after_first = max(0, len(ordered) - first_app_capacity)' in source
+    assert 'start = first_capacity + (page - 1) * ITEMS_PER_PAGE' in source
+    print("PASS: test_folder_cells_count_toward_pagination")
+
+
+def test_folder_members_are_not_duplicated_on_main_grid():
+    """Apps inside folders must not also appear as standalone main-page items."""
+    source = open(SCRIPT).read()
+    assert 'folder_member_ids = {' in source
+    assert 'if not query and app["id"] in folder_member_ids:' in source
+    assert 'for folder_data in folders.values()' in source
+    print("PASS: test_folder_members_are_not_duplicated_on_main_grid")
+
+
+def test_position_conflicts_and_invalid_values_do_not_drop_apps():
+    """Malformed or colliding persisted positions must preserve every app."""
+    source = open(SCRIPT).read()
+    assert 'isinstance(pos, int)' in source
+    assert 'pos not in positioned' in source
+    assert 'or app_id not in positions' not in source
+    print("PASS: test_position_conflicts_and_invalid_values_do_not_drop_apps")
+
+
+def test_folder_config_is_normalized():
+    """Malformed folder JSON must not crash Launchpad or inject non-string IDs."""
+    source = open(SCRIPT).read()
+    assert 'isinstance(raw, dict)' in source
+    assert 'isinstance(folder_data, dict)' in source
+    assert 'isinstance(app_ids, list)' in source
+    assert 'isinstance(app_id, str)' in source
+    assert 'folders.setdefault(folder_id' in source
+    print("PASS: test_folder_config_is_normalized")
+
+
+def test_folder_autopopulation_is_first_run_only():
+    """Auto-population must not re-add apps after an existing config is edited."""
+    source = open(SCRIPT).read()
+    assert "config_exists = FOLDERS_FILE.exists()" in source
+    assert "if not config_exists and apps:" in source
+    load_source = source[source.index("def load_folders"):source.index("def _auto_populate_default_folders")]
+    assert load_source.count("if not config_exists and apps:") == 1
+    print("PASS: test_folder_autopopulation_is_first_run_only")
+
+
+def test_position_config_is_normalized():
+    """Malformed top-level position JSON must not crash Launchpad."""
+    source = open(SCRIPT).read()
+    assert 'raw = json.load(fp)' in source
+    assert 'if not isinstance(raw, dict):' in source
+    assert 'if not isinstance(app_id, str) or app_id not in canonical:' in source
+    assert 'migrated_id = _migrate_app_id(app_id, canonical, legacy)' in source
+    assert 'positions[migrated_id] = position' in source
+    print("PASS: test_position_config_is_normalized")
+
+
+def test_position_booleans_are_rejected():
+    """JSON booleans must not be accepted as integer Launchpad positions."""
+    source = open(SCRIPT).read()
+    assert 'isinstance(pos, int) and not isinstance(pos, bool)' in source
+    print("PASS: test_position_booleans_are_rejected")
+
+
+def test_corrupt_folder_config_is_not_overwritten():
+    """Corrupt folders.json must not be replaced with defaults."""
+    source = open(SCRIPT).read()
+    assert 'config_valid = False' in source
+    assert 'if config_exists and not config_valid:' in source
+    assert 'Preserve a corrupt/unreadable user file' in source
+    print("PASS: test_corrupt_folder_config_is_not_overwritten")
 
 
 def test_full_integration_basic():
@@ -274,6 +435,16 @@ if __name__ == "__main__":
         test_rofi_selection_actions,
         test_rofi_live_search_callback,
         test_edit_entry_launch,
+        test_page_navigation_callbacks,
+        test_config_writes_are_atomic,
+        test_search_hides_folder_containers,
+        test_many_top_level_folders_are_paginated,
+        test_folder_cells_count_toward_pagination,
+        test_launchpad_config_writes_are_atomic,
+        test_folder_pages_reserve_back_cell,
+        test_folder_members_are_not_duplicated_on_main_grid,
+        test_position_conflicts_and_invalid_values_do_not_drop_apps,
+        test_folder_config_is_normalized,
         test_full_integration_basic,
         test_edit_mode_entry_present,
         test_edit_mode_entry_hidden_when_searching,
