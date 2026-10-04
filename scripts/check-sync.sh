@@ -108,6 +108,126 @@ if [[ "${1:-}" == "--check-repos" ]]; then
   ok "repo check done"
 fi
 
+echo "--- idle runtime network backend ---"
+if grep -qx "iwd" archiso-profile/releng/packages.x86_64; then
+  bad "iwd package is installed while MavLinOS pins NetworkManager to wpa_supplicant"
+else
+  ok "iwd package absent from ISO"
+fi
+if [[ -e archiso-profile/releng/airootfs/etc/systemd/system/multi-user.target.wants/iwd.service ]]; then
+  bad "iwd.service is enabled in ISO"
+else
+  ok "iwd.service not enabled in ISO"
+fi
+if [[ -e archiso-profile/releng/airootfs/etc/iwd/main.conf ]]; then
+  bad "unused iwd configuration remains in ISO"
+else
+  ok "unused iwd configuration absent"
+fi
+if grep -q '^wifi\.backend=wpa_supplicantpython3 - <<'PYEOF' && ok "user.js no-dup-keys" || bad "user.js duplicate keys"
+import re, sys
+from pathlib import Path
+for path in ["configs/firefox/user.js", "archiso-profile/releng/airootfs/etc/firefox/user.js"]:
+    seen = {}
+    for i, line in enumerate(Path(path).read_text().splitlines(), 1):
+        m = re.match(r'user_pref\("([^"]+)"', line)
+        if m:
+            key = m.group(1)
+            if key in seen:
+                print(f"DUPLICATE: {key} at {path}:{i} (first at {path}:{seen[key]})", file=sys.stderr)
+                sys.exit(1)
+            seen[key] = i
+PYEOF
+
+echo "--- policies.json validity ---"
+python3 - <<'PYEOF' && ok "policies.json valid" || bad "policies.json invalid"
+import json, sys
+from pathlib import Path
+for path in ["configs/firefox/policies.json", "archiso-profile/releng/airootfs/usr/lib/firefox/distribution/policies.json"]:
+    data = json.loads(Path(path).read_text())
+    assert "policies" in data, f"missing 'policies' key in {path}"
+    pol = data["policies"]
+    assert "DisableTelemetry" in pol, f"missing DisableTelemetry in {path}"
+    assert "ExtensionSettings" in pol, f"missing ExtensionSettings in {path}"
+    es = pol["ExtensionSettings"]
+    assert "*" in es and es["*"]["installation_mode"] == "blocked", f"missing * block in {path}"
+    assert "uBlock0@raymondhill.net" in es, f"missing uBO allow in {path}"
+PYEOF
+
+echo "--- firefox chrome css ---"
+python3 scripts/test-firefox-chrome.py && ok "firefox chrome css" || bad "firefox chrome css"
+
+echo "--- P1-M1 firefox seed: profiles.ini activates mavericks.default ---"
+python3 - <<'PYEOF' && ok "firefox seed profiles.ini" || bad "firefox seed profiles.ini"
+import configparser, sys
+from pathlib import Path
+seed = Path("archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox")
+cp = configparser.ConfigParser()
+cp.read(seed / "profiles.ini")
+assert cp.has_section("Profile0"), "missing [Profile0]"
+p = cp["Profile0"]
+assert p.get("Path") == "mavericks.default", f"Path={p.get('Path')!r}"
+assert p.get("IsRelative") == "1", "IsRelative must be 1"
+assert p.get("Default") == "1", "Default=1 required for deterministic activation"
+assert (seed / "mavericks.default" / "user.js").is_file(), "seed profile missing user.js"
+ip = configparser.ConfigParser()
+ip.read(seed / "installs.ini")
+assert any(ip[s].get("Default") == "mavericks.default" for s in ip.sections()), \
+    "installs.ini has no Default=mavericks.default"
+PYEOF
+
+echo "--- P0-J1 security: sshd off + root locked + no permissive override ---"
+AIROOT="archiso-profile/releng/airootfs"
+if [[ -e "$AIROOT/etc/systemd/system/multi-user.target.wants/sshd.service" ]]; then
+  bad "sshd.service still enabled in ISO (multi-user.target.wants)"
+else
+  ok "sshd not enabled in ISO"
+fi
+if [[ -e "$AIROOT/etc/ssh/sshd_config.d/10-archiso.conf" ]]; then
+  bad "permissive sshd_config.d/10-archiso.conf still present"
+else
+  ok "no permissive sshd_config override"
+fi
+ROOT_FIELD="$(grep '^root:' "$AIROOT/etc/shadow" 2>/dev/null | cut -d: -f2)"
+if [[ "$ROOT_FIELD" == "!"* ]]; then
+  ok "root password locked in ISO shadow"
+else
+  bad "root password not locked in ISO shadow (field='${ROOT_FIELD}')"
+fi
+if grep -q "passwd -l root" scripts/install/mavericks-firstboot.sh; then
+  ok "firstboot locks root (installed system)"
+else
+  bad "firstboot missing passwd -l root"
+fi
+if grep -q "systemctl enable --now sshd" lab/agent/install.sh; then
+  ok "lab agent install is the explicit sshd opt-in"
+else
+  bad "lab agent install missing explicit sshd enable"
+fi
+# sshd must not be in the boot critical path: no unit Wants/Requires it
+# (explicit symlink walk: grep -r does not follow symlinks during recursion)
+sshd_ref=0
+for d in "$AIROOT/etc/systemd/system/"*.wants "$AIROOT/etc/systemd/system/"*.requires; do
+  [[ -d "$d" ]] || continue
+  for l in "$d"/*; do
+    [[ -L "$l" ]] || continue
+    tgt="$(readlink "$l")"
+    if [[ "$tgt" == *sshd* ]]; then
+      bad "sshd referenced by $l -> $tgt"
+      sshd_ref=1
+    fi
+  done
+done
+[[ $sshd_ref -eq 0 ]] && ok "sshd not in boot critical path"
+
+if [[ $FAIL -eq 0 ]]; then echo "ALL CHECKS PASSED"; else echo "CHECKS FAILED"; fi
+exit $FAIL
+ archiso-profile/releng/airootfs/etc/NetworkManager/conf.d/99-mavericks-wifi-backend.conf; then
+  ok "NetworkManager Wi-Fi backend pinned to wpa_supplicant"
+else
+  bad "NetworkManager Wi-Fi backend is not pinned to wpa_supplicant"
+fi
+
 echo "--- user.js syntax (no duplicate keys) ---"
 python3 - <<'PYEOF' && ok "user.js no-dup-keys" || bad "user.js duplicate keys"
 import re, sys
