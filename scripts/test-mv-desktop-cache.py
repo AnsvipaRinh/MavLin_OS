@@ -235,6 +235,18 @@ def test_parse(mod):
         check("parse: icon", e and e["icon"] == "test-icon", repr(e and e["icon"]))
         check("parse: categories", e and e["categories"] == "Utility;",
               repr(e and e["categories"]))
+        p = sb.write("escaped.desktop",
+                     "[Desktop Entry]\\nName=Foo\\sBar\\nExec=testapp\\s--label\\sfoo\\n"
+                     "Icon=foo\\sbar\\nCategories=Utility\\;Special;\\n")
+        escaped = mod._parse_desktop_file(p)
+        check("parse: string escape in Name decoded",
+              escaped and escaped["name"] == "Foo Bar", repr(escaped and escaped["name"]))
+        check("parse: string escape in Icon decoded",
+              escaped and escaped["icon"] == "foo bar", repr(escaped and escaped["icon"]))
+        check("parse: escaped semicolon in Categories decoded",
+              escaped and escaped["categories"] == "Utility;Special;", repr(escaped and escaped["categories"]))
+        p = sb.write("bad-escape.desktop", "[Desktop Entry]\\nName=Bad\\qName\\nExec=testapp\\n")
+        check("parse: unknown string escape rejected", mod._parse_desktop_file(p) is None)
 
         p = sb.write("hidden.desktop", DESKTOP_FILE + "Hidden=true\n")
         check("parse: Hidden=true skipped", mod._parse_desktop_file(p) is None)
