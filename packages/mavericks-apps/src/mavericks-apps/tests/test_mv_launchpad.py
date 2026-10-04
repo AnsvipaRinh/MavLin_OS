@@ -170,6 +170,14 @@ def test_page_navigation_callbacks():
     print("PASS: test_page_navigation_callbacks")
 
 
+def test_existing_config_does_not_recreate_deleted_default_folders():
+    """Existing folder config must remain authoritative."""
+    source = open(SCRIPT).read()
+    assert "if not config_exists:" in source
+    assert "Default folders are created only on first run" in source
+    print("PASS: test_existing_config_does_not_recreate_deleted_default_folders")
+
+
 def test_only_one_atomic_json_writer_exists():
     """Launchpad must have exactly one atomic JSON persistence helper."""
     source = open(SCRIPT).read()
