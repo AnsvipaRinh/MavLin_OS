@@ -13,6 +13,7 @@ checks = [
     ("borderless panel", "set_decorated(False)" in src),
     ("not a taskbar application", "set_skip_taskbar_hint(True)" in src),
     ("DND property is created when absent", '"--create", "--type", "bool"' in src),
+    ("opening center does not overwrite existing DND", 'if result.returncode == 0:\n            return result.stdout.strip() == "true"' in src),
     ("DND state is read back", '"/do-not-disturb"]' in src),
 ]
 failed = 0
