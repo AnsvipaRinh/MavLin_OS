@@ -218,6 +218,15 @@ def test_folder_autopopulation_is_first_run_only():
     print("PASS: test_folder_autopopulation_is_first_run_only")
 
 
+def test_position_config_is_normalized():
+    """Malformed top-level position JSON must not crash Launchpad."""
+    source = open(SCRIPT).read()
+    assert 'raw = json.load(fp)' in source
+    assert 'if not isinstance(raw, dict):' in source
+    assert 'return {app_id: position for app_id, position in raw.items() if isinstance(app_id, str)}' in source
+    print("PASS: test_position_config_is_normalized")
+
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
