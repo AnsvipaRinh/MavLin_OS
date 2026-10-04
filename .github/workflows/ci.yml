@@ -163,6 +163,9 @@ jobs:
       - name: Apple menu packaging contract
         run: |
           python3 scripts/test-apple-menu-packaging.py
+      - name: Mission Control runtime contract
+        run: |
+          python3 scripts/test-mission-control.py
 
   profile-sync:
     name: Profile Sync
