@@ -99,5 +99,14 @@ run cat /sys/power/state
 run cat /sys/power/mem_sleep
 run cat /sys/power/disk 2>/dev/null || true
 
+# 13 User-session wakeup sources
+# Read-only inventory of user timers/services and kernel wakeup counters.
+# This makes periodic background work visible alongside powertop without
+# changing timer state or stopping any service.
+run systemctl --user list-timers --all --no-pager 2>/dev/null || true
+run systemctl --user list-units --type=service --state=running --no-pager 2>/dev/null || true
+runsh "printf '%s\\n' '--- /proc/interrupts (top non-CPU lines) ---'; awk 'NR==1 {print; next} !/^[[:space:]]*$/ {print}' /proc/interrupts | head -60"
+runsh "printf '%s\\n' '--- /proc/softirqs ---'; cat /proc/softirqs"
+
 say "Done: $OUT"
 ls -la "$OUT"
