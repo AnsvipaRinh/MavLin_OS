@@ -133,6 +133,21 @@ def test_rofi_theme_has_mavericks_styling():
     print("PASS: test_rofi_theme_has_mavericks_styling")
 
 
+def test_rofi_selection_actions():
+    """Rofi script callbacks must launch apps and navigate folders safely."""
+    source = open(SCRIPT).read()
+    assert 'os.environ.get("ROFI_RETV", "0")' in source
+    assert 'os.environ.get("ROFI_INFO", "")' in source
+    assert 'rofi_info.startswith("app:")' in source
+    assert '["gtk-launch", desktop_id]' in source
+    assert 'subprocess.Popen' in source
+    assert 'start_new_session=True' in source
+    assert 'rofi_info.startswith("folder:")' in source
+    assert 'rofi_info == "back"' in source
+    assert '\\0data\\x1f' in source
+    print("PASS: test_rofi_selection_actions")
+
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
@@ -162,6 +177,7 @@ if __name__ == "__main__":
         test_keyboard_navigation_hints,
         test_desktop_entry_integrity,
         test_rofi_theme_has_mavericks_styling,
+        test_rofi_selection_actions,
         test_full_integration_basic,
     ]
 
