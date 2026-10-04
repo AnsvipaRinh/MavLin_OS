@@ -8,6 +8,10 @@ copy/paste result, safe error states.
 import json
 import math
 import os
+import sys
+
+sys.path.insert(0, "/usr/share/mavericks-apps")
+from mavericks_appmenu import install_application_menu
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -673,6 +677,26 @@ class Calculator(Gtk.Window):
 
 
 if __name__ == "__main__":
-    w = Calculator()
-    w.connect("destroy", Gtk.main_quit)
-    Gtk.main()
+    app = Gtk.Application(
+        application_id="com.mavlinos.Calculator",
+        flags=0,
+    )
+    window = {"value": None}
+
+    def activate(application):
+        if window["value"] is None:
+            window["value"] = Calculator()
+            application.add_window(window["value"])
+            window["value"].connect(
+                "destroy", lambda *_: window.__setitem__("value", None)
+            )
+        window["value"].present()
+
+    app.connect("activate", activate)
+    app.connect(
+        "startup",
+        lambda application: install_application_menu(
+            application, "Calculator", lambda: window["value"]
+        ),
+    )
+    app.run(sys.argv)
