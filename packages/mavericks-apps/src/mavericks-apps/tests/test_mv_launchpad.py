@@ -191,6 +191,15 @@ def test_config_writes_are_atomic():
     print("PASS: test_config_writes_are_atomic")
 
 
+def test_search_hides_folder_containers():
+    """Search results must not duplicate folder apps with folder container rows."""
+    source = open(SCRIPT).read()
+    assert 'if not query:' in source
+    assert 'structure["folders"].append({' in source
+    assert 'if not query and app["id"] in folder_member_ids:' in source
+    print("PASS: test_search_hides_folder_containers")
+
+
 def test_many_top_level_folders_are_paginated():
     """More than one 7x5 page of folders must not be dropped or overflow the grid."""
     source = open(SCRIPT).read()
@@ -307,6 +316,7 @@ if __name__ == "__main__":
         test_rofi_live_search_callback,
         test_page_navigation_callbacks,
         test_config_writes_are_atomic,
+        test_search_hides_folder_containers,
         test_many_top_level_folders_are_paginated,
         test_folder_cells_count_toward_pagination,
         test_folder_pages_reserve_back_cell,
