@@ -23,11 +23,11 @@ class MissionControlTests(unittest.TestCase):
     def setUpClass(cls):
         cls.mod = load_script()
 
-    def test_native_backend_uses_skippy_paging(self):
+    def test_native_backend_uses_daemon_free_expose(self):
         with mock.patch.object(self.mod.shutil, "which", return_value="/usr/bin/skippy-xd"), \
              mock.patch.object(self.mod.subprocess, "run", return_value=mock.Mock(returncode=0)) as run:
             self.assertTrue(self.mod.run_native_expose())
-        run.assert_called_once_with(["/usr/bin/skippy-xd", "--paging"], timeout=30)
+        run.assert_called_once_with(["/usr/bin/skippy-xd", "--expose", "--desktop", "-1"], timeout=30)
 
     def test_native_backend_is_optional(self):
         with mock.patch.object(self.mod.shutil, "which", return_value=None):
