@@ -10,6 +10,10 @@
       <property name="&lt;Super&gt;&lt;Shift&gt;3" type="string" value="mv-shot -m"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;5" type="string" value="mv-shot -i"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;f" type="string" value="mv-finder-columns"/>
+      <property name="&lt;Super&gt;q" type="string" value="mv-quit-app"/>
+      <property name="&lt;Super&gt;m" type="string" value="mv-minimize-window"/>
+      <property name="&lt;Super&gt;h" type="string" value="mv-hide-app"/>
+      <property name="&lt;Super&gt;w" type="string" value="mv-close-window"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;n" type="string" value="mv-newfolder $HOME/Desktop"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;n" type="string" value="mv-newfolder $HOME"/>
       <property name="&lt;Super&gt;comma" type="string" value="mv-settings"/>
