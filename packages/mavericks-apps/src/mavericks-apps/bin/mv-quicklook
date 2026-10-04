@@ -235,7 +235,7 @@ class Preview(Gtk.Window):
                     fps = stream.get("avg_frame_rate", "").split("/")
                     fps_val = ""
                     if len(fps) == 2 and int(fps[1]) != 0:
-                        fps_val = f" @ {int(fps[0]) // int(fps[1])} fps"
+                        fps_val = f" @ {float(fps[0]) / float(fps[1]):.3g} fps"
                     info[f"Video #{i+1}"] = f"{w}x{h} ({codec}){fps_val}"
                 elif ctype == "audio":
                     rate = stream.get("sample_rate")
