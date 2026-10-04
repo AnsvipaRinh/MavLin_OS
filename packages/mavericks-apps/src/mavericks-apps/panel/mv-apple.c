@@ -53,7 +53,7 @@ static void popup_menu(GtkWidget *button, gpointer data)
 static void construct(XfcePanelPlugin *plugin)
 {
     GtkWidget *button = gtk_button_new();
-    GtkWidget *label = gtk_label_new("");
+    GtkWidget *label = gtk_image_new_from_icon_name("mv-apple", GTK_ICON_SIZE_MENU);
     gtk_widget_set_name(label, "mavlinos-apple-menu");
     gtk_widget_set_tooltip_text(button, "Apple menu");
     gtk_container_add(GTK_CONTAINER(button), label);
