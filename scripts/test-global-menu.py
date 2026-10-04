@@ -11,11 +11,14 @@ PKGBUILD = Path("packages/vala-panel-appmenu/PKGBUILD")
 APPMENU_HELPER = Path("packages/mavericks-apps/src/mavericks-apps/lib/mavericks_appmenu.py")
 CALCULATOR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calculator")
 NATIVE_APPS = {
+    "about": "About This Mac",
     "activity": "Activity",
     "calendar": "Calendar",
+    "finder-columns": "Finder",
     "console": "Console",
     "dictionary": "Dictionary",
     "notes": "Notes",
+    "settings": "System Preferences",
     "textedit": "TextEdit",
 }
 
