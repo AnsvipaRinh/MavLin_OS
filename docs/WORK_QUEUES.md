@@ -15,10 +15,10 @@ Rules:
 
 | Object | Agent | Status | Since | Notes |
 |---|---|---|---|---|
-| packages/mavericks-apps/src/mavericks-apps/bin/mv-mail | qwen-agent | CLAIMED | 2026-10-05 | Fix real bugs: missing `import subprocess` before use (top-level re-import after class), double `Gtk.Paned` creation (first one added to window stays empty), dead sidebar code; add tests |
-| packages/mavericks-apps/src/mavericks-apps/bin/mv-rename | qwen-agent | CLAIMED | 2026-10-05 | Add headless test coverage (pure logic + GUI smoke); review Finder semantics (extension-aware selection) |
-| scripts/test-mv-finder-columns.py (+test harness pattern for new app tests) | qwen-agent | CLAIMED | 2026-10-05 | Reuse its SourceFileLoader/portable pattern for mv-rename/mv-eject tests |
-| packages/mavericks-apps/src/mavericks-apps/bin/mv-eject | qwen-agent | CLAIMED | 2026-10-05 | Bug: async unmount with no main loop → process exits before unmount runs (fire-and-forget callback does nothing). Fix to sync-with-op or run loop; add mock-Gio tests |
+| packages/mavericks-apps/src/mavericks-apps/bin/mv-mail | qwen-agent | DONE 2026-10-05 | Fixed: NameError subprocess (import was after class), duplicate Gtk.Paned (sidebar branch orphaned), no main loop. Restructured: lazy-Gtk factory (build_window_class) so find_mail_backend is headless-testable; Mail UserAgent desktop fallback; install-hint state. Tests in scripts/test-mv-finder-small.py (12 assertions, wired into check-sync) |
+| packages/mavericks-apps/src/mavericks-apps/bin/mv-rename | qwen-agent | DONE 2026-10-05 | Finder semantics: preselect stem (not extension), dotfiles keep full selection; pure validate_new_name() extracted + lazy Gtk import; 6 headless assertions in test-mv-finder-small.py |
+| scripts/test-mv-finder-small.py (new shared suite for small Finder helpers) | qwen-agent | DONE 2026-10-05 | Portable pattern reused from test-mv-finder-columns.py; duck-typed fake Gio mounts (no gi needed); registered as check-sync gate |
+| packages/mavericks-apps/src/mavericks-apps/bin/mv-eject | qwen-agent | DONE 2026-10-05 | Fixed silent no-op: async unmount_with_operation + no-op callback without main loop -> sync API with MountOperation; per-arg exit codes; /media umount fallback for non-GIO mounts; find_mount() pure + 4 duck-typed assertions |
 | packages/mavericks-apps/src/mavericks-apps/bin/mv-about | qwen-agent | CLAIMED | 2026-10-05 | Extract pure collectors (mem_total/cpu_model/gpu/CATEGORIES) behind lazy Gtk import so they are testable headless; add tests |
 | packages/mavericks-apps/src/mavericks-apps/bin/mv-settings | qwen-agent | CLAIMED | 2026-10-05 | Same refactor: PAGES table + search-filter logic testable without display; verify icon names exist in our icon theme |
 

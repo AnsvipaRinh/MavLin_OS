@@ -1,5 +1,13 @@
 # PROGRESS — MacBook 12 MavLinOS
 
+### Finder small helpers — dead-code bug hunt + first test coverage (2026-10-05, без железа)
+- [x] New coordination artifact: docs/WORK_QUEUES.md — CLAIMED/DONE registry so parallel agents never collide on the same object (user requirement this session).
+- [x] mv-mail had THREE real bugs and zero tests: `subprocess` used in launch_geary but imported only AFTER the class definition (NameError at runtime whenever the 100 ms timeout fired); Gtk.Paned created twice (first one added to the window stayed empty — the sidebar branch was orphaned dead code); async-style design with no main loop. Fixed all three; restructured as lazy-Gtk factory (build_window_class) so find_mail_backend() is importable headless; backend resolution now falls back to any desktop entry declaring Geary as Mail UserAgent; explicit "Geary not installed" state kept.
+- [x] mv-eject silent no-op fixed: called ASYNC unmount_with_operation with a do-nothing callback and returned immediately — process exited before GIO started the unmount, so "Ejected:" was printed for work that never happened. Now sync API with MountOperation, per-arg exit codes, umount fallback for /media mounts not tracked by GIO.
+- [x] mv-rename Finder semantics: rename dialog preselects the STEM only (extension preserved on typing; dotfiles/no-extension keep full selection); pure validate_new_name() extracted (collision/slash/dotdot/no-op), lazy Gtk import for portability.
+- [x] scripts/test-mv-finder-small.py: new portable suite (SourceFileLoader pattern + duck-typed fake Gio mounts, runs without gi/display): 12 assertions — rename 6, eject 4, mail 2. Wired into check-sync.sh gate (now 145 OK checks, ALL PASSED).
+- [ ] Follow-ups claimed next: mv-about/mv-settings refactor-for-testability (see WORK_QUEUES.md).
+
 ### Prior-art audit — Poppy OS X Revieve (2026-10-04, без железа)
 - [x] Cloned https://github.com/sziberov/Poppy-OS-X-Revieve to /tmp for static inspection (read-only, untrusted input)
 - [x] Inventory: theme-only repo (GTK3 CSS 8367 lines, 568 SVG + 34 PNG icons, 13 base cursors, Plank theme, GNOME Shell theme, Metacity theme). Zero application code, zero scripts, zero daemons.
