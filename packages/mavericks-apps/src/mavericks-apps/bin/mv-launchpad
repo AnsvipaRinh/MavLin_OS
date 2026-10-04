@@ -155,14 +155,21 @@ def save_folders(folders):
 
 
 def load_positions():
-    """Load custom app positions."""
+    """Load custom app positions, rejecting malformed top-level JSON."""
     if not POSITIONS_FILE.exists():
         return {}
     try:
         with open(POSITIONS_FILE, "r") as fp:
-            return json.load(fp)
-    except Exception:
+            raw = json.load(fp)
+    except (OSError, json.JSONDecodeError, TypeError):
         return {}
+
+    if not isinstance(raw, dict):
+        return {}
+
+    # JSON object keys are strings; retain values for build_launchpad_structure()
+    # to validate as untrusted position data.
+    return {app_id: position for app_id, position in raw.items() if isinstance(app_id, str)}
 
 
 def save_positions(positions):
