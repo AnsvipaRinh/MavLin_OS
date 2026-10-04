@@ -332,7 +332,6 @@ def build_finder_menu(app, app_name, get_window, add_action):
     def w():
         return get_window()
 
-    add_action("about", lambda: None)
     add_action("back", lambda: w().rebuild_columns(keep_depth=len(w().chain) - 1)
                if w() and len(w().chain) > 1 else None)
     add_action("home", lambda: (setattr(w(), "chain", [os.path.expanduser("~")]),
