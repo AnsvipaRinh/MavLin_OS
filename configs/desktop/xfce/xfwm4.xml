@@ -34,6 +34,7 @@
     <property name="wrap_windows" type="bool" value="false"/>
     <property name="wrap_workspaces" type="bool" value="false"/>
     <property name="scroll_workspaces" type="bool" value="true"/>
+    <property name="workspace_count" type="int" value="4"/>
     <property name="focus_delay" type="int" value="0"/>
     <property name="focus_hint" type="bool" value="true"/>
     <property name="click_to_focus" type="bool" value="true"/>

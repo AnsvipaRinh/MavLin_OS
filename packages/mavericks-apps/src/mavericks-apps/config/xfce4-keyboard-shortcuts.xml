@@ -47,6 +47,10 @@
       <property name="&lt;Super&gt;Right" type="string" value="tile_right_key"/>
       <property name="&lt;Super&gt;&lt;Alt&gt;Right" type="string" value="right_workspace_key"/>
       <property name="&lt;Super&gt;&lt;Alt&gt;Left" type="string" value="left_workspace_key"/>
+      <property name="&lt;Super&gt;1" type="string" value="workspace_1_key"/>
+      <property name="&lt;Super&gt;2" type="string" value="workspace_2_key"/>
+      <property name="&lt;Super&gt;3" type="string" value="workspace_3_key"/>
+      <property name="&lt;Super&gt;4" type="string" value="workspace_4_key"/>
     </property>
   </property>
 </channel>
