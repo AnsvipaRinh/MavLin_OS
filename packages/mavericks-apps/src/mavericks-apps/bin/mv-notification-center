@@ -286,6 +286,19 @@ class NotificationCenter(Gtk.Window):
                 except OSError:
                     pass
                 return True
+
+        desktop_id = hints.get("desktop-entry", "")
+        if desktop_id and re.fullmatch(r"[A-Za-z0-9._-]+", desktop_id):
+            try:
+                subprocess.Popen(
+                    ["gtk-launch", desktop_id],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+            except OSError:
+                pass
+            return True
         return False
 
     def clear_app(self, app_name):
