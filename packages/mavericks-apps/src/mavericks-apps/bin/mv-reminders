@@ -716,7 +716,6 @@ def build_reminders_menu(app, app_name, get_window, add_action):
     def selected():
         return w().selected_task_id() if w() else None
 
-    add_action("about", lambda: None)
     add_action("new-task", lambda: w().add_task(None) if w() else None)
     add_action("new-list", lambda: w().add_list(None) if w() else None)
     add_action("edit", lambda: w().edit_task(selected()) if w() and selected() else None)
