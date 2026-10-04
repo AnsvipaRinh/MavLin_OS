@@ -20,19 +20,41 @@ import os
 import tempfile
 import time
 
-_DESKTOP_DIR_PATHS = (
-    "~/.local/share/applications",
-    "/usr/local/share/applications",
-    "/usr/share/applications",
-)
+_DEFAULT_XDG_DATA_HOME = "~/.local/share"
+_DEFAULT_XDG_DATA_DIRS = ("/usr/local/share", "/usr/share")
 
 _CACHE_DIR = "~/.cache/mavericks"
 _CACHE_PATH = _CACHE_DIR + "/desktop-entries.json"
 
 
 def desktop_dirs():
-    """XDG desktop dirs, computed at call time (tests patch HOME)."""
-    return [os.path.expanduser(p) for p in _DESKTOP_DIR_PATHS]
+    """Return XDG application dirs in user-to-system precedence order."""
+    data_home = os.environ.get("XDG_DATA_HOME", "")
+    if not data_home:
+        data_home = os.path.expanduser(_DEFAULT_XDG_DATA_HOME)
+    elif not os.path.isabs(os.path.expanduser(data_home)):
+        data_home = os.path.expanduser(_DEFAULT_XDG_DATA_HOME)
+
+    raw_dirs = os.environ.get("XDG_DATA_DIRS", "")
+    data_dirs = [p for p in raw_dirs.split(":") if p]
+    if not data_dirs:
+        data_dirs = list(_DEFAULT_XDG_DATA_DIRS)
+
+    result = [os.path.join(os.path.expanduser(data_home), "applications")]
+    result.extend(
+        os.path.join(os.path.expanduser(p), "applications")
+        for p in data_dirs
+        if os.path.isabs(os.path.expanduser(p))
+    )
+
+    unique = []
+    seen = set()
+    for path in result:
+        path = os.path.normpath(path)
+        if path not in seen:
+            seen.add(path)
+            unique.append(path)
+    return unique
 
 
 def _fingerprint():

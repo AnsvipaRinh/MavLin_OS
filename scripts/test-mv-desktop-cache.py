@@ -106,6 +106,40 @@ class Sandbox:
         return path
 
 
+def test_xdg_application_paths(mod):
+    """Desktop discovery must honor XDG_DATA_HOME/XDG_DATA_DIRS precedence."""
+    sb = Sandbox(mod)
+    old = {key: os.environ.get(key) for key in ("XDG_DATA_HOME", "XDG_DATA_DIRS")}
+    try:
+        custom_home = os.path.join(sb.tmp, "xdg-home")
+        custom_system = os.path.join(sb.tmp, "xdg-system")
+        os.makedirs(os.path.join(custom_home, "applications"))
+        os.makedirs(os.path.join(custom_system, "applications"))
+        os.environ["XDG_DATA_HOME"] = custom_home
+        os.environ["XDG_DATA_DIRS"] = custom_system
+        dirs = mod.desktop_dirs()
+        check("xdg: custom user applications path first",
+              dirs[0] == os.path.join(custom_home, "applications"), repr(dirs))
+        check("xdg: custom system applications path second",
+              dirs[1] == os.path.join(custom_system, "applications"), repr(dirs))
+        user = os.path.join(custom_home, "applications", "same.desktop")
+        system = os.path.join(custom_system, "applications", "same.desktop")
+        with open(user, "w") as f:
+            f.write(DESKTOP_FILE)
+        with open(system, "w") as f:
+            f.write(DESKTOP_FILE_2)
+        entries = mod.load_desktop_entries()
+        check("xdg: user entry overrides system entry",
+              len(entries) == 1 and entries[0]["name"] == "Test App", repr(entries))
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        sb.close()
+
+
 def test_parse(mod):
     sb = Sandbox(mod)
     try:
@@ -342,6 +376,7 @@ def test_integration(mod):
 
 def main():
     mod = load_module("mv_desktop_cache", MOD_PATH)
+    test_xdg_application_paths(mod)
     test_parse(mod)
     test_fingerprint(mod)
     test_cache_writer_uses_unique_atomic_tempfiles(mod)
