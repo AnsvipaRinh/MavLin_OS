@@ -123,6 +123,10 @@ if [[ -f scripts/test-firefox-chrome.py ]]; then
   python3 scripts/test-firefox-chrome.py && ok "firefox chrome css" || bad "firefox chrome css"
 fi
 
+echo "--- finder small helpers (mv-rename/mv-eject/mv-mail) ---"
+python3 scripts/test-mv-finder-small.py >/dev/null 2>&1 \
+  && ok "finder small helpers tests" || bad "finder small helpers tests"
+
 echo "--- P1-M1 firefox seed: profiles.ini activates mavericks.default ---"
 SEED="archiso-profile/releng/airootfs/etc/skel/.mozilla/firefox"
 if [[ -f "$SEED/profiles.ini" ]]; then
