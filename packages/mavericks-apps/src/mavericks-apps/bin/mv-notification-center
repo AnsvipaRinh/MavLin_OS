@@ -236,22 +236,25 @@ class NotificationCenter(Gtk.Window):
 
     def clear_app(self, app_name):
         """Clear all notifications for a specific app."""
-        data = load_notifications()
-        filtered = [n for n in data if n.get("app_name", "System") != app_name]
-        self.save_filtered(filtered)
+        def keep(item):
+            return item.get("app_name", "System") != app_name
+        self.mutate_history(keep)
         self.refresh()
 
     def on_clear_all(self, _):
-        self.save_filtered([])
+        self.mutate_history(lambda _item: False)
         self.refresh()
 
-    def save_filtered(self, data):
+    def mutate_history(self, keep):
+        """Atomically read, filter, and replace notification history."""
         os.makedirs(os.path.dirname(STORE_FILE), exist_ok=True)
         with open(LOCK_FILE, "w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
+            data = load_notifications()
+            filtered = [item for item in data if keep(item)]
             tmp = STORE_FILE + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False)
+                json.dump(filtered, f, ensure_ascii=False)
                 f.flush()
                 os.fsync(f.fileno())
             os.chmod(tmp, 0o600)
