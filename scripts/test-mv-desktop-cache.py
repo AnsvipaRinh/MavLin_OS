@@ -180,6 +180,15 @@ def test_environment_filters(mod):
               "not-gnome.desktop" in names, repr(names))
         check("desktop environment: missing TryExec filtered",
               "try-missing.desktop" not in names, repr(names))
+
+        # Environment-dependent visibility must invalidate an otherwise valid
+        # cache entry instead of reusing the previous desktop's filtered list.
+        os.environ["XDG_CURRENT_DESKTOP"] = "GNOME"
+        entries = mod.load_desktop_entries()
+        names = sorted(os.path.basename(e["path"]) for e in entries)
+        check("desktop environment: cache invalidates on XDG_CURRENT_DESKTOP",
+              "only-xfce.desktop" not in names and "only-gnome.desktop" in names,
+              repr(names))
     finally:
         for key, value in old.items():
             if value is None:
