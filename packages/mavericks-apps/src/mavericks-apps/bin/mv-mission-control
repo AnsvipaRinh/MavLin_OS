@@ -160,7 +160,7 @@ def get_window_icon(win_class):
         "tilix": "utilities-terminal",
         "terminator": "utilities-terminal",
         "guake": "utilities-terminal",
-        "yakuake": "utilities-system",
+        "yakuake": "utilities-terminal",
         "xfce4-terminal": "utilities-terminal",
         "mate-terminal": "utilities-terminal",
         "gnome-terminal-server": "utilities-terminal",
