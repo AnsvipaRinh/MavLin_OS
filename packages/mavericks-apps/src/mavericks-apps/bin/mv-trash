@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""mv-trash — Mavericks Trash operations for global keyboard shortcuts.
+
+Backends the documented Super+Delete / Super+Shift+Delete bindings:
+  mv-trash put [file...]     move files to Trash (trash-put); with no args,
+                             trashes the current Thunar selection
+  mv-trash list              list trash items (trash-list)
+  mv-trash restore <item>    restore an item (trash-restore)
+  mv-trash empty             empty the Trash (trash-empty, -y skips prompt)
+
+Real backend only: delegates to trash-cli (Freedesktop.org Trash spec),
+the same trash store Thunar and Finder-style UI use. No fake results.
+License: GPL-2.0-or-later.
+"""
+import os
+import subprocess
+import sys
+
+
+def _run(cmd):
+    """Run a trash-cli command, inheriting stdio; return its exit code."""
+    try:
+        return subprocess.run(cmd).returncode
+    except FileNotFoundError:
+        print("mv-trash: %s not found (install trash-cli)" % cmd[0],
+              file=sys.stderr)
+        return 127
+
+
+def _thunar_selection():
+    """Return absolute paths of the current Thunar selection, or [].
+
+    Uses the same clipboard-copy technique as mv-quicklook-thunar:
+    only acts when the active window is Thunar, so the shortcut never
+    trashes files behind the user's back in another application.
+    """
+    try:
+        active = subprocess.run(
+            ["xdotool", "getactivewindow", "getwindowname"],
+            capture_output=True, text=True, timeout=2)
+        if "thunar" not in active.stdout.lower():
+            return []
+        subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+c"],
+                       timeout=1)
+        import time
+        import urllib.parse
+        import gi
+        gi.require_version("Gtk", "3.0")
+        from gi.repository import Gtk, Gdk
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        text = None
+        for _ in range(10):
+            text = clipboard.wait_for_text()
+            if text and text.strip():
+                break
+            time.sleep(0.05)
+        if not text or not text.strip():
+            return []
+        paths = []
+        for line in text.strip().splitlines():
+            line = line.strip()
+            if line.startswith("file://"):
+                p = urllib.parse.unquote(line[7:])
+                if os.path.exists(p):
+                    paths.append(p)
+            elif line.startswith("/") and os.path.exists(line):
+                paths.append(line)
+        return paths
+    except Exception:
+        return []
+
+
+def main(argv):
+    if len(argv) < 1:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    op, rest = argv[0], argv[1:]
+    if op == "put":
+        if not rest:
+            rest = _thunar_selection()
+            if not rest:
+                print("mv-trash: no selection (focus Thunar or pass paths)",
+                      file=sys.stderr)
+                return 1
+        return _run(["trash-put", "--"] + rest)
+    if op == "list":
+        return _run(["trash-list"])
+    if op == "restore":
+        if not rest:
+            print("mv-trash restore <item>", file=sys.stderr)
+            return 2
+        return _run(["trash-restore"] + rest)
+    if op == "empty":
+        # trash-empty has no --force flag; -y means "assume yes" for the
+        # interactive confirmation prompt. Pass it only when requested
+        # (global shortcut uses `mv-trash empty -y`); bare `empty` keeps
+        # the interactive prompt so accidental data loss needs a human.
+        return _run(["trash-empty"] + list(rest))
+    print("mv-trash: unknown operation %r" % op, file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

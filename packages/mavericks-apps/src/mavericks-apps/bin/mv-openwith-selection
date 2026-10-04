@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+"""mv-openwith-selection — global-shortcut wrapper: Open With on Thunar selection.
+
+Bound to Super+Shift+O (Mavericks right-click > Open With on a selected
+item). Resolves the current selection via the shared mv-selection helper
+and passes real paths to mv-openwith. Falls back to $HOME when nothing is
+selected (same as Super+O) rather than silently doing nothing.
+License: GPL-2.0-or-later.
+"""
+import os
+import subprocess
+import sys
+
+
+def _tool(name):
+    here = os.path.dirname(os.path.abspath(__file__))
+    cand = os.path.join(here, name)
+    return cand if os.path.isfile(cand) else "/usr/bin/" + name
+
+
+def main():
+    out = subprocess.run([_tool("mv-selection")],
+                         capture_output=True, text=True, timeout=5)
+    paths = [l for l in out.stdout.splitlines() if l.strip()]
+    if not paths:
+        paths = [os.path.expanduser("~")]
+    cmd = [_tool("mv-openwith")] + paths
+    sys.exit(subprocess.run(cmd).returncode)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

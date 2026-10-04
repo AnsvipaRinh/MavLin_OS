@@ -10,6 +10,7 @@ errors, and falls back to a polite umount(8) for non-GIO mount points.
 License: GPL-2.0-or-later.
 """
 import os
+import subprocess
 import sys
 
 
@@ -31,9 +32,38 @@ def find_mount(mounts, arg):
     return None
 
 
+def resolve_selection(paths):
+    """Expand the special token 'selection' to the current Thunar selection.
+
+    Delegates to the shared mv-selection helper (single implementation of
+    the clipboard-copy technique used by all *-selection wrappers).
+    Returns [] when nothing usable is selected — callers must handle that
+    explicitly (never silently no-op with exit 0).
+    """
+    if paths != ["selection"]:
+        return paths
+    here = os.path.dirname(os.path.abspath(__file__))
+    for cand in (os.path.join(here, "mv-selection"), "/usr/bin/mv-selection"):
+        if not os.path.isfile(cand):
+            continue
+        try:
+            out = subprocess.run([cand],
+                                 capture_output=True, text=True, timeout=5)
+            return [l for l in out.stdout.splitlines() if l.strip()]
+        except Exception:
+            return []
+    return []
+
+
 def main():
     if len(sys.argv) < 2:
-        print("Usage: mv-eject <mount-point-or-device>", file=sys.stderr)
+        print("Usage: mv-eject <mount-point-or-device|selection>", file=sys.stderr)
+        return 1
+
+    args = resolve_selection(sys.argv[1:])
+    if not args:
+        print("mv-eject: no removable volume selected in Thunar",
+              file=sys.stderr)
         return 1
 
     import gi
@@ -41,7 +71,7 @@ def main():
     from gi.repository import Gio
 
     rc = 0
-    for arg in sys.argv[1:]:
+    for arg in args:
         try:
             mounts = Gio.UnixMountMonitor.get().get_mounts()
             mount = find_mount(mounts, arg)

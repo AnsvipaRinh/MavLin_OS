@@ -8,10 +8,16 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 |---|---|---|
 | Super+Space | Spotlight (search files/apps) | rofi + mv-spotlight + plocate |
 | Super+L | Launchpad (app grid) | rofi + mv-launchpad |
-| Super+Shift+L | Launchpad edit mode | mv-launchpad-edit |
 | Super+Tab | Mission Control (window overview) | rofi + mv-mission-control |
 | Super+Shift+F | Finder (column UI) | mv-finder-columns |
-| Super+E | Finder (column UI) | mv-finder-columns |
+
+## System & session
+
+| Shortcut | Action | Backend |
+|---|---|---|
+| Ctrl+Alt+T | Terminal | xfce4-terminal |
+| Ctrl+Alt+C | Calendar | mv-calendar |
+| Ctrl+Alt+L | Lock screen | xfce4-screensaver-command --lock |
 
 ## File Operations
 
@@ -21,11 +27,11 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Super+Shift+N | New Folder in Home | mv-newfolder |
 | Super+I | Get Info (Home) | mv-getinfo |
 | Super+O | Open With (Home) | mv-openwith |
-| Super+Shift+I | Get Info (Current) | mv-getinfo |
-| Super+Shift+O | Open With (Current) | mv-openwith |
-| Super+F4 | Eject (Selected) | mv-eject |
-| Super+Delete | Move to Trash | trash-cli |
-| Super+Shift+Delete | Empty Trash | trash-empty |
+| Super+Shift+I | Get Info (Thunar selection) | mv-getinfo-selection → mv-getinfo |
+| Super+Shift+O | Open With (Thunar selection) | mv-openwith-selection → mv-openwith |
+| Super+E | Eject selected volume (Mavericks Cmd+E) | mv-eject-selection → mv-eject |
+| Super+Delete | Move selection to Trash | mv-trash put → trash-put |
+| Super+Shift+Delete | Empty Trash | mv-trash empty -y → trash-empty |
 
 ## System
 
@@ -37,7 +43,6 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Super+Shift+Space | Quick Look (Thunar selection) | mv-quicklook-thunar |
 | Ctrl+Alt+Escape | Power dialog (Sleep/Restart/Shut Down/Log Out) | mv-power-ui |
 | Ctrl+Alt+Delete | Log Out | mv-power-ui logout |
-| Super+Shift+E | Empty Trash | trash-empty |
 
 ## Window management (global)
 
@@ -63,6 +68,10 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | XF86AudioRaiseVolume | Volume +5% | pactl |
 | XF86AudioLowerVolume | Volume -5% | pactl |
 | XF86AudioMute | Mute toggle | pactl |
+| XF86AudioPlay | Play/Pause | mv-music --media-key playpause |
+| XF86AudioNext | Next track | mv-music --media-key next |
+| XF86AudioPrev | Previous track | mv-music --media-key prev |
+| XF86AudioStop | Stop | mv-music --media-key stop |
 
 ## Display brightness
 
@@ -108,4 +117,4 @@ These are **not** globally bound (to avoid stealing browser/editor shortcuts):
 
 - Source of truth: `packages/mavericks-apps/.../xfce4-keyboard-shortcuts.xml` (mirrored into airootfs skel)
 - `mv-*` scripts ship via the `mavericks-apps` package
-- Regression gates: `scripts/test-finder-launcher.py`, `scripts/test-window-keys.py`, `scripts/test-brightness-keys.py`, `scripts/test-backlight-udev.py`
+- Regression gates: `scripts/test-keyboard-integrity.py` (orphan bindings + doc/XML drift), `scripts/test-finder-launcher.py`, `scripts/test-window-keys.py`, `scripts/test-brightness-keys.py`, `scripts/test-backlight-udev.py`

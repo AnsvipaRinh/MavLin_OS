@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""mv-selection — resolve the current Thunar selection to real paths.
+
+Shared helper for the *-selection global-shortcut wrappers
+(mv-getinfo-selection, mv-openwith-selection; mv-eject keeps its own
+inline copy because it must stay a single-file CLI).
+
+Technique (same as mv-quicklook-thunar): only acts when the active
+window is Thunar, copies the selection with Ctrl+C, parses file:// URIs
+from the clipboard, restores the original clipboard text afterwards.
+
+Usage:
+  mv-selection            -> prints one path per line; exit 1 if none
+License: GPL-2.0-or-later.
+"""
+import os
+import subprocess
+import sys
+import time
+import urllib.parse
+
+
+def resolve_selection():
+    try:
+        active = subprocess.run(
+            ["xdotool", "getactivewindow", "getwindowname"],
+            capture_output=True, text=True, timeout=2)
+        if "thunar" not in active.stdout.lower():
+            return []
+        orig_clip = None
+        clipboard = None
+        try:
+            import gi
+            gi.require_version("Gtk", "3.0")
+            from gi.repository import Gtk, Gdk
+            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            orig_clip = clipboard.wait_for_text() or ""
+        except Exception:
+            clipboard = None
+        subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+c"],
+                       timeout=1)
+        text = None
+        if clipboard is not None:
+            for _ in range(10):
+                text = clipboard.wait_for_text()
+                if text and text.strip() and text != orig_clip:
+                    break
+                time.sleep(0.05)
+            else:
+                text = orig_clip
+            if clipboard and orig_clip is not None:
+                clipboard.set_text(orig_clip)
+                clipboard.store()
+        else:
+            out = subprocess.run(["xclip", "-o"], capture_output=True,
+                                 text=True, timeout=1)
+            text = out.stdout or None
+        if not text or not text.strip():
+            return []
+        paths = []
+        for line in text.strip().splitlines():
+            line = line.strip()
+            if line.startswith("file://"):
+                p = urllib.parse.unquote(line[7:])
+                if os.path.exists(p):
+                    paths.append(p)
+            elif line.startswith("/") and os.path.exists(line):
+                paths.append(line)
+        return paths
+    except Exception:
+        return []
+
+
+def main():
+    paths = resolve_selection()
+    if not paths:
+        print("mv-selection: no Thunar selection", file=sys.stderr)
+        return 1
+    for p in paths:
+        print(p)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
