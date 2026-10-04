@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Pango, Gdk
@@ -745,10 +746,9 @@ class Console(Gtk.Window):
             dlg.destroy()
 
 def main():
-    w = Console()
-    w.connect("destroy", Gtk.main_quit)
-    Gtk.main()
-    return 0
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    return run_application("com.mavlinos.Console", "Console", Console, sys.argv)
 
 
 if __name__ == "__main__":
