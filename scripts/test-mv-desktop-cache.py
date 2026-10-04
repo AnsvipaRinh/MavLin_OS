@@ -307,6 +307,7 @@ def main():
     mod = load_module("mv_desktop_cache", MOD_PATH)
     test_parse(mod)
     test_fingerprint(mod)
+    test_cache_writer_uses_unique_atomic_tempfiles(mod)
     test_cache_hit_skips_reads(mod)
     test_cache_invalidation(mod)
     test_corrupt_cache(mod)
