@@ -1,12 +1,12 @@
-import sys
 #!/usr/bin/env python3
+import sys
 """mv-notification-center — Mavericks-style Notification Center.
 
 History viewer for notifications logged by mv-notify-send.
 Groups by app, supports clear actions, DND status, keyboard navigation.
 No persistent daemon; reads JSON log on demand. License: GPL-2.0-or-later.
 """
-import fcntl, json, os, sys, time
+import fcntl, json, os, re, subprocess, sys, time
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk
@@ -219,7 +219,8 @@ class NotificationCenter(Gtk.Window):
 
     def create_notification_row(self, item, app_name):
         row = Gtk.ListBoxRow()
-        row.set_activatable(False)
+        row.set_activatable(True)
+        row.connect("activate", self.on_notification_activate, item)
 
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         box.set_border_width(12)
@@ -263,6 +264,30 @@ class NotificationCenter(Gtk.Window):
 
         row.add(box)
         return row
+
+    def on_notification_activate(self, _row, item):
+        """Open an actionable notification target when the entry contains one."""
+        hints = item.get("hints") or {}
+        candidates = []
+        for key in ("x-mavlinos-url", "url", "x-url", "desktop-entry"):
+            value = hints.get(key)
+            if value:
+                candidates.append(value)
+        body = item.get("body", "")
+        candidates.extend(re.findall(r"https?://[^\\s<>]+", body))
+        for target in candidates:
+            if target.startswith(("http://", "https://")):
+                try:
+                    subprocess.Popen(
+                        ["xdg-open", target],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True,
+                    )
+                except OSError:
+                    pass
+                return True
+        return False
 
     def clear_app(self, app_name):
         """Clear all notifications for a specific app."""
