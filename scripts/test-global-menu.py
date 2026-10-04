@@ -10,6 +10,7 @@ PACKAGES = Path("archiso-profile/releng/packages.x86_64")
 PKGBUILD = Path("packages/vala-panel-appmenu/PKGBUILD")
 APPMENU_HELPER = Path("packages/mavericks-apps/src/mavericks-apps/lib/mavericks_appmenu.py")
 CALCULATOR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calculator")
+XFWM = Path("configs/desktop/xfce/xfwm4.xml")
 APPLE_PLUGIN = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c")
 APPLE_DESKTOP = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
 
@@ -60,16 +61,17 @@ def main():
     panel = ET.parse(PANEL).getroot()
     plugins = panel.find("./property[@name='plugins']")
     ids = [v.get("value") for v in panel.findall("./property[@name='panels']/property[@name='panel-1']/property[@name='plugin-ids']/value")]
-    assert ids == [str(i) for i in range(1, 7)], f"unexpected panel plugin IDs: {ids}"
+    assert ids == [str(i) for i in range(1, 8)], f"unexpected panel plugin IDs: {ids}"
 
     entries = {p.get("name"): p for p in plugins}
-    assert entries["plugin-1"].get("value") == "appmenu"
-    assert entries["plugin-2"].get("value") == "separator"
-    assert entries["plugin-3"].get("value") == "systray"
-    assert entries["plugin-4"].get("value") == "clock"
-    assert entries["plugin-5"].get("value") == "actions"
-    assert entries["plugin-6"].get("value") == "genmon"
-    assert entries["plugin-2"].find("./property[@name='expand']").get("value") == "true"
+    assert entries["plugin-1"].get("value") == "mv-apple"
+    assert entries["plugin-2"].get("value") == "appmenu"
+    assert entries["plugin-3"].get("value") == "separator"
+    assert entries["plugin-4"].get("value") == "systray"
+    assert entries["plugin-5"].get("value") == "clock"
+    assert entries["plugin-6"].get("value") == "actions"
+    assert entries["plugin-7"].get("value") == "genmon"
+    assert entries["plugin-3"].find("./property[@name='expand']").get("value") == "true"
 
     xsettings = ET.parse(XSETTINGS).getroot()
     gtk = xsettings.find("./property[@name='Gtk']")
