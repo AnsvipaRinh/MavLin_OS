@@ -176,6 +176,10 @@ jobs:
         run: |
           python3 scripts/test-window-chrome.py
 
+      - name: Notifyd config contract
+        run: |
+          python3 scripts/test-notifyd-config.py
+
   profile-sync:
     name: Profile Sync
     runs-on: ubuntu-latest
