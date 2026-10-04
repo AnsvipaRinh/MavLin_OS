@@ -10,6 +10,8 @@
     <!-- Mavericks traffic lights: Close / Hide / Maximize on the left. -->
     <property name="button_layout" type="string" value="CHM|"/>
     <property name="title_alignment" type="string" value="center"/>
+    <!-- Mavericks titlebar double-click performs Zoom/Maximize, not Shade. -->
+    <property name="double_click_action" type="string" value="maximize"/>
     <property name="double_click_action" type="string" value="maximize"/>
     <!-- Global AppMenu owns the top application menu; maximized windows must not retain a duplicate title bar. -->
     <property name="titleless_maximize" type="bool" value="true"/>
