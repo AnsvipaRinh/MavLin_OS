@@ -1582,6 +1582,9 @@ class MusicWindow(Gtk.Window):
             transient_for=self, message_type=Gtk.MessageType.INFO,
             buttons=Gtk.ButtonsType.OK, text="%s — %s" % (group["album"],
                                                            group["artist"]))
+        dlg.get_style_context().add_class("message")
+        # message-dialog alert layout lives in mavericks-theme dialog.message
+        dlg.set_default_size(420, -1)
         dlg.format_secondary_text(text)
         dlg.run()
         dlg.destroy()

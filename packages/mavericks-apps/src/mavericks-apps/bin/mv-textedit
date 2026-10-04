@@ -732,6 +732,9 @@ class TextEdit(Gtk.Window):
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO,
             text="Save changes before closing?")
+        dialog.get_style_context().add_class("message")
+        # message-dialog alert layout lives in mavericks-theme dialog.message
+        dialog.set_default_size(420, -1)
         dialog.format_secondary_text("Your changes will be lost if you don't save them.")
         response = dialog.run()
         dialog.destroy()
@@ -754,6 +757,9 @@ class TextEdit(Gtk.Window):
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK,
             text=msg)
+        dialog.get_style_context().add_class("message")
+        # message-dialog alert layout lives in mavericks-theme dialog.message
+        dialog.set_default_size(420, -1)
         dialog.run()
         dialog.destroy()
 

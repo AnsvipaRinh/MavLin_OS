@@ -51,6 +51,14 @@
 
 ---
 
+## Completed Objectives (Session 2026-10-05)
+
+1. ✅ Keyboard-layer integrity: trash/eject/getinfo/openwith backends + orphan-binding gate (commit d884081, gate scripts/test-keyboard-integrity.py — 38 bindings, no orphans, doc/XML consistent, mirrors synced)
+2. ✅ Dock status corrected to IMPLEMENTED — HARDWARE VALIDATION REQUIRED (6 pinned launchers verified live in configs + archiso skel)
+3. ✅ Mavericks message-dialog alert layout + sheet styling + aqua default button in theme (commit d3db5d8; libsass fallback keeps compile gate active without sassc)
+4. ✅ Dialog adoption: all 43 Gtk.MessageDialog sites across 20 mv-* apps carry style class "message" (patcher scripts/patch-message-dialog-classes.py, idempotent; gate scripts/test-message-dialog-adoption.py)
+5. ⚠️ Visual confirmation of dialog layer requires X session / hardware (docs/NEEDS_HARDWARE_TEST.md boundary)
+
 ## Completed Objectives (Session 2026-10-04)
 
 1. ✅ Poppy cursors license verified (CC BY-SA 4.0)

@@ -489,6 +489,9 @@ class PowerUI(Gtk.Window):
         dlg = Gtk.MessageDialog(
             transient_for=self, modal=True, message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK, text="Power action failed")
+        dlg.get_style_context().add_class("message")
+        # message-dialog alert layout lives in mavericks-theme dialog.message
+        dlg.set_default_size(420, -1)
         dlg.format_secondary_text(message)
         dlg.run()
         dlg.destroy()

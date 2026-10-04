@@ -76,6 +76,9 @@ class Settings(Gtk.Window):
             d = Gtk.MessageDialog(transient_for=self, modal=True,
                 message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK,
                 text="%s is not installed yet" % cmd[0])
+            d.get_style_context().add_class("message")
+            # message-dialog alert layout lives in mavericks-theme dialog.message
+            d.set_default_size(420, -1)
             d.run()
             d.destroy()
 

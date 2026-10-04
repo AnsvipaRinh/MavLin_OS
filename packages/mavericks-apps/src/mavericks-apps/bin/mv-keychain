@@ -802,6 +802,9 @@ def build_keychain_class():
                     parent=self, flags=Gtk.DialogFlags.MODAL,
                     type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.NONE,
                     message_format="Delete “%s”?" % label)
+                dlg.get_style_context().add_class("message")
+                # message-dialog alert layout lives in mavericks-theme dialog.message
+                dlg.set_default_size(420, -1)
                 dlg.format_secondary_text("This cannot be undone.")
                 dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
                 dlg.add_button("Delete", Gtk.ResponseType.OK)

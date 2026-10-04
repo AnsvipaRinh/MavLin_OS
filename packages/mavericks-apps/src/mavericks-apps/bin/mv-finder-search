@@ -536,6 +536,9 @@ class FinderSearchWindow(Gtk.Window):
             dialog = Gtk.MessageDialog(
                 transient_for=self, message_type=Gtk.MessageType.ERROR,
                 buttons=Gtk.ButtonsType.OK, text="Could not open %s" % row[1])
+            dialog.get_style_context().add_class("message")
+            # message-dialog alert layout lives in mavericks-theme dialog.message
+            dialog.set_default_size(420, -1)
             dialog.format_secondary_text(str(e))
             dialog.run()
             dialog.destroy()

@@ -1,5 +1,14 @@
 # NEEDS_HARDWARE_TEST — Items requiring real MacBook10,1 hardware
 
+## Global Dialogs alert/sheet layer — hardware validation (phase 0.62)
+
+Implemented and gate-validated pre-hardware (theme CSS compiles clean, adoption 43/43 via scripts/test-message-dialog-adoption.py), but the following require a real X session / MacBook10,1:
+
+1. dialog.message alert layout renders as Mavericks alert: bold primary label, grey secondary text, icon without plate, right-aligned buttons ≥84px
+2. Default button shows aqua gradient when dialog is Enter-target even without suggested-action class
+3. window.sheet styling visually attaches to titlebar (flat top, rounded bottom, shadow) for modal child dialogs
+4. Each adopted app's warning/error/info dialogs actually pick up the class at runtime (Gtk.MessageDialog style-context timing)
+
 ## Finder search / column browser — hardware validation (phase finder-p0)
 - [ ] Visual: mv-finder-search results window (HeaderBar + search field, Name/Kind/Size/Where columns, folders-first ordering) under the Mavericks GTK theme at 2304×1440
 - [ ] Visual: mv-finder-columns multi-pane column browser proportions at 2304×1440 (240px columns readable at 2x scaling)
