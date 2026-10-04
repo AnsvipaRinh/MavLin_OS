@@ -23,36 +23,42 @@ AUTOSAVE_INTERVAL = 30
 
 
 def build_textedit_menu(app, app_name, get_window, add_action):
-    w = get_window()
-    add_action("new", lambda: w.new_document() if w else None)
-    add_action("open", lambda: w.open_document() if w else None)
-    add_action("save", lambda: w.save_document() if w else None)
-    add_action("save-as", lambda: w.save_as_document() if w else None)
-    add_action("print", lambda: w.print_document() if w else None)
-    add_action("close", lambda: w.destroy() if w else None)
+    def window():
+        return get_window()
+
+    add_action("about", lambda: None)
+    add_action("new", lambda: window().new_document() if window() else None)
+    add_action("open", lambda: window().open_document() if window() else None)
+    add_action("save", lambda: window().save_document() if window() else None)
+    add_action("save-as", lambda: window().save_as_document() if window() else None)
+    add_action("print", lambda: window().print_document() if window() else None)
+    add_action("close", lambda: window().destroy() if window() else None)
 
     def clipboard(method):
+        w = window()
         if w:
             method(Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD))
 
-    add_action("cut", lambda: clipboard(w.view.cut_clipboard) if w else None)
-    add_action("copy", lambda: clipboard(w.view.copy_clipboard) if w else None)
-    add_action("paste", lambda: w.view.paste_clipboard(
-        Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD), None, True) if w else None)
-    add_action("undo", lambda: w.buffer.undo() if w and w.buffer.can_undo() else None)
-    add_action("redo", lambda: w.buffer.redo() if w and w.buffer.can_redo() else None)
-    add_action("select-all", lambda: w.view.select_all() if w else None)
-    add_action("find", lambda: w.toggle_find_bar() if w else None)
-    add_action("replace", lambda: w.toggle_find_bar() if w else None)
-    add_action("bold", lambda: w.btn_bold.set_active(
-        not w.btn_bold.get_active()) if w else None)
-    add_action("italic", lambda: w.btn_italic.set_active(
-        not w.btn_italic.get_active()) if w else None)
-    add_action("underline", lambda: w.btn_underline.set_active(
-        not w.btn_underline.get_active()) if w else None)
-    add_action("ruler", lambda: w.toggle_ruler() if w else None)
+    add_action("cut", lambda: clipboard(window().view.cut_clipboard) if window() else None)
+    add_action("copy", lambda: clipboard(window().view.copy_clipboard) if window() else None)
+    add_action("paste", lambda: window().view.paste_clipboard(
+        Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD), None, True) if window() else None)
+    add_action("undo", lambda: window().buffer.undo()
+               if window() and window().buffer.can_undo() else None)
+    add_action("redo", lambda: window().buffer.redo()
+               if window() and window().buffer.can_redo() else None)
+    add_action("select-all", lambda: window().view.select_all() if window() else None)
+    add_action("find", lambda: window().toggle_find_bar() if window() else None)
+    add_action("replace", lambda: window().toggle_find_bar() if window() else None)
+    add_action("bold", lambda: window().btn_bold.set_active(
+        not window().btn_bold.get_active()) if window() else None)
+    add_action("italic", lambda: window().btn_italic.set_active(
+        not window().btn_italic.get_active()) if window() else None)
+    add_action("underline", lambda: window().btn_underline.set_active(
+        not window().btn_underline.get_active()) if window() else None)
+    add_action("ruler", lambda: window().toggle_ruler() if window() else None)
     add_action("quit", app.quit)
-    add_action("minimize", lambda: w.iconify() if w else None)
+    add_action("minimize", lambda: window().iconify() if window() else None)
 
     menu = Gio.Menu()
     app_menu = Gio.Menu()
