@@ -1,0 +1,70 @@
+# MavLinOS Mavericks Theme — Third-Party Notices
+
+This package includes third-party components with the following licenses and attributions:
+
+---
+
+## 1. B00merang-Project OS-X-Mavericks Theme
+
+**License**: GPL-3.0  
+**Repository**: https://github.com/B00merang-Project/OS-X-Mavericks  
+**Copyright**: © 2023 B00MERANG Project  
+
+Components derived from B00merang OS-X-Mavericks:
+- `gtk-3.0/` — GTK3 theme (CSS)
+- `gtk-3.20/` — GTK 3.20+ theme (CSS)
+- `xfwm4/` — Xfce window manager theme (XML)
+- `plank/` — Plank dock theme (CSS)
+
+This software is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+---
+
+## 2. Poppy OS X Revieve Cursors
+
+**License**: Unknown (pending verification with author kayover/sziberov)  
+**Repository**: https://github.com/sziberov/Poppy-OS-X-Revieve  
+**Author**: kayover (sziberov)  
+
+Components:
+- `cursors-poppy/` — Mavericks-style cursor theme
+
+**Status**: Used with attribution. License verification in progress (Issue #2).
+
+---
+
+## 3. Apple Mavericks Wallpapers
+
+**License**: Apple Inc. Proprietary (redistributed as part of macOS theme)  
+**Source**: macOS Mavericks (10.9) default wallpapers  
+
+Components:
+- `wallpapers/` — Official Mavericks desktop backgrounds
+
+**Notice**: These wallpapers are trademarks and/or copyrighted material of Apple Inc. Their use in this theme is for aesthetic/compatibility purposes consistent with macOS theme projects.
+
+---
+
+## 4. Original MavLinOS Components
+
+**License**: GPL-3.0-or-later (same as MavLinOS)  
+**Components**:
+- `icons/` — Mixed (B00merang base + custom additions)
+- `xfce-panel/` — Custom Xfce panel configuration
+- `xfce4-notifyd/` — Notification theme customizations
+
+---
+
+## Attribution Requirements
+
+When redistributing this theme:
+1. Include this NOTICE file
+2. Preserve B00merang GPL-3.0 license in LICENSE file
+3. Attribute Poppy cursors to kayover/sziberov
+4. Acknowledge Apple Inc. trademark rights to Mavericks wallpapers
+
+---
+
+**Generated**: 2026-10-04  
+**Issue**: #2 (Poppy OS X Revieve Audit)  
+**Objective**: 3 (Legal compliance)
