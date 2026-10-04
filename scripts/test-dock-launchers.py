@@ -17,6 +17,7 @@ REQUIRED = {
     "firefox.dockitem": "firefox.desktop",
     "mail.dockitem": "mv-mail.desktop",
     "system-settings.dockitem": "mv-system-settings.desktop",
+    "terminal.dockitem": "xfce4-terminal.desktop",
 }
 
 errors = []
@@ -47,4 +48,4 @@ if errors:
     sys.exit(1)
 
 print("ok - default Dock launchers present in configs and skel")
-print("ok - pins: Finder, Launchpad, Firefox, Mail, System Settings")
+print("ok - pins: Finder, Launchpad, Firefox, Mail, System Settings, Terminal")
