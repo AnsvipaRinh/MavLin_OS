@@ -14,10 +14,67 @@ import os
 import subprocess
 import time
 import json
-import gi
-gi.require_version("Gtk", "3.0")
-gi.require_version("Gio", "2.0")
-from gi.repository import Gtk, Gio, GLib
+try:
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gtk, Gio, GLib
+except ImportError:  # headless test host without PyGObject (same pattern as mv-keychain)
+    HAS_GTK = False
+
+    class _Any:
+        """Permissive placeholder so the module can be imported and its
+        pure-logic functions unit-tested on hosts without GTK bindings."""
+        def __init__(self, *a, **k):
+            pass
+        def __getattr__(self, _n):
+            return _Any()
+        def __call__(self, *a, **k):
+            return _Any()
+
+    class _FakeClassMeta(type):
+        """Metaclass for synthesized fake namespace classes.
+
+        Unknown attributes resolve to fresh permissive fakes, so chained
+        lookups (Gio.DBusMessage.new_method_call) and enum members
+        (Gdk.WindowState.FOCUSED & mask → int) both work headless."""
+        def __getattr__(cls, _n):
+            return _Any()
+
+    class _CallProxy:
+        """Callable attribute of a fake namespace class.
+
+        Works both as a base class (`class X(Gtk.Window)` — the synthesized
+        type's metaclass is _FakeClassMeta so its attributes also resolve)
+        and as a factory call (`Gio.DBusMessage.new_method_call(...)`,
+        `GLib.timeout_add_seconds(...)`). Instances are truthy so code like
+        `if self._wifi_pending is not None` behaves; tests that need to
+        distinguish return values patch these entry points explicitly."""
+        def __new__(cls, *a, **k):
+            # Instantiated via `type(name, bases, dict)(...)`: the first
+            # positional arg is the synthesized class name, the rest are
+            # constructor args from a factory-style call. Accept both.
+            return object.__new__(cls)
+
+        def __init__(self, *a, **k):
+            pass
+
+        def __call__(self, *a, **k):
+            return _Any()
+
+        def __bool__(self):
+            return True
+
+    class _Meta(type):
+        def __getattr__(cls, _n):
+            # Every attribute (e.g. Gtk.Window, Gio.DBusMessage) is itself a
+            # usable fake namespace: subclassable AND callable.
+            return _FakeClassMeta("Fake" + _n, (_CallProxy,), {})
+
+    Gdk = _Meta("FakeGdk", (), {})
+    Gtk = Gio = GLib = _Meta("FakeMod", (), {})
+else:
+    HAS_GTK = True
 
 WIFI_FALLBACK_POLL_S = 30
 WIFI_REFRESH_DEBOUNCE_S = 1
@@ -882,8 +939,24 @@ class ControlCenter(Gtk.Window):
         return True  # Continue timeout
 
     def on_focus_out(self, widget, event):
-        self.destroy()
-        return True
+        # Same interaction-fidelity fix as mv-notification-center: a Control
+        # Center that vanishes the instant any child widget takes focus is
+        # unusable. Dismiss only when focus genuinely left our window, with
+        # a short grace period for transient focus moves.
+        if not widget.is_toplevel():
+            return False
+        GLib.timeout_add(150, self._verify_focus_left, widget)
+        return False
+
+    def _verify_focus_left(self, widget):
+        """Deferred check: destroy only if our window still lacks focus."""
+        if not widget.get_visible():
+            return False
+        win = widget.get_window()
+        if win is not None and win.get_state() & Gdk.WindowState.FOCUSED:
+            return False  # focus returned during grace period
+        widget.destroy()
+        return False
 
     def on_key_press(self, widget, event):
         if event.keyval == 65307:  # Escape

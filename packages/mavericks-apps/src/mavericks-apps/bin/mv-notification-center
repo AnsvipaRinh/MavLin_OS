@@ -325,8 +325,26 @@ class NotificationCenter(Gtk.Window):
         return False
 
     def on_focus_out(self, widget, event):
-        self.destroy()
-        return True
+        # Mavericks Notification Center stays open until dismissed (Escape or
+        # clicking the panel toggle). Closing on any focus-out made it
+        # impossible to interact with: opening a submenu, giving keyboard
+        # focus to a row, or Alt+Tab briefly all destroyed the window.
+        # Dismiss only when focus genuinely left our window, with a short
+        # grace period so transient focus moves don't close the panel.
+        if not widget.is_toplevel():
+            return False
+        GLib.timeout_add(150, self._verify_focus_left, widget)
+        return False
+
+    def _verify_focus_left(self, widget):
+        """Deferred check: destroy only if our window still lacks focus."""
+        if not widget.get_visible():
+            return False
+        win = widget.get_window()
+        if win is not None and win.get_state() & Gdk.WindowState.FOCUSED:
+            return False  # focus returned during grace period
+        widget.destroy()
+        return False
 
 def main():
     sys.path.insert(0, "/usr/share/mavericks-apps")

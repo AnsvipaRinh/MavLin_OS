@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Headless/static contract tests for Notification Center behavior."""
-import os, sys
+import os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 path = os.path.join(ROOT, "packages/mavericks-apps/src/mavericks-apps/bin/mv-notification-center")
@@ -20,6 +20,10 @@ checks = [
     ("DND property is created when absent", '"--create", "--type", "bool"' in src),
     ("opening center does not overwrite existing DND", 'if result.returncode == 0:\n            return result.stdout.strip() == "true"' in src),
     ("DND state is read back", '"/do-not-disturb"]' in src),
+    ("focus-out does not destroy immediately (grace period)", "GLib.timeout_add(150, self._verify_focus_left, widget)" in src),
+    ("focus-out handler returns False (no instant dismiss)", re.search(r'def on_focus_out.*?return False', src, re.S) is not None),
+    ("deferred focus check verifies FOCUSED state", "Gdk.WindowState.FOCUSED" in src),
+    ("deferred check skips destroyed/hidden windows", "widget.get_visible()" in src),
 ]
 failed = 0
 for name, ok in checks:

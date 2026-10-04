@@ -252,7 +252,11 @@ def test_pure(m):
 
 
 def test_gui_smoke(m):
-    import gi
+    try:
+        import gi
+    except ImportError:
+        print("ok - gui smoke skipped (no PyGObject on this host)")
+        return
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gio", "2.0")
     from gi.repository import Gtk
