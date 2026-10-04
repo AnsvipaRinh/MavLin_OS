@@ -102,16 +102,26 @@ def _legacy_id_map(apps):
     return {legacy_id: next(iter(ids)) for legacy_id, ids in candidates.items() if len(ids) == 1}
 
 def _migrate_app_ids(ids, apps):
-    """Translate pre-canonical basename IDs without guessing ambiguous cases."""
+    """Translate legacy IDs while preserving exact canonical entries."""
     legacy_map = _legacy_id_map(apps)
+    canonical_ids = {app["id"] for app in apps}
     changed = False
     migrated = []
+
+    # Exact canonical IDs take precedence over legacy aliases. This prevents
+    # an old basename entry from overwriting a newer canonical configuration
+    # when both happen to exist in the same persisted file.
     for app_id in ids:
+        if app_id in canonical_ids:
+            if app_id not in migrated:
+                migrated.append(app_id)
+            continue
         canonical_id = legacy_map.get(app_id, app_id)
         if canonical_id != app_id:
             changed = True
         if canonical_id not in migrated:
             migrated.append(canonical_id)
+
     return migrated, changed
 
 def _canonical_app_ids(apps):
@@ -275,12 +285,23 @@ def load_positions(apps=None):
     canonical, legacy = _canonical_app_ids(apps or [])
     positions = {}
     changed = False
+
+    # Canonical keys win over legacy aliases regardless of JSON object order.
+    # This avoids silently replacing a user's current position with an older
+    # basename-based position during migration.
     for app_id, position in raw.items():
-        if not isinstance(app_id, str):
+        if not isinstance(app_id, str) or app_id not in canonical:
+            continue
+        positions[app_id] = position
+
+    for app_id, position in raw.items():
+        if not isinstance(app_id, str) or app_id in canonical:
             continue
         migrated_id = _migrate_app_id(app_id, canonical, legacy)
-        positions[migrated_id] = position
-        changed = changed or migrated_id != app_id
+        if migrated_id != app_id:
+            changed = True
+        if migrated_id not in positions:
+            positions[migrated_id] = position
     if changed:
         save_positions(positions)
     return positions
