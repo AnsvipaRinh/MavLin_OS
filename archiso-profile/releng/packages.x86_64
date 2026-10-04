@@ -86,6 +86,8 @@ upower
 usbutils
 webkit2gtk-4.1
 wireless-regdb
+wmctrl
+xorg-xprop
 wireplumber
 wpa_supplicant
 xarchiver
