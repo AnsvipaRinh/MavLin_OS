@@ -29,6 +29,7 @@ install: all
 	install -m644 desktop/*.desktop "$(DESTDIR)$(PREFIX)/share/applications/"
 	install -m644 config/mv-ytplayer-protocol.desktop "$(DESTDIR)$(PREFIX)/share/applications/"
 	install -d "$(DESTDIR)$(PREFIX)/share/mavericks-apps"
+	install -m644 lib/mavericks_appmenu.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mavericks_appmenu.py"
 	install -m644 config/rofi-mavericks.rasi "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/rofi-launchpad.rasi "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/rofi-mission-control.rasi "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
