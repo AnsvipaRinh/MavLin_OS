@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""Show recent documents from the desktop environment."""
+
+import os
+import subprocess
+from pathlib import Path
+import xml.etree.ElementTree as ET
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+
+def launch(path):
+    try:
+        subprocess.Popen(["xdg-open", path])
+    except OSError:
+        pass
+
+def recent_files():
+    path = Path.home() / ".local/share/recently-used.xbel"
+    if not path.exists():
+        return []
+    try:
+        root = ET.parse(path).getroot()
+    except (OSError, ET.ParseError):
+        return []
+    seen, result = set(), []
+    for bookmark in root.findall("bookmark"):
+        uri = bookmark.get("href", "")
+        if not uri.startswith("file://"):
+            continue
+        value = uri[7:]
+        if value in seen or not os.path.exists(value):
+            continue
+        seen.add(value)
+        result.append(value)
+    return result[:30]
+
+class RecentItems(Gtk.Dialog):
+    def __init__(self):
+        super().__init__(title="Recent Items", modal=True)
+        self.set_default_size(520, 380)
+        self.add_button("Close", Gtk.ResponseType.CLOSE)
+        box = self.get_content_area()
+        box.set_border_width(12)
+        box.set_spacing(8)
+        box.pack_start(Gtk.Label(label="Recently used documents"), False, False, 0)
+        self.store = Gtk.ListStore(str, str)
+        for item in recent_files():
+            self.store.append([os.path.basename(item), item])
+        view = Gtk.TreeView(model=self.store)
+        view.set_headers_visible(False)
+        view.append_column(Gtk.TreeViewColumn("Item", Gtk.CellRendererText(), text=0))
+        view.connect("row-activated", self.open_item)
+        scroll = Gtk.ScrolledWindow()
+        scroll.add(view)
+        box.pack_start(scroll, True, True, 0)
+        self.show_all()
+
+    def open_item(self, view, tree_path, _column):
+        launch(self.store[tree_path][1])
+
+if __name__ == "__main__":
+    dialog = RecentItems()
+    dialog.run()
+    dialog.destroy()
