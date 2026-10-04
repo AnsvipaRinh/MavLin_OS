@@ -1840,4 +1840,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.Music", "Music", MusicWindow, sys.argv))
