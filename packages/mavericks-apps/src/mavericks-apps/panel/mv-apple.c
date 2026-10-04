@@ -10,14 +10,15 @@ static void launch(const gchar *command)
 
 static void activate_command(GtkWidget *item, gpointer data)
 {
-    launch((const gchar *)data);
+    (void)data;
+    launch((const gchar *)g_object_get_data(G_OBJECT(item), "mv-command"));
 }
 
 static void add_item(GtkWidget *menu, const gchar *label, const gchar *command)
 {
     GtkWidget *item = gtk_menu_item_new_with_label(label);
-    g_signal_connect(item, "activate", G_CALLBACK(activate_command), g_strdup(command));
     g_object_set_data_full(G_OBJECT(item), "mv-command", g_strdup(command), g_free);
+    g_signal_connect(item, "activate", G_CALLBACK(activate_command), NULL);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
     gtk_widget_show(item);
 }
