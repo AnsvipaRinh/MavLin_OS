@@ -927,11 +927,9 @@ class Notes(Gtk.Window):
 
 
 def main():
-    w = Notes()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
-    return 0
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    return run_application("com.mavlinos.Notes", "Notes", Notes, sys.argv)
 
 
 if __name__ == "__main__":
