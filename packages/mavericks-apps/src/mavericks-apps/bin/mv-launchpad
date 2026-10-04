@@ -324,6 +324,19 @@ def main():
 
     # Rofi script mode invokes us with the selected row as argv[1]. Use
     # ROFI_INFO as a stable action ID instead of treating the row as a page.
+    if rofi_mode and rofi_retv in ("10", "11"):
+        try:
+            state = json.loads(rofi_data) if rofi_data else {}
+        except json.JSONDecodeError:
+            state = {}
+        try:
+            page = int(state.get("page", 0))
+        except (ValueError, TypeError):
+            page = 0
+        page += 1 if rofi_retv == "10" else -1
+        state["page"] = max(0, page)
+        rofi_data = json.dumps(state, separators=(",", ":"))
+
     if rofi_mode and rofi_retv == "1":
         if rofi_info.startswith("app:"):
             desktop_id = rofi_info[4:]
