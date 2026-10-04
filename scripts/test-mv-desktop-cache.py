@@ -214,6 +214,30 @@ def test_fingerprint(mod):
         sb.close()
 
 
+def test_recursive_fingerprint_invalidation(mod):
+    """Nested desktop entries must participate in cache invalidation."""
+    sb = Sandbox(mod)
+    try:
+        nested = os.path.join(sb.desktop, "nested")
+        os.makedirs(nested)
+        path = os.path.join(nested, "nested.desktop")
+        with open(path, "w") as f:
+            f.write(DESKTOP_FILE)
+        fp1, count1 = mod._fingerprint()
+        check("recursive fingerprint: nested file counted", count1 == 1)
+        os.remove(path)
+        fp2, count2 = mod._fingerprint()
+        check("recursive fingerprint: nested removal changes key", fp2 != fp1)
+        check("recursive fingerprint: nested removal changes count", count2 == 0)
+        with open(path, "w") as f:
+            f.write(DESKTOP_FILE)
+        fp3, count3 = mod._fingerprint()
+        check("recursive fingerprint: nested re-add changes key", fp3 != fp2)
+        check("recursive fingerprint: nested re-add counted", count3 == 1)
+    finally:
+        sb.close()
+
+
 def test_cache_writer_uses_unique_atomic_tempfiles(mod):
     """Cache writes must not share a fixed .tmp path between concurrent writers."""
     source = open(MOD_PATH).read()
@@ -413,6 +437,7 @@ def main():
     test_recursive_desktop_ids(mod)
     test_fingerprint(mod)
     test_cache_writer_uses_unique_atomic_tempfiles(mod)
+    test_recursive_fingerprint_invalidation(mod)
     test_cache_hit_skips_reads(mod)
     test_cache_invalidation(mod)
     test_locale_invalidation(mod)
