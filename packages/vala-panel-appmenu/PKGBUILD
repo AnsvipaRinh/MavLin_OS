@@ -14,7 +14,7 @@ sha256sums=('48d0be87b260056a65a9056a9be7e190b67a508540ebcb1fc18a67349cca0177')
 
 build() {
   cd "vala-panel-appmenu-${pkgver}"
-  arch-meson build \
+  meson setup build \
     -Dxfce=enabled \
     -Dmate=disabled \
     -Dbudgie=disabled \
