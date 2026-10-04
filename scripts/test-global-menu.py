@@ -10,6 +10,9 @@ PACKAGES = Path("archiso-profile/releng/packages.x86_64")
 PKGBUILD = Path("packages/vala-panel-appmenu/PKGBUILD")
 APPMENU_HELPER = Path("packages/mavericks-apps/src/mavericks-apps/lib/mavericks_appmenu.py")
 CALCULATOR = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-calculator")
+APPLE_PLUGIN = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c")
+APPLE_DESKTOP = Path("packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
+
 NATIVE_APPS = {
     "about": "About This Mac",
     "activity": "Activity",
@@ -37,7 +40,23 @@ NATIVE_APPS = {
 }
 
 
+
+
+def check_apple_plugin():
+    text = APPLE_PLUGIN.read_text()
+    desktop = APPLE_DESKTOP.read_text()
+    assert "XFCE_PANEL_PLUGIN_REGISTER(construct)" in text
+    assert "About This Mac" in text
+    assert "System Preferences" in text
+    assert "systemctl suspend" in text
+    assert "systemctl reboot" in text
+    assert "systemctl poweroff" in text
+    assert "xfce4-session-logout" in text
+    assert "Type=X-XFCE-PanelPlugin" in desktop
+    assert "X-XFCE-Internal=false" in desktop
+
 def main():
+    check_apple_plugin()
     panel = ET.parse(PANEL).getroot()
     plugins = panel.find("./property[@name='plugins']")
     ids = [v.get("value") for v in panel.findall("./property[@name='panels']/property[@name='panel-1']/property[@name='plugin-ids']/value")]
