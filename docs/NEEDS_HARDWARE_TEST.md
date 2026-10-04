@@ -316,6 +316,14 @@ procedures or active code reference them:
 - [ ] Preview: MIME associations — double-click PDF/image in Thunar opens mv-preview
 - [ ] Preview: annotation toolbar stubs show status feedback; no crashes on tool clicks
 - [ ] Spotlight: после первой загрузки дождаться plocate-updatedb.timer, Super+Space находит файлы
+- [ ] Spotlight: Super+Space overlay centered, Mavericks theme renders correctly on 2304×1440
+- [ ] Spotlight: categorized results (Applications, System, Folders, Documents, Images, Audio, Video, Archives, Code, Other) display with correct icons
+- [ ] Spotlight: calculator/conversion results appear and copy to clipboard on Enter
+- [ ] Spotlight: preview pane shows file content (text, images, PDF metadata, media info, directory listing)
+- [ ] Spotlight: keyboard navigation (arrows, Enter, Escape) works correctly
+- [ ] Spotlight: recent items shown on empty query
+- [ ] Spotlight: system actions (Settings, Control Center, Activity Monitor, Disk Utility, Terminal) launch correctly
+- [ ] Spotlight: file results open via xdg-open
 - [ ] Quick Look: mv-quicklook на image/PDF/text/audio — multi-file nav (←/→/Space), fullscreen (F), Open button work
 - [ ] Quick Look: Super+Shift+Space в Thunar копирует выбор в буфер обмена и открывает mv-quicklook с выбранными файлами
 - [ ] Quick Look: UCA контекстное меню "Quick Look" работает (правый клик → Quick Look)
