@@ -196,7 +196,7 @@ def test_gui(m):
     with tempfile.TemporaryDirectory() as tmp:
         store_path = os.path.join(tmp, "tape.json")
         with mock.patch.object(m, "STORE", store_path):
-            w = m.Calculator()
+            w = m.build_calculator_class()()
             Gtk.main_iteration_do(False)
             check("construct", w.current == "0", w.current)
             check("initial display", w.display.get_text() == "0")
@@ -429,7 +429,7 @@ def test_gui(m):
             w.destroy()
             Gtk.main_iteration_do(False)
 
-            w2 = m.Calculator()
+            w2 = m.build_calculator_class()()
             Gtk.main_iteration_do(False)
             check("tape persists", "9 × 9 = 81" in w2.tape, str(w2.tape))
             tape2 = w2.tape_buffer.get_text(

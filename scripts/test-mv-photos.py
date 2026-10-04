@@ -24,6 +24,7 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import shutil
 import struct
 import sys
 import tempfile
@@ -587,6 +588,12 @@ def test_thumb_path(m, tmp):
 
 
 def test_rotate_no_backend(m, tmp):
+    # Assertion is about the MISSING-backend path: when gthumb/exiftool are
+    # installed the helper really invokes them (spawns a GUI, slow), so only
+    # exercise the graceful-failure contract on hosts without those tools.
+    if shutil.which("gthumb") or shutil.which("exiftool"):
+        print("skip - rotate graceful no backend (gthumb/exiftool installed)")
+        return
     jpg = os.path.join(tmp, "r.jpg")
     make_jpeg(jpg, 4, 4)
     result = m.rotate_image(jpg, "right")
@@ -594,6 +601,9 @@ def test_rotate_no_backend(m, tmp):
 
 
 def test_open_editor_no_backend(m, tmp):
+    if shutil.which("gthumb"):
+        print("skip - open editor graceful no gthumb (gthumb installed)")
+        return
     jpg = os.path.join(tmp, "e.jpg")
     make_jpeg(jpg, 4, 4)
     result = m.open_in_editor(jpg)

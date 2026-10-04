@@ -113,7 +113,7 @@ def test_parse(mod):
         e = mod._parse_desktop_file(p)
         check("parse: valid entry", e is not None)
         check("parse: name", e and e["name"] == "Test App", repr(e and e["name"]))
-        check("parse: exec % stripped", e and e["exec"] == "testapp ",
+        check("parse: exec % stripped", e and e["exec"] == "testapp",
               repr(e and e["exec"]))
         check("parse: icon", e and e["icon"] == "test-icon", repr(e and e["icon"]))
         check("parse: categories", e and e["categories"] == "Utility;",

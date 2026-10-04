@@ -241,7 +241,6 @@ def test_gui(m):
           not win4.send_btn.get_sensitive())
 
     for w in (win, win2, win3, win4):
-        w.disconnect_by_func(Gtk.main_quit)
         w.destroy()
 
 
