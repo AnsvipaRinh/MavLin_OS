@@ -20,7 +20,9 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq shellcheck xmllint desktop-file-utils python3 libxml2-utils
+          # xmllint binary comes from libxml2-utils (there is no "xmllint" package)
+          sudo apt-get install -y -qq -o Acquire::Retries=3 \
+            shellcheck desktop-file-utils python3 libxml2-utils
 
       - name: Bash syntax (bash -n)
         run: |
@@ -112,7 +114,8 @@ jobs:
       - name: Install python deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq python3 python3-pip sassc gir1.2-gtk-3.0
+          sudo apt-get install -y -qq -o Acquire::Retries=3 \
+            python3 python3-pip sassc gir1.2-gtk-3.0
           pip3 install --quiet pytest
 
       - name: Run mv-* unit tests
