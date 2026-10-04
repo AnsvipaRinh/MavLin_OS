@@ -1,5 +1,31 @@
 # PROGRESS — MacBook 12 MavLinOS
 
+### Poppy OS X Revieve — B-items Port (2026-10-04, без железа)
+- [x] Diff-driven axis-by-axis comparison: Poppy GTK3 CSS (8367 lines) vs MavLinOS modular SCSS; Icons (568 SVG) vs our comprehensive icon theme; Plank theme (64 lines) vs our dock.theme
+- [x] Legal compliance: Clean-room reimplementation of measurements/values only — no Poppy asset bytes copied (cursors exception already handled in 4b2a171). All ports are static CSS/config values with zero runtime cost.
+- [x] Tier 1 GTK3 CSS ports implemented (12 items):
+  - Entries: flat squared style (radius 0) with 8-layer inset shadow, Poppy focus ring (#71a5d6)
+  - Search entry: pill shape (radius 50px)
+  - Menubar: gradient (#e5e5e5→#a0a0a0) + inset highlight lines, 22px height
+  - Menus: square corners (radius 0), sharp blue hover gradient (#618cf0→#1c65ed) with border highlights
+  - Notebook tabs: metallic gradient, 1px border #8c8c8c, 4-layer inset shadow; selected tab 12-layer pressed-in shadow
+  - Toolbar: unified gradient (#fff→#f2f2f2→#ededed→#f2f2f2) with rgba(105,105,105,0.3) borders
+  - Headerbar: 22px height, noise sim gradient (#e9e9e9→#b2b2b2), Poppy shadow stack
+  - Default button: pulsing animation (500ms alternate), Poppy blue borders, 10-layer inset shadow
+  - Popover: 4px radius, sharp shadow (0 3px 5px a(#000,0.5) + 0 0 0 1px a(#000,0.18)), highlight border #f9f9f9
+  - Progressbar: animated aqua gradient with radial highlight, 32px loop, trough 10-layer inset shadow
+  - Window frame: 6px radius, deeper shadow (0 10px 10px a(#000,0.75))
+  - Statusbar: 22px height, noise gradient (#d4d4d4→#b2b2b2), highlight line
+- [x] Tier 3 Plank theme ports (8 config values):
+  - Roundness=4, BorderSize=1, BorderColor=rgba(0,0,0,0.31)
+  - ItemShadowSize=0 (Mavericks had no icon drop shadow)
+  - TopPadding=-5 (centers icons in glass), IndicatorSize=7, UrgentHueShift=150
+  - FadeOpacity=1, ClickTime=300, UrgentBounceTime=600, LaunchBounceHeight=0.625, CascadeHide=true
+- [x] Tier 2 Icon gaps identified (13 status, 9 preferences, 13+ places, 20+ panel icons) — documented for future session
+- [x] Gate: test-theme-css.py 9/9 PASS, check-sync.sh 221/221 PASS
+- [x] Documentation: docs/POPPY_PORTS.md with full comparison matrix, ranked port list (24 items), legal notes
+- [x] Commit: cb71a8d (pushed as 445355c)
+
 ### Prior-art audit — Poppy OS X Revieve (2026-10-04, без железа)
 - [x] Cloned https://github.com/sziberov/Poppy-OS-X-Revieve to /tmp for static inspection (read-only, untrusted input)
 - [x] Inventory: theme-only repo (GTK3 CSS 8367 lines, 568 SVG + 34 PNG icons, 13 base cursors, Plank theme, GNOME Shell theme, Metacity theme). Zero application code, zero scripts, zero daemons.

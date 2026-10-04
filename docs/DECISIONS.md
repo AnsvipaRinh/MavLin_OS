@@ -116,6 +116,71 @@ GLM removal (commit 20f5561) — config-only removal, not temporary cooldown.
 
 ---
 
+## 2026-10-04 — Poppy OS X Revieve B-items Port (Tier 1 + Tier 3)
+
+**Context:** Following the prior-art audit (Poppy OS X Revieve), diff-driven extraction of concrete portable techniques/measurements from Poppy's GTK3 CSS (8367 lines), icons (568 SVG), and Plank theme (64 lines) into MavLinOS stack. Clean-room reimplementation only — no asset bytes copied (cursors exception already handled in 4b2a171).
+
+**Analysis Method:** Axis-by-axis comparison matrix (buttons, entries, menus/menubar, scrollbars, notebooks/tabs, toolbars, headers, progress, switches, check/radio, OSD/popovers) with Mavericks 10.9 fidelity as judge.
+
+**Key Findings:**
+- Poppy's GTK3 CSS is comprehensive but monolithic, GNOME-specific, hardcoded values
+- MavLinOS SCSS is modular, Xfce-optimized, variable/mixin-based
+- **Popby wins on specific Mavericks-fidelity measurements** in 12 GTK3 axes and 8 Plank config values
+- Icons: Poppy covers status/preferences/places/panel categories we lack (documented as Tier 2 for future)
+
+**Decisions (Tier 1 — implemented, static CSS values, zero runtime cost):**
+
+| # | Axis | Poppy Value Adopted | Mavericks Fidelity Gain |
+|---|------|---------------------|------------------------|
+| 1 | Entries | `border-radius:0`, 8-layer inset shadow (alpha #000: 0.36/0.145/0.035/0.22/0.04/0.04/0.22/0.12), focus: 6× `0 0 2px #71a5d6` + `inset 0 0 0 2px #6a9ecf` | **HIGH** — Flat aqua entries with deep shadow |
+| 2 | Search Entry | `border-radius:50px` (pill shape) | **MED** — Spotlight-style search field |
+| 3 | Menubar | Gradient `#e5e5e5→#a0a0a0`, `box-shadow: inset 0 1px #fff, inset 0 -1px #000`, `min-height:22px` | **HIGH** — Defining menubar look |
+| 4 | Menus | `border-radius:0`, hover gradient `#618cf0→#1c65ed` with border highlights `#5783e7`/`#0558e3` | **HIGH** — Square Mavericks menus |
+| 5 | Notebook Tabs | Metallic gradient `#fff→shade(#fff,0.95)→shade(#fff,0.93)→shade(#fff,0.95)`, border `#8c8c8c`, selected: 12-layer pressed-in shadow | **HIGH** — Safari 7 tabs |
+| 6 | Toolbar | Unified gradient `#fff→#f2f2f2(50%)→#ededed(50%)→#f2f2f2`, border `rgba(105,105,105,0.3)` | **HIGH** — Mavericks unified toolbar |
+| 7 | Headerbar | `min-height:22px` (was 32px), gradient `#e9e9e9→#b2b2b2`, shadow stack `inset 0 1px #f1f1f1, inset 0 -2px a(#fff,0.085), inset 0 -1px a(#000,0.38)` | **HIGH** — Authentic titlebar height |
+| 8 | Default Button | Pulsing animation (500ms alternate), blue borders `#565cae/#4d5076`, 10-layer inset shadow | **MED** — Mavericks pulsing default |
+| 9 | Popover | `border-radius:4px`, sharp shadow `0 3px 5px a(#000,0.5) + 0 0 0 1px a(#000,0.18)`, border `#f9f9f9`, gradient `a(#f6f6f6,0.96)→a(#ebebeb,0.96)` | **MED** — Sharp popover |
+| 10 | Progressbar | Animated aqua gradient with radial highlight, 32px loop animation, trough 10-layer inset shadow | **MED** — Living progress animation |
+| 11 | Window Frame | `border-radius:6px`, deeper shadow `0 10px 10px a(#000,0.75) + 0 0 0 1px a(#000,0.18)` | **LOW-MED** — Deeper drop shadow |
+| 12 | Statusbar | `min-height:22px`, gradient `#d4d4d4→#b2b2b2`, highlight `inset 0 1px #e1e1e1`, border-top `#818181` | **LOW** — Authentic statusbar |
+
+**Decisions (Tier 3 — Plank config values, implemented):**
+
+| # | Parameter | Poppy Value | Rationale |
+|---|-----------|-------------|-----------|
+| 17 | Roundness | 4 (was 8) | Tighter top corners = Mavericks |
+| 18 | ItemShadowSize | 0 (was 8) | Mavericks had NO icon drop shadow |
+| 19 | TopPadding | -5 | Negative centers icons in glass area |
+| 20 | BorderSize/Color | 1, rgba(0,0,0,0.31) | Subtle dark border like Mavericks |
+| 21 | IndicatorSize | 7 (was 6) | Slightly larger active indicator |
+| 22 | FadeOpacity | 1 (was fade) | Mavericks didn't fade dock |
+| 23 | Animations | ClickTime=300, UrgentBounceTime=600, LaunchBounceHeight=0.625, CascadeHide=true | Authentic timing |
+| 24 | Tight Padding | HorizPadding=2, ItemPadding=1 | Compact dock |
+
+**Decisions (Tier 2 — Icon gaps, deferred to future session):**
+- Status dialog icons (error, info, warning, password, loading) — 5 icons
+- Preferences icons (display, locale, wallpaper, notifications, privacy, time, system, accessibility, goa) — 9 icons
+- Places folder variants (documents, downloads, music, pictures, videos, templates, public, gdrive, remote, saved-search, recent, desktop, bookmarks) — 13+ icons
+- Panel symbolic (volume 4, battery 8, network 6, notifications 2, shutdown 1) — 20+ icons
+- To be created clean-room in Mavericks skeuomorphic style
+
+**Legal Compliance:**
+- All ports are measurements/values only — no Poppy asset bytes
+- Cursors exception already handled in commit 4b2a171 (Artistic License 1.0)
+- Icons will be created fresh, inspired by Poppy categories only
+
+**Verification:**
+- `test-theme-css.py`: 9/9 checks PASS
+- `check-sync.sh`: 221/221 checks PASS
+- Commit: cb71a8d → pushed as 445355c
+
+**Documentation:**
+- `docs/POPPY_PORTS.md` — full comparison matrix, ranked port list (24 items), legal notes
+- `docs/PROGRESS.md` — progress entry added
+
+---
+
 ## 2026-10-04 — Incident Loss Recovery
 
 **Context:** Dangling commits/loss occurred during unsupervised session recovery. Critical work was lost from tree commits.
