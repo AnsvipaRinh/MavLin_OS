@@ -945,6 +945,9 @@ class VoiceMemos(Gtk.Window):
             transient_for=self, modal=True,
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO, text="Delete '%s'?" % name)
+        dialog.get_style_context().add_class("message")
+        # message-dialog alert layout lives in mavericks-theme dialog.message
+        dialog.set_default_size(420, -1)
         dialog.format_secondary_text(
             "The memo will be moved to the Trash.")
         response = dialog.run()
@@ -967,6 +970,9 @@ class VoiceMemos(Gtk.Window):
             transient_for=self, modal=True,
             message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK,
             text="\n".join(self._info_lines(path)))
+        dialog.get_style_context().add_class("message")
+        # message-dialog alert layout lives in mavericks-theme dialog.message
+        dialog.set_default_size(420, -1)
         dialog.run()
         dialog.destroy()
 
@@ -991,6 +997,9 @@ class VoiceMemos(Gtk.Window):
             transient_for=self, modal=True,
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK, text=msg)
+        dialog.get_style_context().add_class("message")
+        # message-dialog alert layout lives in mavericks-theme dialog.message
+        dialog.set_default_size(420, -1)
         dialog.run()
         dialog.destroy()
 

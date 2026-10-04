@@ -627,6 +627,9 @@ class FontBookWindow(Gtk.Window):
             parent=self, flags=Gtk.DialogFlags.MODAL,
             type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.NONE,
             message_format="Remove “%s”?" % family)
+        dlg.get_style_context().add_class("message")
+        # message-dialog alert layout lives in mavericks-theme dialog.message
+        dlg.set_default_size(420, -1)
         dlg.format_secondary_text(
             "The font file will be deleted from %s." % user_fonts_dir())
         dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
