@@ -436,6 +436,22 @@ def test_integration(mod):
         # but Hidden filtering must apply through the apps
         sb.write("hidden.desktop", DESKTOP_FILE + "Hidden=true\n")
 
+        sb.write("dbus.desktop", """[Desktop Entry]
+Name=DBus App
+DBusActivatable=true
+Icon=applications-system
+""")
+
+        cached_entries = mod.load_desktop_entries()
+        dbus_entries = [e for e in cached_entries if e.get("desktop_id") == "dbus.desktop"]
+        check("integration: DBus-activatable entry reaches cache", len(dbus_entries) == 1,
+              repr(dbus_entries))
+        check("integration: DBus-activatable flag survives cache",
+              dbus_entries and dbus_entries[0].get("dbus_activatable") is True,
+              repr(dbus_entries))
+        check("integration: DBus-activatable entry keeps empty Exec",
+              dbus_entries and dbus_entries[0].get("exec") == "", repr(dbus_entries))
+
         lp = load_app("mv-launchpad")
         apps = lp.load_desktop_apps()
         names = sorted(a["name"] for a in apps)
