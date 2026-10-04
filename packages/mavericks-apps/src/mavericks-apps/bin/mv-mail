@@ -1,3 +1,4 @@
+import sys
 #!/usr/bin/env python3
 """mv-mail — Mavericks-like Mail wrapper for Geary.
 Adds Mavericks visual theme and integration.
@@ -129,7 +130,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
 if __name__ == "__main__":
-    w = MailWrapper()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.Mail", "Mail", MailWrapper, sys.argv))
