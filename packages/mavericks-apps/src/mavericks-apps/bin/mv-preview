@@ -440,7 +440,6 @@ def build_preview_menu(app, app_name, get_window, add_action):
     def w():
         return get_window()
 
-    add_action("about", lambda: None)
     add_action("open", lambda: w().open_external(None) if w() else None)
     add_action("previous-page", lambda: w().navigate_page(-1) if w() else None)
     add_action("next-page", lambda: w().navigate_page(1) if w() else None)
