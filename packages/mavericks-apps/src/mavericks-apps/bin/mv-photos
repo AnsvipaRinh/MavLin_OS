@@ -1562,6 +1562,4 @@ def main():
 
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")
-    from mavericks_appmenu import run_application
-    sys.exit(run_application(
-        "com.mavlinos.Photos", "Photos", PhotosWindow, sys.argv))
+    sys.exit(main())
