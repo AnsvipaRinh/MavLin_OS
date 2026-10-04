@@ -13,10 +13,17 @@ echo "cmdline: $(cat /proc/cmdline)"
 tlp-stat -s -c -p 2>/dev/null || true
 } > "$OUT/header.txt"
 
-# Battery samples every 60s
+# Battery samples every 60s. Prefer kernel power_now (uW), but also
+# capture voltage/current so systems without power_now remain measurable.
 (
 for ((i=0;i<IDLE/60;i++)); do
-  echo "$(date -u +%FT%TZ) $(cat /sys/class/power_supply/BAT*/power_now 2>/dev/null || echo NA) $(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || echo NA)"
+  ts="$(date -u +%FT%TZ)"
+  status="$(cat /sys/class/power_supply/BAT*/status 2>/dev/null || echo NA)"
+  power="$(cat /sys/class/power_supply/BAT*/power_now 2>/dev/null || echo NA)"
+  voltage="$(cat /sys/class/power_supply/BAT*/voltage_now 2>/dev/null || echo NA)"
+  current="$(cat /sys/class/power_supply/BAT*/current_now 2>/dev/null || echo NA)"
+  energy="$(cat /sys/class/power_supply/BAT*/energy_now 2>/dev/null || echo NA)"
+  echo "$ts status=$status power_now_uW=$power voltage_now_uV=$voltage current_now_uA=$current energy_now_uWh=$energy"
   sleep 60
 done
 ) > "$OUT/battery.log" &
