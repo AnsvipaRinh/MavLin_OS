@@ -64,6 +64,13 @@ def _fingerprint():
     h.update(b"locale\\x00")
     h.update("\\x00".join(_locale_candidates()).encode("utf-8", "replace"))
     h.update(b"\\x00")
+    # Desktop visibility and TryExec resolution depend on these environment
+    # values, so they must participate in cache invalidation as well.
+    h.update(b"desktop-env\\x00")
+    h.update(os.environ.get("XDG_CURRENT_DESKTOP", "").encode("utf-8", "replace"))
+    h.update(b"\\x00")
+    h.update(os.environ.get("PATH", "").encode("utf-8", "replace"))
+    h.update(b"\\x00")
     for d in desktop_dirs():
         if not os.path.isdir(d):
             continue
