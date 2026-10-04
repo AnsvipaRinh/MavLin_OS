@@ -14,8 +14,10 @@
 
 | Block / Scope | Who | Since (UTC) | Objective / Issue | Status |
 |---|---|---|---|---|
-| *(example)* | Finder sidebar integration | build | 2026-10-04 12:00 | OS-UI-FINDER | ACTIVE |
-| *(example)* | Control Center Wi-Fi panel | human:AnsvipaRinh | 2026-10-03 18:00 | #42 | ACTIVE |
+| *(none)* | — | — | — | — |
+
+Example row format (do not leave examples as ACTIVE):
+`| Mission Control ISO deps | Grok | 2026-10-04 20:20 | #1 | DONE |`
 
 ---
 
