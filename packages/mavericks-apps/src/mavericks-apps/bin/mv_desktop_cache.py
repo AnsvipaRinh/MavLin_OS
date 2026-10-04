@@ -143,6 +143,35 @@ def _parse_bool(value):
     return value.strip().lower() == "true"
 
 
+def _desktop_environments():
+    """Return active desktop-environment names used by OnlyShowIn/NotShowIn."""
+    raw = os.environ.get("XDG_CURRENT_DESKTOP", "")
+    return {item.strip() for item in raw.split(":") if item.strip()}
+
+
+def _list_value(value):
+    """Parse semicolon-separated desktop-entry list values."""
+    return {item.strip() for item in value.split(";") if item.strip()}
+
+
+def _try_exec_available(command):
+    """Check TryExec without invoking the executable."""
+    command = command.strip()
+    if not command:
+        return False
+    if os.path.sep in command:
+        return os.path.isfile(os.path.expanduser(command)) and os.access(
+            os.path.expanduser(command), os.X_OK
+        )
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        if not directory:
+            directory = os.curdir
+        candidate = os.path.join(directory, command)
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return True
+    return False
+
+
 def _parse_desktop_file(path):
     """Parse one application .desktop file into a raw entry."""
     try:
@@ -175,6 +204,19 @@ def _parse_desktop_file(path):
         return None
     if _parse_bool(values.get("NoDisplay", "false")):
         return None
+
+    environments = _desktop_environments()
+    only_show_in = _list_value(values.get("OnlyShowIn", ""))
+    not_show_in = _list_value(values.get("NotShowIn", ""))
+    if only_show_in and not (environments & only_show_in):
+        return None
+    if environments & not_show_in:
+        return None
+
+    try_exec = values.get("TryExec", "").strip()
+    if try_exec and not _try_exec_available(try_exec):
+        return None
+
     entry_type = values.get("Type", "Application").strip()
     if entry_type != "Application":
         return None

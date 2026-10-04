@@ -157,6 +157,38 @@ def test_recursive_desktop_ids(mod):
         sb.close()
 
 
+def test_environment_filters(mod):
+    """OnlyShowIn/NotShowIn/TryExec must affect application discovery."""
+    sb = Sandbox(mod)
+    old = {key: os.environ.get(key) for key in ("XDG_CURRENT_DESKTOP", "PATH")}
+    try:
+        os.environ["XDG_CURRENT_DESKTOP"] = "XFCE"
+        sb.write("only-xfce.desktop", DESKTOP_FILE + "OnlyShowIn=XFCE;\n")
+        sb.write("only-gnome.desktop", DESKTOP_FILE + "OnlyShowIn=GNOME;\n")
+        sb.write("not-xfce.desktop", DESKTOP_FILE + "NotShowIn=XFCE;\n")
+        sb.write("not-gnome.desktop", DESKTOP_FILE + "NotShowIn=GNOME;\n")
+        sb.write("try-missing.desktop", DESKTOP_FILE + "TryExec=definitely-not-a-real-command-mv;\n")
+        entries = mod.load_desktop_entries()
+        names = sorted(os.path.basename(e["path"]) for e in entries)
+        check("desktop environment: OnlyShowIn match kept",
+              "only-xfce.desktop" in names, repr(names))
+        check("desktop environment: OnlyShowIn mismatch filtered",
+              "only-gnome.desktop" not in names, repr(names))
+        check("desktop environment: NotShowIn match filtered",
+              "not-xfce.desktop" not in names, repr(names))
+        check("desktop environment: NotShowIn mismatch kept",
+              "not-gnome.desktop" in names, repr(names))
+        check("desktop environment: missing TryExec filtered",
+              "try-missing.desktop" not in names, repr(names))
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        sb.close()
+
+
 def test_parse(mod):
     sb = Sandbox(mod)
     try:
@@ -434,6 +466,7 @@ def main():
     mod = load_module("mv_desktop_cache", MOD_PATH)
     test_xdg_application_paths(mod)
     test_parse(mod)
+    test_environment_filters(mod)
     test_recursive_desktop_ids(mod)
     test_fingerprint(mod)
     test_cache_writer_uses_unique_atomic_tempfiles(mod)
