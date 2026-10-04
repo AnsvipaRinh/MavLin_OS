@@ -17,9 +17,12 @@ import sys
 import threading
 import time
 
-import gi
-gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib, Gio, GdkPixbuf  # noqa: E402
+def _gtk():
+    """Lazy Gtk/Gdk/GLib/Gio load so pure logic (walk/rank/parse) imports headless."""
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, Gdk, GLib, Gio, GdkPixbuf
+    return Gtk, Gdk, GLib, Gio, GdkPixbuf
 
 DEFAULT_MAX_RESULTS = 1000
 PLOCATE_LIMIT = 4000
@@ -231,6 +234,7 @@ def icon_for(name, is_dir, size=16):
     mime = mimetypes.guess_type(name)[0]
     if mime:
         try:
+            Gtk, _Gdk, _GLib, Gio, _Pixbuf = _gtk()
             names = Gio.content_type_get_icon(mime).get_names()
             try:
                 theme = Gtk.IconTheme.get_default()
@@ -261,6 +265,7 @@ def zoom_step(size, delta):
 def load_icon_pixbuf(name, size):
     """Pixbuf for an icon name; falls back to text-x-generic, never raises."""
     try:
+        Gtk, _Gdk, _GLib, _Gio, _Pixbuf = _gtk()
         theme = Gtk.IconTheme.get_default()
         if theme is not None:
             try:
@@ -278,267 +283,273 @@ def load_icon_pixbuf(name, size):
     return None
 
 
-class FinderSearchWindow(Gtk.Window):
-    def __init__(self, root, query=""):
-        super().__init__(title="Search")
-        self.root = os.path.abspath(root)
-        self.root_name = os.path.basename(self.root) or self.root
-        self.generation = 0
-        self.debounce_id = None
-        self.state = "idle"
-        self.skipped_count = 0
+def build_search_window_class():
+    """Build the GUI class lazily; pure helpers above import without gi."""
+    Gtk, Gdk, GLib, _Gio, GdkPixbuf = _gtk()
 
-        self.set_default_size(680, 480)
-        self.set_position(Gtk.WindowPosition.CENTER)
-
-        hb = Gtk.HeaderBar(title="Search", show_close_button=True)
-        hb.set_subtitle("Searching in “%s”" % self.root_name)
-        self.set_titlebar(hb)
-
-        self.entry = Gtk.SearchEntry()
-        self.entry.set_placeholder_text("Search in “%s”" % self.root_name)
-        self.entry.set_width_chars(24)
-        self.entry.connect("search-changed", self.on_search_changed)
-        hb.pack_end(self.entry)
-
-        # Results store: icon pixbuf, name, kind, size, location, path, is_dir
-        self.icon_size = ZOOM_DEFAULT
-        self.last_results = []
-        self.store = Gtk.ListStore(GdkPixbuf.Pixbuf, str, str, str, str, str, bool)
-        self.tree = Gtk.TreeView(model=self.store)
-        self.tree.set_headers_visible(True)
-        self.tree.set_search_column(-1)  # our entry is the filter
-
-        col_icon = Gtk.CellRendererPixbuf()
-        col_name = Gtk.CellRendererText()
-        name_col = Gtk.TreeViewColumn("Name", col_name, text=1)
-        name_col.pack_start(col_icon, False)
-        name_col.add_attribute(col_icon, "pixbuf", 0)
-        name_col.set_sort_column_id(1)
-        name_col.set_resizable(True)
-        name_col.set_expand(True)
-        self.tree.append_column(name_col)
-
-        for title, idx in (("Kind", 2), ("Size", 3), ("Where", 4)):
-            renderer = Gtk.CellRendererText()
-            if title == "Where":
-                renderer.set_property("ellipsize", 3)  # Pango.EllipsizeMode.MIDDLE
-            column = Gtk.TreeViewColumn(title, renderer, text=idx)
-            column.set_resizable(True)
-            if title == "Where":
-                column.set_expand(True)
-            self.tree.append_column(column)
-        self.tree.connect("row-activated", self.on_row_activated)
-
-        selection = self.tree.get_selection()
-        selection.set_mode(Gtk.SelectionMode.SINGLE)
-
-        sw = Gtk.ScrolledWindow()
-        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        sw.add(self.tree)
-
-        # Empty state overlay (no results / initial hint)
-        self.empty_label = Gtk.Label()
-        self.empty_label.get_style_context().add_class("dim-label")
-        self.empty_label.set_justify(Gtk.Justification.CENTER)
-
-        overlay = Gtk.Overlay()
-        overlay.add(sw)
-        overlay.add_overlay(self.empty_label)
-        overlay.set_overlay_pass_through(self.empty_label, True)
-
-        # Unreadable-folders banner
-        self.infobar = Gtk.InfoBar()
-        self.infobar.set_message_type(Gtk.MessageType.WARNING)
-        self.infobar.set_revealed(False)
-        self.infobar.set_show_close_button(True)
-        self.infobar.connect("response", lambda *_: self.infobar.set_revealed(False))
-        ib_label = Gtk.Label(label="Some folders could not be searched (permission denied).")
-        self.infobar.get_content_area().add(ib_label)
-
-        # Status bar (Finder-like result count + search location)
-        status = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        status.set_border_width(4)
-        self.status_label = Gtk.Label(label="Type to search")
-        self.status_label.get_style_context().add_class("dim-label")
-        self.status_label.set_halign(Gtk.Align.START)
-        status.pack_start(self.status_label, False, False, 0)
-        self.location_label = Gtk.Label(label="Search in: %s" % self.root)
-        self.location_label.get_style_context().add_class("dim-label")
-        self.location_label.set_halign(Gtk.Align.END)
-        self.location_label.set_ellipsize(3)
-        status.pack_end(self.location_label, False, False, 0)
-
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        vbox.pack_start(self.infobar, False, False, 0)
-        vbox.pack_start(overlay, True, True, 0)
-        vbox.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
-        vbox.pack_start(status, False, False, 0)
-        self.add(vbox)
-
-        self.connect("destroy", Gtk.main_quit)
-        self.connect("key-press-event", self.on_key_press)
-
-        self.show_all()
-        self.infobar.set_revealed(False)
-        self.set_empty_state("Type to search in “%s”" % self.root_name)
-
-        if query:
-            self.entry.set_text(query)
-            # search-changed fires on programmatic set; debounce handles it
-        else:
-            self.entry.grab_focus()
-
-    # ---------- UI helpers ----------
-
-    def set_empty_state(self, text):
-        self.empty_label.set_text(text)
-        self.empty_label.set_visible(self.store.get_iter_first() is None)
-
-    def on_key_press(self, _widget, event):
-        key = Gdk.keyval_name(event.keyval)
-        ctrl = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
-        if ctrl and key in ("equal", "plus", "KP_Add"):
-            self.set_zoom(zoom_step(self.icon_size, +1))
-            return True
-        if ctrl and key in ("minus", "KP_Subtract"):
-            self.set_zoom(zoom_step(self.icon_size, -1))
-            return True
-        if ctrl and key in ("0", "KP_0"):
-            self.set_zoom(ZOOM_DEFAULT)
-            return True
-        if key == "Escape":
-            if self.entry.get_text():
-                self.entry.set_text("")
-            else:
-                self.destroy()
-            return True
-        if ctrl and key in ("f", "F"):
-            self.entry.grab_focus()
-            return True
-        if ctrl and key == "l":
-            self.entry.grab_focus()
-            self.entry.select_region(0, -1)
-            return True
-        return False
-
-    # ---------- search lifecycle ----------
-
-    def on_search_changed(self, _entry):
-        if self.debounce_id:
-            GLib.source_remove(self.debounce_id)
+    class FinderSearchWindow(Gtk.Window):
+        def __init__(self, root, query=""):
+            super().__init__(title="Search")
+            self.root = os.path.abspath(root)
+            self.root_name = os.path.basename(self.root) or self.root
+            self.generation = 0
             self.debounce_id = None
-        self.debounce_id = GLib.timeout_add(250, self.start_search)
-
-    def start_search(self):
-        self.debounce_id = None
-        query = self.entry.get_text().strip()
-        if not query:
-            self.generation += 1
-            self.store.clear()
             self.state = "idle"
-            self.status_label.set_text("Type to search")
+            self.skipped_count = 0
+
+            self.set_default_size(680, 480)
+            self.set_position(Gtk.WindowPosition.CENTER)
+
+            hb = Gtk.HeaderBar(title="Search", show_close_button=True)
+            hb.set_subtitle("Searching in “%s”" % self.root_name)
+            self.set_titlebar(hb)
+
+            self.entry = Gtk.SearchEntry()
+            self.entry.set_placeholder_text("Search in “%s”" % self.root_name)
+            self.entry.set_width_chars(24)
+            self.entry.connect("search-changed", self.on_search_changed)
+            hb.pack_end(self.entry)
+
+            # Results store: icon pixbuf, name, kind, size, location, path, is_dir
+            self.icon_size = ZOOM_DEFAULT
+            self.last_results = []
+            self.store = Gtk.ListStore(GdkPixbuf.Pixbuf, str, str, str, str, str, bool)
+            self.tree = Gtk.TreeView(model=self.store)
+            self.tree.set_headers_visible(True)
+            self.tree.set_search_column(-1)  # our entry is the filter
+
+            col_icon = Gtk.CellRendererPixbuf()
+            col_name = Gtk.CellRendererText()
+            name_col = Gtk.TreeViewColumn("Name", col_name, text=1)
+            name_col.pack_start(col_icon, False)
+            name_col.add_attribute(col_icon, "pixbuf", 0)
+            name_col.set_sort_column_id(1)
+            name_col.set_resizable(True)
+            name_col.set_expand(True)
+            self.tree.append_column(name_col)
+
+            for title, idx in (("Kind", 2), ("Size", 3), ("Where", 4)):
+                renderer = Gtk.CellRendererText()
+                if title == "Where":
+                    renderer.set_property("ellipsize", 3)  # Pango.EllipsizeMode.MIDDLE
+                column = Gtk.TreeViewColumn(title, renderer, text=idx)
+                column.set_resizable(True)
+                if title == "Where":
+                    column.set_expand(True)
+                self.tree.append_column(column)
+            self.tree.connect("row-activated", self.on_row_activated)
+
+            selection = self.tree.get_selection()
+            selection.set_mode(Gtk.SelectionMode.SINGLE)
+
+            sw = Gtk.ScrolledWindow()
+            sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            sw.add(self.tree)
+
+            # Empty state overlay (no results / initial hint)
+            self.empty_label = Gtk.Label()
+            self.empty_label.get_style_context().add_class("dim-label")
+            self.empty_label.set_justify(Gtk.Justification.CENTER)
+
+            overlay = Gtk.Overlay()
+            overlay.add(sw)
+            overlay.add_overlay(self.empty_label)
+            overlay.set_overlay_pass_through(self.empty_label, True)
+
+            # Unreadable-folders banner
+            self.infobar = Gtk.InfoBar()
+            self.infobar.set_message_type(Gtk.MessageType.WARNING)
+            self.infobar.set_revealed(False)
+            self.infobar.set_show_close_button(True)
+            self.infobar.connect("response", lambda *_: self.infobar.set_revealed(False))
+            ib_label = Gtk.Label(label="Some folders could not be searched (permission denied).")
+            self.infobar.get_content_area().add(ib_label)
+
+            # Status bar (Finder-like result count + search location)
+            status = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            status.set_border_width(4)
+            self.status_label = Gtk.Label(label="Type to search")
+            self.status_label.get_style_context().add_class("dim-label")
+            self.status_label.set_halign(Gtk.Align.START)
+            status.pack_start(self.status_label, False, False, 0)
+            self.location_label = Gtk.Label(label="Search in: %s" % self.root)
+            self.location_label.get_style_context().add_class("dim-label")
+            self.location_label.set_halign(Gtk.Align.END)
+            self.location_label.set_ellipsize(3)
+            status.pack_end(self.location_label, False, False, 0)
+
+            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            vbox.pack_start(self.infobar, False, False, 0)
+            vbox.pack_start(overlay, True, True, 0)
+            vbox.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+            vbox.pack_start(status, False, False, 0)
+            self.add(vbox)
+
+            self.connect("destroy", Gtk.main_quit)
+            self.connect("key-press-event", self.on_key_press)
+
+            self.show_all()
+            self.infobar.set_revealed(False)
             self.set_empty_state("Type to search in “%s”" % self.root_name)
-            return False
-        self.generation += 1
-        generation = self.generation
-        self.state = "running"
-        self.status_label.set_text("Searching “%s”…" % query)
-        self.set_empty_state("")
-        thread = threading.Thread(
-            target=self.search_worker, args=(query, generation), daemon=True)
-        thread.start()
-        return False
 
-    def search_worker(self, query, generation):
-        backend = choose_backend(self.root)
-        skipped = []
-        try:
-            if backend == "plocate":
-                try:
-                    text = run_plocate(query)
-                    results = parse_plocate_output(text, self.root, query)
-                except (OSError, subprocess.SubprocessError):
-                    results, skipped = walk_results(self.root, query)
+            if query:
+                self.entry.set_text(query)
+                # search-changed fires on programmatic set; debounce handles it
             else:
-                results, skipped = walk_results(self.root, query)
-        except Exception as e:  # defensive: worker must never kill the loop
-            GLib.idle_add(self.apply_error, generation, str(e))
-            return
-        GLib.idle_add(self.apply_results, query, generation, results, skipped)
+                self.entry.grab_focus()
 
-    def apply_results(self, query, generation, results, skipped):
-        if generation != self.generation:
+        # ---------- UI helpers ----------
+
+        def set_empty_state(self, text):
+            self.empty_label.set_text(text)
+            self.empty_label.set_visible(self.store.get_iter_first() is None)
+
+        def on_key_press(self, _widget, event):
+            key = Gdk.keyval_name(event.keyval)
+            ctrl = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
+            if ctrl and key in ("equal", "plus", "KP_Add"):
+                self.set_zoom(zoom_step(self.icon_size, +1))
+                return True
+            if ctrl and key in ("minus", "KP_Subtract"):
+                self.set_zoom(zoom_step(self.icon_size, -1))
+                return True
+            if ctrl and key in ("0", "KP_0"):
+                self.set_zoom(ZOOM_DEFAULT)
+                return True
+            if key == "Escape":
+                if self.entry.get_text():
+                    self.entry.set_text("")
+                else:
+                    self.destroy()
+                return True
+            if ctrl and key in ("f", "F"):
+                self.entry.grab_focus()
+                return True
+            if ctrl and key == "l":
+                self.entry.grab_focus()
+                self.entry.select_region(0, -1)
+                return True
             return False
-        self.state = "done"
-        self.skipped_count = len(skipped)
-        self.last_results = sort_results(results)
-        self.fill_rows()
-        count = len(self.last_results)
-        self.status_label.set_text("%d result%s" % (count, "" if count == 1 else "s"))
-        if count == 0:
-            self.set_empty_state("No results for “%s”" % query)
-        else:
+
+        # ---------- search lifecycle ----------
+
+        def on_search_changed(self, _entry):
+            if self.debounce_id:
+                GLib.source_remove(self.debounce_id)
+                self.debounce_id = None
+            self.debounce_id = GLib.timeout_add(250, self.start_search)
+
+        def start_search(self):
+            self.debounce_id = None
+            query = self.entry.get_text().strip()
+            if not query:
+                self.generation += 1
+                self.store.clear()
+                self.state = "idle"
+                self.status_label.set_text("Type to search")
+                self.set_empty_state("Type to search in “%s”" % self.root_name)
+                return False
+            self.generation += 1
+            generation = self.generation
+            self.state = "running"
+            self.status_label.set_text("Searching “%s”…" % query)
             self.set_empty_state("")
-        self.infobar.set_revealed(self.skipped_count > 0)
-        return False
-
-    def fill_rows(self):
-        """(Re)build store rows from last_results at the current zoom size."""
-        self.store.clear()
-        for r in self.last_results:
-            location = os.path.dirname(r["path"])
-            try:
-                location = os.path.relpath(location, self.root)
-            except ValueError:
-                pass
-            self.store.append([
-                load_icon_pixbuf(icon_for(r["name"], r["is_dir"]),
-                                 self.icon_size),
-                r["name"],
-                file_kind(r["name"], r["is_dir"]),
-                "—" if r["is_dir"] else format_size(r["size"]),
-                location,
-                r["path"],
-                r["is_dir"],
-            ])
-
-    def set_zoom(self, size):
-        """Finder-like Ctrl+=/-/0 zoom for the results list."""
-        if size == self.icon_size:
-            return
-        self.icon_size = size
-        self.fill_rows()
-
-    def apply_error(self, generation, message):
-        if generation != self.generation:
+            thread = threading.Thread(
+                target=self.search_worker, args=(query, generation), daemon=True)
+            thread.start()
             return False
-        self.state = "error"
-        self.store.clear()
-        self.last_results = []
-        self.set_empty_state("Search failed: %s" % message)
-        self.status_label.set_text("Search failed")
-        return False
 
-    # ---------- opening results ----------
+        def search_worker(self, query, generation):
+            backend = choose_backend(self.root)
+            skipped = []
+            try:
+                if backend == "plocate":
+                    try:
+                        text = run_plocate(query)
+                        results = parse_plocate_output(text, self.root, query)
+                    except (OSError, subprocess.SubprocessError):
+                        results, skipped = walk_results(self.root, query)
+                else:
+                    results, skipped = walk_results(self.root, query)
+            except Exception as e:  # defensive: worker must never kill the loop
+                GLib.idle_add(self.apply_error, generation, str(e))
+                return
+            GLib.idle_add(self.apply_results, query, generation, results, skipped)
 
-    def on_row_activated(self, _tree, path, _column):
-        row = self.store[path]
-        target, is_dir = row[5], row[6]
-        if is_dir and shutil.which("thunar"):
-            opener = ["thunar", target]
-        else:
-            opener = ["xdg-open", target]
-        try:
-            subprocess.Popen(opener, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL)
-        except OSError as e:
-            dialog = Gtk.MessageDialog(
-                transient_for=self, message_type=Gtk.MessageType.ERROR,
-                buttons=Gtk.ButtonsType.OK, text="Could not open %s" % row[1])
-            dialog.format_secondary_text(str(e))
-            dialog.run()
-            dialog.destroy()
+        def apply_results(self, query, generation, results, skipped):
+            if generation != self.generation:
+                return False
+            self.state = "done"
+            self.skipped_count = len(skipped)
+            self.last_results = sort_results(results)
+            self.fill_rows()
+            count = len(self.last_results)
+            self.status_label.set_text("%d result%s" % (count, "" if count == 1 else "s"))
+            if count == 0:
+                self.set_empty_state("No results for “%s”" % query)
+            else:
+                self.set_empty_state("")
+            self.infobar.set_revealed(self.skipped_count > 0)
+            return False
+
+        def fill_rows(self):
+            """(Re)build store rows from last_results at the current zoom size."""
+            self.store.clear()
+            for r in self.last_results:
+                location = os.path.dirname(r["path"])
+                try:
+                    location = os.path.relpath(location, self.root)
+                except ValueError:
+                    pass
+                self.store.append([
+                    load_icon_pixbuf(icon_for(r["name"], r["is_dir"]),
+                                     self.icon_size),
+                    r["name"],
+                    file_kind(r["name"], r["is_dir"]),
+                    "—" if r["is_dir"] else format_size(r["size"]),
+                    location,
+                    r["path"],
+                    r["is_dir"],
+                ])
+
+        def set_zoom(self, size):
+            """Finder-like Ctrl+=/-/0 zoom for the results list."""
+            if size == self.icon_size:
+                return
+            self.icon_size = size
+            self.fill_rows()
+
+        def apply_error(self, generation, message):
+            if generation != self.generation:
+                return False
+            self.state = "error"
+            self.store.clear()
+            self.last_results = []
+            self.set_empty_state("Search failed: %s" % message)
+            self.status_label.set_text("Search failed")
+            return False
+
+        # ---------- opening results ----------
+
+        def on_row_activated(self, _tree, path, _column):
+            row = self.store[path]
+            target, is_dir = row[5], row[6]
+            if is_dir and shutil.which("thunar"):
+                opener = ["thunar", target]
+            else:
+                opener = ["xdg-open", target]
+            try:
+                subprocess.Popen(opener, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL)
+            except OSError as e:
+                dialog = Gtk.MessageDialog(
+                    transient_for=self, message_type=Gtk.MessageType.ERROR,
+                    buttons=Gtk.ButtonsType.OK, text="Could not open %s" % row[1])
+                dialog.format_secondary_text(str(e))
+                dialog.run()
+                dialog.destroy()
+
+    return FinderSearchWindow
 
 
 def main():
@@ -558,6 +569,8 @@ def main():
         print("mv-finder-search: not a folder: %s" % root, file=sys.stderr)
         return 2
 
+    FinderSearchWindow = build_search_window_class()
+    Gtk, _Gdk, _GLib, _Gio, _Pixbuf = _gtk()
     win = FinderSearchWindow(root, query)
     if not os.access(root, os.R_OK):
         win.apply_error(win.generation, "cannot read %s (permission denied)" % root)

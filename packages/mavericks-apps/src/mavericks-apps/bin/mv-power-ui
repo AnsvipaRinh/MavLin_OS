@@ -23,12 +23,24 @@ import shutil
 import subprocess
 import sys
 
-import gi
-gi.require_version("Gtk", "3.0")
-gi.require_version("Gdk", "3.0")
-gi.require_version("Gio", "2.0")
-gi.require_version("GLib", "2.0")
-from gi.repository import Gtk, Gdk, Gio, GLib
+class _NoGi(Exception):
+    """Raised when a gi-backed feature is used on a host without PyGObject."""
+
+
+def _gi():
+    """Lazy GI load so pure logic (resolve_action/Countdown/text) imports headless."""
+    try:
+        import gi
+    except ImportError as exc:
+        raise _NoGi(
+            "PyGObject (python-gi) is required for this mv-power-ui feature; "
+            "pure CLI logic works without it") from exc
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    gi.require_version("Gio", "2.0")
+    gi.require_version("GLib", "2.0")
+    from gi.repository import Gtk, Gdk, Gio, GLib
+    return Gtk, Gdk, Gio, GLib
 
 LOGIND_BUS = "org.freedesktop.login1"
 LOGIND_PATH = "/org/freedesktop/login1"
@@ -156,6 +168,7 @@ def _system_bus_call(bus_name, path, iface, method, parameters=None,
                      reply_type=None, timeout=2.0):
     """One-shot D-Bus call on the system bus. Returns unpacked result or None."""
     try:
+        _Gtk, _Gdk, Gio, _GLib = _gi()
         conn = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
         result = conn.call_sync(
             bus_name, path, iface, method, parameters,
@@ -172,6 +185,7 @@ def query_capabilities(timeout=2.0):
     or None when logind is unavailable (caller falls back to systemctl).
     """
     caps = {}
+    _Gtk, _Gdk, _Gio, GLib = _gi()
     for action in ("sleep", "restart", "shutdown"):
         res = _system_bus_call(LOGIND_BUS, LOGIND_PATH, LOGIND_MGR_IFACE,
                                ACTIONS[action]["can_method"], None,
@@ -206,8 +220,15 @@ def execute_plan(plan, on_error=None):
     kind, payload = plan
     try:
         if kind == "dbus":
+            # Variant is only needed for the real call; injected mocks in tests
+            # never touch it, so build it lazily and tolerate a missing gi here.
+            try:
+                _Gtk, _Gdk, _Gio, GLib = _gi()
+                parameters = GLib.Variant("(b)", (True,))
+            except _NoGi:
+                parameters = None
             res = _system_bus_call(LOGIND_BUS, LOGIND_PATH, LOGIND_MGR_IFACE,
-                                   payload, GLib.Variant("(b)", (True,)))
+                                   payload, parameters)
             if res is None:
                 raise RuntimeError("logind did not accept the %s request" % payload)
         elif kind in ("systemctl", "logout"):
@@ -224,6 +245,7 @@ def execute_plan(plan, on_error=None):
 def query_battery(timeout=2.0):
     """Read-only UPower battery status. Returns dict or None when unavailable."""
     try:
+        _Gtk, _Gdk, Gio, GLib = _gi()
         conn = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
         res = conn.call_sync(UPOWER_BUS, UPOWER_PATH, UPOWER_IFACE,
                              "EnumerateDevices", None, GLib.VariantType("(ao)"),
@@ -319,199 +341,205 @@ def status_report():
     return "\n".join(lines)
 
 
-class PowerUI(Gtk.Window):
-    """Mavericks-style power dialog (no title bar, centered alert)."""
+def build_powerui_class():
+    """Build the GUI class lazily; pure helpers above import without gi."""
+    Gtk, Gdk, _Gio, GLib = _gi()
 
-    def __init__(self, preset=None):
-        super().__init__()
-        self.preset = preset if preset in ACTIONS else None
-        self.caps = query_capabilities()
-        self.battery = query_battery()
-        self.countdown = None
-        self.timeout_id = None
-        self.action = self.preset
+    class PowerUI(Gtk.Window):
+        """Mavericks-style power dialog (no title bar, centered alert)."""
 
-        self.set_decorated(False)
-        self.set_position(Gtk.WindowPosition.CENTER)
-        self.set_resizable(False)
-        self.set_keep_above(True)
-        self.set_skip_taskbar_hint(True)
-        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
-
-        self._provider = Gtk.CssProvider()
-        self._provider.load_from_data(CSS)
-        screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(
-            screen, self._provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-
-        self._outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        self._outer.get_style_context().add_class("window")
-        self._outer.set_border_width(0)
-        self.add(self._outer)
-
-        self._body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        self._body.set_border_width(18)
-        self._outer.pack_start(self._body, True, True, 0)
-
-        self._build()
-        self._update_battery_footer()
-
-        self.connect("destroy", self._on_destroy)
-        self.connect("key-press-event", self._on_key)
-
-    def _clear_body(self):
-        for child in self._body.get_children():
-            self._body.remove(child)
-            child.destroy()
-
-    def _add_icon(self):
-        icon = Gtk.Image.new_from_icon_name("system-shutdown", Gtk.IconSize.DIALOG)
-        icon.get_style_context().add_class("mv-icon")
-        icon.set_alignment(0.5, 0.5)
-        self._body.pack_start(icon, False, False, 0)
-
-    def _add_message(self, text):
-        lbl = Gtk.Label(label=text)
-        lbl.get_style_context().add_class("mv-message")
-        lbl.set_line_wrap(True)
-        lbl.set_max_width_chars(46)
-        lbl.set_alignment(0.5, 0.5)
-        self._body.pack_start(lbl, False, False, 0)
-
-    def _add_countdown_label(self):
-        self._cd_label = Gtk.Label()
-        self._cd_label.get_style_context().add_class("mv-countdown")
-        self._cd_label.set_alignment(0.5, 0.5)
-        self._body.pack_start(self._cd_label, False, False, 0)
-
-    def _make_button(self, label, css_class, sensitive=True):
-        b = Gtk.Button(label=label)
-        b.get_style_context().add_class(css_class)
-        b.set_sensitive(sensitive)
-        return b
-
-    def _build(self):
-        self._clear_body()
-        self._add_icon()
-        self._add_message(ACTIONS[self.action]["message"]
-                          if self.action else "Choose a power action.")
-        if self.action:
-            self._add_countdown_label()
-            self._start_countdown()
-            row = Gtk.Box(spacing=8, homogeneous=True)
-            btn = self._make_button(ACTIONS[self.action]["label"], "mv-default")
-            btn.connect("clicked", lambda *_: self._execute(self.action))
-            row.pack_start(btn, True, True, 0)
-            cancel = self._make_button("Cancel", "mv-cancel")
-            cancel.connect("clicked", lambda *_: self.close())
-            row.pack_start(cancel, True, True, 0)
-            self._body.pack_start(row, False, False, 0)
-            btn.grab_focus()
-            if self.action == "restart":
-                self._add_reopen_checkbox()
-        else:
-            row = Gtk.Box(spacing=8)
-            for key in ("sleep", "restart", "shutdown", "logout"):
-                state = action_state(key, self.caps)
-                b = self._make_button(ACTIONS[key]["label"], "mv-button",
-                                      sensitive=(state == "available"))
-                b.connect("clicked", self._on_chooser, key)
-                row.pack_start(b, False, False, 0)
-            self._body.pack_start(row, False, False, 0)
-            cancel = self._make_button("Cancel", "mv-cancel")
-            cancel.connect("clicked", lambda *_: self.close())
-            self._body.pack_start(cancel, False, False, 0)
-            cancel.grab_focus()
-
-    def _add_reopen_checkbox(self):
-        active = False
-        try:
-            out = subprocess.run(
-                ["xfconf-query", "-c", "xfce4-session", "-p", "/general/SaveOnExit"],
-                capture_output=True, text=True, timeout=3).stdout.strip()
-            active = out.lower() in ("true", "1")
-        except Exception:
-            pass
-        self._reopen = Gtk.CheckButton(label="Reopen windows when logging back in")
-        self._reopen.set_active(active)
-        self._reopen.get_style_context().add_class("mv-reopen")
-        self._reopen.set_alignment(0.5, 0.5)
-        self._body.pack_start(self._reopen, False, False, 0)
-
-    def _set_reopen_pref(self):
-        if not hasattr(self, "_reopen") or not self._reopen.get_active():
-            return
-        try:
-            subprocess.run(
-                ["xfconf-query", "-c", "xfce4-session", "-p", "/general/SaveOnExit",
-                 "-s", "true", "-n", "-t", "bool"],
-                capture_output=True, timeout=3)
-        except Exception:
-            pass
-
-    def _start_countdown(self):
-        self.countdown = Countdown(
-            COUNTDOWN_SECONDS,
-            on_finish=lambda: self._execute(self.action),
-            on_tick=self._on_tick)
-        self._cd_label.set_text(countdown_text(self.action, COUNTDOWN_SECONDS))
-        self.timeout_id = GLib.timeout_add_seconds(1, self._tick)
-
-    def _tick(self):
-        if self.countdown is None:
-            return False
-        return self.countdown.tick()
-
-    def _on_tick(self, left):
-        self._cd_label.set_text(countdown_text(self.action, left))
-
-    def _stop_countdown(self):
-        if self.countdown is not None:
-            self.countdown.cancel()
+        def __init__(self, preset=None):
+            super().__init__()
+            self.preset = preset if preset in ACTIONS else None
+            self.caps = query_capabilities()
+            self.battery = query_battery()
             self.countdown = None
-        if self.timeout_id is not None:
-            GLib.source_remove(self.timeout_id)
             self.timeout_id = None
+            self.action = self.preset
 
-    def _on_chooser(self, _btn, key):
-        self.action = key
-        self._stop_countdown()
-        self._build()
+            self.set_decorated(False)
+            self.set_position(Gtk.WindowPosition.CENTER)
+            self.set_resizable(False)
+            self.set_keep_above(True)
+            self.set_skip_taskbar_hint(True)
+            self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
 
-    def _execute(self, action):
-        self._stop_countdown()
-        self._set_reopen_pref()
-        plan = resolve_action(action, self.caps)
-        if execute_plan(plan, on_error=self._show_error):
-            self.destroy()
+            self._provider = Gtk.CssProvider()
+            self._provider.load_from_data(CSS)
+            screen = Gdk.Screen.get_default()
+            Gtk.StyleContext.add_provider_for_screen(
+                screen, self._provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
-    def _show_error(self, message):
-        dlg = Gtk.MessageDialog(
-            transient_for=self, modal=True, message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK, text="Power action failed")
-        dlg.format_secondary_text(message)
-        dlg.run()
-        dlg.destroy()
+            self._outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            self._outer.get_style_context().add_class("window")
+            self._outer.set_border_width(0)
+            self.add(self._outer)
 
-    def _update_battery_footer(self):
-        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        hb.set_border_width(10)
-        img = Gtk.Image.new_from_icon_name("battery", Gtk.IconSize.MENU)
-        hb.pack_start(img, False, False, 0)
-        lbl = Gtk.Label(label=format_battery_line(self.battery))
-        lbl.get_style_context().add_class("mv-battery")
-        lbl.set_alignment(0.0, 0.5)
-        hb.pack_start(lbl, False, False, 0)
-        self._outer.pack_end(hb, False, False, 0)
+            self._body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            self._body.set_border_width(18)
+            self._outer.pack_start(self._body, True, True, 0)
 
-    def _on_key(self, _w, event):
-        if event.keyval == Gdk.KEY_Escape:
-            self.close()
-            return True
-        return False
+            self._build()
+            self._update_battery_footer()
 
-    def _on_destroy(self, *_a):
-        self._stop_countdown()
+            self.connect("destroy", self._on_destroy)
+            self.connect("key-press-event", self._on_key)
+
+        def _clear_body(self):
+            for child in self._body.get_children():
+                self._body.remove(child)
+                child.destroy()
+
+        def _add_icon(self):
+            icon = Gtk.Image.new_from_icon_name("system-shutdown", Gtk.IconSize.DIALOG)
+            icon.get_style_context().add_class("mv-icon")
+            icon.set_alignment(0.5, 0.5)
+            self._body.pack_start(icon, False, False, 0)
+
+        def _add_message(self, text):
+            lbl = Gtk.Label(label=text)
+            lbl.get_style_context().add_class("mv-message")
+            lbl.set_line_wrap(True)
+            lbl.set_max_width_chars(46)
+            lbl.set_alignment(0.5, 0.5)
+            self._body.pack_start(lbl, False, False, 0)
+
+        def _add_countdown_label(self):
+            self._cd_label = Gtk.Label()
+            self._cd_label.get_style_context().add_class("mv-countdown")
+            self._cd_label.set_alignment(0.5, 0.5)
+            self._body.pack_start(self._cd_label, False, False, 0)
+
+        def _make_button(self, label, css_class, sensitive=True):
+            b = Gtk.Button(label=label)
+            b.get_style_context().add_class(css_class)
+            b.set_sensitive(sensitive)
+            return b
+
+        def _build(self):
+            self._clear_body()
+            self._add_icon()
+            self._add_message(ACTIONS[self.action]["message"]
+                              if self.action else "Choose a power action.")
+            if self.action:
+                self._add_countdown_label()
+                self._start_countdown()
+                row = Gtk.Box(spacing=8, homogeneous=True)
+                btn = self._make_button(ACTIONS[self.action]["label"], "mv-default")
+                btn.connect("clicked", lambda *_: self._execute(self.action))
+                row.pack_start(btn, True, True, 0)
+                cancel = self._make_button("Cancel", "mv-cancel")
+                cancel.connect("clicked", lambda *_: self.close())
+                row.pack_start(cancel, True, True, 0)
+                self._body.pack_start(row, False, False, 0)
+                btn.grab_focus()
+                if self.action == "restart":
+                    self._add_reopen_checkbox()
+            else:
+                row = Gtk.Box(spacing=8)
+                for key in ("sleep", "restart", "shutdown", "logout"):
+                    state = action_state(key, self.caps)
+                    b = self._make_button(ACTIONS[key]["label"], "mv-button",
+                                          sensitive=(state == "available"))
+                    b.connect("clicked", self._on_chooser, key)
+                    row.pack_start(b, False, False, 0)
+                self._body.pack_start(row, False, False, 0)
+                cancel = self._make_button("Cancel", "mv-cancel")
+                cancel.connect("clicked", lambda *_: self.close())
+                self._body.pack_start(cancel, False, False, 0)
+                cancel.grab_focus()
+
+        def _add_reopen_checkbox(self):
+            active = False
+            try:
+                out = subprocess.run(
+                    ["xfconf-query", "-c", "xfce4-session", "-p", "/general/SaveOnExit"],
+                    capture_output=True, text=True, timeout=3).stdout.strip()
+                active = out.lower() in ("true", "1")
+            except Exception:
+                pass
+            self._reopen = Gtk.CheckButton(label="Reopen windows when logging back in")
+            self._reopen.set_active(active)
+            self._reopen.get_style_context().add_class("mv-reopen")
+            self._reopen.set_alignment(0.5, 0.5)
+            self._body.pack_start(self._reopen, False, False, 0)
+
+        def _set_reopen_pref(self):
+            if not hasattr(self, "_reopen") or not self._reopen.get_active():
+                return
+            try:
+                subprocess.run(
+                    ["xfconf-query", "-c", "xfce4-session", "-p", "/general/SaveOnExit",
+                     "-s", "true", "-n", "-t", "bool"],
+                    capture_output=True, timeout=3)
+            except Exception:
+                pass
+
+        def _start_countdown(self):
+            self.countdown = Countdown(
+                COUNTDOWN_SECONDS,
+                on_finish=lambda: self._execute(self.action),
+                on_tick=self._on_tick)
+            self._cd_label.set_text(countdown_text(self.action, COUNTDOWN_SECONDS))
+            self.timeout_id = GLib.timeout_add_seconds(1, self._tick)
+
+        def _tick(self):
+            if self.countdown is None:
+                return False
+            return self.countdown.tick()
+
+        def _on_tick(self, left):
+            self._cd_label.set_text(countdown_text(self.action, left))
+
+        def _stop_countdown(self):
+            if self.countdown is not None:
+                self.countdown.cancel()
+                self.countdown = None
+            if self.timeout_id is not None:
+                GLib.source_remove(self.timeout_id)
+                self.timeout_id = None
+
+        def _on_chooser(self, _btn, key):
+            self.action = key
+            self._stop_countdown()
+            self._build()
+
+        def _execute(self, action):
+            self._stop_countdown()
+            self._set_reopen_pref()
+            plan = resolve_action(action, self.caps)
+            if execute_plan(plan, on_error=self._show_error):
+                self.destroy()
+
+        def _show_error(self, message):
+            dlg = Gtk.MessageDialog(
+                transient_for=self, modal=True, message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK, text="Power action failed")
+            dlg.format_secondary_text(message)
+            dlg.run()
+            dlg.destroy()
+
+        def _update_battery_footer(self):
+            hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            hb.set_border_width(10)
+            img = Gtk.Image.new_from_icon_name("battery", Gtk.IconSize.MENU)
+            hb.pack_start(img, False, False, 0)
+            lbl = Gtk.Label(label=format_battery_line(self.battery))
+            lbl.get_style_context().add_class("mv-battery")
+            lbl.set_alignment(0.0, 0.5)
+            hb.pack_start(lbl, False, False, 0)
+            self._outer.pack_end(hb, False, False, 0)
+
+        def _on_key(self, _w, event):
+            if event.keyval == Gdk.KEY_Escape:
+                self.close()
+                return True
+            return False
+
+        def _on_destroy(self, *_a):
+            self._stop_countdown()
+
+    return PowerUI
 
 
 def main():
@@ -528,7 +556,8 @@ def main():
         print(status_report())
         return 0
 
-    from gi.repository import Gtk
+    Gtk, _Gdk, _Gio, _GLib = _gi()
+    PowerUI = build_powerui_class()
     win = PowerUI(preset=args.action)
     win.show_all()
     Gtk.main()

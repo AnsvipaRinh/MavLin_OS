@@ -1,8 +1,6 @@
-# Python bytecode and cache
+# Python bytecode
 __pycache__/
 *.pyc
-
-# Environment variables (sensitive)
-.env
-.env.local
-.env.*.local
+# python bytecode caches
+__pycache__/
+*.pyc

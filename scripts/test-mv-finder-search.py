@@ -252,6 +252,7 @@ def test_gui(m):
         print("skip - GUI smoke (no display)")
         return
     from gi.repository import GLib, Gdk, Gtk
+    FinderSearchWindow = m.build_search_window_class()
 
     def pump(win, seconds=3.0):
         ctx = GLib.MainContext.default()
@@ -262,7 +263,7 @@ def test_gui(m):
 
     with tempfile.TemporaryDirectory() as base:
         root = make_tree(base)
-        win = m.FinderSearchWindow(root)
+        win = FinderSearchWindow(root)
         check("gui: window constructed", win.get_title() == "Search")
         check("gui: idle empty state", "Type to search" in win.empty_label.get_text())
 
@@ -297,7 +298,7 @@ def test_gui(m):
         check("gui: second escape destroys window", bool(destroyed))
 
         # Ctrl+F focuses the search entry
-        win2 = m.FinderSearchWindow(root)
+        win2 = FinderSearchWindow(root)
         ctrl_f = FakeEvent(Gdk.keyval_from_name("f"),
                            Gdk.ModifierType.CONTROL_MASK)
         check("gui: ctrl+f handled", win2.on_key_press(win2, ctrl_f) is True)
@@ -327,9 +328,33 @@ def test_gui(m):
         win2.destroy()
 
 
+def test_portable(m):
+    """Headless portability contract: module and pure logic work without gi."""
+    try:
+        import gi  # noqa: F401
+        has_gi = True
+    except ImportError:
+        has_gi = False
+    check("portable: build_search_window_class exists",
+          callable(getattr(m, "build_search_window_class", None)))
+    if not has_gi:
+        try:
+            m.build_search_window_class()
+            bad("portable: factory raises cleanly without gi")
+        except Exception:
+            ok("portable: factory raises cleanly without gi")
+        check("portable: icon_for folder without gi",
+              m.icon_for("anything", True) == "folder")
+        check("portable: load_icon_pixbuf None without gi",
+              m.load_icon_pixbuf("folder", 16) is None)
+    else:
+        print("skip - no-gi branch checks (gi present)")
+
+
 def main():
     m = load_app()
     test_pure(m)
+    test_portable(m)
     test_gui(m)
     print("\n%d passed, %d failed" % (ok.count, len(bad.failures)))
     return 1 if bad.failures else 0

@@ -17,6 +17,7 @@ Exit 0 = all tests passed."""
 import importlib.machinery
 import importlib.util
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -48,9 +49,12 @@ def check(name, cond, detail=""):
 
 
 def ensure_bus():
+    """Return (addr, proc) or (None, None) when no D-Bus is available here."""
     addr = os.environ.get("DBUS_SYSTEM_BUS_ADDRESS")
     if addr:
         return addr, None
+    if not shutil.which("dbus-daemon"):
+        return None, None
     proc = subprocess.Popen(
         ["dbus-daemon", "--session", "--print-address=1", "--fork", "--nopidfile"],
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
@@ -88,11 +92,11 @@ def run_status_cli(addr):
         capture_output=True, text=True, timeout=30, env=env)
 
 
-def main():
-    addr, _bus_proc = ensure_bus()
-    os.environ["DBUS_SYSTEM_BUS_ADDRESS"] = addr
-    mv = load_app()
+HAS_DBUS_DAEMON = bool(os.environ.get("DBUS_SYSTEM_BUS_ADDRESS")
+                       or shutil.which("dbus-daemon"))
 
+
+def test_pure(mv):
     # ---------- pure logic ----------
     check("actions are the four Mavericks actions",
           set(mv.ACTIONS) == {"sleep", "restart", "shutdown", "logout"},
@@ -223,6 +227,9 @@ def main():
         mv._system_bus_call = orig_call
         mv.subprocess.Popen = orig_popen
 
+
+
+def test_live_bus(mv, addr):
     # ---------- live bus: logind absent ----------
     caps = mv.query_capabilities()
     check("query_capabilities None without logind", caps is None, repr(caps))
@@ -299,6 +306,34 @@ def main():
     finally:
         mock.terminate()
         mock.wait(timeout=5)
+
+def main():
+    mv = load_app()
+    check("portable: module imports without gi at top level", True)
+    try:
+        import gi  # noqa: F401
+        has_gi = True
+    except ImportError:
+        has_gi = False
+    if not has_gi:
+        check("portable: build_powerui_class exists",
+              callable(getattr(mv, "build_powerui_class", None)))
+        try:
+            mv.build_powerui_class()
+            bad("portable: factory raises cleanly without gi")
+        except Exception:
+            ok("portable: factory raises cleanly without gi")
+    else:
+        print("skip - no-gi branch checks (gi present)")
+
+    test_pure(mv)
+
+    addr, _bus_proc = ensure_bus()
+    if addr is None:
+        print("skip - live-bus and CLI tests (no dbus-daemon on this host)")
+    else:
+        os.environ["DBUS_SYSTEM_BUS_ADDRESS"] = addr
+        test_live_bus(mv, addr)
 
     print("\n%d passed, %d failed" % (PASSED, len(FAILURES)))
     return 1 if FAILURES else 0
