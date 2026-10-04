@@ -87,30 +87,37 @@ def _icon_exists(icon_name):
 
 
 def load_folders(apps=None):
-    """Load folder configuration, creating defaults on first run."""
-    if not FOLDERS_FILE.exists():
-        folders = DEFAULT_FOLDERS.copy()
-        if apps:
-            _auto_populate_default_folders(folders, apps)
-        save_folders(folders)
-        return folders
+    """Load and normalize folder configuration, creating defaults safely."""
     try:
         with open(FOLDERS_FILE, "r") as fp:
-            folders = json.load(fp)
-        # Ensure default folders exist
-        for fid, fdata in DEFAULT_FOLDERS.items():
-            if fid not in folders:
-                folders[fid] = fdata.copy()
-        if apps:
-            _auto_populate_default_folders(folders, apps)
-        save_folders(folders)
-        return folders
-    except Exception:
-        folders = DEFAULT_FOLDERS.copy()
-        if apps:
-            _auto_populate_default_folders(folders, apps)
-        save_folders(folders)
-        return folders
+            raw = json.load(fp) if FOLDERS_FILE.exists() else {}
+    except (OSError, json.JSONDecodeError, TypeError):
+        raw = {}
+
+    folders = {}
+    if isinstance(raw, dict):
+        for folder_id, folder_data in raw.items():
+            if not isinstance(folder_id, str) or not isinstance(folder_data, dict):
+                continue
+            name = folder_data.get("name", folder_id)
+            app_ids = folder_data.get("apps", [])
+            if not isinstance(name, str):
+                name = folder_id
+            if not isinstance(app_ids, list):
+                app_ids = []
+            app_ids = [app_id for app_id in app_ids if isinstance(app_id, str)]
+            folders[folder_id] = {"name": name, "apps": app_ids}
+
+    for folder_id, folder_data in DEFAULT_FOLDERS.items():
+        folders.setdefault(folder_id, {
+            "name": folder_data["name"],
+            "apps": list(folder_data["apps"]),
+        })
+
+    if apps:
+        _auto_populate_default_folders(folders, apps)
+    save_folders(folders)
+    return folders
 
 
 def _auto_populate_default_folders(folders, apps):
