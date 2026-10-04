@@ -6,6 +6,7 @@ bluez
 bluez-utils
 btrfs-progs
 cryptsetup
+restic
 ddrescue
 dhcpcd
 diffutils
@@ -19,6 +20,9 @@ ffmpeg
 ffmpegthumbnailer
 firefox
 firefox-ublock-origin
+intel-media-driver
+mpv
+yt-dlp
 fontconfig
 fsarchiver
 galculator
@@ -27,15 +31,13 @@ geary
 gnome-disk-utility
 gnome-font-viewer
 gptfdisk
-gsfonts
 gthumb
+gsfonts
 gvfs
 hdparm
 intel-gpu-tools
-intel-media-driver
 intel-ucode
 iw
-iwd
 less
 libnotify
 libsecret
@@ -53,7 +55,6 @@ mesa-utils
 mkinitcpio
 mkinitcpio-archiso
 mousepad
-mpv
 nano
 networkmanager
 nvme-cli
@@ -68,7 +69,6 @@ plank
 plocate
 powertop
 reflector
-restic
 rofi
 seahorse
 smartmontools
@@ -87,13 +87,11 @@ usbutils
 webkit2gtk-4.1
 wireless-regdb
 wireplumber
-wmctrl
 wpa_supplicant
 xarchiver
 xdg-user-dirs
 xdg-utils
 xdotool
-xfce4-genmon-plugin
 xfce4-notifyd
 xfce4-panel
 xfce4-power-manager
@@ -106,8 +104,7 @@ xfdesktop
 xfwm4
 xorg-server
 xorg-xinit
-xorg-xprop
 xorg-xrandr
-yt-dlp
 zram-generator
 zsh
+

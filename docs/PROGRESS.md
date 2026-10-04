@@ -46,15 +46,6 @@
 - [x] Documentation updates: APPS.md cursor row split into Mavericks-Cursors + Poppy-Cursors; LICENSES.md §4 updated with Poppy-Cursors entry and license analysis; DECISIONS.md entry for Artistic 1.0 + GPL-3.0-or-later co-existence rationale.
 - [x] Gate: check-sync.sh pending (next step)
 
-### Launchpad P0 — pagination, folders, edit mode (2026-10-04, без железа)
-- [x] mv-launchpad: Mavericks-style page dots pagination (●○○) replacing "Page X/Y" text — visual fidelity match
-- [x] mv-launchpad: "Edit Launchpad…" entry on page 0 (hidden when searching/in folder) — launches mv-launchpad-edit GTK3 dialog
-- [x] mv_launchpad_edit.py: GTK3 rearrangement dialog with drag-and-drop reordering + Ctrl+↑/↓ keyboard shortcuts, persists to positions.json
-- [x] Super+Shift+L global keybinding added for direct edit mode access (xfce4-keyboard-shortcuts.xml)
-- [x] Test suite extended: 13 tests covering pagination dots, edit entry visibility, search hiding, page navigation
-- [x] App Store integration explicitly EXCLUDED (no Linux store backend; pacman wrapper = renamed Linux tool per §9)
-- [x] Gate: test_mv_launchpad.py 13/13 PASS; check-sync.sh 221/221 PASS
-
 ### Finder P0 — view/zoom fidelity close-out (2026-10-03, без железа)
 - [x] Evidence pass on installed Thunar 4.20.10 binary: in-window accelerators (Ctrl+1/2/3 view switch, Ctrl+=/-/0 zoom incl. KP_ variants), real thunarrc zoom keys (Last{Icon,Details,Compact}ViewZoomLevel), per-directory zoom memory via GVFS metadata, native icon-view reflow on resize.
 - [x] thunarrc: removed dead `LastViewZoomLevel` key (never read by Thunar — binary evidence), added real `LastDetailsViewZoomLevel`/`LastCompactViewZoomLevel`, icon view default 64px (`THUNAR_ZOOM_LEVEL_150_PERCENT` = Mavericks Finder default; was 48px Thunar-ism). Mirror synced (check-sync green).

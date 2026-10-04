@@ -524,33 +524,6 @@ zai-coding-plan/glm-5.3 удалён из ротации НАСОВСЕГ (эт�
 `preflight` без glm. DECISIONS.md: ключ провайдера исчерпан,
 удалён по требованию пользователя, не временный cooldown.
 
-### STILLBORN-SESSION RULE (user directive; orchestrator protocol amendment)
-
-Resuming a session is ONLY worthwhile with real progress (assistant tokens
-spent, partial results, reasoning worth keeping — verify via
-`scripts/session-reuse.py context <id>` BEFORE deciding). If a session
-NEVER executed (0 tokens, died at provider gate, aborted pre-work): do NOT
-resume — DELETE it (server-side session delete + registry retire/delete)
-and create a FRESH session on the healthy worker with ONE clean initial
-prompt. Resume-via-task_id is reserved for sessions with verified
-progress. Rationale: resuming an empty shell stacks a second prompt onto
-nothing, confusing weaker models, for zero savings.
-
-### CLAIM-BLOCKS RULE (user directive; prevents parallel same-block work)
-
-Before ANYONE (build worker, orchestrator task, human co-author, external
-contributor) starts editing a block (file group / subsystem / objective
-scope), they MUST claim it visibly first on `docs/WORK_CLAIMS.md`; release
-on completion. Implementation: (a) active-claims board (table: Block/scope
-| Who | Since | Objective/issue | Status ACTIVE/DONE) with protocol header
-(claim-before-first-edit; one ACTIVE claim per block; stale claims >48h
-without commit activity may be challenged); (b) wired into
-`docs/VIBE_CODING.md` (agent workflow) and `CONTRIBUTING.md` (human path);
-(c) orchestrator duty in `.opencode/agents/orchestrator.md` + this file
-short ref: check WORK_CLAIMS.md before assigning (in addition to
-single-flight); foreign ACTIVE claim on same block = WAIT, never
-double-assign. Board lives in PUBLIC repo.
-
 Остановиться и запросить пользователя ТОЛЬКО если действительно требуется:
 физическое hardware, непредоставленный секрет, destructive operation,
 технически неразрешимое решение, конфликтующие требования, риск уничтожения

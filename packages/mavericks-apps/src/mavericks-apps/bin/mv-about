@@ -3,6 +3,7 @@
 No subprocess spam: sysfs reads + single lspci/lsusb invocations, cached.
 License: GPL-2.0-or-later."""
 import os, re, subprocess
+import sys
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -161,7 +162,7 @@ class About(Gtk.Window):
         d.destroy()
 
 if __name__ == "__main__":
-    w = About()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.AboutThisMac", "About This Mac", About, sys.argv))

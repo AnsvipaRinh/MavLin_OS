@@ -1,3 +1,4 @@
+import sys
 #!/usr/bin/env python3
 """mv-control — Mavericks-like Control Center with proper controls.
 Features:
@@ -838,7 +839,7 @@ class ControlCenter(Gtk.Window):
 
     def on_open_notification_center(self, _):
         run_async(["mv-notification-center"])
-        Gtk.main_quit()
+        self.destroy()
 
     # ==================== Common ====================
 
@@ -865,23 +866,18 @@ class ControlCenter(Gtk.Window):
         return True  # Continue timeout
 
     def on_focus_out(self, widget, event):
-        Gtk.main_quit()
+        self.destroy()
         return True
 
     def on_key_press(self, widget, event):
         if event.keyval == 65307:  # Escape
-            Gtk.main_quit()
+            self.destroy()
             return True
         return False
 
 
-def main():
-    w = ControlCenter()
-    w.connect("destroy", Gtk.main_quit)
-    Gtk.main()
-    return 0
-
-
 if __name__ == "__main__":
-    import sys
-    sys.exit(main())
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.ControlCenter", "Control Center", ControlCenter, sys.argv))

@@ -251,17 +251,6 @@ record at the next healthy worker themselves; `migrate --delay <recorded-sec>`
 is the MANUAL override (still correct, never harmful). Resume on the
 registry's CURRENT worker (`find-objective`/`decide` prints it).
 
-STILLBORN-SESSION RULE (orchestrator protocol amendment):
-- Resuming a session is ONLY worthwhile with real progress (assistant tokens spent, partial results, reasoning worth keeping — verify via `scripts/session-reuse.py context <id>` BEFORE deciding).
-- If a session NEVER executed (0 tokens, died at provider gate, aborted pre-work): do NOT resume — DELETE it (server-side session delete + registry retire/delete) and create a FRESH session on the healthy worker with ONE clean initial prompt.
-- Resume-via-task_id is reserved for sessions with verified progress.
-- Rationale: resuming an empty shell stacks a second prompt onto nothing, confusing weaker models, for zero savings.
-
-CLAIM-BLOCKS RULE (prevents parallel same-block work between agents/co-author/contributors):
-- Before ANYONE (build worker, orchestrator task, human co-author, external contributor) starts editing a block (file group / subsystem / objective scope), they MUST claim it visibly on `docs/WORK_CLAIMS.md`; release on completion.
-- Orchestrator duty: check WORK_CLAIMS.md before assigning (in addition to single-flight); foreign ACTIVE claim on same block = WAIT, never double-assign.
-- These docs live in the PUBLIC repo — that satisfies GitHub visibility for project agents.
-
 TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a new session):
 
 - WORKER POOL: `build` (primary, Ling 3.1 Flash Free) + `build-b`..`build-j`

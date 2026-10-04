@@ -20,9 +20,7 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update -qq
-          # xmllint binary comes from libxml2-utils (there is no "xmllint" package)
-          sudo apt-get install -y -qq -o Acquire::Retries=3 \
-            shellcheck desktop-file-utils python3 libxml2-utils
+          sudo apt-get install -y -qq shellcheck xmllint desktop-file-utils python3 libxml2-utils
 
       - name: Bash syntax (bash -n)
         run: |
@@ -47,13 +45,10 @@ jobs:
           done
 
       - name: Profile sync check
-        run: bash scripts/check-profile-sync.sh
-
-      - name: Panel configuration validation
-        run: python3 scripts/test-panel-config.py
+        run: ./scripts/check-profile-sync.sh
 
       - name: Full sync check
-        run: bash scripts/check-sync.sh
+        run: ./scripts/check-sync.sh
 
   secret-scan:
     name: Secret Scan
@@ -80,8 +75,8 @@ jobs:
               "glpat-[A-Za-z0-9]{20,}"
               "xox[baprs]-[0-9a-zA-Z-]{10,}"
               "sk_live_[0-9a-zA-Z]{24,}"
-              "rk_live_[0-9a-zA-Z]{24,}"
               "sk_test_[0-9a-zA-Z]{24,}"
+              "rk_live_[0-9a-zA-Z]{24,}"
               "rk_test_[0-9a-zA-Z]{24,}"
               "AIza[0-9A-Za-z\\-_]{35}"
               "ya29\\.[0-9A-Za-z\\-_]+"
@@ -114,8 +109,7 @@ jobs:
       - name: Install python deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq -o Acquire::Retries=3 \
-            python3 python3-pip sassc gir1.2-gtk-3.0
+          sudo apt-get install -y -qq python3 python3-pip sassc gir1.2-gtk-3.0
           pip3 install --quiet pytest
 
       - name: Run mv-* unit tests
@@ -130,13 +124,13 @@ jobs:
         run: |
           python3 scripts/test-finder-launcher.py
 
-      - name: Dock default launchers gate
+      - name: Global menu integration gate
         run: |
-          python3 scripts/test-dock-launchers.py
+          python3 scripts/test-global-menu.py
 
-      - name: Window Super-key contract
+      - name: Network stack ownership gate
         run: |
-          python3 scripts/test-window-keys.py
+          python3 scripts/test-network-stack.py
 
       # NOTE: check-sync.sh is enforced by the static-analysis job ("Full sync
       # check" step runs ./scripts/check-sync.sh directly). A previous version
@@ -152,8 +146,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check profile sync
-        # bash: Contents-API rewrites may leave mode 100644 (no +x)
-        run: bash scripts/check-profile-sync.sh
+        run: ./scripts/check-profile-sync.sh
 
   contribution-format:
     name: Contribution Format

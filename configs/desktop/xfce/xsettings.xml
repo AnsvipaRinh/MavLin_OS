@@ -31,5 +31,8 @@
     <property name="ToolbarIconSize" type="int" value="3"/>
     <property name="MenuImages" type="bool" value="true"/>
     <property name="ButtonImages" type="bool" value="true"/>
+    <property name="ShellShowsMenubar" type="bool" value="true"/>
+    <property name="ShellShowsAppmenu" type="bool" value="true"/>
+    <property name="Modules" type="string" value="appmenu-gtk-module"/>
   </property>
 </channel>

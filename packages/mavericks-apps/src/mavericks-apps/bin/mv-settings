@@ -3,6 +3,7 @@
 Backend: existing Xfce/GNOME tools + direct syscalls. No daemon.
 License: GPL-2.0-or-later."""
 import subprocess
+import sys
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -79,7 +80,7 @@ class Settings(Gtk.Window):
             d.destroy()
 
 if __name__ == "__main__":
-    w = Settings()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.SystemPreferences", "System Preferences", Settings, sys.argv))

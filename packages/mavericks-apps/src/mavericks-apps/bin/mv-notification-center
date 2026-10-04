@@ -1,3 +1,4 @@
+import sys
 #!/usr/bin/env python3
 """mv-notification-center — Mavericks-style Notification Center.
 
@@ -255,20 +256,20 @@ class NotificationCenter(Gtk.Window):
 
     def on_key_press(self, widget, event):
         if event.keyval == 65307:  # Escape
-            Gtk.main_quit()
+            self.destroy()
             return True
         return False
 
     def on_focus_out(self, widget, event):
-        Gtk.main_quit()
+        self.destroy()
         return True
 
 def main():
-    w = NotificationCenter()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
-    return 0
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    return run_application(
+        "com.mavlinos.NotificationCenter", "Notification Center",
+        NotificationCenter, sys.argv)
 
 if __name__ == "__main__":
     sys.exit(main())

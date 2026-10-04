@@ -8,7 +8,7 @@ License: GPL-2.0-or-later."""
 import json, os, sys, time, uuid
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, Pango, GLib
+from gi.repository import Gtk, Gdk, Pango, GLib, Gio
 
 try:
     import cairo
@@ -926,12 +926,53 @@ class Notes(Gtk.Window):
         save_store(STORE, self.data)
 
 
+
+def build_notes_menu(app, app_name, get_window, add_action):
+    def w():
+        return get_window()
+
+    add_action("new", lambda: w().add_note(None) if w() else None)
+    add_action("new-folder", lambda: w().add_folder(None) if w() else None)
+    add_action("delete", lambda: w().del_note(None) if w() else None)
+    add_action("restore", lambda: w().restore_note(None) if w() else None)
+    add_action("export", lambda: w().export_note(None) if w() else None)
+    add_action("print", lambda: w().print_note(None) if w() else None)
+    add_action("find", lambda: w().search.grab_focus() if w() else None)
+    add_action("close", lambda: w().destroy() if w() else None)
+    add_action("quit", app.quit)
+
+    menu = Gio.Menu()
+    app_menu = Gio.Menu()
+    app_menu.append("About Notes", "app.about")
+    app_menu.append("Quit Notes", "app.quit")
+    menu.append_submenu("Notes", app_menu)
+
+    file_menu = Gio.Menu()
+    file_menu.append("New Note", "app.new")
+    file_menu.append("New Folder", "app.new-folder")
+    file_menu.append("Export Note…", "app.export")
+    file_menu.append("Print…", "app.print")
+    file_menu.append("Close Window", "app.close")
+    menu.append_submenu("File", file_menu)
+
+    edit_menu = Gio.Menu()
+    edit_menu.append("Find", "app.find")
+    menu.append_submenu("Edit", edit_menu)
+
+    view_menu = Gio.Menu()
+    view_menu.append("Delete Note", "app.delete")
+    view_menu.append("Restore Note", "app.restore")
+    menu.append_submenu("View", view_menu)
+
+    window_menu = Gio.Menu()
+    window_menu.append("Close Window", "app.close")
+    menu.append_submenu("Window", window_menu)
+    return menu
+
 def main():
-    w = Notes()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
-    return 0
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    return run_application("com.mavlinos.Notes", "Notes", Notes, sys.argv, build_notes_menu)
 
 
 if __name__ == "__main__":

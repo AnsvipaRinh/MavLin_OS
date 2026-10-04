@@ -12,7 +12,7 @@ import time
 import uuid
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib, Pango
+from gi.repository import Gtk, Gdk, GLib, Pango, Gio
 
 try:
     import cairo
@@ -508,6 +508,45 @@ class StickiesApp:
         d.destroy()
 
 
+
+def build_stickies_menu(app, app_name, get_window, add_action):
+    def w():
+        return get_window()
+
+    add_action("new", lambda: w().app.create_sticky() if w() else None)
+    add_action("find", lambda: w().app.open_search() if w() else None)
+    add_action("print", lambda: w().print_note(None) if w() else None)
+    add_action("collapse", lambda: w().toggle_collapse(None) if w() else None)
+    add_action("delete", lambda: w().confirm_delete() if w() else None)
+    add_action("close", lambda: w().destroy() if w() else None)
+    add_action("quit", app.quit)
+
+    menu = Gio.Menu()
+    app_menu = Gio.Menu()
+    app_menu.append("About Stickies", "app.about")
+    app_menu.append("Quit Stickies", "app.quit")
+    menu.append_submenu("Stickies", app_menu)
+
+    file_menu = Gio.Menu()
+    file_menu.append("New Note", "app.new")
+    file_menu.append("Print Note…", "app.print")
+    file_menu.append("Close Note", "app.close")
+    menu.append_submenu("File", file_menu)
+
+    edit_menu = Gio.Menu()
+    edit_menu.append("Find in Stickies…", "app.find")
+    edit_menu.append("Delete Note", "app.delete")
+    menu.append_submenu("Edit", edit_menu)
+
+    view_menu = Gio.Menu()
+    view_menu.append("Collapse / Expand Note", "app.collapse")
+    menu.append_submenu("View", view_menu)
+
+    window_menu = Gio.Menu()
+    window_menu.append("Close Note", "app.close")
+    menu.append_submenu("Window", window_menu)
+    return menu
+
 def acquire_lock():
     """Single-instance guard: pidfile in the store dir. Returns False when
     another live instance holds the lock; takes over stale locks."""
@@ -537,11 +576,31 @@ def main():
         print("mv-stickies: another instance is already running",
               file=sys.stderr)
         return 0
-    app = StickiesApp()
-    app.startup()
-    Gtk.main()
-    return 0
+
+    app = Gtk.Application(application_id="com.mavlinos.Stickies")
+    state = {"stickies": None}
+
+    def startup(application):
+        from mavericks_appmenu import install_application_menu
+        install_application_menu(
+            application, "Stickies",
+            lambda: state["stickies"].stickies[0]
+            if state["stickies"] and state["stickies"].stickies else None,
+            build_stickies_menu)
+
+    def activate(application):
+        if state["stickies"] is None:
+            state["stickies"] = StickiesApp()
+            state["stickies"].startup()
+        for sticky in state["stickies"].stickies:
+            sticky.present()
+
+    app.connect("startup", startup)
+    app.connect("activate", activate)
+    return app.run(sys.argv)
 
 
 if __name__ == "__main__":
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import install_application_menu
     sys.exit(main())

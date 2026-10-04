@@ -5,6 +5,7 @@ Outputs markdown/text that rofi displays in the preview pane.
 License: GPL-2.0-or-later."""
 import os
 import sys
+import mimetypes
 import subprocess
 import json
 
@@ -17,24 +18,13 @@ def get_file_info(path):
     """Get detailed file information."""
     try:
         stat = os.stat(path)
-        # Use 'file' command for accurate MIME detection (works for files without extensions)
-        mime = "unknown"
-        try:
-            result = subprocess.run(
-                ["file", "-b", "--mime-type", path],
-                capture_output=True, text=True, timeout=2
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                mime = result.stdout.strip()
-        except Exception:
-            pass
         info = {
             "path": path,
             "name": os.path.basename(path),
             "size": stat.st_size,
             "mtime": stat.st_mtime,
             "is_dir": os.path.isdir(path),
-            "mime": mime,
+            "mime": mimetypes.guess_type(path)[0] or "unknown",
         }
         return info
     except Exception as e:

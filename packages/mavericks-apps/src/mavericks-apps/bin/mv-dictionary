@@ -741,10 +741,11 @@ def run(word=""):
 
 def main():
     word = sys.argv[1] if len(sys.argv) > 1 else ""
-    w = run(word)
-    w.connect("destroy", Gtk.main_quit)
-    Gtk.main()
-    return 0
+    def factory():
+        return run(word)
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    return run_application("com.mavlinos.Dictionary", "Dictionary", factory, sys.argv)
 
 
 if __name__ == "__main__":

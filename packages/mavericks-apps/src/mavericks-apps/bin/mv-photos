@@ -6,6 +6,7 @@ import tracking, search. GUI: GTK3 Mavericks-styled grid with sidebar,
 search, slideshow, and gthumb handoff for editing. No daemon, no polling.
 License: GPL-2.0-or-later."""
 import cairo
+import gi
 import hashlib
 import json
 import os
@@ -14,6 +15,11 @@ import struct
 import subprocess
 import sys
 import time
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -729,7 +735,7 @@ def rotate_image(path, direction="right"):
 
 # ----------------------------------------------------------------------- GUI
 
-def run_gui():
+def run_gui(application=None):
     warnings = []
 
     def on_warn(msg):
@@ -747,7 +753,11 @@ def run_gui():
     for msg in warnings:
         win._show_error(msg)
     win.connect("key-press-event", win.on_key_press)
+    if application is not None:
+        application.add_window(win)
+        return win
     Gtk.main()
+    return win
 
 
 class PhotosWindow(Gtk.Window):
@@ -1469,8 +1479,51 @@ class PhotosWindow(Gtk.Window):
         geo["sidebar"] = 240
         self.state["geometry"] = geo
         save_state(data=self.state)
-        Gtk.main_quit()
+        return
 
+
+
+def build_photos_menu(app, app_name, get_window, add_action):
+    def w():
+        return get_window()
+
+    add_action("import", lambda: w().on_import(None) if w() else None)
+    add_action("new-album", lambda: w().on_new_album(None) if w() else None)
+    add_action("slideshow", lambda: w().on_slideshow_toggle(None) if w() else None)
+    add_action("all", lambda: w().on_sidebar_click(None, "all") if w() else None)
+    add_action("favorites", lambda: w().on_sidebar_click(None, "favorites") if w() else None)
+    add_action("recent", lambda: w().on_sidebar_click(None, "recent") if w() else None)
+    add_action("search", lambda: w().search_entry.grab_focus() if w() else None)
+    add_action("close", lambda: w().destroy() if w() else None)
+    add_action("quit", app.quit)
+
+    menu = Gio.Menu()
+    app_menu = Gio.Menu()
+    app_menu.append("About Photos", "app.about")
+    app_menu.append("Quit Photos", "app.quit")
+    menu.append_submenu("Photos", app_menu)
+
+    file_menu = Gio.Menu()
+    file_menu.append("Import Photos…", "app.import")
+    file_menu.append("New Album…", "app.new-album")
+    file_menu.append("Close Window", "app.close")
+    menu.append_submenu("File", file_menu)
+
+    edit_menu = Gio.Menu()
+    edit_menu.append("Search Photos", "app.search")
+    menu.append_submenu("Edit", edit_menu)
+
+    view_menu = Gio.Menu()
+    view_menu.append("All Photos", "app.all")
+    view_menu.append("Favorites", "app.favorites")
+    view_menu.append("Recently Added", "app.recent")
+    menu.append_submenu("View", view_menu)
+
+    window_menu = Gio.Menu()
+    window_menu.append("Start / Stop Slideshow", "app.slideshow")
+    window_menu.append("Close Window", "app.close")
+    menu.append_submenu("Window", window_menu)
+    return menu
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--scan":
@@ -1481,9 +1534,32 @@ def main():
         for p in photos[:10]:
             print("  %s  %s  %dx%d" % (p["filename"], fmt_date(p["date"]),
                                        p["width"] or 0, p["height"] or 0))
-        sys.exit(0)
-    run_gui()
+        return 0
+
+    app = Gtk.Application(application_id="com.mavlinos.Photos")
+    state = {"window": None}
+
+    def startup(application):
+        from mavericks_appmenu import install_application_menu
+        install_application_menu(application, "Photos",
+                                  lambda: state["window"],
+                                  build_photos_menu)
+
+    def activate(application):
+        if state["window"] is not None:
+            state["window"].present()
+            return
+        win = run_gui(application)
+        state["window"] = win
+        win.connect("destroy", lambda *_: state.update(window=None))
+        win.show_all()
+        win.present()
+
+    app.connect("startup", startup)
+    app.connect("activate", activate)
+    return app.run(sys.argv)
 
 
 if __name__ == "__main__":
-    main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    sys.exit(main())

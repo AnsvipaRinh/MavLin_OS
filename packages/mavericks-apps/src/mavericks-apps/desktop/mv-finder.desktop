@@ -2,10 +2,8 @@
 Type=Application
 Name=Finder
 Comment=File Manager (Mavericks)
-MimeType=inode/directory;inode/mount-point;x-directory/normal;
 Exec=mv-finder-columns %U
 Icon=folder
 Categories=System;FileTools;
 StartupNotify=true
 X-Mavericks-Alias-For=thunar
-Terminal=false

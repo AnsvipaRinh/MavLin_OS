@@ -1,10 +1,11 @@
+import sys
 #!/usr/bin/env python3
 """mv-mail — Mavericks-like Mail wrapper for Geary.
 Adds Mavericks visual theme and integration.
 """
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk, GLib, Gio
 
 class MailWrapper(Gtk.Window):
     def __init__(self):
@@ -128,8 +129,30 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
+
+def build_mail_menu(app, app_name, get_window, add_action):
+    def w():
+        return get_window()
+    add_action("launch", lambda: w().launch_geary() if w() else None)
+    add_action("close", lambda: w().destroy() if w() else None)
+    add_action("quit", app.quit)
+    menu = Gio.Menu()
+    m = Gio.Menu()
+    m.append("About Mail", "app.about")
+    m.append("Quit Mail", "app.quit")
+    menu.append_submenu("Mail", m)
+    m = Gio.Menu()
+    m.append("Open Mail", "app.launch")
+    m.append("Close Window", "app.close")
+    menu.append_submenu("File", m)
+    m = Gio.Menu()
+    m.append("Close Window", "app.close")
+    menu.append_submenu("Window", m)
+    return menu
+
 if __name__ == "__main__":
-    w = MailWrapper()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.Mail", "Mail", MailWrapper, sys.argv,
+        build_mail_menu))

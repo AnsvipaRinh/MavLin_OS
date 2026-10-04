@@ -316,14 +316,6 @@ procedures or active code reference them:
 - [ ] Preview: MIME associations — double-click PDF/image in Thunar opens mv-preview
 - [ ] Preview: annotation toolbar stubs show status feedback; no crashes on tool clicks
 - [ ] Spotlight: после первой загрузки дождаться plocate-updatedb.timer, Super+Space находит файлы
-- [ ] Spotlight: Super+Space overlay centered, Mavericks theme renders correctly on 2304×1440
-- [ ] Spotlight: categorized results (Applications, System, Folders, Documents, Images, Audio, Video, Archives, Code, Other) display with correct icons
-- [ ] Spotlight: calculator/conversion results appear and copy to clipboard on Enter
-- [ ] Spotlight: preview pane shows file content (text, images, PDF metadata, media info, directory listing)
-- [ ] Spotlight: keyboard navigation (arrows, Enter, Escape) works correctly
-- [ ] Spotlight: recent items shown on empty query
-- [ ] Spotlight: system actions (Settings, Control Center, Activity Monitor, Disk Utility, Terminal) launch correctly
-- [ ] Spotlight: file results open via xdg-open
 - [ ] Quick Look: mv-quicklook на image/PDF/text/audio — multi-file nav (←/→/Space), fullscreen (F), Open button work
 - [ ] Quick Look: Super+Shift+Space в Thunar копирует выбор в буфер обмена и открывает mv-quicklook с выбранными файлами
 - [ ] Quick Look: UCA контекстное меню "Quick Look" работает (правый клик → Quick Look)
@@ -335,9 +327,6 @@ procedures or active code reference them:
 - [ ] HUD: mv-hud в genmon показывает ватты RAPL m3-7Y32 (на хосте — graceful `n/a`)
 - [ ] Launchpad: Super+L открывает полноэкранную сетку; поиск фильтрует; папки (Utilities/Other) открываются; Back возвращает; иконки отображаются корректно на 2304x1440
 - [ ] Launchpad: mv-launchpad.desktop доступен в меню приложений и может быть закреплен в Dock
-- [ ] Launchpad: Super+Shift+L открывает mv-launchpad-edit GTK3 диалог для перетаскивания/переупорядочивания приложений; drag-and-drop и Ctrl+↑/↓ работают; изменения сохраняются в positions.json и отражаются в Launchpad после закрытия
-- [ ] Launchpad: Mavericks-style page dots (●○○) отображаются корректно на 2304×1440; переключение страниц Left/Right/PgUp/PgDn обновляет dots
-- [ ] Launchpad: "Edit Launchpad…" запись в сетке (page 0, не в поиске, не в папке) запускает mv-launchpad-edit; запись скрывается при поиске/внутри папки
 
 ## Control Center — hardware validation
 - [ ] Wi-Fi: network list populates, connect to open/secured AP, disconnect works, password prompt appears; NM D-Bus signal-driven refresh fires on scan/connect (phase B: заменил 5s `nmcli dev wifi list` rescan poll; 30s fallback + manual Refresh button) — проверить что спасает battery (rescan energy на BCM43602)

@@ -1,9 +1,0 @@
-[Default Applications]
-inode/directory=mv-finder.desktop
-inode/mount-point=mv-finder.desktop
-x-directory/normal=mv-finder.desktop
-
-[Added Associations]
-inode/directory=mv-finder.desktop;
-inode/mount-point=mv-finder.desktop;
-x-directory/normal=mv-finder.desktop;

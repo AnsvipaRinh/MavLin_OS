@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import shutil
+import sys
 import socket
 import subprocess
 import threading
@@ -190,7 +191,6 @@ class AirDropWindow(Gtk.Window):
         self.apply_css()
 
         self.connect("key-press-event", self.on_key_press)
-        self.connect("destroy", Gtk.main_quit)
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.add(root)
@@ -507,9 +507,13 @@ def main():
         if os.path.exists(path):
             files.append(path)
 
-    win = AirDropWindow(files=files)
-    win.show_all()
-    Gtk.main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+
+    return run_application(
+        "com.mavlinos.AirDrop", "AirDrop",
+        lambda: AirDropWindow(files=files), [],
+    )
 
 
 if __name__ == "__main__":

@@ -1375,7 +1375,6 @@ class MusicWindow(Gtk.Window):
     def on_destroy(self, *_):
         self._closed = True
         self.controller.close()
-        Gtk.main_quit()
 
     def on_configure(self, _w, _ev):
         w, h = self.get_size()
@@ -1804,40 +1803,111 @@ class MiniPlayerWindow(Gtk.Window):
         return False
 
 
+
+def build_music_menu(app, app_name, get_window, add_action):
+    def w():
+        return get_window()
+
+    add_action("play-pause", lambda: w().controller.play_pause() if w() else None)
+    add_action("previous", lambda: w().controller.previous_track() if w() else None)
+    add_action("next", lambda: w().controller.next_track() if w() else None)
+    add_action("library", lambda: w()._select_view("Songs") if w() else None)
+    add_action("albums", lambda: w()._select_view("Albums") if w() else None)
+    add_action("artists", lambda: w()._select_view("Artists") if w() else None)
+    add_action("queue", lambda: w()._select_view("Queue") if w() else None)
+    add_action("choose-folder", lambda: w().on_choose_folder(None) if w() else None)
+    add_action("mini-player", lambda: w().open_mini_player() if w() else None)
+    add_action("refresh", lambda: w()._rescan_library() if w() else None)
+    add_action("close", lambda: w().destroy() if w() else None)
+    add_action("minimize", lambda: w().iconify() if w() else None)
+    add_action("quit", app.quit)
+
+    menu = Gio.Menu()
+    app_menu = Gio.Menu()
+    app_menu.append("About Music", "app.about")
+    app_menu.append("Quit Music", "app.quit")
+    menu.append_submenu("Music", app_menu)
+
+    file_menu = Gio.Menu()
+    file_menu.append("Choose Music Folder…", "app.choose-folder")
+    file_menu.append("Refresh Library", "app.refresh")
+    file_menu.append("Close Window", "app.close")
+    menu.append_submenu("File", file_menu)
+
+    controls_menu = Gio.Menu()
+    controls_menu.append("Previous Track", "app.previous")
+    controls_menu.append("Play / Pause", "app.play-pause")
+    controls_menu.append("Next Track", "app.next")
+    menu.append_submenu("Controls", controls_menu)
+
+    view_menu = Gio.Menu()
+    view_menu.append("Songs", "app.library")
+    view_menu.append("Albums", "app.albums")
+    view_menu.append("Artists", "app.artists")
+    view_menu.append("Queue", "app.queue")
+    view_menu.append("Mini Player", "app.mini-player")
+    menu.append_submenu("View", view_menu)
+
+    window_menu = Gio.Menu()
+    window_menu.append("Minimize", "app.minimize")
+    window_menu.append("Close Window", "app.close")
+    menu.append_submenu("Window", window_menu)
+    return menu
+
 # -------------------------------------------------------------------- main
 
 def main():
-    args = [a for a in sys.argv[1:]]
-    if args and args[0] == "--media-key":
-        sys.exit(media_key_cli(args[1] if len(args) > 1 else ""))
+    args = list(sys.argv)
+    if len(args) > 1 and args[1] == "--media-key":
+        return media_key_cli(args[2] if len(args) > 2 else "")
 
     root = (os.environ.get(LIBRARY_ENV)
             or os.path.expanduser(
                 (load_state().get("library")) or DEFAULT_LIBRARY))
-    warnings = []
 
-    def on_warn(msg):
-        warnings.append(msg)
+    app = Gtk.Application(application_id="com.mavlinos.Music")
+    state = {"window": None, "tracks": [], "warnings": [], "errors": 0}
 
-    state = load_state(on_warn=on_warn)
-    tracks, errors = scan_library(root)
+    def startup(application):
+        from mavericks_appmenu import install_application_menu
+        install_application_menu(
+            application, "Music",
+            lambda: state["window"], build_music_menu)
 
-    if not Gtk.init_check()[0]:
-        sys.stderr.write("no display available\n")
-        sys.exit(3)
+    def activate(application):
+        if state["window"] is not None:
+            state["window"].present()
+            return
 
-    controller = MprisController()
-    win = MusicWindow(tracks, state, controller)
-    if errors:
-        win._show_error(
-            "Some files could not be read (%d skipped)." % errors)
-    for msg in warnings:
-        win._show_error(msg)
-    win.connect("key-press-event", win.on_key_press)
-    if state.get("geometry", {}).get("mini"):
-        GLib.idle_add(win.open_mini_player)
-    Gtk.main()
+        warnings = state["warnings"]
+        def on_warn(msg):
+            warnings.append(msg)
+
+        saved = load_state(on_warn=on_warn)
+        tracks, errors = scan_library(root)
+        state["tracks"], state["errors"] = tracks, errors
+        controller = MprisController()
+        win = MusicWindow(tracks, saved, controller)
+        state["window"] = win
+        application.add_window(win)
+
+        if errors:
+            win._show_error(
+                "Some files could not be read (%d skipped)." % errors)
+        for msg in warnings:
+            win._show_error(msg)
+        win.connect("key-press-event", win.on_key_press)
+        win.connect("destroy", lambda *_: state.update(window=None))
+        if saved.get("geometry", {}).get("mini"):
+            GLib.idle_add(win.open_mini_player)
+        win.show_all()
+        win.present()
+
+    app.connect("startup", startup)
+    app.connect("activate", activate)
+    return app.run(args)
 
 
 if __name__ == "__main__":
-    main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    sys.exit(main())

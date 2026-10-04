@@ -1,3 +1,4 @@
+import sys
 #!/usr/bin/env python3
 """mv-reminders — Reminders (Mavericks-like). Lists + tasks + due dates +
 priorities + notifications. Local JSON storage
@@ -16,7 +17,7 @@ _GUI = len(sys.argv) <= 1 or sys.argv[1] != "--check-due"
 if _GUI:
     import gi
     gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, Gdk, Pango
+    from gi.repository import Gtk, Gdk, Pango, Gio
 
 STORE = os.path.expanduser("~/.local/share/mv-reminders/tasks.json")
 PRIORITIES = ["", "Low", "Medium", "High"]
@@ -707,6 +708,55 @@ if _GUI:
             d.destroy()
 
 
+
+def build_reminders_menu(app, app_name, get_window, add_action):
+    def w():
+        return get_window()
+
+    def selected():
+        return w().selected_task_id() if w() else None
+
+    add_action("new-task", lambda: w().add_task(None) if w() else None)
+    add_action("new-list", lambda: w().add_list(None) if w() else None)
+    add_action("edit", lambda: w().edit_task(selected()) if w() and selected() else None)
+    add_action("toggle", lambda: w().ctx_toggle(None) if w() and selected() else None)
+    add_action("delete-task", lambda: w().delete_task(selected()) if w() and selected() else None)
+    add_action("clear-completed", lambda: w().clear_completed(None) if w() else None)
+    add_action("rename-list", lambda: w().rename_list(None) if w() else None)
+    add_action("delete-list", lambda: w().delete_list(None) if w() else None)
+    add_action("find", lambda: w().search.grab_focus() if w() else None)
+    add_action("close", lambda: w().destroy() if w() else None)
+    add_action("quit", app.quit)
+
+    menu = Gio.Menu()
+    app_menu = Gio.Menu()
+    app_menu.append("About Reminders", "app.about")
+    app_menu.append("Quit Reminders", "app.quit")
+    menu.append_submenu("Reminders", app_menu)
+
+    file_menu = Gio.Menu()
+    file_menu.append("New Task", "app.new-task")
+    file_menu.append("New List", "app.new-list")
+    file_menu.append("Close Window", "app.close")
+    menu.append_submenu("File", file_menu)
+
+    edit_menu = Gio.Menu()
+    edit_menu.append("Edit Selected Task", "app.edit")
+    edit_menu.append("Toggle Completed", "app.toggle")
+    edit_menu.append("Delete Selected Task", "app.delete-task")
+    edit_menu.append("Clear Completed", "app.clear-completed")
+    menu.append_submenu("Edit", edit_menu)
+
+    view_menu = Gio.Menu()
+    view_menu.append("Find Reminders", "app.find")
+    menu.append_submenu("View", view_menu)
+
+    list_menu = Gio.Menu()
+    list_menu.append("Rename List", "app.rename-list")
+    list_menu.append("Delete List", "app.delete-list")
+    menu.append_submenu("Window", list_menu)
+    return menu
+
 def main():
     w = Reminders()
     w.connect("destroy", Gtk.main_quit)
@@ -716,7 +766,8 @@ def main():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "--check-due":
-        check_due()
-    else:
-        sys.exit(main())
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.reminders", "Reminders", Reminders, sys.argv,
+        build_reminders_menu))

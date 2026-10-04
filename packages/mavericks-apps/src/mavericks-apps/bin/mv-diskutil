@@ -1,3 +1,4 @@
+import sys
 #!/usr/bin/env python3
 """mv-diskutil — Mavericks-like Disk Utility frontend over UDisks2.
 
@@ -703,4 +704,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    sys.exit(run_application(
+        "com.mavlinos.DiskUtility", "Disk Utility", DiskUtilWindow, sys.argv))
