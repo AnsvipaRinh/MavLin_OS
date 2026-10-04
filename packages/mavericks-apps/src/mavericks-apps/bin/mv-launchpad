@@ -89,11 +89,20 @@ def _icon_exists(icon_name):
 def load_folders(apps=None):
     """Load and normalize folder configuration without overwriting user edits."""
     config_exists = FOLDERS_FILE.exists()
+    config_valid = False
     try:
         with open(FOLDERS_FILE, "r") as fp:
             raw = json.load(fp)
+        config_valid = isinstance(raw, dict)
     except (OSError, json.JSONDecodeError, TypeError):
         raw = {}
+
+    if config_exists and not config_valid:
+        # Preserve a corrupt/unreadable user file rather than silently replacing it.
+        return {folder_id: {
+            "name": folder_data["name"],
+            "apps": list(folder_data["apps"]),
+        } for folder_id, folder_data in DEFAULT_FOLDERS.items()}
 
     folders = {}
     if isinstance(raw, dict):
