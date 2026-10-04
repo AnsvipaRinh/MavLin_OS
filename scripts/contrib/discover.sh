@@ -31,11 +31,19 @@ fi
 LAST_PR_CHECK=$(jq -r '.last_pr_check' "${STATE_FILE}")
 LAST_ISSUE_CHECK=$(jq -r '.last_issue_check' "${STATE_FILE}")
 
+# Repo provenance: reset processed maps if state was built for a different repo
+# (prevents stale/cross-repo state from silently producing EMPTY)
+STATE_REPO=$(jq -r '.repo // ""' "${STATE_FILE}")
+if [[ -n "${STATE_REPO}" && "${STATE_REPO}" != "${GH_REPO}" ]]; then
+    echo "WARNING: state repo (${STATE_REPO}) != discovered repo (${GH_REPO}); resetting processed maps"
+    jq '.processed_prs = {} | .processed_issues = {}' "${STATE_FILE}" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "${STATE_FILE}"
+fi
+
 # Fetch PRs updated since last check
 echo "=== Discovering PRs updated since ${LAST_PR_CHECK} ==="
 PR_JSON=""
 PR_STDERR=""
-if ! PR_JSON=$(gh pr list --repo "${GH_REPO}" --state all --json number,title,headRefName,baseRefName,headRepository,headRepositoryOwner,author,createdAt,updatedAt,mergedAt,closedAt,commits,additions,deletions,changedFiles,labels,reviewDecision,isDraft --limit 100 2>"${STATE_DIR}/gh_pr.stderr"); then
+if ! PR_JSON=$(gh pr list --repo "${GH_REPO}" --state all --json number,title,headRefName,baseRefName,headRepository,headRepositoryOwner,author,createdAt,updatedAt,mergedAt,closedAt,headRefOid,additions,deletions,changedFiles,labels,reviewDecision,isDraft --limit 100 2>"${STATE_DIR}/gh_pr.stderr"); then
     PR_STDERR=$(cat "${STATE_DIR}/gh_pr.stderr" 2>/dev/null || echo "gh pr list failed")
     echo "ERROR: gh pr list failed: ${PR_STDERR}"
     # Classify failure
@@ -81,6 +89,10 @@ if [[ -z "${DISCOVERY_STATUS:-}" ]]; then
     EXIT_CODE=0
 fi
 
+# Raw fetched counts (auditability: EMPTY is only truthful if these match reality)
+GH_PR_COUNT=$(echo "${PR_JSON}" | jq 'length')
+GH_ISSUE_COUNT=$(echo "${ISSUE_JSON}" | jq 'length')
+
 # Process PRs
 echo
 echo "=== PR Triage Table ==="
@@ -91,7 +103,8 @@ NEW_PR_CHECK="${LAST_PR_CHECK}"
 PR_BACKLOG=()
 while IFS= read -r pr; do
     NUM=$(echo "${pr}" | jq -r '.number')
-    TITLE=$(echo "${pr}" | jq -r '.title' | cut -c1-30)
+    FULL_TITLE=$(echo "${pr}" | jq -r '.title')
+    TITLE=$(echo "${FULL_TITLE}" | cut -c1-30)
     STATE=$(echo "${pr}" | jq -r '.state // "UNKNOWN"')
     IS_DRAFT=$(echo "${pr}" | jq -r '.isDraft // false')
     MERGED_AT=$(echo "${pr}" | jq -r '.mergedAt // ""')
@@ -101,7 +114,7 @@ while IFS= read -r pr; do
     ADDITIONS=$(echo "${pr}" | jq -r '.additions // 0')
     DELETIONS=$(echo "${pr}" | jq -r '.deletions // 0')
     CHANGED_FILES=$(echo "${pr}" | jq -r '.changedFiles // 0')
-    HEAD_SHA=$(echo "${pr}" | jq -r '.commits[-1].oid // ""')
+    HEAD_SHA=$(echo "${pr}" | jq -r '.headRefOid // ""')
     LABELS=$(echo "${pr}" | jq -r '.labels[].name' 2>/dev/null | tr '\n' ',' | sed 's/,$//' || echo "")
 
     # Determine PR display state
@@ -140,7 +153,7 @@ while IFS= read -r pr; do
     # Build backlog entry for unprocessed OPEN PRs
     if [[ "${PROCESSED}" == "false" && "${DISP_STATE}" == "OPEN" ]]; then
         # Lightweight classification from metadata
-        CLASSIFICATION=$(echo "${TITLE} ${LABELS}" | tr '[:upper:]' '[:lower:]' | \
+        CLASSIFICATION=$(echo "${FULL_TITLE} ${LABELS}" | tr '[:upper:]' '[:lower:]' | \
             awk '{
                 if (/cosmetic|theme|color|icon|font|spacing|visual|style|css|gtk.*theme/) print "cosmetic";
                 else if (/ux|user.experience|interaction|shortcut|hotkey|keybind|menu|dialog|workflow|flow|usability/) print "UX";
@@ -179,11 +192,12 @@ NEW_ISSUE_CHECK="${LAST_ISSUE_CHECK}"
 ISSUE_BACKLOG=()
 while IFS= read -r issue; do
     NUM=$(echo "${issue}" | jq -r '.number')
-    TITLE=$(echo "${issue}" | jq -r '.title' | cut -c1-30)
+    FULL_TITLE=$(echo "${issue}" | jq -r '.title')
+    TITLE=$(echo "${FULL_TITLE}" | cut -c1-30)
     STATE=$(echo "${issue}" | jq -r '.state // "UNKNOWN"')
     UPDATED_AT=$(echo "${issue}" | jq -r '.updatedAt')
     LABELS=$(echo "${issue}" | jq -r '.labels[].name' 2>/dev/null | tr '\n' ',' | sed 's/,$//' || echo "")
-    COMMENTS_COUNT=$(echo "${issue}" | jq -r '.comments // 0')
+    COMMENTS_COUNT=$(echo "${issue}" | jq -r '(.comments // []) | length')
 
     MARK="●"
     PROCESSED="false"
@@ -202,7 +216,7 @@ while IFS= read -r issue; do
 
     # Build backlog entry for unprocessed OPEN issues
     if [[ "${PROCESSED}" == "false" && "${STATE}" == "OPEN" ]]; then
-        CLASSIFICATION=$(echo "${TITLE} ${LABELS}" | tr '[:upper:]' '[:lower:]' | \
+        CLASSIFICATION=$(echo "${FULL_TITLE} ${LABELS}" | tr '[:upper:]' '[:lower:]' | \
             awk '{
                 if (/cosmetic|theme|color|icon|font|spacing|visual|style|css|gtk.*theme/) print "cosmetic";
                 else if (/ux|user.experience|interaction|shortcut|hotkey|keybind|menu|dialog|workflow|flow|usability/) print "UX";
@@ -231,9 +245,9 @@ while IFS= read -r issue; do
     fi
 done < <(echo "${ISSUE_JSON}" | jq -c '.[]')
 
-# Update state file with new check times
-jq --arg pr_time "${NEW_PR_CHECK}" --arg issue_time "${NEW_ISSUE_CHECK}" \
-   '.last_pr_check = $pr_time | .last_issue_check = $issue_time' \
+# Update state file with new check times + repo provenance
+jq --arg pr_time "${NEW_PR_CHECK}" --arg issue_time "${NEW_ISSUE_CHECK}" --arg repo "${GH_REPO}" \
+   '.last_pr_check = $pr_time | .last_issue_check = $issue_time | .repo = $repo' \
    "${STATE_FILE}" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "${STATE_FILE}"
 
 # Build machine-readable backlog.json
@@ -254,9 +268,11 @@ cat > "${BACKLOG_FILE}" <<EOF
   "pr_count": ${#PR_BACKLOG[@]},
   "issue_count": ${#ISSUE_BACKLOG[@]},
   "total_count": ${BACKLOG_COUNT},
+  "gh_pr_count": ${GH_PR_COUNT},
+  "gh_issue_count": ${GH_ISSUE_COUNT},
   "prs": ${PR_JSON_ARRAY},
   "issues": ${ISSUE_JSON_ARRAY},
-  "objectives": $(printf '%s\n' "${PR_BACKLOG[@]}" "${ISSUE_BACKLOG[@]}" | jq -s '.[].objective' | sort -u | jq -R . | jq -s .)
+  "objectives": $(printf '%s\n' "${PR_BACKLOG[@]}" "${ISSUE_BACKLOG[@]}" | jq -s '.[].objective' | sort -u | jq -s .)
 }
 EOF
 
