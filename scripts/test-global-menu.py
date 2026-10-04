@@ -44,6 +44,9 @@ def main():
     for disabled in ("-Dmate=disabled", "-Dbudgie=disabled", "-Dvalapanel=disabled"):
         assert disabled in build
 
+    xfwm = XFWM.read_text(encoding="utf-8")
+    assert 'name="titleless_maximize" type="bool" value="true"' in xfwm
+
     helper = APPMENU_HELPER.read_text(encoding="utf-8")
     assert "Gtk.Application" in helper
     assert "app.set_app_menu(menu)" in helper
