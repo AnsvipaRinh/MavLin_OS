@@ -17,6 +17,7 @@ Invalidation covers every desktop dir's (mtime_ns, file count) plus every
 import hashlib
 import json
 import os
+import tempfile
 import time
 
 _DESKTOP_DIR_PATHS = (
@@ -226,13 +227,33 @@ def load_desktop_entries():
 
 
 def _save_desktop_entries(entries, fp, count):
+    """Persist the desktop cache with a unique, same-directory atomic write."""
+    cdir = os.path.expanduser(_CACHE_DIR)
+    path = os.path.expanduser(_CACHE_PATH)
+    tmp_path = None
     try:
-        cdir = os.path.expanduser(_CACHE_DIR)
         os.makedirs(cdir, exist_ok=True)
-        path = os.path.expanduser(_CACHE_PATH)
-        tmp = path + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump({"desktop": {"fp": fp, "count": count, "entries": entries}}, f)
-        os.replace(tmp, path)
+        fd, tmp_path = tempfile.mkstemp(prefix=".desktop-entries.", dir=cdir)
+        with os.fdopen(fd, "w") as cache_file:
+            json.dump({"desktop": {"fp": fp, "count": count, "entries": entries}}, cache_file)
+            cache_file.write("\n")
+            cache_file.flush()
+            os.fsync(cache_file.fileno())
+        os.replace(tmp_path, path)
+        tmp_path = None
+        try:
+            dir_fd = os.open(cdir, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
     except OSError:
         pass
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
