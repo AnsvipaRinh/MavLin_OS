@@ -73,11 +73,17 @@ FINAL_CMDLINE="$BASE_CMDLINE"
 for frag in "${MACBOOK_FRAGMENTS[@]}"; do
   [[ -n "$frag" ]] && FINAL_CMDLINE="$FINAL_CMDLINE $frag"
 done
-log "Composed cmdline: $FINAL_CMDLINE"
+log "Profile-specific cmdline additions: ${FINAL_CMDLINE#"$BASE_CMDLINE"}"
+
+# Preserve installer-generated boot parameters (root=, rootflags=, rw, resume,
+# crypt/LUKS options, etc.). Only parameters owned by this profile layer are
+# replaced. The old implementation rewrote the entire options line and could
+# silently discard required boot arguments after rootflags=.
 for f in /boot/loader/entries/*.conf; do
   [[ -f "$f" ]] || continue
-  if grep -q "^options" "$f"; then
-    sed -i -E "s/^(options +.*rootflags=[^ ]+ *) .*/\1 $FINAL_CMDLINE/" "$f" || true
+  if grep -q "^options[[:space:]]" "$f"; then
+    sed -i -E -e 's/[[:space:]]+(pcie_port_pm|i915\.enable_psr)=[^[:space:]]+//g' -e 's/[[:space:]]+quiet([[:space:]]|$)/ /g' -e 's/[[:space:]]+loglevel=[^[:space:]]+//g' "$f"
+    sed -i -E "s|^(options[[:space:]]+.*[^[:space:]])[[:space:]]*$|\\1 $FINAL_CMDLINE|" "$f"
   fi
 done
 grep -H "^options" /boot/loader/entries/*.conf 2>/dev/null || true
