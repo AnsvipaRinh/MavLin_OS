@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""Mission Control: list windows grouped by workspace (Space) for overview UI.
+
+Outputs JSON:
+{
+  "workspaces": [
+    {
+      "id": 1,
+      "name": "Space 1",
+      "windows": [
+        {"wid": 12345, "title": "Finder", "app": "Thunar", "x": 100, "y": 100, "width": 800, "height": 600, "visible": true, "minimized": false},
+        ...
+      ]
+    },
+    ...
+  ]
+}
+"""
+import sys
+import json
+
+try:
+    from ewmh import EWMH
+    from Xlib import X, Display, Xatom
+except ImportError:
+    print(json.dumps({"error": "Missing dependency: python3-ewmh or python3-xlib"}), file=sys.stderr)
+    sys.exit(1)
+
+
+def get_windows_by_workspace():
+    ewmh = EWMH()
+    d = Display()
+    root = d.screen().root
+
+    # Get all client windows
+    clients = ewmh.getClientList()
+    if not clients:
+        return {"workspaces": []}
+
+    # Get current workspace
+    current_ws = ewmh.getCurrentDesktop()
+
+    # Get workspace count
+    workspace_count = ewmh.getDesktopCount() or 4
+
+    workspaces = []
+    for ws_id in range(workspace_count):
+        ws_data = {
+            "id": ws_id + 1,
+            "name": f"Space {ws_id + 1}",
+            "windows": []
+        }
+
+        for win in clients:
+            try:
+                # Get window workspace
+                win_ws = ewmh.getWmDesktop(win)
+                if win_ws is None or win_ws == -1:  # -1 means visible on all workspaces
+                    win_ws = current_ws
+
+                if win_ws != ws_id:
+                    continue
+
+                # Get window geometry
+                geom = win.get_geometry()
+                x, y, width, height = geom.x, geom.y, geom.width, geom.height
+
+                # Get window title
+                title = ewmh.getWmName(win) or ""
+
+                # Get window class (app name)
+                wm_class = win.get_wm_class()
+                app_name = wm_class[0] if wm_class else "Unknown"
+
+                # Check if window is visible (not minimized, not on other viewport)
+                wm_state = win.get_wm_hints().get('flags', 0)
+                is_minimized = bool(wm_state & X.IconicState)
+                is_visible = not is_minimized and (win_ws == current_ws or win_ws == -1)
+
+                ws_data["windows"].append({
+                    "wid": win,
+                    "title": title,
+                    "app": app_name,
+                    "x": x,
+                    "y": y,
+                    "width": width,
+                    "height": height,
+                    "visible": is_visible,
+                    "minimized": is_minimized
+                })
+            except Exception:
+                continue
+
+        workspaces.append(ws_data)
+
+    return {"workspaces": workspaces}
+
+
+if __name__ == "__main__":
+    result = get_windows_by_workspace()
+    print(json.dumps(result, indent=2, default=str))
