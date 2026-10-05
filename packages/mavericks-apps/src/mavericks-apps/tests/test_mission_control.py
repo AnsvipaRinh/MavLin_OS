@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Mission Control unit tests — window enumeration via EWMH/Xlib + fallback.
+"""Mission Control unit tests — EWMH/Xlib enumeration and layout model.
 
-Tests verify dict shapes, empty-list grace, multi-workspace, and fallback path.
+Tests cover dict shapes, graceful fallbacks, multi-workspace state, and the
+headless layout engine used by the dedicated overview implementation.
 """
 import os
 import sys
