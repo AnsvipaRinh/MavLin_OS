@@ -880,3 +880,62 @@ Work stops here per the rule; no remote state was modified. All slice-3 tests pa
 - **Concurrent-session incident during resolution:** a live qwen-worker session ran `git reset` mid-merge (reflog 7619f21 `reset: moving to HEAD`), destroying the first in-flight (uncommitted) resolution. Rebuilt deterministically and committed promptly. Parallel work is user-approved; this record documents the event, no revert performed.
 - Env gap fixed along the way: python-xlib installed in the build container (activation suite needs it).
 - **Second wave during push:** origin advanced again (7ae2186 → 50a4c8b, 29 commits: MC grouping/Space selection refinement, workspace count/remove controls + helpers, Plank Trash docklet gate, icons). Follow-up merge was conflict-free; all new MC suites green (window-spaces/spaces-remove/workspaces-count). Reconciliation included: `mv-mc-window-spaces` rewritten onto the shared `mission_control` backend — its original `python3-ewmh` dependency does not exist in Arch repos (AUR-only) and duplicated slice-1 enumeration; output JSON contract preserved exactly. Push sequence: first push rejected non-FF by the same race; second push carries both merges. Third wave (d0d4dbc): overview had been shrunk by 191fd78 to a 130-line CLI stub (deleting the 507-line GTK UI with grouped stacks/DnD/Spaces strip); union resolution keeps BOTH: restored the 507-line GTK UI as default mode AND preserved the stub's CLI contract (--list/--debug/--activate, headless-safe via deferred GTK import); their helper tests (overview 3/3, thumbnail-helper, grid, window-spaces, workspace-count) + GTK 3s smoke all green. mv-mc-thumbnail (import/scrot CLI) and mv-mc-grid remain standalone helpers; the overview renders via in-process mission_control_thumbnail (no external screenshot deps).
+
+---
+
+## 2026-10-05 — Issue #2 backlog closure (deliverables verified+restored) + orchestrator-protocol bump 16→17 + parallel-orchestrator commit discipline
+
+**(a) Issue #2 (Poppy OS X Revieve audit) closed in the discovery state.**
+Deliverables verified against the repository, not against PROGRESS.md claims:
+- `docs/POPPY_AUDIT.md` — present on HEAD, 565 lines, contains §7 Reuse Map
+  and §8 Integration Objectives (the audit's substance).
+- `docs/ISSUE_2_STATUS.md`, `docs/SESSION_SUMMARY_2026-10-04.md`,
+  `docs/FINAL_SESSION_REPORT_2026-10-04.md`, `packages/mavericks-theme/NOTICE`
+  — were committed on 2026-10-04 (7ea3808, 533c1ba, 0635c12, b9227e8/bd58c0e)
+  but dropped from main by merge a86f15f (PR #7 integration). That drop was
+  never sanctioned — the NOTICE removal was classified NEEDS-HUMAN in
+  EXTERNAL_AUDIT/DECISIONS ("verify license before accepting") and never
+  accepted. All four restored verbatim from 8836c6f (the last tree that had
+  them), except one correction: the NOTICE cursors section now states
+  **Artistic License 1.0** per the in-tree authoritative
+  `cursors-poppy/COPYRIGHT` + `LICENSE` (the old CC BY-SA 4.0 wording came
+  from the fork README and contradicts `docs/LICENSES.md`). Attribution
+  (kayover/sziberov, Poppy-OS-X-Revieve, Neutral by Alexey Nikitine) preserved.
+- Closure mechanics: `backlog.sh` has no per-item done-interface, so item #2
+  was closed via the sanctioned discovery-state mechanism —
+  `state.json processed_issues["2"] = <current updatedAt>` (exactly what
+  discover.sh itself records for handled items) plus a transient `status:
+  "done"` field in backlog.json (survives only until the next discovery run,
+  which is by design). Discovery re-run 2026-10-05: status OK, exit 0 —
+  item #2 marked ✓ and NOT re-added; new external items #79/#80/#84 picked
+  up. GitHub-side issue #2 remains OPEN; closing it on GitHub is left to the
+  owner (worker does not close owner issues unilaterally).
+- Tests: `lab/tests/contrib/test_backlog.py` 5/5, `test_discover_failure.py`
+  5/5, `test_triage.py` 5/5 after the change.
+
+**(b) orchestrator-protocol 16→17 (scripts/session-reuse.py).** The agent
+file `.opencode/agents/orchestrator.md` already requires v17 in its ENV
+PRE-CHECK while the script printed 16, so any strict orchestrator hit a
+false STALE-AGENT STOP. Verified the script implements the FULL v17 surface
+before bumping: all 22 contract subcommands present in the dispatch map
+(register/context/decide/retire/delete/status/children/list/version/exists/
+abort/preflight/health/mark-dead/mark-alive/find-objective/link-objective/
+stalled/stuck/migrate/models/classify-error), including the flagged forms
+`stuck --threshold`, `stalled <id> --threshold`, `register --oid --failure`,
+`migrate --delay --exclude`, `classify-error --record-model --cooldown`,
+`decide --objective --agent`. Read-only commands exercised green (version,
+status, health, preflight, models, find-objective). The bump is therefore a
+pure constant synchronization — the server was never stale, the constant
+lagged. `version` now prints 17; `health` OK. Note: `test-session-reuse.py`
+has 3 failures, proven pre-existing (identical on the pre-bump code via
+stash A/B) and environment-dependent — they assert specific next-workers
+(build-b) while live cooldown memory legitimately rotates to other workers.
+
+**(c) Parallel-orchestrator discipline (standing rule).** The project now
+runs TWO orchestrators concurrently plus transient/foreign agents (documented
+MC-merge incidents: a qwen-worker `git reset` destroyed an in-flight
+resolution). Consequence for all workers: in a shared tree, commit ONLY the
+files you personally created/changed, via explicit `git add <paths>`; never
+`git add -A`/`-u`; never pull/rebase/merge while another session works; never
+touch another session's modified/untracked files. This entry makes that rule
+discoverable from DECISIONS.md alongside the incident record.
