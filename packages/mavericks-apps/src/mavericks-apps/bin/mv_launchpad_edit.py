@@ -305,43 +305,60 @@ class LaunchpadEditDialog(Gtk.Dialog):
             row_id = model.get_value(iter, 3)
             data.set_text(str(row_id), -1)
             
+    @staticmethod
+    def reorder_apps(apps, source_index, destination_index):
+        """Return a reordered copy, inserting the source item before destination."""
+        if not (0 <= source_index < len(apps)):
+            return list(apps)
+        if not (0 <= destination_index < len(apps)):
+            return list(apps)
+        if source_index == destination_index:
+            return list(apps)
+
+        reordered = list(apps)
+        item = reordered.pop(source_index)
+        if source_index < destination_index:
+            destination_index -= 1
+        reordered.insert(destination_index, item)
+        return reordered
+
     def on_drag_data_received(self, widget, drag_context, x, y, data, info, time):
-        if data.get_length() >= 0:
-            try:
-                source_row_id = int(data.get_text())
-                dest_path = widget.get_dest_row_at_pos(x, y)
-                if dest_path:
-                    dest_iter = self.list_store.get_iter(dest_path[0])
-                    dest_row_id = self.list_store.get_value(dest_iter, 3)
-                    
-                    if source_row_id != dest_row_id:
-                        # Move in list_store
-                        source_iter = None
-                        for row in self.list_store:
-                            if row[3] == source_row_id:
-                                source_iter = row.iter
-                                break
-                        if source_iter:
-                            self.list_store.remove(source_iter)
-                            self.list_store.insert_before(dest_iter, [
-                                self.list_store.get_value(source_iter, 0),
-                                self.list_store.get_value(source_iter, 1),
-                                f"↑  {dest_row_id}  ↓",
-                                dest_row_id,
-                                self.list_store.get_value(source_iter, 4)
-                            ])
-                            self.renumber_positions()
-            except (ValueError, TypeError):
-                pass
-        drag_context.finish(True, False, time)
-        
+        """Apply a GTK drag to the authoritative app_list, then rebuild the model."""
+        success = False
+        try:
+            source_row_id = int(data.get_text())
+            dest_path = widget.get_dest_row_at_pos(x, y)
+            if dest_path:
+                dest_iter = self.list_store.get_iter(dest_path[0])
+                dest_row_id = self.list_store.get_value(dest_iter, 3)
+                source_index = source_row_id - 1
+                destination_index = dest_row_id - 1
+
+                if source_index != destination_index:
+                    self.app_list = self.reorder_apps(
+                        self.app_list, source_index, destination_index
+                    )
+                    self.populate_list()
+                    new_index = (
+                        destination_index - 1
+                        if source_index < destination_index
+                        else destination_index
+                    )
+                    self.tree_view.set_cursor(
+                        Gtk.TreePath.new_from_indices([new_index]), None, False
+                    )
+                success = True
+        except (ValueError, TypeError, IndexError):
+            success = False
+        drag_context.finish(success, False, time)
+
     def renumber_positions(self):
-        """Renumber all positions after drag-and-drop."""
+        """Renumber visible rows from the authoritative app_list."""
         for idx, row in enumerate(self.list_store):
             row[2] = f"↑  {idx+1}  ↓"
             row[3] = idx + 1
         self.update_page_label()
-        
+
     def on_row_activated(self, tree_view, path, column):
         """Handle double-click / Enter on row."""
         pass
