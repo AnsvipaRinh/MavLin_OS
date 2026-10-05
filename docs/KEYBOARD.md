@@ -1,127 +1,78 @@
 # MavLinOS — Keyboard Shortcut Reference
 
-Central reference for all global keyboard bindings. Super = Windows/Command key.
+Source of truth: `packages/mavericks-apps/.../config/xfce4-keyboard-shortcuts.xml`
+(mirrored into airootfs skel). Super = Windows / Command key.
 
-## Application Launchers
+## Application launchers
 
 | Shortcut | Action | Backend |
 |---|---|---|
-| Super+Space | Spotlight (search files/apps) | rofi + mv-spotlight + plocate |
-| Super+L | Launchpad (app grid) | rofi + mv-launchpad |
+| Super+Space | Spotlight | rofi + mv-spotlight |
+| Super+L | Launchpad | rofi + mv-launchpad |
 | Super+Shift+L | Launchpad edit mode | mv-launchpad-edit |
-| Super+Tab | Mission Control (window overview) | rofi + mv-mission-control |
+| Super+Tab | Mission Control | mv-mission-control --native |
 | Super+Shift+F | Finder (column UI) | mv-finder-columns |
 | Super+E | Finder (column UI) | mv-finder-columns |
+| Ctrl+Alt+T | Terminal | xfce4-terminal |
+| Super+Comma | System Settings | mv-settings |
+| Super+Shift+C | Control Center | mv-control |
+| Super+Shift+V | Notification Center | mv-notification-center |
+| Ctrl+Alt+C | Calendar | mv-calendar |
 
-## File Operations
+## File operations
 
 | Shortcut | Action | Backend |
 |---|---|---|
 | Ctrl+Alt+N | New Folder on Desktop | mv-newfolder |
 | Super+Shift+N | New Folder in Home | mv-newfolder |
-| Super+I | Get Info (Home) | mv-getinfo |
-| Super+O | Open With (Home) | mv-openwith |
-| Super+Shift+I | Get Info (Current) | mv-getinfo |
-| Super+Shift+O | Open With (Current) | mv-openwith |
-| Super+F4 | Eject (Selected) | mv-eject |
-| Super+Delete | Move to Trash | trash-cli |
+| Super+I | Get Info | mv-getinfo |
+| Super+O | Open With | mv-openwith |
+| Super+Delete | Move to Trash | mv-trash (trash-put / Delete key) |
 | Super+Shift+Delete | Empty Trash | trash-empty |
-
-## System
-
-| Shortcut | Action | Backend |
-|---|---|---|
-| Super+Comma | System Settings | mv-settings |
-| Super+Shift+C | Control Center | mv-control |
-| Super+Shift+V | Notification Center | mv-notification-center |
-| Super+Shift+Space | Quick Look (Thunar selection) | mv-quicklook-thunar |
-| Ctrl+Alt+Escape | Power dialog (Sleep/Restart/Shut Down/Log Out) | mv-power-ui |
-| Ctrl+Alt+Delete | Log Out | mv-power-ui logout |
-| Ctrl+Alt+L | Lock Screen | xfce4-screensaver-command --lock |
-| Ctrl+Alt+T | Terminal | xfce4-terminal |
 | Super+Shift+E | Empty Trash | trash-empty |
+| Super+F4 | Eject | mv-eject |
+| Super+Shift+Space | Quick Look (Thunar) | mv-quicklook-thunar |
 
-## Window management (global)
+## Window management
 
 | Shortcut | Action | Backend |
 |---|---|---|
-| Super+Q | Quit focused application | mv-quit-app (xdotool) |
+| Super+Q | Quit focused application | mv-quit-app |
 | Super+M | Minimize focused window | mv-minimize-window |
 | Super+H | Hide focused application | mv-hide-app |
 | Super+W | Close focused window | mv-close-window |
-
-## Screenshots
-
-| Shortcut | Action | Backend |
-|---|---|---|
-| Super+Shift+3 | Full screen to file | mv-shot |
-| Super+Shift+4 | Selection to file | mv-shot -i |
-| Super+Shift+5 | Interactive window to file | mv-shot -i -c |
-
-## Volume
-
-| Shortcut | Action | Backend |
-|---|---|---|
-| XF86AudioRaiseVolume | Volume +5% | pactl |
-| XF86AudioLowerVolume | Volume -5% | pactl |
-| XF86AudioMute | Mute toggle | pactl |
-
-## Display brightness
-
-| Shortcut | Action | Backend |
-|---|---|---|
-| XF86MonBrightnessUp | Brightness +5% | mv-brightness (sysfs + udev uaccess) |
-| XF86MonBrightnessDown | Brightness -5% | mv-brightness (sysfs + udev uaccess) |
-
-## Window tiling (xfwm4)
-
-| Shortcut | Action | Backend |
-|---|---|---|
-| Super+Up | Tile window up | xfwm4 |
-| Super+Down | Tile window down | xfwm4 |
-| Super+Left | Tile window left | xfwm4 |
-| Super+Right | Tile window right | xfwm4 |
-| Super+Alt+Right | Next workspace | xfwm4 |
-| Super+Alt+Left | Previous workspace | xfwm4 |
+| Super+Up / Down / Left / Right | Tile window | xfwm4 |
+| Alt+Tab | Cycle windows | xfwm4 |
+| Alt+Shift+Tab | Cycle windows reverse | xfwm4 |
 
 ## Spaces
 
 | Shortcut | Action | Backend |
 |---|---|---|
 | Super+1 … Super+4 | Switch to Space N | xfwm4 |
-| Super+Alt+Left/Right | Previous / next Space | xfwm4 |
+| Super+Alt+Left / Right | Previous / next Space | xfwm4 |
 
-## Window cycle
+## Screenshots
 
 | Shortcut | Action | Backend |
 |---|---|---|
-| Alt+Tab | Cycle windows | xfwm4 |
-| Alt+Shift+Tab | Cycle windows reverse | xfwm4 |
+| Super+Shift+3 | Full screen | mv-shot -m |
+| Super+Shift+4 | Selection | mv-shot -i -c |
+| Super+Shift+5 | Interactive | mv-shot -i |
 
-## Mavericks-like mappings still app-level
+## System
 
-These are **not** globally bound (to avoid stealing browser/editor shortcuts):
-
-| Shortcut | Action | App-level equivalent |
+| Shortcut | Action | Backend |
 |---|---|---|
-| Super+T | New tab | Ctrl+T in Firefox |
-| Super+N | New window | Ctrl+N in Firefox |
-| Super+C | Copy | Ctrl+C |
-| Super+F | Find | Ctrl+F |
+| Ctrl+Alt+L | Lock Screen | xfce4-screensaver-command --lock |
+| Ctrl+Alt+Escape | Power dialog | mv-power-ui |
+| Ctrl+Alt+Delete | Log Out | mv-power-ui logout |
+| XF86MonBrightnessUp / Down | Brightness | mv-brightness |
+| XF86AudioRaise / Lower / Mute | Volume | pactl |
+| XF86AudioPlay / Next / Prev / Stop | Media | mv-music |
 
-## Finder / Thunar (app-level accelerators)
+## Notes
 
-| Shortcut | Action |
-|---|---|
-| Ctrl+1 | Icon view |
-| Ctrl+2 | List view |
-| Ctrl+3 | Compact view |
-| Ctrl+= | Zoom in |
-| Ctrl+- | Zoom out |
-| Ctrl+0 | Normal size |
-
-## Xfce global bindings
-
-- Source of truth: `packages/mavericks-apps/.../xfce4-keyboard-shortcuts.xml` (mirrored into airootfs skel)
-- `mv-*` scripts ship via the `mavericks-apps` package
-- Regression gates: `scripts/test-finder-launcher.py`, `scripts/test-window-keys.py`, `scripts/test-brightness-keys.py`, `scripts/test-backlight-udev.py`, `scripts/test-alt-tab.py`, `scripts/test-workspaces.py`, `scripts/test-lock-screen.py`
+- Function / media keys depend on firmware and `Fn` behavior.
+- App-level accelerators (Ctrl+C/V/T/F, Thunar Ctrl+1/2/3 zoom) stay in the application.
+- Regression gates: `scripts/test-*-keys.py`, `scripts/test-workspaces.py`, `scripts/test-alt-tab.py`, `scripts/test-lock-screen.py`, `scripts/test-empty-trash-keys.py`, `scripts/test-trash-eject-keys.py`.

@@ -36,13 +36,24 @@ for path in PATHS:
                 "%s must point at %s (in %s)" % (name, desktop, path)
             )
 
+# Mavericks Dock ends with Trash (Plank trash docklet)
+for path in PATHS:
+    if not os.path.isdir(path):
+        continue
+    trash = os.path.join(path, "trash.dockitem")
+    if not os.path.isfile(trash):
+        errors.append("missing trash.dockitem in %s" % path)
+        continue
+    text = open(trash, encoding="utf-8").read()
+    if "Launcher=docklet://trash" not in text:
+        errors.append("trash.dockitem must use docklet://trash in %s" % path)
+
 finder = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/desktop/mv-finder.desktop"
 )
 if not os.path.isfile(finder):
     errors.append("mv-finder.desktop missing (Dock Finder pin would be dead)")
 
-# configs ↔ airootfs: same file set, byte-identical content (no partial drift)
 cfg_dir, skel_dir = PATHS[0], PATHS[1]
 if os.path.isdir(cfg_dir) and os.path.isdir(skel_dir):
     cfg_files = sorted(os.listdir(cfg_dir))
@@ -57,8 +68,6 @@ if os.path.isdir(cfg_dir) and os.path.isdir(skel_dir):
         if a != b:
             errors.append("content drift for %s (configs != airootfs)" % name)
 
-# plain pacman installs get the pins from the mavericks-theme package
-# (ISO airootfs ships them as files; package installs must too)
 pkgbuild = os.path.join(REPO, "packages/mavericks-theme/PKGBUILD")
 if not os.path.isfile(pkgbuild):
     errors.append("mavericks-theme PKGBUILD missing")
@@ -75,5 +84,5 @@ if errors:
     sys.exit(1)
 
 print("ok - default Dock launchers present in configs and skel (byte-identical)")
-print("ok - pins: Finder, Launchpad, Firefox, Mail, System Settings, Terminal")
+print("ok - pins: Finder, Launchpad, Firefox, Mail, System Settings, Terminal, Trash")
 print("ok - mavericks-theme PKGBUILD ships pins to /etc/skel (pacman installs)")

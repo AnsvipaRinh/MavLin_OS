@@ -51,6 +51,9 @@ window.mav-mc {
   background-color: transparent;
   border-color: rgba(83,110,191,0.72);
 }
+.mav-app-group { background-color: transparent; }
+.mav-app-heading { color:#ffffff; font-size:14px; font-weight:600; text-shadow:0 1px 2px #000; }
+.mav-app-icon { min-width:20px; min-height:20px; }
 .mav-title {
   color: #ffffff;
   font-size: 18px;
@@ -239,11 +242,43 @@ class Overview(Gtk.Window):
             empty.get_style_context().add_class("mav-muted")
             grid.attach(empty, 0, 0, 1, 1)
         else:
-            cols = 1 if len(current_items) <= 2 else (2 if len(current_items) <= 6 else 3)
-            for index, win in enumerate(current_items):
-                card = self._make_card(win, win.get("win_id", "").lower() == active_id)
-                grid.attach(card, index % cols, index // cols, 1, 1)
-                self._cards.append((card, win.get("win_id")))
+            # Mavericks can group Mission Control windows by application.
+            # Grouping is visual-only: each window remains independently
+            # activatable and usable as a drag source.
+            groups = []
+            group_map = {}
+            for win in current_items:
+                key = (win.get("wm_class") or "(unknown)").strip().lower()
+                if key not in group_map:
+                    group_map[key] = []
+                    groups.append((key, group_map[key]))
+                group_map[key].append(win)
+
+            cols = 1 if len(groups) <= 2 else (2 if len(groups) <= 6 else 3)
+            for group_index, (group_key, group_windows) in enumerate(groups):
+                group_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+                group_box.get_style_context().add_class("mav-app-group")
+                heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+                icon = self._application_icon(group_windows[0])
+                heading.pack_start(icon, False, False, 0)
+                app_label = Gtk.Label(label=self._application_name(group_windows[0]))
+                app_label.set_xalign(0)
+                app_label.get_style_context().add_class("mav-app-heading")
+                heading.pack_start(app_label, True, True, 0)
+                group_box.pack_start(heading, False, False, 0)
+
+                # Keep windows belonging to one application visually compact.
+                # Mavericks groups them as a single application cluster rather
+                # than giving every window a full-width top-level column.
+                cards_grid = Gtk.Grid()
+                cards_grid.set_column_spacing(14)
+                cards_grid.set_row_spacing(14)
+                for card_index, win in enumerate(group_windows):
+                    card = self._make_card(win, win.get("win_id", "").lower() == active_id)
+                    cards_grid.attach(card, card_index % 2, card_index // 2, 1, 1)
+                    self._cards.append((card, win.get("win_id")))
+                group_box.pack_start(cards_grid, False, False, 0)
+                grid.attach(group_box, group_index % cols, group_index // cols, 1, 1)
 
         self.show_all()
         if self._cards:
@@ -291,6 +326,11 @@ class Overview(Gtk.Window):
             self._refresh_after_workspace_switch()
 
     def _switch_workspace(self, button, desktop):
+        # Clicking the already-selected Space must not toggle its radio-like
+        # state off. Mavericks always keeps one Space selected.
+        if desktop == int(mission_control.get_workspaces().get("current", 0)):
+            button.set_active(True)
+            return
         if not button.get_active():
             return
         if mission_control.switch_workspace(desktop):
@@ -347,13 +387,36 @@ class Overview(Gtk.Window):
         self._clear_drop_highlight()
         win_id = selection.get_text()
         if not win_id:
-            context.drag_status(0, _time)
+            context.finish(False, False, _time)
             return
         if mission_control.move_window_to_workspace(win_id, desktop):
             context.finish(True, False, _time)
             self._refresh_after_workspace_switch()
             return
         context.finish(False, False, _time)
+
+    def _application_name(self, win):
+        name = (win.get("wm_class") or "").strip()
+        if name:
+            return name
+        title = (win.get("title") or "").strip()
+        return title if title else "Application"
+
+    def _application_icon(self, win):
+        theme = Gtk.IconTheme.get_default()
+        wm_class = (win.get("wm_class") or "").strip()
+        candidates = [wm_class, wm_class.lower(), wm_class.replace(" ", "-").lower()] if wm_class else []
+        candidates.append("application-x-executable")
+        for name in candidates:
+            try:
+                if theme.has_icon(name):
+                    image = Gtk.Image.new_from_icon_name(name, Gtk.IconSize.MENU)
+                    image.set_size_request(20, 20)
+                    image.get_style_context().add_class("mav-app-icon")
+                    return image
+            except Exception:
+                pass
+        return Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.MENU)
 
     def _make_card(self, win, is_active):
         event = Gtk.EventBox()

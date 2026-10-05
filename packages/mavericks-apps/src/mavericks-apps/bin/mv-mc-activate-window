@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Mission Control: activate/focus a specific window by WID.
+
+Usage: mv-mc-activate-window <window_id>
+
+This switches to the workspace containing the window and focuses it.
+"""
+import sys
+import subprocess
+
+def activate_window(wid_str):
+    """Activate window by WID using wmctrl."""
+    try:
+        wid = int(wid_str)
+    except ValueError:
+        print(f"Error: Invalid window ID: {wid_str}", file=sys.stderr)
+        sys.exit(1)
+    
+    # First, try to activate directly with wmctrl
+    try:
+        subprocess.run(["wmctrl", "-ia", str(wid)], check=True, capture_output=True)
+        print(f"Activated window {wid}")
+        return
+    except subprocess.CalledProcessError:
+        pass
+    except FileNotFoundError:
+        print("Warning: wmctrl not found, trying alternative methods", file=sys.stderr)
+    
+    # Alternative: use xdotool
+    try:
+        subprocess.run(["xdotool", "window-activate", str(wid)], check=True, capture_output=True)
+        print(f"Activated window {wid} via xdotool")
+        return
+    except subprocess.CalledProcessError:
+        pass
+    except FileNotFoundError:
+        pass
+    
+    print(f"Failed to activate window {wid}", file=sys.stderr)
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: mv-mc-activate-window <window_id>", file=sys.stderr)
+        sys.exit(1)
+    
+    activate_window(sys.argv[1])

@@ -17,6 +17,8 @@ The Poppy reference is now treated as a visual benchmark, not a generic inspirat
 
 - Fixed a concrete packaging defect found during the audit: nine scalable action icons were plain text paths to an external Poppy checkout and therefore could not work in an installed image. They are now self-contained SVGs; `window-close-symbolic` and `view-app-grid-symbolic` were also added.
 
+- Added four clean-room scalable status icons (`battery-good-charging`, `battery-full-charging`, `network-wireless-signal-none`, `notifications`) to close common panel/status fallbacks without importing Poppy assets wholesale.
+
 ### Remaining visual gaps
 
 - Corrected the global Xfce GTK font target from `San Francisco 11` to `Lucida Grande 11`; San Francisco is not Mavericks-era and was an accidental post-Mavericks visual drift. The live-image skeleton was corrected in the same pass.
@@ -197,3 +199,6 @@ Each Tier 1 port:
 1. Finish the remaining Poppy-derived icon categories with clean-room assets.
 2. Replace CSS noise simulation with a newly generated, license-clean texture if the runtime supports it without increasing startup/battery cost.
 3. Validate the resulting theme on the target Xfce/GTK runtime and compare rendered screenshots against the reference values.
+- Expanded clean-room Places coverage with six scalable icons: Home, Desktop, Music, Pictures, Network, and Computer.
+
+- Mission Control now groups current-Space windows by `WM_CLASS`, adding an application icon/name heading while keeping each window independently selectable and draggable. This matches the Mavericks-era `Group Windows by Application` model rather than introducing later macOS behavior.
