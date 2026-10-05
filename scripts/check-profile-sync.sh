@@ -90,6 +90,16 @@ check_file "$REPO_ROOT/configs/profiles/fragments/99-mavericks-display.conf" \
     ((ERRORS++))
 }
 
+# Installed copies of the install-time scripts must stay byte-identical to
+# their source versions; otherwise an ISO can silently ship stale logic.
+check_file "$REPO_ROOT/scripts/install/mavericks-firstboot.sh" \
+    "$AIROOTFS/usr/local/bin/mavericks/mavericks-firstboot.sh" \
+    "firstboot script mirror"
+
+check_file "$REPO_ROOT/scripts/install/mavericks-profile-select.sh" \
+    "$AIROOTFS/usr/local/bin/mavericks/mavericks-profile-select.sh" \
+    "profile selector script mirror"
+
 # firstboot script must source profile config
 if ! grep -q 'source.*PROFILE_CONF' "$AIROOTFS/usr/local/bin/mavericks/mavericks-firstboot.sh"; then
     echo "ERROR: firstboot does not source profile config"
