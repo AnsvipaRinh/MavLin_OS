@@ -51,6 +51,15 @@ fi
 # that install is absent (CI, fresh checkout) fall back to the repo copy.
 export PYTHONPATH="$REPO/packages/mavericks-apps/src/mavericks-apps/lib${PYTHONPATH:+:$PYTHONPATH}"
 
+# MavLinOS targets X11 (Xfce/xfwm4). The dev host exposes a Wayland
+# compositor (WAYLAND_DISPLAY), and without an explicit backend GTK3
+# opens the test windows on the *host* compositor instead of the Xvfb
+# under test: real host focus/input events then churn (and killed) the
+# window under test, and windows popped up on the real desktop. CI has
+# no Wayland; forcing x11 makes local runs match CI and the target
+# session, and keeps _NET_SUPPORTING_WM_CHECK probing meaningful.
+export GDK_BACKEND=x11
+
 SMOKE_TMP="$(mktemp -d)"
 printf 'smoke launch file\n' >"$SMOKE_TMP/smoke-file.txt"
 cleanup_tmp() { rm -rf "$SMOKE_TMP"; }

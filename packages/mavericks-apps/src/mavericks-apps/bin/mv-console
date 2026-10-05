@@ -439,8 +439,8 @@ class Console(Gtk.Window):
         """Handle mouse motion over log view - show preview for line under cursor."""
         x, y = widget.window_to_buffer_coords(Gtk.TextWindowType.TEXT,
                                                int(event.x), int(event.y))
-        iter_ = widget.get_iter_at_location(x, y)
-        if iter_:
+        ok, iter_ = widget.get_iter_at_location(x, y)
+        if ok:
             self.show_preview_for_iter(iter_)
 
     def on_text_click(self, widget, event):
@@ -448,8 +448,8 @@ class Console(Gtk.Window):
         if event.button == 1:
             x, y = widget.window_to_buffer_coords(Gtk.TextWindowType.TEXT,
                                                    int(event.x), int(event.y))
-            iter_ = widget.get_iter_at_location(x, y)
-            if iter_:
+            ok, iter_ = widget.get_iter_at_location(x, y)
+            if ok:
                 self.show_preview_for_iter(iter_)
                 return True
         return False

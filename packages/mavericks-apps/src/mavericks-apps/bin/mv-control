@@ -18,7 +18,7 @@ import json
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gio", "2.0")
-from gi.repository import Gtk, Gio, GLib
+from gi.repository import Gtk, Gio, GLib, Gdk
 
 WIFI_FALLBACK_POLL_S = 30
 WIFI_REFRESH_DEBOUNCE_S = 1
@@ -79,9 +79,11 @@ class ControlCenter(Gtk.Window):
         self.build_dnd_section()
         self.build_notifications_section()
 
+        self.connect("focus-in-event", self.on_focus_in)
         self.connect("focus-out-event", self.on_focus_out)
         self.connect("key-press-event", self.on_key_press)
         self.connect("destroy", self.on_destroy)
+        self.connect("map", lambda *_: setattr(self, "_shown_at", time.monotonic()))
 
         # Refresh data periodically (30s: battery, power mode, DND change externally)
         self._refresh_all_id = GLib.timeout_add_seconds(REFRESH_ALL_INTERVAL_S, self.refresh_all)
@@ -879,7 +881,34 @@ class ControlCenter(Gtk.Window):
             pass
         return True  # Continue timeout
 
+    @staticmethod
+    def _has_wm():
+        """True when a window manager owns focus (EWMH _NET_SUPPORTING_WM_CHECK)."""
+        try:
+            root = Gdk.get_default_root_window()
+            atom = Gdk.atom_intern("_NET_SUPPORTING_WM_CHECK", False)
+            res = root.property_get(atom)
+            return bool(res and res[0] and res[1])
+        except Exception:
+            return False
+
+    def on_focus_in(self, widget, event):
+        self._ever_focused = True
+        return False
+
     def on_focus_out(self, widget, event):
+        # Close on click-away only under a real window manager. Bare X
+        # sessions (Xvfb smoke, CI) synthesize focus-in/out pairs on a
+        # stationary popup — measured at 0.0–1.3 s after map with the
+        # pointer never moving — which destroyed the popup before the
+        # user ever saw it. No WM = no trustworthy focus model = ignore
+        # focus-out (Escape still closes).
+        if not ControlCenter._has_wm():
+            return True
+        if not getattr(self, "_ever_focused", False):
+            return True
+        if time.monotonic() - getattr(self, "_shown_at", time.monotonic()) < 0.8:
+            return True
         self.destroy()
         return True
 

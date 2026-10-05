@@ -1274,7 +1274,7 @@ class PhotosWindow(Gtk.Window):
         dlg = Gtk.Dialog(title="Photo", transient_for=self,
                          flags=Gtk.DialogFlags.MODAL)
         dlg.set_default_size(800, 600)
-        hb = dlg.get_headerbar() if dlg.get_headerbar() else None
+        hb = dlg.get_header_bar() if dlg.get_header_bar() else None
 
         close_btn = Gtk.Button(label="Close")
         close_btn.get_style_context().add_class("mavericks-toolbar-btn")
