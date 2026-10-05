@@ -465,3 +465,24 @@ fresh PRs rebased onto 183c9d9.
   68,77,78,19} for three-way analysis; no product code modified.
 
 (End of owner-PR triage 2026-10-05)
+
+---
+
+## 2026-10-05 — Owner PR closeout (oid OS-pr-closeout)
+
+All 8 superseded owner PRs closed as **close-do-not-merge** per df02e3e triage verdict.
+Each PR's substance already exists on main (df02e3e01d6a1bc3a92635f7538a30af3b2ea457) via
+different commits/PRs; branches were 24–458 commits behind and CONFLICTING.
+
+| PR | Closed | Superseded by (main commits) |
+|----|--------|------------------------------|
+| #3 | 2026-10-05 | Theme validation gate (python3 scripts/test-theme-css.py) already in CI via df02e3e lineage |
+| #4 | 2026-10-05 | Self-contained firstboot + profile selector (mavericks-profile-select.sh → mavericks-firstboot.sh) on main |
+| #5 | 2026-10-05 | Finder desktop entry launches mv-finder-columns; implementation present on main |
+| #6 | 2026-10-05 | Panel config validation (test-panel-config.py) + Mavericks menu bar (mv-apple + appmenu + systray + clock + power-manager) on main |
+| #61 | 2026-10-05 | Nested desktop entry discovery + XDG desktop-ID preservation in mv_desktop_cache.py (os.walk, rel.replace) on main via #37–#76 sync |
+| #68 | 2026-10-05 | Launchpad migration persistence (migrated return value + changed flag) in mv-launchpad load_folders() on main |
+| #77 | 2026-10-05 | Menu Bar + Application Menu status = IMPLEMENTED — HARDWARE VALIDATION REQUIRED in docs/APPS.md on main |
+| #78 | 2026-10-05 | Duplicate of #77; same rows already updated on main |
+
+All closures pushed to origin.
