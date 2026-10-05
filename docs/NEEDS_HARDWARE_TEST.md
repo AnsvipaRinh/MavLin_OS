@@ -297,9 +297,15 @@ procedures or active code reference them:
 - [ ] Super+Shift+Space in Thunar copies selection to clipboard and opens mv-quicklook with selected files
 - [ ] **Native Space binding limitation**: Thunar does not support binding Space key to custom actions without a C/Vala plugin (ThunarX). Current workaround uses Super+Shift+Space. A native Thunar plugin would be required for true Space-key Quick Look integration (investigate thunarx-python or Vala plugin for future).
 - [ ] UCA context menu "Quick Look" works (right-click → Quick Look)
-- [ ] mv-quicklook on image/PDF/text/audio — multi-file nav (←/→/Space), fullscreen (F), Open button work
+- [ ] mv-quicklook on image/PDF/text/office/audio/video — multi-file nav (←/→/Space/Home/End/PgUp/PgDn), fullscreen (F), Open button work
+- [ ] Preview selection grid (G key / headerbar button) — thumbnail grid for multi-file selection, Enter/Space to preview, Esc to cancel
 - [ ] PDF preview via poppler-glib renders first page on 2304x1440
-- [ ] Media files show metadata via ffprobe
+- [ ] Media files show metadata via ffprobe (duration, bitrate, resolution, codecs, audio channels, subtitles)
+- [ ] Extended format support: HEIC, AVIF, TIFF images; DOC/DOCX/ODT/RTF office docs (metadata + Open handoff); Opus, M4V, TS, MTS video
+- [ ] Focus-out auto-close behavior (500ms delay) matches Mavericks sheet feel under real xfwm4
+- [ ] HiDPI rendering: thumbnails, grid, text preview, media metadata grid at 2304×1440 (2x scaling)
+- [ ] Clipboard grab reliability on real Thunar/xfwm4 — multi-select paste, special chars in filenames
+- [ ] Keyboard navigation feel: Space for next, arrows, Home/End, PgUp/PgDn, G for grid, F fullscreen, Esc close
 
 ## Thumbnailer — config gap (decision: no new daemon)
 - [ ] tumbler is absent from the ISO package list; thunarrc requests

@@ -13,7 +13,7 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
 
 
-def get_thuran_selection():
+def get_thunar_selection():
     """Try to get selected files from Thunar via clipboard copy."""
     try:
         # Check if Thunar is the active window
@@ -22,7 +22,8 @@ def get_thuran_selection():
             capture_output=True, text=True, timeout=2
         )
         if "thunar" not in active.stdout.lower():
-            return None
+            # Not in Thunar - try to get selection anyway (some WM report differently)
+            pass
 
         # Copy selection to clipboard (Ctrl+C)
         subprocess.run(["xdotool", "key", "ctrl+c"], timeout=1)
@@ -30,7 +31,7 @@ def get_thuran_selection():
         # Give clipboard time to update - poll with timeout
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         clipboard_text = None
-        for _ in range(10):
+        for _ in range(20):  # Increased timeout
             clipboard_text = clipboard.wait_for_text()
             if clipboard_text and clipboard_text.strip():
                 break

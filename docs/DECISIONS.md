@@ -948,6 +948,30 @@ discoverable from DECISIONS.md alongside the incident record.
 
 ---
 
+## 2026-10-05 — Quick Look P0 (oid OS-ql-p0) implementation decisions
+
+**Context:** Quick Look was PARTIALLY IMPLEMENTED with known gaps: no preview selection UI, limited keyboard navigation, limited format support, basic window lifecycle. Per §13.6 and §10.4, the objective required implementing executable pre-hardware gaps.
+
+**Decisions:**
+
+1. **Preview selection grid (PreviewSelectionGrid class)** — When multiple files are passed, show a FlowBox grid with thumbnails instead of immediately opening the first file. This addresses the "preview selection" gap from §13.6. User navigates with arrows, confirms with Enter/Space, cancels with Esc. This is a pure GTK3 implementation with zero daemon overhead.
+
+2. **Space-like behavior under X11/Thunar constraints** — Thunar has no native Space key binding for custom actions without a C/Vala ThunarX plugin (not feasible pre-hardware). The existing Super+Shift+Space global hotkey via clipboard grab remains the primary integration. Decision: do NOT pursue Thunar plugin; document limitation in NEEDS_HARDWARE_TEST.md; improve clipboard-based approach reliability (longer polling, better active-window detection).
+
+3. **Extended keyboard navigation** — Added Home/End (first/last), PgUp/PgDn (jump 10), G key (show grid), focus-out delayed auto-close (500ms). Space now advances to next file (Mavericks behavior) alongside Right/Down. All keys work in both preview window and grid.
+
+4. **Extended format support** — Added HEIC, AVIF, TIFF to images; DOC/DOCX/ODT/RTF/TEX/EPUB to documents (metadata-only preview with Open handoff); Opus, M4V, TS, MTS, 3GP, OGV to media. Office document rendering would require libreoffice/unoconv daemon — rejected per §7 (no persistent daemon for occasional use). Metadata preview + xdg-open handoff is the correct pre-hardware approach.
+
+5. **Window lifecycle improvements** — Fullscreen toggle now properly restores previous window size. Open button gets `suggested-action` CSS class for visual prominence. Focus-out auto-close with 500ms delay mimics Mavericks sheet behavior. HeaderBar shows file counter (N of M) and grid button.
+
+6. **Thunar integration hardening** — Increased clipboard polling from 10×50ms to 20×50ms. Active window check is now advisory (not blocking) since some WMs report Thunar window names differently.
+
+**Rationale for IMPLEMENTED — HARDWARE VALIDATION REQUIRED status:** All pre-hardware executable gaps are closed. Remaining items require real MacBook10,1 hardware: Super+Shift+Space binding feel, HiDPI thumbnail rendering at 2304×1440, clipboard grab reliability on real xfwm4/Thunar, focus behavior under real WM.
+
+**Tests:** 31 contract tests in `scripts/test-mv-quicklook.py` (was 4). Xvfb :97 smoke launch stays up 3s. py_compile clean.
+
+---
+
 ## 2026-10-05 — GitHub sweep verdicts (oid OS-gh-sweep)
 
 **PR #86 (escape MC window labels) — ACCEPT, merged `d9ebb8b` (--no-ff).**

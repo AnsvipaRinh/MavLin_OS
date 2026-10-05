@@ -1,6 +1,31 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-05 (Mission Control dedicated overview layer — design plan)
+**Last Updated**: 2026-10-05 (Quick Look P0 complete — preview selection grid, extended formats, enhanced keyboard nav)
+
+---
+
+## Session 2026-10-05 (Quick Look P0) — oid OS-ql-p0
+
+**Objective:** Quick Look P0 (canonical inventory #6) — complete pre-hardware gaps per §13.6/§10.4.
+
+**Deliverables:**
+- Enhanced `mv-quicklook`: PreviewSelectionGrid for multi-file selection, extended format support (HEIC, AVIF, TIFF, DOC/DOCX/ODT/RTF, more audio/video), improved keyboard navigation (Home/End, PgUp/PgDn, G for grid, focus-out auto-close), fullscreen with size restore, suggested-action Open button, file counter in title.
+- Enhanced `mv-quicklook-thunar`: improved clipboard polling timeout, more robust selection detection.
+- Comprehensive test suite: 31 contract tests covering all new features.
+- Xvfb smoke test passes on dedicated display :97.
+- Documentation updated: APPS.md status → IMPLEMENTED — HARDWARE VALIDATION REQUIRED.
+
+**Key improvements:**
+1. **Preview selection grid** (G key or headerbar button) — addresses "preview selection" gap.
+2. **Extended keyboard navigation** — Home/End, PgUp/PgDn, Space for next, G for grid, focus-out auto-close.
+3. **Extended format support** — HEIC, AVIF, TIFF images; DOC/DOCX/ODT/RTF/TEX/EPUB office docs; Opus, M4V, TS, MTS video; more audio formats.
+4. **Office document preview** — metadata display with Open handoff (no rendering without libreoffice daemon).
+5. **Window lifecycle improvements** — proper fullscreen toggle with size restore, focus-out delayed close, suggested-action styling.
+6. **Thunar integration hardened** — longer clipboard polling, graceful fallback.
+
+**Gates:** `scripts/test-mv-quicklook.py` 31/31 pass; `python3 -m py_compile` clean; smoke launch on Xvfb :97 stays up 3s.
+
+**Status:** Pre-hardware complete. Hardware validation items remain (see NEEDS_HARDWARE_TEST.md).
 
 ---
 
