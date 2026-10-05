@@ -19,10 +19,13 @@
   "small_model": "opencode/ling-3.1-flash-free",
   "agent": {
     "build": {
-      // PRIMARY since 2026-10-04: Ling 3.1 Flash Free (GLM 5.3 removed per user directive — cooldown memory unreliable, config-only removal).
-      // Live-verified 2026-10-03: HTTP 200, tool_call:true, 1M context. First-priority
-      // builder; the chain below governs fallback order.
-      "model": "opencode/ling-3.1-flash-free",
+      // PRIMARY since 2026-10-05: GLM 5.3 Coding Plan (restored per user directive).
+      // Coding plan = separate connection type: built-in provider
+      // `zai-coding-plan`, key in ~/.local/share/opencode/auth.json (NOT the
+      // hand-rolled z-ai-coding-plan config provider). Live-verified 2026-10-05:
+      // model listed + HTTP 200. First-priority builder; the chain below
+      // governs fallback order.
+      "model": "zai-coding-plan/glm-5.3",
       "description": "Implementation worker: executes research, decomposition and implementation ITSELF with files and bash. Never delegates, never invokes subagents.",
       "permission": {
         // Workers must NEVER delegate deeper (2026-09-26, see DECISIONS.md):

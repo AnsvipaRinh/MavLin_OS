@@ -514,16 +514,6 @@ Hardware-зависимая валидация фиксируется как я�
 Примеры: global menu, Mission Control overview layer, замена
 rofi-поверхностей при доказанном потолке fidelity. + DECISIONS.md.
 
-### GLM REMOVAL RULE (user directive; cooldown memory unreliable — config-only)
-
-zai-coding-plan/glm-5.3 удалён из ротации НАСОВСЕГ (это НЕ
-временный cooldown): в `.opencode/model-fallback.json` — в `never`
-и удалён из `chain`; primary pin в `opencode.jsonc` = текущий
-здоровый первый элемент цепочки по структуре файла (НЕ
-хардкод). Проверки: `scripts/session-reuse.py models` без glm;
-`preflight` без glm. DECISIONS.md: ключ провайдера исчерпан,
-удалён по требованию пользователя, не временный cooldown.
-
 Остановиться и запросить пользователя ТОЛЬКО если действительно требуется:
 физическое hardware, непредоставленный секрет, destructive operation,
 технически неразрешимое решение, конфликтующие требования, риск уничтожения

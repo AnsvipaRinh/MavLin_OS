@@ -253,7 +253,7 @@ registry's CURRENT worker (`find-objective`/`decide` prints it).
 
 TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a new session):
 
-- WORKER POOL: `build` (primary, Ling 3.1 Flash Free) + `build-b`..`build-j`
+- WORKER POOL: `build` (primary, GLM 5.3 via Z.ai Coding Plan) + `build-b`..`build-j`
   (hidden subagent fallbacks, different chain pins). All do the same work;
   only the model differs. Runtime agent switch = Task with a different
   `subagent_type` on the SAME `task_id` — session, history and context preserved. NO server restart,
@@ -345,7 +345,7 @@ BLOCKER POLICY: code/test/build failures, unclear details, unknown backends, res
 MODEL FALLBACK (one dead model is NEVER a silent stop):
 
 - Two planes, both in-chain. Orchestrator-plane = this agent's session model
-  (default: chain head, Ling 3.1 Flash Free; /models offers FULL list,
+  (default: chain head, GLM 5.3 Z.ai Coding Plan; /models offers FULL list,
   including Muse Spark — user explicitly selects it for orchestration).
   Worker-plane = `build` + hidden `build-b`..`build-j` pins in project
   `opencode.jsonc` (chain #1 primary + fallbacks). Background-plane (title/summary/compaction)
