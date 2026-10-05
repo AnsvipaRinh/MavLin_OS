@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Headless tests for Mission Control EWMH activation helpers."""
+import os
+import sys
+from unittest.mock import MagicMock, patch
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "lib"))
+
+import mission_control as mc
+
+
+def test_parse_window_id():
+    assert mc._parse_window_id("0x1234") == 0x1234
+    assert mc._parse_window_id("4660") == 4660
+    assert mc._parse_window_id(4660) == 4660
+    assert mc._parse_window_id("not-a-window") is None
+    assert mc._parse_window_id(None) is None
+    print("PASS: test_parse_window_id")
+
+
+def test_switch_workspace_fallback():
+    mc._XLIB_AVAILABLE = False
+    completed = MagicMock(returncode=0)
+    with patch.object(mc.subprocess, "run", return_value=completed) as run:
+        assert mc.switch_workspace(2) is True
+        run.assert_called_once()
+        assert run.call_args.args[0] == ["wmctrl", "-s", "2"]
+
+    assert mc.switch_workspace(-1) is False
+    assert mc.switch_workspace("bad") is False
+    print("PASS: test_switch_workspace_fallback")
+
+
+def test_activate_window_fallback():
+    mc._XLIB_AVAILABLE = False
+    completed = MagicMock(returncode=0)
+    with patch.object(mc.subprocess, "run", return_value=completed) as run:
+        assert mc.activate_window("0x1234") is True
+        run.assert_called_once()
+        assert run.call_args.args[0] == ["wmctrl", "-i", "-a", "0x1234"]
+
+    with patch.object(mc.subprocess, "run", return_value=MagicMock(returncode=1)):
+        assert mc.activate_window("0x1234") is False
+
+    assert mc.activate_window("bad") is False
+    print("PASS: test_activate_window_fallback")
+
+
+def test_root_client_message_shape():
+    """Verify the EWMH helper sends a 32-bit ClientMessage and flushes it."""
+    mc._XLIB_AVAILABLE = True
+    disp = MagicMock()
+    root = disp.screen.return_value.root
+    atom = 42
+
+    with patch.object(mc, "_get_atom", return_value=atom),          patch("Xlib.protocol.event.ClientMessage") as client_message:
+        client_message.return_value = "event"
+        assert mc._send_root_client_message(disp, "_NET_CURRENT_DESKTOP", [3, 0, 2, 0, 0])
+        client_message.assert_called_once_with(
+            window=root,
+            client_type=atom,
+            data=(32, [3, 0, 2, 0, 0]),
+        )
+        root.send_event.assert_called_once()
+        disp.flush.assert_called_once()
+
+    print("PASS: test_root_client_message_shape")
+
+
+def test_activate_window_invalid_id_does_not_connect():
+    with patch.object(mc, "_get_display") as get_display:
+        assert mc._activate_window_xlib("not-an-id") is False
+        get_display.assert_not_called()
+    print("PASS: test_activate_window_invalid_id_does_not_connect")
+
+
+if __name__ == "__main__":
+    tests = [
+        test_parse_window_id,
+        test_switch_workspace_fallback,
+        test_activate_window_fallback,
+        test_root_client_message_shape,
+        test_activate_window_invalid_id_does_not_connect,
+    ]
+    passed = failed = 0
+    for test in tests:
+        try:
+            test()
+            passed += 1
+        except Exception as exc:
+            print(f"FAIL: {test.__name__}: {type(exc).__name__}: {exc}")
+            failed += 1
+
+    print(f"Results: {passed} passed, {failed} failed out of {len(tests)}")
+    raise SystemExit(1 if failed else 0)
