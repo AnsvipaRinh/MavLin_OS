@@ -1,5 +1,34 @@
 # Poppy OS X Revieve → MavLinOS Port Analysis
 
+## 2026-10-05 — Visual parity pass completed
+
+The Poppy reference is now treated as a visual benchmark, not a generic inspiration source.
+
+### Completed in MavLinOS
+- GTK Tier 1 axes 1–12 are now explicitly overridden at the end of `gtk-3.0/gtk.scss` so the Poppy-derived measurements win over generic theme defaults: buttons, entries/search, menu bar, menus, tabs, toolbar, 22px titlebar, default-button pulse, popovers, progressbar, scrollbars, switches, sliders, window shadow and statusbar.
+- Plank visual parameters now include the reference’s exact TopRoundness, BottomRoundness, LineWidth, stroke/fill colors, tight padding, zero icon shadow, animation timings and CascadeHide values.
+- Mission Control window cards were brought closer to the Poppy GNOME overview treatment: transparent window surfaces, 4px blue selection border, 6px radius, 18px white captions with dark shadow, and 38px window-picker spacing.
+- The extra in-overview Mission Control header was removed. Mavericks uses the Spaces strip at the top rather than a custom application header.
+
+### Deliberate non-copies
+- Poppy’s GNOME overview background asset is not copied. Mavericks 10.9 changed Mission Control to a dark-grey matte backdrop; using Poppy’s overview artwork would move MavLinOS away from the target OS X version.
+- Poppy’s proprietary/unclear-license icon asset collections are not copied wholesale. They remain a visual reference for clean-room icon reconstruction.
+- Poppy’s GNOME-specific layout is not copied where it conflicts with Mavericks’ Spaces bar and Mission Control model.
+
+- Fixed a concrete packaging defect found during the audit: nine scalable action icons were plain text paths to an external Poppy checkout and therefore could not work in an installed image. They are now self-contained SVGs; `window-close-symbolic` and `view-app-grid-symbolic` were also added.
+
+### Remaining visual gaps
+
+- Corrected the global Xfce GTK font target from `San Francisco 11` to `Lucida Grande 11`; San Francisco is not Mavericks-era and was an accidental post-Mavericks visual drift. The live-image skeleton was corrected in the same pass.
+- Poppy-derived icon categories: dialog/status, preferences, places, panel-symbolic and action icons.
+- Exact noise-texture assets in title/status bars: MavLinOS currently uses CSS gradient simulation rather than copying Poppy’s Noise.png.
+- Toolkit/runtime differences mean this is a visual parity implementation, not a claim of pixel-identical GTK rendering on every application.
+
+This section supersedes the old “Next Actions: start with Tier 1” note below.
+
+---
+
+
 **Date:** 2026-10-04
 **Source:** Poppy GTK3 CSS (8367 lines), Icons (568 SVG), Plank theme (64 lines)
 **Target:** MavLinOS modular SCSS theme + icon theme + Plank theme
@@ -165,4 +194,6 @@ Each Tier 1 port:
 
 ## Next Actions
 
-Start with Tier 1 Item 1 (Entry flat style) — highest fidelity gain for most-visible widget.
+1. Finish the remaining Poppy-derived icon categories with clean-room assets.
+2. Replace CSS noise simulation with a newly generated, license-clean texture if the runtime supports it without increasing startup/battery cost.
+3. Validate the resulting theme on the target Xfce/GTK runtime and compare rendered screenshots against the reference values.

@@ -25,12 +25,13 @@ clean:
 
 install: all
 	install -Dm755 mv-hud "$(DESTDIR)$(PREFIX)/bin/mv-hud"
+	install -Dm755 lib/mission_control_thumbnail.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mission_control_thumbnail.py"
 	for f in bin/mv-settings bin/mv-about bin/mv-activity bin/mv-console \
 	         bin/mv-control bin/mv-power-ui bin/mv-shot bin/mv-quicklook \
 	         bin/mv-quicklook-thunar bin/mv-spotlight-preview \
 	         bin/mv-notes bin/mv-reminders bin/mv-voice bin/mv-newfolder bin/mv-spotlight \
 	         bin/mv-getinfo bin/mv-openwith bin/mv-rename bin/mv-eject bin/mv-launchpad bin/mv-mission-control bin/mv-textedit bin/mv-calculator bin/mv-calendar bin/mv-dictionary bin/mv-music bin/mv-photos bin/mv-mail bin/mv-preview \
-	         bin/mv-keychain bin/mv-fontbook bin/mv-colormeter bin/mv-stickies bin/mv-notify-send bin/mv-notification-center bin/mv-diskutil bin/mv-airdrop bin/mv-timemachine bin/mv-ytplayer \
+	         bin/mv-mc-overview bin/mv-keychain bin/mv-fontbook bin/mv-colormeter bin/mv-stickies bin/mv-notify-send bin/mv-notification-center bin/mv-diskutil bin/mv-airdrop bin/mv-timemachine bin/mv-ytplayer \
 	         bin/mv-finder-search bin/mv-finder-columns bin/mv-brightness \
 	         bin/mv-quit-app bin/mv-minimize-window bin/mv-hide-app bin/mv-close-window \
 	         bin/mv-force-quit bin/mv-recent-items; do \

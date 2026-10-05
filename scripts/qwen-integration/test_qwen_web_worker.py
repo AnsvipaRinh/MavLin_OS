@@ -83,6 +83,7 @@ def _make_worker():
     w._chat_id = None
     w._response_id = None
     w._completed = False
+    w._feedback = {}
     return w
 
 
@@ -158,6 +159,27 @@ def test_reasoning_content_never_leaks():
     answer = w._extract_response_from_sse()
     assert "user is asking" not in answer  # reasoning stays hidden
     assert "Initializing environment" not in answer  # function logs hidden
+
+
+def test_artifacts_collected_from_answer_phase():
+    w = _make_worker()
+    w._response_text = (
+        '{"response.created":{"chat_id":"c9","response_id":"r9"}}'
+        '{"choices": [{"delta": {"role": "assistant", "content": "done. ", "phase": "answer", '
+        '"status": "typing", "extra": {"model": "qwen3-coder-plus"}}}]}'
+        '{"choices": [{"delta": {"role": "assistant", "content": "see file", "phase": "answer", '
+        '"status": "typing", "extra": {"file_list": ["src/main.py", "README.md"], '
+        '"commit_id": "abc123def456"}}}]}'
+        '{"choices": [{"delta": {"content": "", "role": "assistant", "status": "finished", '
+        '"phase": "answer", "extra": {"file_list": ["src/main.py", "README.md"], '
+        '"commit_id": "abc123def456"}}}]}'
+    )
+    answer = w._extract_response_from_sse()
+    assert answer == "done. see file"
+    assert w._completed is True
+    assert w._feedback.get("files") == ["src/main.py", "README.md"]
+    assert w._feedback.get("commit_id") == "abc123def456"
+    assert w._feedback.get("model") == "qwen3-coder-plus"
 
 
 if __name__ == "__main__":

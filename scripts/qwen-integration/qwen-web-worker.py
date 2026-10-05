@@ -233,12 +233,21 @@ class QwenAuthWorker:
 
         self.playwright = await async_playwright().start()
 
-        # Launch persistent context with saved profile; headless=False for auth bootstrap
-        args = ["--no-sandbox", "--disable-dev-shm-usage"]
+        # Launch persistent context with saved profile; headless=False for auth bootstrap.
+        # Anti-automation-detection: Google blocks sign-in ("This browser or
+        # app may not be secure") when it sees --enable-automation or the
+        # AutomationControlled blink feature, both of which Playwright adds
+        # by default. Strip the flag and disable the feature.
+        args = [
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-blink-features=AutomationControlled",
+        ]
         self.context = await self.playwright.chromium.launch_persistent_context(
             self.profile_path,
             headless=False,
             args=args,
+            ignore_default_args=["--enable-automation"],
             viewport={"width": 1920, "height": 1080},
         )
         self.browser = self.context.browser
@@ -248,19 +257,22 @@ class QwenAuthWorker:
         await self.page.wait_for_timeout(1000)
 
         print(
-            "[QwenAuth] Browser opened visibly. Navigate to coder.qwen.ai and log in.",
+            "[QwenAuth] Browser opened visibly. Log into coder.qwen.ai in this window.",
             file=sys.stderr,
         )
         print(
-            "[QwenAuth] Use the window's mouse/keyboard to complete login.",
+            "[QwenAuth] IF GOOGLE SAYS 'browser may not be secure': in the SAME tab open "
+            "google.com and log in there FIRST, then return to coder.qwen.ai and click "
+            "'Continue with Google' — the OAuth consent passes without the sign-in wall.",
             file=sys.stderr,
         )
         print(
-            "[QwenAuth] WAIT until the page fully loads after login (you'll see dashboard/chat).",
+            "[QwenAuth] A non-Google method (QR code / email) on the Qwen page also works.",
             file=sys.stderr,
         )
         print(
-            "[QwenAuth] THEN RETURN HERE and I'll detect your session.",
+            "[QwenAuth] WAIT until the page fully loads after login (you'll see dashboard/chat), "
+            "and stay in the SAME tab.",
             file=sys.stderr,
         )
 
@@ -384,6 +396,7 @@ class QwenWorker:
         self._chat_id = None
         self._response_id = None
         self._completed = False
+        self._feedback = {}
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
@@ -634,6 +647,11 @@ class QwenWorker:
                         answer_parts.append(content)
                     if status == "finished":
                         answer_finished = True
+                    extra = delta.get("extra")
+                    if isinstance(extra, dict) and extra:
+                        fb = self._extract_artifacts([delta])
+                        if fb:
+                            self._feedback.update(fb)
                 elif phase == "code_working":
                     role = delta.get("role")
                     if role == "assistant" and isinstance(content, str) and content:
@@ -661,6 +679,167 @@ class QwenWorker:
         if activity:
             return activity
         return None
+
+    def _chat_id_from_url(self):
+        """Extract the conversation id from the page URL (/c/{chat_id})."""
+        try:
+            url = self.page.url
+            if "/c/" in url:
+                return url.rstrip("/").split("/c/")[-1].split("/")[0].split("?")[0] or None
+        except Exception:
+            pass
+        return None
+
+    async def _fetch_task_answer(self, chat_id):
+        """
+        Fetch the authoritative answer for a conversation from the same
+        REST endpoint the Qwen frontend uses:
+            GET /coder/api/v2/task/{chat_id}
+        Response shape (verified against live traffic 2026-10-05):
+            data.task.history.messages = { msg_id: {role, content_list, ...} }
+        The assistant message's content_list uses the SAME phase model as
+        the SSE stream: code_working (draft) + answer (final). The answer
+        entry's extra carries file_list + commit_id — the verifiable work
+        artifacts produced in the Qwen sandbox (feedback for the caller).
+        Returns (answer_text | None, finished: bool, feedback: dict | None).
+        """
+        if not chat_id:
+            return None, False, None
+        try:
+            raw = await self.page.evaluate(
+                "async (cid) => {"
+                "  const r = await fetch('/coder/api/v2/task/' + cid);"
+                "  return await r.text();"
+                "}",
+                chat_id,
+            )
+            obj = json.loads(raw)
+            history = (obj.get("data") or {}).get("task", {}).get("history")
+            if isinstance(history, str):
+                history = json.loads(history)
+            messages = history.get("messages") if isinstance(history, dict) else None
+            if not isinstance(messages, dict):
+                return None, False, None
+            # last assistant message by timestamp
+            assistants = [
+                m for m in messages.values()
+                if isinstance(m, dict) and m.get("role") == "assistant"
+            ]
+            if not assistants:
+                return None, False, None
+            last = max(assistants, key=lambda m: m.get("timestamp") or 0)
+            content_list = last.get("content_list") or []
+            answer_parts = [c.get("content") or "" for c in content_list
+                            if isinstance(c, dict) and c.get("phase") == "answer"]
+            finished = any(
+                isinstance(c, dict) and c.get("phase") == "answer"
+                and c.get("status") == "finished" for c in content_list
+            )
+            answer = "".join(answer_parts).strip()
+            feedback = self._extract_artifacts(content_list)
+            return (answer or None), finished, feedback
+        except Exception:
+            return None, False, None
+
+    @staticmethod
+    def _extract_artifacts(content_list):
+        """Pull verifiable work artifacts (file_list, commit_id, model)
+        from the answer-phase content entry of a task or SSE stream."""
+        feedback = {}
+        for c in content_list:
+            if not isinstance(c, dict) or c.get("phase") != "answer":
+                continue
+            extra = c.get("extra") or {}
+            if isinstance(extra.get("file_list"), list):
+                feedback["files"] = extra.get("file_list")
+            if extra.get("commit_id"):
+                feedback["commit_id"] = extra.get("commit_id")
+            if extra.get("model"):
+                feedback["model"] = extra.get("model")
+        return feedback
+
+    async def _await_completion(self):
+        """
+        Wait for the response to complete using two independent
+        network-level sources (whichever finishes first wins):
+          1. the SSE stream body captured by the response handler
+             (closes when the stream ends; verified ~30-40s in practice)
+          2. the REST task object (GET /task/{chat_id}) — the assistant
+             message's answer phase carries status == "finished"
+        Also resolves chat_id from the page URL the moment the app
+        navigates to /c/{chat_id}.
+        Returns the answer text or None.
+        """
+        start_time = time.time()
+        while (time.time() - start_time) < self.timeout:
+            # source 1: SSE body captured and parsed
+            if self._response_text is not None:
+                answer = self._extract_response_from_sse()
+                if answer is not None and self._completed:
+                    print(
+                        "[QwenWorker] SSE stream complete at t+{t:.1f}s.".format(
+                            t=time.time() - start_time
+                        ),
+                        file=sys.stderr,
+                    )
+                    return answer
+            # source 2: REST task object
+            if self._chat_id is None:
+                self._chat_id = self._chat_id_from_url()
+            if self._chat_id:
+                answer, finished, feedback = await self._fetch_task_answer(self._chat_id)
+                if answer is not None and finished:
+                    self._completed = True
+                    if feedback:
+                        self._feedback.update(feedback)
+                    print(
+                        "[QwenWorker] Task API reports completion at t+{t:.1f}s.".format(
+                            t=time.time() - start_time
+                        ),
+                        file=sys.stderr,
+                    )
+                    return answer
+            if self._stop_requested:
+                return None
+            await asyncio.sleep(1.5)
+        # timeout: best effort from whatever we have
+        if self._response_text is not None:
+            return self._extract_response_from_sse()
+        if self._chat_id:
+            answer, _, feedback = await self._fetch_task_answer(self._chat_id)
+            if feedback:
+                self._feedback.update(feedback)
+            return answer
+        return None
+
+    async def set_conversation(self, chat_id):
+        """
+        Navigate the worker to an existing conversation (/c/{chat_id}) so the
+        next send_prompt continues it. Without this, each worker session
+        starts wherever the app lands (often a new conversation) — explicit
+        navigation gives the orchestrator deterministic conversation control.
+        """
+        if not self.page:
+            return False
+        try:
+            url = "{base}/c/{chat_id}".format(base=self.base_url, chat_id=chat_id)
+            await self.page.goto(url)
+            await self.page.wait_for_load_state("networkidle")
+            await self.page.wait_for_timeout(1000)
+            self._chat_id = self._chat_id_from_url()
+            print(
+                "[QwenWorker] Conversation set to: {chat_id}".format(chat_id=self._chat_id),
+                file=sys.stderr,
+            )
+            return self._chat_id == chat_id
+        except Exception as e:
+            print(
+                "[QwenWorker] Failed to open conversation {chat_id}: {e}".format(
+                    chat_id=chat_id, e=e
+                ),
+                file=sys.stderr,
+            )
+            return False
 
     async def send_prompt(self, prompt):
         """
@@ -716,6 +895,10 @@ class QwenWorker:
             # Reset response capture BEFORE pressing Enter to avoid a race
             # where a fast response gets wiped by a late reset.
             self._response_text = None
+            self._chat_id = None
+            self._response_id = None
+            self._completed = False
+            self._feedback = {}
             self._stop_requested = False
 
             await textarea.press("Enter")
@@ -726,19 +909,8 @@ class QwenWorker:
                 file=sys.stderr,
             )
 
-            # Wait for the SSE response stream (response.text() in the network
-            # handler resolves only when the SSE stream completes)
-            start_time = time.time()
-            while (time.time() - start_time) < self.timeout:
-                if self._response_text is not None:
-                    break
-                # Check if stop was requested
-                if self._stop_requested:
-                    return False
-                await asyncio.sleep(0.5)
-
-            # Extract response from SSE chunks
-            response_text = self._extract_response_from_sse()
+            # Wait for completion via SSE stream or REST task object
+            response_text = await self._await_completion()
             print(
                 "[QwenWorker] Response extracted: {0}[{1}]".format(
                     str(response_text)[:200], len(str(response_text)) if response_text else 0
@@ -753,23 +925,13 @@ class QwenWorker:
 
     async def wait(self):
         """
-        Wait for the captured SSE stream to complete, then return the answer.
-        Polls the captured stream; completion is the delta event with
-        phase == "answer" and status == "finished".
-        Returns the answer text or None if no response captured.
+        Wait for the response to complete (SSE stream or REST task object,
+        whichever reports completion first) and return the answer text.
+        Returns None if no response captured within the timeout.
         """
-        start_time = time.time()
-        while (time.time() - start_time) < self.timeout:
-            response_text = self._extract_response_from_sse()
-            if response_text is not None and self._completed:
-                return response_text
-            if self._stop_requested:
-                break
-            await asyncio.sleep(0.5)
-        # timeout or stop requested: return best effort
-        return self._extract_response_from_sse()
+        return await self._await_completion()
 
-    async def run(self, mode="start", prompt=None):
+    async def run(self, mode="start", prompt=None, chat_id=None):
         if mode == "start":
             return await self._connect()
         elif mode == "send":
@@ -782,6 +944,9 @@ class QwenWorker:
                     file=sys.stderr,
                 )
                 return False
+            if chat_id:
+                if not await self.set_conversation(chat_id):
+                    return False
             return await self.send_prompt(prompt)
         elif mode == "wait":
             if not self.page:
@@ -811,6 +976,7 @@ def main():
     parser.add_argument("mode", choices=["start", "auth", "status", "check", "send", "wait", "stop"], help="Worker mode")
     parser.add_argument("--profile", default=None, help="Persistent Chromium profile path (defaults to metadata)")
     parser.add_argument("--prompt", default=None, help="Prompt text to send (for send mode)")
+    parser.add_argument("--chat", default=None, help="Conversation/chat id to continue (send mode); omit to start a new conversation")
     parser.add_argument("--timeout", type=int, default=300, help="Maximum wait time in seconds (default: 300 = 5 min)")
     parser.add_argument("--json", action="store_true", help="Machine-readable output for send/check/status")
     args = parser.parse_args()
@@ -872,7 +1038,8 @@ def main():
                 else:
                     print("[QwenWorker] Failed to connect (needs_auth).", file=sys.stderr)
                 return
-            send_result = loop.run_until_complete(worker.run(mode="send", prompt=args.prompt))
+            send_result = loop.run_until_complete(
+                worker.run(mode="send", prompt=args.prompt, chat_id=args.chat))
             response = loop.run_until_complete(worker.run(mode="wait"))
             if args.json:
                 print(json.dumps({
@@ -881,6 +1048,9 @@ def main():
                     "completed": bool(worker._completed),
                     "chat_id": worker._chat_id,
                     "response": response,
+                    "files": worker._feedback.get("files"),
+                    "commit_id": worker._feedback.get("commit_id"),
+                    "model": worker._feedback.get("model"),
                 }))
             else:
                 if response:

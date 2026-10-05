@@ -849,3 +849,33 @@ c) prefer mine: rebase remote activation/overview commits onto `ThumbnailCapture
 d) explicit instruction to resolve the merge union-style automatically.
 
 Work stops here per the rule; no remote state was modified. All slice-3 tests pass locally (32/32, incl. live Xvfb :97, 0 host-display guard violations).
+
+---
+
+## 2026-10-05 — OS-mc-merge: Mission Control union merge executed per option (a)
+
+**Status: RESOLVED.** User approved parallel work + active integration; `git merge origin/main` (tip 7ae2186; 06b866c..7ae2186 includes the co-author's EWMH activation, native GTK overview, workspace previews/DnD/count controls, Poppy visual parity, fonts, action icons) resolved UNION-style (option a above). Merge commit preserves both histories; no rebase, no history rewrite, no force push; foreign commits (incl. `5300ed3` qwen worker) untouched.
+
+### Resolution layout (single module per repo conventions)
+
+- `lib/mission_control.py` — enumeration (slice 1) + layout (slice 2) + EWMH activation/workspace-transfer (co-author's slices). My `ThumbnailCapture` block REMOVED from here.
+- `lib/mission_control_thumbnail.py` — BOTH capture backends, complementary by design:
+  - co-author's `capture_window()` one-shot → GdkPixbuf RGB (the GTK rendering path; consumed by `mv-mc-overview`);
+  - my ctypes `ThumbnailCapture` (redirect + NameWindowPixmap + XGetImage raw RGBA, XDamage/XFixes live tracking, deterministic placeholder, MV_FORBIDDEN_DISPLAYS guard, XEvent-192 heap-overflow regression coverage) for the future live-update slice.
+  - One `_XImage` struct kept (co-author's superset definition); my block's duplicate dropped.
+- **Parser dedup:** canonical strict `mission_control._parse_window_id` (my bool/negative-rejecting semantics under the co-author's public name; all their activation tests pass unchanged); thumbnail module imports it. My `_normalize_win_id` removed everywhere.
+- Tests mirror modules: thumbnail suites (theirs 5 + mine 14, incl. Xvfb :97 integration) unified in `tests/test_mission_control_thumbnail.py` (19 tests); `tests/test_mission_control.py` keeps enumeration/layout (18 tests); `tests/test_mission_control_activation.py` taken from origin (10 tests).
+
+### Bugs found in co-author's committed code, fixed as part of the union (minimal, intent-preserving; none reverted)
+
+1. `_scale_channel()` returned constant 255 for 8-bit channels — their own `test_image_to_rgb_32bit` was red at commit time on origin/main (verified against pristine origin). Fixed: bits==8 → identity.
+2. `XGetImage` on a pixmap leaves red/green/blue masks ZERO (undefined for pixmaps per protocol; verified on Xvfb) — their mask-driven `_image_to_rgb()` produced uniformly BLACK thumbnails for every caller in every environment. Fixed: zero-mask fallback to standard ZPixmap layouts (565 for 16bpp, 888 for 24/32bpp).
+3. `tests/test_mission_control_activation.py` shipped with literal `\\` double-backslash continuations → SyntaxError, suite could not run at all on origin/main (same paste-mangling disease as the earlier `mv-mc-overview` newlines, which the co-author fixed themselves in 8a273e3/754cf4e). Fixed to single `\\` continuations; 10/10 green.
+
+### Other integration facts
+
+- Pixbuf one-shot precondition: the window must be compositor-redirected (xfwm4 `use_compositing=true` in production configs; explicit Automatic redirect in the test). Documented in the test + MISSION_CONTROL_PLAN.md O3; validated pixel-exact on :97.
+- `libxdamage` + `libxfixes` added to mavericks-apps `depends` (live-capture backend runtime libs; co-author had already declared `libxcomposite`).
+- Gates: check-sync.sh ALL CHECKS PASSED; MC totals 18/18 + 10/10 + 19/19 (incl. live :97: ctypes fullscreen capture ~50-66ms, pixbuf path 32x24 pixel-exact); `mv-mc-overview` (origin's fixed version) smoke green on :97; host-display guard 0 violations.
+- **Concurrent-session incident during resolution:** a live qwen-worker session ran `git reset` mid-merge (reflog 7619f21 `reset: moving to HEAD`), destroying the first in-flight (uncommitted) resolution. Rebuilt deterministically and committed promptly. Parallel work is user-approved; this record documents the event, no revert performed.
+- Env gap fixed along the way: python-xlib installed in the build container (activation suite needs it).

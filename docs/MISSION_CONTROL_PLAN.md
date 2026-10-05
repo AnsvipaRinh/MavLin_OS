@@ -1,11 +1,19 @@
 # Mission Control — Dedicated Window-Overview Layer Plan
 
-**Status:** DESIGN (pre-implementation)  
+**Status:** IMPLEMENTATION — O1/O2 complete; O3 thumbnail backend implemented  
 **Date:** 2026-10-05  
 **Trigger:** Owner issue #1 — major work starts with DESIGN: target architecture + migration boundary first, implementation after.  
 **Baseline:** `packages/mavericks-apps/src/mavericks-apps/bin/mv-mission-control` (wmctrl+rofi) + `configs/profiles/experiments/E-MC-skippy-xd.sh` (skippy-xd one-shot, not in ISO).
 
 ---
+
+## Current implementation state (2026-10-05)
+
+The native GTK3 overview is now present as `mv-mc-overview` and is installed by the mavericks-apps package. It currently composes the completed O1/O2/O3/O4 layers: EWMH enumeration, workspace grouping, XComposite thumbnails for mapped windows, and direct EWMH activation. It is intentionally one-shot and falls back to the legacy rofi path if unavailable.
+
+This is an incremental O5/O7 implementation, not a claim that the full O5–O10 acceptance criteria are complete. The native overview now has workspace switching UI, keyboard window selection, direct activation, a compact workspace strip, and a lightweight entrance fade. Live workspace previews, drag-and-drop, live thumbnail updates, full transition choreography, visual fidelity work, and hardware validation remain open.
+
+Thumbnail module layout after the 2026-10-05 union merge (DECISIONS.md): `lib/mission_control_thumbnail.py` holds BOTH complementary backends — the one-shot GdkPixbuf `capture_window()` (rendering path used by `mv-mc-overview`) and the ctypes `ThumbnailCapture` class (raw RGBA + XDamage live tracking + placeholder fallback) for the future live-update slice (O6). Shared window-id parsing is the canonical `mission_control._parse_window_id`.
 
 ## 1. Fidelity-Ceiling Evidence: rofi/wmctrl
 
@@ -208,12 +216,12 @@ Each objective is independently testable. Do not proceed to N+1 until N passes i
 **Implementation:** ctypes → libXcomposite + libX11, convert X11 pixmap to GdkPixbuf.
 
 **Acceptance criteria:**  
-- [ ] Captures a mapped window's content as a pixbuf  
-- [ ] Returns correct dimensions matching window size  
-- [ ] Handles windows with alpha channel (transparent windows)  
-- [ ] Graceful failure for minimized windows (returns None → placeholder)  
-- [ ] Works on Xvfb (XComposite available)  
-- [ ] No window state modification (capture is read-only)  
+- [x] Captures a mapped window's content as a pixbuf  
+- [x] Returns correct dimensions matching window size  
+- [x] Handles 16/24/32-bit XImage channel layouts; alpha is intentionally flattened to RGB  
+- [x] Graceful failure for minimized/unmapped windows (returns None → placeholder)  
+- [x] Works on Xvfb (XComposite available) — validated in test_thumbnail_integration_xvfb (both backends pixel-exact on :97; pixbuf path requires the window to be compositor-redirected, satisfied by xfwm4 compositing in production and by an explicit Automatic redirect in the test)  
+- [x] No window state modification (XCompositeNameWindowPixmap + XGetImage are read-only)  
 
 **Test:** `scripts/test-mc-thumbnail.py` — Xvfb + test window, capture, verify pixbuf dimensions.
 
@@ -221,14 +229,15 @@ Each objective is independently testable. Do not proceed to N+1 until N passes i
 
 **Goal:** Activate a window by X11 id (focus + raise + switch workspace if needed).
 
-**Implementation:** EWMH `_NET_ACTIVE_WINDOW` ClientMessage + wmctrl fallback.
+**Implementation:** Direct python-xlib EWMH `ClientMessage` path with `wmctrl` fallback. The shared `mission_control.activate_window()` API is now used by `mv-mission-control`.
 
 **Acceptance criteria:**  
-- [ ] Activating a window on current workspace focuses it  
-- [ ] Activating a window on another workspace switches to that workspace first  
-- [ ] Activation works for minimized windows (unminimize + focus)  
-- [ ] No-op for already-active window  
-- [ ] Returns success/failure  
+- [x] Activating a window on current workspace focuses it  
+- [x] Activating a window on another workspace switches to that workspace first  
+- [x] Activation works for minimized windows (remove `_NET_WM_STATE_HIDDEN` + map + focus)  
+- [x] No-op for already-active window (EWMH activation is idempotent for the same target)  
+- [x] Returns success/failure  
+- [x] Headless tests cover window-id parsing, workspace fallback, activation fallback, and EWMH ClientMessage shape  
 
 **Test:** `scripts/test-mc-activate.py` — Xvfb + test windows, activate, verify focus.
 

@@ -71,6 +71,7 @@ PAIRS=(
   "configs/desktop/skippy-xd/skippy-xd.rc:archiso-profile/releng/airootfs/etc/skel/.config/skippy-xd/skippy-xd.rc"
   "configs/desktop/mimeapps.list:archiso-profile/releng/airootfs/etc/skel/.config/mimeapps.list"
   "configs/udev/90-mavericks-backlight.rules:archiso-profile/releng/airootfs/etc/udev/rules.d/90-mavericks-backlight.rules"
+  "configs/power/99-mavericks-power.conf:archiso-profile/releng/airootfs/etc/tlp.d/99-mavericks-power.conf"
 )
 
 echo "--- mirrors ---"

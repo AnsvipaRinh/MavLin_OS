@@ -231,7 +231,7 @@ getinfo 35/35 · finder suites 26+69 · power-ui 45.
 - Profile sync CI gates strengthened
 - oid OS-mc-impl-1: read-only window enumeration via EWMH/Xlib + wmctrl fallback (feat: mission-control window enumeration)
 - oid OS-mc-impl-3: thumbnail capture via XComposite/XDamage/XFixes (ctypes, raw RGBA + placeholder fallback; fixed libX11 XEvent-192 heap overflow) — live on Xvfb :97, 51ms fullscreen capture (feat: mission-control thumbnails)
-- PUSH BLOCKER: local `3ae6a7b` cannot be pushed — origin/main advanced with co-author's parallel MC work (thumbnail module + activation + overview, 8484978); `git merge` conflicts in mission_control.py/test_mission_control.py. Per CO-AUTHOR READINESS RULE NOT auto-resolved — exact conflict + options recorded in DECISIONS.md (2026-10-05). Awaiting user direction.
+- PUSH BLOCKER RESOLVED (oid OS-mc-merge): user approved union merge (DECISIONS.md option a). origin/main (7ae2186) merged UNION-style: both capture backends now live in `mission_control_thumbnail.py` (pixbuf one-shot for GTK rendering + ctypes ThumbnailCapture for live/damage), canonical `_parse_window_id` shared, thumbnail test suites unified (19/19 incl. live :97 both backends pixel-exact), co-author black-thumbnail zero-mask bug + `_scale_channel` 255-collapse + activation-test SyntaxError fixed (all pre-existing on origin/main), `libxdamage`/`libxfixes` deps declared. Full gates green.
 
 ---
 

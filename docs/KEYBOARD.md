@@ -37,6 +37,8 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Super+Shift+Space | Quick Look (Thunar selection) | mv-quicklook-thunar |
 | Ctrl+Alt+Escape | Power dialog (Sleep/Restart/Shut Down/Log Out) | mv-power-ui |
 | Ctrl+Alt+Delete | Log Out | mv-power-ui logout |
+| Ctrl+Alt+L | Lock Screen | xfce4-screensaver-command --lock |
+| Ctrl+Alt+T | Terminal | xfce4-terminal |
 | Super+Shift+E | Empty Trash | trash-empty |
 
 ## Window management (global)
@@ -82,6 +84,20 @@ Central reference for all global keyboard bindings. Super = Windows/Command key.
 | Super+Alt+Right | Next workspace | xfwm4 |
 | Super+Alt+Left | Previous workspace | xfwm4 |
 
+## Spaces
+
+| Shortcut | Action | Backend |
+|---|---|---|
+| Super+1 … Super+4 | Switch to Space N | xfwm4 |
+| Super+Alt+Left/Right | Previous / next Space | xfwm4 |
+
+## Window cycle
+
+| Shortcut | Action | Backend |
+|---|---|---|
+| Alt+Tab | Cycle windows | xfwm4 |
+| Alt+Shift+Tab | Cycle windows reverse | xfwm4 |
+
 ## Mavericks-like mappings still app-level
 
 These are **not** globally bound (to avoid stealing browser/editor shortcuts):
@@ -108,4 +124,4 @@ These are **not** globally bound (to avoid stealing browser/editor shortcuts):
 
 - Source of truth: `packages/mavericks-apps/.../xfce4-keyboard-shortcuts.xml` (mirrored into airootfs skel)
 - `mv-*` scripts ship via the `mavericks-apps` package
-- Regression gates: `scripts/test-finder-launcher.py`, `scripts/test-window-keys.py`, `scripts/test-brightness-keys.py`, `scripts/test-backlight-udev.py`
+- Regression gates: `scripts/test-finder-launcher.py`, `scripts/test-window-keys.py`, `scripts/test-brightness-keys.py`, `scripts/test-backlight-udev.py`, `scripts/test-alt-tab.py`, `scripts/test-workspaces.py`, `scripts/test-lock-screen.py`
