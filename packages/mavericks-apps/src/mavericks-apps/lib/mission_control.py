@@ -707,6 +707,181 @@ def get_workspaces() -> Dict[str, Any]:
     return _get_workspaces_fallback()
 
 
+
+# --- EWMH activation helpers ---
+
+def _parse_window_id(win_id: Any) -> Optional[int]:
+    """Convert a hex/int X11 window id to an integer resource id."""
+    try:
+        if isinstance(win_id, str):
+            return int(win_id.strip(), 0)
+        return int(win_id)
+    except (TypeError, ValueError):
+        return None
+
+
+def _send_root_client_message(disp, message_atom_name: str, data: List[int]) -> bool:
+    """Send an EWMH ClientMessage to the root window."""
+    if not disp or not _XLIB_AVAILABLE:
+        return False
+    try:
+        from Xlib.protocol import event
+        root = disp.screen().root
+        message_atom = _get_atom(disp, message_atom_name)
+        message = event.ClientMessage(window=root, client_type=message_atom, data=(32, data))
+        root.send_event(
+            message,
+            event_mask=(X.SubstructureRedirectMask | X.SubstructureNotifyMask),
+        )
+        disp.flush()
+        return True
+    except Exception:
+        return False
+
+
+def _switch_workspace_xlib(disp, desktop: int) -> bool:
+    """Switch to an EWMH desktop using _NET_CURRENT_DESKTOP."""
+    if desktop < 0:
+        return False
+    return _send_root_client_message(
+        disp, "_NET_CURRENT_DESKTOP", [int(desktop), 0, 2, 0, 0]
+    )
+
+
+def _unminimize_window_xlib(disp, win) -> bool:
+    """Remove _NET_WM_STATE_HIDDEN and request the window to be mapped."""
+    changed = False
+    try:
+        from Xlib.protocol import event
+        root = disp.screen().root
+        state_atom = _get_atom(disp, "_NET_WM_STATE")
+        hidden_atom = _get_atom(disp, "_NET_WM_STATE_HIDDEN")
+        message = event.ClientMessage(
+            window=win,
+            client_type=state_atom,
+            data=(32, [0, hidden_atom, 0, 2, 0]),
+        )
+        root.send_event(
+            message,
+            event_mask=(X.SubstructureRedirectMask | X.SubstructureNotifyMask),
+        )
+        changed = True
+    except Exception:
+        pass
+    try:
+        win.map()
+        changed = True
+    except Exception:
+        pass
+    return changed
+
+
+def _activate_window_xlib(win_id: Any) -> bool:
+    """Activate a window with EWMH, switching workspace and restoring hidden state."""
+    parsed_id = _parse_window_id(win_id)
+    if parsed_id is None:
+        return False
+
+    disp = _get_display()
+    if not disp:
+        return False
+
+    try:
+        root = disp.screen().root
+        target = disp.create_resource_object("window", parsed_id)
+
+        desktop = _get_window_property(disp, target, "_NET_WM_DESKTOP", Xatom.CARDINAL)
+        target_desktop = int(desktop[0]) if desktop else -1
+        if target_desktop == 0xFFFFFFFF:
+            target_desktop = -1
+
+        current = _get_window_property(disp, root, "_NET_CURRENT_DESKTOP", Xatom.CARDINAL)
+        current_desktop = int(current[0]) if current else 0
+
+        if target_desktop >= 0 and target_desktop != current_desktop:
+            if not _switch_workspace_xlib(disp, target_desktop):
+                return False
+
+        states = _get_window_state_xlib(disp, target)
+        if "_NET_WM_STATE_HIDDEN" in states:
+            _unminimize_window_xlib(disp, target)
+
+        from Xlib.protocol import event
+        active_atom = _get_atom(disp, "_NET_ACTIVE_WINDOW")
+        message = event.ClientMessage(
+            window=target,
+            client_type=active_atom,
+            data=(32, [2, 0, parsed_id, 0, 0]),
+        )
+        root.send_event(
+            message,
+            event_mask=(X.SubstructureRedirectMask | X.SubstructureNotifyMask),
+        )
+        try:
+            target.raise_window()
+        except Exception:
+            pass
+        disp.flush()
+        return True
+    except Exception:
+        return False
+    finally:
+        try:
+            disp.close()
+        except Exception:
+            pass
+
+
+def switch_workspace(desktop: int) -> bool:
+    """Switch to a workspace by zero-based EWMH desktop index."""
+    try:
+        desktop = int(desktop)
+    except (TypeError, ValueError):
+        return False
+    if desktop < 0:
+        return False
+
+    if _XLIB_AVAILABLE:
+        disp = _get_display()
+        if disp:
+            try:
+                return _switch_workspace_xlib(disp, desktop)
+            finally:
+                try:
+                    disp.close()
+                except Exception:
+                    pass
+
+    try:
+        result = subprocess.run(
+            ["wmctrl", "-s", str(desktop)],
+            capture_output=True,
+            timeout=2,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def activate_window(win_id: Any) -> bool:
+    """Activate an X11 window, switching workspace and restoring minimized state."""
+    if _XLIB_AVAILABLE and _activate_window_xlib(win_id):
+        return True
+
+    parsed_id = _parse_window_id(win_id)
+    if parsed_id is None:
+        return False
+
+    try:
+        result = subprocess.run(
+            ["wmctrl", "-i", "-a", hex(parsed_id)],
+            capture_output=True,
+            timeout=2,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
 # --- Module self-test ---
 if __name__ == "__main__":
     print("=== enumerate_windows ===")
