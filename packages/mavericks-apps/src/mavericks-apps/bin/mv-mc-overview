@@ -187,11 +187,6 @@ class Overview(Gtk.Window):
             button.add(button_box)
             workspace_bar.pack_start(button, False, False, 0)
             self._workspace_buttons.append(button)
-        hint = Gtk.Label(label="← ↑ ↓ → / Tab: select   Enter: open   Esc: close")
-        hint.set_xalign(0)
-        hint.get_style_context().add_class("mav-hint")
-        self.box.pack_start(hint, False, False, 0)
-
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.box.pack_start(scrolled, True, True, 0)
