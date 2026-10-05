@@ -24,6 +24,8 @@
       <property name="&lt;Primary&gt;&lt;Alt&gt;c" type="string" value="mv-calendar"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;t" type="string" value="xfce4-terminal"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;l" type="string" value="xfce4-screensaver-command --lock"/>
+      <property name="&lt;Super&gt;Delete" type="string" value="mv-trash"/>
+      <property name="&lt;Super&gt;F4" type="string" value="mv-eject"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;Delete" type="string" value="trash-empty"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;e" type="string" value="trash-empty"/>
       <property name="&lt;Super&gt;i" type="string" value="mv-getinfo $HOME"/>
