@@ -191,12 +191,15 @@ fi
 if [[ -n "$TARGET_USER" ]]; then
   TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
   USER_UNIT_DIR="$TARGET_HOME/.config/systemd/user"
-  mkdir -p "$USER_UNIT_DIR"
+  USER_WANTS_DIR="$USER_UNIT_DIR/default.target.wants"
+  mkdir -p "$USER_UNIT_DIR" "$USER_WANTS_DIR"
   # Enable packaged user timers without requiring a live user D-Bus session.
+  # A unit file placed directly in ~/.config/systemd/user is only installed,
+  # not enabled. Enablement belongs in the target's .wants directory.
   for timer in mv-reminders-check.timer mv-calendar-check.timer mv-timemachine-check.timer; do
     unit_path="/usr/lib/systemd/user/$timer"
     if [[ -f "$unit_path" ]]; then
-      ln -sfn "$unit_path" "$USER_UNIT_DIR/$timer"
+      ln -sfn "$unit_path" "$USER_WANTS_DIR/$timer"
     fi
   done
   chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config/systemd" 2>/dev/null || true
