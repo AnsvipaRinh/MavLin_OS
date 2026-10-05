@@ -248,15 +248,22 @@ def test_edit_entry_launch():
         assert launched, "mv-launchpad-edit stub was never executed"
 
     print("PASS: test_edit_entry_launch")
-def test_page_navigation_callbacks():
-    """Rofi custom callbacks must map Page Down/Up to script return codes."""
-    source = open(SCRIPT).read()
-    assert 'rofi_retv in ("10", "11")' in source
-    assert 'page += 1 if rofi_retv == "10" else -1' in source
+def test_native_launchpad_entrypoint():
+    """The desktop entry must launch the native GTK surface, not rofi."""
     desktop = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "desktop", "mv-launchpad.desktop")).read()
-    assert "-kb-custom-1 'Page_Down'" in desktop
-    assert "-kb-custom-2 'Page_Up'" in desktop
-    print("PASS: test_page_navigation_callbacks")
+    assert "Exec=/usr/bin/mv-launchpad-gui" in desktop
+    assert "rofi -show" not in desktop
+
+    gui = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin", "mv_launchpad_gui.py")).read()
+    assert "Gtk.Window" in gui
+    assert "self.fullscreen()" in gui
+    assert "Gtk.Grid" in gui
+    assert "Gtk.SearchEntry" in gui
+    assert "Gdk.KEY_Page_Down" in gui
+    assert "Gdk.KEY_Page_Up" in gui
+    assert '["gtk-launch", item["id"]]' in gui
+    assert '["mv-launchpad-edit"]' in gui
+    print("PASS: test_native_launchpad_entrypoint")
 
 
 def test_existing_config_does_not_recreate_deleted_default_folders():
@@ -435,7 +442,7 @@ if __name__ == "__main__":
         test_rofi_selection_actions,
         test_rofi_live_search_callback,
         test_edit_entry_launch,
-        test_page_navigation_callbacks,
+        test_native_launchpad_entrypoint,
         test_config_writes_are_atomic,
         test_search_hides_folder_containers,
         test_many_top_level_folders_are_paginated,
