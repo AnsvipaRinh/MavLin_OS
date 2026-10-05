@@ -7,6 +7,12 @@
 
 ---
 
+## Current implementation state (2026-10-05)
+
+The native GTK3 overview is now present as `mv-mc-overview` and is installed by the mavericks-apps package. It currently composes the completed O1/O2/O3/O4 layers: EWMH enumeration, workspace grouping, XComposite thumbnails for mapped windows, and direct EWMH activation. It is intentionally one-shot and falls back to the legacy rofi path if unavailable.
+
+This is an incremental O5/O7 implementation, not a claim that the full O5–O10 acceptance criteria are complete. Workspace switching UI, keyboard navigation, transitions, visual polish, and hardware validation remain open.
+
 ## 1. Fidelity-Ceiling Evidence: rofi/wmctrl
 
 The current Mission Control path is `mv-mission-control` — a Python script that enumerates windows via `wmctrl -l -x` and renders them as a **text list** inside rofi script mode. The rofi theme (`rofi-mission-control.rasi`) is a flat, modern list with a search bar.
