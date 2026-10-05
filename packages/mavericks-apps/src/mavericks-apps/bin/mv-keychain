@@ -817,13 +817,54 @@ def build_keychain_class():
     return _KEYCHAIN_CLS
 
 
+def build_keychain_menu(app, app_name, get_window, add_action):
+    """Keychain Access application menu, exported to the Xfce AppMenu plugin."""
+    from gi.repository import Gio
+
+    def w():
+        return get_window()
+
+    def selected():
+        return w().selected_item if w() else None
+
+    add_action("new-item", lambda: w().on_new_item(None) if w() else None)
+    add_action("generate", lambda: w().on_generator(None) if w() else None)
+    add_action("lock", lambda: w().on_lock(None) if w() else None)
+    add_action("delete",
+               lambda: w().on_delete_item(None) if w() and selected() else None)
+    add_action("find", lambda: w().search.grab_focus() if w() else None)
+    add_action("close", lambda: w().destroy() if w() else None)
+    add_action("quit", app.quit)
+
+    menu = Gio.Menu()
+    m = Gio.Menu()
+    m.append("About Keychain Access", "app.about")
+    m.append("Quit Keychain Access", "app.quit")
+    menu.append_submenu("Keychain Access", m)
+    m = Gio.Menu()
+    m.append("New Password Item", "app.new-item")
+    m.append("Password Generator", "app.generate")
+    m.append("Close Window", "app.close")
+    menu.append_submenu("File", m)
+    m = Gio.Menu()
+    m.append("Find", "app.find")
+    m.append("Delete Selected Item", "app.delete")
+    menu.append_submenu("Edit", m)
+    m = Gio.Menu()
+    m.append("Lock Keychain Items", "app.lock")
+    menu.append_submenu("View", m)
+    m = Gio.Menu()
+    m.append("Close Window", "app.close")
+    menu.append_submenu("Window", m)
+    return menu
+
+
 def main():
-    Gtk, _Gdk = _gtk()
-    w = build_keychain_class()()
-    w.connect("destroy", Gtk.main_quit)
-    w.show_all()
-    Gtk.main()
-    return 0
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    return run_application(
+        "com.mavlinos.Keychain", "Keychain",
+        lambda: build_keychain_class()(), sys.argv, build_keychain_menu)
 
 
 if __name__ == "__main__":

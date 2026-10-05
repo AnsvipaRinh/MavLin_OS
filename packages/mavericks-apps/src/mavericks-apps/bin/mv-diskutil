@@ -14,6 +14,7 @@ gi is available (runtime path). The GTK UI is built lazily via
 build_diskutil_class().
 
 License: GPL-2.0-or-later."""
+import sys
 import os
 
 try:  # runtime: real introspection bindings when present
@@ -787,14 +788,12 @@ def build_diskutil_class():
 
 
 def main():
-    import gi
-    gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk
-    window_cls = build_diskutil_class()
-    win = window_cls()
-    win.connect("destroy", Gtk.main_quit)
-    Gtk.main()
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mavericks_appmenu import run_application
+    return run_application(
+        "com.mavlinos.DiskUtility", "Disk Utility",
+        lambda: build_diskutil_class()(), sys.argv)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

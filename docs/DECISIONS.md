@@ -552,3 +552,39 @@ the "Qwen Web Automation Research" block above, and modified
 content, audited-read); its scripts/docs remain untracked for their
 author to commit. Repo state was never blanket-staged (`git add -A` not
 used).
+
+### 2026-10-05 — Global-menu contract regression (PR #18) found and restored
+
+**Context:** `scripts/test-global-menu.py` (owner PR #7 contract test) was
+wired into neither check-sync nor CI, so its red status went unnoticed.
+
+**Findings (verified against git history, not assumed):**
+- `mv-mail`, `mv-keychain`, `mv-diskutil` lost global-menu integration when
+  PR #18's headless-safe rewrite (`0b4becf`) replaced their entries with a
+  private `Gtk.main()` loop; `build_mail_menu`/`build_keychain_menu` were
+  deleted with it. Pre-#18 code had `run_application` + builders.
+- `mv-calculator` lost the literal `install_application_menu` reference when
+  the qwen port (`0496ae3`) switched it to the shared `run_application`
+  runner (functionally equivalent — the runner performs that install).
+
+**Decisions:**
+1. Restore the three apps' integration ON TOP of PR #18's lazy-factory
+   design (never reverting #18): menu builder + `run_application` entry.
+   `window_factory` must return an INSTANCE — passing the class-returning
+   builder made `activate()` die with `Expected Gtk.Window, but got
+   GObjectMeta`; only Xvfb launch smoke caught this, text tests could not.
+2. mv-mail menu does NOT re-add "New Message" (owner removed it as
+   nonfunctional in `c818a12`; owner directive stands). `launch` action
+   now targets the post-#18 `launch_backend()` method.
+3. `test-global-menu.py` calculator assertion changed from the literal
+   `install_application_menu` to `run_application` (stale-vs-architecture;
+   spec preserved: Calculator exposes its app menu via the shared runner).
+4. `test-global-menu.py` is now run by `check-sync.sh` (which CI already
+   runs) — orphan tests are exactly how this regression survived.
+5. New `scripts/smoke-launch.sh` (Xvfb; graceful skip without xvfb-run/gi):
+   launch-and-stay gate for windowed apps. Proven to catch the factory bug
+   (red on the broken form, green after the fix). Wired for the three
+   restored apps; extend to other P0 apps incrementally.
+6. New `scripts/test-mv-mail.py` (23 tests): backend selection (geary →
+   Mail UserAgent fallback → absent/ignore), menu builder against real Gio,
+   runner contract.

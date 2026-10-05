@@ -38,6 +38,16 @@ standalone launchpad 26/26 · desktop-cache 83/83 · notification-center
 16/16 · timemachine 62/62 · stickies 74/74 · voice 63/63 ·
 getinfo 35/35 · finder suites 26+69 · power-ui 45.
 
+4. **Global-menu contract restored** (post-report continuation): PR #18's
+   headless rewrite had silently dropped `run_application` + menu builders
+   from `mv-mail`/`mv-keychain`/`mv-diskutil`, and `test-global-menu.py`
+   was orphaned (in no gate), so it stayed red unnoticed. Restored all
+   three on top of #18's lazy factories; caught a factory-returns-class
+   bug only via the new `scripts/smoke-launch.sh` (Xvfb launch-and-stay);
+   wired `test-global-menu` into check-sync; added `test-mv-mail.py`
+   (23 tests). Gates: check-sync 221/0 + 34 app suites + global-menu
+   contract + launch smoke all green.
+
 **Next executable work**:
 - Continue P0/P1 application matrix per §13.8 (Finder/Spotlight/Mission
   Control gaps, remaining applications)

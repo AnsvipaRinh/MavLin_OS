@@ -203,7 +203,10 @@ def main():
         assert 'add_action("about", lambda: None)' not in custom_app, "custom menu overrides shared About action"
     calculator = CALCULATOR.read_text(encoding="utf-8")
     assert "com.mavlinos.Calculator" in calculator
-    assert "install_application_menu" in calculator
+    # The shared runner installs the application menu (install_application_menu
+    # inside mavericks_appmenu.run_application); Calculator must use that
+    # runner instead of hand-rolling a Gtk.Application.
+    assert "run_application" in calculator
     assert "Gtk.main()" not in calculator
 
     lifecycle_exceptions = {"stickies", "music", "preview", "photos"}

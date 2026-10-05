@@ -131,6 +131,16 @@ if [[ -f scripts/test-firefox-chrome.py ]]; then
   python3 scripts/test-firefox-chrome.py && ok "firefox chrome css" || bad "firefox chrome css"
 fi
 
+echo "--- global menu contract ---"
+if [[ -f scripts/test-global-menu.py ]]; then
+  python3 scripts/test-global-menu.py && ok "global menu contract" || bad "global menu contract"
+fi
+
+echo "--- launch smoke (Xvfb) ---"
+if [[ -f scripts/smoke-launch.sh ]]; then
+  bash scripts/smoke-launch.sh mv-mail mv-keychain mv-diskutil && ok "launch smoke" || bad "launch smoke"
+fi
+
 echo "--- app test suites (scripts/test-mv-*.py, auto-discovered) ---"
 # Run every app suite. Suites whose target binary still imports gi at module
 # level die on import here (not portable yet): distinguish that from a real
