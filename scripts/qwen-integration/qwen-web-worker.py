@@ -397,6 +397,7 @@ class QwenWorker:
         self._response_id = None
         self._completed = False
         self._feedback = {}
+        self._repo = None
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
@@ -514,6 +515,7 @@ class QwenWorker:
         self._chat_id = None
         self._response_id = None
         self._completed = False
+        self._repo = None
 
         async def _handle_response(response):
             url = response.url
@@ -812,6 +814,145 @@ class QwenWorker:
             return answer
         return None
 
+    async def select_repository(self, repo):
+        """
+        Select a connected GitHub repository for the next task via the
+        '.repo-selector' panel (verified live 2026-10-05):
+          Start new / No Repository — blank workspace
+          Recent repositories / <name> — <owner>/<name>
+        Without a selected repository Qwen works in an empty sandbox and
+        answers are useless for repo-bound objectives.
+        Returns True when the selector shows the repo after selection.
+        """
+        if not self.page:
+            return False
+        try:
+            selector = self.page.locator(".repo-selector").first
+            current = None
+            # The SPA sometimes auto-restores the last conversation shortly
+            # after load (the selector element detaches mid-read). Retry a
+            # couple of times, forcing the home screen each attempt.
+            for attempt in range(3):
+                try:
+                    if "/c/" in (self.page.url or ""):
+                        await self.page.goto(self.base_url)
+                        await self.page.wait_for_load_state("networkidle")
+                        await self.page.wait_for_timeout(1500)
+                    await selector.wait_for(state="visible", timeout=8000)
+                    current = (await selector.inner_text(timeout=8000)).strip()
+                    break
+                except Exception:
+                    if attempt == 2:
+                        raise
+                    await self.page.wait_for_timeout(1500)
+            if current and repo.lower() in current.lower():
+                print(
+                    "[QwenWorker] Repository already selected: {0}".format(current),
+                    file=sys.stderr,
+                )
+                self._repo = current
+                self._feedback["repo"] = current
+                return True
+            await selector.click()
+            await self.page.wait_for_timeout(1500)
+
+            # find the overlay item for the repo: match either "owner/name"
+            # or the bare name; click the deepest matching element
+            clicked = await self.page.evaluate(
+                """(repo) => {
+                    const target = repo.toLowerCase();
+                    const matches = [];
+                    for (const el of document.querySelectorAll('div,li,button,[role=option],[role=menuitem]')) {
+                        const cs = getComputedStyle(el);
+                        if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+                        const r = el.getBoundingClientRect();
+                        if (r.width < 40 || r.height < 10) continue;
+                        const t = (el.innerText || '').trim();
+                        if (!t || t.length > 60) continue;
+                        const tl = t.toLowerCase();
+                        if (tl === target || tl.includes(target)) {
+                            matches.push(el);
+                        }
+                    }
+                    if (!matches.length) return null;
+                    // deepest = the one with the fewest descendant matches
+                    let best = matches[0];
+                    for (const m of matches) {
+                        if (m !== best && best.contains(m)) best = m;
+                    }
+                    best.click();
+                    return (best.innerText || '').trim();
+                }""",
+                repo,
+            )
+            if clicked is None:
+                print(
+                    "[QwenWorker] Repository '{0}' not found in the selector panel "
+                    "(is it connected to the Qwen account?)".format(repo),
+                    file=sys.stderr,
+                )
+                await self.page.keyboard.press("Escape")
+                return False
+            await self.page.wait_for_timeout(1500)
+            # verify: prefer reading the selector again, but after selecting
+            # a repo the app may transition to the environment screen and
+            # detach the selector — then trust the click result itself.
+            try:
+                now = (await selector.inner_text(timeout=4000)).strip()
+                ok = repo.lower() in now.lower() or "no repository" not in now.lower()
+            except Exception:
+                now = clicked or repo
+                ok = True
+            print(
+                "[QwenWorker] Repository selected: clicked={0!r}, selector now={1!r}".format(
+                    clicked, now
+                ),
+                file=sys.stderr,
+            )
+            self._repo = now
+            self._feedback["repo"] = now
+            return ok
+        except Exception as e:
+            print(
+                "[QwenWorker] Failed to select repository {repo}: {e}".format(repo=repo, e=e),
+                file=sys.stderr,
+            )
+            return False
+
+    async def start_new_task(self):
+        """
+        Click the sidebar 'New Chat' button so the next prompt starts a
+        FRESH conversation. Without this, the SPA sometimes restores the
+        previous conversation under the root URL and the prompt silently
+        appends to it. Best-effort: returns True even if the button is not
+        found (the prompt may still start a new chat on a clean home page).
+        """
+        try:
+            clicked = await self.page.evaluate(
+                """() => {
+                    for (const el of document.querySelectorAll('button, [role=button], a, div, span')) {
+                        const t = (el.innerText || '').trim();
+                        if (t !== 'New Chat') continue;
+                        const r = el.getBoundingClientRect();
+                        if (r.width === 0 || r.height === 0) continue;
+                        // click the deepest matching element (avoid container dupes)
+                        let target = el;
+                        for (const child of el.querySelectorAll('*')) {
+                            if ((child.innerText || '').trim() === 'New Chat') target = child;
+                        }
+                        target.click();
+                        return true;
+                    }
+                    return false;
+                }"""
+            )
+            if clicked:
+                await self.page.wait_for_timeout(1500)
+                print("[QwenWorker] New task started (New Chat clicked).", file=sys.stderr)
+            return True
+        except Exception:
+            return True
+
     async def set_conversation(self, chat_id):
         """
         Navigate the worker to an existing conversation (/c/{chat_id}) so the
@@ -899,6 +1040,9 @@ class QwenWorker:
             self._response_id = None
             self._completed = False
             self._feedback = {}
+            if self._repo:
+                # keep the repo label across the reset (chosen before submit)
+                self._feedback["repo"] = self._repo
             self._stop_requested = False
 
             await textarea.press("Enter")
@@ -931,7 +1075,15 @@ class QwenWorker:
         """
         return await self._await_completion()
 
-    async def run(self, mode="start", prompt=None, chat_id=None):
+    def current_repo_label(self):
+        """Read the current repository selector label (async-safe call
+        inside send flow); returns None when unknown."""
+        try:
+            return self._feedback.get("repo")
+        except Exception:
+            return None
+
+    async def run(self, mode="start", prompt=None, chat_id=None, repo=None):
         if mode == "start":
             return await self._connect()
         elif mode == "send":
@@ -946,6 +1098,21 @@ class QwenWorker:
                 return False
             if chat_id:
                 if not await self.set_conversation(chat_id):
+                    return False
+            else:
+                # fresh conversation for this objective (deterministic; the
+                # SPA otherwise may append to the restored previous chat)
+                await self.start_new_task()
+            if repo:
+                # The .repo-selector lives on the home screen. If the app
+                # restored a previous conversation (/c/{id}), its toolbar has
+                # a different layout — go home so the repo can be selected
+                # for a NEW task (a --chat continuation keeps its binding).
+                if not chat_id and "/c/" in (self.page.url or ""):
+                    await self.page.goto(self.base_url)
+                    await self.page.wait_for_load_state("networkidle")
+                    await self.page.wait_for_timeout(1000)
+                if not await self.select_repository(repo):
                     return False
             return await self.send_prompt(prompt)
         elif mode == "wait":
@@ -977,6 +1144,7 @@ def main():
     parser.add_argument("--profile", default=None, help="Persistent Chromium profile path (defaults to metadata)")
     parser.add_argument("--prompt", default=None, help="Prompt text to send (for send mode)")
     parser.add_argument("--chat", default=None, help="Conversation/chat id to continue (send mode); omit to start a new conversation")
+    parser.add_argument("--repo", default=None, help="Repository to select for the task (send mode), e.g. AnsvipaRinh/MavLinOS or MavLinOS; omit for a blank workspace")
     parser.add_argument("--timeout", type=int, default=300, help="Maximum wait time in seconds (default: 300 = 5 min)")
     parser.add_argument("--json", action="store_true", help="Machine-readable output for send/check/status")
     args = parser.parse_args()
@@ -1039,7 +1207,16 @@ def main():
                     print("[QwenWorker] Failed to connect (needs_auth).", file=sys.stderr)
                 return
             send_result = loop.run_until_complete(
-                worker.run(mode="send", prompt=args.prompt, chat_id=args.chat))
+                worker.run(mode="send", prompt=args.prompt, chat_id=args.chat, repo=args.repo))
+            if not send_result:
+                # send failed (connect/input/repo/chat) — never fall through
+                # to wait(): a restored old conversation would answer instead
+                # of this prompt (stale-answer bug, fixed 2026-10-05)
+                if args.json:
+                    print(json.dumps({"mode": "send", "ok": False, "state": "send_failed"}))
+                else:
+                    print("[QwenWorker] Failed to send prompt.", file=sys.stderr)
+                return
             response = loop.run_until_complete(worker.run(mode="wait"))
             if args.json:
                 print(json.dumps({
@@ -1048,6 +1225,7 @@ def main():
                     "completed": bool(worker._completed),
                     "chat_id": worker._chat_id,
                     "response": response,
+                    "repo": worker._feedback.get("repo"),
                     "files": worker._feedback.get("files"),
                     "commit_id": worker._feedback.get("commit_id"),
                     "model": worker._feedback.get("model"),

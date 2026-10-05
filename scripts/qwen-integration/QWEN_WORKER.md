@@ -41,14 +41,34 @@ to run the one-time visible `auth` mode (see below). Do NOT loop retries.
 ```
 python3 scripts/qwen-integration/qwen-web-worker.py send --json \
   --timeout 600 \
+  [--repo AnsvipaRinh/MavLinOS] [--chat <chat_id>] \
   --prompt "<objective text, verbatim>"
 → {"mode":"send","ok":true,"completed":true,"chat_id":"<uuid>",
    "response":"<final answer text>",
+   "repo":"MavLinOS",
    "files":["src/main.py"],"commit_id":"<sha>","model":"qwen3-coder-plus"}
 ```
-`send` internally performs start → submit → wait-for-completion, then
-closes the browser cleanly. Typical latency: ~30s first answer in a
-conversation (environment init), ~10s followups.
+`send` internally performs start → (optional repo/chat selection) →
+submit → wait-for-completion, then closes the browser cleanly. Typical
+latency: ~30s first answer in a conversation (environment init), ~10s
+followups.
+
+Options:
+- `--repo <owner/name | name>` — select the connected GitHub repository
+  for the task BEFORE submitting (clicks it in the `.repo-selector`
+  panel and verifies the selector). WITHOUT a selected repository Qwen
+  works in a blank sandbox and answers are useless for repo-bound
+  objectives — always pass --repo for work on a real codebase. The
+  repo must be connected to the Qwen account (it appears under
+  "Recent repositories" in the selector). Verified live: with
+  `--repo AnsvipaRinh/MavLinOS` the model itself answered
+  "AnsvipaRinh/MavLinOS" when asked which repo it is connected to.
+  NOTE: the app keeps ONE persistent workspace conversation per repo
+  ("Repository Working Environment") — repo-bound prompts append there
+  (context accumulates across sends; check chat_id in the response to
+  know where the work landed).
+- `--chat <chat_id>` — continue that exact conversation. Omit to start
+  a fresh one (clean context per objective).
 
 ### status — local metadata (no browser)
 ```
@@ -63,6 +83,7 @@ conversation (environment init), ~10s followups.
 | completed   | Qwen itself marked the answer phase finished (not a timeout)   |
 | chat_id     | conversation id — pass context via followups in the same chat  |
 | response    | the final user-facing answer (draft/reasoning/log excluded)    |
+| repo        | the repository label active for the task (None = blank sandbox)|
 | files       | files Qwen created/changed IN ITS SANDBOX                      |
 | commit_id   | sandbox commit of Qwen's work                                  |
 | model       | the model that produced the answer                             |
