@@ -15,6 +15,8 @@ The Poppy reference is now treated as a visual benchmark, not a generic inspirat
 - Poppy’s proprietary/unclear-license icon asset collections are not copied wholesale. They remain a visual reference for clean-room icon reconstruction.
 - Poppy’s GNOME-specific layout is not copied where it conflicts with Mavericks’ Spaces bar and Mission Control model.
 
+- Fixed a concrete packaging defect found during the audit: nine scalable action icons were plain text paths to an external Poppy checkout and therefore could not work in an installed image. They are now self-contained SVGs; `window-close-symbolic` and `view-app-grid-symbolic` were also added.
+
 ### Remaining visual gaps
 
 - Corrected the global Xfce GTK font target from `San Francisco 11` to `Lucida Grande 11`; San Francisco is not Mavericks-era and was an accidental post-Mavericks visual drift. The live-image skeleton was corrected in the same pass.
