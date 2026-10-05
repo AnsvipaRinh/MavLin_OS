@@ -6,7 +6,13 @@ Usage: mv-mc-thumbnail <window_id> [width] [output_file]
 Uses the shared XComposite capture backend from mavericks-apps. No
 ImageMagick, scrot, temporary files, or geometry scraping are required.
 """
+import os
 import sys
+
+LIBDIR = "/usr/share/mavericks-apps"
+for candidate in (LIBDIR, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")):
+    if os.path.isdir(candidate) and candidate not in sys.path:
+        sys.path.insert(0, candidate)
 
 DEFAULT_WIDTH = 200
 
