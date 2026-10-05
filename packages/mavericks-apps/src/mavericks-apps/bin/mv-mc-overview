@@ -286,7 +286,7 @@ class Overview(Gtk.Window):
         if key and key.isdigit():
             desktop = int(key) - 1
             if 0 <= desktop < len(self._workspace_buttons):
-                self._workspace_buttons[desktop].set_active(True)
+                self._switch_workspace(self._workspace_buttons[desktop], desktop)
                 return True
         return False
 
