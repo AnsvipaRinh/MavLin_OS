@@ -1,18 +1,15 @@
 # MavLinOS
 
-MavLinOS — macOS Mavericks-style desktop experience on Linux (Xfce/Ubuntu).
+MavLinOS — macOS Mavericks-style desktop experience on Arch Linux (Xfce/X11), built with mkarchiso.
 
 ## Quick Start
 
 ```bash
-# Install dependencies
-sudo apt install python3-gi gir1.2-gtk-3.0 imagemagick wmctrl xdotool
+# Build / validate the Arch-based project from the repository.
+# Runtime installation is currently a manual Arch installation step.
 
-# Try Mission Control
+# Try Mission Control after the project packages are installed:
 mv-mc-gui
-
-# Or use keyboard shortcut
-# Press F3
 ```
 
 ## Features
@@ -71,7 +68,7 @@ mv-workspace-count (Space management)
 
 ## Requirements
 
-- Ubuntu 22.04+ or Xubuntu 22.04+
+- Arch Linux / mkarchiso
 - Xfce 4.16+
 - Python 3.8+
 - GTK3
@@ -107,3 +104,8 @@ GPL-3.0-or-later
 ✅ CI gates
 
 🚧 In progress: Animations, multi-monitor, touchpad gestures
+
+
+## Installation status
+
+The repository currently provides the Arch live ISO and project-specific firstboot/profile scripts, but not a repository-controlled graphical installer or automatic target-user provisioning flow. Until that installer contract is implemented, firstboot must be invoked explicitly during the manual installation procedure. Do not assume Calamares, archinstall hooks, or automatic target-user discovery.
