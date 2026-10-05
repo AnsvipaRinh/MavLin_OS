@@ -201,4 +201,4 @@ Each Tier 1 port:
 3. Validate the resulting theme on the target Xfce/GTK runtime and compare rendered screenshots against the reference values.
 - Expanded clean-room Places coverage with six scalable icons: Home, Desktop, Music, Pictures, Network, and Computer.
 
-- Mission Control now groups current-Space windows by `WM_CLASS`, adding an application icon/name heading while keeping each window independently selectable and draggable. This matches the Mavericks-era `Group Windows by Application` model rather than introducing later macOS behavior.
+- Mission Control now groups current-Space windows by `WM_CLASS`, presenting each application as a compact stacked window cluster with the application icon/name beneath it; individual windows remain independently selectable and draggable. The overview backdrop and Spaces strip were also moved toward the flat dark-grey matte treatment visible in Mavericks 10.9, avoiding later translucent/rounded macOS styling.
