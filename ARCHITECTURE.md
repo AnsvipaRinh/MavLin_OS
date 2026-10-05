@@ -49,29 +49,37 @@
 
 ## Profiles Layout (`configs/profiles/`)
 
+The current implementation uses two explicit profiles:
+
 ```
-profiles/
-├── baseline.conf          # generic: quiet loglevel=3
-├── bootstrap.conf         # install ISO: +systemd-networkd +iwd +sshd +reflector
-├── diagnostic.conf        # debug: loglevel=7 + initcall_debug
-├── production.conf        # macbook10,1: +pcie_port_pm=off +i915.enable_psr=0
-├── recovery.conf          # fallback: nomodeset + single
-└── experiments/
-    ├── E1-turbo-off.cmdline      # CPU boost disable
-    ├── E2-pcie-pm-on.cmdline     # revert pcie_port_pm=off
-    ├── E3-apst-off.cmdline       # NVMe APST disable
-    ├── E4-psr1.cmdline           # i915.enable_psr=1
-    ├── E5-psr2.cmdline           # i915.enable_psr=2
-    ├── E6-fbc-force.cmdline      # i915.enable_fbc=1
-    ├── E7-huc.cmdline            # i915.enable_huc=1
-    ├── E8-epp.conf               # energy_perf_preference
-    ├── E9-usb-nosuspend.conf     # USB autosuspend off
-    ├── E10-wifi-powersave.sh     # Wi-Fi powersave script
-    ├── E11-swappiness.conf       # vm.swappiness
-    └── E12-writeback.conf        # dirty_writeback_centisecs
+configs/profiles/
+├── generic/
+│   ├── baseline.conf
+│   ├── 99-mavericks-network.conf
+│   ├── 99-mavericks-tlp.conf
+│   ├── 99-mavericks-zram.conf
+│   └── 99-mavericks-modprobe.conf
+├── macbook10,1/
+│   └── manifest.conf
+└── fragments/
+    ├── 99-mavericks-s3x.conf
+    └── 99-mavericks-display.conf
 ```
 
-**Selector:** `scripts/apply-hardware-selection.sh` — interactive, runs on first boot, detects `dmidecode` product name, writes selected profile to `/etc/kernel/cmdline.d/99-mavericks.conf`, regenerates initramfs + bootloader.
+The canonical selector is `scripts/install/mavericks-profile-select.sh`. In the installed system it is exposed as:
+
+```
+/usr/local/bin/mavericks/mavericks-profile-select.sh
+```
+
+Installed profile data lives under `/usr/local/share/mavericks/profiles`, and the selected profile is recorded in `/etc/mavericks/profile.conf`.
+
+MacBook-specific fragments are enabled only when the selected profile is exactly `macbook10,1`. Generic hardware must not inherit MacBook kernel, display, Wi-Fi or power fragments.
+
+The older `scripts/apply-hardware-selection.sh` design described in historical documents is no longer the canonical path and must not be used as the basis for new implementation work.
+
+**Installation contract:** the repository currently supplies an Arch live ISO plus firstboot/profile scripts. It does not yet contain a repository-controlled installer that automatically copies the target-side firstboot environment or determines the installed user's account. Therefore firstboot invocation and target-user provisioning remain explicit installation concerns until that installer architecture is implemented.
+
 
 ---
 
