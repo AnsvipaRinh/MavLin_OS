@@ -196,53 +196,30 @@ class Overview(Gtk.Window):
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.box.pack_start(scrolled, True, True, 0)
 
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
+        # Mavericks Mission Control presents the windows for the current
+        # Space as one visual layer. Other Spaces are represented by the
+        # thumbnails in the Spaces strip above, not by separate sections.
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         content.set_margin_bottom(20)
         scrolled.add(content)
 
-        count = max(1, int(workspaces.get("count", 1)))
-        current = int(workspaces.get("current", 0))
-        names = workspaces.get("names", [])
+        current_items = by_desktop[current]
+        grid = Gtk.Grid()
+        grid.set_column_spacing(14)
+        grid.set_row_spacing(14)
+        content.pack_start(grid, True, True, 0)
 
-        by_desktop = {i: [] for i in range(count)}
-        for win in windows:
-            desktop = int(win.get("desktop", -1))
-            if desktop < 0:
-                # Sticky/all-desktop windows belong to the current desktop for
-                # presentation purposes, but retain their real desktop=-1.
-                desktop = current
-            if desktop >= count:
-                continue
-            by_desktop[desktop].append(win)
-
-        order = [current] + [i for i in range(count) if i != current]
-        for desktop in order:
-            section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
-            label = names[desktop] if desktop < len(names) else f"Desktop {desktop + 1}"
-            ws_label = Gtk.Label(label=label + ("  • current" if desktop == current else ""))
-            ws_label.set_xalign(0)
-            ws_label.get_style_context().add_class("mav-workspace")
-            section.pack_start(ws_label, False, False, 0)
-
-            grid = Gtk.Grid()
-            grid.set_column_spacing(12)
-            grid.set_row_spacing(12)
-            section.pack_start(grid, False, False, 0)
-
-            items = by_desktop[desktop]
-            if not items:
-                empty = Gtk.Label(label="No windows")
-                empty.set_xalign(0)
-                empty.get_style_context().add_class("mav-muted")
-                grid.attach(empty, 0, 0, 1, 1)
-            else:
-                cols = 1 if len(items) <= 2 else (2 if len(items) <= 6 else 3)
-                for index, win in enumerate(items):
-                    card = self._make_card(win, win.get("win_id", "").lower() == active_id)
-                    grid.attach(card, index % cols, index // cols, 1, 1)
-                    self._cards.append((card, win.get("win_id")))
-
-            content.pack_start(section, False, False, 0)
+        if not current_items:
+            empty = Gtk.Label(label="No windows")
+            empty.set_xalign(0)
+            empty.get_style_context().add_class("mav-muted")
+            grid.attach(empty, 0, 0, 1, 1)
+        else:
+            cols = 1 if len(current_items) <= 2 else (2 if len(current_items) <= 6 else 3)
+            for index, win in enumerate(current_items):
+                card = self._make_card(win, win.get("win_id", "").lower() == active_id)
+                grid.attach(card, index % cols, index // cols, 1, 1)
+                self._cards.append((card, win.get("win_id")))
 
         self.show_all()
         if self._cards:
