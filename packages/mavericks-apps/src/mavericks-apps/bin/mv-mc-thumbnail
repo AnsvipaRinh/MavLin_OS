@@ -1,100 +1,44 @@
 #!/usr/bin/env python3
-"""Mission Control: generate thumbnail for a window.
+"""Mission Control: generate a PNG thumbnail for a window.
 
 Usage: mv-mc-thumbnail <window_id> [width] [output_file]
 
-Generates a thumbnail screenshot of the specified window.
-Default width: 200px
-Default output: stdout (PNG)
+Uses the shared XComposite capture backend from mavericks-apps. No
+ImageMagick, scrot, temporary files, or geometry scraping are required.
 """
 import sys
-import subprocess
-import os
 
 DEFAULT_WIDTH = 200
 
-
-def get_window_geometry(wid):
-    """Get window geometry via xdotool."""
-    try:
-        result = subprocess.run(
-            ["xdotool", "getwindowgeometry", "--shell", str(wid)],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        props = {}
-        for line in result.stdout.splitlines():
-            if "=" in line:
-                key, val = line.split("=", 1)
-                props[key.strip()] = val.strip()
-        
-        x = int(props.get("X", 0))
-        y = int(props.get("Y", 0))
-        width = int(props.get("WIDTH", 0))
-        height = int(props.get("HEIGHT", 0))
-        return x, y, width, height
-    except (subprocess.CalledProcessError, FileNotFoundError, KeyError, ValueError) as e:
-        print(f"Error getting window geometry: {e}", file=sys.stderr)
-        return None
+try:
+    from mission_control_thumbnail import capture_window
+except ImportError as exc:
+    print(f"Error: Mission Control thumbnail backend unavailable: {exc}", file=sys.stderr)
+    sys.exit(1)
 
 
 def capture_thumbnail(wid, width=DEFAULT_WIDTH, output=None):
-    """Capture window thumbnail using import (ImageMagick) or scrot."""
-    geom = get_window_geometry(wid)
-    if not geom:
+    """Capture a mapped X11 window and write a scaled PNG."""
+    if width <= 0:
+        print("Error: width must be greater than zero", file=sys.stderr)
         return False
-    
-    x, y, win_width, win_height = geom
-    
-    # Calculate scaled dimensions
-    if win_width <= 0 or win_height <= 0:
-        print("Error: Invalid window dimensions", file=sys.stderr)
+
+    pixbuf = capture_window(wid, max_size=(width, width))
+    if pixbuf is None:
+        print(f"Error: unable to capture window {wid}", file=sys.stderr)
         return False
-    
-    scale = width / win_width
-    thumb_height = int(win_height * scale)
-    
-    # Try ImageMagick's import first
+
     try:
-        cmd = ["import", "-window", str(wid), "-resize", f"{width}x{thumb_height}", "png:-"]
         if output:
-            cmd = ["import", "-window", str(wid), "-resize", f"{width}x{thumb_height}", output]
-        
-        result = subprocess.run(cmd, capture_output=(output is None))
-        if result.returncode == 0:
-            if output is None:
-                sys.stdout.buffer.write(result.stdout)
-            print(f"Generated thumbnail: {width}x{thumb_height}", file=sys.stderr)
-            return True
-    except FileNotFoundError:
-        pass
-    
-    # Fallback to scrot
-    try:
-        temp_file = f"/tmp/mc_thumb_{wid}.png"
-        cmd = ["scrot", "-a", f"{x},{y},{win_width},{win_height}", temp_file]
-        subprocess.run(cmd, check=True)
-        
-        # Resize with convert if available
-        if output:
-            try:
-                subprocess.run(
-                    ["convert", temp_file, "-resize", f"{width}x{thumb_height}", output],
-                    check=True
-                )
-            except FileNotFoundError:
-                # No convert, just copy
-                subprocess.run(["cp", temp_file, output], check=True)
+            ok = pixbuf.savev(output, "png", [], [])
         else:
-            with open(temp_file, "rb") as f:
-                sys.stdout.buffer.write(f.read())
-        
-        os.remove(temp_file)
-        print(f"Generated thumbnail: {width}x{thumb_height}", file=sys.stderr)
+            ok, data = pixbuf.save_to_bufferv("png", [], [])
+            if not ok:
+                return False
+            sys.stdout.buffer.write(data)
         return True
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(f"Error capturing thumbnail: {e}", file=sys.stderr)
+    except Exception as exc:
+        print(f"Error writing thumbnail: {exc}", file=sys.stderr)
         return False
 
 
@@ -102,26 +46,24 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__, file=sys.stderr)
         sys.exit(1)
-    
+
     try:
-        wid = int(sys.argv[1])
+        wid = int(sys.argv[1], 0)
     except ValueError:
         print(f"Error: Invalid window ID: {sys.argv[1]}", file=sys.stderr)
         sys.exit(1)
-    
+
     width = DEFAULT_WIDTH
     output = None
-    
     if len(sys.argv) >= 3:
         try:
             width = int(sys.argv[2])
         except ValueError:
             print(f"Error: Invalid width: {sys.argv[2]}", file=sys.stderr)
             sys.exit(1)
-    
     if len(sys.argv) >= 4:
         output = sys.argv[3]
-    
+
     if not capture_thumbnail(wid, width, output):
         sys.exit(1)
 
