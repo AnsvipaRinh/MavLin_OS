@@ -28,9 +28,13 @@ ReflectionFade=true
 # Dock shape - Poppy values
 TopRoundness=4
 BottomRoundness=0
-LineWidth=1               # Poppy TopRoundness=4
-BorderSize=1              # Poppy LineWidth=1
-BorderColor=rgba(0,0,0,0.31)  # Poppy OuterStrokeColor=0;;0;;0;;79 (~0.31)
+LineWidth=1
+OuterStrokeColor=0;;0;;0;;79
+FillStartColor=199;;199;;199;;215
+FillEndColor=245;;245;;245;;215
+InnerStrokeColor=199;;199;;199;;215
+BorderSize=1
+BorderColor=rgba(0,0,0,0.31)
 
 # Inner stroke (handled via gradient in Plank)
 # FillStartColor=#c7c7c7 (a215) - Poppy metallic start
