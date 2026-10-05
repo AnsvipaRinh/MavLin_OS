@@ -486,3 +486,80 @@ different commits/PRs; branches were 24–458 commits behind and CONFLICTING.
 | #78 | 2026-10-05 | Duplicate of #77; same rows already updated on main |
 
 All closures pushed to origin.
+---
+
+## 2026-10-05 — GitHub sweep (oid OS-gh-sweep, post-f7602c4 wave)
+
+**Baseline:** local HEAD `0291e83` (1 ahead of origin/main `f7602c4` — the MC
+union merge). Sweep window: everything newer than the previously handled set
+(PRs #3-#8, #61, #68, #77, #78 closed as superseded; issues #1, #2, #84 known).
+
+### Inventory
+
+| Surface | Count | Delta since last sweep |
+|---|---|---|
+| origin/main commits beyond f7602c4 | 0 | none (local was ahead) |
+| Open PRs | 2 (#83, #86) | **+2 new** (#82 closed in-window) |
+| Closed PRs in window | 1 (#82) | new |
+| New/updated issues | 5 (#79 #80 #81 #84 #85) | **+3 new** (#79 #80 #81 #85); #84 updated |
+| Releases / tags | 0 | none |
+| Remote branches | 83 | only PR heads new: fix/mission-control-{markup-escaping,packaging,packaging-v2} |
+| CI | stalled | green through 18:51Z; 3 failures 19:16-19:17Z (MC previews/drag/workspace-transfer pushes); **all runs since ~19:58Z permanently QUEUED** (runner/infra stall, includes f7602c4 push run 37371919511) |
+
+### PR verdicts
+
+**#86 — "fix: escape Mission Control window labels" — ACCEPT (merged `d9ebb8b`, --no-ff).**
+- Claimed vs actual: TRUE. `mv-mc-gui` inserted raw X11 window titles/app names
+  into `Gtk.Label.set_markup()` — `<`/`>`/`&` in a title corrupt or crash Pango
+  parsing. Fix adds `html.escape` on both values; truncation happens BEFORE
+  escaping (correct order — cannot split an entity).
+- Static review: +4/-1, single file, no layout/activation/packaging impact.
+  Secrets-grep: clean. Owner-authored (AnsvipaRinh).
+- Verification (CI queued ⇒ local evidence): `py_compile` OK;
+  `tests/test_mission_control_gui.py` 2/2 PASS; `test_mission_control_packaging.py`
+  5/5 PASS with the merge in place. Merge clean vs local `0291e83` (its
+  mv-mc-gui change is mode-only 644→755, no textual conflict).
+
+**#83 — "fix: install Mission Control GUI and helper scripts" (v2) — ADAPT (partial supersession; left OPEN).**
+- Claimed vs actual: packaging claim TRUE but INCOMPLETE — installs 5 MC
+  helpers + `lib/mission_control.py`, misses `mv-workspace-count`; no tests.
+  Local `0291e83` (issue #80, pushed in this sweep) installs all 6 + lib +
+  187-line regression gate + CI wiring. Both bump pkgrel 5→6 identically ⇒
+  textual conflict, and the local fix is strictly stricter.
+- UNIQUE VALUE NOT superseded: commit `333e862` rewrites `mv-mc-thumbnail`
+  from ImageMagick-`import`/`scrot`/`convert` subprocess chaining to the shared
+  XComposite backend (`mission_control_thumbnail.capture_window`) — this is the
+  actual fix for issue #85 and is NOT on main.
+- Follow-up (MC-zone agent, not sweep): land the thumbnail-backend refactor on
+  main (adapt `333e862`), keeping `0291e83`'s manifest/test gate; then close.
+- #82 (v1, single commit, closed 3 min before #83 opened, no comment):
+  superseded by #83 by construction. No action.
+
+### Issue verdicts
+
+| # | State | Verdict / evidence |
+|---|---|---|
+| 79 | OPEN | **Fixed on main by f7602c4**: both xfce4-panel.xml twins clean (0 conflict markers, production plugin tree mv-apple/appmenu/systray/clock/power-manager), Super+F3→mv-mc-gui bound. Residual red pre-existing on main: `tests/test_f3_mission_control_binding.py` fails — keyboard-shortcuts.xml has no `custom` shortcuts section (file byte-identical to origin/main; NOT touched by 0291e83/d9ebb8b). Belongs to #79/MC zone. Comment posted; owner to close. |
+| 80 | OPEN | **Fixed by `0291e83`** (all 6 helpers + lib + pkgrel 6 + regression gate), published by this sweep's push. PR #83 also claims it — superseded (see above). Comment posted; owner to close. |
+| 81 | CLOSED | Closure justified: main `mv-mc-overview` is the native GTK3 overlay importing shared MC libs — no CLI placeholder (restored by the MC union merge). |
+| 84 | OPEN | No sweep action — fixed in `cc45518`, comment already present, awaiting owner closure per convention. |
+| 85 | CLOSED | **Closure PREMATURE**: main's `mv-mc-thumbnail` still shells to ImageMagick/scrot/convert (verified on HEAD and identical on origin/main); the fix exists only in unmerged PR #83 (`333e862`). Covered by the #83 ADAPT follow-up. Clarifying comment posted. |
+
+### Remote branches
+
+No new branches beyond the three PR heads above. All other unmerged branches
+(qwen-port-work, global-menu*, native-expose v1-v6, portable-app-fixes,
+xfwm-double-click-*, runtime-contract, theme-validation-gate,
+panel-config-validity, finder-launcher, self-contained-firstboot, docs/*)
+are unchanged since the 2026-10-04/05 triage sections above — re-verified via
+`git cherry` patch-equivalence; no new divergence, no action.
+
+### CI stall note
+
+GitHub Actions has been fully QUEUED since ~19:58Z (23+ runs incl. main
+pushes and PR checks; last completed run 18:51Z success). All merge/accept
+decisions in this section therefore rest on local test evidence recorded
+above, not on remote green checks. Runner restoration should trigger a full
+re-run; the queued f7602c4/0291e83 push runs will validate main retroactively.
+
+(End of sweep 2026-10-05, oid OS-gh-sweep)

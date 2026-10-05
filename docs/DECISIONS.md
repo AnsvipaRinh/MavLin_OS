@@ -945,3 +945,36 @@ files you personally created/changed, via explicit `git add <paths>`; never
 `git add -A`/`-u`; never pull/rebase/merge while another session works; never
 touch another session's modified/untracked files. This entry makes that rule
 discoverable from DECISIONS.md alongside the incident record.
+
+---
+
+## 2026-10-05 — GitHub sweep verdicts (oid OS-gh-sweep)
+
+**PR #86 (escape MC window labels) — ACCEPT, merged `d9ebb8b` (--no-ff).**
+Rationale: 4-line hardening of a real defect class (raw X11 titles into Pango
+markup); escape-after-truncate ordering correct; no behavior/packaging surface.
+The "green CI" acceptance criterion was unobtainable — GitHub Actions fully
+QUEUED since ~19:58Z (runner stall; last success 18:51Z) — so acceptance rests
+on recorded local evidence: py_compile OK, test_mission_control_gui 2/2,
+test_mission_control_packaging 5/5. If the retroactive CI run on main goes red
+for this file, revert the merge commit.
+
+**PR #83 (install MC GUI+helpers v2) — ADAPT, left OPEN.** Packaging portion
+superseded by local `0291e83` (fixes #80 strictly more completely: 6th helper
+mv-workspace-count, lib install, pkgrel 6, 187-line regression gate, CI wiring;
+identical pkgrel bump ⇒ conflict). Unique value = commit `333e862`
+(mv-mc-thumbnail → shared XComposite backend), the real fix for #85.
+Follow-up assigned to MC zone: adapt 333e862 onto main (with dependency/test
+coverage) without regressing 0291e83's manifest gate; then close PR + record.
+
+**Issue #85 closed prematurely — recorded.** The closed issue's fix is not on
+main (verified: mv-mc-thumbnail on HEAD and origin/main still calls
+ImageMagick import/scrot/convert). Comment posted on the issue; the #83 ADAPT
+follow-up is the tracking path. Lesson for issue hygiene: close after the fix
+is MERGED, not when the PR branch exists.
+
+**Pre-existing main red — test_f3_mission_control_binding.** Fails on origin/
+main state (keyboard-shortcuts.xml lacks the `custom` shortcuts section the
+test requires; file byte-identical between HEAD and f7602c4). Not caused by
+0291e83 or d9ebb8b (neither touches it). Owned by the #79/MC-zone agent.
+Documented so nobody attributes it to the #86 merge.
