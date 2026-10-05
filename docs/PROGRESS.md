@@ -229,6 +229,7 @@ getinfo 35/35 · finder suites 26+69 · power-ui 45.
 - Panel plugin-7 HUD config repair (0cc876a9)
 - Self-contained firstboot implementation (4e3ede57)
 - Profile sync CI gates strengthened
+- oid OS-mc-impl-1: read-only window enumeration via EWMH/Xlib + wmctrl fallback (feat: mission-control window enumeration)
 
 ---
 
