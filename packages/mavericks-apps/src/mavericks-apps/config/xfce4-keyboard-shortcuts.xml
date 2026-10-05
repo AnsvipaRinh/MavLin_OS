@@ -6,6 +6,7 @@
       <property name="&lt;Super&gt;l" type="string" value="rofi -show -modi 'launchpad:/usr/bin/mv-launchpad' -theme /usr/share/mavericks-apps/rofi-launchpad.rasi"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;l" type="string" value="/usr/bin/mv-launchpad-edit"/>
       <property name="&lt;Super&gt;Tab" type="string" value="mv-mission-control --native"/>
+      <property name="&lt;Super&gt;F3" type="string" value="mv-mc-gui"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;4" type="string" value="mv-shot -i -c"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;3" type="string" value="mv-shot -m"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;5" type="string" value="mv-shot -i"/>

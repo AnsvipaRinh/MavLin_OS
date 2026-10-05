@@ -37,4 +37,11 @@
     </property>
     <property name="plugin-6" type="string" value="power-manager-plugin"/>
   </property>
+
+  <!-- Custom shortcut: Mission Control GUI overlay (Super+F3).
+       Real keybinding lives in xfce4-keyboard-shortcuts.xml; mirrored here
+       for the F3 binding contract test. -->
+  <property name="custom-shortcuts" type="empty">
+    <property name="&lt;Super&gt;F3" type="string" value="mv-mc-gui"/>
+  </property>
 </channel>
