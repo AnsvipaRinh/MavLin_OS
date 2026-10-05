@@ -1139,5 +1139,43 @@ class WatchdogEnsureTests(unittest.TestCase):
                 pass
 
 
+class ProtocolVersionConsistency(unittest.TestCase):
+    """Issue #84: docs must require the SAME orchestrator-protocol version
+    that session-reuse.py implements (sr.ORCHESTRATOR_PROTOCOL). Stale
+    numbers (e.g. 'need v16', 'orchestrator-protocol: 15') caused wrong
+    STALE-AGENT decisions."""
+
+    AGENTS_MD = os.path.join(BASE, "..", "AGENTS.md")
+    ORCH_MD = os.path.join(BASE, "..", ".opencode", "agents", "orchestrator.md")
+
+    def _refs(self, path):
+        with open(path, "r", encoding="utf-8") as f:
+            text = f.read()
+        pairs = re.findall(r"orchestrator-protocol: (\d+)|need v(\d+)", text)
+        return [int(a or b) for a, b in pairs]
+
+    def test_version_constant_is_int(self):
+        self.assertIsInstance(sr.ORCHESTRATOR_PROTOCOL, int)
+
+    def test_orchestrator_md_requires_current_version(self):
+        refs = self._refs(self.ORCH_MD)
+        self.assertTrue(refs, "orchestrator.md must state 'orchestrator-protocol: N'")
+        for n in refs:
+            self.assertEqual(n, sr.ORCHESTRATOR_PROTOCOL,
+                             f"orchestrator.md requires v{n}, script implements v{sr.ORCHESTRATOR_PROTOCOL}")
+
+    def test_agents_md_requires_current_version(self):
+        refs = self._refs(self.AGENTS_MD)
+        self.assertTrue(refs, "AGENTS.md must reference the orchestrator protocol version")
+        for n in refs:
+            self.assertEqual(n, sr.ORCHESTRATOR_PROTOCOL,
+                             f"AGENTS.md requires v{n}, script implements v{sr.ORCHESTRATOR_PROTOCOL}")
+
+    def test_version_subcommand_prints_current(self):
+        out = subprocess.run([sys.executable, SCRIPT, "version"],
+                             capture_output=True, text=True, check=True).stdout
+        self.assertIn(f"orchestrator-protocol: {sr.ORCHESTRATOR_PROTOCOL}", out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

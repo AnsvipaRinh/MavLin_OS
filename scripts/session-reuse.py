@@ -22,7 +22,7 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
   preflight [--exclude M]   offline worker/health decision BEFORE every Task:
                             PRIMARY_READY/COOLDOWN + PREFLIGHT_OK/WAIT,
                             zero API calls
-  version                   print orchestrator protocol version (v4 required
+  version                   print orchestrator protocol version (v17 required
                             by the current orchestrator prompt; unknown
                             subcommand = stale agent file -> STALE-AGENT)
   health                    show model cooldown memory (dead models + retry-in)
