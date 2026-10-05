@@ -20,7 +20,8 @@ else:
     # Every shipped mv-* executable source must be represented by the
     # package install loop. Python files with underscores are helper modules
     # and are intentionally handled separately by the Makefile.
-    for name in sorted(os.listdir(BIN)) if os.path.isdir(BIN) else []:
+    bin_names = sorted(os.listdir(BIN)) if os.path.isdir(BIN) else []
+    for name in bin_names:
         path = os.path.join(BIN, name)
         if not os.path.isfile(path) or not name.startswith("mv-"):
             continue
