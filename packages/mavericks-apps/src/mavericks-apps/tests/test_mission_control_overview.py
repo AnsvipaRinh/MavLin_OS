@@ -24,6 +24,25 @@ def test_overview_help():
     print("PASS: mv-mc-overview shows help")
 
 
+def test_overview_keyboard_navigation_contract():
+    """Mission Control must support keyboard selection and activation."""
+    script_path = "packages/mavericks-apps/src/mavericks-apps/bin/mv-mc-overview"
+
+    if not os.path.exists(script_path):
+        print(f"SKIP: {script_path} not found")
+        return
+
+    source = open(script_path, encoding="utf-8").read()
+    assert 'if key in ("Left", "Up"):' in source
+    assert 'if key in ("Right", "Down"):' in source
+    assert 'if key in ("Return", "KP_Enter", "space"):' in source
+    assert 'if key == "Home":' in source
+    assert 'if key == "End":' in source
+    assert "self._activate_selected()" in source
+
+    print("PASS: Mission Control keyboard navigation contract")
+
+
 def test_overview_list_mode():
     """Test that mv-mc-overview list mode works."""
     script_path = "packages/mavericks-apps/src/mavericks-apps/bin/mv-mc-overview"
