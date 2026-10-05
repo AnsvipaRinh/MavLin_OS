@@ -51,6 +51,11 @@ REQUIRED = [
     # 16 — notifications x2 + shutdown
     "notifications-symbolic", "notifications-disabled-symbolic",
     "system-shutdown-symbolic",
+    # 15 — places folders
+    "folder", "inode-directory", "folder-documents", "folder-download",
+    "folder-music", "folder-pictures", "folder-videos", "folder-templates",
+    "folder-publicshare", "folder-remote", "folder-saved-search",
+    "folder-recent", "folder-desktop", "user-bookmarks", "folder-online",
 ]
 
 # Known-broken text-path files still pending replacement in OTHER zones of
@@ -58,12 +63,6 @@ REQUIRED = [
 # Each entry here must be a file whose content starts with a Poppy checkout
 # relative path. Shrink this list as zones get fixed; never grow it.
 KNOWN_PENDING = {
-    # 128x128/places folders — replaced by Tier 2 category 15
-    "128x128/places/folder.svg",
-    "128x128/places/folder-documents.svg",
-    "128x128/places/folder-download.svg",
-    "128x128/places/folder-videos.svg",
-    "128x128/places/inode-directory.svg",
     # preferences font tile — replaced by Tier 2 category 14
     "128x128/apps/preferences-desktop-font.svg",
     # other zones, pending owners
