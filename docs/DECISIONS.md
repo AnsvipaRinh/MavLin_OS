@@ -718,3 +718,52 @@ windows.
 
 Stability after the fixes: NC+control 0/10 failures and console+photos
 0/8 failures under the X11-forced harness (previously ~40-50% failed).
+
+---
+
+## 2026-10-05 — Owner PR triage verdict: all 8 Oct-4 PRs superseded (close, do not merge)
+
+**Context:** Triage of owner PRs #3, #4, #5, #6, #61, #68, #77, #78
+(oid OS-owner-prs-triage; read-only, no merges). All owner-authored →
+mandatory directives. All 8 are CONFLICTING/DIRTY against
+origin/main (183c9d9); bases are 458/458/458/458/74/56/24/24 commits
+behind.
+
+**Judgment calls (with reasons):**
+- **REJECT-as-superseded for all 8.** Each PR's substance already
+  exists on main via differently-worded commits: theme-validation gate
+  (#3 → main ci.yml "Theme validation" + sassc/gir deps),
+  self-contained firstboot (#4 → PROFILE_SELECTOR/PROFILE_STORE +
+  check-profile-sync contract L88-106 + check-sync PAIRS),
+  Finder column launcher (#5 → `Exec=mv-finder-columns %U` +
+  test-finder-launcher gate), panel-config gate (#6 → test-panel-config
+  in static analysis + synced panel-xml twins a57de5a), recursive
+  XDG desktop IDs (#61 → mv_desktop_cache.py `rel.replace(os.sep,"-")`
+  + #60 quarantine + #76 escapes), Launchpad migration persistence
+  (#68 → load_folders `changed = changed or migrated` via PR #70),
+  menu-bar/app-menu inventory rows (#77/#78 → main APPS.md rows are
+  already IMPLEMENTED — HARDWARE VALIDATION REQUIRED with plugin
+  chain + gating tests). Rebasing would re-land already-landed work
+  and risk regressions; closing preserves the audit trail.
+- **#61 → #68 dependency order recorded** (canonical IDs before
+  migration persistence) in case the owner revives either; both
+  already on main, so order is documentation-only.
+- **#77 vs #78: mutually exclusive** (identical APPS.md hunk); both
+  stale. Neither merges; if one must survive, #78 is the more detailed
+  wording, but main's rows supersede both.
+- **PR #5 zero-check-runs root cause** = invalid workflow YAML
+  (job-level step inside the `if: false` hardware-tests job), not a
+  runner outage — verified via check-runs API (total_count 0).
+- **#19 confirmed closed-superseded** (closed 2026-10-04T21:27Z,
+  unmerged); its `double_click_action=maximize` content is already on
+  main in both xfwm4.xml twins; supersession recorded in 6090037.
+- **#4's Profile Sync failure is a genuine contract violation**
+  (one-sided twin edit of mavericks-profile-select.sh) — recorded as
+  the reason that PR needs both-twins sync even before staleness.
+
+**Verification:** full per-PR CI log forensics (runs 37227849232,
+37228109529, 37228398329, 37240905549, 37241315726, 37242612345,
+37242682389); three-way diff vs origin/main for every PR head;
+check-runs API for #5; mergeable re-poll → CONFLICTING ×8. Results in
+docs/EXTERNAL_AUDIT.md (dated section 2026-10-05). No product code
+changed; no merges; no pushes of product code.

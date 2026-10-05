@@ -365,3 +365,103 @@ if __name__ == "__main__":
 **No genuine blockers. All work executable pre-hardware. Continue autonomous loop.**
 
 (End of audit)
+
+---
+
+## 2026-10-05 — Owner PR triage: #3, #4, #5, #6, #61, #68, #77, #78 (Oct-4 owner batch)
+
+**Scope:** read-only triage (oid OS-owner-prs-triage). No merges, no
+product-code changes. All 8 PRs are owner-authored (AnsvipaRinh,
+2026-10-04T19:17–23:08Z) → mandatory directives per OWNER-ISSUES RULE.
+
+**Headline finding:** all 8 PRs are based on stale main (#3/#4/#5/#6:
+458 commits behind, cut from d3ad090; #61: 74 behind, from PR #60
+merge 3f97047; #68: 56 behind; #77/#78: 24 behind, from PR #75 merge
+aef81e6). Re-polled `mergeable` after collection: **all 8 are
+CONFLICTING / mergeStateStatus DIRTY** against origin/main (183c9d9).
+Every PR's substance already exists on main via differently-worded
+commits/PRs (#7, #18, the #37–#76 sync range c484b8d, PR #70
+9429440, bfe60c2, f643a2d, a57de5a, d18829b). **Verdict: all 8
+REJECT-as-superseded (close, do not merge).**
+
+### Per-PR verdict table
+
+| PR | Scope (files) | CI (why red) | Conflict w/ main | Verdict |
+|---|---|---|---|---|
+| #3 ci: enforce real GTK3 theme validation | ci.yml unit-tests job: sassc+gir deps, test-theme-css.py gate, lab-harness tests, discovery/firefox gates | Contribution Format (## headings, missing sections); Static Analysis (`E: Unable to locate package xmllint` — old workflow installs xmllint as an apt package; it ships in libxml2-utils); Unit Tests (`ModuleNotFoundError: No module named 'lab'` — lab/harness/tests/test_harness.py does `from lab.harness.fixtures import builder` while run as a file; needs PYTHONPATH=. or `python3 -m`); Profile Sync + Secret Scan green | CONFLICTING, 458 behind; main already runs `python3 scripts/test-theme-css.py` as "Theme validation" with sassc + gir1.2-gtk-3.0 installed | REJECT — superseded; lab gate broken as written. Revive only as fresh PR rebased on 183c9d9 with import fix + ### body |
+| #4 fix: firstboot self-contained | mavericks-firstboot.sh, new mavericks-profile-select.sh, new mavericks-firstboot.service, profiledef.sh, apply-hardware-selection.sh, check-profile-sync.sh | Contribution Format; Static Analysis (xmllint); **Profile Sync — real contract violation: PR edited only the airootfs twin of mavericks-profile-select.sh; scripts/install twin drifted (check-profile-sync requires byte-identical pairs)**; Unit Tests + Secret Scan green | CONFLICTING, 458 behind; main already self-contained (PROFILE_SELECTOR/PROFILE_STORE paths, contract enforced in check-profile-sync.sh L88-106, both twins in check-sync PAIRS); main's firstboot also already dropped skel/lightdm/firefox/pacman-local installs (PR's deletions match main's direction) | REJECT — superseded + internal sync violation |
+| #5 fix: Finder desktop entry | ci.yml, mv-finder.desktop, new test-finder-launcher.py | **NO CHECKS RUN AT ALL (0 check runs, statusCheckRollup [])**: PR's ci.yml edit is invalid YAML — a step injected at job level (`    - name:` 4-space indent) inside the `if: false` hardware-tests job → workflow parse failure | CONFLICTING, 458 behind; main already has `Exec=mv-finder-columns %U` + "Finder launcher regression gate" (scripts/test-finder-launcher.py) in unit-tests | REJECT — superseded + broken workflow file |
+| #6 fix: panel plugin config validity | ci.yml static-analysis job, airootfs xfce4-panel.xml, new test-panel-config.py | Contribution Format (all 12 sections present but ## level; job requires ###); Static Analysis (xmllint; plus latent check-sync drift: PR edits only the airootfs panel-xml twin — configs/desktop/xfce/xfce4-panel.xml untouched, pair enforced by check-sync.sh L50); Profile Sync/Unit/Secret green | CONFLICTING, 458 behind; main already runs test-panel-config.py in static analysis ("Panel configuration validation") and synced the panel-xml twins (a57de5a); main's panel has NO genmon plugin (mv-apple→appmenu→separator→systray→clock→power-manager) — PR's genmon plugin-7/milliseconds repair targets a layout that no longer exists | REJECT — superseded; genmon defect non-reproducible on main's panel layout |
+| #61 fix: preserve XDG desktop entry IDs | mv-launchpad, mv-spotlight, mv_desktop_cache.py, test-mv-desktop-cache.py | Contribution Format only (omits "Visual" section); Profile Sync/Static Analysis/Unit Tests/Secret Scan green | CONFLICTING, 74 behind; main's mv_desktop_cache.py already computes `desktop_id = rel.replace(os.sep, "-")` recursively with user/system precedence, plus later hardening (quarantine from #60, value escapes from #76, XDG_CURRENT_DESKTOP/PATH in fingerprint, lazy Gtk) | REJECT — superseded (landed via #37–#76 sync) |
+| #68 fix: persist Launchpad ID migrations | mv-launchpad load_folders + new test-mv-launchpad-migration-persistence.py | Contribution Format only (omits "Visual"); all other gates green | CONFLICTING, 56 behind; main's load_folders contains the exact 2-line change (`migrated_ids, migrated = _migrate_app_ids(...); changed = changed or migrated`) feeding the existing atomic-save path — landed via PR #70 / #37–#76 sync | REJECT — superseded |
+| #77 docs: sync menu bar inventory | docs/APPS.md Menu Bar + Application Menu rows | Contribution Format only (omits "Visual") | CONFLICTING, 24 behind; **same hunk as #78** (@@ -68,9 +68,9 @@); main's rows are already IMPLEMENTED — HARDWARE VALIDATION REQUIRED with more detail (plugin chain, xsettings, gating tests) | REJECT — superseded + direct collision with #78 |
+| #78 docs: refresh global menu status | docs/APPS.md (same two rows) | Contribution Format only (omits "Visual") | CONFLICTING, 24 behind; same hunk as #77 — mutually exclusive | REJECT — superseded; backends named correctly (vala-panel-appmenu + appmenu-gtk-module + custom mv-apple) but main's rows already document this with equal-or-greater detail |
+
+### Special-attention items
+
+**#78 vs the merged implementation:** matches on backends
+(vala-panel-appmenu, appmenu-gtk-module, custom mv-apple panel plugin)
+and on "no polling" behavior, but was written against a
+24-commits-old APPS.md. Main's rows already state the full plugin
+chain (mv-apple → appmenu → expand separator → systray → clock →
+power-manager), the xsettings wiring (ShellShowsMenubar /
+ShellShowsAppmenu = true, Modules = appmenu-gtk-module), and the
+gating contracts (test-panel-config + test-global-menu +
+test-appmenu-module). Nothing new to merge.
+
+**#61 + #68 — destructive potential:** LOW. #61 changes only cache
+fingerprint/keying — the cache invalidates automatically on fingerprint
+change (rebuild; no user data touched). #68 writes
+~/.config/mv-launchpad/folders.json through the existing atomic-save
+path (tmp + replace); corrupt-file handling in load_folders already
+preserves a bad user file instead of overwriting it. Neither PR ships
+explicit backup/rollback provisions, but atomic-save + corrupt-preserve
+semantics bound the blast radius. Both changes are already on main with
+these same properties. **Dependency order if ever revived: #61 first
+(canonical desktop IDs), then #68 (migration persistence consumes the
+ID translator).**
+
+**#19 (xfwm double-click) — current state:** CLOSED 2026-10-04T21:27Z,
+never merged (mergeCommit null). Its content IS on main: both xfwm4.xml
+twins already carry `<property name="double_click_action" type="string"
+value="maximize"/>` (line 13). Main commit 6090037 explicitly records
+"PR #19 supersession". The triage-note conflict is resolved:
+closed-superseded, content landed via another path.
+
+### Collision map
+
+- **ci.yml**: #3 (unit-tests job ~L109-150), #5 (EOF, malformed,
+  inside `if: false` hardware-tests job), #6 (static-analysis job ~L47)
+  — no inter-PR hunk overlap among the three, but all conflict with
+  main's heavily-evolved ci.yml.
+- **xfce4-panel.xml twins**: #6 edits the airootfs side only →
+  check-sync drift vs configs/desktop twin.
+- **mavericks-profile-select.sh twins**: #4 edits the airootfs side
+  only → check-profile-sync drift vs scripts/install twin.
+- **mv-launchpad**: #61 (load_desktop_apps ~L51) vs #68 (load_folders
+  ~L164) — no hunk overlap; #68 is downstream of #61.
+- **docs/APPS.md**: #77 ≡ #78, identical hunk — mutually exclusive.
+
+### Hypothetical merge order (NOT recommended — all superseded)
+
+If the owner revives any of this work: (1) #61 → (2) #68 (hard
+dependency), (3) #3/#5/#6 in any order but only after full rebase onto
+183c9d9 with the fixes listed above, (4) #4 after rebase + both-twins
+sync, (5) at most one of #77/#78. **Recommended action: close all 8
+as superseded**; if the lab-harness CI gate (#3's unique addition) or
+the genmon panel repair (#6) is still wanted on current main, open
+fresh PRs rebased onto 183c9d9.
+
+### Process notes
+
+- All 8 PRs fail Contribution Format for body reasons: #3/#4/#5 use
+  ## headings and lack most of the 12 required sections; #6 uses ##
+  (job regex requires ###); #61/#68/#77/#78 omit the "Visual" section.
+- PRs #3/#4/#6 carry the old workflow containing the broken `xmllint`
+  apt package (fixed on main: libxml2-utils only, see ci.yml L24).
+- GitHub reported mergeable=UNKNOWN at collection start; re-polled to
+  CONFLICTING/DIRTY for all 8 after compute completed.
+- PR heads fetched read-only to local refs refs/remotes/pr-{3,4,5,6,61,
+  68,77,78,19} for three-way analysis; no product code modified.
+
+(End of owner-PR triage 2026-10-05)
