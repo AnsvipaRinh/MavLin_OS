@@ -998,11 +998,16 @@ def import_table(rows, overrides=None, path=None):
 
 def load_skills():
     """System Settings skill groups. Falls back to a built-in table."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir,
-                        "config", "hotkeys", "skills.json")
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = (
+        "/usr/share/mavericks-apps/hotkeys/skills.json",
+        os.path.join(module_dir, os.pardir, "config", "hotkeys", "skills.json"),
+    )
     fallback = [{"id": "system", "label": "System", "icon": "preferences-system",
                  "description": ""}]
-    if not os.path.isfile(path):
+    path = next((candidate for candidate in candidates
+                 if os.path.isfile(candidate)), None)
+    if not path:
         return fallback
     try:
         with open(path, encoding="utf-8") as fh:
