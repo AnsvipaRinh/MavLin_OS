@@ -53,6 +53,7 @@ window.mav-mc {
 }
 .mav-workspace-button { background-color: rgba(38,40,45,0.90); color:#d8d8d8; border:1px solid rgba(255,255,255,0.13); border-radius:7px; padding:5px; min-width:132px; }
 .mav-workspace-button:checked { background-color:rgba(82,101,128,0.98); color:#fff; border-color:rgba(255,255,255,0.58); }
+.mav-workspace-button.mav-drop-target { background-color:rgba(100,125,160,0.98); border-color:rgba(255,255,255,0.95); box-shadow:0 0 0 2px rgba(255,255,255,0.32); }
 .mav-workspace-preview { min-height:46px; }
 .mav-workspace-label { color:#e4e4e4; font-size:11px; font-weight:600; }
 .mav-workspace-count { color:#9b9b9b; font-size:10px; }
@@ -140,6 +141,8 @@ class Overview(Gtk.Window):
                 [Gtk.TargetEntry.new("application/x-mav-mission-window", Gtk.TargetFlags.SAME_APP, 0)],
                 Gdk.DragAction.MOVE,
             )
+            button.connect("drag-motion", self._on_workspace_drag_motion, desktop)
+            button.connect("drag-leave", self._on_workspace_drag_leave)
             button.connect("drag-data-received", self._on_workspace_drop, desktop)
 
             button_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
@@ -297,14 +300,31 @@ class Overview(Gtk.Window):
         if win_id:
             selection.set_text(str(win_id), -1)
 
-    def _on_workspace_drop(self, _button, _context, _x, _y, selection, _info, _time, desktop):
+    def _clear_drop_highlight(self):
+        for button in self._workspace_buttons:
+            button.get_style_context().remove_class("mav-drop-target")
+        return False
+
+    def _on_workspace_drag_motion(self, _button, _context, _x, _y, _time, desktop):
+        self._clear_drop_highlight()
+        if 0 <= desktop < len(self._workspace_buttons):
+            self._workspace_buttons[desktop].get_style_context().add_class("mav-drop-target")
+        return True
+
+    def _on_workspace_drag_leave(self, _button, _context, _time):
+        self._clear_drop_highlight()
+
+    def _on_workspace_drop(self, _button, context, _x, _y, selection, _info, _time, desktop):
+        self._clear_drop_highlight()
         win_id = selection.get_text()
         if not win_id:
+            context.drag_status(0, _time)
             return
         if mission_control.move_window_to_workspace(win_id, desktop):
+            context.finish(True, False, _time)
             self._refresh_after_workspace_switch()
             return
-        return
+        context.finish(False, False, _time)
 
     def _make_card(self, win, is_active):
         event = Gtk.EventBox()
