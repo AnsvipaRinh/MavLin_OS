@@ -529,9 +529,30 @@ if _GTK_OK:
                 self.destroy()
                 return True
 
-            # Keep Mission Control faithful to Mavericks. Arrow/Tab navigation
-            # between application windows was not a built-in Mission Control
-            # interaction in 10.9; those controls belonged to App Expose.
+            # Keyboard navigation is essential for a full-screen window overview:
+            # the selected card must remain usable without a mouse. Mission
+            # Control's grid is application-grouped, so linear traversal is the
+            # deterministic fallback across varying group sizes.
+            if key in ("Return", "KP_Enter", "space"):
+                if self._activate_selected():
+                    return True
+            if key in ("Left", "Up"):
+                if self._cards:
+                    self._select_card(self._selected_index - 1)
+                    return True
+            if key in ("Right", "Down"):
+                if self._cards:
+                    self._select_card(self._selected_index + 1)
+                    return True
+            if key == "Home":
+                if self._cards:
+                    self._select_card(0)
+                    return True
+            if key == "End":
+                if self._cards:
+                    self._select_card(len(self._cards) - 1)
+                    return True
+
             state = event.state & Gtk.accelerator_get_default_mod_mask()
             if state & Gdk.ModifierType.CONTROL_MASK:
                 current = int(mission_control.get_workspaces().get("current", 0))
