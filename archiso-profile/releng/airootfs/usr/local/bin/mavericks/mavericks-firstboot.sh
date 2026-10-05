@@ -82,7 +82,9 @@ fi
 rm -f /etc/tlp.d/10-experiment.conf
 
 log "4/8 zram"
-systemctl enable systemd-zram-setup@zram0.service 2>/dev/null || true
+# zram-generator creates and activates systemd-zram-setup@zram0.service from
+# the packaged generator configuration; do not manually enable the generated
+# instance here.
 rm -f /etc/sysctl.d/99-mavericks.conf
 
 log "5/8 network: NetworkManager owns Wi-Fi"
