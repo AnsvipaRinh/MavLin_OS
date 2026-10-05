@@ -56,7 +56,14 @@ else
   hostnamectl set-hostname mavericks-linux 2>/dev/null || echo mavericks-linux > /etc/hostname
   log "no static hostname configured — using default: mavericks-linux"
 fi
-ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime 2>/dev/null || true
+# Preserve an installer-selected timezone. Europe/Berlin is only a fallback
+# when no usable /etc/localtime configuration exists yet.
+if [[ -e /etc/localtime ]]; then
+  log "preserving existing timezone configuration"
+else
+  ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
+  log "no timezone configured — using default: Europe/Berlin"
+fi
 hwclock --systohc 2>/dev/null || true
 
 log "2/8 bootloader entries = baseline + profile fragments"
