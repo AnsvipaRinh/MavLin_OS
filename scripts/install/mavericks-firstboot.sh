@@ -47,7 +47,15 @@ macbook_profile() {
 }
 
 log "1/8 hostname/locale/time"
-hostnamectl set-hostname mavericks-linux 2>/dev/null || echo mavericks-linux > /etc/hostname
+# Preserve a hostname selected by the installer or administrator. Only use the
+# project default when the installed system has no static hostname yet.
+CURRENT_HOSTNAME="$(hostnamectl --static 2>/dev/null || true)"
+if [[ -n "$CURRENT_HOSTNAME" ]]; then
+  log "preserving existing static hostname: $CURRENT_HOSTNAME"
+else
+  hostnamectl set-hostname mavericks-linux 2>/dev/null || echo mavericks-linux > /etc/hostname
+  log "no static hostname configured — using default: mavericks-linux"
+fi
 ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime 2>/dev/null || true
 hwclock --systohc 2>/dev/null || true
 
