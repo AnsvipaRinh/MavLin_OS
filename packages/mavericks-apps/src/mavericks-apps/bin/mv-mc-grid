@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""Mission Control: calculate grid layout for windows.
+
+Usage: mv-mc-grid <window_count> [screen_width] [screen_height] [margin]
+
+Outputs JSON with grid dimensions and cell positions for laying out
+window thumbnails in Mission Control style.
+
+Output:
+{
+  "rows": 2,
+  "cols": 3,
+  "cell_width": 400,
+  "cell_height": 300,
+  "windows": [
+    {"index": 0, "x": 50, "y": 50, "row": 0, "col": 0},
+    ...
+  ]
+}
+"""
+import sys
+import json
+import math
+
+DEFAULT_MARGIN = 50
+DEFAULT_SCREEN_WIDTH = 1920
+DEFAULT_SCREEN_HEIGHT = 1080
+
+
+def calculate_grid(window_count, screen_width=DEFAULT_SCREEN_WIDTH, 
+                   screen_height=DEFAULT_SCREEN_HEIGHT, margin=DEFAULT_MARGIN):
+    """Calculate optimal grid layout for windows."""
+    if window_count <= 0:
+        return {"rows": 0, "cols": 0, "cell_width": 0, "cell_height": 0, "windows": []}
+    
+    # Calculate grid dimensions (try to keep aspect ratio close to screen)
+    screen_ratio = screen_width / screen_height
+    
+    # Start with square-ish grid, adjust for screen ratio
+    cols = math.ceil(math.sqrt(window_count))
+    rows = math.ceil(window_count / cols)
+    
+    # Adjust to better fit screen aspect ratio
+    while cols > 1 and rows < cols:
+        test_cols = cols - 1
+        test_rows = math.ceil(window_count / test_cols)
+        test_ratio = test_cols / test_rows
+        
+        if abs(test_ratio - screen_ratio) < abs(cols / rows - screen_ratio):
+            cols = test_cols
+            rows = test_rows
+        else:
+            break
+    
+    # Calculate cell dimensions
+    available_width = screen_width - (margin * 2)
+    available_height = screen_height - (margin * 2)
+    
+    cell_width = available_width // cols
+    cell_height = available_height // rows
+    
+    # Generate window positions
+    windows = []
+    for i in range(window_count):
+        row = i // cols
+        col = i % cols
+        
+        x = margin + (col * cell_width) + (cell_width // 4)  # Center in cell
+        y = margin + (row * cell_height) + (cell_height // 4)
+        
+        windows.append({
+            "index": i,
+            "x": x,
+            "y": y,
+            "row": row,
+            "col": col
+        })
+    
+    return {
+        "rows": rows,
+        "cols": cols,
+        "cell_width": cell_width,
+        "cell_height": cell_height,
+        "windows": windows
+    }
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__, file=sys.stderr)
+        sys.exit(1)
+    
+    try:
+        window_count = int(sys.argv[1])
+    except ValueError:
+        print(f"Error: Invalid window count: {sys.argv[1]}", file=sys.stderr)
+        sys.exit(1)
+    
+    screen_width = DEFAULT_SCREEN_WIDTH
+    screen_height = DEFAULT_SCREEN_HEIGHT
+    margin = DEFAULT_MARGIN
+    
+    if len(sys.argv) >= 3:
+        try:
+            screen_width = int(sys.argv[2])
+        except ValueError:
+            print(f"Error: Invalid screen width: {sys.argv[2]}", file=sys.stderr)
+            sys.exit(1)
+    
+    if len(sys.argv) >= 4:
+        try:
+            screen_height = int(sys.argv[3])
+        except ValueError:
+            print(f"Error: Invalid screen height: {sys.argv[3]}", file=sys.stderr)
+            sys.exit(1)
+    
+    if len(sys.argv) >= 5:
+        try:
+            margin = int(sys.argv[4])
+        except ValueError:
+            print(f"Error: Invalid margin: {sys.argv[4]}", file=sys.stderr)
+            sys.exit(1)
+    
+    grid = calculate_grid(window_count, screen_width, screen_height, margin)
+    print(json.dumps(grid, indent=2))
+
+
+if __name__ == "__main__":
+    main()

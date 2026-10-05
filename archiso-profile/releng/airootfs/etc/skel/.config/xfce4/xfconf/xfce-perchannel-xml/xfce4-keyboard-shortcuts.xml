@@ -11,6 +11,7 @@
       <property name="&lt;Super&gt;&lt;Shift&gt;5" type="string" value="mv-shot -i"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;f" type="string" value="mv-finder-columns"/>
       <property name="&lt;Super&gt;q" type="string" value="mv-quit-app"/>
+      <property name="&lt;Super&gt;&lt;Shift&gt;q" type="string" value="mv-force-quit"/>
       <property name="&lt;Super&gt;m" type="string" value="mv-minimize-window"/>
       <property name="&lt;Super&gt;h" type="string" value="mv-hide-app"/>
       <property name="&lt;Super&gt;w" type="string" value="mv-close-window"/>

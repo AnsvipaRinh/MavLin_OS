@@ -1,507 +1,130 @@
 #!/usr/bin/env python3
-"""Native GTK3 Mission Control overview for MavLinOS.
+"""Mission Control Overview UI - Mavericks-style window overview.
 
-Read-only window discovery and thumbnail capture are delegated to the shared
-Mission Control libraries. The overlay never redirects or reparents windows.
+This is the main entry point for Mission Control in MavLinOS.
+It integrates:
+- Window listing by workspace (mv-mc-window-spaces)
+- Thumbnail generation (mv-mc-thumbnail)
+- Grid layout calculation (mv-mc-grid)
+- Window activation (mv-mc-activate-window)
+
+Usage: mv-mc-overview [--debug]
 """
-import os
 import sys
+import os
+import subprocess
+import json
+import argparse
 
-try:
-    import gi
-    gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, Gdk, GLib, Pango
-except ImportError:
-    raise SystemExit("GTK3/PyGObject is required")
-
-LIBDIR = "/usr/share/mavericks-apps"
-if LIBDIR not in sys.path:
-    sys.path.insert(0, LIBDIR)
-
-import mission_control
-import mission_control_thumbnail
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-CSS = """
-window.mav-mc {
-  background-color: rgba(18, 20, 24, 0.94);
-}
-.mav-header {
-  color: #f2f2f2;
-  font-size: 20px;
-  font-weight: 600;
-}
-.mav-workspace {
-  color: #d8d8d8;
-  font-size: 14px;
-  font-weight: 600;
-}
-.mav-card {
-  background-color: transparent;
-  border: 4px solid transparent;
-  border-radius: 6px;
-  padding: 0;
-}
-.mav-card.mav-selected {
-  background-color: transparent;
-  border-color: rgba(83,110,191,1);
-  box-shadow: none;
-}
-.mav-card:hover {
-  background-color: transparent;
-  border-color: rgba(83,110,191,0.72);
-}
-.mav-app-group { background-color: transparent; }
-.mav-app-heading { color:#ffffff; font-size:14px; font-weight:600; text-shadow:0 1px 2px #000; }
-.mav-app-icon { min-width:20px; min-height:20px; }
-.mav-title {
-  color: #ffffff;
-  font-size: 18px;
-  font-weight: 500;
-  text-shadow: 0 1px 3px #000;
-  padding: 0;
-}
-.mav-workspace-button { background-color: rgba(38,40,45,0.90); color:#d8d8d8; border:1px solid rgba(255,255,255,0.13); border-radius:7px; padding:5px; min-width:132px; }
-.mav-workspace-button:checked { background-color:rgba(82,101,128,0.98); color:#fff; border-color:rgba(255,255,255,0.58); }
-.mav-workspace-add { background-color: rgba(38,40,45,0.90); color:#e4e4e4; border:1px solid rgba(255,255,255,0.13); border-radius:7px; min-width:34px; min-height:34px; font-size:18px; }
-.mav-workspace-button:hover .mav-workspace-close { opacity:1; }
-.mav-workspace-close { opacity:0; min-width:18px; min-height:18px; padding:0; border:0; background:transparent; color:#ddd; font-size:12px; }
-.mav-workspace-button.mav-drop-target { background-color:rgba(100,125,160,0.98); border-color:rgba(255,255,255,0.95); box-shadow:0 0 0 2px rgba(255,255,255,0.32); }
-.mav-workspace-preview { min-height:46px; }
-.mav-workspace-label { color:#e4e4e4; font-size:11px; font-weight:600; }
-.mav-workspace-count { color:#9b9b9b; font-size:10px; }
-.mav-hint { color:#8f9399; font-size:11px; }
-.mav-muted {
-  color: #9b9b9b;
-  font-size: 11px;
-}
-"""
-
-def _safe_title(window):
-    title = (window.get("title") or "").strip()
-    return title if title else window.get("wm_class", "Window")
+def run_helper(helper_name, args=None):
+    """Run a Mission Control helper script."""
+    helper_path = os.path.join(SCRIPT_DIR, helper_name)
+    cmd = ["python3", helper_path]
+    if args:
+        cmd.extend(args)
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Error running {helper_name}: {e.stderr}", file=sys.stderr)
+        return None
+    except FileNotFoundError:
+        print(f"Error: {helper_name} not found", file=sys.stderr)
+        return None
 
 
-def _preview_priority(window, active_id):
-    """Rank workspace preview candidates by Mission Control relevance."""
-    win_id = str(window.get("win_id", "")).lower()
-    state = window.get("state") or []
-    hidden = "_NET_WM_STATE_HIDDEN" in state
-    mapped = bool(window.get("mapped", False))
-    active = win_id == active_id
-    # Active first, then currently viewable windows, then hidden/minimized ones.
-    # Preserve enumeration order within the same class via stable sorting.
-    return (0 if active else 1 if mapped and not hidden else 2)
+def get_windows_by_space():
+    """Get windows grouped by workspace."""
+    output = run_helper("mv-mc-window-spaces")
+    if not output:
+        return None
+    
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError:
+        print("Error: Invalid JSON from mv-mc-window-spaces", file=sys.stderr)
+        return None
 
 
-class Overview(Gtk.Window):
-    def __init__(self):
-        super().__init__(type=Gtk.WindowType.TOPLEVEL)
-        self.set_name("mav-mc")
-        self.set_title("Mission Control")
-        self.set_decorated(False)
-        self.set_keep_above(True)
-        self.set_skip_taskbar_hint(True)
-        self.set_skip_pager_hint(True)
-        self.set_app_paintable(True)
-        self.fullscreen()
+def generate_thumbnail(wid, width=200):
+    """Generate thumbnail for a window."""
+    output = run_helper("mv-mc-thumbnail", [str(wid), str(width)])
+    return output  # Binary PNG data
 
-        self.connect("key-press-event", self._on_key)
-        self.connect("button-press-event", self._on_background_click)
 
-        screen = self.get_screen()
-        provider = Gtk.CssProvider()
-        provider.load_from_data(CSS.encode())
-        Gtk.StyleContext.add_provider_for_screen(
-            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
+def calculate_grid(window_count, screen_width=1920, screen_height=1080, margin=50):
+    """Calculate grid layout for windows."""
+    output = run_helper("mv-mc-grid", [str(window_count), str(screen_width), str(screen_height), str(margin)])
+    if not output:
+        return None
+    
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError:
+        print("Error: Invalid JSON from mv-mc-grid", file=sys.stderr)
+        return None
 
-        self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        self.box.set_margin_start(28)
-        self.box.set_margin_end(28)
-        self.box.set_margin_top(22)
-        self.box.set_margin_bottom(22)
-        self.add(self.box)
 
-        self._cards = []
-        self._selected_index = -1
-        self._workspace_buttons = []
-        self._build()
+def activate_window(wid):
+    """Activate/focus a window."""
+    run_helper("mv-mc-activate-window", [str(wid)])
 
-    def _build(self):
-        windows = mission_control.enumerate_windows()
-        workspaces = mission_control.get_workspaces()
-        active = mission_control.get_active_window() or {}
-        active_id = str(active.get("win_id", "")).lower()
-
-        # Mavericks keeps the Spaces strip at the top without an extra
-        # application title/header inside Mission Control.
-        workspace_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        self.box.pack_start(workspace_bar, False, False, 0)
-        count = max(1, int(workspaces.get("count", 1)))
-        current = int(workspaces.get("current", 0))
-        names = workspaces.get("names", [])
-        by_desktop = {i: [] for i in range(count)}
-        for win in windows:
-            desktop = int(win.get("desktop", -1))
-            if desktop < 0:
-                desktop = current
-            if desktop >= count:
-                continue
-            by_desktop[desktop].append(win)
-
-        for desktop in range(count):
-            label = names[desktop] if desktop < len(names) else f"Desktop {desktop + 1}"
-            button = Gtk.ToggleButton()
-            button.set_can_focus(True)
-            button.get_style_context().add_class("mav-workspace-button")
-            button.set_active(desktop == current)
-            button.connect("clicked", self._switch_workspace, desktop)
-            button.drag_dest_set(
-                Gtk.DestDefaults.ALL,
-                [Gtk.TargetEntry.new("application/x-mav-mission-window", Gtk.TargetFlags.SAME_APP, 0)],
-                Gdk.DragAction.MOVE,
-            )
-            button.connect("drag-motion", self._on_workspace_drag_motion, desktop)
-            button.connect("drag-leave", self._on_workspace_drag_leave)
-            button.connect("drag-data-received", self._on_workspace_drop, desktop)
-
-            button_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
-            preview_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
-            preview_row.get_style_context().add_class("mav-workspace-preview")
-            preview_windows = sorted(
-                by_desktop[desktop],
-                key=lambda win: _preview_priority(win, active_id),
-            )[:3]
-            for preview_win in preview_windows:
-                preview = self._make_workspace_preview(preview_win)
-                preview_row.pack_start(preview, True, True, 0)
-            if not by_desktop[desktop]:
-                empty_preview = Gtk.Label(label="—")
-                empty_preview.get_style_context().add_class("mav-muted")
-                preview_row.pack_start(empty_preview, True, True, 0)
-
-            text_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-            name_label = Gtk.Label(label=label)
-            name_label.set_xalign(0)
-            name_label.get_style_context().add_class("mav-workspace-label")
-            text_row.pack_start(name_label, True, True, 0)
-            count_label = Gtk.Label(label=str(len(by_desktop[desktop])))
-            count_label.set_xalign(1)
-            count_label.get_style_context().add_class("mav-workspace-count")
-            text_row.pack_end(count_label, False, False, 0)
-
-            button_box.pack_start(preview_row, False, False, 0)
-            button_box.pack_start(text_row, False, False, 0)
-
-            overlay = Gtk.Overlay()
-            overlay.add(button_box)
-            if desktop > 0 and desktop != current and count > 1:
-                close_button = Gtk.Button(label="×")
-                close_button.set_can_focus(False)
-                close_button.get_style_context().add_class("mav-workspace-close")
-                close_button.set_halign(Gtk.Align.START)
-                close_button.set_valign(Gtk.Align.START)
-                close_button.connect("clicked", self._remove_workspace, desktop)
-                overlay.add_overlay(close_button)
-            button.add(overlay)
-            workspace_bar.pack_start(button, False, False, 0)
-            self._workspace_buttons.append(button)
-
-        # Mavericks Spaces exposes an Add Desktop control in the Spaces bar.
-        add_button = Gtk.Button(label="+")
-        add_button.set_can_focus(True)
-        add_button.set_tooltip_text("Add Desktop")
-        add_button.get_style_context().add_class("mav-workspace-add")
-        add_button.connect("clicked", self._add_workspace)
-        workspace_bar.pack_start(add_button, False, False, 0)
-
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self.box.pack_start(scrolled, True, True, 0)
-
-        # Mavericks Mission Control presents the windows for the current
-        # Space as one visual layer. Other Spaces are represented by the
-        # thumbnails in the Spaces strip above, not by separate sections.
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        content.set_margin_bottom(20)
-        scrolled.add(content)
-
-        current_items = by_desktop[current]
-        grid = Gtk.Grid()
-        grid.set_column_spacing(38)
-        grid.set_row_spacing(38)
-        grid.set_margin_start(38)
-        grid.set_margin_end(38)
-        grid.set_margin_top(12)
-        content.pack_start(grid, True, True, 0)
-
-        if not current_items:
-            empty = Gtk.Label(label="No windows")
-            empty.set_xalign(0)
-            empty.get_style_context().add_class("mav-muted")
-            grid.attach(empty, 0, 0, 1, 1)
-        else:
-            # Mavericks can group Mission Control windows by application.
-            # Grouping is visual-only: each window remains independently
-            # activatable and usable as a drag source.
-            groups = []
-            group_map = {}
-            for win in current_items:
-                key = (win.get("wm_class") or "(unknown)").strip().lower()
-                if key not in group_map:
-                    group_map[key] = []
-                    groups.append((key, group_map[key]))
-                group_map[key].append(win)
-
-            cols = 1 if len(groups) <= 2 else (2 if len(groups) <= 6 else 3)
-            for group_index, (group_key, group_windows) in enumerate(groups):
-                group_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-                group_box.get_style_context().add_class("mav-app-group")
-                heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-                icon = self._application_icon(group_windows[0])
-                heading.pack_start(icon, False, False, 0)
-                app_label = Gtk.Label(label=self._application_name(group_windows[0]))
-                app_label.set_xalign(0)
-                app_label.get_style_context().add_class("mav-app-heading")
-                heading.pack_start(app_label, True, True, 0)
-                group_box.pack_start(heading, False, False, 0)
-
-                # Keep windows belonging to one application visually compact.
-                # Mavericks groups them as a single application cluster rather
-                # than giving every window a full-width top-level column.
-                cards_grid = Gtk.Grid()
-                cards_grid.set_column_spacing(14)
-                cards_grid.set_row_spacing(14)
-                for card_index, win in enumerate(group_windows):
-                    card = self._make_card(win, win.get("win_id", "").lower() == active_id)
-                    cards_grid.attach(card, card_index % 2, card_index // 2, 1, 1)
-                    self._cards.append((card, win.get("win_id")))
-                group_box.pack_start(cards_grid, False, False, 0)
-                grid.attach(group_box, group_index % cols, group_index // cols, 1, 1)
-
-        self.show_all()
-        if self._cards:
-            active_index = next((i for i, (_card, wid) in enumerate(self._cards) if str(wid).lower() == active_id), 0)
-            self._select_card(active_index)
-
-    def _fade_in(self):
-        opacity = self.get_opacity()
-        if opacity >= 0.99:
-            self.set_opacity(1.0)
-            return False
-        self.set_opacity(min(1.0, opacity + 0.16))
-        return True
-
-    def _select_card(self, index):
-        if not self._cards:
-            return
-        index %= len(self._cards)
-        if 0 <= self._selected_index < len(self._cards):
-            self._cards[self._selected_index][0].get_style_context().remove_class("mav-selected")
-        self._selected_index = index
-        card = self._cards[index][0]
-        card.get_style_context().add_class("mav-selected")
-        card.grab_focus()
-
-    def _activate_selected(self):
-        if not (0 <= self._selected_index < len(self._cards)):
-            return False
-        _card, win_id = self._cards[self._selected_index]
-        if win_id and mission_control.activate_window(win_id):
-            self.destroy()
-            return True
-        return False
-
-    def _remove_workspace(self, _button, desktop):
-        if mission_control.remove_workspace(desktop):
-            self._refresh_after_workspace_switch()
-
-    def _add_workspace(self, _button):
-        workspaces = mission_control.get_workspaces()
-        count = max(1, int(workspaces.get("count", 1)))
-        if count >= 16:
-            return
-        if mission_control.set_workspace_count(count + 1):
-            self._refresh_after_workspace_switch()
-
-    def _switch_workspace(self, button, desktop):
-        # Clicking the already-selected Space must not toggle its radio-like
-        # state off. Mavericks always keeps one Space selected.
-        if desktop == int(mission_control.get_workspaces().get("current", 0)):
-            button.set_active(True)
-            return
-        if not button.get_active():
-            return
-        if mission_control.switch_workspace(desktop):
-            self._refresh_after_workspace_switch()
-        else:
-            button.set_active(False)
-
-    def _refresh_after_workspace_switch(self):
-        def refresh():
-            for child in self.box.get_children():
-                self.box.remove(child)
-            self._cards = []
-            self._selected_index = -1
-            self._workspace_buttons = []
-            self._build()
-            return False
-        GLib.timeout_add(100, refresh)
-
-    def _make_workspace_preview(self, win):
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        wid = win.get("win_id")
-        pixbuf = None
-        try:
-            pixbuf = mission_control_thumbnail.capture_window(int(str(wid), 0), (82, 46))
-        except Exception:
-            pixbuf = None
-        if pixbuf is not None:
-            image = Gtk.Image.new_from_pixbuf(pixbuf)
-        else:
-            image = Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.MENU)
-        image.set_size_request(82, 46)
-        box.pack_start(image, True, True, 0)
-        return box
-
-    def _on_window_drag_data_get(self, _widget, _context, selection, _info, _time, win_id):
-        if win_id:
-            selection.set_text(str(win_id), -1)
-
-    def _clear_drop_highlight(self):
-        for button in self._workspace_buttons:
-            button.get_style_context().remove_class("mav-drop-target")
-        return False
-
-    def _on_workspace_drag_motion(self, _button, _context, _x, _y, _time, desktop):
-        self._clear_drop_highlight()
-        if 0 <= desktop < len(self._workspace_buttons):
-            self._workspace_buttons[desktop].get_style_context().add_class("mav-drop-target")
-        return True
-
-    def _on_workspace_drag_leave(self, _button, _context, _time):
-        self._clear_drop_highlight()
-
-    def _on_workspace_drop(self, _button, context, _x, _y, selection, _info, _time, desktop):
-        self._clear_drop_highlight()
-        win_id = selection.get_text()
-        if not win_id:
-            context.finish(False, False, _time)
-            return
-        if mission_control.move_window_to_workspace(win_id, desktop):
-            context.finish(True, False, _time)
-            self._refresh_after_workspace_switch()
-            return
-        context.finish(False, False, _time)
-
-    def _application_name(self, win):
-        name = (win.get("wm_class") or "").strip()
-        if name:
-            return name
-        title = (win.get("title") or "").strip()
-        return title if title else "Application"
-
-    def _application_icon(self, win):
-        theme = Gtk.IconTheme.get_default()
-        wm_class = (win.get("wm_class") or "").strip()
-        candidates = [wm_class, wm_class.lower(), wm_class.replace(" ", "-").lower()] if wm_class else []
-        candidates.append("application-x-executable")
-        for name in candidates:
-            try:
-                if theme.has_icon(name):
-                    image = Gtk.Image.new_from_icon_name(name, Gtk.IconSize.MENU)
-                    image.set_size_request(20, 20)
-                    image.get_style_context().add_class("mav-app-icon")
-                    return image
-            except Exception:
-                pass
-        return Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.MENU)
-
-    def _make_card(self, win, is_active):
-        event = Gtk.EventBox()
-        event.set_visible_window(True)
-        event.set_can_focus(True)
-        event.get_style_context().add_class("mav-card")
-        event.set_tooltip_text(_safe_title(win))
-        event.connect("button-release-event", self._activate, win.get("win_id"))
-        event.drag_source_set(
-            Gdk.ModifierType.BUTTON1_MASK,
-            [Gtk.TargetEntry.new("application/x-mav-mission-window", Gtk.TargetFlags.SAME_APP, 0)],
-            Gdk.DragAction.MOVE,
-        )
-        event.connect("drag-data-get", self._on_window_drag_data_get, win.get("win_id"))
-
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        box.set_size_request(250, 178)
-
-        pixbuf = None
-        try:
-            wid = int(str(win.get("win_id")), 0)
-            pixbuf = mission_control_thumbnail.capture_window(wid, (238, 112))
-        except Exception:
-            pixbuf = None
-
-        if pixbuf is not None:
-            image = Gtk.Image.new_from_pixbuf(pixbuf)
-            image.set_size_request(238, 134)
-        else:
-            image = Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.DIALOG)
-            image.set_size_request(238, 134)
-
-        box.pack_start(image, True, True, 0)
-
-        title = Gtk.Label(label=("• " if is_active else "") + _safe_title(win))
-        title.set_xalign(0)
-        title.set_ellipsize(Pango.EllipsizeMode.END)
-        title.get_style_context().add_class("mav-title")
-        box.pack_start(title, False, False, 0)
-
-        event.add(box)
-        return event
-
-    def _activate(self, _widget, event, win_id):
-        if event.button != 1 or not win_id:
-            return False
-        if mission_control.activate_window(win_id):
-            self.destroy()
-        return True
-
-    def _on_background_click(self, _widget, event):
-        if event.window is self.get_window() and event.button == 1:
-            self.destroy()
-        return False
-
-    def _on_key(self, _widget, event):
-        key = Gdk.keyval_name(event.keyval)
-        if key in ("Escape", "q"):
-            self.destroy()
-            return True
-        if key in ("Return", "KP_Enter"):
-            return self._activate_selected()
-        if key in ("Right", "Down", "Tab"):
-            if self._cards:
-                self._select_card(self._selected_index + 1)
-                return True
-        if key in ("Left", "Up"):
-            if self._cards:
-                self._select_card(self._selected_index - 1)
-                return True
-        if key and key.isdigit():
-            desktop = int(key) - 1
-            if 0 <= desktop < len(self._workspace_buttons):
-                self._switch_workspace(self._workspace_buttons[desktop], desktop)
-                return True
-        return False
 
 def main():
-    overview = Overview()
-    overview.set_opacity(0.0)
-    overview.show_all()
-    GLib.timeout_add(16, overview._fade_in)
-    Gtk.main()
-    return 0
+    parser = argparse.ArgumentParser(description="Mission Control Overview")
+    parser.add_argument("--debug", action="store_true", help="Enable debug output")
+    parser.add_argument("--list", action="store_true", help="List windows only (no UI)")
+    parser.add_argument("--activate", type=int, help="Activate window by ID")
+    args = parser.parse_args()
+    
+    if args.activate:
+        activate_window(args.activate)
+        return
+    
+    # Get windows by workspace
+    data = get_windows_by_space()
+    if not data:
+        sys.exit(1)
+    
+    if args.debug:
+        print("Workspaces:", json.dumps(data, indent=2))
+    
+    if args.list:
+        # Simple list mode for testing
+        for ws in data.get("workspaces", []):
+            print(f"\n{ws['name']}:")
+            for win in ws.get("windows", []):
+                print(f"  - [{win['wid']}] {win['title']} ({win['app']})")
+        return
+    
+    # Calculate grid for all windows
+    total_windows = sum(len(ws.get("windows", [])) for ws in data.get("workspaces", []))
+    grid = calculate_grid(total_windows)
+    
+    if args.debug:
+        print("\nGrid layout:", json.dumps(grid, indent=2))
+    
+    # In a full UI implementation, this would:
+    # 1. Create a fullscreen overlay window
+    # 2. Generate thumbnails for each window
+    # 3. Position them according to grid
+    # 4. Handle mouse/keyboard interaction
+    # 5. Activate selected window on click/enter
+    
+    print("Mission Control Overview ready")
+    print(f"Total windows: {total_windows}")
+    print(f"Grid: {grid['rows']} rows x {grid['cols']} cols")
+    
+    # For now, just list windows (placeholder for full UI)
+    print("\nWindows:")
+    for ws in data.get("workspaces", []):
+        for win in ws.get("windows", []):
+            print(f"  [{win['wid']}] {ws['name']}: {win['title']} ({win['app']})")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
