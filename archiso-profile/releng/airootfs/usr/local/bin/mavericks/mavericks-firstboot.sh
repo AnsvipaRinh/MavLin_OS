@@ -175,11 +175,36 @@ systemctl enable bluetooth.service 2>/dev/null || true
 systemctl enable plocate-updatedb.timer 2>/dev/null || true
 rm -f /etc/systemd/journald.conf.d/volatile-storage.conf 2>/dev/null || true
 
-TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || true)}"
-if [[ -n "$TARGET_USER" && "$TARGET_USER" != "root" ]]; then
-  sudo -u "$TARGET_USER" systemctl --user enable mv-reminders-check.timer 2>/dev/null || true
-  sudo -u "$TARGET_USER" systemctl --user enable mv-calendar-check.timer 2>/dev/null || true
+TARGET_USER=""
+if [[ -n "${SUDO_USER:-}" ]] && getent passwd "$SUDO_USER" >/dev/null 2>&1 \
+   && [[ "$SUDO_USER" != "root" ]]; then
+  TARGET_USER="$SUDO_USER"
+else
+  while IFS=: read -r name _ uid _ _ home _; do
+    if (( uid >= 1000 )) && [[ -d "$home" ]] && [[ "$name" != "nobody" ]]; then
+      TARGET_USER="$name"
+      break
+    fi
+  done < <(getent passwd | sort -t: -k3,3n)
+fi
+
+if [[ -n "$TARGET_USER" ]]; then
+  TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+  USER_UNIT_DIR="$TARGET_HOME/.config/systemd/user"
+  mkdir -p "$USER_UNIT_DIR"
+  # Enable packaged user timers without requiring a live user D-Bus session.
+  for timer in mv-reminders-check.timer mv-calendar-check.timer mv-timemachine-check.timer; do
+    unit_path="/usr/lib/systemd/user/$timer"
+    if [[ -f "$unit_path" ]]; then
+      ln -sfn "$unit_path" "$USER_UNIT_DIR/$timer"
+    fi
+  done
+  chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config/systemd" 2>/dev/null || true
+  sudo -u "$TARGET_USER" systemctl --user daemon-reload 2>/dev/null || true
   seed_bookmarks "$TARGET_USER"
+  log "configured primary user services for $TARGET_USER"
+else
+  log "WARNING: no regular target user found; per-user timers/bookmarks deferred"
 fi
 
 log "8/8 MacBook NVRAM (profile-gated)"
