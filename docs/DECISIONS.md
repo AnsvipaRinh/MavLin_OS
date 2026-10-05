@@ -679,3 +679,42 @@ mean Gtk is usable (runner has python3-gi without `gir1.2-gtk-3.0`): the
 smoke probe now requires the typelib explicitly, and with the typelibs
 installed the launch smoke and headless suites run for real instead of
 skipping.
+
+
+---
+
+## Session 2026-10-05 (follow-up) — why NC/control died at random: host Wayland + focus model
+
+**Root cause of the residual smoke flakiness (~40-50% of launches killing
+mv-notification-center/mv-control "within 3s"):** the dev host exposes a
+live Wayland compositor (`WAYLAND_DISPLAY=wayland-0`), and GTK3 prefers
+Wayland whenever it is set — `xvfb-run` only sets `DISPLAY`. So the
+smoke-tested windows were opening on the *host compositor*, not on the
+Xvfb under test: real host focus churn arrived as focus-in/out pairs
+(measured 0.0–1.3 s after map, pointer never moving) and the panels'
+"close on focus-out" destroyed them at random. Two other local-only
+"phantom input" tracebacks (mv-console hover preview, mv-photos photo
+open) came from the same source — real host input landing on the test
+windows.
+
+**Fixes (two independent layers):**
+1. `smoke-launch.sh` exports `GDK_BACKEND=x11`: smoke must test the
+   target session's backend (MavLinOS = Xfce/X11), match CI (no Wayland
+   there), and stop painting test windows on the real desktop.
+2. mv-notification-center and mv-control close-on-focus-out only under a
+   real window manager: `_NET_SUPPORTING_WM_CHECK` present on the root
+   window. No WM (Xvfb smoke, CI, bare sessions) = ignore focus-out —
+   Escape/close button remain. With xfwm4, click-away closes as designed.
+   The earlier0.8 s grace + `_ever_focused` guards stay as belt-and-braces
+   for the WM path.
+
+**Two genuine user-facing bugs found on the way (fixed):**
+- mv-console: `get_iter_at_location()` returns `(ok, TextIter)`, but the
+  hover/click handlers used the raw tuple as an iterator →
+  `AttributeError: '_ResultTuple' has no no attribute 'copy'` on the FIRST
+  hover over the log view (broken for real users, not just smoke).
+- mv-photos: `Gtk.Dialog.get_headerbar()` does not exist (correct API is
+  `get_header_bar()`) → opening ANY photo crashed with AttributeError.
+
+Stability after the fixes: NC+control 0/10 failures and console+photos
+0/8 failures under the X11-forced harness (previously ~40-50% failed).
