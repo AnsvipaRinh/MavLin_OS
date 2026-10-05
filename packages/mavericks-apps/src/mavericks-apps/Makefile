@@ -53,6 +53,7 @@ install: all
 	install -m644 config/rofi-launchpad.rasi "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/rofi-mission-control.rasi "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/thunar-uca.xml "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
+	install -m644 config/thunar-uca-ytplayer.xml "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/xfce4-keyboard-shortcuts.xml "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 config/mv-ytplayer-bookmarklet.html "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 lib/mavericks_appmenu.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mavericks_appmenu.py"
