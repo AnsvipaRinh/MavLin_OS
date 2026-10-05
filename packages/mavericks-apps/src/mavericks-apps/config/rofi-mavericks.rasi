@@ -1,12 +1,16 @@
-/* Mavericks Spotlight — centered, categorized, skeuomorphic accent */
+/* Mavericks Spotlight — centered, categorized, skeuomorphic accent
+ * NOTE: rasi is not web CSS — rgba() alpha is a percentage, unsupported
+ * web properties (font-weight, margin) and non-existent widgets
+ * (listview-split/icon-current-entry) make rofi abort with a parse-error
+ * dialog. Keep this file valid rasi (validated with rofi -dump-theme). */
 * {
     font: "San Francisco 11";
-    background: rgba(245, 245, 245, 0.98);
-    foreground: #2d2d2d;
+    background-color: rgba (245, 245, 245, 98%);
+    text-color: #2d2d2d;
     accent: #007aff;
     accent-text: #ffffff;
     border-color: #d1d1d1;
-    category-bg: rgba(0, 0, 0, 0.03);
+    category-bg: rgba (0, 0, 0, 3%);
     category-fg: #888888;
     placeholder: #aaaaaa;
     input-border: #cccccc;
@@ -23,22 +27,11 @@ window {
     border-color: #bababa;
     border-radius: 10px;
     padding: 16px;
-    background-color: @background;
+    background-color: @background-color;
 }
 mainbox {
-    children: [ inputbar, listview-split ];
+    children: [ inputbar, listview ];
     spacing: 10px;
-}
-listview-split {
-    orientation: horizontal;
-    spacing: 12px;
-    children: [ listview, icon-current-entry ];
-}
-icon-current-entry {
-    size: 180px;
-    expand: false;
-    vertical-align: 0.5;
-    horizontal-align: 0.5;
 }
 inputbar {
     children: [ prompt, entry ];
@@ -55,7 +48,7 @@ prompt {
 entry {
     placeholder: "Spotlight Search";
     placeholder-color: @placeholder;
-    text-color: @foreground;
+    text-color: #2d2d2d;
     cursor: text;
     spacing: 0;
 }
@@ -65,7 +58,7 @@ listview {
     fixed-height: true;
     dynamic: true;
     scrollbar: true;
-    padding: 4px 0;
+    padding: 4px 0px;
     border: 1px;
     border-color: @separator;
     border-radius: 6px;
@@ -77,7 +70,7 @@ element {
 }
 element normal.normal {
     background-color: transparent;
-    text-color: @foreground;
+    text-color: #2d2d2d;
 }
 element selected.normal {
     background-color: @accent;
@@ -89,24 +82,14 @@ element-icon {
 }
 element-text {
     vertical-align: 0.5;
-}
-category {
-    padding: 8px 14px;
-    background: @category-bg;
-    font-weight: 600;
-    color: @category-fg;
-    border-radius: 5px;
-    margin: 6px 4px 2px;
+    text-color: #2d2d2d;
 }
 scrollbar {
     width: 6px;
     handle-color: #bbbbbb;
     handle-width: 8px;
-    border: 0;
+    border: 0px;
     padding: 4px;
-}
-scrollbar handle {
-    border-radius: 3px;
 }
 num-filtered-rows, num-rows, textbox-num-sep {
     text-color: @category-fg;

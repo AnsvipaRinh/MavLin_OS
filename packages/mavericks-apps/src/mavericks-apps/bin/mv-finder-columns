@@ -15,13 +15,9 @@ import shutil
 import subprocess
 import sys
 
-def _gtk():
-    """Lazy Gtk/Gdk/GLib/Gio load so pure logic (list_entries/zoom_step) imports headless."""
-    import gi
-    gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, Gdk, GLib, Gio
-    return Gtk, Gdk, GLib, Gio
-
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib, Gio, GdkPixbuf  # noqa: E402
 
 COLUMN_WIDTH = 240
 MAX_COLUMNS = 24  # horizontal scroll still handles it; cap is a safety net
@@ -74,7 +70,6 @@ def icon_for(name, is_dir):
     mime = mimetypes.guess_type(name)[0]
     if mime:
         try:
-            Gtk, _Gdk, _GLib, Gio = _gtk()
             names = Gio.content_type_get_icon(mime).get_names()
             try:
                 theme = Gtk.IconTheme.get_default()
@@ -91,7 +86,6 @@ def icon_for(name, is_dir):
 def load_icon_pixbuf(name, size):
     """Pixbuf for an icon name; falls back to text-x-generic, never raises."""
     try:
-        Gtk, _Gdk, _GLib, _Gio = _gtk()
         theme = Gtk.IconTheme.get_default()
         if theme is not None:
             try:
@@ -109,240 +103,232 @@ def load_icon_pixbuf(name, size):
     return None
 
 
-def build_columns_classes():
-    """Build the GUI classes lazily; pure helpers above import without gi."""
-    Gtk, Gdk, GLib, _Gio = _gtk()
-
-    class ColumnRow(Gtk.ListBoxRow):
-        def __init__(self, entry, icon_size=ZOOM_DEFAULT):
-            super().__init__()
-            self.entry = entry
-            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            box.set_margin_top(3)
-            box.set_margin_bottom(3)
-            box.set_margin_start(6)
-            box.set_margin_end(6)
-            pixbuf = load_icon_pixbuf(icon_for(entry["name"], entry["is_dir"]),
-                                      icon_size)
-            if pixbuf is not None:
-                img = Gtk.Image.new_from_pixbuf(pixbuf)
-            else:
-                img = Gtk.Image()
-            label = Gtk.Label(label=entry["name"])
-            label.set_ellipsize(3)  # middle
-            label.set_halign(Gtk.Align.START)
-            box.pack_start(img, False, False, 0)
-            box.pack_start(label, False, False, 0)
-            self.add(box)
+class ColumnRow(Gtk.ListBoxRow):
+    def __init__(self, entry, icon_size=ZOOM_DEFAULT):
+        super().__init__()
+        self.entry = entry
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        box.set_margin_top(3)
+        box.set_margin_bottom(3)
+        box.set_margin_start(6)
+        box.set_margin_end(6)
+        pixbuf = load_icon_pixbuf(icon_for(entry["name"], entry["is_dir"]),
+                                  icon_size)
+        if pixbuf is not None:
+            img = Gtk.Image.new_from_pixbuf(pixbuf)
+        else:
+            img = Gtk.Image()
+        label = Gtk.Label(label=entry["name"])
+        label.set_ellipsize(3)  # middle
+        label.set_halign(Gtk.Align.START)
+        box.pack_start(img, False, False, 0)
+        box.pack_start(label, False, False, 0)
+        self.add(box)
 
 
-    class ColumnsWindow(Gtk.Window):
-        def __init__(self, root):
-            super().__init__(title=os.path.basename(root) or root)
-            self.root = os.path.abspath(root)
-            self.chain = [self.root]
-            self.listboxes = []
-            self.icon_size = ZOOM_DEFAULT
+class ColumnsWindow(Gtk.Window):
+    def __init__(self, root):
+        super().__init__(title=os.path.basename(root) or root)
+        self.root = os.path.abspath(root)
+        self.chain = [self.root]
+        self.listboxes = []
+        self.icon_size = ZOOM_DEFAULT
 
-            self.set_default_size(760, 480)
-            self.set_position(Gtk.WindowPosition.CENTER)
+        self.set_default_size(760, 480)
+        self.set_position(Gtk.WindowPosition.CENTER)
 
-            hb = Gtk.HeaderBar(title=self.get_title(), show_close_button=True)
-            hb.set_subtitle("Column View")
-            self.set_titlebar(hb)
+        hb = Gtk.HeaderBar(title=self.get_title(), show_close_button=True)
+        hb.set_subtitle("Column View")
+        self.set_titlebar(hb)
 
-            open_tb = Gtk.Button(label="Open in Thunar")
-            open_tb.set_tooltip_text("Manage these files in Thunar")
-            open_tb.connect("clicked", self.on_open_thunar)
-            hb.pack_end(open_tb)
+        open_tb = Gtk.Button(label="Open in Thunar")
+        open_tb.set_tooltip_text("Manage these files in Thunar")
+        open_tb.connect("clicked", self.on_open_thunar)
+        hb.pack_end(open_tb)
 
-            self.columns_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self.columns_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
 
-            self.scrolled = Gtk.ScrolledWindow()
-            self.scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-            self.scrolled.add(self.columns_box)
+        self.scrolled = Gtk.ScrolledWindow()
+        self.scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        self.scrolled.add(self.columns_box)
 
-            self.error_label = Gtk.Label()
-            self.error_label.get_style_context().add_class("dim-label")
-            self.error_label.set_justify(Gtk.Justification.CENTER)
+        self.error_label = Gtk.Label()
+        self.error_label.get_style_context().add_class("dim-label")
+        self.error_label.set_justify(Gtk.Justification.CENTER)
 
-            self.status_label = Gtk.Label(label="")
-            self.status_label.get_style_context().add_class("dim-label")
-            self.status_label.set_halign(Gtk.Align.START)
-            status = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-            status.set_border_width(4)
-            status.pack_start(self.status_label, False, False, 0)
+        self.status_label = Gtk.Label(label="")
+        self.status_label.get_style_context().add_class("dim-label")
+        self.status_label.set_halign(Gtk.Align.START)
+        status = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        status.set_border_width(4)
+        status.pack_start(self.status_label, False, False, 0)
 
-            self.overlay = Gtk.Overlay()
-            self.overlay.add(self.scrolled)
-            self.overlay.add_overlay(self.error_label)
-            self.overlay.set_overlay_pass_through(self.error_label, True)
+        self.overlay = Gtk.Overlay()
+        self.overlay.add(self.scrolled)
+        self.overlay.add_overlay(self.error_label)
+        self.overlay.set_overlay_pass_through(self.error_label, True)
 
-            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-            vbox.pack_start(self.overlay, True, True, 0)
-            vbox.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
-            vbox.pack_start(status, False, False, 0)
-            self.add(vbox)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        vbox.pack_start(self.overlay, True, True, 0)
+        vbox.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+        vbox.pack_start(status, False, False, 0)
+        self.add(vbox)
 
-            self.connect("destroy", Gtk.main_quit)
-            self.connect("key-press-event", self.on_key_press)
+        self.connect("destroy", Gtk.main_quit)
+        self.connect("key-press-event", self.on_key_press)
 
-            self.show_all()
-            self.rebuild_columns()
+        self.show_all()
+        self.rebuild_columns()
 
-        # ---------- column construction ----------
+    # ---------- column construction ----------
 
-        def rebuild_columns(self, keep_depth=None):
-            for child in self.columns_box.get_children():
-                self.columns_box.remove(child)
-            self.listboxes = []
+    def rebuild_columns(self, keep_depth=None):
+        for child in self.columns_box.get_children():
+            self.columns_box.remove(child)
+        self.listboxes = []
 
-            if keep_depth is not None:
-                self.chain = self.chain[:keep_depth]
+        if keep_depth is not None:
+            self.chain = self.chain[:keep_depth]
 
-            columns = []
-            last_error = None
-            for directory in self.chain:
-                try:
-                    columns.append((directory, list_entries(directory)))
-                except OSError as e:
-                    columns.append((directory, None))
-                    if directory == self.chain[-1]:
-                        last_error = e
-
-            for directory, entries in columns:
-                self.append_column(directory, entries)
-
-            last_entries = columns[-1][1]
-            if last_entries is None:
-                self.error_label.set_text(
-                    "Could not open “%s”\n%s" % (
-                        self.chain[-1],
-                        (last_error.strerror if last_error else None) or "permission denied"))
-                self.status_label.set_text("Folder unavailable")
-            else:
-                self.error_label.set_text("")
-                count = len(last_entries)
-                name = os.path.basename(self.chain[-1]) or self.chain[-1]
-                self.status_label.set_text(
-                    "%d item%s in “%s”" % (count, "" if count == 1 else "s", name))
-
-            self.columns_box.show_all()
-            self.error_label.set_visible(last_entries is None)
-            # scroll to the newest (right-most) column
-            GLib.idle_add(self.scroll_to_end)
-
-        def append_column(self, directory, entries):
-            if len(self.listboxes) >= MAX_COLUMNS:
-                return
-            listbox = Gtk.ListBox()
-            listbox.set_size_request(COLUMN_WIDTH, -1)
-            listbox.set_activate_on_single_click(False)
-            listbox.connect("row-activated", self.on_row_activated)
-            listbox.get_style_context().add_class("background")
-            if entries:
-                for entry in entries:
-                    listbox.add(ColumnRow(entry, self.icon_size))
-            elif entries is None:
-                error_row = Gtk.ListBoxRow()
-                lbl = Gtk.Label(label="Cannot open")
-                lbl.get_style_context().add_class("dim-label")
-                error_row.add(lbl)
-                listbox.add(error_row)
-            separator = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-            self.columns_box.pack_start(listbox, False, False, 0)
-            self.columns_box.pack_start(separator, False, False, 0)
-            self.listboxes.append(listbox)
-
-        def set_icon_size(self, size):
-            """Finder-like Ctrl+=/-/0 zoom: rebuild columns with new icon size."""
-            if size == self.icon_size:
-                return
-            self.icon_size = size
-            self.rebuild_columns()
-
-        def scroll_to_end(self):
-            adj = self.scrolled.get_hadjustment()
-            adj.set_value(adj.get_upper())
-            if self.listboxes:
-                self.listboxes[-1].grab_focus()
-            return False
-
-        # ---------- interaction ----------
-
-        def on_row_activated(self, listbox, row):
-            if not hasattr(row, "entry"):
-                return
-            entry = row.entry
-            index = self.listboxes.index(listbox)
-            path = os.path.join(self.chain[index], entry["name"])
-            if entry["is_dir"]:
-                self.chain = self.chain[:index + 1]
-                self.chain.append(path)
-                self.rebuild_columns()
-            else:
-                try:
-                    subprocess.Popen(["xdg-open", path],
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                except OSError:
-                    pass
-
-        def on_open_thunar(self, _button):
-            target = self.chain[-1]
-            opener = ["thunar", target] if shutil.which("thunar") else ["xdg-open", target]
+        columns = []
+        last_error = None
+        for directory in self.chain:
             try:
-                subprocess.Popen(opener, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                columns.append((directory, list_entries(directory)))
+            except OSError as e:
+                columns.append((directory, None))
+                if directory == self.chain[-1]:
+                    last_error = e
+
+        for directory, entries in columns:
+            self.append_column(directory, entries)
+
+        last_entries = columns[-1][1]
+        if last_entries is None:
+            self.error_label.set_text(
+                "Could not open “%s”\n%s" % (
+                    self.chain[-1],
+                    (last_error.strerror if last_error else None) or "permission denied"))
+            self.status_label.set_text("Folder unavailable")
+        else:
+            self.error_label.set_text("")
+            count = len(last_entries)
+            name = os.path.basename(self.chain[-1]) or self.chain[-1]
+            self.status_label.set_text(
+                "%d item%s in “%s”" % (count, "" if count == 1 else "s", name))
+
+        self.columns_box.show_all()
+        self.error_label.set_visible(last_entries is None)
+        # scroll to the newest (right-most) column
+        GLib.idle_add(self.scroll_to_end)
+
+    def append_column(self, directory, entries):
+        if len(self.listboxes) >= MAX_COLUMNS:
+            return
+        listbox = Gtk.ListBox()
+        listbox.set_size_request(COLUMN_WIDTH, -1)
+        listbox.set_activate_on_single_click(False)
+        listbox.connect("row-activated", self.on_row_activated)
+        listbox.get_style_context().add_class("background")
+        if entries:
+            for entry in entries:
+                listbox.add(ColumnRow(entry, self.icon_size))
+        elif entries is None:
+            error_row = Gtk.ListBoxRow()
+            lbl = Gtk.Label(label="Cannot open")
+            lbl.get_style_context().add_class("dim-label")
+            error_row.add(lbl)
+            listbox.add(error_row)
+        separator = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        self.columns_box.pack_start(listbox, False, False, 0)
+        self.columns_box.pack_start(separator, False, False, 0)
+        self.listboxes.append(listbox)
+
+    def set_icon_size(self, size):
+        """Finder-like Ctrl+=/-/0 zoom: rebuild columns with new icon size."""
+        if size == self.icon_size:
+            return
+        self.icon_size = size
+        self.rebuild_columns()
+
+    def scroll_to_end(self):
+        adj = self.scrolled.get_hadjustment()
+        adj.set_value(adj.get_upper())
+        if self.listboxes:
+            self.listboxes[-1].grab_focus()
+        return False
+
+    # ---------- interaction ----------
+
+    def on_row_activated(self, listbox, row):
+        if not hasattr(row, "entry"):
+            return
+        entry = row.entry
+        index = self.listboxes.index(listbox)
+        path = os.path.join(self.chain[index], entry["name"])
+        if entry["is_dir"]:
+            self.chain = self.chain[:index + 1]
+            self.chain.append(path)
+            self.rebuild_columns()
+        else:
+            try:
+                subprocess.Popen(["xdg-open", path],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except OSError:
                 pass
 
-        def on_key_press(self, _widget, event):
-            key = Gdk.keyval_name(event.keyval)
-            ctrl = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
-            if ctrl and key in ("equal", "plus", "KP_Add"):
-                self.set_icon_size(zoom_step(self.icon_size, +1))
-                return True
-            if ctrl and key in ("minus", "KP_Subtract"):
-                self.set_icon_size(zoom_step(self.icon_size, -1))
-                return True
-            if ctrl and key in ("0", "KP_0"):
-                self.set_icon_size(ZOOM_DEFAULT)
-                return True
-            if key == "Escape":
-                self.destroy()
-                return True
-            if not self.listboxes:
-                return False
-            if key == "Right":
-                index = self.focus_column_index()
-                if index is not None and index + 1 < len(self.listboxes):
-                    self.listboxes[index + 1].grab_focus()
-                return True
-            if key == "Left":
-                index = self.focus_column_index()
-                if index is not None and index > 0:
-                    self.listboxes[index - 1].grab_focus()
-                return True
-            if key == "BackSpace":
-                if len(self.chain) > 1:
-                    self.rebuild_columns(keep_depth=len(self.chain) - 1)
-                return True
+    def on_open_thunar(self, _button):
+        target = self.chain[-1]
+        opener = ["thunar", target] if shutil.which("thunar") else ["xdg-open", target]
+        try:
+            subprocess.Popen(opener, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+
+    def on_key_press(self, _widget, event):
+        key = Gdk.keyval_name(event.keyval)
+        ctrl = bool(event.state & Gdk.ModifierType.CONTROL_MASK)
+        if ctrl and key in ("equal", "plus", "KP_Add"):
+            self.set_icon_size(zoom_step(self.icon_size, +1))
+            return True
+        if ctrl and key in ("minus", "KP_Subtract"):
+            self.set_icon_size(zoom_step(self.icon_size, -1))
+            return True
+        if ctrl and key in ("0", "KP_0"):
+            self.set_icon_size(ZOOM_DEFAULT)
+            return True
+        if key == "Escape":
+            self.destroy()
+            return True
+        if not self.listboxes:
             return False
+        if key == "Right":
+            index = self.focus_column_index()
+            if index is not None and index + 1 < len(self.listboxes):
+                self.listboxes[index + 1].grab_focus()
+            return True
+        if key == "Left":
+            index = self.focus_column_index()
+            if index is not None and index > 0:
+                self.listboxes[index - 1].grab_focus()
+            return True
+        if key == "BackSpace":
+            if len(self.chain) > 1:
+                self.rebuild_columns(keep_depth=len(self.chain) - 1)
+            return True
+        return False
 
-        def focus_column_index(self):
-            focus = self.get_focus()
-            for i, listbox in enumerate(self.listboxes):
-                if focus is listbox or (focus is not None and
-                                        focus.get_ancestor(Gtk.ListBox) is listbox):
-                    return i
-            return None
-
-    return ColumnRow, ColumnsWindow
+    def focus_column_index(self):
+        focus = self.get_focus()
+        for i, listbox in enumerate(self.listboxes):
+            if focus is listbox or (focus is not None and
+                                    focus.get_ancestor(Gtk.ListBox) is listbox):
+                return i
+        return None
 
 
 
 def build_finder_menu(app, app_name, get_window, add_action):
-    _Gtk, _Gdk, _GLib, Gio = _gtk()
-
     def w():
         return get_window()
 
@@ -400,11 +386,11 @@ def main():
     if not os.path.isdir(root):
         print("mv-finder-columns: not a folder: %s" % root, file=sys.stderr)
         return 2
-    _ColumnRow, ColumnsWindow = build_columns_classes()
     sys.path.insert(0, "/usr/share/mavericks-apps")
     from mavericks_appmenu import run_application
     # GApplication treats positional argv entries as files to open; without
-    # HANDLES_OPEN it aborts before activate. root is captured above.
+    # HANDLES_OPEN it aborts before activate ever runs. The folder is already
+    # parsed into `root` above (same class of bug as mv-preview, f643a2d).
     return run_application(
         "com.mavlinos.Finder", "Finder", lambda: ColumnsWindow(root),
         [sys.argv[0]], build_finder_menu)

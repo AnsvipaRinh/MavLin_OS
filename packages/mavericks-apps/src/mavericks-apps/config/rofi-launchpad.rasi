@@ -1,21 +1,26 @@
-/* Mavericks Launchpad (rofi script mode — paginated grid with folders) */
+/* Mavericks Launchpad (rofi script mode — paginated grid with folders)
+ * NOTE: rasi is not web CSS — colors are `rgba (r, g, b, a%)`, borders are
+ * `border: Npx` + `border-color:`, and unsupported properties (box-shadow,
+ * transition-duration, margin, font-weight) must not appear: rofi refuses
+ * to start the mode and shows a parse-error dialog instead. */
 * {
     font: "Helvetica Neue 11";
-    foreground: #ffffff;
-    background: rgba(30, 30, 30, 0.92);
-    selected-foreground: #ffffff;
-    selected-background: rgba(255, 255, 255, 0.15);
-    normal-foreground: #ffffff;
-    normal-background: transparent;
-    urgent-foreground: #ffffff;
-    urgent-background: rgba(255, 80, 80, 0.3);
+    text-color: #ffffff;
+    background-color: rgba (30, 30, 30, 92%);
+    selected-text-color: #ffffff;
+    selected-background-color: rgba (255, 255, 255, 15%);
+    normal-background-color: transparent;
+    normal-text-color: #ffffff;
+    urgent-text-color: #ffffff;
+    urgent-background-color: rgba (255, 80, 80, 30%);
 }
 
 window {
     fullscreen: true;
-    background: rgba(30, 30, 30, 0.92);
+    background-color: rgba (30, 30, 30, 92%);
     padding: 48px 60px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px;
+    border-color: rgba (255, 255, 255, 8%);
     border-radius: 8px;
 }
 
@@ -26,11 +31,12 @@ mainbox {
 
 inputbar {
     children: [ prompt, entry ];
-    background: rgba(255, 255, 255, 0.1);
+    background-color: rgba (255, 255, 255, 10%);
     border-radius: 16px;
     padding: 8px 14px;
     width: 340px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px;
+    border-color: rgba (255, 255, 255, 5%);
 }
 
 prompt {
@@ -40,10 +46,10 @@ prompt {
 
 entry {
     placeholder: "Search apps...";
-    foreground: #ffffff;
-    placeholder-foreground: rgba(255, 255, 255, 0.5);
+    text-color: #ffffff;
+    placeholder-color: rgba (255, 255, 255, 50%);
     padding: 3px 7px;
-    background: transparent;
+    background-color: transparent;
     border-radius: 10px;
 }
 
@@ -62,36 +68,39 @@ element {
     orientation: vertical;
     padding: 10px 6px;
     border-radius: 10px;
-    background: transparent;
-    transition-duration: 150ms;
+    background-color: transparent;
 }
 
 element normal {
-    background: transparent;
+    background-color: transparent;
+    text-color: #ffffff;
 }
 
 element selected {
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    background-color: rgba (255, 255, 255, 12%);
+    border: 1px;
+    border-color: rgba (255, 255, 255, 10%);
+    text-color: #ffffff;
 }
 
 element alternate {
-    background: rgba(255, 255, 255, 0.02);
+    background-color: rgba (255, 255, 255, 2%);
+    text-color: #ffffff;
 }
 
 element urgent {
-    background: rgba(255, 80, 80, 0.25);
-    border: 1px solid rgba(255, 80, 80, 0.4);
+    background-color: rgba (255, 80, 80, 25%);
+    border: 1px;
+    border-color: rgba (255, 80, 80, 40%);
+    text-color: #ffffff;
 }
 
 element-text {
     horizontal-align: 0.5;
     vertical-align: 0.95;
-    foreground: #ffffff;
+    text-color: #ffffff;
     font: "Helvetica Neue 10";
     text-overflow: ellipsis;
-    max-width: 90px;
 }
 
 element-icon {
@@ -101,11 +110,10 @@ element-icon {
 }
 
 scrollbar {
-    background: rgba(255, 255, 255, 0.06);
+    background-color: rgba (255, 255, 255, 6%);
     border-radius: 3px;
-    handle-color: rgba(255, 255, 255, 0.25);
+    handle-color: rgba (255, 255, 255, 25%);
     handle-width: 6px;
-    handle-border-radius: 3px;
 }
 
 sidebar {

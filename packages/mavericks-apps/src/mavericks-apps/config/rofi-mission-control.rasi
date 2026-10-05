@@ -1,18 +1,20 @@
-/* Mavericks Mission Control (rofi script mode — window overview) */
+/* Mavericks Mission Control (rofi script mode — window overview)
+ * NOTE: keep this file valid rasi — rgba() alpha is a percentage and web-only
+ * properties (font-weight, margin) abort rofi with a parse-error dialog. */
 * {
     font: "San Francisco 11";
-    background: rgba(245, 245, 245, 0.98);
-    foreground: #2d2d2d;
+    background-color: rgba (245, 245, 245, 98%);
+    text-color: #2d2d2d;
     accent: #007aff;
     accent-text: #ffffff;
     border-color: #d1d1d1;
-    category-bg: rgba(0, 0, 0, 0.03);
+    category-bg: rgba (0, 0, 0, 3%);
     category-fg: #888888;
     placeholder: #aaaaaa;
     input-border: #cccccc;
     input-bg: #ffffff;
     separator: #e0e0e0;
-    workspace-active-bg: rgba(0, 122, 255, 0.1);
+    workspace-active-bg: rgba (0, 122, 255, 10%);
     workspace-active-fg: #007aff;
 }
 window {
@@ -24,7 +26,7 @@ window {
     border-color: @border-color;
     border-radius: 10px;
     padding: 16px;
-    background-color: @background;
+    background-color: @background-color;
 }
 mainbox {
     children: [ inputbar, listview ];
@@ -45,7 +47,7 @@ prompt {
 entry {
     placeholder: "Filter windows...";
     placeholder-color: @placeholder;
-    text-color: @foreground;
+    text-color: #2d2d2d;
     cursor: text;
     spacing: 0;
 }
@@ -55,7 +57,7 @@ listview {
     fixed-height: true;
     dynamic: true;
     scrollbar: true;
-    padding: 4px 0;
+    padding: 4px 0px;
     border: 1px;
     border-color: @separator;
     border-radius: 6px;
@@ -67,7 +69,7 @@ element {
 }
 element normal.normal {
     background-color: transparent;
-    text-color: @foreground;
+    text-color: #2d2d2d;
 }
 element selected.normal {
     background-color: @accent;
@@ -79,28 +81,14 @@ element-icon {
 }
 element-text {
     vertical-align: 0.5;
-}
-category {
-    padding: 10px 14px;
-    background: @category-bg;
-    font-weight: 600;
-    color: @category-fg;
-    border-radius: 5px;
-    margin: 8px 4px 4px;
-}
-category.active {
-    background: @workspace-active-bg;
-    color: @workspace-active-fg;
+    text-color: #2d2d2d;
 }
 scrollbar {
     width: 6px;
     handle-color: #bbbbbb;
     handle-width: 8px;
-    border: 0;
+    border: 0px;
     padding: 4px;
-}
-scrollbar handle {
-    border-radius: 3px;
 }
 num-filtered-rows, num-rows, textbox-num-sep {
     text-color: @category-fg;

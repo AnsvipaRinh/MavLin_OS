@@ -1,4 +1,11 @@
-[Desktop Entry]
+# MavLinOS Apple Menu — xfce4-panel plugin desktop file.
+# NOTE for xfce4-panel >= 4.19: the panel's module factory only accepts
+# plugin desktop files whose main group is [Xfce Panel]; the previous
+# [Desktop Entry] group was rejected with "has no Xfce Panel group" and
+# the plugin showed the "could not be loaded" dialog (observed 4.20.8).
+# This matches every stock plugin (clock.desktop etc.), which also use
+# [Xfce Panel] only (desktop-file-validate does not apply to these).
+[Xfce Panel]
 Type=X-XFCE-PanelPlugin
 Encoding=UTF-8
 Name=MavLinOS Apple Menu

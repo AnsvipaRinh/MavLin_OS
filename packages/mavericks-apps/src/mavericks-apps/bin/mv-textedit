@@ -243,11 +243,7 @@ class TextEdit(Gtk.Window):
         }
         """
         provider = Gtk.CssProvider()
-        try:
-            provider.load_from_data(css)
-        except Exception:
-            # cosmetic only: a bad rule must not kill the window
-            pass
+        provider.load_from_data(css)
         screen = Gdk.Screen.get_default()
         if screen is not None:
             Gtk.StyleContext.add_provider_for_screen(
@@ -353,7 +349,6 @@ class TextEdit(Gtk.Window):
         self.ruler_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         self.ruler_box.get_style_context().add_class("textedit-ruler")
         self.ruler_box.set_border_width(0)
-        self.ruler_box.set_visible(self.ruler_visible)
 
         self.ruler_drawing = Gtk.DrawingArea()
         self.ruler_drawing.set_size_request(-1, 18)
@@ -597,10 +592,6 @@ class TextEdit(Gtk.Window):
 
     def toggle_ruler(self, btn):
         self.ruler_visible = btn.get_active()
-        if not hasattr(self, "ruler_box"):
-            # build_format_bar runs before build_ruler; the initial state is
-            # applied in build_ruler right after the row exists.
-            return
         self.ruler_box.set_visible(self.ruler_visible)
 
     def print_document(self, _):
@@ -809,7 +800,12 @@ def main():
         return TextEdit(path)
     sys.path.insert(0, "/usr/share/mavericks-apps")
     from mavericks_appmenu import run_application
-    return run_application("com.mavlinos.TextEdit", "TextEdit", factory, sys.argv, build_textedit_menu)
+    # GApplication treats positional argv entries as files to open; without
+    # HANDLES_OPEN it aborts ("This application can not open files") before
+    # activate ever runs (same class of bug as mv-preview, fixed in f643a2d).
+    # The file is already parsed into `path` above.
+    return run_application("com.mavlinos.TextEdit", "TextEdit", factory,
+                           [sys.argv[0]], build_textedit_menu)
 
 
 if __name__ == "__main__":
