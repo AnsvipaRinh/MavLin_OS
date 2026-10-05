@@ -129,6 +129,7 @@ class Overview(Gtk.Window):
         self._cards = []
         self._selected_index = -1
         self._workspace_buttons = []
+        self._expanded_groups = set()
         self._build()
 
     def _build(self):
@@ -265,12 +266,16 @@ class Overview(Gtk.Window):
                 # Mavericks presents grouped windows as a compact stack.
                 stack = Gtk.Fixed()
                 visible_count = min(len(group_windows), 6)
-                stack.set_size_request(250 + 18 * max(0, visible_count - 1), 178 + 18 * max(0, visible_count - 1))
+                group_token = group_key
+                expanded = group_token in self._expanded_groups
+                self._layout_group_stack(stack, visible_count, expanded)
                 for card_index, win in enumerate(group_windows[:6]):
                     card = self._make_card(win, win.get("win_id", "").lower() == active_id)
-                    offset = 18 * card_index
-                    stack.put(card, offset, offset)
+                    stack.put(card, 0, 0)
                     self._cards.append((card, win.get("win_id")))
+                stack.add_events(Gdk.EventMask.SCROLL_MASK)
+                stack.connect("scroll-event", self._on_group_scroll, group_token, visible_count)
+                self._layout_group_stack(stack, visible_count, expanded)
                 group_box.pack_start(stack, False, False, 0)
 
                 # Mavericks identifies a grouped application beneath the cluster.
@@ -288,6 +293,42 @@ class Overview(Gtk.Window):
         if self._cards:
             active_index = next((i for i, (_card, wid) in enumerate(self._cards) if str(wid).lower() == active_id), 0)
             self._select_card(active_index)
+
+    def _layout_group_stack(self, stack, count, expanded):
+        """Arrange a grouped application like Mavericks: stacked or scattered."""
+        if count <= 0:
+            stack.set_size_request(250, 178)
+            return
+        if expanded:
+            cols = 2 if count > 1 else 1
+            rows = (count + cols - 1) // cols
+            stack.set_size_request(250 * cols + 14 * (cols - 1), 178 * rows + 14 * (rows - 1))
+            for index, child in enumerate(stack.get_children()):
+                x = (index % cols) * 264
+                y = (index // cols) * 192
+                stack.move(child, x, y)
+        else:
+            offset = 18
+            stack.set_size_request(250 + offset * (count - 1), 178 + offset * (count - 1))
+            for index, child in enumerate(stack.get_children()):
+                stack.move(child, offset * index, offset * index)
+
+    def _on_group_scroll(self, _stack, event, group_token, count):
+        # Mavericks 10.9 lets the user scatter a grouped application by
+        # scrolling upward over its group. Scrolling downward collapses it.
+        if event.direction == Gdk.ScrollDirection.UP or (
+            event.direction == Gdk.ScrollDirection.SMOOTH and event.delta_y < 0
+        ):
+            self._expanded_groups.add(group_token)
+        elif event.direction == Gdk.ScrollDirection.DOWN or (
+            event.direction == Gdk.ScrollDirection.SMOOTH and event.delta_y > 0
+        ):
+            self._expanded_groups.discard(group_token)
+        else:
+            return False
+        self._layout_group_stack(_stack, count, group_token in self._expanded_groups)
+        _stack.show_all()
+        return True
 
     def _fade_in(self):
         opacity = self.get_opacity()
