@@ -135,6 +135,12 @@ class Overview(Gtk.Window):
             button.get_style_context().add_class("mav-workspace-button")
             button.set_active(desktop == current)
             button.connect("clicked", self._switch_workspace, desktop)
+            button.drag_dest_set(
+                Gtk.DestDefaults.ALL,
+                [Gtk.TargetEntry.new("application/x-mav-mission-window", Gtk.TargetFlags.SAME_APP, 0)],
+                Gdk.DragAction.MOVE,
+            )
+            button.connect("drag-data-received", self._on_workspace_drop, desktop)
 
             button_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
             preview_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
@@ -287,6 +293,19 @@ class Overview(Gtk.Window):
         box.pack_start(image, True, True, 0)
         return box
 
+    def _on_window_drag_data_get(self, _widget, _context, selection, _info, _time, win_id):
+        if win_id:
+            selection.set_text(str(win_id), -1)
+
+    def _on_workspace_drop(self, _button, _context, _x, _y, selection, _info, _time, desktop):
+        win_id = selection.get_text()
+        if not win_id:
+            return
+        if mission_control.move_window_to_workspace(win_id, desktop):
+            self._refresh_after_workspace_switch()
+            return
+        return
+
     def _make_card(self, win, is_active):
         event = Gtk.EventBox()
         event.set_visible_window(True)
@@ -294,6 +313,12 @@ class Overview(Gtk.Window):
         event.get_style_context().add_class("mav-card")
         event.set_tooltip_text(_safe_title(win))
         event.connect("button-release-event", self._activate, win.get("win_id"))
+        event.drag_source_set(
+            Gdk.ModifierType.BUTTON1_MASK,
+            [Gtk.TargetEntry.new("application/x-mav-mission-window", Gtk.TargetFlags.SAME_APP, 0)],
+            Gdk.DragAction.MOVE,
+        )
+        event.connect("drag-data-get", self._on_window_drag_data_get, win.get("win_id"))
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         box.set_size_request(250, 150)
