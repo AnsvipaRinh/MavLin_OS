@@ -267,12 +267,17 @@ class Overview(Gtk.Window):
                 heading.pack_start(app_label, True, True, 0)
                 group_box.pack_start(heading, False, False, 0)
 
-                cards_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-                for win in group_windows:
+                # Keep windows belonging to one application visually compact.
+                # Mavericks groups them as a single application cluster rather
+                # than giving every window a full-width top-level column.
+                cards_grid = Gtk.Grid()
+                cards_grid.set_column_spacing(14)
+                cards_grid.set_row_spacing(14)
+                for card_index, win in enumerate(group_windows):
                     card = self._make_card(win, win.get("win_id", "").lower() == active_id)
-                    cards_box.pack_start(card, False, False, 0)
+                    cards_grid.attach(card, card_index % 2, card_index // 2, 1, 1)
                     self._cards.append((card, win.get("win_id")))
-                group_box.pack_start(cards_box, False, False, 0)
+                group_box.pack_start(cards_grid, False, False, 0)
                 grid.attach(group_box, group_index % cols, group_index // cols, 1, 1)
 
         self.show_all()
@@ -321,6 +326,11 @@ class Overview(Gtk.Window):
             self._refresh_after_workspace_switch()
 
     def _switch_workspace(self, button, desktop):
+        # Clicking the already-selected Space must not toggle its radio-like
+        # state off. Mavericks always keeps one Space selected.
+        if desktop == int(mission_control.get_workspaces().get("current", 0)):
+            button.set_active(True)
+            return
         if not button.get_active():
             return
         if mission_control.switch_workspace(desktop):
@@ -377,7 +387,7 @@ class Overview(Gtk.Window):
         self._clear_drop_highlight()
         win_id = selection.get_text()
         if not win_id:
-            context.drag_status(0, _time)
+            context.finish(False, False, _time)
             return
         if mission_control.move_window_to_workspace(win_id, desktop):
             context.finish(True, False, _time)
