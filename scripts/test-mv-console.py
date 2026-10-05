@@ -39,6 +39,15 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_PATH = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-console")
 
+# GUI smoke must never reach the ambient host display (WSLg: DISPLAY=:0 and
+# wayland-0 both forward to the user's Windows desktop).  gui_display() pins
+# the dedicated Xvfb :97 — or returns None (headless, GTK then refuses to
+# init) — and arms the fail-loud guard for child processes.
+sys.path.insert(0, os.path.join(REPO, "scripts", "gui-guard"))
+import mv_gui_iso
+
+mv_gui_iso.gui_display()
+
 FIXTURE_JSON = [
     '{"__REALTIME_TIMESTAMP": "1758900000000000", "MESSAGE": "disk sda: io error on sector 42", "PRIORITY": "3", "SYSLOG_IDENTIFIER": "kernel"}',
     '{"__REALTIME_TIMESTAMP": "1758900001000000", "MESSAGE": "NetworkManager[900]: <info> device (eth0) state changed", "PRIORITY": "6", "SYSLOG_IDENTIFIER": "NetworkManager"}',

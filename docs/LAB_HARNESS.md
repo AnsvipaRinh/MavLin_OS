@@ -65,7 +65,14 @@ Total:                    6 tests
 - Serial log = file written by the backend
 
 ### QemuBackend (real guest boot)
-- Direct kernel boot: `qemu-system-x86_64 -kernel vmlinuz -initrd initramfs -append "console=ttyS0"`
+- Direct kernel boot: `qemu-system-x86_64 -kernel vmlinuz -initrd initramfs -append "console=ttyS0" -display none`
+  - **`-display none` (or `-nographic`) is mandatory here**: the dev host is WSLg, and QEMU's
+    default GTK/SDL display would open a window on the user's Windows desktop.
+    Headless is correct for every flow whose output is not asserted as pixels;
+    pixel/screenshot work uses the pinned Xvfb `:97` via `scripts/gui-isolation.sh`
+    (`mv_gui_pin_display`), never the host `:0`. The fail-loud guard in
+    `scripts/gui-guard/` additionally blocks a hosted `SDL_VIDEODRIVER`/`GDK_BACKEND`
+    under `MV_GUI_ISOLATED=1`.
 - DATA disk: virtio-blk (CONFIG_VIRTIO_BLK=y), ext4 (CONFIG_EXT4_FS=y)
 - Network: virtio-net-pci (CONFIG_VIRTIO_NET=y), user-mode SLiRP (`-netdev user,id=net0 -device virtio-net-pci,netdev=net0`)
 - Guest init (python, PID 1): mounts DATA, runs boot stages + agent, command loop

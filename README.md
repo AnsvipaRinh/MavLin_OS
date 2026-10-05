@@ -170,6 +170,11 @@ validation happens when the machine arrives.
 sudo mkarchiso -v -w /tmp/archiso-build -o out/ archiso-profile/
 
 # 4. Smoke test in QEMU+OVMF (UEFI, no KVM required)
+# Headless on purpose: the smoke assertion is "the guest boots", not pixels.
+# Never pass -display gtk/sdl here — on WSLg that opens a window on the
+# Windows desktop. For GUI/screenshot checks, pin the dedicated Xvfb :97
+# with scripts/gui-isolation.sh (mv_gui_pin_display) and keep the fail-loud
+# host-display guard armed (scripts/gui-guard).
 qemu-system-x86_64 \
   -machine q35,accel=tcg \
   -cpu max -m 4G \
@@ -177,7 +182,7 @@ qemu-system-x86_64 \
   -drive if=pflash,format=raw,file=/tmp/OVMF_VARS.fd \
   -cdrom out/mavericks-linux-*.iso \
   -netdev user,id=net0 -device e1000,netdev=net0 \
-  -vga std -display gtk
+  -vga std -display none
 ```
 
 **QEMU tests:** Sim backend (rootless, deterministic) — 25/25 scenarios pass.

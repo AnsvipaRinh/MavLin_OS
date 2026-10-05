@@ -258,3 +258,34 @@ getinfo 35/35 · finder suites 26+69 · power-ui 45.
 ---
 
 *Progress tracked by MavLinOS Orchestrator*
+
+---
+
+## Session 2026-10-05 (OS-window-leak2) — eliminate remaining GUI window leaks onto Windows desktop (WSLg)
+
+**Objective:** oid OS-window-leak2 — test-suite leak fixed (gui-isolation.sh, Xvfb :97, fail-loud guard, 274995e) but windows still popped; hunt and fix remaining leak paths.
+
+**Leak paths found & fixed:**
+
+1. **13 test-mv-* suites** executed app code and spawned child interpreters without any host-display guard: `test-mv-calendar.py`, `test-mv-desktop-cache.py`, `test-mv-diskutil.py`, `test-mv-getinfo.py`, `test-mv-mission-control.py`, `test-mv-notes.py`, `test-mv-notification-center.py`, `test-mv-photos.py`, `test-mv-power-ui.py`, `test-mv-reminders.py`, `test-mv-settings.py`, `test-mv-spotlight.py`, `test-mv-ytplayer.py` — all ran with ambient `DISPLAY=:0` / `WAYLAND_DISPLAY=wayland-0` (WSLg host desktop) inherited. Verified empirically: 0 windows leaked *today* (all windowless CLI/contract tests), but unguarded = latent leak path.
+
+2. **2 launchpad test suites** same category: `test-mv-launchpad-ids.py`, `test-mv-launchpad-migration.py`.
+
+**Fix applied:**
+- Added `arm_guard()` to `scripts/gui-guard/mv_gui_iso.py` — headless guard bootstrap for windowless suites: captures+forbids ambient host displays, drops them, forces `GDK_BACKEND=x11`, arms fail-loud guard (`HOST-DISPLAY-BLOCKED` / exit 125). No Xvfb pin (suites proven display-independent).
+- Added bootstrap (`import mv_gui_iso; mv_gui_iso.arm_guard()`) to all 15 windowless suites (13 + 2 launchpad).
+- Extended static coverage gate (`scripts/test-gui-isolation-coverage.py`) with **check #4**: every `test-mv-*.py` must bootstrap `mv_gui_iso` (exemptions: `test-mv-mail.py`, `test-mv-quicklook.py` — pure source-contract checks, markers in strings only).
+- CI unit-tests job already armed via env (274995e + WIP ci.yml).
+
+**Verification:**
+- All 15 windowless suites pass with arm_guard (rc=0, headless).
+- Full `check-sync.sh`: **ALL CHECKS PASSED** (34/34 app suites, 34-window smoke, theme CSS, mirrors, syntax, guard evidence).
+- xwininfo sampling on host `:0` before/during/after check-sync: **0 new windows, 0 gone windows** — empirical proof no leak onto Windows desktop.
+- Coverage gate passes all 4 checks (ambient idiom, GUI markers, test-mv-* bootstrap, QEMU headless).
+
+**Foreign concurrent session evidence:** `scripts/qwen-integration/` reappeared (same unwired content deleted in 183c9d9, 73b303c). `qwen-web-worker.py` opened live Chromium window "Qwen Coder" on host :0 (seen in xwininfo tree). **Not touched** — documented attribution only.
+
+**Guard delta:** +15 suites guarded, +1 check in coverage gate, +1 `arm_guard()` primitive. Total guarded test-mv-* suites now: 30/32 (2 string-only exempt). All direct entry points covered: check-sync.sh, CI unit-tests, bench, direct test-mv-*.py runs, smoke-launch.sh.
+
+**Status:** Leak paths closed. Ready for hardware validation when MacBook10,1 arrives.
+

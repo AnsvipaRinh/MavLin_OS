@@ -11,8 +11,9 @@ Verifies the full process lifecycle:
   5. process tree shows no hidden respawner (no watchdog/retry/relaunch parent)
 
 A display is required for the GUI to reach its main loop; the GUI section is
-skipped when headless (no DISPLAY / no WAYLAND_DISPLAY), matching the other
-test-*.py harnesses.
+skipped when headless, matching the other test-*.py harnesses.  The display
+comes from scripts/gui-guard/mv_gui_iso.py: the dedicated Xvfb :97 when a
+host display is present, never the WSLg :0 (WSLg leak).
 
 This test launches the real app in its own session (like a desktop launch),
 tears it down via its process group, and polls the process tree for any new
@@ -31,7 +32,10 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_PATH = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-textedit")
 
-HAS_DISPLAY = bool(os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY"))
+sys.path.insert(0, os.path.join(REPO, "scripts", "gui-guard"))
+import mv_gui_iso
+
+GUI_DISPLAY = mv_gui_iso.gui_display()
 REPEATS = 3
 RESPAWN_WATCH_S = 8
 
@@ -81,11 +85,10 @@ def app_pids():
 
 def launch():
     """Launch the real app in its own session, like a desktop launch."""
+    # os.environ was pinned by mv_gui_iso.gui_display() at import: DISPLAY is
+    # the dedicated Xvfb :97 (never the WSLg host) and the fail-loud guard
+    # (scripts/gui-guard/sitecustomize.py) is armed for the app interpreter.
     env = dict(os.environ)
-    # Target session is X11/Xfce. Defaulting to "wayland" put this app on
-    # the WSLg host compositor (= the user's Windows desktop) whenever
-    # GDK_BACKEND was unset; scripts/gui-isolation.sh forbids that too.
-    env.setdefault("GDK_BACKEND", "x11")
     return subprocess.Popen(
         [sys.executable, APP_PATH],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -136,9 +139,9 @@ def watch_respawn(exclude_pid, seconds):
 def main():
     print("mv-textedit lifecycle test")
     print("  app: %s" % APP_PATH)
-    print("  display: %s" % ("yes" if HAS_DISPLAY else "no (headless)"))
+    print("  display: %s" % (GUI_DISPLAY or "no (headless)"))
 
-    if not HAS_DISPLAY:
+    if not GUI_DISPLAY:
         print("SKIP - no display; GUI lifecycle section requires one "
               "(headless import/logic is covered by the bench S03 scenario)")
         return 0

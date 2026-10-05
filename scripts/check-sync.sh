@@ -22,6 +22,17 @@ FAIL=0
 bad() { echo "FAIL: $*"; FAIL=1; }
 ok()  { echo "OK: $*"; }
 
+# The guard only protects processes it was armed for, so entry points that
+# run outside this script (direct `python3 scripts/test-*.py`, pytest,
+# run-bench.sh) must bootstrap isolation themselves — and no QEMU flow may
+# ask for a hosted display. This gate fails loud if either regresses.
+echo "--- gui isolation coverage ---"
+if [[ -f scripts/test-gui-isolation-coverage.py ]]; then
+  python3 scripts/test-gui-isolation-coverage.py && ok "gui isolation coverage" || bad "gui isolation coverage"
+else
+  bad "scripts/test-gui-isolation-coverage.py missing"
+fi
+
 PAIRS=(
   "scripts/install/mavericks-firstboot.sh:archiso-profile/releng/airootfs/usr/local/bin/mavericks/mavericks-firstboot.sh"
   "scripts/install/mavericks-profile-select.sh:archiso-profile/releng/airootfs/usr/local/bin/mavericks/mavericks-profile-select.sh"

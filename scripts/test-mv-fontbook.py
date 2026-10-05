@@ -31,6 +31,15 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_PATH = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-fontbook")
 
+# GUI smoke must never reach the ambient host display (WSLg: DISPLAY=:0 and
+# wayland-0 both forward to the user's Windows desktop).  gui_display() pins
+# the dedicated Xvfb :97 — or returns None (headless, GTK then refuses to
+# init) — and arms the fail-loud guard for child processes.
+sys.path.insert(0, os.path.join(REPO, "scripts", "gui-guard"))
+import mv_gui_iso
+
+mv_gui_iso.gui_display()
+
 FIXTURE_FC_LIST = "\n".join([
     "FreeSerif\tRegular\t/usr/share/fonts/gnu-free/FreeSerif.otf\t",
     "FreeSerif\tBold\t/usr/share/fonts/gnu-free/FreeSerifBold.otf\t",

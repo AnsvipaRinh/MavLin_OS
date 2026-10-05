@@ -154,7 +154,10 @@ def make_fixtures():
 
 
 def headless_env():
-    env = {k: v for k, v in os.environ.items() if k != "DISPLAY"}
+    # Both WSLg sockets (X11 :0 and wayland-0) forward to the user's Windows
+    # desktop — a "headless" child must lose both, not just DISPLAY.
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("DISPLAY", "WAYLAND_DISPLAY")}
     env["GDK_BACKEND"] = "x11"
     return env
 
@@ -946,6 +949,26 @@ def main():
                     choices=["unconstrained", "constrained"])
     ap.add_argument("--scenario", default=None)
     args = ap.parse_args()
+
+    # GUI tiers (G01-G05, x_server_available probe) map real toplevels, so
+    # they must never see the ambient host display: WSLg forwards DISPLAY=:0
+    # and wayland-0 to the user's Windows desktop.  gui_display() pins the
+    # dedicated local Xvfb :97 (or degrades to headless, which skips the GUI
+    # tiers with the recorded no-x-display reason) and arms the fail-loud
+    # guard for every child this run launches.  Non-GUI tiers are unaffected:
+    # they run through headless_env() with DISPLAY stripped.
+    sys.path.insert(0, os.path.join(str(REPO), "scripts", "gui-guard"))
+    import mv_gui_iso
+    gui_display = mv_gui_iso.gui_display()
+    if gui_display:
+        log(f"GUI tiers pinned to {gui_display} (isolated from host display)")
+    else:
+        # No isolated display available: drop any ambient host display so the
+        # GUI tiers skip with the recorded no-x-display reason instead of
+        # rendering on the Windows desktop.
+        os.environ.pop("DISPLAY", None)
+        os.environ.pop("WAYLAND_DISPLAY", None)
+        log("no isolated display available: GUI tiers will be skipped")
 
     make_fixtures()
     out_path = Path(args.output) if args.output else RESULTS_DIR / \

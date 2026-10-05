@@ -11,6 +11,9 @@ Checks, in order:
   * WAYLAND_DISPLAY must be unset (host wayland socket is off-limits)
   * GDK_BACKEND must not prefer the wayland compositor
   * DISPLAY must not be a captured host display (MV_FORBIDDEN_DISPLAYS)
+  * SDL_VIDEODRIVER must be unset/offscreen/dummy — a hosted SDL video
+    driver (or qemu -display gtk/sdl, which inherits DISPLAY/GDK_BACKEND)
+    would open windows on the Windows desktop
 
 Every violation is echoed to stderr as HOST-DISPLAY-BLOCKED: ... and
 appended to $MV_GUARD_LOG so the harness gate can count them.  A clean
@@ -58,6 +61,11 @@ if os.environ.get("MV_GUI_ISOLATED") == "1":
     if display and display in forbidden:
         _block("DISPLAY=%s is the host display - refusing to open windows"
                % display)
+
+    sdl = os.environ.get("SDL_VIDEODRIVER", "")
+    if sdl and sdl.split(",")[0].strip() not in ("offscreen", "dummy"):
+        _block("SDL_VIDEODRIVER=%r would open a hosted video window during "
+               "isolated GUI tests (allowed: offscreen, dummy, or unset)" % sdl)
 
     # Every GTK child of this process tree stays on X11 (the MavLinOS
     # target session is X11/Xfce); wayland would reach the Windows desktop.

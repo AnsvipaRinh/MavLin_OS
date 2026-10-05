@@ -18,6 +18,16 @@ import importlib.util
 import importlib.machinery
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Windowless app-suite: no window today, but app code and child
+# interpreters run with the ambient environment — on WSLg that is
+# the user's Windows desktop.  Arm the fail-loud guard so any future
+# window-mapping path dies with HOST-DISPLAY-BLOCKED (oid
+# OS-window-leak2) instead of popping a window on the host.
+sys.path.insert(0, os.path.join(REPO, "scripts", "gui-guard"))
+import mv_gui_iso
+
+mv_gui_iso.arm_guard()
+
 APP_PATH = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-diskutil")
 MOCK_PATH = os.path.join(REPO, "scripts/mock-udisks2.py")
 

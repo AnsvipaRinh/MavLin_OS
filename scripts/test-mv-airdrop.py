@@ -35,7 +35,14 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_PATH = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-airdrop")
 
-HAS_DISPLAY = bool(os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY"))
+# GUI smoke must never reach the ambient host display (WSLg: DISPLAY=:0 and
+# wayland-0 both forward to the user's Windows desktop).  gui_display() pins
+# the dedicated Xvfb :97 — or returns None when headless — and arms the
+# fail-loud guard (scripts/gui-guard/sitecustomize.py) for child processes.
+sys.path.insert(0, os.path.join(REPO, "scripts", "gui-guard"))
+import mv_gui_iso
+
+HAS_DISPLAY = mv_gui_iso.gui_display() is not None
 
 
 def ok(name):
