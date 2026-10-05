@@ -588,3 +588,41 @@ wired into neither check-sync nor CI, so its red status went unnoticed.
 6. New `scripts/test-mv-mail.py` (23 tests): backend selection (geary →
    Mail UserAgent fallback → absent/ignore), menu builder against real Gio,
    runner contract.
+
+### 2026-10-05 — Dock pins for plain pacman installs + stale P0 matrix rows
+
+**Dock pins (P0 #18 gap "no pinned apps"):** pins existed only in the ISO
+airootfs skel; `mavericks-theme` (the path for a plain pacman install)
+shipped dock settings but no launchers, so non-ISO users got an empty
+Dock. Decision: ship the pins as *package files* from
+`configs/desktop/plank/dock1/launchers` (source of truth, sync-gated vs
+airootfs) into `/etc/skel/.config/plank/dock1/launchers` — package files
+are tracked/removed by pacman, unlike extending the `.install` heredoc
+(which would create a third hand-maintained copy).
+`scripts/test-dock-launchers.py` now also byte-compares configs ↔ airootfs
+(all files, not just the required six) and asserts PKGBUILD coverage.
+Verified with a real `makepkg -d -f`: package contains all six `.dockitem`
+files, byte-identical to configs. pkgrel 2 → 3.
+
+**Known build quirk (documented, not changed):** `mavericks-theme`
+`build()` runs `optipng` in place over tracked sources under `src/`, so a
+local `makepkg` rewrites ~267 PNGs (`git status` noise; revert with
+`git checkout -- packages/mavericks-theme/src/mavericks-theme/` after a
+build). Opting for documentation over restructuring package() (the
+optimized output is the point of that step; a copy-based build would
+double the tree and diverge from the current source layout).
+
+**Stale P0 matrix rows corrected after verification (§13.5):**
+- *Menu Bar* → IMPLEMENTED — HARDWARE VALIDATION REQUIRED: global menu
+  exists (vala-panel-appmenu + appmenu-gtk-module + mv-apple; the row's
+  "no global-menu plugin" was false). Panel has no tasklist/applicationsmenu
+  by design (macOS model).
+- *Application Menu* → IMPLEMENTED — HARDWARE VALIDATION REQUIRED: the
+  row still described the stock `applicationsmenu` plugin; it was replaced
+  by the mv-apple Apple menu + appmenu export (PR #7 stack, gated).
+- *Dock*: "no pinned apps" was stale for the ISO path; now true for all
+  paths (see above). Remaining gap: no fallback if plank is absent.
+- *Desktop/Wallpaper/Session*: "no xfdesktop config (no desktop icons)"
+  was stale — `xfce4-desktop.xml` (home/trash/removable, wallpaper) exists
+  and is gated by `test-desktop-icons`. Real remaining gap: no
+  xfce4-session customization.

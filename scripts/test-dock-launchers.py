@@ -42,10 +42,38 @@ finder = os.path.join(
 if not os.path.isfile(finder):
     errors.append("mv-finder.desktop missing (Dock Finder pin would be dead)")
 
+# configs ↔ airootfs: same file set, byte-identical content (no partial drift)
+cfg_dir, skel_dir = PATHS[0], PATHS[1]
+if os.path.isdir(cfg_dir) and os.path.isdir(skel_dir):
+    cfg_files = sorted(os.listdir(cfg_dir))
+    skel_files = sorted(os.listdir(skel_dir))
+    if cfg_files != skel_files:
+        errors.append(
+            "launcher set drift: configs=%s skel=%s" % (cfg_files, skel_files)
+        )
+    for name in set(cfg_files) & set(skel_files):
+        a = open(os.path.join(cfg_dir, name), "rb").read()
+        b = open(os.path.join(skel_dir, name), "rb").read()
+        if a != b:
+            errors.append("content drift for %s (configs != airootfs)" % name)
+
+# plain pacman installs get the pins from the mavericks-theme package
+# (ISO airootfs ships them as files; package installs must too)
+pkgbuild = os.path.join(REPO, "packages/mavericks-theme/PKGBUILD")
+if not os.path.isfile(pkgbuild):
+    errors.append("mavericks-theme PKGBUILD missing")
+else:
+    pb = open(pkgbuild, encoding="utf-8").read()
+    if "configs/desktop/plank/dock1/launchers" not in pb:
+        errors.append("PKGBUILD does not source configs/desktop dock launchers")
+    if "etc/skel/.config/plank/dock1/launchers" not in pb:
+        errors.append("PKGBUILD does not install dock launchers into /etc/skel")
+
 if errors:
     for e in errors:
         print("FAIL - %s" % e)
     sys.exit(1)
 
-print("ok - default Dock launchers present in configs and skel")
+print("ok - default Dock launchers present in configs and skel (byte-identical)")
 print("ok - pins: Finder, Launchpad, Firefox, Mail, System Settings, Terminal")
+print("ok - mavericks-theme PKGBUILD ships pins to /etc/skel (pacman installs)")

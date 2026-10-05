@@ -48,6 +48,16 @@ getinfo 35/35 · finder suites 26+69 · power-ui 45.
    (23 tests). Gates: check-sync 221/0 + 34 app suites + global-menu
    contract + launch smoke all green.
 
+5. **Dock pins everywhere + P0 matrix refresh:** `mavericks-theme` now
+   packages the six Dock pins into `/etc/skel` (pkgrel 3; verified with a
+   real makepkg build — byte-identical to configs) so plain pacman
+   installs match the ISO; `test-dock-launchers.py` extended (full
+   byte-drift + PKGBUILD coverage). Verified and corrected four stale P0
+   rows (Menu Bar, Application Menu, Dock, Desktop — global menu/Apple
+   menu/xfdesktop were already implemented and gated; statuses raised to
+   IMPLEMENTED — HARDWARE VALIDATION REQUIRED where only HW validation
+   remains).
+
 **Next executable work**:
 - Continue P0/P1 application matrix per §13.8 (Finder/Spotlight/Mission
   Control gaps, remaining applications)

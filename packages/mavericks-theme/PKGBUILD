@@ -1,7 +1,7 @@
 # Maintainer: Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL>
 pkgname=mavericks-theme
 pkgver=1.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc="OS X 10.9 Mavericks skeuomorphic theme for Xfce/GTK3 - textures, shadows, glass, leather/paper"
 arch=('any')
 url="https://github.com/AnsvipaRinh/MavLinOS"
@@ -44,6 +44,17 @@ package() {
     # Plank theme
     install -dm755 "${pkgdir}/usr/share/plank/themes/Mavericks"
     cp -r plank/* "${pkgdir}/usr/share/plank/themes/Mavericks/" 2>/dev/null || true
+
+    # Plank Dock default pins for skel — a plain pacman install (outside the
+    # ISO) must get the same Finder/Launchpad/Firefox/Mail/Settings/Terminal
+    # pins as airootfs. Source of truth: configs/desktop/plank/dock1/launchers
+    # (kept in sync with airootfs by scripts/test-dock-launchers.py).
+    local _dock_launchers="$startdir/../../configs/desktop/plank/dock1/launchers"
+    if [ -d "$_dock_launchers" ]; then
+        install -dm755 "${pkgdir}/etc/skel/.config/plank/dock1/launchers"
+        install -m644 "$_dock_launchers"/*.dockitem \
+            "${pkgdir}/etc/skel/.config/plank/dock1/launchers/"
+    fi
 
     # Cursor theme (Mavericks-Cursors)
     install -dm755 "${pkgdir}/usr/share/icons/Mavericks-Cursors"
