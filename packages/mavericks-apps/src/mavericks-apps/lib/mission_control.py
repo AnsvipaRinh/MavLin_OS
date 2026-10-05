@@ -832,6 +832,31 @@ def _activate_window_xlib(win_id: Any) -> bool:
             pass
 
 
+def set_workspace_count(count: int) -> bool:
+    """Set the number of X11 workspaces, matching Mavericks' Spaces limit."""
+    try:
+        count = int(count)
+    except (TypeError, ValueError):
+        return False
+    if not 1 <= count <= 16:
+        return False
+
+    # wmctrl delegates the workspace-count change to the window manager.
+    # xfwm4 accepts this EWMH operation without taking ownership of windows.
+    try:
+        result = subprocess.run(
+            ["wmctrl", "-n", str(count)],
+            capture_output=True,
+            timeout=2,
+        )
+        if result.returncode == 0:
+            return True
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+    return False
+
+
 def switch_workspace(desktop: int) -> bool:
     """Switch to a workspace by zero-based EWMH desktop index."""
     try:
