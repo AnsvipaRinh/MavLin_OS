@@ -48,7 +48,13 @@ macbook_profile() {
 
 log "1/8 hostname/locale/time"
 hostnamectl set-hostname mavericks-linux 2>/dev/null || echo mavericks-linux > /etc/hostname
-ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime 2>/dev/null || true
+# Preserve the timezone selected by the installer. Europe/Berlin is only a
+# fallback for systems that have no timezone configuration at all.
+if [[ ! -e /etc/localtime && ! -L /etc/localtime ]]; then
+  ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime 2>/dev/null || true
+else
+  log "preserving existing timezone configuration"
+fi
 hwclock --systohc 2>/dev/null || true
 
 log "2/8 bootloader entries = baseline + profile fragments"
