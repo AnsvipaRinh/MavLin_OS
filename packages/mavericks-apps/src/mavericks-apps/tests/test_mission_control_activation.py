@@ -102,6 +102,30 @@ def test_move_window_client_message_shape():
     print("PASS: test_move_window_client_message_shape")
 
 
+def test_remove_workspace_rejects_invalid_targets():
+    with patch.object(mc, "get_workspaces", return_value={"count": 3, "current": 1}):
+        assert mc.remove_workspace(0) is False
+        assert mc.remove_workspace(1) is False
+        assert mc.remove_workspace(3) is False
+    print("PASS: test_remove_workspace_rejects_invalid_targets")
+
+
+def test_remove_workspace_shifts_windows_then_reduces_count():
+    windows = [
+        {"win_id": "0x20", "desktop": 1},
+        {"win_id": "0x30", "desktop": 2},
+        {"win_id": "0x40", "desktop": 3},
+    ]
+    with patch.object(mc, "get_workspaces", return_value={"count": 4, "current": 0}), \\
+         patch.object(mc, "enumerate_windows", return_value=windows), \\
+         patch.object(mc, "move_window_to_workspace", return_value=True) as move, \\
+         patch.object(mc, "set_workspace_count", return_value=True) as set_count:
+        assert mc.remove_workspace(1) is True
+        assert [call.args for call in move.call_args_list] == [("0x30", 1), ("0x40", 2)]
+        set_count.assert_called_once_with(3)
+    print("PASS: test_remove_workspace_shifts_windows_then_reduces_count")
+
+
 def test_set_workspace_count_fallback():
     mc._XLIB_AVAILABLE = False
     completed = MagicMock(returncode=0)
@@ -132,6 +156,8 @@ if __name__ == "__main__":
         test_move_window_to_workspace_fallback,
         test_move_window_client_message_shape,
         test_set_workspace_count_fallback,
+        test_remove_workspace_rejects_invalid_targets,
+        test_remove_workspace_shifts_windows_then_reduces_count,
         test_activate_window_invalid_id_does_not_connect,
     ]
     passed = failed = 0
