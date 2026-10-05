@@ -11,7 +11,7 @@
 
 The native GTK3 overview is now present as `mv-mc-overview` and is installed by the mavericks-apps package. It currently composes the completed O1/O2/O3/O4 layers: EWMH enumeration, workspace grouping, XComposite thumbnails for mapped windows, and direct EWMH activation. It is intentionally one-shot and falls back to the legacy rofi path if unavailable.
 
-This is an incremental O5/O7 implementation, not a claim that the full O5–O10 acceptance criteria are complete. Workspace switching UI, keyboard navigation, transitions, visual polish, and hardware validation remain open.
+This is an incremental O5/O7 implementation, not a claim that the full O5–O10 acceptance criteria are complete. The native overview now has workspace switching UI, keyboard window selection, direct activation, a compact workspace strip, and a lightweight entrance fade. Live workspace previews, drag-and-drop, live thumbnail updates, full transition choreography, visual fidelity work, and hardware validation remain open.
 
 ## 1. Fidelity-Ceiling Evidence: rofi/wmctrl
 
