@@ -1,5 +1,53 @@
 # DECISIONS
 
+## 2026-10-06 — GLM 5.3 Flash priority #1; regular GLM 5.3 reserved for complex tasks
+
+**Context:** Owner directive to make `zai-coding-plan/glm-5.3-flash` the primary worker model (priority #1 in fallback chain), with regular `zai-coding-plan/glm-5.3` kept in chain but LAST and reserved for very complex tasks.
+
+**Decisions:**
+- `.opencode/model-fallback.json`: GLM 5.3 Flash moved to order 1 (primary-worker, worker=build); regular GLM 5.3 added at order 11 (fallback-reserved-complex, worker=null, not a runtime worker).
+- `opencode.jsonc`: `build` agent model pin changed from `zai-coding-plan/glm-5.3` to `zai-coding-plan/glm-5.3-flash`.
+- Regular GLM 5.3 marked with `worker=null` and `role="fallback-reserved-complex"` to prevent accidental use; explicit opt-in required for complex reasoning tasks where Flash may be insufficient.
+- Chain renumbered 1-11.
+
+**Verification:**
+- `scripts/session-reuse.py models` shows GLM 5.3 Flash as first candidate
+- `scripts/session-reuse.py preflight` offers `build` with GLM 5.3 Flash
+- `check-sync.sh` passes config validation
+
+---
+
+## 2026-10-06 — GLM usage-limit ground truth: ~2h Beijing-time cycle (not 5h)
+
+**Context:** FAILOVER DISCIPLINE RULE (AGENTS.md §14.7) requires recording provider ground-truth numbers. The earlier assumption of a "5 hour" GLM usage limit is NOT accurate.
+
+**Ground Truth (per key provider):**
+- GLM usage limits reset on a **~2-hour cycle tied to Beijing time** (not a 5-hour rolling window).
+- Orchestrator re-probes at the 2h and 3h marks after exhaustion.
+- This supersedes the earlier 5h assumption in all failover/cooldown logic.
+
+**Impact:**
+- Cooldown memory (`scripts/session-reuse.py health`) must use ~2h Beijing-aligned cycles, not 5h.
+- Worker rotation on FREE_USAGE_EXHAUSTED (18) should expect revival at next Beijing 2h boundary + margin.
+- `DECISIONS.md` entries required for all three rules upon adoption (this entry satisfies the FAILOVER DISCIPLINE RULE).
+
+---
+
+## 2026-10-06 — GitHub-first reinforcement: PUBLISH RULE amended
+
+**Context:** Owner directive to reinforce GitHub as the primary work platform.
+
+**Decision:**
+- AGENTS.md §8 PUBLISH RULE amended with clause: "**GitHub — основная площадка работы (source of truth); локальный репозиторий — бэкап**"
+- This codifies the existing practice (push per objective) as an explicit architectural principle.
+- Local repository is a backup; origin is source of truth for all collaborative and audit purposes.
+
+**Verification:**
+- Commit includes AGENTS.md change
+- Push to origin validates the rule
+
+---
+
 ## 2026-10-04 — fledge-alpha removed from rotation entirely (US-only geo-blocked)
 
 **Context:** User-approved removal of `opencode/fledge-alpha-free` from the

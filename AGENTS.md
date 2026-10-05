@@ -501,6 +501,8 @@ local-only работы: завершённый objective без push на origi
 блокер в PROGRESS.md и продолжить работу (это НЕ останавливает
 objectives).
 
+**GitHub — основная площадка работы (source of truth); локальный репозиторий — бэкап** (owner directive 2026-10-06).
+
 ### ISSUE #1 RULE (https://github.com/AnsvipaRinh/MavLinOS/issues/1)
 
 Крупная, но доказанно необходимая архитектурная работа НЕ

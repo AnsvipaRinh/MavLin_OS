@@ -17,11 +17,11 @@
       "order": 1,
       "role": "primary-worker",
       "provider": "zai-coding-plan",
-      "match": "glm-5.3",
-      "want": "zai-coding-plan/glm-5.3",
+      "match": "glm-5.3-flash",
+      "want": "zai-coding-plan/glm-5.3-flash",
       "worker": "build",
-      "worker_reason": "PRIMARY WORKER since 2026-10-05 (user directive: coding plan GLM 5.3 first priority). Coding plan = separate connection type: built-in provider `zai-coding-plan`, key in ~/.local/share/opencode/auth.json (was removed 2026-10-04 with the old key). Live-verified 2026-10-05: listed by `opencode models` + live completion. Pinned via the `build` agent in opencode.jsonc.",
-      "label": "GLM 5.3 (Z.ai Coding Plan; PRIMARY from 2026-10-05, built-in zai-coding-plan connection)"
+      "worker_reason": "PRIMARY WORKER since 2026-10-06 (user directive: GLM 5.3 Flash first priority). Coding plan = separate connection type: built-in provider `zai-coding-plan`, key in ~/.local/share/opencode/auth.json. Live-verified 2026-10-06: listed by `opencode models` + live completion. Pinned via the `build` agent in opencode.jsonc.",
+      "label": "GLM 5.3 Flash (Z.ai Coding Plan; PRIMARY from 2026-10-06, built-in zai-coding-plan connection)"
     },
     {
       "order": 2,
@@ -111,6 +111,16 @@
       "worker": "build-h",
       "worker_reason": "DEMOTED to end of list 2026-10-04 at user request. Mid-output-stop instability observed again; kept runtime-reachable via the build-h pin as last resort only.",
       "label": "Nemotron 3.5 Lightning Free (Zen; demoted to end of list 2026-10-04)"
+    },
+    {
+      "order": 11,
+      "role": "fallback-reserved-complex",
+      "provider": "zai-coding-plan",
+      "match": "glm-5.3\b",
+      "want": "zai-coding-plan/glm-5.3",
+      "worker": null,
+      "worker_reason": "RESERVED for very complex tasks only (user directive 2026-10-06). Regular GLM 5.3 (non-Flash) kept in chain but LAST; not a runtime worker (worker=null) to prevent accidental use. Explicit opt-in required for complex reasoning tasks where Flash may be insufficient.",
+      "label": "GLM 5.3 (Z.ai Coding Plan; RESERVED for complex tasks only, NOT a runtime worker)"
     }
   ],
   "requires": "Z.ai Coding Plan connected (built-in `zai-coding-plan`, key in ~/.local/share/opencode/auth.json) for entry 1; OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 3-4; Zen login for 2, 5-10. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry.",
