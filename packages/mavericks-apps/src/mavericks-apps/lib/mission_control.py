@@ -857,6 +857,40 @@ def set_workspace_count(count: int) -> bool:
     return False
 
 
+def remove_workspace(desktop: int) -> bool:
+    """Remove a non-active X11 workspace while preserving desktop order.
+
+    xfwm4 exposes the workspace count but not a native "remove this middle
+    workspace" EWMH operation. Shift windows from subsequent workspaces down
+    one slot, then remove the final slot. This reproduces Mavericks' logical
+    result without requiring a compositor-specific extension.
+    """
+    try:
+        desktop = int(desktop)
+    except (TypeError, ValueError):
+        return False
+    workspaces = get_workspaces()
+    count = max(1, int(workspaces.get("count", 1)))
+    current = int(workspaces.get("current", 0))
+    if count <= 1 or desktop <= 0 or desktop >= count or desktop == current:
+        return False
+
+    windows = enumerate_windows()
+    # Shift windows from the following Spaces into the removed Space's slot.
+    for source in range(desktop + 1, count):
+        target = source - 1
+        for win in windows:
+            try:
+                win_desktop = int(win.get("desktop", -1))
+            except (TypeError, ValueError):
+                continue
+            if win_desktop == source:
+                if not move_window_to_workspace(win.get("win_id"), target):
+                    return False
+
+    return set_workspace_count(count - 1)
+
+
 def switch_workspace(desktop: int) -> bool:
     """Switch to a workspace by zero-based EWMH desktop index."""
     try:
