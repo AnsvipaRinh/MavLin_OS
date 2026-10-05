@@ -102,6 +102,20 @@ def test_move_window_client_message_shape():
     print("PASS: test_move_window_client_message_shape")
 
 
+def test_set_workspace_count_fallback():
+    mc._XLIB_AVAILABLE = False
+    completed = MagicMock(returncode=0)
+    with patch.object(mc.subprocess, "run", return_value=completed) as run:
+        assert mc.set_workspace_count(4) is True
+        run.assert_called_once()
+        assert run.call_args.args[0] == ["wmctrl", "-n", "4"]
+
+    assert mc.set_workspace_count(0) is False
+    assert mc.set_workspace_count(17) is False
+    assert mc.set_workspace_count("bad") is False
+    print("PASS: test_set_workspace_count_fallback")
+
+
 def test_activate_window_invalid_id_does_not_connect():
     with patch.object(mc, "_get_display") as get_display:
         assert mc._activate_window_xlib("not-an-id") is False
@@ -117,6 +131,7 @@ if __name__ == "__main__":
         test_root_client_message_shape,
         test_move_window_to_workspace_fallback,
         test_move_window_client_message_shape,
+        test_set_workspace_count_fallback,
         test_activate_window_invalid_id_does_not_connect,
     ]
     passed = failed = 0
