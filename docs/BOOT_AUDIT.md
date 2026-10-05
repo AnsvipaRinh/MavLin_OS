@@ -1,4 +1,11 @@
-# BOOT + ISO PACKAGING AUDIT — D7 (2026-09-28, без железа)
+# BOOT + ISO PACKAGING AUDIT — HISTORICAL / STALE
+
+> **WARNING: This document is a historical audit and is NOT authoritative for current main.**
+>
+> The repository's firstboot/profile architecture changed after this audit. In particular, the current system uses an installed profile store under `/usr/local/share/mavericks/profiles`, NetworkManager as the network owner, non-destructive firstboot hostname/timezone handling, zram-generator ownership, and explicit manual installation semantics. Issues #93, #94, #95, #98, #100, #101 and #102 track or tracked parts of this migration.
+>
+> Do not use the verdicts below as evidence that current firstboot or installation behavior is correct. Use `README.md`, `ARCHITECTURE.md`, `TECHNICAL_AUDIT.md` and the current source files instead.
+
 
 > Deep Runtime Track D7. Target: MacBook10,1 boot chain + ISO packaging consistency.
 > Scope: mkinitcpio, systemd-boot, profiledef, packages.x86_64, firstboot, cold-start decomposition, ISO size.
