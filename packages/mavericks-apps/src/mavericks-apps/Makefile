@@ -26,6 +26,7 @@ clean:
 install: all
 	install -Dm755 mv-hud "$(DESTDIR)$(PREFIX)/bin/mv-hud"
 	install -Dm755 lib/mission_control_thumbnail.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mission_control_thumbnail.py"
+	install -Dm755 lib/mission_control.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mission_control.py"
 	for f in bin/mv-settings bin/mv-about bin/mv-activity bin/mv-console \
 	         bin/mv-control bin/mv-power-ui bin/mv-shot bin/mv-quicklook \
 	         bin/mv-quicklook-thunar bin/mv-spotlight-preview \
