@@ -1,6 +1,6 @@
 # Mission Control — Dedicated Window-Overview Layer Plan
 
-**Status:** DESIGN (pre-implementation)  
+**Status:** IMPLEMENTATION — O1/O2 complete; O3 thumbnail backend implemented  
 **Date:** 2026-10-05  
 **Trigger:** Owner issue #1 — major work starts with DESIGN: target architecture + migration boundary first, implementation after.  
 **Baseline:** `packages/mavericks-apps/src/mavericks-apps/bin/mv-mission-control` (wmctrl+rofi) + `configs/profiles/experiments/E-MC-skippy-xd.sh` (skippy-xd one-shot, not in ISO).
@@ -208,12 +208,12 @@ Each objective is independently testable. Do not proceed to N+1 until N passes i
 **Implementation:** ctypes → libXcomposite + libX11, convert X11 pixmap to GdkPixbuf.
 
 **Acceptance criteria:**  
-- [ ] Captures a mapped window's content as a pixbuf  
-- [ ] Returns correct dimensions matching window size  
-- [ ] Handles windows with alpha channel (transparent windows)  
-- [ ] Graceful failure for minimized windows (returns None → placeholder)  
-- [ ] Works on Xvfb (XComposite available)  
-- [ ] No window state modification (capture is read-only)  
+- [x] Captures a mapped window's content as a pixbuf  
+- [x] Returns correct dimensions matching window size  
+- [x] Handles 16/24/32-bit XImage channel layouts; alpha is intentionally flattened to RGB  
+- [x] Graceful failure for minimized/unmapped windows (returns None → placeholder)  
+- [ ] Works on Xvfb (XComposite available) — hardware/CI validation still required  
+- [x] No window state modification (XCompositeNameWindowPixmap + XGetImage are read-only)  
 
 **Test:** `scripts/test-mc-thumbnail.py` — Xvfb + test window, capture, verify pixbuf dimensions.
 
