@@ -53,7 +53,15 @@ log "Detected DMI model: $MODEL"
 
 # Determine profile
 if [[ -n "$MANUAL_PROFILE" ]]; then
-    SELECTED_PROFILE="$MANUAL_PROFILE"
+    case "$MANUAL_PROFILE" in
+        generic|macbook10,1)
+            SELECTED_PROFILE="$MANUAL_PROFILE"
+            ;;
+        *)
+            err "Unsupported profile: $MANUAL_PROFILE (expected generic or macbook10,1)"
+            exit 1
+            ;;
+    esac
     log "Manual override: $SELECTED_PROFILE"
 elif [[ "$MODEL" == "MacBook10,1" ]]; then
     SELECTED_PROFILE="macbook10,1"
