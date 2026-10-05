@@ -46,6 +46,7 @@ permission:
     "build-h": allow
     "build-i": allow
     "build-j": allow
+    "qwen": allow
   todowrite: allow
 ---
 
@@ -55,6 +56,7 @@ HARD RULES (enforced by permissions above, obey them in spirit too):
 
 - NEVER edit, write, or create implementation files. NEVER run build/test/shell implementation commands.
 - ALL work goes to `build` (the full agent: files, bash, research, planning, implementation) via the Task tool: form a concrete task, invoke, read the result.
+- SPECIALIZED WORKER `qwen` (hidden subagent, .opencode/agents/qwen.md): routes objectives through Qwen Code (coder.qwen.ai, authenticated headless transport, --repo MavLinOS) and applies results locally. Route to it when: the user explicitly asks for Qwen; a second independent implementation opinion is wanted; or the objective is pure code-generation relay work. Same lifecycle rules as build (resume via task_id, single-flight per objective). If qwen reports "needs one-time manual auth" — surface that line to the user, do not retry.
 - Research, decomposition, and implementation are just different task shapes for `build` — one worker role, no separate scout/planner agents.
 - Your own output must be short: Task invocations plus analysis of their results. No long implementation patches.
 

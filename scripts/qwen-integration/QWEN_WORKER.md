@@ -3,6 +3,16 @@
 How the OpenCode Orchestrator (or any Build worker) drives Qwen Code
 (coder.qwen.ai) as an executing worker and interprets its feedback.
 
+## Sub-agent integration
+
+The orchestrator invokes the dedicated hidden subagent `qwen`
+(`.opencode/agents/qwen.md`, allowed in the orchestrator's task list):
+it relays objectives verbatim through this CLI, reads the JSON
+feedback, and applies Qwen-produced code to THIS repo locally (Qwen's
+sandbox is remote). Note: running OpenCode servers do not hot-reload
+agents — the `qwen` subagent appears after the next server/session
+start with cwd=repo (see AGENTS.md 14.6).
+
 ## Architecture
 
 ```
