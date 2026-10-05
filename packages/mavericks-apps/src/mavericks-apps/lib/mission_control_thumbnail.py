@@ -605,6 +605,21 @@ class ThumbnailCapture:
         return self.available and self._damage_base >= 0
 
     @property
+    def connection_fd(self) -> Optional[int]:
+        """File descriptor of the X connection (-1/None when closed).
+
+        Event loops watch this fd to wake exactly when XDamage events
+        arrive — no polling, no timers (§7).
+        """
+        if self._dpy is None or self._fn_conn_number is None:
+            return None
+        try:
+            fd = int(self._fn_conn_number(self._dpy))
+            return fd if fd >= 0 else None
+        except Exception:
+            return None
+
+    @property
     def capturing(self) -> bool:
         return self._capturing
 

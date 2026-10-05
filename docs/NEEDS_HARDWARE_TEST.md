@@ -270,7 +270,10 @@ procedures or active code reference them:
 ## Phase 5 — Iteration
 - [ ] Collect user feedback: dmesg, journalctl -b, photos of boot/DE
 - [ ] Document all regressions and fixes needed
-## E-MC — Mission Control overview (skippy-xd, on HW only)
+## E-MC — Mission Control overview (skippy-xd, on HW only) — SUPERSEDED
+> SUPERSEDED by the native `mv-mc-overview` (O1–O6 implemented; see
+> docs/MISSION_CONTROL_PLAN.md). skippy-xd config kept for reference only;
+> retirement completes with O10. The native-overview HW list is below.
 - [ ] Install: `yay -S skippy-xd-git` (AUR VCS; pulls giflib, libjpeg-turbo, libxcomposite, libxdamage, libxext, libxft, libxinerama + meson/cmake/git)
 - [ ] Baseline check first: Super+Tab = rofi script mode (mv-mission-control) works in live session
 - [ ] Apply: `sudo tools/experiments/mv-experiment.sh E-MC apply` (or configs/profiles/experiments/E-MC-skippy-xd.sh apply)
@@ -280,6 +283,17 @@ procedures or active code reference them:
 - [ ] Perf feel: animation 150ms snappy on HD 615, no stutter with 6+ windows
 - [ ] Revert check: `... E-MC revert` restores rofi binding; `... E-MC status` reports clean state
 - [ ] Record verdict in docs/APPS.md (promote to IMPLEMENTED — HARDWARE VALIDATION REQUIRED, or keep EXPERIMENT READY with findings)
+
+## Mission Control — native mv-mc-overview (on HW; plan §8 H1–H10)
+- [ ] H1 Thumbnail + Spaces-strip fidelity on 2304×1440 HiDPI (scaling, font clarity, wallpaper miniature)
+- [ ] H2 Choreography feel on Intel HD 615: entrance 160ms / exit 140ms smooth with 6+ windows, no stutter (Xvfb has no GPU — structural tests only)
+- [ ] H2b XDamage live updates under real compositing xfwm4: video/terminal output refreshes cards while overview open; CPU cost sane on battery
+- [ ] H3 XComposite behavior with production xfwm4 compositing ON vs OFF (placeholder fallback visible, no crashes)
+- [ ] H4 Real xfwm4 workspace ops: click/add/remove Space, Ctrl+←/→, drag window→Space
+- [ ] H6 Capture of hardware-accelerated windows (Firefox GL) — placeholder contract if capture fails
+- [ ] H8 Power impact of overview open/close + live sessions (battery discharge rate, RAPL sanity)
+- [ ] H9 Interaction with real Dock (plank) + menu bar (overview fullscreen occlusion, keep-above)
+- [ ] Process exit: hotkey → Escape → overview process gone (rc=0), zero mv-mc processes resident after close (§7)
 
 ## Mission Control — rofi/wmctrl path (on HW)
 - [ ] Super+Tab opens mv-mission-control window overview in live session

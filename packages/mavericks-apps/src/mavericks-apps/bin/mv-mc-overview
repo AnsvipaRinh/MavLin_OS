@@ -7,6 +7,7 @@ Mission Control libraries. The overlay never redirects or reparents windows.
 import os
 import sys
 import json
+import time
 import argparse
 import subprocess
 
@@ -20,6 +21,8 @@ for _p in (LIBDIR, os.path.join(SCRIPT_DIR, "..", "lib")):
 import mission_control
 import mission_control_thumbnail
 import mission_control_previews
+import mission_control_anim
+import mission_control_live
 
 # GTK is only required for the default UI mode; --list/--debug/--activate
 # stay usable on headless systems.
@@ -128,6 +131,7 @@ if _GTK_OK:
 
             self.connect("key-press-event", self._on_key)
             self.connect("button-press-event", self._on_background_click)
+            self.connect("destroy", self._on_destroy)
 
             screen = self.get_screen()
             provider = Gtk.CssProvider()
@@ -144,18 +148,29 @@ if _GTK_OK:
             self.add(self.box)
 
             self._cards = []
+            self._card_images = {}
             self._selected_index = -1
             self._workspace_buttons = []
             self._workspace_preview_pixbufs = {}
             self._expanded_groups = set()
+            # O6 choreography + live-update state
+            self._choreo = []
+            self._animator = mission_control_anim.Animator()
+            self._anim_tick_id = None
+            self._exiting = False
+            self._exit_started_at = None
+            self._live = None
+            self._live_capture = None
             self._build()
 
         def _build(self):
             windows = mission_control.enumerate_windows()
+            self._windows = windows
             workspaces = mission_control.get_workspaces()
             active = mission_control.get_active_window() or {}
             active_id = str(active.get("win_id", "")).lower()
             screen = self.get_screen()
+            self._card_images = {}
 
             # Mavericks keeps the Spaces strip at the top without an extra
             # application title/header inside Mission Control.
@@ -337,6 +352,7 @@ if _GTK_OK:
             if self._cards:
                 active_index = next((i for i, (_card, wid) in enumerate(self._cards) if str(wid).lower() == active_id), 0)
                 self._select_card(active_index)
+            self._start_live()
 
         def _layout_group_stack(self, stack, count, expanded):
             """Arrange a grouped application like Mavericks: stacked or scattered."""
@@ -374,13 +390,155 @@ if _GTK_OK:
             _stack.show_all()
             return True
 
-        def _fade_in(self):
-            opacity = self.get_opacity()
-            if opacity >= 0.99:
+        # ---- O6: entrance/exit choreography (fade + directional scale) ----
+
+        def _choreography_data(self):
+            """Per-card (stack, card, base_x, base_y, pull_x, pull_y).
+
+            The pull is the capped 12% delta toward the window's real
+            on-screen position — cards leave their window's place and
+            settle into the grid (Mavericks fade+scale feel without a
+            full-geometry traversal).
+            """
+            data = []
+            for card, win_id in self._cards:
+                stack = card.get_parent()
+                if not isinstance(stack, Gtk.Fixed):
+                    continue
+                win = next((w for w in self._windows if str(w.get("win_id")) == str(win_id)), None)
+                if win is None:
+                    continue
+                geo = win.get("geometry") or {}
+                try:
+                    win_x, win_y = int(geo.get("x", 0)), int(geo.get("y", 0))
+                except (TypeError, ValueError):
+                    continue
+                try:
+                    base_x = stack.child_get_property(card, "x")
+                    base_y = stack.child_get_property(card, "y")
+                except TypeError:
+                    base_x, base_y = 0, 0
+                translated = card.translate_coordinates(self, 0, 0)
+                card_x, card_y = translated if translated else (base_x, base_y)
+                pull_x, pull_y = mission_control_anim.directional_offset(
+                    win_x, win_y, card_x, card_y)
+                data.append((stack, card, base_x, base_y, pull_x, pull_y))
+            return data
+
+        def _apply_choreo(self, progress, exiting=False):
+            factor = progress if exiting else (1.0 - progress)
+            opacity = (1.0 - progress) if exiting else progress
+            for stack, card, base_x, base_y, pull_x, pull_y in self._choreo:
+                try:
+                    stack.move(card, base_x + pull_x * factor, base_y + pull_y * factor)
+                except Exception:
+                    pass
+                card.set_opacity(max(0.0, min(1.0, opacity)))
+            self.set_opacity(max(0.0, min(1.0, opacity)))
+
+        def _anim_tick(self):
+            now = time.monotonic() * 1000.0
+            alive = self._animator.tick(now)
+            if alive:
+                return True
+            self._anim_tick_id = None
+            if self._exiting:
+                self.destroy()
+            return False
+
+        def _ensure_ticker(self):
+            if self._anim_tick_id is None:
+                self._anim_tick_id = GLib.timeout_add(16, self._anim_tick)
+
+        def _start_entrance(self):
+            """O6 entrance: fade + slide from window positions (~160ms)."""
+            if mission_control_anim.when_mv_reduced_motion() or self._exiting:
                 self.set_opacity(1.0)
                 return False
-            self.set_opacity(min(1.0, opacity + 0.16))
-            return True
+            self._choreo = self._choreography_data()
+            self.set_opacity(0.0)
+            self._apply_choreo(0.0)
+            timeline = mission_control_anim.Timeline(mission_control_anim.ENTRANCE_MS)
+            self._animator = mission_control_anim.Animator()
+            self._animator.add(timeline, lambda p: self._apply_choreo(p))
+            self._ensure_ticker()
+            return False
+
+        def _begin_exit(self):
+            """O6 exit: reverse choreography (~140ms), then destroy."""
+            if self._exiting:
+                # Impatient second Escape during the exit: finish now.
+                self.destroy()
+                return
+            if mission_control_anim.when_mv_reduced_motion():
+                self.destroy()
+                return
+            self._teardown_live()
+            if not self._choreo:
+                self._choreo = self._choreography_data()
+            self._exiting = True
+            timeline = mission_control_anim.Timeline(mission_control_anim.EXIT_MS)
+            self._animator = mission_control_anim.Animator()
+            self._animator.add(timeline, lambda p: self._apply_choreo(p, exiting=True))
+            self._ensure_ticker()
+
+        def _on_destroy(self, _widget):
+            self._teardown_live()
+            if self._anim_tick_id is not None:
+                GLib.source_remove(self._anim_tick_id)
+                self._anim_tick_id = None
+            Gtk.main_quit()
+
+        # ---- O6: damage-driven live thumbnails while the overview is open ----
+
+        def _start_live(self):
+            """Event-driven live updates for the visible window cards.
+
+            XDamage wakes us via an fd watch only when window pixels
+            actually change; no polling, no timers. Unavailable damage
+            or a failed start keeps the static one-shot captures.
+            """
+            if self._live is not None or self._exiting:
+                return
+            try:
+                tc = mission_control_thumbnail.ThumbnailCapture()
+            except RuntimeError:
+                return
+            if not tc.live_available:
+                tc.close()
+                return
+            sizes = {}
+            for _card, win_id in self._cards:
+                parsed = mission_control._parse_window_id(win_id)
+                if parsed is not None:
+                    sizes[parsed] = (238, 134)
+            if not sizes:
+                tc.close()
+                return
+            live = mission_control_live.LiveThumbnails(tc, self._on_live_window_updated)
+            if live.start(sizes):
+                self._live = live
+                self._live_capture = tc
+            else:
+                tc.close()
+
+        def _on_live_window_updated(self, win_id, pixbuf):
+            # Damage events carry int ids; enumerate_windows() keys are
+            # hex strings — accept both spellings.
+            image = self._card_images.get(str(win_id))
+            if image is None:
+                try:
+                    image = self._card_images.get(hex(int(win_id)))
+                except (TypeError, ValueError):
+                    image = None
+            if image is not None and not self._exiting:
+                image.set_from_pixbuf(pixbuf)
+
+        def _teardown_live(self):
+            if self._live is not None:
+                self._live.stop()
+                self._live = None
+                self._live_capture = None
 
         def _select_card(self, index):
             if not self._cards:
@@ -398,7 +556,7 @@ if _GTK_OK:
                 return False
             _card, win_id = self._cards[self._selected_index]
             if win_id and mission_control.activate_window(win_id):
-                self.destroy()
+                self._begin_exit()
                 return True
             return False
 
@@ -429,6 +587,7 @@ if _GTK_OK:
 
         def _refresh_after_workspace_switch(self):
             def refresh():
+                self._teardown_live()
                 for child in self.box.get_children():
                     self.box.remove(child)
                 self._cards = []
@@ -527,24 +686,25 @@ if _GTK_OK:
             # Mavericks does not render a modern card caption inside the grouped stack.
 
             event.add(box)
+            self._card_images[str(win.get("win_id"))] = image
             return event
 
         def _activate(self, _widget, event, win_id):
             if event.button != 1 or not win_id:
                 return False
             if mission_control.activate_window(win_id):
-                self.destroy()
+                self._begin_exit()
             return True
 
         def _on_background_click(self, _widget, event):
             if event.window is self.get_window() and event.button == 1:
-                self.destroy()
+                self._begin_exit()
             return False
 
         def _on_key(self, _widget, event):
             key = Gdk.keyval_name(event.keyval)
             if key in ("Escape", "q"):
-                self.destroy()
+                self._begin_exit()
                 return True
 
             # Keyboard navigation is essential for a full-screen window overview:
@@ -642,9 +802,10 @@ def main():
         raise SystemExit("GTK3/PyGObject is required for the overview UI")
 
     overview = Overview()
-    overview.set_opacity(0.0)
     overview.show_all()
-    GLib.timeout_add(16, overview._fade_in)
+    # Entrance choreography starts after the first layout pass (resize
+    # allocation runs at higher priority than idle).
+    GLib.idle_add(overview._start_entrance)
     Gtk.main()
     return 0
 

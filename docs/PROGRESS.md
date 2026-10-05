@@ -1,6 +1,22 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-05 (Quick Look P0 complete — preview selection grid, extended formats, enhanced keyboard nav)
+**Last Updated**: 2026-10-06 (Mission Control O5+O6 complete; issue #80 packaging regression fixed)
+
+---
+
+## Session 2026-10-06 (Mission Control O5/O6 + #80) — oid OS-mc-o56
+
+**Objective:** owner-issue #1 MC track — close the #80 packaging regression, then O5 (live workspace previews) and O6 (choreography + XDamage live thumbnails) per `docs/MISSION_CONTROL_PLAN.md` §5.
+
+**Deliverables:**
+- **#80 fix (0291e83):** mavericks-apps Makefile now installs `mv-mc-gui/grid/thumbnail/window-spaces/activate-window`, `mv-workspace-count` and `lib/mission_control.py` (installed `mv-mc-overview` previously crashed on `import mission_control`); chmod +x restored on the helpers; pkgrel 5→6; new packaging regression test (manifest audit + referenced-helper scan + DESTDIR make install + import-sufficiency probe; negative-verified 5/5 fail on the pre-fix manifest).
+- **O5 (fc384cd):** Spaces strip shows one composed miniature per Space — one-shot `capture_window()` snapshots at scaled geometries over the scaled Mavericks wallpaper; empty Spaces = bare desktop; uncapturable windows = grey tiles. New `lib/mission_control_previews.py`. 9 tests incl. pixel-level per-Space parity on bare Xvfb :97 and widget-level O5 acceptance under a real xfwm4 EWMH (count/highlight/switch/empty vs `wmctrl -d`).
+- **O6 (this commit):** new `lib/mission_control_anim.py` (pure Timeline/Animator, ease-out cubic, reduced-motion gate) + `lib/mission_control_live.py` (LiveThumbnails XDamage controller). Entrance 160ms / exit 140ms fade + capped directional pull from each window's real position; exit mirrored then destroy (Gtk.main_quit now wired — the overview process previously never exited); live card refresh while open via GLib io-watch on the XDamage fd (event-driven, zero polling), full teardown on close (zero residual state, test-asserted). Robustness: pixbuf capture path swallows BadMatch (non-compositing WM previously killed the process); `rgba_to_pixbuf` keeps its buffer alive (use-after-free fixed).
+- **Gate:** ci/test-mission-control.sh 19/19 green (was 15/1-red at start); F3 binding contract test updated to the f7602c4 custom-shortcuts layout.
+
+**Gates:** MC CI 19/19; thumbnail 19/19; workspaces 9/9; animation 10/10; live 6/6; packaging 5/5; end-to-end Escape→exit rc=0 under xfwm4/:97.
+
+**Status:** O5/O6 = IMPLEMENTED — HARDWARE VALIDATION REQUIRED (plan §5 acceptance closed; HW items H1–H9 actualized in NEEDS_HARDWARE_TEST.md). O7 partial (input matrix open), O8/O9/O10 open. rofi fallback untouched.
 
 ---
 

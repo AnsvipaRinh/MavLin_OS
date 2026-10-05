@@ -43,6 +43,8 @@ def rgba_to_pixbuf(result: Dict[str, Any]):
 
     ThumbnailCapture.capture_window returns packed RGBA bytes; GTK
     previews are RGB — alpha is stripped per channel (vectorized).
+    The RGB buffer is kept alive by the destroy-notify closure until
+    the pixbuf itself is finalized (new_from_data does NOT copy).
     """
     import gi
     gi.require_version("GdkPixbuf", "2.0")
@@ -54,9 +56,13 @@ def rgba_to_pixbuf(result: Dict[str, Any]):
     rgb[0::3] = src[0::4]
     rgb[1::3] = src[1::4]
     rgb[2::3] = src[2::4]
+    holder = {"data": bytes(rgb)}
+    rgb = None
+    def _release(_data):
+        holder.clear()
     return GdkPixbuf.Pixbuf.new_from_data(
-        bytes(rgb), GdkPixbuf.Colorspace.RGB, False, 8,
-        width, height, width * 3, None, None)
+        holder["data"], GdkPixbuf.Colorspace.RGB, False, 8,
+        width, height, width * 3, _release, None)
 
 
 def place_windows(

@@ -1,19 +1,19 @@
 # Mission Control — Dedicated Window-Overview Layer Plan
 
-**Status:** IMPLEMENTATION — O1–O5 complete; O6 in progress  
+**Status:** IMPLEMENTATION — O1–O6 complete; O7 partially done (keyboard selection, click activation, workspace switching live; XTEST input matrix open); O8/O9/O10 open  
 **Date:** 2026-10-06  
 **Trigger:** Owner issue #1 — major work starts with DESIGN: target architecture + migration boundary first, implementation after.  
 **Baseline:** `packages/mavericks-apps/src/mavericks-apps/bin/mv-mission-control` (wmctrl+rofi) + `configs/profiles/experiments/E-MC-skippy-xd.sh` (skippy-xd one-shot, not in ISO).
 
 ---
 
-## Current implementation state (2026-10-05)
+## Current implementation state (2026-10-06)
 
-The native GTK3 overview is now present as `mv-mc-overview` and is installed by the mavericks-apps package. It currently composes the completed O1/O2/O3/O4 layers: EWMH enumeration, workspace grouping, XComposite thumbnails for mapped windows, and direct EWMH activation. It is intentionally one-shot and falls back to the legacy rofi path if unavailable.
+The native GTK3 overview is now present as `mv-mc-overview` and is installed by the mavericks-apps package (issue #80 fixed: all `mv-mc-*` helpers + `lib/mission_control*.py` ship in the install manifest, guarded by a packaging regression test). It composes the completed O1–O6 layers: EWMH enumeration, workspace grouping, XComposite thumbnails, direct EWMH activation, per-Space composed previews in the Spaces strip, entrance/exit choreography (fade + directional pull, reduced-motion aware) and XDamage-driven live thumbnail updates while open.
 
-This is an incremental O5/O7 implementation, not a claim that the full O5–O10 acceptance criteria are complete. The native overview now has workspace switching UI, keyboard window selection, direct activation, a compact workspace strip, and a lightweight entrance fade. Live workspace previews, drag-and-drop, live thumbnail updates, full transition choreography, visual fidelity work, and hardware validation remain open.
+Still open: drag-and-drop refinement beyond the existing window→Space drops, full XTEST input matrix (O7), desktop integration polish (O8), full visual fidelity pass (O9), rofi-fallback retirement (O10 — intentionally NOT done yet), hardware validation (§8).
 
-Thumbnail module layout after the 2026-10-05 union merge (DECISIONS.md): `lib/mission_control_thumbnail.py` holds BOTH complementary backends — the one-shot GdkPixbuf `capture_window()` (rendering path used by `mv-mc-overview`) and the ctypes `ThumbnailCapture` class (raw RGBA + XDamage live tracking + placeholder fallback) for the future live-update slice (O6). Shared window-id parsing is the canonical `mission_control._parse_window_id`.
+Thumbnail module layout after the 2026-10-05 union merge (DECISIONS.md): `lib/mission_control_thumbnail.py` holds BOTH complementary backends — the one-shot GdkPixbuf `capture_window()` (rendering path) and the ctypes `ThumbnailCapture` class (raw RGBA + XDamage live tracking + placeholder fallback), now also driving the O6 live-update controller. Shared window-id parsing is the canonical `mission_control._parse_window_id`.
 
 ## 1. Fidelity-Ceiling Evidence: rofi/wmctrl
 
@@ -262,16 +262,21 @@ Each objective is independently testable. Do not proceed to N+1 until N passes i
 
 **Goal**: Animate thumbnails from window screen positions to grid positions on open; reverse on close.
 
-**Implementation:** Cairo interpolation over 150ms; each thumbnail's start position = window's actual screen position, end position = grid cell.
+**Implementation:** Pure timeline model (`lib/mission_control_anim.py`: Timeline/Animator, ease-out cubic, capped directional pull) driven by a short-lived 16ms GLib ticker that exists ONLY while a timeline is alive. Entrance: overlay + per-card fade with each card sliding from a 12%-of-delta (±48px capped) offset toward its window's real screen position into its grid slot. Exit (Escape/activation/background click): mirrored choreography, then destroy. Reduced motion (`MV_REDUCED_MOTION` env, xfconf `/Gtk/EnableAnimations`) skips animation entirely.
 
-**Acceptance criteria:**  
-- [ ] On open, thumbnails animate from window positions to grid positions  
-- [ ] Animation completes in 150ms ± 20ms  
-- [ ] On close (Escape), thumbnails animate back to window positions  
-- [ ] Animation is smooth (no visible jank on Xvfb)  
-- [ ] No animation if reduced-motion preference set  
+**Live updates (O6 extension per owner-issue #1 tasking):** while the overview is open, `lib/mission_control_live.py` (LiveThumbnails controller) tracks the visible cards via the existing ctypes `ThumbnailCapture` XDamage backend — a GLib io-watch on the X connection fd wakes the controller exactly when pixels change; damaged windows are recaptured and the card Gtk.Images refresh. No polling, no idle timers; `stop()` tears down watch + damage objects + redirects + display (zero residual; covered by tests). Static one-shot captures remain the fallback when damage is unavailable.
 
-**Test:** `scripts/test-mc-animation.py` — verify animation timing and positions (mocked time).
+**Status:** IMPLEMENTED — HARDWARE VALIDATION REQUIRED (2026-10-06). Note on fidelity: the plan's literal "thumbnails fly from full window positions" is implemented as fade + capped directional pull (12% of the window→grid delta) — the perceptual Mavericks fade+scale without a full-geometry traversal in GTK widget land (decision recorded in DECISIONS.md). Pixel-exact full-flight choreography is a possible O9 polish pass.
+
+**Acceptance criteria:**
+- [x] On open, thumbnails animate from window positions to grid positions — capped directional pull from each window's real geometry + fade; mocked-time contract test
+- [x] Animation completes in 150ms ± 20ms — ENTRANCE_MS=160, EXIT_MS=140; exact completion time verified on a mocked clock
+- [x] On close (Escape), thumbnails animate back to window positions — mirrored exit choreography, process exits cleanly (Gtk.main_quit wired to destroy; end-to-end rc=0 under xfwm4/:97)
+- [x] Animation is smooth (no visible jank on Xvfb) — structural verification (16ms ticker, ease-out cubic, widget-move without relayout); perceptual smoothness on real GPU = HW item H2
+- [x] No animation if reduced-motion preference set — MV_REDUCED_MOTION env + xfconf gate; instant show/destroy path tested
+- [x] (extension) Live thumbnail updates while open — XDamage-driven via ThumbnailCapture + fd watch; repaint flows into the card pixbuf on :97; teardown leaves zero state
+
+**Test:** `packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_animation.py` (10 mocked-time tests) + `tests/test_mission_control_live.py` (6 tests: 4 headless controller + 2 Xvfb :97 real-stack).
 
 ### O7: Input handling
 
@@ -397,17 +402,23 @@ xterm -geometry 80x24+300+200 &
 
 ### 7.3 Test files
 
-| File | Objective | Type |
+Actual layout (tests live inside the package, run by `ci/test-mission-control.sh` under gui-isolation/Xvfb :97 — 19/19 green):
+
+| File (packages/.../tests/) | Objective | Type |
 |---|---|---|
-| `scripts/test-mc-enumerate.py` | O1 | Unit + integration |
-| `scripts/test-mc-layout.py` | O2 | Unit (no X11) |
-| `scripts/test-mc-thumbnail.py` | O3 | Integration (Xvfb) |
-| `scripts/test-mc-activate.py` | O4 | Integration (Xvfb) |
-| `scripts/test-mc-workspaces.py` | O5 | Integration (Xvfb) |
-| `scripts/test-mc-animation.py` | O6 | Unit (mocked time) |
-| `scripts/test-mc-input.py` | O7 | Integration (Xvfb + xdotool) |
-| `scripts/test-mc-integration.py` | O8 | Integration (Xvfb) |
-| `scripts/test-mc-visual.py` | O9 | Manual (screenshot) |
+| `test_mission_control.py` | O1/O2 | Unit (no X11) |
+| `test_mission_control_windows.py` | O1 | Integration |
+| `test_mission_control_thumbnail.py` | O3 | Unit + Xvfb :97 |
+| `test_mission_control_thumbnail_helper.py` | O3 | Integration |
+| `test_mission_control_activation.py` | O4 | Unit (mocked Xlib) |
+| `test_mission_control_grid.py` | O2 | Unit |
+| `test_mission_control_workspaces.py` | O5 | Unit + Xvfb :97 + xfwm4/:97 |
+| `test_mission_control_animation.py` | O6 | Unit (mocked time) |
+| `test_mission_control_live.py` | O6 | Unit + Xvfb :97 |
+| `test_mission_control_gui.py`, `test_mission_control_overview.py` | O7 (partial) | Smoke |
+| `test_mission_control_packaging.py` | install manifest (#80) | Unit + DESTDIR make |
+| `test_workspace_count_helper.py`, `test_workspaces_count.py`, `test_spaces_remove_nonactive.py` | workspace ops | Unit/Integration |
+| `tests/test_f3_mission_control_binding.py` (repo root) | O8 binding | Contract |
 
 ### 7.4 CI integration
 

@@ -95,13 +95,41 @@ mv-mc-activate-window <wid>
 
 **Dependencies:** `wmctrl` or `xdotool`
 
-### 5. `mv-mc-overview` (CLI integration)
+### 5. `mv-mc-overview` (native overview — the primary Mission Control surface)
 
-Integrates all helpers for CLI-based overview.
+Integrates all helpers for CLI-based overview AND renders the native GTK3
+overview (the primary path behind the Mission Control hotkey; rofi stays as
+fallback until O10).
 
 **Modes:**
 - `--list`: Text list of windows
 - `--debug`: JSON debug output
+- `--activate <id>`: Activate a window by X11 id (headless)
+- default: fullscreen native overview
+
+**Native overview features (O1–O6 implemented):**
+- EWMH window enumeration + application grouping (Mavericks stacks)
+- XComposite thumbnails with placeholder fallback
+- Spaces strip: one composed per-Space miniature (one-shot window
+  captures over the scaled Mavericks wallpaper; empty Spaces show the
+  bare desktop; click to switch, +/× to add/remove, Ctrl+←/→ to cycle)
+- Entrance/exit choreography: fade + directional pull from each
+  window's real position (~160ms/~140ms, ease-out; reduced-motion aware)
+- Live thumbnails while open: XDamage-driven refresh via the
+  ThumbnailCapture backend — event-driven (fd watch), zero polling,
+  zero residual state after close
+- Window→Space drag-and-drop; scroll to scatter/collapse app groups
+- One-shot process: exits on selection/Escape; `destroy` is wired to
+  `Gtk.main_quit` (clean process exit, rc=0)
+
+**Shared libraries (`/usr/share/mavericks-apps/`):** `mission_control.py`
+(enumeration/EWMH ops), `mission_control_thumbnail.py` (one-shot pixbuf +
+ctypes XDamage backends), `mission_control_previews.py` (Space miniatures),
+`mission_control_anim.py` (timeline model), `mission_control_live.py`
+(live-update controller).
+
+**Dependencies:** `python-gobject`, `python-xlib`, `libxcomposite`,
+`libxdamage`, `libxfixes`, `wmctrl` (fallback/ops)
 
 ### 6. `mv-mc-gui` (GTK3 overlay)
 

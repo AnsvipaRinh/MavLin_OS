@@ -1,5 +1,33 @@
 # DECISIONS
 
+## 2026-10-06 — Mission Control O5/O6: composed Space miniatures, capped-pull choreography, XDamage fd-watch live updates
+
+**Context:** owner-issue #1 MC track, plan `docs/MISSION_CONTROL_PLAN.md` §5 O5/O6. X11 has no "capture another workspace" primitive; the plan's literal "thumbnails fly from full window positions" is impractical as a full-geometry traversal inside GTK widget layout; §7 bans polling/daemons.
+
+**Decisions:**
+- **O5 Space previews = composition, not root capture.** `XCompositeNameWindowPixmap(root)` is a BadMatch (root is never NameWindowPixmap-able) and `XGetImage(root)` misses windows under a compositing WM. Each Spaces-strip miniature is therefore composed from one-shot `capture_window()` snapshots placed at scaled window geometries over the scaled Mavericks wallpaper (repo/installed path auto-discovery, solid fallback). Windows on unviewable desktops degrade to grey tiles — plan §3.5 already defers the workspace-visit approach to P1.
+- **O6 choreography = fade + capped directional pull (12% of window→grid delta, ±48px).** Perceptual "leaves the window position, settles into the grid" without relayout storms; durations 160/140ms sit inside both the plan's 150±20ms and the task's 150-250ms window. The 16ms GLib ticker exists ONLY while a timeline is alive — no idle timers (§7). Reduced motion: `MV_REDUCED_MOTION` env + xfconf `/Gtk/EnableAnimations` gate → instant show/destroy. Full-flight animation stays a possible O9 polish item (documented in the plan).
+- **O6 live updates = XDamage fd watch, not timers.** `LiveThumbnails` (lib/mission_control_live.py) wraps the existing ctypes `ThumbnailCapture`: GLib.io_add_watch on the XConnectionNumber fd wakes the controller exactly on damage; only damaged windows are recaptured. `stop()` removes the watch, destroys damage objects, unredirects and closes the display — zero residual state, asserted by tests. Static one-shot captures remain the fallback (placeholder contract intact).
+- **`capture_window` (pixbuf path) now swallows async X errors** (BadMatch on unredirected windows under a non-compositing WM previously KILLED the overview process). Mirrors the ThumbnailCapture error-handler pattern; errors degrade to None→placeholder.
+- **`destroy` is wired to `Gtk.main_quit`** — before this fix the overview process never exited on close (main loop leak); end-to-end rc=0 under xfwm4/:97 verified.
+- **`rgba_to_pixbuf` keeps its buffer alive via destroy-notify closure** — `GdkPixbuf.new_from_data` does NOT copy; a plain local bytes led to use-after-free/segfault (caught on :97).
+- **tests/test_f3_mission_control_binding.py updated to the f7602c4 contract** (real binding in keyboard-shortcuts channel copies, panel mirror under `custom-shortcuts` outside plugin trees) — the old "shortcuts section in panel xml" heuristic was red at HEAD and hid real regressions.
+
+**Verification:** ci/test-mission-control.sh 19/19 (incl. 9 O5 + 10 animation + 6 live tests; pixel-level :97 integration, xfwm4 EWMH acceptance, zero-residual teardown).
+
+---
+
+## 2026-10-06 — issue #80 regression class: install manifest must cover every mv-* helper
+
+**Context:** GitHub issue #80 (owner audit): `mv-mc-gui/grid/thumbnail/window-spaces/activate-window`, `mv-workspace-count` existed in `bin/` but were never installed; `lib/mission_control.py` missing from `/usr/share/mavericks-apps` so the installed `mv-mc-overview` crashed on `import mission_control`.
+
+**Decisions:**
+- Explicit install list kept (project convention) BUT now guarded by `tests/test_mission_control_packaging.py`: (1) every `mv-mc-*`/`mv-workspace-count`/`mv-mission-control` file in bin/ must be in the Makefile list; (2) every helper referenced via `run_helper()`/`shutil.which()` must be installed; (3) both `lib/mission_control*.py` must land in share/mavericks-apps; (4) real `make DESTDIR` install + import-sufficiency probe when make/cc exist. Negative-tested against the pre-fix manifest (5/5 fail → fix → 5/5 pass).
+- `chmod +x` restored on the six mv-mc helpers (repo hygiene; `install -m755` forces mode at install time regardless).
+- pkgrel 5 → 6 (packaging change).
+
+---
+
 ## 2026-10-06 — GLM 5.3 Flash priority #1; regular GLM 5.3 reserved for complex tasks
 
 **Context:** Owner directive to make `zai-coding-plan/glm-5.3-flash` the primary worker model (priority #1 in fallback chain), with regular `zai-coding-plan/glm-5.3` kept in chain but LAST and reserved for very complex tasks.

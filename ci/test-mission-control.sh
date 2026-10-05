@@ -45,6 +45,8 @@ run_test "GUI overlay" "python3 packages/mavericks-apps/src/mavericks-apps/tests
 run_test "workspace count" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_workspace_count_helper.py"
 run_test "packaging manifest (issue #80)" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_packaging.py"
 run_test "workspaces / Spaces strip (O5)" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_workspaces.py"
+run_test "animation choreography (O6)" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_animation.py"
+run_test "live thumbnails (O6)" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_live.py"
 
 echo ""
 echo "--- Binding Tests ---"
