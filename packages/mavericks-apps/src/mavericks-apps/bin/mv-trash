@@ -1,0 +1,20 @@
+#!/bin/bash
+# mv-trash — Move to Trash (Mavericks Cmd+Delete analogue).
+# With paths: trash-put each. Without: send Delete to focused window
+# (Thunar/Finder maps Delete → trash when MiscConfirmMoveToTrash is set).
+set -euo pipefail
+if [ "$#" -gt 0 ]; then
+  if command -v trash-put >/dev/null 2>&1; then
+    exec trash-put -- "$@"
+  elif command -v gio >/dev/null 2>&1; then
+    exec gio trash -- "$@"
+  else
+    echo "mv-trash: need trash-put or gio" >&2
+    exit 1
+  fi
+fi
+if command -v xdotool >/dev/null 2>&1; then
+  exec xdotool key --clearmodifiers Delete
+fi
+echo "mv-trash: no selection and xdotool missing" >&2
+exit 1
