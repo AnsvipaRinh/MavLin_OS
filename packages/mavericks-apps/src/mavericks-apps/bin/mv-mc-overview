@@ -69,6 +69,18 @@ def _safe_title(window):
     return title if title else window.get("wm_class", "Window")
 
 
+def _preview_priority(window, active_id):
+    """Rank workspace preview candidates by Mission Control relevance."""
+    win_id = str(window.get("win_id", "")).lower()
+    state = window.get("state") or []
+    hidden = "_NET_WM_STATE_HIDDEN" in state
+    mapped = bool(window.get("mapped", False))
+    active = win_id == active_id
+    # Active first, then currently viewable windows, then hidden/minimized ones.
+    # Preserve enumeration order within the same class via stable sorting.
+    return (0 if active else 1 if mapped and not hidden else 2)
+
+
 class Overview(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
@@ -148,7 +160,11 @@ class Overview(Gtk.Window):
             button_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
             preview_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
             preview_row.get_style_context().add_class("mav-workspace-preview")
-            for preview_win in by_desktop[desktop][:3]:
+            preview_windows = sorted(
+                by_desktop[desktop],
+                key=lambda win: _preview_priority(win, active_id),
+            )[:3]
+            for preview_win in preview_windows:
                 preview = self._make_workspace_preview(preview_win)
                 preview_row.pack_start(preview, True, True, 0)
             if not by_desktop[desktop]:
