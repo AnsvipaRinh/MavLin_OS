@@ -43,6 +43,7 @@ run_test "activate helper" "python3 packages/mavericks-apps/src/mavericks-apps/t
 run_test "overview integration" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_overview.py"
 run_test "GUI overlay" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_gui.py"
 run_test "workspace count" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_workspace_count_helper.py"
+run_test "packaging manifest (issue #80)" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_packaging.py"
 
 echo ""
 echo "--- Binding Tests ---"
