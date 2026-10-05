@@ -1,40 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- xfce4-panel — Mavericks-style global menu with right-aligned status area -->
+
 <channel name="xfce4-panel" version="1.0">
+  <property name="config-verbose" type="bool" value="false"/>
+  <property name="disable-struts" type="bool" value="false"/>
+  
+  <!-- Custom shortcuts - non-breaking additions -->
+  <property name="shortcuts" type="empty">
+    <!-- Mission Control GUI overlay -->
+    <property name="&lt;Super&gt;F3" type="string" value="mv-mc-gui"/>
+    
+    <!-- Existing shortcuts preserved -->
+    <property name="&lt;Super&gt;space" type="string" value="mv-spotlight"/>
+    <property name="&lt;Super&gt;Return" type="string" value="mv-terminal"/>
+  </property>
+  
   <property name="panels" type="array">
     <value type="int" value="1"/>
-    <property name="panel-1" type="empty">
-      <property name="position" type="string" value="p=8;x=0;y=0"/>
-      <property name="position-locked" type="bool" value="true"/>
-      <property name="mode" type="uint" value="0"/>
-      <property name="size" type="uint" value="24"/>
-      <property name="length" type="uint" value="100"/>
-      <property name="length-adjust" type="bool" value="true"/>
-      <property name="background-style" type="uint" value="0"/>
-      <property name="background-alpha" type="uint" value="100"/>
-      <property name="autohide-behavior" type="uint" value="0"/>
-      <property name="plugin-ids" type="array">
-        <value type="int" value="1"/>
-        <value type="int" value="2"/>
-        <value type="int" value="3"/>
-        <value type="int" value="4"/>
-        <value type="int" value="5"/>
-        <value type="int" value="6"/>
-      </property>
-    </property>
   </property>
-  <property name="plugins" type="empty">
-    <property name="plugin-1" type="string" value="mv-apple"/>
-    <property name="plugin-2" type="string" value="appmenu"/>
-    <property name="plugin-3" type="string" value="separator">
-      <property name="expand" type="bool" value="true"/>
-    </property>
-    <property name="plugin-4" type="string" value="systray"/>
-    <property name="plugin-5" type="string" value="clock">
-      <property name="mode" type="uint" value="2"/>
-      <property name="digital-format" type="string" value="%a %-I:%M %p"/>
-      <property name="tooltip-format" type="string" value="%A, %B %-d, %Y"/>
-    </property>
-    <property name="plugin-6" type="string" value="power-manager-plugin"/>
+  
+  <property name="panel-1" type="array">
+    <value type="int" value="1"/>
+    <value type="int" value="2"/>
   </property>
 </channel>
