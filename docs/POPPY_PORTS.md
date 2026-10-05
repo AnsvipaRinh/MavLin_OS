@@ -199,3 +199,4 @@ Each Tier 1 port:
 1. Finish the remaining Poppy-derived icon categories with clean-room assets.
 2. Replace CSS noise simulation with a newly generated, license-clean texture if the runtime supports it without increasing startup/battery cost.
 3. Validate the resulting theme on the target Xfce/GTK runtime and compare rendered screenshots against the reference values.
+- Expanded clean-room Places coverage with six scalable icons: Home, Desktop, Music, Pictures, Network, and Computer.
