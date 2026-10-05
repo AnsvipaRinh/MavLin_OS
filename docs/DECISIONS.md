@@ -762,8 +762,60 @@ behind.
   the reason that PR needs both-twins sync even before staleness.
 
 **Verification:** full per-PR CI log forensics (runs 37227849232,
-37228109529, 37228398329, 37240905549, 37241315726, 37242612345,
+37228109529,37228398329,37240905549,37241315726,37241264425,
 37242682389); three-way diff vs origin/main for every PR head;
 check-runs API for #5; mergeable re-poll → CONFLICTING ×8. Results in
 docs/EXTERNAL_AUDIT.md (dated section 2026-10-05). No product code
 changed; no merges; no pushes of product code.
+
+---
+
+## 2026-10-05 — Mission Control dedicated overview layer: GO verdict + target architecture
+
+**Context:** Owner issue #1 un-deferred a dedicated Mission Control window-overview layer IF rofi/wmctrl has a demonstrated fidelity ceiling. This decision documents the ceiling evidence, the GO verdict, and the target architecture.
+
+**Fidelity-ceiling evidence (rofi/wmctrl):**
+The current path (`mv-mission-control`) enumerates windows via `wmctrl -l -x` and renders them as a text list in rofi script mode. Ten concrete Mavericks behaviors are structurally impossible:
+1. No live thumbnails (wmctrl returns text only; no X11 composite access)
+2. No spatial grid layout (rofi is a vertical list, `columns: 1`)
+3. No open/close animation (rofi has no window-position awareness)
+4. No workspace thumbnails (text labels only, no workspace content capture)
+5. No drag-and-drop between workspaces (rofi has no DnD API)
+6. No live content updates (static list while open)
+7. No minimized window thumbnails (no X11 composite = no capture)
+8. No fullscreen app representation (no `_NET_WM_STATE_FULLSCREEN` check)
+9. No multi-monitor layout (single rofi window, no Xinerama support)
+10. No Mavericks visual styling (flat modern theme, not skeuomorphic)
+
+**skippy-xd ceiling:** Addresses thumbnails via XComposite but fails on Mavericks styling, workspace model, animations, DnD, packaging (AUR-only, not in ISO), and desktop integration. Not a complete solution.
+
+**Decision: GO — dedicated overview layer is required.**
+
+**Target architecture:**
+- One-shot Python/GTK3 overlay (`mv-mc-overview`)
+- Window enumeration via Gdk EWMH (fallback: wmctrl)
+- Thumbnail capture via XComposite (ctypes → libXcomposite)
+- Rendering via Gtk.DrawingArea + Cairo (full Mavericks styling control)
+- Input: click/arrows/Enter/Escape via Gtk event handlers
+- Process model: one-shot (enumerate → capture → render → input → activate → exit)
+- No daemon, no polling, no resident process
+
+**Performance budget (§7):**
+- Idle CPU: 0% (process exits after selection/Escape)
+- Idle memory: 0 MB (no resident process)
+- Open latency: < 500ms for 12 windows
+- Thumbnail memory: ~80 MB peak (freed on exit)
+- Wakeups: 0 at idle
+
+**Migration boundary:**
+- Phase A (current): Super+Tab → mv-mission-control --native (skippy-xd → rofi fallback)
+- Phase B (migration): Super+Tab → mv-mc-overview (fallback: mv-mission-control --native → rofi)
+- Phase C (complete): Super+Tab → mv-mc-overview (fallback: rofi only; skippy-xd retired)
+- mv-mission-control (rofi) preserved as fallback throughout migration
+- skippy-xd E-MC retired after migration complete
+
+**Rollback:** Hotkey binding revert to `mv-mission-control --native`; remove mv-mc-overview from ISO; restore rofi-only path. Documented in plan §6.
+
+**Dependencies:** No new AUR packages. Uses Arch core: python-gobject, libxcomposite, libxrender. Python stdlib: ctypes, gi.repository.
+
+**Verification:** Plan document at `docs/MISSION_CONTROL_PLAN.md` with 10 ordered objectives, each independently testable. Test strategy: Xvfb :97 + gui-isolation.sh, 9 test files. 10 HW-validation items identified.

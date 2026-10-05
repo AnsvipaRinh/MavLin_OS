@@ -1,6 +1,24 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-05 (qwen-integration reappearance triage)
+**Last Updated**: 2026-10-05 (Mission Control dedicated overview layer — design plan)
+
+---
+
+## Session 2026-10-05 (Mission Control design) — dedicated overview layer plan per issue #1
+
+**Trigger:** Owner issue #1 — major work starts with DESIGN: target architecture + migration boundary first, implementation after.
+
+**Deliverable:** `docs/MISSION_CONTROL_PLAN.md` — full design document with fidelity-ceiling evidence, GO verdict, target architecture, migration boundary, 10 ordered objectives, rollback strategy, test strategy, and HW-validation items.
+
+**Key findings:**
+- rofi/wmctrl path has a **structural fidelity ceiling**: no X11 composite access (no thumbnails), no spatial layout (vertical list), no animation, no workspace model, no drag-and-drop, no live updates. 10 concrete behaviors proven impossible.
+- skippy-xd E-MC experiment addresses thumbnails but fails on Mavericks styling, workspace model, animations, DnD, packaging (AUR-only), and desktop integration.
+- **Verdict: GO** — dedicated one-shot Python/GTK3 overlay using XComposite for thumbnails. No daemon, no polling, §7-compliant (0 idle CPU, 0 idle memory).
+- Migration: 3 phases (A→B→C), rofi fallback preserved at every step. skippy-xd retired after migration.
+- 10 ordered objectives: enumeration → layout → thumbnails → activation → workspaces → animation → input → integration → visual polish → retire rofi. Each independently testable.
+- 10 HW-validation items identified (HiDPI, GPU animation, real xfwm4, multi-monitor, power).
+
+**Status:** Design complete. Implementation starts at O1 (read-only enumeration) in next session.
 
 ---
 
