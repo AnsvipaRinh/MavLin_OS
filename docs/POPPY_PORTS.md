@@ -200,3 +200,5 @@ Each Tier 1 port:
 2. Replace CSS noise simulation with a newly generated, license-clean texture if the runtime supports it without increasing startup/battery cost.
 3. Validate the resulting theme on the target Xfce/GTK runtime and compare rendered screenshots against the reference values.
 - Expanded clean-room Places coverage with six scalable icons: Home, Desktop, Music, Pictures, Network, and Computer.
+
+- Mission Control now groups current-Space windows by `WM_CLASS`, adding an application icon/name heading while keeping each window independently selectable and draggable. This matches the Mavericks-era `Group Windows by Application` model rather than introducing later macOS behavior.
