@@ -77,6 +77,29 @@ def get_urgency_color(urgency):
     colors = {"low": "#888888", "normal": "#333333", "critical": "#cc0000"}
     return colors.get(urgency, "#333333")
 
+def _entry_ts(entry):
+    """Timestamp used for ordering history entries (missing/bad -> 0)."""
+    try:
+        return int(entry.get("timestamp", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+def _walk_widgets(widget):
+    """Yield widget and all of its descendants (depth-first)."""
+    yield widget
+    if isinstance(widget, Gtk.Container):
+        for child in widget.get_children():
+            yield from _walk_widgets(child)
+
+def _draw_urgency_dot(area, cr, rgba):
+    """Render the urgency accent dot as a rounded filled capsule."""
+    w = area.get_allocated_width()
+    h = area.get_allocated_height()
+    cr.set_source_rgba(rgba.red, rgba.green, rgba.blue, rgba.alpha)
+    cr.arc(w / 2.0, h / 2.0, max(2.0, min(w, h) / 2.0), 0, 2 * 3.141592653589793)
+    cr.fill()
+    return False
+
 class NotificationCenter(Gtk.Window):
     def __init__(self):
         super().__init__(title="Notification Center", type=Gtk.WindowType.TOPLEVEL)
@@ -148,14 +171,22 @@ class NotificationCenter(Gtk.Window):
             self.show_empty_state()
             return
 
-        # Group by app
+        # Group by app, newest first within each app, and order the app
+        # sections by their own newest entry.
+        # mv-notify-send appends chronologically under a lock, so reversing
+        # the log used to be enough; ordering by the recorded timestamp makes
+        # it hold even if the log was restored, hand-edited, or written across
+        # a backwards clock step.
         grouped = {}
-        for n in reversed(notifications):  # Newest first
+        for n in notifications:
             app = n.get("app_name", "System")
             grouped.setdefault(app, []).append(n)
 
-        for app_name, items in grouped.items():
-            self.add_app_section(app_name, items)
+        ordered = sorted(grouped.items(),
+                         key=lambda kv: max(_entry_ts(n) for n in kv[1]),
+                         reverse=True)
+        for app_name, items in ordered:
+            self.add_app_section(app_name, sorted(items, key=_entry_ts, reverse=True))
 
         self.show_all()
 
@@ -210,10 +241,15 @@ class NotificationCenter(Gtk.Window):
         section.pack_start(sep, False, False, 0)
 
         # Notifications list
+        # SelectionMode.SINGLE is what makes the panel keyboard-operable:
+        # with NONE (the previous value) the rows could not receive a cursor,
+        # so arrow keys moved nothing and Enter never activated an entry —
+        # the only dismissal paths were the close button and Escape.
         listbox = Gtk.ListBox()
-        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         for item in items:
             listbox.add(self.create_notification_row(item, app_name))
+        listbox.connect("row-activated", self.on_row_activated)
         section.pack_start(listbox, False, False, 0)
 
         self.main_box.pack_start(frame, False, False, 0)
@@ -221,14 +257,33 @@ class NotificationCenter(Gtk.Window):
     def create_notification_row(self, item, app_name):
         row = Gtk.ListBoxRow()
         row.set_activatable(True)
-        row.connect("activate", self.on_notification_activate, item)
+        row.connect("activate", self.on_row_activated, item)
+        # The entry rides along with the widget so keyboard activation
+        # (ListBox "row-activated", which passes only the row) can find it.
+        # PyGObject rejects set_data/get_data, so use a plain attribute.
+        row._mav_entry = item
 
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         box.set_border_width(12)
 
+        # Urgency marker: normal notifications carry no dot (Mavericks shows
+        # the bare row), while critical/low get a colour-coded accent so a
+        # critical entry is distinguishable without reading the text.
+        urgency = item.get("urgency", "normal")
+        if urgency in ("critical", "low"):
+            dot = Gtk.DrawingArea()
+            dot.set_size_request(8, 8)
+            dot.set_valign(Gtk.Align.START)
+            color = get_urgency_color(urgency)
+            rgba = Gdk.RGBA()
+            rgba.parse(color)
+            dot.connect("draw", _draw_urgency_dot, rgba)
+            box.pack_start(dot, False, False, 0)
+
         # App icon or urgency indicator
         icon_name = item.get("icon") or "dialog-information"
         icon = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
+        icon.set_valign(Gtk.Align.START)
         box.pack_start(icon, False, False, 0)
 
         # Content
@@ -247,7 +302,8 @@ class NotificationCenter(Gtk.Window):
         time_lbl = Gtk.Label(label=format_time(item.get("timestamp", 0)))
         time_lbl.get_style_context().add_class("dim-label")
         time_lbl.set_xalign(1)
-        summary_box.pack_start(time_lbl, False, False, 0)
+        time_lbl.set_valign(Gtk.Align.CENTER)
+        summary_box.pack_end(time_lbl, False, False, 0)
 
         content.pack_start(summary_box, False, False, 0)
 
@@ -263,10 +319,50 @@ class NotificationCenter(Gtk.Window):
 
         box.pack_start(content, True, True, 0)
 
+        # Per-notification dismiss (Mavericks: ✕ per entry). Removes exactly
+        # this entry by id — the history log already carries one, so this
+        # needs no second daemon and no extra bookkeeping.
+        dismiss = Gtk.Button()
+        dismiss.set_relief(Gtk.ReliefStyle.NONE)
+        dismiss.set_focus_on_click(False)
+        dismiss.set_valign(Gtk.Align.START)
+        dismiss.add(Gtk.Image.new_from_icon_name("window-close-symbolic", Gtk.IconSize.MENU))
+        dismiss.get_style_context().add_class("dismiss-notification")
+        dismiss.set_tooltip_text("Dismiss this notification")
+        dismiss.connect("clicked", self.on_dismiss_clicked, item)
+        box.pack_end(dismiss, False, False, 0)
+
         row.add(box)
         return row
 
-    def on_notification_activate(self, _row, item):
+    def on_dismiss_clicked(self, _button, item):
+        self.dismiss_entry(item.get("id"))
+
+    def on_row_activated(self, widget, row=None, item=None):
+        """Open an actionable notification target when the entry contains one.
+
+        Bound both to ListBoxRow "activate" (with the entry) and to ListBox
+        "row-activated" (which only passes the row), so pointer activation and
+        keyboard Enter share one code path.
+        """
+        if item is None:
+            item = self._item_for_row(row) if row is not None else None
+        if item is None:
+            return False
+        return self.open_notification_target(item)
+
+    def _item_for_row(self, row):
+        """Recover the log entry backing a ListBoxRow.
+
+        GtkListBox "row-activated" only passes the row, so the entry travels
+        with the widget as an attribute. Matching on label text instead would
+        collide on duplicate summaries.
+        """
+        if row is None:
+            return None
+        return getattr(row, "_mav_entry", None)
+
+    def open_notification_target(self, item):
         """Open an actionable notification target when the entry contains one."""
         hints = item.get("hints") or {}
         candidates = []
@@ -310,6 +406,15 @@ class NotificationCenter(Gtk.Window):
         self.mutate_history(keep)
         self.refresh()
 
+    def dismiss_entry(self, entry_id):
+        """Remove exactly one notification from history, by its log id."""
+        if not entry_id:
+            return
+        def keep(item):
+            return item.get("id") != entry_id
+        self.mutate_history(keep)
+        self.refresh()
+
     def on_clear_all(self, _):
         self.mutate_history(lambda _item: False)
         self.refresh()
@@ -333,10 +438,47 @@ class NotificationCenter(Gtk.Window):
     def on_dnd_toggle(self, switch, _):
         set_dnd_status(switch.get_active())
 
+    # Keys that should act on the notification cursor. Delete/BackSpace
+    # dismiss the selected entry — the keyboard equivalent of the row ✕.
+    _NAV_KEYVALS = (Gdk.KEY_Down, Gdk.KEY_Up, Gdk.KEY_Delete, Gdk.KEY_BackSpace)
+    _DISMISS_KEYVALS = (Gdk.KEY_Delete, Gdk.KEY_BackSpace)
+
     def on_key_press(self, widget, event):
         if event.keyval == 65307:  # Escape
             self.destroy()
             return True
+        if event.keyval not in self._NAV_KEYVALS:
+            return False
+        selected = self._selected_row()
+        if selected is None:
+            # No cursor yet: the first navigation key seeds the top entry so
+            # Down/Up/Delete work immediately, without a preceding click.
+            return self._focus_first_row()
+        if event.keyval in self._DISMISS_KEYVALS:
+            item = self._item_for_row(selected)
+            self.dismiss_entry(item.get("id") if item else None)
+            return True
+        # Already on a row: leave Up/Down to GtkListBox's own cursor movement.
+        return False
+
+    def _selected_row(self):
+        for listbox in self._iter_listboxes():
+            row = listbox.get_selected_row()
+            if row is not None:
+                return row
+        return None
+
+    def _iter_listboxes(self):
+        return [n for n in _walk_widgets(self.main_box)
+                if isinstance(n, Gtk.ListBox)]
+
+    def _focus_first_row(self):
+        for listbox in self._iter_listboxes():
+            row = listbox.get_row_at_index(0)
+            if row is not None:
+                listbox.select_row(row)
+                row.grab_focus()
+                return True
         return False
 
     @staticmethod
