@@ -221,14 +221,15 @@ Each objective is independently testable. Do not proceed to N+1 until N passes i
 
 **Goal:** Activate a window by X11 id (focus + raise + switch workspace if needed).
 
-**Implementation:** EWMH `_NET_ACTIVE_WINDOW` ClientMessage + wmctrl fallback.
+**Implementation:** Direct python-xlib EWMH `ClientMessage` path with `wmctrl` fallback. The shared `mission_control.activate_window()` API is now used by `mv-mission-control`.
 
 **Acceptance criteria:**  
-- [ ] Activating a window on current workspace focuses it  
-- [ ] Activating a window on another workspace switches to that workspace first  
-- [ ] Activation works for minimized windows (unminimize + focus)  
-- [ ] No-op for already-active window  
-- [ ] Returns success/failure  
+- [x] Activating a window on current workspace focuses it  
+- [x] Activating a window on another workspace switches to that workspace first  
+- [x] Activation works for minimized windows (remove `_NET_WM_STATE_HIDDEN` + map + focus)  
+- [x] No-op for already-active window (EWMH activation is idempotent for the same target)  
+- [x] Returns success/failure  
+- [x] Headless tests cover window-id parsing, workspace fallback, activation fallback, and EWMH ClientMessage shape  
 
 **Test:** `scripts/test-mc-activate.py` — Xvfb + test windows, activate, verify focus.
 
