@@ -125,15 +125,25 @@ file://$home/Music Music
 file://$home/Pictures Pictures
 file://$home/Movies Movies"
   fi
-  printf '%s\n' "$content" > "$out_gtk"
+  # Do not overwrite bookmarks that the user or installer already created.
+  if [[ ! -e "$out_gtk" ]]; then
+    printf '%s\\n' "$content" > "$out_gtk"
+    chown "$user:$user" "$out_gtk" 2>/dev/null || true
+  else
+    log "preserving existing $out_gtk"
+  fi
   mkdir -p "$(dirname "$out_gtk3")"
-  printf '%s\n' "$content" > "$out_gtk3"
-  chown "$user:$user" "$out_gtk" "$out_gtk3" 2>/dev/null || true
+  if [[ ! -e "$out_gtk3" ]]; then
+    printf '%s\\n' "$content" > "$out_gtk3"
+    chown "$user:$user" "$out_gtk3" 2>/dev/null || true
+  else
+    log "preserving existing $out_gtk3"
+  fi
+  # Create the standard directories if absent, but never recursively chown
+  # existing user data during firstboot.
   mkdir -p "$home/Movies" "$home/Desktop" "$home/Documents" "$home/Downloads" \
            "$home/Music" "$home/Pictures"
-  chown -R "$user:$user" "$home/Movies" "$home/Desktop" "$home/Documents" \
-        "$home/Downloads" "$home/Music" "$home/Pictures" 2>/dev/null || true
-  log "seeded GTK bookmarks for $user"
+  log "seeded/preserved GTK bookmarks for $user"
 }
 
 log "7/8 session services + index"
