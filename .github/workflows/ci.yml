@@ -108,13 +108,6 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Host-display guard (WSLg leak): on the dev host DISPLAY=:0 and
-    # WAYLAND_DISPLAY=wayland-0 both forward to the user's Windows desktop,
-    # and these suites are invoked directly here (unlike check-sync.sh, which
-    # pins its own Xvfb).  Arm the fail-loud guard so any attempt to open a
-    # window on a host display aborts with HOST-DISPLAY-BLOCKED (exit 125)
-    # instead of silently mapping one; the "Host-display guard gate" step
-    # below asserts zero attempts, same contract as check-sync.sh.
     env:
       MV_GUI_ISOLATED: "1"
       MV_FORBIDDEN_DISPLAYS: ":0,wayland-0"
@@ -217,6 +210,10 @@ jobs:
       - name: Wallpaper paths contract
         run: |
           python3 scripts/test-wallpaper-paths.py
+
+      - name: Empty Trash keys contract
+        run: |
+          python3 scripts/test-empty-trash-keys.py
 
   profile-sync:
     name: Profile Sync
