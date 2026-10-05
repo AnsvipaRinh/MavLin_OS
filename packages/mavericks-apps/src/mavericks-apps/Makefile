@@ -44,6 +44,7 @@ install: all
 		install -Dm755 "$$f" "$(DESTDIR)$(PREFIX)/bin/$$(basename $$f)"; \
 	done
 	install -Dm755 bin/mv_launchpad_edit.py "$(DESTDIR)$(PREFIX)/bin/mv-launchpad-edit"
+	install -Dm755 bin/mv_launchpad_gui.py "$(DESTDIR)$(PREFIX)/bin/mv-launchpad-gui"
 install -Dm755 bin/mv_dialogs.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mv_dialogs.py"
 	install -Dm755 bin/mv_desktop_cache.py "$(DESTDIR)$(PREFIX)/bin/mv_desktop_cache.py"
 	install -Dm755 bin/mv_calendar_eds.py "$(DESTDIR)$(PREFIX)/bin/mv_calendar_eds.py"
