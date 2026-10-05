@@ -4,7 +4,8 @@
 
 | Action | Keys | Notes |
 |--------|------|-------|
-| Toggle Mission Control | `F3` (or `Super+Up`) | Shows all windows across Spaces |
+| Toggle Mission Control | `F3` | Full GUI overlay with thumbnails (`mv-mc-gui`) |
+| Toggle Mission Control | `Super+Up` | Alternative binding |
 | Add Desktop (Space) | `Super+Shift+A` | Creates new Space to the right |
 | Remove Desktop (Space) | `Super+Shift+D` | Removes rightmost non-active Space |
 | Switch to Space N | `Super+1`..`Super+9` | Direct Space navigation |
@@ -47,8 +48,8 @@
 
 | Action | Keys | Notes |
 |--------|------|-------|
-| Spotlight | `Super+Space` or `Cmd+Space` | Search |
-| Launchpad | `F4` or pinched thumb | App grid |
+| Spotlight | `Super+Space` | Search |
+| Launchpad | `F4` | App grid |
 | Notification Center | `Super+Shift+N` | Notifications |
 | Control Center | `F12` or `Super+C` | Quick settings |
 | Brightness Up | `F2` | Increase display brightness |
@@ -57,7 +58,7 @@
 | Volume Down | `F11` | Decrease audio |
 | Mute | `F10` | Toggle mute |
 | Lock screen | `Super+Shift+L` or `Super+Ctrl+Q` | Lock session |
-| Terminal | `Super+T` or `Cmd+Space` → "Terminal" | Open terminal |
+| Terminal | `Super+Return` or `Super+T` | Open terminal |
 | Settings | `Super+,` | System preferences |
 
 ## Spaces Navigation
@@ -75,7 +76,7 @@
 
 | Helper | Description |
 |--------|-------------|
-| `mv-mc-gui` | Full GUI overlay with thumbnails (GTK3) |
+| `mv-mc-gui` | Full GUI overlay with thumbnails (GTK3) - bound to F3 |
 | `mv-mc-overview [--debug] [--list]` | CLI overview integration |
 | `mv-mc-window-spaces` | List windows grouped by workspace (JSON) |
 | `mv-mc-activate-window <wid>` | Activate/focus window by ID |
@@ -89,4 +90,5 @@
 - Function keys may require holding `Fn` depending on hardware
 - Some shortcuts require Xfce keyboard settings to be configured
 - Mission Control GUI requires GTK3 (`python3-gi`, `gir1.2-gtk-3.0`)
-- Full Mission Control experience: `mv-mc-gui` for visual overlay
+- Full Mission Control experience: press `F3` or run `mv-mc-gui`
+- Non-breaking: custom shortcuts in `xfce4-panel.xml` do not override wm keybindings
