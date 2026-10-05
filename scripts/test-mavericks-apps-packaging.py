@@ -39,7 +39,7 @@ else:
                 continue
             path = os.path.join(DESKTOP, name)
             text = open(path, encoding="utf-8").read()
-            match = re.search(r"^Exec=(mv-[A-Za-z0-9_-]+)(?:\\s|$)", text, re.MULTILINE)
+            match = re.search(r"^Exec=(mv-[A-Za-z0-9_-]+)(?:\s|$)", text, re.MULTILINE)
             if not match:
                 continue
             command = match.group(1)
