@@ -16,6 +16,8 @@ The Poppy reference is now treated as a visual benchmark, not a generic inspirat
 - Poppy’s GNOME-specific layout is not copied where it conflicts with Mavericks’ Spaces bar and Mission Control model.
 
 ### Remaining visual gaps
+
+- Corrected the global Xfce GTK font target from `San Francisco 11` to `Lucida Grande 11`; San Francisco is not Mavericks-era and was an accidental post-Mavericks visual drift. The live-image skeleton was corrected in the same pass.
 - Poppy-derived icon categories: dialog/status, preferences, places, panel-symbolic and action icons.
 - Exact noise-texture assets in title/status bars: MavLinOS currently uses CSS gradient simulation rather than copying Poppy’s Noise.png.
 - Toolkit/runtime differences mean this is a visual parity implementation, not a claim of pixel-identical GTK rendering on every application.
