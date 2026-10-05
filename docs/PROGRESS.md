@@ -1,12 +1,18 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-05 (untracked OS-leftovers triage)
+**Last Updated**: 2026-10-05 (qwen-integration reappearance triage)
 
 ---
 
-## Session 2026-10-05 (OS-leftovers) — untracked leftover cleanup
+## Session 2026-10-05 (qwen-integration reappearance) — same unwired content, deleted again
 
-Deleted `docs/QWEN_INTEGRATION.md`, `docs/QWEN_WEB_AUTOMATION_RESEARCH.md` and `scripts/qwen-integration/` (unwired Qwen experiment: duplicate of AGENTS.md §14 + DECISIONS.md findings, execution path outside the chain-only worker model, prototype test fails on import, no playwright/chain wiring; DECISIONS.md §"Qwen Web Automation Research" keeps the decision record), plus the `libmv-apple.so` build artifact (now covered by a `*.so` gitignore rule; PKGBUILD `make` rebuilds it).
+`scripts/qwen-integration/` reappeared on disk (created 14:16/14:26 by uid 1000, unregistered concurrent session — same actor noted in DECISIONS.md "Note on concurrent tree activity"). Triage vs 183c9d9 verdict: **same unwired content**. Evidence:
+- `qwen-web-worker.py` (477 lines): Playwright automation of coder.qwen.ai — same protocol as DECISIONS.md "Qwen Web Automation Research" (localStorage token, SSE `/task/completions`, chatId from React state). Playwright undeclared in any manifest.
+- `qwen-registrar.py` (369 lines): parallel session registry (`~/.config/mavlinos/qwen-worker-state.json`), own event-loop management, no `session-reuse.py`/chain integration. Duplicate `persist` method (code smell).
+- `.gitignore` had matching additions (`/.local/share/qwen-worker-profile/`, `~/.config/mavlinos/`) — reverted.
+- No references from `.opencode/`, chain config, or registry.
+
+Action: deleted again + reverted `.gitignore`. Decision record remains in DECISIONS.md §"Qwen Web Automation Research".
 
 ## Session 2026-10-05 (headless slice) — GUI tests never touch the host display
 
