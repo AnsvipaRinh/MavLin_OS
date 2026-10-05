@@ -26,7 +26,9 @@ ReflectionOpacity=0.2
 ReflectionFade=true
 
 # Dock shape - Poppy values
-Roundness=4               # Poppy TopRoundness=4
+TopRoundness=4
+BottomRoundness=0
+LineWidth=1               # Poppy TopRoundness=4
 BorderSize=1              # Poppy LineWidth=1
 BorderColor=rgba(0,0,0,0.31)  # Poppy OuterStrokeColor=0;;0;;0;;79 (~0.31)
 
