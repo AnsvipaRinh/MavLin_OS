@@ -181,11 +181,25 @@ def get_window_icon(win_class):
 
 
 def activate_window(win_id):
-    """Activate (focus) a window."""
+    """Activate a window through the shared EWMH backend, with wmctrl fallback."""
     try:
-        subprocess.run(["wmctrl", "-i", "-a", win_id], timeout=2)
-        return True
+        lib_dir = "/usr/share/mavericks-apps"
+        if lib_dir not in sys.path:
+            sys.path.insert(0, lib_dir)
+        import mission_control
+        if mission_control.activate_window(win_id):
+            return True
     except Exception:
+        pass
+
+    try:
+        result = subprocess.run(
+            ["wmctrl", "-i", "-a", win_id],
+            capture_output=True,
+            timeout=2,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
         return False
 
 
