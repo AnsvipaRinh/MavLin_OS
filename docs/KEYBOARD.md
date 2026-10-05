@@ -15,6 +15,7 @@ CLI helpers and app-level accelerators are separate.
 | Super+L | Launchpad | rofi + mv-launchpad |
 | Super+Shift+L | Launchpad edit mode | mv-launchpad-edit |
 | Super+Tab | Mission Control | mv-mission-control --native |
+| Super+F3 | Mission Control GUI overlay | mv-mc-gui |
 | Super+Shift+F | Finder (column UI) | mv-finder-columns |
 | Super+E | Finder (column UI) | mv-finder-columns |
 | Ctrl+Alt+T | Terminal | xfce4-terminal |

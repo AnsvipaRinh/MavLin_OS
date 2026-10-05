@@ -20,19 +20,26 @@ run_test() {
     
     if eval "$test_cmd" > /dev/null 2>&1; then
         echo "✅ PASS"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo "❌ FAIL"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         echo "  Command: $test_cmd"
     fi
 }
+
+# GUI isolation (project rule: no test may touch the host display).
+# The dev host is WSLg; every helper here opens X11 connections.
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+source "$REPO_DIR/scripts/gui-isolation.sh"
+mv_gui_isolate
+mv_gui_pin_display
 
 echo "--- CLI Helper Tests ---"
 run_test "window-spaces" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_windows.py"
 run_test "thumbnail helper" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_thumbnail_helper.py"
 run_test "grid helper" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_grid.py"
-run_test "activate helper" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_activate.py"
+run_test "activate helper" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_activation.py"
 run_test "overview integration" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_overview.py"
 run_test "GUI overlay" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_gui.py"
 run_test "workspace count" "python3 packages/mavericks-apps/src/mavericks-apps/tests/test_workspace_count_helper.py"
