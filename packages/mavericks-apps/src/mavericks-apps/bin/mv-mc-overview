@@ -42,7 +42,8 @@ window.mav-mc {
   border-radius: 8px;
   padding: 6px;
 }
-.mav-card.mav-selected { background-color: rgba(72, 104, 145, 0.98); border-color: rgba(255,255,255,0.78); box-shadow: 0 0 0 2px rgba(255,255,255,0.22); }\n.mav-card:hover {
+.mav-card.mav-selected { background-color: rgba(72, 104, 145, 0.98); border-color: rgba(255,255,255,0.78); box-shadow: 0 0 0 2px rgba(255,255,255,0.22); }
+.mav-card:hover {
   background-color: rgba(70, 72, 78, 0.98);
   border-color: rgba(255,255,255,0.38);
 }
@@ -50,7 +51,10 @@ window.mav-mc {
   color: #eeeeee;
   font-size: 12px;
 }
-.mav-workspace-button { background-color: rgba(45,47,52,0.88); color:#d8d8d8; border:1px solid rgba(255,255,255,0.10); border-radius:6px; padding:5px 12px; }\n.mav-workspace-button:checked { background-color:rgba(80,96,118,0.98); color:#fff; border-color:rgba(255,255,255,0.45); }\n.mav-hint { color:#8f9399; font-size:11px; }\n.mav-muted {
+.mav-workspace-button { background-color: rgba(45,47,52,0.88); color:#d8d8d8; border:1px solid rgba(255,255,255,0.10); border-radius:6px; padding:5px 12px; }
+.mav-workspace-button:checked { background-color:rgba(80,96,118,0.98); color:#fff; border-color:rgba(255,255,255,0.45); }
+.mav-hint { color:#8f9399; font-size:11px; }
+.mav-muted {
   color: #9b9b9b;
   font-size: 11px;
 }
@@ -90,6 +94,9 @@ class Overview(Gtk.Window):
         self.box.set_margin_bottom(22)
         self.add(self.box)
 
+        self._cards = []
+        self._selected_index = -1
+        self._workspace_buttons = []
         self._build()
 
     def _build(self):
@@ -98,10 +105,30 @@ class Overview(Gtk.Window):
         active = mission_control.get_active_window() or {}
         active_id = str(active.get("win_id", "")).lower()
 
-        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)\n        self.box.pack_start(header_row, False, False, 0)\n        header = Gtk.Label(label="Mission Control")
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        self.box.pack_start(header_row, False, False, 0)
+        header = Gtk.Label(label="Mission Control")
         header.set_xalign(0)
         header.get_style_context().add_class("mav-header")
-        header_row.pack_start(header, False, False, 0)\n        workspace_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)\n        header_row.pack_end(workspace_bar, False, False, 0)\n        count = max(1, int(workspaces.get("count", 1)))\n        current = int(workspaces.get("current", 0))\n        names = workspaces.get("names", [])\n        for desktop in range(count):\n            label = names[desktop] if desktop < len(names) else f"Desktop {desktop + 1}"\n            button = Gtk.ToggleButton(label=label)\n            button.set_can_focus(True)\n            button.get_style_context().add_class("mav-workspace-button")\n            button.set_active(desktop == current)\n            button.connect("clicked", self._switch_workspace, desktop)\n            workspace_bar.pack_start(button, False, False, 0)\n            self._workspace_buttons.append(button)\n        hint = Gtk.Label(label="← ↑ ↓ → / Tab: select   Enter: open   Esc: close")\n        hint.set_xalign(0)\n        hint.get_style_context().add_class("mav-hint")\n        self.box.pack_start(hint, False, False, 0)
+        header_row.pack_start(header, False, False, 0)
+        workspace_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        header_row.pack_end(workspace_bar, False, False, 0)
+        count = max(1, int(workspaces.get("count", 1)))
+        current = int(workspaces.get("current", 0))
+        names = workspaces.get("names", [])
+        for desktop in range(count):
+            label = names[desktop] if desktop < len(names) else f"Desktop {desktop + 1}"
+            button = Gtk.ToggleButton(label=label)
+            button.set_can_focus(True)
+            button.get_style_context().add_class("mav-workspace-button")
+            button.set_active(desktop == current)
+            button.connect("clicked", self._switch_workspace, desktop)
+            workspace_bar.pack_start(button, False, False, 0)
+            self._workspace_buttons.append(button)
+        hint = Gtk.Label(label="← ↑ ↓ → / Tab: select   Enter: open   Esc: close")
+        hint.set_xalign(0)
+        hint.get_style_context().add_class("mav-hint")
+        self.box.pack_start(hint, False, False, 0)
 
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -150,15 +177,48 @@ class Overview(Gtk.Window):
                 cols = 1 if len(items) <= 2 else (2 if len(items) <= 6 else 3)
                 for index, win in enumerate(items):
                     card = self._make_card(win, win.get("win_id", "").lower() == active_id)
-                    grid.attach(card, index % cols, index // cols, 1, 1)\n                    self._cards.append((card, win.get("win_id")))
+                    grid.attach(card, index % cols, index // cols, 1, 1)
+                    self._cards.append((card, win.get("win_id")))
 
             content.pack_start(section, False, False, 0)
 
         self.show_all()
+        if self._cards:
+            active_index = next((i for i, (_card, wid) in enumerate(self._cards) if str(wid).lower() == active_id), 0)
+            self._select_card(active_index)
+
+    def _select_card(self, index):
+        if not self._cards:
+            return
+        index %= len(self._cards)
+        if 0 <= self._selected_index < len(self._cards):
+            self._cards[self._selected_index][0].get_style_context().remove_class("mav-selected")
+        self._selected_index = index
+        card = self._cards[index][0]
+        card.get_style_context().add_class("mav-selected")
+        card.grab_focus()
+
+    def _activate_selected(self):
+        if not (0 <= self._selected_index < len(self._cards)):
+            return False
+        _card, win_id = self._cards[self._selected_index]
+        if win_id and mission_control.activate_window(win_id):
+            self.destroy()
+            return True
+        return False
+
+    def _switch_workspace(self, button, desktop):
+        if not button.get_active():
+            return
+        if mission_control.switch_workspace(desktop):
+            self.destroy()
+        else:
+            button.set_active(False)
 
     def _make_card(self, win, is_active):
         event = Gtk.EventBox()
-        event.set_visible_window(True)\n        event.set_can_focus(True)
+        event.set_visible_window(True)
+        event.set_can_focus(True)
         event.get_style_context().add_class("mav-card")
         event.set_tooltip_text(_safe_title(win))
         event.connect("button-release-event", self._activate, win.get("win_id"))
