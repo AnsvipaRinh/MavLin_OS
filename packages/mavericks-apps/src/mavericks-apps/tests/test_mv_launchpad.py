@@ -13,6 +13,7 @@ import os
 import shutil
 import tempfile
 import time
+from pathlib import Path
 
 SCRIPT = "/home/builder/projects/MavLinOS/packages/mavericks-apps/src/mavericks-apps/bin/mv-launchpad"
 CONFIG_DIR = os.path.expanduser("~/.config/mv-launchpad")
@@ -263,6 +264,8 @@ def test_native_launchpad_entrypoint():
     assert "Gdk.KEY_Page_Up" in gui
     assert '["gtk-launch", item["id"]]' in gui
     assert '["mv-launchpad-edit"]' in gui
+    result = subprocess.run([sys.executable, "-m", "py_compile", str(Path(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bin", "mv_launchpad_gui.py")))], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
     print("PASS: test_native_launchpad_entrypoint")
 
 
