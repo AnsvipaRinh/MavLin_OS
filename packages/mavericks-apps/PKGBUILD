@@ -1,7 +1,7 @@
 # Maintainer: Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL>
 pkgname=mavericks-apps
 pkgver=0.1.0
-pkgrel=7
+pkgrel=8
 pkgdesc="Mavericks-like system apps for Xfce (settings, activity, console, control, notes, HUD)"
 arch=('x86_64')
 url="https://github.com/AnsvipaRinh/MavLinOS"
@@ -20,6 +20,10 @@ optdepends=('poppler-glib: PDF preview in Quick Look'
             'plocate: fast file search for Spotlight file mode'
             'pipewire: Voice Memos recording/playback backend'
             'pulseaudio: Voice Memos fallback backend (parec/paplay)'
+            'mpv: playback backend for mv-ytplayer'
+            'yt-dlp: YouTube extractor backend for mv-ytplayer'
+            'gthumb: image viewer/editor handoff in Photos'
+            'exiftool: EXIF metadata editing in Photos'
             'seahorse: full Passwords and Keys GUI alongside mv-keychain'
             'gnome-keyring: secret daemon used by the libsecret backend'
             'gnome-font-viewer: optional Open-in-Font-Viewer handoff in Font Book'
