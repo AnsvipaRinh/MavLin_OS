@@ -1,0 +1,456 @@
+#!/usr/bin/env python3
+"""mv-hotkeys-gui — Mavericks-like editor for the global shortcut layer.
+
+System Settings ▸ Keyboard ▸ Shortcuts.  Sidebar of skill categories
+(mirroring macOS 10.9 System Preferences ▸ Keyboard ▸ Shortcuts), a list of
+shortcuts with checkboxes, and click-to-record capture for rebinding.
+
+Mavericks behaviour it reproduces:
+  * category sidebar, shortcut label + key column, checkbox (enabled) column
+  * click a shortcut, press the new combination, release -> it is stored
+  * a held-modifier hint row, "Reset" and "All Defaults" buttons
+  * modifiers are rendered Apple-style: ⌃⌥⇧⌘ (Ctrl, Alt, Shift, Super)
+  * Escape cancels capture; the recorder never binds a bare key
+
+Design constraints: no daemon (GTK process exists only while the window is
+open), single source of truth in mv_hotkeys_core, and pure helpers
+(rows_for_skill, build_rows, shortcut_label, filter) importable headless so
+the test suite can pin them without gi.
+
+Origin: registry/protection/rebind model and the CLI surface were produced by
+Qwen Code (qwen3.8-flash) via scripts/qwen-integration/qwen-web-worker.py;
+this GUI is the local implementation of that model.  See docs/DECISIONS.md.
+License: GPL-2.0-or-later.
+"""
+import os
+import sys
+
+CORE_PATHS = ("/usr/share/mavericks-apps",
+              os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           os.pardir, "share", "mavericks-apps"),
+              os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           os.pardir, "lib"))
+for _p in CORE_PATHS:
+    if os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
+
+try:
+    import mv_hotkeys_core as core
+except ImportError:
+    sys.stderr.write("mv-hotkeys-gui: mv_hotkeys_core.py not found\n")
+    sys.exit(2)
+
+
+# --- Apple modifier glyphs (mavericks look, not the Linux names) -----------
+APPLE_GLYPHS = {"Primary": "⌃", "Alt": "⌥", "Shift": "⇧", "Super": "⌘"}
+APPLE_KEY_NAMES = {
+    "space": "Space", "Return": "Return", "Tab": "Tab", "Escape": "Esc",
+    "Delete": "Delete", "Up": "↑", "Down": "↓", "Left": "←", "Right": "→",
+    "Prior": "Page Up", "Next": "Page Down", "comma": ",", "period": ".",
+    "slash": "/", "backslash": "\\", "minus": "-", "equal": "=",
+}
+
+
+def shortcut_label(modifiers, key):
+    """Apple-style rendering: '⌘⇧3'. Pure, headless-testable."""
+    glyphs = "".join(APPLE_GLYPHS[m] for m in modifiers
+                     if m in APPLE_GLYPHS)
+    name = APPLE_KEY_NAMES.get(key)
+    if name is None:
+        name = key.upper() if len(key) == 1 and key.isalnum() else key
+    return glyphs + name
+
+
+def rows_for_skill(skill_id, overrides=None):
+    """Shortcut rows for one skill. Pure, headless-testable.
+
+    Each row: action, label, accelerator dict, display text, command,
+    protected flag, overridden flag.
+    """
+    overrides = overrides if overrides is not None else {}
+    binds = core.effective_bindings(overrides)
+    rows = []
+    for aid in core.action_ids():
+        b = binds[aid]
+        if b["skill"] != skill_id:
+            continue
+        rows.append({
+            "action": aid,
+            "label": b["label"],
+            "skill": b["skill"],
+            "group": b["group"],
+            "modifiers": list(b["modifiers"]),
+            "key": b["key"],
+            "display": shortcut_label(b["modifiers"], b["key"]),
+            "command": b["command"],
+            "protected": b["protected"],
+            "overridden": b["overridden"],
+        })
+    return rows
+
+
+def build_rows(skills, overrides=None):
+    """All rows, ordered by sidebar category. Pure, headless-testable."""
+    out = []
+    for skill in skills:
+        out.extend(rows_for_skill(skill["id"], overrides))
+    return out
+
+
+def filter_rows(rows, query):
+    """Search semantics: case-insensitive substring on the label."""
+    q = (query or "").strip().lower()
+    if not q:
+        return list(rows)
+    return [r for r in rows if q in r["label"].lower()
+            or q in r["action"].lower()]
+
+
+# ---------------------------------------------------------------------------
+# GTK layer
+# ---------------------------------------------------------------------------
+
+def _gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    return Gtk
+
+
+def build_class():
+    Gtk = _gtk()
+    Gdk = __import__("gi.repository", fromlist=["Gdk"]).Gdk
+
+    class HotkeysWindow(Gtk.Window):
+        def __init__(self):
+            super().__init__(title="Keyboard Shortcuts")
+            self.set_default_size(720, 560)
+            self.set_icon_name("input-keyboard")
+            self.overrides = core.load_overrides()
+            self.skills = core.load_skills()
+            self.rows = build_rows(self.skills, self.overrides)
+            self.bindings = {r["action"]: r for r in self.rows}
+            self.recording = None
+            self.pending_accel = None
+            self.key_mask = set()
+            self.sidebar_rows = []
+            self.bindings = {}
+
+            hb = Gtk.HeaderBar(title="Keyboard Shortcuts",
+                               show_close_button=True)
+            self.set_titlebar(hb)
+            reset_all = Gtk.Button(label="All Defaults")
+            reset_all.set_tooltip_text("Restore every shortcut to factory")
+            reset_all.connect("clicked", self.on_reset_all)
+            hb.pack_start(reset_all)
+            search = Gtk.SearchEntry(placeholder_text="Search shortcuts")
+            search.connect("search-changed", self.on_search)
+            hb.pack_end(search)
+            self.search = search
+
+            outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+            self.add(outer)
+
+            # Category sidebar (mavlinos look: compact list rows, icons)
+            sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            sidebar.set_size_request(200, -1)
+            sidebar.set_border_width(8)
+            self.stack = Gtk.Stack()
+            self.stack.set_transition_type(Gtk.StackTransitionType.NONE)
+            sidebar_list = Gtk.ListBox()
+            sidebar_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+            sidebar_list.connect("row-selected", self.on_skill_selected)
+            sidebar.pack_start(sidebar_list, True, True, 0)
+            self.sidebar_list = sidebar_list
+            for skill in self.skills:
+                page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
+                               spacing=4)
+                scroller = Gtk.ScrolledWindow()
+                self.listbox = Gtk.ListBox()
+                self.listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+                self.listbox.connect("row-activated", self.on_activate)
+                scroller.add(self.listbox)
+                scroller.set_policy(Gtk.PolicyType.NEVER,
+                                    Gtk.PolicyType.AUTOMATIC)
+                page.pack_start(scroller, True, True, 0)
+                page.pack_start(self.build_hint(skill), False, False, 0)
+                self.stack.add_named(page, skill["id"])
+                row = Gtk.ListBoxRow()
+                row.set_name(skill["id"])
+                box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                box.set_border_width(6)
+                img = Gtk.Image.new_from_icon_name(
+                    skill.get("icon", "preferences-system"),
+                    Gtk.IconSize.BUTTON)
+                box.pack_start(img, False, False, 0)
+                box.pack_start(Gtk.Label(label=skill["label"]), True, True, 0)
+                row.add(box)
+                row.show_all()
+                row.mv_skill = skill["id"]
+                self.sidebar_rows.append(row)
+                sidebar_list.add(row)
+            sidebar_list.show_all()
+            if self.sidebar_rows:
+                sidebar_list.select_row(self.sidebar_rows[0])
+            outer.pack_start(sidebar, False, False, 0)
+            outer.pack_start(self.stack, True, True, 0)
+
+            self.refresh(self.skills[0]["id"] if self.skills else None)
+
+        # --- construction helpers ---------------------------------------
+        def build_hint(self, skill):
+            """macOS-style hint row above the list."""
+            frame = Gtk.Frame()
+            label = Gtk.Label(label="%s — %s" % (skill["label"],
+                                                 skill.get("description", "")))
+            label.set_line_wrap(True)
+            label.set_justify(Gtk.Justification.CENTER)
+            label.set_margin_top(4)
+            label.set_margin_bottom(4)
+            label.set_margin_start(8)
+            label.set_margin_end(8)
+            frame.add(label)
+            return frame
+
+        def refresh(self, skill_id):
+            if not skill_id:
+                return
+            rows = [r for r in filter_rows(self.rows, self.search.get_text())
+                    if r["skill"] == skill_id]
+            self.fill_list(self.listbox, rows)
+            self.stack.set_visible_child_name(skill_id)
+
+        def fill_list(self, listbox, rows):
+            for child in listbox.get_children():
+                listbox.remove(child)
+            for row in rows:
+                listbox.add(self.build_row(row))
+            listbox.show_all()
+
+        def build_row(self, row):
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            box.set_border_width(6)
+            check = Gtk.CheckButton()
+            check.set_active(True)
+            check.set_valign(Gtk.Align.CENTER)
+            check.set_tooltip_text(row["command"])
+            box.pack_start(check, False, False, 0)
+
+            label = Gtk.Label(label=row["label"])
+            label.set_xalign(0.0)
+            label.set_hexpand(True)
+            if row["overridden"]:
+                label.get_style_context().add_class("dim-label")
+            box.pack_start(label, True, True, 0)
+
+            accel = Gtk.Label(label=row["display"])
+            accel.set_xalign(1.0)
+            accel.get_style_context().add_class("mav-accent")
+            box.pack_end(accel, False, False, 0)
+            box.set_tooltip_text("%s  →  %s" % (row["command"], row["command"]))
+
+            list_row = Gtk.ListBoxRow()
+            list_row.add(box)
+            list_row.mv_row = row
+            return list_row
+
+        # --- interaction -------------------------------------------------
+        def on_skill_selected(self, _listbox, list_row):
+            if list_row is None:
+                return
+            skill_id = getattr(list_row, "mv_skill", None)
+            if skill_id:
+                self.refresh(skill_id)
+
+        def on_search(self, entry):
+            query = entry.get_text()
+            current = self.stack.get_visible_child_name()
+            rows = filter_rows(self.rows, query)
+            self.fill_list(self.listbox, [r for r in rows
+                                          if r["skill"] == current])
+
+        def on_activate(self, _listbox, list_row):
+            row = getattr(list_row, "mv_row", None)
+            if not row:
+                return
+            if row["protected"]:
+                self.info("This shortcut is fixed.",
+                          "%s uses the hardware function row and stays where "
+                          "it is." % row["label"])
+                return
+            self.open_recorder(row)
+
+        def info(self, title, text):
+            dialog = Gtk.MessageDialog(
+                transient_for=self, modal=True,
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.OK, text=title)
+            dialog.format_secondary_text(text)
+            dialog.run()
+            dialog.destroy()
+
+        def open_recorder(self, row):
+            dialog = Gtk.Dialog(title="Keyboard Shortcuts", transient_for=self)
+            dialog.set_modal(True)
+            dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+            dialog.add_button("Set", Gtk.ResponseType.OK)
+            dialog.set_default_response(Gtk.ResponseType.OK)
+            box = dialog.get_content_area()
+            box.set_spacing(10)
+            box.set_border_width(12)
+            box.add(Gtk.Label(label='Press the new key combination for "%s"'
+                                    % row["label"]))
+            display = Gtk.Label(label="waiting…")
+            display.get_style_context().add_class("mav-accent")
+            box.add(display)
+            dialog.show_all()
+            self.recording = (row, display)
+            self.pending_accel = None
+            dialog.connect("response", self.on_recorder_response)
+            dialog.connect("key-press-event", self.on_key_press)
+            dialog.connect("key-release-event", self.on_key_release)
+            self.key_mask = set()
+
+        def on_key_press(self, _widget, event):
+            if not self.recording:
+                return False
+            mask = getattr(self, "key_mask", None)
+            if mask is None:
+                mask = self.key_mask = set()
+            hw = event.hardware_keycode
+            if hw not in mask:
+                mask.add(hw)
+            accel = self.accel_from_event(event)
+            if accel:
+                self.pending_accel = accel
+                _row, display = self.recording
+                display.set_label(accel["display"])
+            return True
+
+        def on_key_release(self, _widget, event):
+            mask = getattr(self, "key_mask", None)
+            if mask is not None:
+                mask.discard(event.hardware_keycode)
+            return True
+
+        def accel_from_event(self, event):
+            """Event -> accelerator dict or None. Pure enough to test."""
+            mods = []
+            if event.state & Gdk.ModifierType.CONTROL_MASK:
+                mods.append("Primary")
+            if event.state & Gdk.ModifierType.MOD1_MASK:
+                mods.append("Alt")
+            if event.state & Gdk.ModifierType.SHIFT_MASK:
+                mods.append("Shift")
+            if event.state & (Gdk.ModifierType.SUPER_MASK |
+                              getattr(Gdk.ModifierType, "MOD4_MASK",
+                                      Gdk.ModifierType.SUPER_MASK)):
+                mods.append("Super")
+            keyval = Gdk.keyval_name(event.keyval) or ""
+            key = _normalise_keysym(keyval)
+            if key is None:
+                return None
+            if not mods:
+                return None
+            if key in core.SPECIAL_KEYS and not mods:
+                return None
+            accel = core.normalize_accelerator(
+                {"modifiers": mods, "key": key})
+            return {"modifiers": accel["modifiers"], "key": accel["key"],
+                    "display": shortcut_label(accel["modifiers"], accel["key"])}
+
+        def on_recorder_response(self, dialog, response):
+            row, display = self.recording or (None, None)
+            self.recording = None
+            if response == Gtk.ResponseType.OK and display is not None:
+                accel = getattr(self, "pending_accel", None)
+                if accel:
+                    self.commit(row, accel)
+                else:
+                    self.info("No shortcut set",
+                              "Hold a modifier (⌃⌥⇧⌘) and press a key.")
+            dialog.destroy()
+
+        def commit(self, row, accel):
+            try:
+                self.overrides = core.set_override(
+                    row["action"], {"modifiers": accel["modifiers"],
+                                    "key": accel["key"]})
+            except PermissionError as exc:
+                self.info("Cannot change this shortcut", str(exc))
+                return
+            except ValueError as exc:
+                self.info("Shortcut unavailable", str(exc))
+                return
+            try:
+                core.apply_action(row["action"], self.overrides)
+            except core.XfconfUnavailable as exc:
+                self.info("Saved, not applied yet",
+                          "The xfconf channel is unavailable (%s). The change "
+                          "takes effect at the next session start." % exc)
+            self.rows = build_rows(self.skills, self.overrides)
+            self.refresh(self.stack.get_visible_child_name())
+
+        def on_reset_all(self, _button):
+            dialog = Gtk.MessageDialog(
+                transient_for=self, modal=True,
+                message_type=Gtk.MessageType.QUESTION,
+                buttons=Gtk.ButtonsType.OK_CANCEL,
+                text="Restore all keyboard shortcuts to factory defaults?")
+            if dialog.run() != Gtk.ResponseType.OK:
+                dialog.destroy()
+                return
+            dialog.destroy()
+            self.overrides = core.clear_override_all()
+            self.rows = build_rows(self.skills, self.overrides)
+            self.refresh(self.stack.get_visible_child_name())
+            self.info("Shortcuts restored",
+                      "Every shortcut is back to its MavLinOS default.")
+
+    return HotkeysWindow
+
+
+_GDK_KEY_ALIASES = {
+    "space": "space", "Return": "Return", "KP_Enter": "Return",
+    "Tab": "Tab", "ISO_Left_Tab": "Tab", "Escape": "Escape",
+    "Delete": "Delete", "BackSpace": "Delete",
+    "Home": "Home", "End": "End", "Page_Up": "Prior", "Prior": "Prior",
+    "Page_Down": "Next", "Next": "Next",
+    "Up": "Up", "Down": "Down", "Left": "Left", "Right": "Right",
+    "comma": "comma", "period": "period", "slash": "slash",
+    "minus": "minus", "equal": "equal", "backslash": "backslash",
+    "Insert": "Insert", "Menu": "Menu", "Pause": "Pause",
+}
+
+
+def _normalise_keysym(name):
+    """X keysym name -> registry key name, or None if not offered."""
+    if not name:
+        return None
+    if _GDK_KEY_ALIASES.get(name):
+        return _GDK_KEY_ALIASES[name]
+    if name.startswith("F") and name[1:].isdigit() and 1 <= int(name[1:]) <= 12:
+        return name
+    if len(name) == 1 and name.isalnum():
+        return name.lower()
+    # Only the function-row keysyms the registry models are offered; other
+    # XF86 keys (XF86Ungrab, XF86Search…) are not bindings we manage.
+    if name in core.MEDIA_KEYS:
+        return name
+    return None
+
+
+if __name__ == "__main__":
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    try:
+        from mavericks_appmenu import run_application
+    except ImportError:
+        run_application = None
+    HotkeysWindow = build_class()
+    window = HotkeysWindow()
+    if run_application:
+        sys.exit(run_application("com.mavlinos.KeyboardShortcuts",
+                                 "Keyboard Shortcuts", window, sys.argv))
+    window.show_all()
+    Gtk = _gtk()
+    sys.exit(Gtk.main())

@@ -26,6 +26,7 @@ PAGES = [
     ("Sound", "preferences-desktop-sound", ["pavucontrol"]),
     ("Notifications", "appointment", ["xfce4-notifyd-config"]),
     ("Keyboard", "input-keyboard", ["xfce4-keyboard-settings"]),
+    ("Keyboard Shortcuts", "preferences-desktop-keyboard", ["mv-hotkeys-gui"]),
     ("Mouse", "input-mouse", ["xfce4-mouse-settings"]),
     ("Energy Saver", "display", ["xfce4-power-manager-settings"]),
     ("Date & Time", "gnome-clocks", ["xfce4-settings-manager"]),

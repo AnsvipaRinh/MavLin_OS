@@ -20,6 +20,7 @@
       <property name="&lt;Super&gt;e" type="string" value="mv-finder-columns"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;n" type="string" value="mv-newfolder $HOME/Desktop"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;n" type="string" value="mv-newfolder $HOME"/>
+      <property name="&lt;Super&gt;&lt;Shift&gt;r" type="string" value="mv-rename"/>
       <property name="&lt;Super&gt;comma" type="string" value="mv-settings"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;c" type="string" value="mv-control"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;Escape" type="string" value="mv-power-ui"/>

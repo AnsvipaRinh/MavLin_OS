@@ -1002,3 +1002,65 @@ main state (keyboard-shortcuts.xml lacks the `custom` shortcuts section the
 test requires; file byte-identical between HEAD and f7602c4). Not caused by
 0291e83 or d9ebb8b (neither touches it). Owned by the #79/MC-zone agent.
 Documented so nobody attributes it to the #86 merge.
+
+---
+
+## 2026-10-06 — Global keyboard shortcut layer (P0 #23, oid OS-kb-qwen)
+
+**Origin and authorship (Qwen Code relay).** Per the project directive to use
+Qwen Code to the full extent, this objective was driven through
+`scripts/qwen-integration/qwen-web-worker.py` against `AnsvipaRinh/MavLinOS`
+(chat `7c1631a4-577e-4084-852a-fbefc1be62d6`, model qwen3.8-flash).
+Qwen delivered the **architecture**: a centralised manager script `mv-hotkeys`
+with the action registry, the protection model for standard Linux + hardware
+keys, order-insensitive conflict detection, and the
+`list/show/set/reset/verify/export/import` CLI surface. What shipped here is a
+**reviewed superset**, so the split is recorded explicitly:
+
+- *From Qwen:* registry layout (action id → xfconf property + label),
+  `PROTECTED_ACTIONS` concept, `parse/format/validate key string` helpers,
+  `find_conflicts`, `load_factory_bindings` (XML → table), live-channel access
+  via `xfconf-query`, the CLI verb set, "no daemon, one-shot, immediate apply"
+  constraints.
+- *Local review changes (Qwen's draft was unusable as delivered):*
+  1. **Accelerator model was wrong.** Qwen keyed actions by the *xfconf
+     property name* (`action -> /commands/default/<Super><Shift>3`), but in
+     xfconf the key **is** part of the property name — so "rebind action X"
+     could not be expressed at all under that model. Replaced with
+     `action -> (modifiers, key, command, branch, skill)`, with property names
+     derived on demand and two identities: `property_path` (raw, for writes)
+     and `property_path_identity` (order-insensitive, for compares — X accepts
+     `<Super><Shift>3` and `<Shift><Super>3` as different strings for one key
+     combination; treating that as drift produced 100+ false findings).
+  2. **Overrides must be additive.** Qwen wrote the whole table back into the
+     packaged XML. Here defaults stay pristine and the user layer is a small
+     `~/.config/mfkeys/overrides.json`, so `reset` is always possible and
+     `skel`/XML mirrors cannot drift by user action.
+  3. Qwen left `XF86Audio*`/`XF86MonBrightness*` out of the registry
+     entirely; they are now managed rows marked `protected` (rebind refused,
+     since they are hardware).
+  4. Added XML **render + drift detection** (`render-xml`, `verify --xml`) so
+     the registry is provably the source of truth for the packaged XML and its
+     skel mirror, and added the missing `Super+Shift+R → mv-rename` binding
+     (Rename existed as a binary and a Thunar action-menu entry, but had no
+     global key).
+  5. Fixed two xfconf-query API mistakes in the draft: `-s` needs `-n -t string`
+     to create a new property, and `-l -v` output is column-padded, not
+     `key = value`.
+
+**Why this shape.** Reuse-first: the binding backend stays Xfce's own
+xfconf channel — no new daemon, no key-grabbing process, no polling, so the
+power baseline (§7) is untouched. The user-facing half is a Mavericks editor
+(`mv-hotkeys-gui`, reachable from System Settings ▸ Keyboard Shortcuts) rather
+than the stock Xfce keybindings dialog, which is exactly the "stock Linux UI"
+the project rules forbid. Apple glyphs (⌃⌥⇧⌘), category sidebar, checkbox
+column, click-to-record and *All Defaults* mirror macOS 10.9 System
+Preferences ▸ Keyboard ▸ Shortcuts.
+
+**Energy/verification notes.** No resident processes; `verify --live` on the
+live channel is how that stays true. The live rebind test is **opt-in**
+(`MV_HOTKEYS_LIVE_TEST=1`): other agents share this host's Xfce session, and a
+suite that silently rewrites the user's keybindings is not acceptable. It
+restores the channel byte-for-byte in a `finally` block — that assertion is
+itself one of the checks, because an early version of the code did leave the
+channel dirty (caught, fixed, verified).

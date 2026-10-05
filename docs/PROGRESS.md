@@ -331,3 +331,70 @@ getinfo 35/35 · finder suites 26+69 · power-ui 45.
 - **Category 14 (preferences):** System Settings panel icons in the house 256-grid gradient language: locale (globe), wallpaper (monitor+landscape), notifications (toast+bell+badge), privacy (shield+lock), time (analog clock), accessibility (figure badge), online-accounts (cloud+key, the goa analog); display/system/keyboard/mouse/sound already existed. The broken 128x128 preferences-desktop-font text-path file is now a self-contained "Aa" tile (also added as scalable master).
 
 **Status:** All four queued Tier 2 categories ported (13/14/15/16) — 28 remaining broken Poppy path-files in mimetypes/apps/devices zones are documented in the test's KNOWN_PENDING list for their owners. Icons area only; gate: scripts/test-theme-icons.py.
+
+---
+
+## Session 2026-10-06 (OS-kb-qwen) — Global keyboard shortcut layer (P0 #23)
+
+**Objective:** make the global hotkey layer a real, centralised, user-reconfigurable
+system instead of a hand-maintained XML file — driven by Qwen Code through
+`scripts/qwen-integration/qwen-web-worker.py` (chat 7c1631a4, qwen3.8-flash).
+
+**What shipped**
+- `lib/mv_hotkeys_core.py` — the action registry (55 actions): each row carries the
+  accelerator, command, xfconf branch, skill category and protection flag. It is the
+  source of truth: `render-xml` generates the factory XML from it and
+  `verify --xml` fails the build on drift (packaged XML ↔ registry ↔ skel mirror).
+- `bin/mv-hotkeys` — CLI: list/show/set/reset/apply/verify/conflicts/export/import/
+  render-xml/gui. Rebinds are written to `~/.config/mfkeys/overrides.json` (small
+  additive user layer) and applied to the live xfconf channel immediately.
+- `bin/mv-hotkeys-gui` — Mavericks editor wired into System Settings ▸ Keyboard
+  Shortcuts: 11 skill categories (Spotlight, Launchpad, Mission Control, Quick Look,
+  Screenshot, Spaces, Windows, Applications, Finder, System, Keyboard), Apple glyphs
+  ⌃⌥⇧⌘, checkbox column, click-to-record, *All Defaults*, protected rows explain
+  themselves, conflicts name the owner instead of stealing silently.
+- `config/hotkeys/skills.json` — skill taxonomy (labels, icons, descriptions).
+- `Super+Shift+R → mv-rename` added: Rename had a binary and a Thunar action-menu
+  entry but no global key.
+- Protection model: Ctrl+Alt+T, Ctrl+Alt+L, Alt+Tab/Alt+Shift+Tab and the whole
+  hardware row (XF86Audio*, XF86MonBrightness*) refuse rebinding.
+- `docs/KEYBOARD.md` rewritten as the layer reference; `docs/APPS.md` row updated;
+  `docs/NEEDS_HARDWARE_TEST.md` got concrete hardware checks for the layer.
+
+**Qwen contribution vs local work** — full split recorded in DECISIONS.md. Qwen
+produced the architecture (registry layout, protection model, conflict detection,
+CLI verb set, "no daemon / immediate apply" constraints). Its delivered script was
+unusable as-is and was superseded: the accelerator model was reworked (xfconf puts
+the key *inside* the property name, so "rebind action X" was inexpressible under
+Qwen's model), user overrides were made additive instead of rewriting the packaged
+XML, the hardware-row bindings were added, XML render + drift detection were added,
+and two xfconf-query API errors in the draft were fixed (`-n -t string` to create a
+property; `-l -v` is column-padded, not `key = value`).
+
+**Verification**
+- `scripts/test-hotkey-layer.py` — 82 checks: registry invariants (no orphan
+  commands, all canonical Mavericks actions present), accelerator normalisation
+  (6 accepted spellings), conflict detection (order-insensitive), protection,
+  override round-trip, XML↔registry↔skel drift, doc coverage, import/export, CLI
+  contract, GUI pure helpers imported with `gi` blocked.
+- `scripts/test-hotkey-layer-gui.py` — 24 checks: static Mavericks-look contract
+  plus a real GTK smoke on the pinned Xvfb :97 (window maps, title, sidebar
+  categories, stack pages, category switch, rows render, recorder opens, recorder
+  waits for a real combination).
+- Live xfconf rebind path tested (set → apply → cleanup → reset → restore), opt-in
+  via `MV_HOTKEYS_LIVE_TEST=1` because other agents share this host's session; the
+  suite restores the channel byte-for-byte and asserts it (an early version did
+  leave the channel dirty — caught, fixed, re-verified clean).
+- `make install DESTDIR=…` verified; both binaries + lib + skills.json install.
+- `scripts/check-sync.sh` — **ALL CHECKS PASSED**, now including a
+  "keyboard shortcut layer" section running both suites.
+- Existing per-topic gates all still pass: window/empty-trash/trash-eject/
+  force-quit/terminal/brightness keys, alt-tab, lock-screen, workspaces.
+- `scripts/test-mv-mission-control.py` has one pre-existing failure
+  (`test_native_backend_primes_workspaces_then_exposes`) — reproduces on the HEAD
+  version of both the test and the app; it is Mission Control zone, not this one.
+
+**Status:** IMPLEMENTED — HARDWARE VALIDATION REQUIRED. Pre-hardware work for this
+objective is closed; remaining items are real-keyboard checks (recorder capture
+needs the external USB-C keyboard, Fn row keysyms are firmware-dependent, rebind
+survival across logout and `xfsettingsd` restart).

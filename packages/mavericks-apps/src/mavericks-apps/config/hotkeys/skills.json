@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "description": "MavLinOS keyboard shortcut skill groups (System Settings > Keyboard). Mirrors the action ids of lib/mv_hotkeys_core.SHORTCUTS; grouping data only, no binding data (the binding contract lives in xfce4-keyboard-shortcuts.xml).",
+  "skills": [
+    {
+      "id": "spotlight",
+      "label": "Spotlight Search",
+      "icon": "edit-find",
+      "description": "System-wide search for files, applications and settings. macOS 10.9: Command-Space."
+    },
+    {
+      "id": "launchpad",
+      "label": "Launchpad",
+      "icon": "applications-other",
+      "description": "Application launcher grid. macOS 10.9: Command-L / F4 in the Dock."
+    },
+    {
+      "id": "mission-control",
+      "label": "Mission Control",
+      "icon": "view-fullscreen",
+      "description": "Overview of all windows, Spaces and applications. macOS 10.9: F3 / Control-Up."
+    },
+    {
+      "id": "quick-look",
+      "label": "Quick Look",
+      "icon": "document-open-preview",
+      "description": "Peek at the selected item without opening it. macOS 10.9: Space / Command-Y."
+    },
+    {
+      "id": "screenshot",
+      "label": "Screenshot",
+      "icon": "applets-screen-shooter",
+      "description": "Capture the screen or a selection. macOS 10.9: Command-Shift-3/4/5."
+    },
+    {
+      "id": "workspace",
+      "label": "Spaces & Mission Control",
+      "icon": "preferences-desktop-display",
+      "description": "Window overview, Space switching and per-Space window grouping."
+    },
+    {
+      "id": "window",
+      "label": "Window Management",
+      "icon": "preferences-system-windows",
+      "description": "Move, resize, tile, minimize and close windows. macOS 10.9: M / H / W / Control-arrows."
+    },
+    {
+      "id": "application",
+      "label": "Application Switching",
+      "icon": "system-run",
+      "description": "Cycle windows and applications, hide, quit and force-quit. macOS 10.9: Command-Tab / Command-Q / Command-Option-Escape."
+    },
+    {
+      "id": "finder",
+      "label": "Finder",
+      "icon": "folder",
+      "description": "File operations that act on the Finder selection. macOS 10.9: Command-Shift-N / Command-I / Command-Delete."
+    },
+    {
+      "id": "system",
+      "label": "System",
+      "icon": "preferences-system",
+      "description": "System Settings, Control Center, Notification Center, lock, power and display. macOS 10.9: Command-, / Control-Command-Q."
+    },
+    {
+      "id": "keyboard",
+      "label": "Keyboard & Input",
+      "icon": "input-keyboard",
+      "description": "Brightness, audio and transport keys. These follow the hardware function row and are not freely rebindable."
+    }
+  ],
+  "contextual": [
+    {
+      "id": "finder",
+      "label": "Finder",
+      "icon": "folder",
+      "binding_source": "thunar-uca.xml",
+      "note": "In-window accelerators and the Thunar custom actions menu. These apply to the focused Finder window only and therefore have no global key."
+    }
+  ]
+}

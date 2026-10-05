@@ -174,6 +174,24 @@ if [[ -f scripts/smoke-launch.sh ]]; then
     && ok "launch smoke (34 windowed apps)" || bad "launch smoke"
 fi
 
+KB_SUITE_OUT="$(mktemp)"
+echo "--- keyboard shortcut layer ---"
+# The action registry is the shortcut layer's source of truth; the packaged
+# XML, the skel mirror and the two layer suites must all agree with it.
+if timeout 120 python3 scripts/test-hotkey-layer.py >"$KB_SUITE_OUT" 2>&1; then
+    ok "keyboard shortcut layer: $(tail -n 1 "$KB_SUITE_OUT")"
+else
+    bad "keyboard shortcut layer suite"
+    tail -n 20 "$KB_SUITE_OUT" | sed 's/^/    | /'
+fi
+if timeout 120 python3 scripts/test-hotkey-layer-gui.py >>"$KB_SUITE_OUT" 2>&1; then
+    ok "keyboard shortcut editor GUI smoke passed"
+else
+    bad "keyboard shortcut editor GUI suite"
+    grep -E '^(FAIL|FAIL -)' "$KB_SUITE_OUT" | tail -n 20 | sed 's/^/    | /'
+fi
+rm -f "$KB_SUITE_OUT"
+
 echo "--- app test suites (scripts/test-mv-*.py, auto-discovered) ---"
 # Run every app suite. Suites whose target binary still imports gi at module
 # level die on import here (not portable yet): distinguish that from a real

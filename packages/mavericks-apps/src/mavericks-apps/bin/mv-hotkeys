@@ -1,0 +1,328 @@
+#!/usr/bin/env python3
+"""mv-hotkeys — MavLinOS global keyboard shortcut layer (CLI, P0 #23).
+
+One-shot commands over the xfconf channel `xfce4-keyboard-shortcuts`; no
+daemon, no polling.  All logic lives in mv_hotkeys_core (installed to
+/usr/share/mavericks-apps/) so the GUI, this CLI and the tests share one
+implementation.
+
+  list [--group G] [--skill S] [--json]   effective bindings
+  show ACTION                             one binding in detail
+  set ACTION ACCEL [--command CMD]        rebind (writes the override, applies live)
+  reset [ACTION]                          back to factory
+  apply [--force]                         (re)apply every managed binding live
+  verify [--xml PATH] [--live]            drift check (exit 1 on drift)
+  conflicts                               duplicate key combinations
+  export [-o FILE]                        export the effective table
+  import FILE [--no-apply]                apply a table as overrides
+  render-xml [-o PATH]                    regenerate the factory XML
+  gui                                     launch the Mavericks editor
+
+ACCEL accepts 'Super+Shift+3', 'Super + Shift + 3' or '<Super><Shift>3'.
+
+Origin: architecture, action-registry layout, protection model and the
+list/show/set/reset/verify/export/import surface were produced by Qwen Code
+(qwen3.8-flash) via scripts/qwen-integration/qwen-web-worker.py; this
+implementation supersedes that draft (see lib/mv_hotkeys_core.py header and
+docs/DECISIONS.md).  License: GPL-2.0-or-later.
+"""
+import json
+import os
+import sys
+
+CORE_PATHS = ("/usr/share/mavericks-apps",
+              os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           os.pardir, "share", "mavericks-apps"),
+              os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           os.pardir, "lib"))
+for _p in CORE_PATHS:
+    if os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
+
+try:
+    import mv_hotkeys_core as core
+except ImportError:
+    sys.stderr.write(
+        "mv-hotkeys: mv_hotkeys_core.py not found (looked in: %s)\n"
+        % ", ".join(CORE_PATHS))
+    sys.exit(2)
+
+USAGE = """mv-hotkeys — MavLinOS global keyboard shortcut layer
+
+  list [--group G] [--skill S] [--json]   effective bindings
+  show ACTION                             one binding in detail
+  set ACTION ACCEL [--command CMD]        rebind (override + live apply)
+  reset [ACTION]                          back to factory defaults
+  apply [--force]                         (re)apply every managed binding
+  verify [--xml PATH] [--live]            drift check (exit 1 on drift)
+  conflicts                               duplicate key combinations
+  export [-o FILE]                        export the effective table
+  import FILE [--no-apply]                apply a table as overrides
+  render-xml [-o PATH]                    regenerate the factory XML
+  gui                                     launch the Mavericks editor
+
+ACCEL accepts 'Super+Shift+3', 'Super + Shift + 3' or '<Super><Shift>3'.
+Standard Linux shortcuts (Ctrl+Alt+T, Alt+Tab) and the hardware function row
+(volume, media, brightness) are protected and refuse to be rebound."""
+
+
+def _resolve_action(name):
+    if name in core.ACTION_INDEX:
+        return name
+    matches = [aid for aid in core.action_ids() if name in aid]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        sys.stderr.write("mv-hotkeys: ambiguous action %r: %s\n"
+                         % (name, ", ".join(matches)))
+    else:
+        sys.stderr.write("mv-hotkeys: unknown action %r\n" % name)
+    sys.stderr.write("known actions: %s\n" % ", ".join(core.action_ids()))
+    sys.exit(2)
+
+
+def cmd_list(args):
+    overrides = core.load_overrides()
+    rows = core.effective_bindings(overrides)
+    if "--json" in args:
+        # Same shape as `export`, so tooling can consume either.
+        print(json.dumps({"version": 1,
+                          "bindings": core.export_table(overrides)}, indent=2))
+        return 0
+    group = _opt(args, "--group")
+    skill = _opt(args, "--skill")
+    width = max(len(core.display_accelerator(
+        {"modifiers": b["modifiers"], "key": b["key"]})) for b in rows.values())
+    current_group = None
+    for aid in core.action_ids():
+        b = rows[aid]
+        if group and b["group"] != group:
+            continue
+        if skill and b["skill"] != skill:
+            continue
+        if b["group"] != current_group:
+            current_group = b["group"]
+            print("\n[%s]" % current_group)
+        accel = core.display_accelerator(
+            {"modifiers": b["modifiers"], "key": b["key"]})
+        marks = []
+        if b["protected"]:
+            marks.append("protected")
+        if b["overridden"]:
+            marks.append("user")
+        suffix = ("  (%s)" % ", ".join(marks)) if marks else ""
+        print("  %-*s  %s%s" % (width, accel, b["label"], suffix))
+    conflicts = core.detect_conflicts(overrides)
+    if conflicts:
+        print("\nconflicts:")
+        for conflict in conflicts:
+            print("  %s: %s" % (" / ".join(conflict["actions"]),
+                                conflict["property"]))
+        return 1
+    return 0
+
+
+def cmd_show(args):
+    positional = [a for a in args if not a.startswith("--")]
+    if len(positional) != 1:
+        sys.stderr.write("Usage: mv-hotkeys show ACTION\n")
+        return 2
+    aid = _resolve_action(positional[0])
+    overrides = core.load_overrides()
+    row = core.ACTION_INDEX[aid]
+    accel = core.action_accelerator(aid, overrides)
+    factory = {"modifiers": list(row["modifiers"]), "key": row["key"]}
+    print("action:     %s" % aid)
+    print("label:      %s" % row["label"])
+    print("group:      %s / %s" % (row["group"], row["skill"]))
+    print("accelerator: %s" % core.display_accelerator(accel))
+    print("factory:    %s" % core.display_accelerator(factory))
+    print("branch:     /%s/default" % row["branch"])
+    print("command:    %s" % core.action_command(aid, overrides))
+    print("protected:  %s" % (row["protected"] or not row["rebindable"]))
+    print("overridden: %s" % bool(overrides.get(aid)))
+    return 0
+
+
+def cmd_set(args):
+    positional = [a for a in args if not a.startswith("--")]
+    command = _opt(args, "--command")
+    if len(positional) != 2:
+        sys.stderr.write("Usage: mv-hotkeys set ACTION ACCEL [--command CMD]\n")
+        return 2
+    aid = _resolve_action(positional[0])
+    try:
+        accel = core.normalize_accelerator(positional[1])
+        overrides = core.set_override(aid, accel, command)
+    except PermissionError as exc:
+        sys.stderr.write("mv-hotkeys: %s\n" % exc)
+        return 3
+    except ValueError as exc:
+        sys.stderr.write("mv-hotkeys: %s\n" % exc)
+        return 2
+    try:
+        for step in core.apply_action(aid, overrides, force="--force" in args):
+            print(step)
+    except core.XfconfUnavailable as exc:
+        print("override saved; live channel unavailable (%s)" % exc)
+        print("run 'mv-hotkeys apply' inside an Xfce session")
+        return 0
+    print("%s is now %s" % (aid, core.display_accelerator(accel)))
+    return 0
+
+
+def cmd_reset(args):
+    positional = [a for a in args if not a.startswith("--")]
+    overrides = core.load_overrides()
+    targets = [_resolve_action(p) for p in positional] or core.action_ids()
+    for aid in targets:
+        steps, overrides = core.reset_action(aid, overrides)
+        for step in steps:
+            print("%s: %s" % (aid, step))
+    return 0
+
+
+def cmd_apply(args):
+    try:
+        for line in core.apply_all(force="--force" in args):
+            print(line)
+    except core.XfconfUnavailable as exc:
+        sys.stderr.write("mv-hotkeys: xfconf channel unavailable: %s\n" % exc)
+        return 4
+    except ValueError as exc:
+        sys.stderr.write("mv-hotkeys: %s\n" % exc)
+        return 2
+    return 0
+
+
+def cmd_verify(args):
+    problems = []
+    if "--xml" in args:
+        path = _opt(args, "--xml") or core.resolve_factory_xml()
+        if not path:
+            sys.stderr.write("mv-hotkeys: factory XML not found\n")
+            return 2
+        with open(path, encoding="utf-8") as fh:
+            actual = core.parse_xml_bindings(fh.read())
+        problems += core.compare_bindings(core.registry_bindings(), actual)
+        print("checked %s against the action registry" % path)
+    overrides = core.load_overrides()
+    problems += core.check_overrides(overrides)
+    if "--live" in args:
+        try:
+            problems += core.verify(overrides)
+            print("checked the live xfconf channel")
+        except core.XfconfUnavailable as exc:
+            sys.stderr.write("mv-hotkeys: live check skipped (%s)\n" % exc)
+    for problem in problems:
+        print("drift: %s" % problem)
+    if problems:
+        return 1
+    print("ok - %d managed bindings consistent" % len(core.ACTIONS))
+    return 0
+
+
+def cmd_conflicts(_args):
+    conflicts = core.detect_conflicts()
+    if not conflicts:
+        print("ok - no duplicate key combinations (%d bindings)" % len(core.ACTIONS))
+        return 0
+    for conflict in conflicts:
+        print("conflict: %s share %s"
+              % (" / ".join(conflict["actions"]), conflict["property"]))
+    return 1
+
+
+def cmd_export(args):
+    rows = core.export_table()
+    out = _opt(args, "-o") or _opt(args, "--output")
+    text = json.dumps({"version": 1, "bindings": rows}, indent=2) + "\n"
+    if out and out != "-":
+        with open(out, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        print("wrote %s" % out)
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
+def cmd_import(args):
+    positional = [a for a in args if not a.startswith("--")]
+    if len(positional) != 1:
+        sys.stderr.write("Usage: mv-hotkeys import FILE [--no-apply]\n")
+        return 2
+    with open(positional[0], encoding="utf-8") as fh:
+        data = json.load(fh)
+    rows = data.get("bindings") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        sys.stderr.write("mv-hotkeys: %s has no bindings list\n" % positional[0])
+        return 2
+    try:
+        overrides, rejected = core.import_table(rows)
+    except ValueError as exc:
+        sys.stderr.write("mv-hotkeys: %s\n" % exc)
+        return 2
+    for note in rejected:
+        print("skipped: %s" % note)
+    print("%d override(s) stored" % len(overrides))
+    if "--no-apply" in args:
+        return 0
+    try:
+        for aid in core.action_ids():
+            if aid in overrides:
+                for step in core.apply_action(aid, overrides):
+                    print("%s: %s" % (aid, step))
+    except core.XfconfUnavailable as exc:
+        print("imported; live channel unavailable (%s)" % exc)
+    return 0
+
+
+def cmd_render_xml(args):
+    out = _opt(args, "-o") or _opt(args, "--output")
+    text = core.render_xml()
+    if out and out != "-":
+        with open(out, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        print("wrote %s" % out)
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
+def cmd_gui(_args):
+    import subprocess
+    try:
+        return subprocess.call(["mv-hotkeys-gui"])
+    except FileNotFoundError:
+        sys.stderr.write("mv-hotkeys: mv-hotkeys-gui not installed\n")
+        return 2
+
+
+def _opt(args, flag):
+    if flag in args:
+        idx = args.index(flag)
+        if idx + 1 < len(args):
+            return args[idx + 1]
+    for arg in args:
+        if arg.startswith(flag + "="):
+            return arg.split("=", 1)[1]
+    return None
+
+
+COMMANDS = {
+    "list": cmd_list, "show": cmd_show, "set": cmd_set, "reset": cmd_reset,
+    "apply": cmd_apply, "verify": cmd_verify, "conflicts": cmd_conflicts,
+    "export": cmd_export, "import": cmd_import, "render-xml": cmd_render_xml,
+    "gui": cmd_gui,
+}
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
+        sys.stdout.write(USAGE + "\n")
+        sys.exit(0 if len(sys.argv) > 1 else 2)
+    name = sys.argv[1]
+    if name not in COMMANDS:
+        sys.stderr.write("mv-hotkeys: unknown command %r\n" % name)
+        sys.stderr.write(USAGE + "\n")
+        sys.exit(2)
+    sys.exit(COMMANDS[name](sys.argv[2:]) or 0)

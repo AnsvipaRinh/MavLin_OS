@@ -130,6 +130,10 @@ jobs:
           : > "$MV_GUARD_LOG"
           find . -type f -name 'test-mv-*.py' ! -path './.git/*' -exec python3 -m pytest {} -v \;
 
+      - name: Keyboard shortcut layer
+        run: |
+          python3 scripts/test-hotkey-layer.py
+
       - name: Host-display guard gate
         run: |
           if grep -q HOST-DISPLAY-BLOCKED "$MV_GUARD_LOG" 2>/dev/null; then

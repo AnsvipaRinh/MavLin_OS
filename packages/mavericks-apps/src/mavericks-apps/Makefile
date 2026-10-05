@@ -26,6 +26,8 @@ clean:
 install: all
 	install -Dm755 mv-hud "$(DESTDIR)$(PREFIX)/bin/mv-hud"
 	install -Dm755 lib/mission_control.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mission_control.py"
+	install -Dm755 lib/mv_hotkeys_core.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mv_hotkeys_core.py"
+	install -Dm644 config/hotkeys/skills.json "$(DESTDIR)$(PREFIX)/share/mavericks-apps/hotkeys/skills.json"
 	install -Dm755 lib/mission_control_thumbnail.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mission_control_thumbnail.py"
 	for f in bin/mv-settings bin/mv-about bin/mv-activity bin/mv-console \
 	         bin/mv-control bin/mv-power-ui bin/mv-shot bin/mv-quicklook \
@@ -38,7 +40,7 @@ install: all
 	         bin/mv-keychain bin/mv-fontbook bin/mv-colormeter bin/mv-stickies bin/mv-notify-send bin/mv-notification-center bin/mv-diskutil bin/mv-airdrop bin/mv-timemachine bin/mv-ytplayer \
 	         bin/mv-finder-search bin/mv-finder-columns bin/mv-brightness \
 	         bin/mv-quit-app bin/mv-minimize-window bin/mv-hide-app bin/mv-close-window bin/mv-trash \
-	         bin/mv-force-quit bin/mv-recent-items; do \
+	         bin/mv-force-quit bin/mv-recent-items bin/mv-hotkeys bin/mv-hotkeys-gui; do \
 		install -Dm755 "$$f" "$(DESTDIR)$(PREFIX)/bin/$$(basename $$f)"; \
 	done
 	install -Dm755 bin/mv_launchpad_edit.py "$(DESTDIR)$(PREFIX)/bin/mv-launchpad-edit"

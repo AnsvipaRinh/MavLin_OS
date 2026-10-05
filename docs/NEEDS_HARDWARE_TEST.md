@@ -624,6 +624,13 @@ External USB-C HID is the mandatory bring-up interface.
 ### External USB-C input (MANDATORY — bring-up first)
 - [ ] Verify USB-C hub + keyboard/mouse works out of box
 - [ ] Test all keyboard shortcuts (Super+Space, Super+L, Super+Tab, etc.)
+      — 55 managed bindings; full table in `docs/KEYBOARD.md`, source of
+      truth `lib/mv_hotkeys_core.py`. On hardware: (a) `mv-hotkeys verify --live`
+      must be clean, (b) `mv-hotkeys-gui` recorder must capture real keypresses
+      (Force Touch trackpad has no `key-press-event` path, so recording needs
+      the external keyboard), (c) confirm Super+Fn row maps volume/brightness
+      XF86 keysyms on this firmware, (d) confirm a rebind survives logout/login
+      and `xfsettingsd` restart.
 - [ ] Test trackpad multitouch (two-finger scroll, tap-to-click)
 - [ ] Test media keys (XF86AudioRaiseVolume, XF86AudioLowerVolume, XF86AudioMute)
 - [ ] Test USB-C power delivery while using hub
