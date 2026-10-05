@@ -41,32 +41,51 @@ def test_f3_binding_exists():
 
 
 def test_f3_binding_non_breaking():
-    """Test that F3 binding doesn't override existing wm shortcuts."""
-    config_path = "configs/desktop/xfce/xfce4-panel.xml"
-    
-    if not os.path.exists(config_path):
-        print(f"SKIP: {config_path} not found")
+    """F3 binding must be a custom command shortcut, not a wm binding hack.
+
+    Contract (f7602c4): the real binding lives in the
+    xfce4-keyboard-shortcuts channel (package + archiso skel copies);
+    xfce4-panel.xml only mirrors it inside a dedicated custom-shortcuts
+    container — never inside a panel plugin definition.
+    """
+    shortcuts_copies = [
+        "packages/mavericks-apps/src/mavericks-apps/config/xfce4-keyboard-shortcuts.xml",
+        "archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml",
+    ]
+    for path in shortcuts_copies:
+        if not os.path.exists(path):
+            print(f"SKIP: {path} not found")
+            return
+        tree = ET.parse(path)
+        found = False
+        for elem in tree.getroot().iter():
+            if elem.tag == "property" and elem.get("name") == "<Super>F3":
+                assert elem.get("value") == "mv-mc-gui", (path, elem.get("value"))
+                found = True
+        assert found, f"<Super>F3 command binding missing in {path}"
+
+    panel_path = "configs/desktop/xfce/xfce4-panel.xml"
+    if not os.path.exists(panel_path):
+        print(f"SKIP: {panel_path} not found")
         return
-    
-    try:
-        tree = ET.parse(config_path)
-        root = tree.getroot()
-    except ET.ParseError as e:
-        print(f"FAIL: Invalid XML: {e}")
-        sys.exit(1)
-    
-    # Check that we're not modifying xfwm4.xml bindings
-    # The panel shortcuts should be in a separate "shortcuts" property
-    shortcuts_section = False
-    
-    for elem in root.iter():
-        if elem.tag == "property" and elem.get("name") == "shortcuts":
-            shortcuts_section = True
-            break
-    
-    assert shortcuts_section, "Custom shortcuts section not found - may be breaking existing bindings"
-    
-    print("PASS: F3 binding uses non-breaking custom shortcuts section")
+    tree = ET.parse(panel_path)
+    mirror = None
+    for elem in tree.getroot().iter():
+        if elem.tag == "property" and elem.get("name") == "custom-shortcuts":
+            for child in elem:
+                if child.tag == "property" and child.get("name") == "<Super>F3":
+                    mirror = child
+    assert mirror is not None, "panel F3 mirror missing under custom-shortcuts"
+    assert mirror.get("value") == "mv-mc-gui"
+
+    # The mirror must live outside every plugin-* definition.
+    for elem in tree.getroot().iter():
+        if elem.tag == "property" and elem.get("name", "").startswith("plugin-"):
+            for child in elem.iter():
+                if child is mirror:
+                    assert False, "F3 mirror must not sit inside a panel plugin"
+
+    print("PASS: F3 binding uses non-breaking custom shortcuts contract")
 
 
 if __name__ == "__main__":

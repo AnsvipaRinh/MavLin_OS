@@ -158,6 +158,10 @@ def capture_window(win_id: int, max_size: Optional[Tuple[int, int]] = None):
     """Return a GdkPixbuf for a mapped X11 window, or None on failure.
 
     Capture is read-only. Minimized/unmapped windows return None.
+    XCompositeNameWindowPixmap requires the window to be compositor-
+    redirected; under a non-compositing WM it raises BadMatch — the
+    swallowed error handler turns that into a plain None (placeholder)
+    instead of killing the calling process.
     """
     try:
         x11, xc = _load_x11(), _load_xcomposite()
@@ -166,6 +170,13 @@ def capture_window(win_id: int, max_size: Optional[Tuple[int, int]] = None):
     display = x11.XOpenDisplay(None)
     if not display:
         return None
+
+    # Swallow async X errors during the capture (mirrors ThumbnailCapture).
+    _XErrorHandler = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p)
+    _handler = _XErrorHandler(lambda d, e: 0)
+    _set_err = getattr(x11, "XSetErrorHandler", None)
+    _restore = _set_err(_handler) if _set_err is not None else None
+
     image = None
     try:
         attrs = _XWindowAttributes()
@@ -176,10 +187,11 @@ def capture_window(win_id: int, max_size: Optional[Tuple[int, int]] = None):
         event_base, error_base = ctypes.c_int(), ctypes.c_int()
         if not xc.XCompositeQueryExtension(display, ctypes.byref(event_base), ctypes.byref(error_base)):
             return None
+        x11.XSync(display, 0)  # drain pre-existing errors before the risky call
         pixmap = xc.XCompositeNameWindowPixmap(display, ctypes.c_ulong(win_id))
         if not pixmap:
             return None
-        x11.XSync(display, 0)
+        x11.XSync(display, 0)  # BadMatch (unredirected window) lands here -> 0 pixmap
         image = x11.XGetImage(
             display, ctypes.c_ulong(pixmap), 0, 0,
             ctypes.c_uint(attrs.width), ctypes.c_uint(attrs.height),
@@ -203,6 +215,12 @@ def capture_window(win_id: int, max_size: Optional[Tuple[int, int]] = None):
         if image:
             try:
                 x11.XDestroyImage(image)
+            except Exception:
+                pass
+        x11.XSync(display, 0)  # flush any swallowed error before restoring
+        if _set_err is not None and _restore is not None:
+            try:
+                _set_err(_restore)
             except Exception:
                 pass
         x11.XCloseDisplay(display)

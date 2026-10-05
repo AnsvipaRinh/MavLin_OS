@@ -19,6 +19,7 @@ for _p in (LIBDIR, os.path.join(SCRIPT_DIR, "..", "lib")):
 
 import mission_control
 import mission_control_thumbnail
+import mission_control_previews
 
 # GTK is only required for the default UI mode; --list/--debug/--activate
 # stay usable on headless systems.
@@ -71,7 +72,7 @@ if _GTK_OK:
       text-shadow: 0 1px 3px #000;
       padding: 0;
     }
-    .mav-workspace-button { background-color: rgba(30,31,33,0.35); color:#d8d8d8; border:1px solid transparent; border-radius:2px; padding:4px; min-width:132px; }
+    .mav-workspace-button { background-color: rgba(30,31,33,0.35); color:#d8d8d8; border:1px solid transparent; border-radius:2px; padding:4px; min-width:136px; }
     .mav-workspace-button:checked { background-color:rgba(45,46,49,0.65); color:#fff; border-color:rgba(255,255,255,0.72); }
     .mav-workspace-button:hover { border-color:rgba(255,255,255,0.35); }
     .mav-workspace-button:checked:hover { border-color:rgba(255,255,255,0.85); }
@@ -80,7 +81,7 @@ if _GTK_OK:
     .mav-workspace-button:hover .mav-workspace-close { opacity:1; }
     .mav-workspace-close { opacity:0; min-width:18px; min-height:18px; padding:0; border:0; background:transparent; color:#ddd; font-size:12px; }
     .mav-workspace-button.mav-drop-target { background-color:rgba(100,125,160,0.98); border-color:rgba(255,255,255,0.95); box-shadow:0 0 0 2px rgba(255,255,255,0.32); }
-    .mav-workspace-preview { min-height:46px; }
+    .mav-workspace-preview { min-height:80px; }
     .mav-workspace-label { color:#e4e4e4; font-size:11px; font-weight:600; }
     .mav-workspace-count { color:#9b9b9b; font-size:10px; }
     .mav-hint { color:#8f9399; font-size:11px; }
@@ -102,9 +103,15 @@ if _GTK_OK:
         hidden = "_NET_WM_STATE_HIDDEN" in state
         mapped = bool(window.get("mapped", False))
         active = win_id == active_id
-        # Active first, then currently viewable windows, then hidden/minimized ones.
-        # Preserve enumeration order within the same class via stable sorting.
-        return (0 if active else 1 if mapped and not hidden else 2)
+        geo = window.get("geometry") or {}
+        try:
+            area = int(geo.get("width", 0)) * int(geo.get("height", 0))
+        except (TypeError, ValueError):
+            area = 0
+        # Largest, currently viewable windows define a Space's miniature;
+        # the active window is always kept. Preview compositing caps the
+        # window count (§7), so ordering decides what survives the cap.
+        return (0 if active else 1, 0 if mapped and not hidden else 1, -area)
 
 
     class Overview(Gtk.Window):
@@ -139,6 +146,7 @@ if _GTK_OK:
             self._cards = []
             self._selected_index = -1
             self._workspace_buttons = []
+            self._workspace_preview_pixbufs = {}
             self._expanded_groups = set()
             self._build()
 
@@ -147,6 +155,7 @@ if _GTK_OK:
             workspaces = mission_control.get_workspaces()
             active = mission_control.get_active_window() or {}
             active_id = str(active.get("win_id", "")).lower()
+            screen = self.get_screen()
 
             # Mavericks keeps the Spaces strip at the top without an extra
             # application title/header inside Mission Control.
@@ -163,6 +172,33 @@ if _GTK_OK:
                 if desktop >= count:
                     continue
                 by_desktop[desktop].append(win)
+
+            # Mavericks Spaces strip: one live-composed miniature per Space
+            # (one-shot window captures at scaled positions over the
+            # desktop background; empty Spaces show the bare desktop).
+            screen_geom = screen.get_monitor_geometry(0) if screen.get_n_monitors() > 0 else None
+            screen_w = screen_geom.width if screen_geom else 1440
+            screen_h = screen_geom.height if screen_geom else 900
+            sorted_by_desktop = {
+                desk: sorted(
+                    wins,
+                    key=lambda win: _preview_priority(win, active_id),
+                )
+                for desk, wins in by_desktop.items()
+            }
+
+            def _capture_for_preview(win_id, size):
+                try:
+                    return mission_control_thumbnail.capture_window(
+                        int(str(win_id), 0), size)
+                except Exception:
+                    return None
+
+            workspace_previews = mission_control_previews.build_workspace_previews(
+                sorted_by_desktop, screen_w, screen_h, (128, 80),
+                capture_fn=_capture_for_preview, desktop_count=count,
+            )
+            self._workspace_preview_pixbufs = workspace_previews
 
             for desktop in range(count):
                 label = names[desktop] if desktop < len(names) else f"Desktop {desktop + 1}"
@@ -183,17 +219,15 @@ if _GTK_OK:
                 button_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
                 preview_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
                 preview_row.get_style_context().add_class("mav-workspace-preview")
-                preview_windows = sorted(
-                    by_desktop[desktop],
-                    key=lambda win: _preview_priority(win, active_id),
-                )[:3]
-                for preview_win in preview_windows:
-                    preview = self._make_workspace_preview(preview_win)
-                    preview_row.pack_start(preview, True, True, 0)
-                if not by_desktop[desktop]:
-                    empty_preview = Gtk.Label(label="—")
-                    empty_preview.get_style_context().add_class("mav-muted")
-                    preview_row.pack_start(empty_preview, True, True, 0)
+                preview_pixbuf = workspace_previews.get(desktop)
+                if preview_pixbuf is not None:
+                    preview_image = Gtk.Image.new_from_pixbuf(preview_pixbuf)
+                else:
+                    # Preview compositor unavailable (no GdkPixbuf path):
+                    # labelled empty placeholder keeps the Space clickable.
+                    preview_image = Gtk.Label(label="—")
+                    preview_image.get_style_context().add_class("mav-muted")
+                preview_row.pack_start(preview_image, True, True, 0)
 
                 text_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
                 name_label = Gtk.Label(label=label)
@@ -403,22 +437,6 @@ if _GTK_OK:
                 self._build()
                 return False
             GLib.timeout_add(100, refresh)
-
-        def _make_workspace_preview(self, win):
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-            wid = win.get("win_id")
-            pixbuf = None
-            try:
-                pixbuf = mission_control_thumbnail.capture_window(int(str(wid), 0), (82, 46))
-            except Exception:
-                pixbuf = None
-            if pixbuf is not None:
-                image = Gtk.Image.new_from_pixbuf(pixbuf)
-            else:
-                image = Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.MENU)
-            image.set_size_request(82, 46)
-            box.pack_start(image, True, True, 0)
-            return box
 
         def _on_window_drag_data_get(self, _widget, _context, selection, _info, _time, win_id):
             if win_id:

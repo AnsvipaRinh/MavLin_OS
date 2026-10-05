@@ -1,7 +1,7 @@
 # Mission Control — Dedicated Window-Overview Layer Plan
 
-**Status:** IMPLEMENTATION — O1/O2 complete; O3 thumbnail backend implemented  
-**Date:** 2026-10-05  
+**Status:** IMPLEMENTATION — O1–O5 complete; O6 in progress  
+**Date:** 2026-10-06  
 **Trigger:** Owner issue #1 — major work starts with DESIGN: target architecture + migration boundary first, implementation after.  
 **Baseline:** `packages/mavericks-apps/src/mavericks-apps/bin/mv-mission-control` (wmctrl+rofi) + `configs/profiles/experiments/E-MC-skippy-xd.sh` (skippy-xd one-shot, not in ISO).
 
@@ -247,14 +247,16 @@ Each objective is independently testable. Do not proceed to N+1 until N passes i
 
 **Implementation:** EWMH `_NET_CURRENT_DESKTOP` + `_NET_NUMBER_OF_DESKTOPS`; workspace thumbnails via same XComposite capture.
 
-**Acceptance criteria:**  
-- [ ] Shows all workspaces as thumbnails at top of overview  
-- [ ] Active workspace highlighted  
-- [ ] Clicking workspace thumbnail switches to it  
-- [ ] Empty workspaces shown as empty placeholders  
-- [ ] Workspace count matches wmctrl -d  
+**Status:** IMPLEMENTED — HARDWARE VALIDATION REQUIRED (2026-10-06). The Spaces strip renders one composed miniature per Space (`lib/mission_control_previews.py`): one-shot `capture_window()` snapshots of that desktop's windows placed at scaled geometries over the scaled Mavericks wallpaper (solid fallback). Empty Spaces show the bare desktop (placeholder contract). Uncapturable windows degrade to grey placeholder tiles. One-shot only: while the overview is open each Space costs a handful of single captures; closed → zero processes/redirects/timers (§7).
 
-**Test:** `scripts/test-mc-workspaces.py` — Xvfb + multiple workspaces, verify switching.
+**Acceptance criteria:**
+- [x] Shows all workspaces as thumbnails at top of overview — composed per-Space miniature (128×80) in the strip; verified on Xvfb :97 (pixel-level) and xfwm4/:97 (widget-level)
+- [x] Active workspace highlighted — ToggleButton `:checked` state; verified against `_NET_CURRENT_DESKTOP`
+- [x] Clicking workspace thumbnail switches to it — verified on xfwm4/:97 (real EWMH switch, `wmctrl -d` agreement)
+- [x] Empty workspaces shown as empty placeholders — background-only preview, no placeholder tiles; pixel-verified
+- [x] Workspace count matches wmctrl -d — property-driven parity check for 1/2/3 desktops + xfwm4 run
+
+**Test:** `packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_workspaces.py` (9 tests: 6 headless layout/collage + 2 Xvfb :97 integration + 1 xfwm4/:97 widget acceptance).
 
 ### O6: Transitions (animation)
 
