@@ -26,8 +26,8 @@ mv-mc-gui
 
 - [`docs/KEYBOARD.md`](docs/KEYBOARD.md) — Complete keyboard reference
 - [`docs/MISSION_CONTROL.md`](docs/MISSION_CONTROL.md) — Mission Control implementation guide
-- [`docs/INSTALL.md`](docs/INSTALL.md) — Installation instructions
-- [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — Common issues and fixes
+- [`docs/INSTALLATION_CONTRACT.md`](docs/INSTALLATION_CONTRACT.md) — Current installation/firstboot contract
+- [`docs/HARDWARE.md`](docs/HARDWARE.md) — Hardware profiles and validation scope
 
 ## Testing
 
@@ -95,15 +95,11 @@ GPL-3.0-or-later
 
 ## Status
 
-✅ Mission Control (full implementation)
-✅ Spaces management (1-16)
-✅ Mavericks theme
-✅ Keyboard shortcuts
-✅ Documentation
-✅ Test coverage
-✅ CI gates
-
-🚧 In progress: Animations, multi-monitor, touchpad gestures
+- Mission Control: native GTK overview implemented; keyboard navigation and window/workspace interaction are implemented; hardware visual/thumbnail validation remains.
+- Spaces management: 1–16 workspaces with add/remove/switch support.
+- Mavericks theme: implemented in the current Xfce/GTK3 stack.
+- Keyboard shortcuts: implemented and contract-tested.
+- Automated tests and CI gates: present; hardware-dependent behavior remains explicitly marked.
 
 
 ## Installation status
