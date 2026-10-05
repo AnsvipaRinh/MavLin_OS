@@ -8,6 +8,16 @@
 set -uo pipefail
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_DIR"
+
+# GUI isolation first: the dev host is WSLg (DISPLAY=:0 + WAYLAND_DISPLAY
+# both forward to the Windows desktop), so every test-mv-*.py GUI smoke with
+# HAS_DISPLAY=true would pop real windows on the user's desktop.  Pin a
+# dedicated Xvfb and arm the fail-loud host-display guard before any suite.
+source "$REPO_DIR/scripts/gui-isolation.sh"
+mv_gui_isolate
+mv_gui_pin_display
+echo "GUI isolation: DISPLAY=${DISPLAY:-unset} WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset} GDK_BACKEND=${GDK_BACKEND:-unset} guard=on"
+
 FAIL=0
 bad() { echo "FAIL: $*"; FAIL=1; }
 ok()  { echo "OK: $*"; }
@@ -167,7 +177,13 @@ for suite in scripts/test-mv-*.py; do
     timeout 60 python3 "$suite" >"$MV_SUITE_OUT" 2>&1
     rc=$?
     out="$(cat "$MV_SUITE_OUT")"
-    if [ $rc -eq 0 ]; then
+    # Host-display attempts must FAIL the gate loudly, never be counted as
+    # a pass or an unported skip (the guard exits the suite with rc 125).
+    if printf '%s' "$out" | grep -q 'HOST-DISPLAY-BLOCKED'; then
+        bad "app suite $suite (host display attempt blocked by guard)"
+        printf '%s' "$out" | grep 'HOST-DISPLAY-BLOCKED' | sed 's/^/    | /'
+        MV_SUITES_BAD=$((MV_SUITES_BAD+1))
+    elif [ $rc -eq 0 ]; then
         MV_SUITES_PASS=$((MV_SUITES_PASS+1))
     elif printf '%s' "$out" | grep -q '^ok - '; then
         bad "app suite $suite (assertions FAILED)"
@@ -183,6 +199,12 @@ done
 rm -f "$MV_SUITE_OUT"
 if [ $MV_SUITES_BAD -eq 0 ]; then
     ok "app suites: ${MV_SUITES_PASS} passed, ${MV_SUITES_SKIP} skipped (unported), 0 failed"
+fi
+
+# Count guard violations across every suite/smoke that ran in this process
+# (the guard appends HOST-DISPLAY-BLOCKED lines to $MV_GUARD_LOG).
+if ! mv_gui_report; then
+    FAIL=1
 fi
 
 echo "--- P1-M1 firefox seed: profiles.ini activates mavericks.default ---"

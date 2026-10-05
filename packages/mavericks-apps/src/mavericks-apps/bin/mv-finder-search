@@ -263,19 +263,33 @@ def zoom_step(size, delta):
 
 
 def load_icon_pixbuf(name, size):
-    """Pixbuf for an icon name; falls back to text-x-generic, never raises."""
+    """Pixbuf at exactly `size`; falls back to text-x-generic, never raises.
+
+    Icons inherited from hicolor/Adwaita are often 16px-only bitmaps and
+    GTK3 does not upscale them, which made Ctrl+= zoom a visual no-op (the
+    Mavericks theme ships no folder/text-x-generic of its own). Scale the
+    lookup result ourselves so Finder zoom always changes icon size.
+    """
+    def fit(pb):
+        if pb is not None and (pb.get_width() != size
+                               or pb.get_height() != size):
+            scaled = pb.scale_simple(size, size, _Pixbuf.InterpType.BILINEAR)
+            if scaled is not None:
+                return scaled
+        return pb
+
     try:
         Gtk, _Gdk, _GLib, _Gio, _Pixbuf = _gtk()
         theme = Gtk.IconTheme.get_default()
         if theme is not None:
             try:
-                return theme.load_icon(name, size,
-                                       Gtk.IconLookupFlags.GENERIC_FALLBACK)
+                return fit(theme.load_icon(name, size,
+                                           Gtk.IconLookupFlags.GENERIC_FALLBACK))
             except Exception:
                 pass
             try:
-                return theme.load_icon("text-x-generic", size,
-                                       Gtk.IconLookupFlags.GENERIC_FALLBACK)
+                return fit(theme.load_icon("text-x-generic", size,
+                                           Gtk.IconLookupFlags.GENERIC_FALLBACK))
             except Exception:
                 pass
     except Exception:

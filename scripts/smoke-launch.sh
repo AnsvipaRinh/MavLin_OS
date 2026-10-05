@@ -47,8 +47,17 @@ if ! python3 -c "import gi; gi.require_version('Gtk', '3.0')" 2>/dev/null; then
     exit 0
 fi
 
+# Host-display isolation (WSLg leak): capture+forbid the ambient host
+# DISPLAY, unset WAYLAND_DISPLAY, and arm the fail-loud guard so any child
+# that tries the host display dies with HOST-DISPLAY-BLOCKED instead of
+# popping a window on the Windows desktop.  The actual display comes from
+# xvfb-run below (already Xvfb-only; never the host).
+source "$REPO/scripts/gui-isolation.sh"
+mv_gui_isolate
+
 # Apps import the shared runner from /usr/share/mavericks-apps first; when
 # that install is absent (CI, fresh checkout) fall back to the repo copy.
+# gui-isolation.sh already prepends scripts/gui-guard (sitecustomize.py).
 export PYTHONPATH="$REPO/packages/mavericks-apps/src/mavericks-apps/lib${PYTHONPATH:+:$PYTHONPATH}"
 
 # MavLinOS targets X11 (Xfce/xfwm4). The dev host exposes a Wayland
@@ -63,7 +72,7 @@ export GDK_BACKEND=x11
 SMOKE_TMP="$(mktemp -d)"
 printf 'smoke launch file\n' >"$SMOKE_TMP/smoke-file.txt"
 cleanup_tmp() { rm -rf "$SMOKE_TMP"; }
-trap cleanup_tmp EXIT
+trap 'cleanup_tmp; mv_gui_cleanup' EXIT
 
 kill_group() {
     # $1 = leader pid (setsid'ed xvfb-run). Reap the whole session.
@@ -164,7 +173,15 @@ for app in "$@"; do
     wait "$job" 2>/dev/null
     sleep 0.4  # let buffered stderr land in the log before grepping
 
-    if grep -q "Traceback" "$log"; then
+    if grep -q "HOST-DISPLAY-BLOCKED" "$log"; then
+        echo "FAIL - smoke $app: host display attempt blocked by guard"
+        grep "HOST-DISPLAY-BLOCKED" "$log" | sed 's/^/      /'
+        kill_group "$job"
+        wait "$job" 2>/dev/null
+        rm -f "$log"
+        FAILURES=$((FAILURES + 1))
+        continue
+    elif grep -q "Traceback" "$log"; then
         echo "FAIL - smoke $app: traceback during launch"
         sed -n '1,20p' "$log" | sed 's/^/      /'
         FAILURES=$((FAILURES + 1))

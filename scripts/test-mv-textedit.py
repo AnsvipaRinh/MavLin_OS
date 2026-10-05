@@ -82,7 +82,10 @@ def app_pids():
 def launch():
     """Launch the real app in its own session, like a desktop launch."""
     env = dict(os.environ)
-    env.setdefault("GDK_BACKEND", "wayland")
+    # Target session is X11/Xfce. Defaulting to "wayland" put this app on
+    # the WSLg host compositor (= the user's Windows desktop) whenever
+    # GDK_BACKEND was unset; scripts/gui-isolation.sh forbids that too.
+    env.setdefault("GDK_BACKEND", "x11")
     return subprocess.Popen(
         [sys.executable, APP_PATH],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,

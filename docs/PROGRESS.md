@@ -1,6 +1,43 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-05 (CI gate honesty pass + external-port execution)
+**Last Updated**: 2026-10-05 (GUI-test host-display isolation — zero Windows popups)
+
+---
+
+## Session 2026-10-05 (headless slice) — GUI tests never touch the host display
+
+**Pain**: on the WSLg dev host (`DISPLAY=:0` + `WAYLAND_DISPLAY=wayland-0`
+both forward to the Windows desktop) every `test-mv-*.py` GUI smoke saw
+`HAS_DISPLAY=true` and popped dozens of real windows on the user's desktop
+during test runs.
+
+**Isolation (harness-level, `scripts/gui-isolation.sh` + `scripts/gui-guard/`):**
+- `mv_gui_isolate` captures the ambient host display as FORBIDDEN, unsets
+  `WAYLAND_DISPLAY`, forces `GDK_BACKEND=x11`, arms a `sitecustomize.py`
+  fail-loud guard (`HOST-DISPLAY-BLOCKED`, exit 125) on `PYTHONPATH`;
+- `mv_gui_pin_display` pins all suites to a dedicated local Xvfb `:97`
+  (explicit number + real `xwininfo` readiness — WSLg mounts
+  `/tmp/.X11-unix` read-only, so `-S` socket tests and `-displayfd`
+  startup are unusable there); headless hosts fall back to skipped GUI;
+- wired into `scripts/check-sync.sh` (isolation banner + per-suite
+  violation FAIL + `host-display guard: 0 attempts` gate) and
+  `scripts/smoke-launch.sh` (forbidden host display + guard + per-app
+  violation FAIL).
+- `scripts/test-mv-textedit.py` no longer `setdefault`s `GDK_BACKEND=wayland`
+  (that pinned the app to the Windows-side compositor).
+
+**Exposed + fixed product bug**: with x11 the target config wins
+(`settings.ini` → Mavericks icon theme, which inherits `folder`/
+`text-x-generic` at 16px only; GTK3 does not upscale) → Finder-search
+Ctrl+= zoom was a visual no-op. `mv-finder-search` `load_icon_pixbuf()`
+now scales lookup results to the requested size.
+
+**Evidence**: full `scripts/check-sync.sh` green (`ALL CHECKS PASSED`,
+34/34 app suites, 34-window smoke, guard `0 attempts`, banner
+`DISPLAY=:97 WAYLAND_DISPLAY=unset GDK_BACKEND=x11`); host `:0` sampled
+via `xwininfo -root -children` before/during/after the run — 0 `mv-*`
+windows on host vs test windows present on `:97`. User-side acceptance
+(zero popups observed) happens on the next real run.
 
 ---
 
