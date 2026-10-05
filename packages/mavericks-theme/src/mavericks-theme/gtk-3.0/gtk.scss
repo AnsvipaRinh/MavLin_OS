@@ -618,6 +618,53 @@ aboutdialog {
    Keep this block last so it wins over generic theme defaults.
    ============================================================ */
 
+/* Base controls: exact Poppy geometry/shadows */
+button,
+button:active,
+button:checked {
+    padding: 0 4px;
+    min-height: 19px;
+    border: 1px solid rgba(0,0,0,0.34);
+    border-radius: 4px;
+    box-shadow: 0 1px rgba(0,0,0,0.06),
+                inset 0 1px rgba(255,255,255,0.35),
+                inset 1px 0 rgba(255,255,255,0.35),
+                inset -1px 0 rgba(255,255,255,0.35),
+                inset 0 -1px rgba(255,255,255,0.35);
+    background-image: linear-gradient(to bottom, #fff, #f2f2f2 50%, #ededed 50%, #f2f2f2);
+    background-color: transparent;
+    color: #000;
+}
+
+button:hover {
+    background-image: linear-gradient(to bottom, #fff, #f5f5f5 50%, #f0f0f0 50%, #f5f5f5);
+}
+
+button:active,
+button:checked {
+    box-shadow: 0 1px rgba(0,0,0,0.06),
+                inset 0 1px rgba(255,255,255,0.17),
+                inset 1px 0 rgba(255,255,255,0.17),
+                inset -1px 0 rgba(255,255,255,0.17),
+                inset 0 -1px rgba(255,255,255,0.17);
+    background-image: linear-gradient(to bottom, #e1e1e1, #d6d6d6 50%, #d0d0d0 50%, #d5d5d5);
+}
+
+button:focus,
+button:active:focus,
+button:checked:focus {
+    border: 1px solid #6a9ecf;
+    box-shadow: 0 1px rgba(0,0,0,0.06),
+                inset 0 1px rgba(255,255,255,0.35),
+                inset 1px 0 rgba(255,255,255,0.35),
+                inset -1px 0 rgba(255,255,255,0.35),
+                inset 0 -1px rgba(255,255,255,0.35),
+                0 0 2px #71a5d6,
+                0 0 2px #71a5d6,
+                inset 0 0 2px #71a5d6,
+                inset 0 0 2px #71a5d6;
+}
+
 /* Flat Mavericks entries: exact Poppy geometry/shadows */
 entry,
 spinbutton,
@@ -848,6 +895,7 @@ scrollbar.overlay-indicator slider {
 
 /* Compact Mavericks switches */
 switch {
+    transition: all 0.3s cubic-bezier(0,0,0.2,1);
     min-width: 18px;
     min-height: 18px;
     border-radius: 100px;
@@ -861,8 +909,12 @@ switch trough {
     border: none;
 }
 
-switch:checked trough {
+switch:checked {
     background-color: #71c837;
+}
+
+switch:checked trough {
+    background-color: transparent;
 }
 
 switch slider {
@@ -870,22 +922,44 @@ switch slider {
     min-height: 18px;
     margin: 2px 0 2px 3px;
     border-radius: 100px;
+    background-color: #fcfcfc;
+    color: rgba(0,0,0,0.1);
+    border: none;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+}
+
+switch:hover slider {
+    box-shadow: 0 3px 3px rgba(0,0,0,0.16), 0 3px 3px rgba(0,0,0,0.23);
+}
+
+switch:checked slider {
+    margin: 2px 3px 2px 0;
     background-color: #fff;
-    border: 1px solid rgba(0,0,0,0.2);
+    color: #71c837;
 }
 
 /* Mavericks metallic slider */
-scale slider {
+scale slider,
+scale slider:active {
     min-width: 15px;
     min-height: 15px;
     border-radius: 25px;
     background-image: linear-gradient(to bottom, #fff, #f2f2f2 50%, #ededed 50%, #f2f2f2);
-    border: 1px solid rgba(0,0,0,0.25);
+    border: 1px solid rgba(0,0,0,0.34);
+    box-shadow: 0 1px rgba(0,0,0,0.06),
+                inset 0 1px rgba(255,255,255,0.35),
+                inset 1px 0 rgba(255,255,255,0.35),
+                inset -1px 0 rgba(255,255,255,0.35),
+                inset 0 -1px rgba(255,255,255,0.35);
 }
 
 scale trough {
+    border-radius: 3px;
     background-image: linear-gradient(to bottom, #a8a8a8, #f5f5f5);
-    border: 1px solid rgba(0,0,0,0.18);
+    box-shadow: inset 0 1px rgba(0,0,0,0.2),
+                inset 1px 0 rgba(0,0,0,0.16),
+                inset -1px 0 rgba(0,0,0,0.16),
+                inset 0 -1px rgba(0,0,0,0.18);
 }
 
 /* Mavericks window shadow */
