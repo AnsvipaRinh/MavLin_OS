@@ -10,7 +10,7 @@ import sys
 try:
     import gi
     gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, Gdk, GLib
+    from gi.repository import Gtk, Gdk, GLib, Pango
 except ImportError:
     raise SystemExit("GTK3/PyGObject is required")
 
@@ -42,7 +42,7 @@ window.mav-mc {
   border-radius: 8px;
   padding: 6px;
 }
-.mav-card:hover {
+.mav-card.mav-selected { background-color: rgba(72, 104, 145, 0.98); border-color: rgba(255,255,255,0.78); box-shadow: 0 0 0 2px rgba(255,255,255,0.22); }\n.mav-card:hover {
   background-color: rgba(70, 72, 78, 0.98);
   border-color: rgba(255,255,255,0.38);
 }
@@ -50,7 +50,7 @@ window.mav-mc {
   color: #eeeeee;
   font-size: 12px;
 }
-.mav-muted {
+.mav-workspace-button { background-color: rgba(45,47,52,0.88); color:#d8d8d8; border:1px solid rgba(255,255,255,0.10); border-radius:6px; padding:5px 12px; }\n.mav-workspace-button:checked { background-color:rgba(80,96,118,0.98); color:#fff; border-color:rgba(255,255,255,0.45); }\n.mav-hint { color:#8f9399; font-size:11px; }\n.mav-muted {
   color: #9b9b9b;
   font-size: 11px;
 }
@@ -98,10 +98,10 @@ class Overview(Gtk.Window):
         active = mission_control.get_active_window() or {}
         active_id = str(active.get("win_id", "")).lower()
 
-        header = Gtk.Label(label="Mission Control")
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)\n        self.box.pack_start(header_row, False, False, 0)\n        header = Gtk.Label(label="Mission Control")
         header.set_xalign(0)
         header.get_style_context().add_class("mav-header")
-        self.box.pack_start(header, False, False, 0)
+        header_row.pack_start(header, False, False, 0)\n        workspace_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)\n        header_row.pack_end(workspace_bar, False, False, 0)\n        count = max(1, int(workspaces.get("count", 1)))\n        current = int(workspaces.get("current", 0))\n        names = workspaces.get("names", [])\n        for desktop in range(count):\n            label = names[desktop] if desktop < len(names) else f"Desktop {desktop + 1}"\n            button = Gtk.ToggleButton(label=label)\n            button.set_can_focus(True)\n            button.get_style_context().add_class("mav-workspace-button")\n            button.set_active(desktop == current)\n            button.connect("clicked", self._switch_workspace, desktop)\n            workspace_bar.pack_start(button, False, False, 0)\n            self._workspace_buttons.append(button)\n        hint = Gtk.Label(label="← ↑ ↓ → / Tab: select   Enter: open   Esc: close")\n        hint.set_xalign(0)\n        hint.get_style_context().add_class("mav-hint")\n        self.box.pack_start(hint, False, False, 0)
 
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -150,7 +150,7 @@ class Overview(Gtk.Window):
                 cols = 1 if len(items) <= 2 else (2 if len(items) <= 6 else 3)
                 for index, win in enumerate(items):
                     card = self._make_card(win, win.get("win_id", "").lower() == active_id)
-                    grid.attach(card, index % cols, index // cols, 1, 1)
+                    grid.attach(card, index % cols, index // cols, 1, 1)\n                    self._cards.append((card, win.get("win_id")))
 
             content.pack_start(section, False, False, 0)
 
@@ -158,7 +158,7 @@ class Overview(Gtk.Window):
 
     def _make_card(self, win, is_active):
         event = Gtk.EventBox()
-        event.set_visible_window(True)
+        event.set_visible_window(True)\n        event.set_can_focus(True)
         event.get_style_context().add_class("mav-card")
         event.set_tooltip_text(_safe_title(win))
         event.connect("button-release-event", self._activate, win.get("win_id"))
@@ -184,7 +184,7 @@ class Overview(Gtk.Window):
 
         title = Gtk.Label(label=("• " if is_active else "") + _safe_title(win))
         title.set_xalign(0)
-        title.set_ellipsize(3)
+        title.set_ellipsize(Pango.EllipsizeMode.END)
         title.get_style_context().add_class("mav-title")
         box.pack_start(title, False, False, 0)
 
@@ -212,9 +212,23 @@ class Overview(Gtk.Window):
         key = Gdk.keyval_name(event.keyval)
         if key in ("Escape", "q"):
             self.destroy()
-            return False
+            return True
+        if key in ("Return", "KP_Enter"):
+            return self._activate_selected()
+        if key in ("Right", "Down", "Tab"):
+            if self._cards:
+                self._select_card(self._selected_index + 1)
+                return True
+        if key in ("Left", "Up"):
+            if self._cards:
+                self._select_card(self._selected_index - 1)
+                return True
+        if key and key.isdigit():
+            desktop = int(key) - 1
+            if 0 <= desktop < len(self._workspace_buttons):
+                self._workspace_buttons[desktop].set_active(True)
+                return True
         return False
-
 
 def main():
     overview = Overview()
