@@ -51,9 +51,11 @@ window.mav-mc {
   color: #eeeeee;
   font-size: 12px;
 }
-.mav-workspace-button { background-color: rgba(38,40,45,0.90); color:#d8d8d8; border:1px solid rgba(255,255,255,0.13); border-radius:7px; padding:5px 10px; min-width:90px; }
+.mav-workspace-button { background-color: rgba(38,40,45,0.90); color:#d8d8d8; border:1px solid rgba(255,255,255,0.13); border-radius:7px; padding:5px; min-width:132px; }
 .mav-workspace-button:checked { background-color:rgba(82,101,128,0.98); color:#fff; border-color:rgba(255,255,255,0.58); }
-.mav-workspace-count { color:#8f9399; font-size:10px; }
+.mav-workspace-preview { min-height:46px; }
+.mav-workspace-label { color:#e4e4e4; font-size:11px; font-weight:600; }
+.mav-workspace-count { color:#9b9b9b; font-size:10px; }
 .mav-hint { color:#8f9399; font-size:11px; }
 .mav-muted {
   color: #9b9b9b;
@@ -362,7 +364,9 @@ class Overview(Gtk.Window):
 
 def main():
     overview = Overview()
+    overview.set_opacity(0.0)
     overview.show_all()
+    GLib.timeout_add(16, overview._fade_in)
     Gtk.main()
     return 0
 
