@@ -8,7 +8,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PROFILE_CONF="/etc/mavericks/profile.conf"
-MANIFEST_DIR="$REPO_ROOT/configs/profiles"
+
+# Installed images keep the profile store outside the source tree. Prefer it
+# whenever present; retain the source-tree fallback for developer/manual use.
+INSTALLED_PROFILE_STORE="/usr/local/share/mavericks/profiles"
+if [[ -d "$INSTALLED_PROFILE_STORE" ]]; then
+    MANIFEST_DIR="$INSTALLED_PROFILE_STORE"
+else
+    MANIFEST_DIR="$REPO_ROOT/configs/profiles"
+fi
 LOG_TAG="[profile-select]"
 
 log() { echo "$LOG_TAG $*"; }
