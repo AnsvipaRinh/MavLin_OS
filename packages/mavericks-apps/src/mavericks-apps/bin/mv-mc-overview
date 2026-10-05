@@ -53,6 +53,7 @@ window.mav-mc {
 }
 .mav-workspace-button { background-color: rgba(38,40,45,0.90); color:#d8d8d8; border:1px solid rgba(255,255,255,0.13); border-radius:7px; padding:5px; min-width:132px; }
 .mav-workspace-button:checked { background-color:rgba(82,101,128,0.98); color:#fff; border-color:rgba(255,255,255,0.58); }
+.mav-workspace-add { background-color: rgba(38,40,45,0.90); color:#e4e4e4; border:1px solid rgba(255,255,255,0.13); border-radius:7px; min-width:34px; min-height:34px; font-size:18px; }
 .mav-workspace-button.mav-drop-target { background-color:rgba(100,125,160,0.98); border-color:rgba(255,255,255,0.95); box-shadow:0 0 0 2px rgba(255,255,255,0.32); }
 .mav-workspace-preview { min-height:46px; }
 .mav-workspace-label { color:#e4e4e4; font-size:11px; font-weight:600; }
@@ -187,6 +188,15 @@ class Overview(Gtk.Window):
             button.add(button_box)
             workspace_bar.pack_start(button, False, False, 0)
             self._workspace_buttons.append(button)
+
+        # Mavericks Spaces exposes an Add Desktop control in the Spaces bar.
+        add_button = Gtk.Button(label="+")
+        add_button.set_can_focus(True)
+        add_button.set_tooltip_text("Add Desktop")
+        add_button.get_style_context().add_class("mav-workspace-add")
+        add_button.connect("clicked", self._add_workspace)
+        workspace_bar.pack_start(add_button, False, False, 0)
+
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.box.pack_start(scrolled, True, True, 0)
@@ -248,6 +258,14 @@ class Overview(Gtk.Window):
             self.destroy()
             return True
         return False
+
+    def _add_workspace(self, _button):
+        workspaces = mission_control.get_workspaces()
+        count = max(1, int(workspaces.get("count", 1)))
+        if count >= 16:
+            return
+        if mission_control.set_workspace_count(count + 1):
+            self._refresh_after_workspace_switch()
 
     def _switch_workspace(self, button, desktop):
         if not button.get_active():
