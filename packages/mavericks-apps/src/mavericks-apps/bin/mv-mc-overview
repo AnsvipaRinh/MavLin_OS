@@ -24,7 +24,7 @@ import mission_control_thumbnail
 
 CSS = """
 window.mav-mc {
-  background-color: rgba(18, 20, 24, 0.94);
+  background-color: #3b3c3f;
 }
 .mav-header {
   color: #f2f2f2;
@@ -256,28 +256,29 @@ class Overview(Gtk.Window):
 
             cols = 1 if len(groups) <= 2 else (2 if len(groups) <= 6 else 3)
             for group_index, (group_key, group_windows) in enumerate(groups):
-                group_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+                group_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
                 group_box.get_style_context().add_class("mav-app-group")
+
+                # Mavericks presents grouped windows as a compact stack.
+                stack = Gtk.Fixed()
+                visible_count = min(len(group_windows), 6)
+                stack.set_size_request(250 + 18 * max(0, visible_count - 1), 178 + 18 * max(0, visible_count - 1))
+                for card_index, win in enumerate(group_windows[:6]):
+                    card = self._make_card(win, win.get("win_id", "").lower() == active_id)
+                    offset = 18 * card_index
+                    stack.put(card, offset, offset)
+                    self._cards.append((card, win.get("win_id")))
+                group_box.pack_start(stack, False, False, 0)
+
+                # Mavericks identifies a grouped application beneath the cluster.
                 heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+                heading.set_halign(Gtk.Align.CENTER)
                 icon = self._application_icon(group_windows[0])
                 heading.pack_start(icon, False, False, 0)
                 app_label = Gtk.Label(label=self._application_name(group_windows[0]))
-                app_label.set_xalign(0)
                 app_label.get_style_context().add_class("mav-app-heading")
-                heading.pack_start(app_label, True, True, 0)
+                heading.pack_start(app_label, False, False, 0)
                 group_box.pack_start(heading, False, False, 0)
-
-                # Keep windows belonging to one application visually compact.
-                # Mavericks groups them as a single application cluster rather
-                # than giving every window a full-width top-level column.
-                cards_grid = Gtk.Grid()
-                cards_grid.set_column_spacing(14)
-                cards_grid.set_row_spacing(14)
-                for card_index, win in enumerate(group_windows):
-                    card = self._make_card(win, win.get("win_id", "").lower() == active_id)
-                    cards_grid.attach(card, card_index % 2, card_index // 2, 1, 1)
-                    self._cards.append((card, win.get("win_id")))
-                group_box.pack_start(cards_grid, False, False, 0)
                 grid.attach(group_box, group_index % cols, group_index // cols, 1, 1)
 
         self.show_all()
@@ -432,7 +433,7 @@ class Overview(Gtk.Window):
         )
         event.connect("drag-data-get", self._on_window_drag_data_get, win.get("win_id"))
 
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         box.set_size_request(250, 178)
 
         pixbuf = None
@@ -450,12 +451,8 @@ class Overview(Gtk.Window):
             image.set_size_request(238, 134)
 
         box.pack_start(image, True, True, 0)
-
-        title = Gtk.Label(label=("• " if is_active else "") + _safe_title(win))
-        title.set_xalign(0)
-        title.set_ellipsize(Pango.EllipsizeMode.END)
-        title.get_style_context().add_class("mav-title")
-        box.pack_start(title, False, False, 0)
+        # Window titles remain available through the tooltip and keyboard selection;
+        # Mavericks does not render a modern card caption inside the grouped stack.
 
         event.add(box)
         return event
