@@ -626,3 +626,56 @@ double the tree and diverge from the current source layout).
   was stale — `xfce4-desktop.xml` (home/trash/removable, wallpaper) exists
   and is gated by `test-desktop-icons`. Real remaining gap: no
   xfce4-session customization.
+
+
+---
+
+## Session 2026-10-05 (late) — launch-smoke honesty + app fixes
+
+**Launch smoke measures the app, not the wrapper.** `smoke-launch.sh`
+now tracks the `python3|bash <script>` process itself and reaps each
+launch as a process group under `setsid`. Why: watching xvfb-run made
+Xvfb startup/teardown latency the verdict (locally ~3-4 s > SMOKE_STAY=3
+→ false "stayed up", which hid `mv-colormeter`'s missing `__main__` call
+for weeks), and `kill xvfb-run` leaked Xvfb/python children (117 on the
+dev host) until `-a` display allocation failed and later apps "never
+started". Verified: 0 Xvfb leftovers after a full gate run.
+
+**File-taking Gtk.Application apps strip argv.** Convention: capture
+`sys.argv[1:]` first, then `app.run([sys.argv[0]])`. Why: GApplication
+without `HANDLES_OPEN` aborts positional args with "This application can
+not open files" before `activate` runs (hit `mv-preview` with FILE and
+`mv-finder-columns` with FOLDER). Future (P1): implement a real
+`HANDLES_OPEN`/forwarder so a second invocation of an already-running
+Preview passes new files to the primary instance instead of only
+presenting the first window.
+
+**Notification Center closes on focus-out only after a real focus.**
+A synthetic focus-in/out pair fires the moment the panel maps under a
+session without a window manager (proved under Xvfb/CI), which destroyed
+the panel in milliseconds. Rule: `_ever_focused` AND focus-out arriving
+>0.8 s after map. With a real WM the panel opens focused and the
+grace window is invisible to the user; Escape/close button still work.
+
+**GTK3 CSS: no `text-transform`.** The Gtk3 CssProvider rejects it
+("not a valid property name") and the error killed `mv-calendar` at
+window construction. Removed from `mv-calendar`/`mv-preview` (labels now
+uppercased in code); `mv-dictionary` keeps it — that CSS renders HTML,
+where the property is valid. All 20 `load_from_data` sites are wrapped
+in try/except: cosmetic CSS must never take down an application.
+
+**Suites must be distro-neutral.** `test-mv-fontbook` hard-required
+Fedora font layouts (`/usr/share/fonts/gnu-free/...`), crashing the
+Ubuntu CI runner with `TypeError` on a `None` fixture. Fixture fonts are
+now discovered (gnu-free → freefont → dejavu → any `/usr/share/fonts`),
+install/remove assertions use the discovered basename, and GUI probes
+use a family present on the host. Same rule for cairo guards: a missing
+optional binding skips the GUI section with an `ok -` line instead of
+crashing the suite.
+
+**CI runner profile.** The static-analysis job installs the Gtk3 typelib
+set + pycairo/gi-cairo + xvfb, because `import gi` succeeding does NOT
+mean Gtk is usable (runner has python3-gi without `gir1.2-gtk-3.0`): the
+smoke probe now requires the typelib explicitly, and with the typelibs
+installed the launch smoke and headless suites run for real instead of
+skipping.

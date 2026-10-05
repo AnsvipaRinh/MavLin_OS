@@ -1,8 +1,63 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-05 (external-port execution + main sync)
+**Last Updated**: 2026-10-05 (CI gate honesty pass + external-port execution)
 
 ---
+
+## Session 2026-10-05 (late) — CI gate honesty pass: harness rewrite + 12 app bugs
+
+CI stayed red after the first gate push. Diagnosis revealed TWO layers:
+(a) environment gaps on the runner (no Gtk3 typelib / pycairo / fonts),
+and (b) a **launch-smoke harness that lied locally** — it watched the
+xvfb-run wrapper instead of the app process, so Xvfb startup/teardown
+latency (~3-4 s) exceeded SMOKE_STAY and produced false "stayed up"
+verdicts, while `kill xvfb-run` leaked Xvfb/python children (117 Xvfb
+left behind on the dev host) until the display pool exhausted.
+
+**Harness rewritten** (`scripts/smoke-launch.sh`):
+- verdict is based on the *interpreter* process (`python3|bash <path>`),
+  discovered by poll; a start with neither process nor log output fails;
+- launches run under `setsid` and are reaped as a process GROUP
+  (0 Xvfb leftovers after a full gate run — verified);
+- argument-taking helpers get a temp file/dir (usage-exit is not a launch
+  failure); `mv-newfolder` is declared one-shot; apps run via shebang.
+
+**Real bugs the honest harness exposed (all fixed):**
+1. `mv-colormeter` — no `if __name__ == "__main__"` call at all (script
+   defined `main()` and exited rc0 instantly; passed only via the race).
+2. `mv-stickies` — Gtk.Application never `add_window()`ed its notes, so
+   `app.run()` returned right after `activate` (silent rc0).
+3. `mv-control` — `sys` used in `__main__` but never imported.
+4. `mv-calendar` — local `cal` (event calendar name) shadowed
+   `import calendar as cal` → `UnboundLocalError` on `cal.monthrange`;
+   6 sites renamed to `ev_cal`. Also invalid `text-transform` CSS removed.
+5. `mv-preview` — GApplication aborted ("can not open files") because the
+   file argument was passed in argv without HANDLES_OPEN; plus premature
+   `update_status()` before `current_path` existed.
+6. `mv-finder-columns` — `Gio` undefined in `build_finder_menu`; same
+   GApplication argv abort with the folder argument.
+7. `mv-notification-center` — synthetic focus-in/out pair at map (no
+   window manager) destroyed the panel in milliseconds; close-on-focus-out
+   now requires a real focus followed by an out >0.8 s after map.
+8. `mv-textedit` — `btn_ruler.set_active()` fired `toggle_ruler` during
+   `build_format_bar`, before `ruler_box` existed.
+9. `mv-reminders` — shebang was on line 2 (line 1 `import sys`) → direct
+   exec fell back to `sh` after the +x sweep.
+10. `mv-calendar`/`mv-preview` invalid `text-transform` (GTK3 CssProvider
+    rejects it) + defensive try/except around all 20 `load_from_data`
+    sites (cosmetic CSS must never kill a window).
+11. Suites: `test-mv-fontbook` font fixtures are now host-discovered
+    (Fedora gnu-free paths broke Ubuntu); preselect assertion derives the
+    family from the fixture; cairo import guards in fontbook/colormeter
+    suites; spotlight suite prints per-test `ok -`/`FAIL -` lines, falls
+    back to the repo script, and asserts the empty-query usage contract.
+12. CI installs `python3-cairo python3-gi-cairo gir1.2-gtk-3.0
+    gir1.2-poppler-0.18 gir1.2-gtksource-4 gir1.2-secret-1 xvfb` so the
+    runner profile matches the dev environment; check-sync prints the
+    captured FAIL lines of a failing suite (CI logs were opaque before).
+
+**Status:** local `check-sync` fully green — 221 checks, 34 app suites,
+34-app launch smoke, 0 Xvfb leftovers. Pushed for CI verification.
 
 ## Session 2026-10-05 — External-port Execution + origin/main Sync
 
