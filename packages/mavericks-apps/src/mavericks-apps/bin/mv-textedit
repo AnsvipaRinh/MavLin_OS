@@ -592,6 +592,10 @@ class TextEdit(Gtk.Window):
 
     def toggle_ruler(self, btn):
         self.ruler_visible = btn.get_active()
+        if not hasattr(self, "ruler_box"):
+            # build_format_bar runs before build_ruler; the initial state is
+            # applied in build_ruler right after the row exists.
+            return
         self.ruler_box.set_visible(self.ruler_visible)
 
     def print_document(self, _):
