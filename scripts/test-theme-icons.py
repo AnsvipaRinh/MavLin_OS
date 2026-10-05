@@ -33,6 +33,24 @@ REQUIRED = [
     # 13 — status dialog icons
     "dialog-error", "dialog-information", "dialog-warning",
     "dialog-password", "image-loading",
+    # 16 — panel symbolic (volume x4)
+    "audio-volume-high-symbolic", "audio-volume-medium-symbolic",
+    "audio-volume-low-symbolic", "audio-volume-muted-symbolic",
+    # 16 — battery x8
+    "battery-full-symbolic", "battery-good-symbolic",
+    "battery-low-symbolic", "battery-empty-symbolic",
+    "battery-full-charging-symbolic", "battery-good-charging-symbolic",
+    "battery-low-charging-symbolic", "battery-empty-charging-symbolic",
+    # 16 — network x6
+    "network-wireless-signal-excellent-symbolic",
+    "network-wireless-signal-good-symbolic",
+    "network-wireless-signal-ok-symbolic",
+    "network-wireless-signal-weak-symbolic",
+    "network-wireless-signal-none-symbolic",
+    "network-wired-symbolic",
+    # 16 — notifications x2 + shutdown
+    "notifications-symbolic", "notifications-disabled-symbolic",
+    "system-shutdown-symbolic",
 ]
 
 # Known-broken text-path files still pending replacement in OTHER zones of
@@ -40,18 +58,6 @@ REQUIRED = [
 # Each entry here must be a file whose content starts with a Poppy checkout
 # relative path. Shrink this list as zones get fixed; never grow it.
 KNOWN_PENDING = {
-    # 22x22/status panel symbolics — replaced by Tier 2 category 16
-    "22x22/status/audio-volume-high-symbolic.svg",
-    "22x22/status/audio-volume-medium-symbolic.svg",
-    "22x22/status/audio-volume-muted-symbolic.svg",
-    "22x22/status/battery-empty-symbolic.svg",
-    "22x22/status/battery-full-symbolic.svg",
-    "22x22/status/battery-good-symbolic.svg",
-    "22x22/status/battery-low-symbolic.svg",
-    "22x22/status/network-wireless-signal-excellent-symbolic.svg",
-    "22x22/status/network-wireless-signal-good-symbolic.svg",
-    "22x22/status/network-wireless-signal-weak-symbolic.svg",
-    "22x22/status/notifications-symbolic.svg",
     # 128x128/places folders — replaced by Tier 2 category 15
     "128x128/places/folder.svg",
     "128x128/places/folder-documents.svg",
