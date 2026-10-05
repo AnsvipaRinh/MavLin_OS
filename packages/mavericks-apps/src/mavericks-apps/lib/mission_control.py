@@ -863,6 +863,70 @@ def switch_workspace(desktop: int) -> bool:
         return False
 
 
+def _move_window_to_workspace_xlib(disp, win_id: Any, desktop: int) -> bool:
+    """Move a window to an EWMH desktop using _NET_WM_DESKTOP."""
+    parsed_id = _parse_window_id(win_id)
+    try:
+        desktop = int(desktop)
+    except (TypeError, ValueError):
+        return False
+    if parsed_id is None or desktop < 0 or not disp:
+        return False
+    try:
+        target = disp.create_resource_object("window", parsed_id)
+        root = disp.screen().root
+        atom = _get_atom(disp, "_NET_WM_DESKTOP")
+        from Xlib.protocol import event
+        message = event.ClientMessage(
+            window=target,
+            client_type=atom,
+            data=(32, [desktop, 2, 0, 0, 0]),
+        )
+        root.send_event(
+            message,
+            event_mask=(X.SubstructureRedirectMask | X.SubstructureNotifyMask),
+        )
+        disp.flush()
+        return True
+    except Exception:
+        return False
+
+
+def move_window_to_workspace(win_id: Any, desktop: int) -> bool:
+    """Move an X11 window to a zero-based EWMH workspace."""
+    try:
+        desktop = int(desktop)
+    except (TypeError, ValueError):
+        return False
+    if desktop < 0:
+        return False
+
+    if _XLIB_AVAILABLE:
+        disp = _get_display()
+        if disp:
+            try:
+                if _move_window_to_workspace_xlib(disp, win_id, desktop):
+                    return True
+            finally:
+                try:
+                    disp.close()
+                except Exception:
+                    pass
+
+    parsed_id = _parse_window_id(win_id)
+    if parsed_id is None:
+        return False
+    try:
+        result = subprocess.run(
+            ["wmctrl", "-i", "-r", hex(parsed_id), "-t", str(desktop)],
+            capture_output=True,
+            timeout=2,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def activate_window(win_id: Any) -> bool:
     """Activate an X11 window, switching workspace and restoring minimized state."""
     if _XLIB_AVAILABLE and _activate_window_xlib(win_id):
