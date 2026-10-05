@@ -819,3 +819,33 @@ The current path (`mv-mission-control`) enumerates windows via `wmctrl -l -x` an
 **Dependencies:** No new AUR packages. Uses Arch core: python-gobject, libxcomposite, libxrender. Python stdlib: ctypes, gi.repository.
 
 **Verification:** Plan document at `docs/MISSION_CONTROL_PLAN.md` with 10 ordered objectives, each independently testable. Test strategy: Xvfb :97 + gui-isolation.sh, 9 test files. 10 HW-validation items identified.
+---
+
+## 2026-10-05 — OS-mc-impl-3 push blocked by merge conflict with co-author's parallel Mission Control work (STOPPED FOR USER DIRECTION)
+
+**Status: local commit `3ae6a7b` complete and tested; push to origin/main blocked by content conflict. Per CO-AUTHOR READINESS RULE ("Merge conflicts → stop and report") this is NOT auto-resolved.**
+
+### Two histories (merge-base `06b866c` = slice 2 layout model)
+
+- **Local (mine):** `3ae6a7b` "feat: mission-control thumbnails via XComposite/XDamage/XFixes (slice 3)" — 756 lines in `lib/mission_control.py` (`ThumbnailCapture`: redirect→NameWindowPixmap→XGetImage, vectorized BGRA→RGBA, nearest-neighbour scale, XDamage+XFixes live damage via `poll_damage`, placeholder fallback, MV_FORBIDDEN_DISPLAYS guard) + 615 lines tests (32 total, incl. live Xvfb :97 integration; found+fixed libX11 XEvent-192 heap-overflow bug). On top: foreign concurrent-session commit `5300ed3` (qwen web worker — NOT part of this objective, left untouched).
+- **Remote (co-author AnsvipaRinh):** 20 commits `06b866c..8484978` implementing the SAME slice 3 independently (b574b81 separate module `lib/mission_control_thumbnail.py`: NameWindowPixmap WITHOUT redirect, RGB888 GdkPixbuf, no XDamage/live, no placeholder) PLUS later slices: EWMH activation (837c271, d92d400), native GTK overview `bin/mv-mc-overview` (65bf979..172d325), keyboard/workspace navigation (0d9613b, 8078a07, 8484978), PKGBUILD/Makefile wiring, docs.
+
+### Exact conflict
+
+`git merge origin/main` → CONFLICT (content) in:
+1. `packages/mavericks-apps/src/mavericks-apps/lib/mission_control.py` — both sides appended new sections at the same anchor (after `get_workspaces()`): mine = `ThumbnailCapture` block; remote = EWMH activation helpers (`_parse_window_id`, `_send_root_client_message`, `_switch_workspace_xlib`, `_unminimize_window_xlib`, `_activate_window_xlib`, `switch_workspace`, `activate_window`).
+2. `packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control.py` — both sides replaced the `if __name__ == "__main__"` runner/test list.
+
+Semantic overlap requiring an integration decision (why this is not mechanical):
+- duplicate window-id parsers: my `_normalize_win_id` vs remote `_parse_window_id`;
+- two thumbnail backends with different contracts (raw RGBA bytes + damage events + placeholder vs GdkPixbuf RGB one-shot); remote's overview app consumes the remote one;
+- test-runner list must union both suites.
+
+### Needed from user (one of)
+
+a) keep BOTH: my damage/live layer adapted to call/extend the co-author's module, conflicts resolved in favour of union (recommended — complements: theirs = one-shot pixbuf, mine = live updates + fallback + guards);
+b) prefer co-author's implementation: rebase my slice onto theirs keeping only the XEvent-192 fix + tests + guards that still apply;
+c) prefer mine: rebase remote activation/overview commits onto `ThumbnailCapture` API;
+d) explicit instruction to resolve the merge union-style automatically.
+
+Work stops here per the rule; no remote state was modified. All slice-3 tests pass locally (32/32, incl. live Xvfb :97, 0 host-display guard violations).
