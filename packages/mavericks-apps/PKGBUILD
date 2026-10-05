@@ -1,7 +1,7 @@
 # Maintainer: Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL>
 pkgname=mavericks-apps
 pkgver=0.1.0
-pkgrel=9
+pkgrel=10
 pkgdesc="Mavericks-like system apps for Xfce (settings, activity, console, control, notes, HUD)"
 arch=('x86_64')
 url="https://github.com/AnsvipaRinh/MavLinOS"
@@ -10,7 +10,7 @@ depends=('gtk3' 'xfce4-genmon-plugin' 'python-gobject' 'python-cairo' 'gtksource
           'thunar' 'rofi' 'xfce4-screenshooter' 'trash-cli' 'xarchiver'
           'networkmanager' 'pavucontrol' 'upower' 'bluez-utils'
           'gnome-disk-utility' 'xfce4-notifyd' 'libnotify' 'xdotool'
-          'libsecret' 'fontconfig' 'restic' 'python-xlib' 'libxcomposite'
+          'libsecret' 'libpulse' 'fontconfig' 'restic' 'python-xlib' 'libxcomposite'
           'libxdamage' 'libxfixes'
           'wmctrl' 'xorg-xprop' 'xfconf')
 optdepends=('poppler-glib: PDF preview in Quick Look'
