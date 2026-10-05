@@ -51,9 +51,9 @@ window.mav-mc {
   color: #eeeeee;
   font-size: 12px;
 }
-.mav-workspace-button { background-color: rgba(45,47,52,0.88); color:#d8d8d8; border:1px solid rgba(255,255,255,0.10); border-radius:6px; padding:5px 12px; }
-.mav-workspace-button:checked { background-color:rgba(80,96,118,0.98); color:#fff; border-color:rgba(255,255,255,0.45); }
-.mav-hint { color:#8f9399; font-size:11px; }
+.mav-workspace-button { background-color: rgba(38,40,45,0.90); color:#d8d8d8; border:1px solid rgba(255,255,255,0.13); border-radius:7px; padding:5px 10px; min-width:90px; }
+.mav-workspace-button:checked { background-color:rgba(82,101,128,0.98); color:#fff; border-color:rgba(255,255,255,0.58); }
+.mav-workspace-count { color:#8f9399; font-size:10px; }\n.mav-hint { color:#8f9399; font-size:11px; }
 .mav-muted {
   color: #9b9b9b;
   font-size: 11px;
@@ -187,7 +187,7 @@ class Overview(Gtk.Window):
             active_index = next((i for i, (_card, wid) in enumerate(self._cards) if str(wid).lower() == active_id), 0)
             self._select_card(active_index)
 
-    def _select_card(self, index):
+    def _fade_in(self):\n        opacity = self.get_opacity()\n        if opacity >= 0.99:\n            self.set_opacity(1.0)\n            return False\n        self.set_opacity(min(1.0, opacity + 0.16))\n        return True\n\n    def _select_card(self, index):
         if not self._cards:
             return
         index %= len(self._cards)
