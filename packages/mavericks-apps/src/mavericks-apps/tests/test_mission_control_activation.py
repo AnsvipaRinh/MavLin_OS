@@ -67,6 +67,41 @@ def test_root_client_message_shape():
     print("PASS: test_root_client_message_shape")
 
 
+def test_move_window_to_workspace_fallback():
+    mc._XLIB_AVAILABLE = False
+    completed = MagicMock(returncode=0)
+    with patch.object(mc.subprocess, "run", return_value=completed) as run:
+        assert mc.move_window_to_workspace("0x1234", 2) is True
+        run.assert_called_once()
+        assert run.call_args.args[0] == ["wmctrl", "-i", "-r", "0x1234", "-t", "2"]
+
+    assert mc.move_window_to_workspace(-1, 2) is False
+    assert mc.move_window_to_workspace("bad", 2) is False
+    assert mc.move_window_to_workspace("0x1234", -1) is False
+    print("PASS: test_move_window_to_workspace_fallback")
+
+
+def test_move_window_client_message_shape():
+    mc._XLIB_AVAILABLE = True
+    disp = MagicMock()
+    root = disp.screen.return_value.root
+    target = disp.create_resource_object.return_value
+    atom = 77
+
+    with patch.object(mc, "_get_atom", return_value=atom),          patch("Xlib.protocol.event.ClientMessage") as client_message:
+        client_message.return_value = "event"
+        assert mc._move_window_to_workspace_xlib(disp, "0x1234", 3)
+        client_message.assert_called_once_with(
+            window=target,
+            client_type=atom,
+            data=(32, [3, 2, 0, 0, 0]),
+        )
+        root.send_event.assert_called_once()
+        disp.flush.assert_called_once()
+
+    print("PASS: test_move_window_client_message_shape")
+
+
 def test_activate_window_invalid_id_does_not_connect():
     with patch.object(mc, "_get_display") as get_display:
         assert mc._activate_window_xlib("not-an-id") is False
@@ -80,6 +115,8 @@ if __name__ == "__main__":
         test_switch_workspace_fallback,
         test_activate_window_fallback,
         test_root_client_message_shape,
+        test_move_window_to_workspace_fallback,
+        test_move_window_client_message_shape,
         test_activate_window_invalid_id_does_not_connect,
     ]
     passed = failed = 0
