@@ -23,7 +23,7 @@
     <property name="DPI" type="int" value="192"/>
   </property>
   <property name="Gtk" type="empty">
-    <property name="FontName" type="string" value="San Francisco 11"/>
+    <property name="FontName" type="string" value="Lucida Grande 11"/>
     <property name="MonospaceFontName" type="string" value="Menlo 11"/>
     <property name="CanChangeAccels" type="bool" value="false"/>
     <property name="ColorPalette" type="string" value=""/>
