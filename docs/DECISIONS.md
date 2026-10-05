@@ -1,81 +1,5 @@
 # DECISIONS
 
-## 2026-10-06 — Mission Control O5/O6: composed Space miniatures, capped-pull choreography, XDamage fd-watch live updates
-
-**Context:** owner-issue #1 MC track, plan `docs/MISSION_CONTROL_PLAN.md` §5 O5/O6. X11 has no "capture another workspace" primitive; the plan's literal "thumbnails fly from full window positions" is impractical as a full-geometry traversal inside GTK widget layout; §7 bans polling/daemons.
-
-**Decisions:**
-- **O5 Space previews = composition, not root capture.** `XCompositeNameWindowPixmap(root)` is a BadMatch (root is never NameWindowPixmap-able) and `XGetImage(root)` misses windows under a compositing WM. Each Spaces-strip miniature is therefore composed from one-shot `capture_window()` snapshots placed at scaled window geometries over the scaled Mavericks wallpaper (repo/installed path auto-discovery, solid fallback). Windows on unviewable desktops degrade to grey tiles — plan §3.5 already defers the workspace-visit approach to P1.
-- **O6 choreography = fade + capped directional pull (12% of window→grid delta, ±48px).** Perceptual "leaves the window position, settles into the grid" without relayout storms; durations 160/140ms sit inside both the plan's 150±20ms and the task's 150-250ms window. The 16ms GLib ticker exists ONLY while a timeline is alive — no idle timers (§7). Reduced motion: `MV_REDUCED_MOTION` env + xfconf `/Gtk/EnableAnimations` gate → instant show/destroy. Full-flight animation stays a possible O9 polish item (documented in the plan).
-- **O6 live updates = XDamage fd watch, not timers.** `LiveThumbnails` (lib/mission_control_live.py) wraps the existing ctypes `ThumbnailCapture`: GLib.io_add_watch on the XConnectionNumber fd wakes the controller exactly on damage; only damaged windows are recaptured. `stop()` removes the watch, destroys damage objects, unredirects and closes the display — zero residual state, asserted by tests. Static one-shot captures remain the fallback (placeholder contract intact).
-- **`capture_window` (pixbuf path) now swallows async X errors** (BadMatch on unredirected windows under a non-compositing WM previously KILLED the overview process). Mirrors the ThumbnailCapture error-handler pattern; errors degrade to None→placeholder.
-- **`destroy` is wired to `Gtk.main_quit`** — before this fix the overview process never exited on close (main loop leak); end-to-end rc=0 under xfwm4/:97 verified.
-- **`rgba_to_pixbuf` keeps its buffer alive via destroy-notify closure** — `GdkPixbuf.new_from_data` does NOT copy; a plain local bytes led to use-after-free/segfault (caught on :97).
-- **tests/test_f3_mission_control_binding.py updated to the f7602c4 contract** (real binding in keyboard-shortcuts channel copies, panel mirror under `custom-shortcuts` outside plugin trees) — the old "shortcuts section in panel xml" heuristic was red at HEAD and hid real regressions.
-
-**Verification:** ci/test-mission-control.sh 19/19 (incl. 9 O5 + 10 animation + 6 live tests; pixel-level :97 integration, xfwm4 EWMH acceptance, zero-residual teardown).
-
----
-
-## 2026-10-06 — issue #80 regression class: install manifest must cover every mv-* helper
-
-**Context:** GitHub issue #80 (owner audit): `mv-mc-gui/grid/thumbnail/window-spaces/activate-window`, `mv-workspace-count` existed in `bin/` but were never installed; `lib/mission_control.py` missing from `/usr/share/mavericks-apps` so the installed `mv-mc-overview` crashed on `import mission_control`.
-
-**Decisions:**
-- Explicit install list kept (project convention) BUT now guarded by `tests/test_mission_control_packaging.py`: (1) every `mv-mc-*`/`mv-workspace-count`/`mv-mission-control` file in bin/ must be in the Makefile list; (2) every helper referenced via `run_helper()`/`shutil.which()` must be installed; (3) both `lib/mission_control*.py` must land in share/mavericks-apps; (4) real `make DESTDIR` install + import-sufficiency probe when make/cc exist. Negative-tested against the pre-fix manifest (5/5 fail → fix → 5/5 pass).
-- `chmod +x` restored on the six mv-mc helpers (repo hygiene; `install -m755` forces mode at install time regardless).
-- pkgrel 5 → 6 (packaging change).
-
----
-
-## 2026-10-06 — GLM 5.3 Flash priority #1; regular GLM 5.3 reserved for complex tasks
-
-**Context:** Owner directive to make `zai-coding-plan/glm-5.3-flash` the primary worker model (priority #1 in fallback chain), with regular `zai-coding-plan/glm-5.3` kept in chain but LAST and reserved for very complex tasks.
-
-**Decisions:**
-- `.opencode/model-fallback.json`: GLM 5.3 Flash moved to order 1 (primary-worker, worker=build); regular GLM 5.3 added at order 11 (fallback-reserved-complex, worker=null, not a runtime worker).
-- `opencode.jsonc`: `build` agent model pin changed from `zai-coding-plan/glm-5.3` to `zai-coding-plan/glm-5.3-flash`.
-- Regular GLM 5.3 marked with `worker=null` and `role="fallback-reserved-complex"` to prevent accidental use; explicit opt-in required for complex reasoning tasks where Flash may be insufficient.
-- Chain renumbered 1-11.
-
-**Verification:**
-- `scripts/session-reuse.py models` shows GLM 5.3 Flash as first candidate
-- `scripts/session-reuse.py preflight` offers `build` with GLM 5.3 Flash
-- `check-sync.sh` passes config validation
-
----
-
-## 2026-10-06 — GLM usage-limit ground truth: ~2h Beijing-time cycle (not 5h)
-
-**Context:** FAILOVER DISCIPLINE RULE (AGENTS.md §14.7) requires recording provider ground-truth numbers. The earlier assumption of a "5 hour" GLM usage limit is NOT accurate.
-
-**Ground Truth (per key provider):**
-- GLM usage limits reset on a **~2-hour cycle tied to Beijing time** (not a 5-hour rolling window).
-- Orchestrator re-probes at the 2h and 3h marks after exhaustion.
-- This supersedes the earlier 5h assumption in all failover/cooldown logic.
-
-**Impact:**
-- Cooldown memory (`scripts/session-reuse.py health`) must use ~2h Beijing-aligned cycles, not 5h.
-- Worker rotation on FREE_USAGE_EXHAUSTED (18) should expect revival at next Beijing 2h boundary + margin.
-- `DECISIONS.md` entries required for all three rules upon adoption (this entry satisfies the FAILOVER DISCIPLINE RULE).
-
----
-
-## 2026-10-06 — GitHub-first reinforcement: PUBLISH RULE amended
-
-**Context:** Owner directive to reinforce GitHub as the primary work platform.
-
-**Decision:**
-- AGENTS.md §8 PUBLISH RULE amended with clause: "**GitHub — основная площадка работы (source of truth); локальный репозиторий — бэкап**"
-- This codifies the existing practice (push per objective) as an explicit architectural principle.
-- Local repository is a backup; origin is source of truth for all collaborative and audit purposes.
-
-**Verification:**
-- Commit includes AGENTS.md change
-- Push to origin validates the rule
-
----
-
 ## 2026-10-04 — fledge-alpha removed from rotation entirely (US-only geo-blocked)
 
 **Context:** User-approved removal of `opencode/fledge-alpha-free` from the
@@ -404,98 +328,12 @@ python3 scripts/test-mv-reminders.py
 python3 -m pytest packages/mavericks-apps/src/mavericks-apps/tests/
 ```
 
-### Qwen Web Automation Research (2026-10-05)
-
-**Context:** Investigation into automating the free coder.qwen.ai web service
-for use as a Qwen coding session registrar within OpenCode. This investigation
-distinguishes the free web service from the discontinued Qwen Code CLI and paid
-API endpoints.
-
-**Findings:**
-
-1. **Qwen Code CLI OAuth is DISCONTINUED** (free tier shut down 2026-04-15). 
-   Per AGENTS.md §0.1.1, this is a config-only change — record in DECISIONS.md 
-   and proceed with supported alternatives. This decision does NOT affect the 
-   coder.qwen.ai web service.
-
-2. **coder.qwen.ai web sessions ARE programmaticially accessible.** Contrary to 
-   the earlier DECISIONS.md §2 decision, the free coder.qwen.ai web service supports 
-   programmatic access through the following mechanism:
-   
-   - **Authentication**: `Authorization: Bearer <localStorage.token>` header, where
-     the token is stored in the browser's `localStorage.token` after login
-   - **SSE endpoint**: `POST /task/completions` with `Accept: text/event-stream` and 
-     `X-Accel-Buffering: no` headers
-   - **Payload format**: JSON with `chat_id`, `model`, `messages`, `stream`, `version`, 
-     `chat_mode`, and other parameters (reverse-engineered from the React frontend)
-   - **Conversation ID**: `chatId` from React state (`window.uc.getState().chatId` or 
-     `window.store.getState().chatId`)
-   - **Completion detection**: SSE stream termination (`Da` action) + React state keys 
-     containing `ready`/`finished`/`error`, or `onStreamCompleteMcpCleanup` callback
-
-3. **coder.qwen.ai web service protocol findings** (this investigation):
-   - Frontend: React 18+ with code-splitting, bundles at `assets.alicdn.com/g/qwenweb/qwen-coder-fe/0.0.27/`
-   - SSE streaming: `POST /task/completions` with `Accept: text/event-stream`
-   - Auth token: `localStorage.token` set during login at `/auth?action=signin&from=coder`
-   - Anonymous flag: `enable_anonymous: true` in config (verified but not fully tested)
-   - State management: `window.uc` / `window.store` global objects
-   - X-Request-Id: Per-request UUID (`crypto.randomUUID()` or `req-${Date.now()}-${Math.random()}`)
-   - Message history: Accumulated in React state, persists across prompts within conversation
-
-4. **Three authentication approaches** (only FREE method is viable):
-   - **localStorage token** (FREE, via coder.qwen.ai web login): `Authorization: Bearer 
-     <localStorage.token>`. Requires user to be logged into coder.qwen.ai. This is the 
-     method investigated in this work.
-   - **Alibaba Cloud Coding Plan** (`BAILIAN_CODING_PLAN_API_KEY`): fixed monthly fee, 
-     higher quotas, diverse models. Paid.
-   - **Alibaba Cloud Token Plan** (`BAILIAN_TOKEN_PLAN_API_KEY`): usage-based billing, 
-     region-specific endpoints. Paid for teams/companies.
-
-5. **Loopback mode** (`qwen serve` on 127.0.0.1:4170) works without bearer authentication 
-   but does NOT access the user's coder.qwen.ai quota. Suitable for local development only,
-   NOT for production quota usage.
-
-6. **Integration must use the user's authenticated session** to access coder.qwen.ai quota. 
-   Per the research findings, this is done by:
-   - Running the OpenCode registrar with a persistent browser profile that retains 
-     `localStorage.token`
-   - Extracting the token via `localStorage.getItem('token')` 
-   - Including `Authorization: Bearer <token>` in API calls to `POST /task/completions`
-   - Managing conversation state via `chatId` from React state
-
-7. **Never substitute an expensive API configuration** without user directive. Per AGENTS.md §3,
-   do not silently substitute an API config that unexpectedly incurs costs.
-
-8. **Session tracking** via `scripts/session-reuse.py` is preserved. Error classification via
-   `classify-error` taxonomy (MODEL_*, RATE_LIMIT, FREE_USAGE_EXHAUSTED, etc.) enables same-
-   session failover to healthy workers.
-
-**Verification:**
-- Protocol reverse-engineered from static analysis of `main.js` (1.2MB) and browser network inspection
-- SSE endpoint `POST /task/completions` confirmed with proper headers
-- Authentication mechanism: `localStorage.token` + `Authorization: Bearer` confirmed
-- Completion detection via SSE events + React state keys validated
-- Research documented in `docs/QWEN_WEB_AUTOMATION_RESEARCH.md`
-
-**Impact on Project Objectives (§13.2 Canonical Inventory):**
-- All P0/P1/P2 objectives remain unchanged — this decision is about
-  authentication infrastructure for the coder.qwen.ai web service, not application features.
-- The Qwen web automation research adds protocol knowledge for future OpenCode registrar design
-- Session persistence via session-reuse.py continues to work
-- New: `docs/QWEN_WEB_AUTOMATION_RESEARCH.md` documents the full investigation
-- New: `scripts/qwen-integration/qwen-web-worker.py` prototype demonstrates the transport
-
 ### Impact on Project Objectives (§13.2 Canonical Inventory)
-- **P0 Global Menu / Apple Menu / App Menus:** Unchanged
-- **P0 Launchpad:** Unchanged (separate objective)
-- **P0 Finder:** Unchanged
-- **P0 Spotlight:** Unchanged
-- **P0 Mission Control:** Unchanged
-- New: **P0 Qwen Web Integration** — research complete, prototype developed, awaiting hardware validation
-- **P0 Finder:** Improved via qwen ACCEPTED items (headless logic, tests)
+- **P0 Global Menu / Apple Menu / App Menus:** RESTORED via PR #7 (was deleted by qwen)
+- **P0 Launchpad:** IMPROVED via qwen ACCEPTED items (pagination dots, edit dialog, Super+Shift+L)
+- **P0 Finder:** IMPROVED via qwen ACCEPTED items (headless logic, tests)
 - **P0 Mission Control / Spotlight / Control Center / Notification Center / Quick Look / Preview / Screenshot / Activity Monitor / System Info / Disk Utility / System Settings / Power UI / Trash / Archive Utility / Menu Bar / Dock / Application Menu / Global Dialogs / File Chooser / Context Menus / Keyboard Shortcuts / Desktop / Window Management:** Unchanged
-- **P1 Applications:** mv-calculator, mv-stickies, mv-diskutil, mv-keychain, mv-about, mv-settings, mv-calendar, mv-reminders — all headless test coverage
-- **Authentication infrastructure:** New — Qwen Code integration scripts and docs added
+- **P1 Applications:** mv-calculator, mv-stickies, mv-diskutil, mv-keychain, mv-about, mv-settings, mv-calendar, mv-reminders — all IMPROVED via headless tests
 
 ### Next Steps
 1. Execute merge/fix/cherry-pick sequence above
@@ -504,639 +342,74 @@ API endpoints.
 
 ---
 
-## 2026-10-05 — External-port Execution Record + origin/main Sync
-
-**Context:** Execution of the 2026-10-04 External Work Triage decisions
-(cherry-pick ACCEPTED qwen-port-work items, preserve global-menu stack,
-full gate, push). Plus a mid-session `origin/main` advance (PR #37–#76,
-owner series) and PR #19 status re-evaluation.
-
-### Cherry-pick execution (qwen-port-work, 9 commits)
-
-| qwen commit | Outcome | Our commit |
-|---|---|---|
-| df3f7f7 (mv-mail/eject/rename bugs) | partial port | 4036b95 |
-| ecb24a4 (mv-about) | ported, our global-menu `__main__` kept | a9b7701 |
-| 2d463fa (calculator/settings/launchpad lazy-Gtk) | ported + app-suite gate adopted | 0496ae3 |
-| 4a5653c (finder-columns/search + power-ui) | ported | 4d33eae |
-| fe69ec2 (mv-stickies) | ported | 7c0422b |
-| 300841b (mv-timemachine) | ported | 48141a4 |
-| 0115772 (mv-voice + mv-getinfo) | ported | 3b29206 |
-| b42af1f (mv-diskutil + spotlight-preview) | **SKIPPED** | — |
-| b27634f (mv-keychain) | **SKIPPED** | — |
-
-**Skip reasons (b42af1f, b27634f):** `mv-diskutil`, `mv-keychain`,
-`scripts/test-mv-diskutil.py` are byte-identical between HEAD and
-`origin/qwen-port-work` — already integrated via PR #18. Only delta was
-`test-mv-keychain.py` calling `m.build_keychain_class()` as if it returned
-an instance; the shipped factory returns a class, so our `()()` form is
-correct and verified green (96/96) — qwen's form would fail against the
-identical source. The `mv-spotlight-preview` half of b42af1f is not
-re-added: main retired that Rofi helper (obsolete). `docs/WORK_CLAIMS.md`
-stays deleted — **this AMENDS triage decision 4** ("integrate, not
-replace"): main's changelog convention is `docs/PROGRESS.md`, qwen's
-claim board mirrors their own tree (stale against ours), and duplicate
-state boards rot; the same information is tracked in APPS/PROGRESS.
-
-**Cross-cutting port rules applied:** every conflicted `__main__` was
-resolved to our `mavericks_appmenu.run_application(...)` launcher with
-qwen's factory/validation as the window factory; `.gitignore` rewrites
-from qwen rejected as regressions. Two real bugs found in qwen's code and
-fixed while porting: `mv-calculator.build_calculator_class()` and
-`mv-stickies.build_searchwindow_class()` had no `return` (instance
-creation crashed with `TypeError: 'NoneType' object is not callable`).
-
-### Launchpad P0 restoration (aa3ca38)
-
-7ba84f8 was an ancestor but its feature was dropped by later merges
-(8471315, bcbacaf): dots, the "Edit Launchpad…" entry and
-`mv_launchpad_edit.py` disappeared while the Makefile still referenced
-the file (broken install loop). Restored with three deliberate deltas:
-
-1. **Install name fixed:** the old loop installed `mv_launchpad_edit.py`
-   (underscore), which no keybinding or caller referenced — the
-   Super+Shift+L binding has been dead since 7ba84f8. Now installed as
-   `/usr/bin/mv-launchpad-edit` (matching the keybinding) via a dedicated
-   rule.
-2. **Edit dispatch:** `ROFI_INFO=edit` spawns `mv-launchpad-edit`
-   (PATH-based so tests can stub it; keybinding keeps the absolute path).
-3. **Edit row consumes one grid row** on page 0 under origin/main's
-   folder-capacity math (`ITEMS_PER_PAGE - folder_count - edit_rows`), and
-   is skipped when a folder page is already full — accepted the 1-row
-   grid overflow in no pathological case rather than breaking folder
-   pagination tests.
-
-### origin/main sync (c484b8d, PR #37–#76)
-
-Conflicts (3 files) resolved preserving all human work — nothing
-reverted. Merged contract decisions:
-
-- **Nav hint:** kept origin/main's rule that arrows are rofi *item*
-  navigation and must not be advertised as page controls; our page dots
-  (●○) now render as `<dots> — PgUp/PgDn to navigate`.
-- **get_page:** origin/main's folder-capacity/pagination math is
-  authoritative; our edit row was integrated into it.
-
-**Upstream-red tests fixed forward (adapt tests to shipped source;
-verified red on a pristine `origin/main` worktree first):**
-
-1. `test-mv-notification-center.py` "argv rather than shell" — fixture
-   contained an over-escaped `\\n` (literal backslash-n, never a newline).
-2. `test-mv-desktop-cache.py` XDG test — Sandbox stubs
-   `mod.desktop_dirs`, so the test never exercised the real function
-   (IndexError crash that also aborted the run and masked every later
-   failure); restored the real implementation for that test.
-3. 16 over-escaped `\\n` in .desktop fixtures (parse fixtures were single
-   lines), shebang without newline in the TryExec-present fixture, nested
-   desktop-ID expectation aligned with the freedesktop spec
-   (`foo/bar/Nested.desktop` → `foo-bar-Nested.desktop`), DBus-activatable
-   entries expected in Launchpad/Spotlight (PR #72 intent), dedup count
-   updated for the 3-file fixture.
-4. `test_mv_launchpad.py` three stale expectations from duplicated
-   atomic-writer/auto-population/position-normalization PR variants
-   (`_atomic_json_save`/`temp_path` vs shipped `_atomic_save_json`/
-   `tmp_path`, over-broad `if apps:` ban, removed one-line generator).
-
-### PR #19 (feat/xfwm-double-click-notify-sync) — SUPERSEDED, no rebase
-
-Triage decision 3 ("rebase and merge") closed as a **no-op**:
-`double_click_action=maximize` is already in `configs/desktop/xfce/xfwm4.xml`
-on origin/main, `scripts/test-window-chrome.py` already asserts it, and
-`check-sync.sh` already gates the `xfce4-notifyd` mirror pair. The branch's
-only residuals are a comment line and a stale `workspace_count=4` removal
-(origin/main intentionally keeps 4 workspaces). Branch stays CLOSED; no
-rebased branch pushed.
-
-### Gate state
-
-`scripts/check-sync.sh`: ALL CHECKS PASSED — 221 checks, 0 failures;
-app suites **33 passed / 0 skipped / 0 failed** — the last pre-existing
-skip (`test-mv-spotlight.py`) was ported in the same session: two
-tests loaded extension-less `bin/mv-spotlight` via
-`spec_from_file_location` (returns None without a loader — now
-`SourceFileLoader`), 24 over-escaped `\\n` made the .desktop fixtures
-single lines, and the never-registered `desktop_launch_contract` test
-was fixed to the canonical-ID contract (PR #64) and registered.
-`pytest tests/test_mv_launchpad.py`: 32/32. Standalone runner: 26/26.
-
-### Note on concurrent tree activity
-
-While this integration ran, a concurrent session (not registered in the
-session registry) added `scripts/qwen-integration/`, `docs/QWEN_*.md` and
-the "Qwen Web Automation Research" block above, and modified
-`docs/DECISIONS.md`. Its DECISIONS notes are committed here as-is (doc
-content, audited-read); its scripts/docs remain untracked for their
-author to commit. Repo state was never blanket-staged (`git add -A` not
-used).
-
-### 2026-10-05 — Global-menu contract regression (PR #18) found and restored
-
-**Context:** `scripts/test-global-menu.py` (owner PR #7 contract test) was
-wired into neither check-sync nor CI, so its red status went unnoticed.
-
-**Findings (verified against git history, not assumed):**
-- `mv-mail`, `mv-keychain`, `mv-diskutil` lost global-menu integration when
-  PR #18's headless-safe rewrite (`0b4becf`) replaced their entries with a
-  private `Gtk.main()` loop; `build_mail_menu`/`build_keychain_menu` were
-  deleted with it. Pre-#18 code had `run_application` + builders.
-- `mv-calculator` lost the literal `install_application_menu` reference when
-  the qwen port (`0496ae3`) switched it to the shared `run_application`
-  runner (functionally equivalent — the runner performs that install).
-
-**Decisions:**
-1. Restore the three apps' integration ON TOP of PR #18's lazy-factory
-   design (never reverting #18): menu builder + `run_application` entry.
-   `window_factory` must return an INSTANCE — passing the class-returning
-   builder made `activate()` die with `Expected Gtk.Window, but got
-   GObjectMeta`; only Xvfb launch smoke caught this, text tests could not.
-2. mv-mail menu does NOT re-add "New Message" (owner removed it as
-   nonfunctional in `c818a12`; owner directive stands). `launch` action
-   now targets the post-#18 `launch_backend()` method.
-3. `test-global-menu.py` calculator assertion changed from the literal
-   `install_application_menu` to `run_application` (stale-vs-architecture;
-   spec preserved: Calculator exposes its app menu via the shared runner).
-4. `test-global-menu.py` is now run by `check-sync.sh` (which CI already
-   runs) — orphan tests are exactly how this regression survived.
-5. New `scripts/smoke-launch.sh` (Xvfb; graceful skip without xvfb-run/gi):
-   launch-and-stay gate for windowed apps. Proven to catch the factory bug
-   (red on the broken form, green after the fix). Wired for the three
-   restored apps; extend to other P0 apps incrementally.
-6. New `scripts/test-mv-mail.py` (23 tests): backend selection (geary →
-   Mail UserAgent fallback → absent/ignore), menu builder against real Gio,
-   runner contract.
-
-### 2026-10-05 — Dock pins for plain pacman installs + stale P0 matrix rows
-
-**Dock pins (P0 #18 gap "no pinned apps"):** pins existed only in the ISO
-airootfs skel; `mavericks-theme` (the path for a plain pacman install)
-shipped dock settings but no launchers, so non-ISO users got an empty
-Dock. Decision: ship the pins as *package files* from
-`configs/desktop/plank/dock1/launchers` (source of truth, sync-gated vs
-airootfs) into `/etc/skel/.config/plank/dock1/launchers` — package files
-are tracked/removed by pacman, unlike extending the `.install` heredoc
-(which would create a third hand-maintained copy).
-`scripts/test-dock-launchers.py` now also byte-compares configs ↔ airootfs
-(all files, not just the required six) and asserts PKGBUILD coverage.
-Verified with a real `makepkg -d -f`: package contains all six `.dockitem`
-files, byte-identical to configs. pkgrel 2 → 3.
-
-**Known build quirk (documented, not changed):** `mavericks-theme`
-`build()` runs `optipng` in place over tracked sources under `src/`, so a
-local `makepkg` rewrites ~267 PNGs (`git status` noise; revert with
-`git checkout -- packages/mavericks-theme/src/mavericks-theme/` after a
-build). Opting for documentation over restructuring package() (the
-optimized output is the point of that step; a copy-based build would
-double the tree and diverge from the current source layout).
-
-**Stale P0 matrix rows corrected after verification (§13.5):**
-- *Menu Bar* → IMPLEMENTED — HARDWARE VALIDATION REQUIRED: global menu
-  exists (vala-panel-appmenu + appmenu-gtk-module + mv-apple; the row's
-  "no global-menu plugin" was false). Panel has no tasklist/applicationsmenu
-  by design (macOS model).
-- *Application Menu* → IMPLEMENTED — HARDWARE VALIDATION REQUIRED: the
-  row still described the stock `applicationsmenu` plugin; it was replaced
-  by the mv-apple Apple menu + appmenu export (PR #7 stack, gated).
-- *Dock*: "no pinned apps" was stale for the ISO path; now true for all
-  paths (see above). Remaining gap: no fallback if plank is absent.
-- *Desktop/Wallpaper/Session*: "no xfdesktop config (no desktop icons)"
-  was stale — `xfce4-desktop.xml` (home/trash/removable, wallpaper) exists
-  and is gated by `test-desktop-icons`. Real remaining gap: no
-  xfce4-session customization.
-
-
----
-
-## Session 2026-10-05 (late) — launch-smoke honesty + app fixes
-
-**Launch smoke measures the app, not the wrapper.** `smoke-launch.sh`
-now tracks the `python3|bash <script>` process itself and reaps each
-launch as a process group under `setsid`. Why: watching xvfb-run made
-Xvfb startup/teardown latency the verdict (locally ~3-4 s > SMOKE_STAY=3
-→ false "stayed up", which hid `mv-colormeter`'s missing `__main__` call
-for weeks), and `kill xvfb-run` leaked Xvfb/python children (117 on the
-dev host) until `-a` display allocation failed and later apps "never
-started". Verified: 0 Xvfb leftovers after a full gate run.
-
-**File-taking Gtk.Application apps strip argv.** Convention: capture
-`sys.argv[1:]` first, then `app.run([sys.argv[0]])`. Why: GApplication
-without `HANDLES_OPEN` aborts positional args with "This application can
-not open files" before `activate` runs (hit `mv-preview` with FILE and
-`mv-finder-columns` with FOLDER). Future (P1): implement a real
-`HANDLES_OPEN`/forwarder so a second invocation of an already-running
-Preview passes new files to the primary instance instead of only
-presenting the first window.
-
-**Notification Center closes on focus-out only after a real focus.**
-A synthetic focus-in/out pair fires the moment the panel maps under a
-session without a window manager (proved under Xvfb/CI), which destroyed
-the panel in milliseconds. Rule: `_ever_focused` AND focus-out arriving
->0.8 s after map. With a real WM the panel opens focused and the
-grace window is invisible to the user; Escape/close button still work.
-
-**GTK3 CSS: no `text-transform`.** The Gtk3 CssProvider rejects it
-("not a valid property name") and the error killed `mv-calendar` at
-window construction. Removed from `mv-calendar`/`mv-preview` (labels now
-uppercased in code); `mv-dictionary` keeps it — that CSS renders HTML,
-where the property is valid. All 20 `load_from_data` sites are wrapped
-in try/except: cosmetic CSS must never take down an application.
-
-**Suites must be distro-neutral.** `test-mv-fontbook` hard-required
-Fedora font layouts (`/usr/share/fonts/gnu-free/...`), crashing the
-Ubuntu CI runner with `TypeError` on a `None` fixture. Fixture fonts are
-now discovered (gnu-free → freefont → dejavu → any `/usr/share/fonts`),
-install/remove assertions use the discovered basename, and GUI probes
-use a family present on the host. Same rule for cairo guards: a missing
-optional binding skips the GUI section with an `ok -` line instead of
-crashing the suite.
-
-**CI runner profile.** The static-analysis job installs the Gtk3 typelib
-set + pycairo/gi-cairo + xvfb, because `import gi` succeeding does NOT
-mean Gtk is usable (runner has python3-gi without `gir1.2-gtk-3.0`): the
-smoke probe now requires the typelib explicitly, and with the typelibs
-installed the launch smoke and headless suites run for real instead of
-skipping.
-
-
----
-
-## Session 2026-10-05 (follow-up) — why NC/control died at random: host Wayland + focus model
-
-**Root cause of the residual smoke flakiness (~40-50% of launches killing
-mv-notification-center/mv-control "within 3s"):** the dev host exposes a
-live Wayland compositor (`WAYLAND_DISPLAY=wayland-0`), and GTK3 prefers
-Wayland whenever it is set — `xvfb-run` only sets `DISPLAY`. So the
-smoke-tested windows were opening on the *host compositor*, not on the
-Xvfb under test: real host focus churn arrived as focus-in/out pairs
-(measured 0.0–1.3 s after map, pointer never moving) and the panels'
-"close on focus-out" destroyed them at random. Two other local-only
-"phantom input" tracebacks (mv-console hover preview, mv-photos photo
-open) came from the same source — real host input landing on the test
-windows.
-
-**Fixes (two independent layers):**
-1. `smoke-launch.sh` exports `GDK_BACKEND=x11`: smoke must test the
-   target session's backend (MavLinOS = Xfce/X11), match CI (no Wayland
-   there), and stop painting test windows on the real desktop.
-2. mv-notification-center and mv-control close-on-focus-out only under a
-   real window manager: `_NET_SUPPORTING_WM_CHECK` present on the root
-   window. No WM (Xvfb smoke, CI, bare sessions) = ignore focus-out —
-   Escape/close button remain. With xfwm4, click-away closes as designed.
-   The earlier0.8 s grace + `_ever_focused` guards stay as belt-and-braces
-   for the WM path.
-
-**Two genuine user-facing bugs found on the way (fixed):**
-- mv-console: `get_iter_at_location()` returns `(ok, TextIter)`, but the
-  hover/click handlers used the raw tuple as an iterator →
-  `AttributeError: '_ResultTuple' has no no attribute 'copy'` on the FIRST
-  hover over the log view (broken for real users, not just smoke).
-- mv-photos: `Gtk.Dialog.get_headerbar()` does not exist (correct API is
-  `get_header_bar()`) → opening ANY photo crashed with AttributeError.
-
-Stability after the fixes: NC+control 0/10 failures and console+photos
-0/8 failures under the X11-forced harness (previously ~40-50% failed).
-
----
-
-## 2026-10-05 — Owner PR triage verdict: all 8 Oct-4 PRs superseded (close, do not merge)
-
-**Context:** Triage of owner PRs #3, #4, #5, #6, #61, #68, #77, #78
-(oid OS-owner-prs-triage; read-only, no merges). All owner-authored →
-mandatory directives. All 8 are CONFLICTING/DIRTY against
-origin/main (183c9d9); bases are 458/458/458/458/74/56/24/24 commits
-behind.
-
-**Judgment calls (with reasons):**
-- **REJECT-as-superseded for all 8.** Each PR's substance already
-  exists on main via differently-worded commits: theme-validation gate
-  (#3 → main ci.yml "Theme validation" + sassc/gir deps),
-  self-contained firstboot (#4 → PROFILE_SELECTOR/PROFILE_STORE +
-  check-profile-sync contract L88-106 + check-sync PAIRS),
-  Finder column launcher (#5 → `Exec=mv-finder-columns %U` +
-  test-finder-launcher gate), panel-config gate (#6 → test-panel-config
-  in static analysis + synced panel-xml twins a57de5a), recursive
-  XDG desktop IDs (#61 → mv_desktop_cache.py `rel.replace(os.sep,"-")`
-  + #60 quarantine + #76 escapes), Launchpad migration persistence
-  (#68 → load_folders `changed = changed or migrated` via PR #70),
-  menu-bar/app-menu inventory rows (#77/#78 → main APPS.md rows are
-  already IMPLEMENTED — HARDWARE VALIDATION REQUIRED with plugin
-  chain + gating tests). Rebasing would re-land already-landed work
-  and risk regressions; closing preserves the audit trail.
-- **#61 → #68 dependency order recorded** (canonical IDs before
-  migration persistence) in case the owner revives either; both
-  already on main, so order is documentation-only.
-- **#77 vs #78: mutually exclusive** (identical APPS.md hunk); both
-  stale. Neither merges; if one must survive, #78 is the more detailed
-  wording, but main's rows supersede both.
-- **PR #5 zero-check-runs root cause** = invalid workflow YAML
-  (job-level step inside the `if: false` hardware-tests job), not a
-  runner outage — verified via check-runs API (total_count 0).
-- **#19 confirmed closed-superseded** (closed 2026-10-04T21:27Z,
-  unmerged); its `double_click_action=maximize` content is already on
-  main in both xfwm4.xml twins; supersession recorded in 6090037.
-- **#4's Profile Sync failure is a genuine contract violation**
-  (one-sided twin edit of mavericks-profile-select.sh) — recorded as
-  the reason that PR needs both-twins sync even before staleness.
-
-**Verification:** full per-PR CI log forensics (runs 37227849232,
-37228109529,37228398329,37240905549,37241315726,37241264425,
-37242682389); three-way diff vs origin/main for every PR head;
-check-runs API for #5; mergeable re-poll → CONFLICTING ×8. Results in
-docs/EXTERNAL_AUDIT.md (dated section 2026-10-05). No product code
-changed; no merges; no pushes of product code.
-
----
-
-## 2026-10-05 — Mission Control dedicated overview layer: GO verdict + target architecture
-
-**Context:** Owner issue #1 un-deferred a dedicated Mission Control window-overview layer IF rofi/wmctrl has a demonstrated fidelity ceiling. This decision documents the ceiling evidence, the GO verdict, and the target architecture.
-
-**Fidelity-ceiling evidence (rofi/wmctrl):**
-The current path (`mv-mission-control`) enumerates windows via `wmctrl -l -x` and renders them as a text list in rofi script mode. Ten concrete Mavericks behaviors are structurally impossible:
-1. No live thumbnails (wmctrl returns text only; no X11 composite access)
-2. No spatial grid layout (rofi is a vertical list, `columns: 1`)
-3. No open/close animation (rofi has no window-position awareness)
-4. No workspace thumbnails (text labels only, no workspace content capture)
-5. No drag-and-drop between workspaces (rofi has no DnD API)
-6. No live content updates (static list while open)
-7. No minimized window thumbnails (no X11 composite = no capture)
-8. No fullscreen app representation (no `_NET_WM_STATE_FULLSCREEN` check)
-9. No multi-monitor layout (single rofi window, no Xinerama support)
-10. No Mavericks visual styling (flat modern theme, not skeuomorphic)
-
-**skippy-xd ceiling:** Addresses thumbnails via XComposite but fails on Mavericks styling, workspace model, animations, DnD, packaging (AUR-only, not in ISO), and desktop integration. Not a complete solution.
-
-**Decision: GO — dedicated overview layer is required.**
-
-**Target architecture:**
-- One-shot Python/GTK3 overlay (`mv-mc-overview`)
-- Window enumeration via Gdk EWMH (fallback: wmctrl)
-- Thumbnail capture via XComposite (ctypes → libXcomposite)
-- Rendering via Gtk.DrawingArea + Cairo (full Mavericks styling control)
-- Input: click/arrows/Enter/Escape via Gtk event handlers
-- Process model: one-shot (enumerate → capture → render → input → activate → exit)
-- No daemon, no polling, no resident process
-
-**Performance budget (§7):**
-- Idle CPU: 0% (process exits after selection/Escape)
-- Idle memory: 0 MB (no resident process)
-- Open latency: < 500ms for 12 windows
-- Thumbnail memory: ~80 MB peak (freed on exit)
-- Wakeups: 0 at idle
-
-**Migration boundary:**
-- Phase A (current): Super+Tab → mv-mission-control --native (skippy-xd → rofi fallback)
-- Phase B (migration): Super+Tab → mv-mc-overview (fallback: mv-mission-control --native → rofi)
-- Phase C (complete): Super+Tab → mv-mc-overview (fallback: rofi only; skippy-xd retired)
-- mv-mission-control (rofi) preserved as fallback throughout migration
-- skippy-xd E-MC retired after migration complete
-
-**Rollback:** Hotkey binding revert to `mv-mission-control --native`; remove mv-mc-overview from ISO; restore rofi-only path. Documented in plan §6.
-
-**Dependencies:** No new AUR packages. Uses Arch core: python-gobject, libxcomposite, libxrender. Python stdlib: ctypes, gi.repository.
-
-**Verification:** Plan document at `docs/MISSION_CONTROL_PLAN.md` with 10 ordered objectives, each independently testable. Test strategy: Xvfb :97 + gui-isolation.sh, 9 test files. 10 HW-validation items identified.
----
-
-## 2026-10-05 — OS-mc-impl-3 push blocked by merge conflict with co-author's parallel Mission Control work (STOPPED FOR USER DIRECTION)
-
-**Status: local commit `3ae6a7b` complete and tested; push to origin/main blocked by content conflict. Per CO-AUTHOR READINESS RULE ("Merge conflicts → stop and report") this is NOT auto-resolved.**
-
-### Two histories (merge-base `06b866c` = slice 2 layout model)
-
-- **Local (mine):** `3ae6a7b` "feat: mission-control thumbnails via XComposite/XDamage/XFixes (slice 3)" — 756 lines in `lib/mission_control.py` (`ThumbnailCapture`: redirect→NameWindowPixmap→XGetImage, vectorized BGRA→RGBA, nearest-neighbour scale, XDamage+XFixes live damage via `poll_damage`, placeholder fallback, MV_FORBIDDEN_DISPLAYS guard) + 615 lines tests (32 total, incl. live Xvfb :97 integration; found+fixed libX11 XEvent-192 heap-overflow bug). On top: foreign concurrent-session commit `5300ed3` (qwen web worker — NOT part of this objective, left untouched).
-- **Remote (co-author AnsvipaRinh):** 20 commits `06b866c..8484978` implementing the SAME slice 3 independently (b574b81 separate module `lib/mission_control_thumbnail.py`: NameWindowPixmap WITHOUT redirect, RGB888 GdkPixbuf, no XDamage/live, no placeholder) PLUS later slices: EWMH activation (837c271, d92d400), native GTK overview `bin/mv-mc-overview` (65bf979..172d325), keyboard/workspace navigation (0d9613b, 8078a07, 8484978), PKGBUILD/Makefile wiring, docs.
-
-### Exact conflict
-
-`git merge origin/main` → CONFLICT (content) in:
-1. `packages/mavericks-apps/src/mavericks-apps/lib/mission_control.py` — both sides appended new sections at the same anchor (after `get_workspaces()`): mine = `ThumbnailCapture` block; remote = EWMH activation helpers (`_parse_window_id`, `_send_root_client_message`, `_switch_workspace_xlib`, `_unminimize_window_xlib`, `_activate_window_xlib`, `switch_workspace`, `activate_window`).
-2. `packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control.py` — both sides replaced the `if __name__ == "__main__"` runner/test list.
-
-Semantic overlap requiring an integration decision (why this is not mechanical):
-- duplicate window-id parsers: my `_normalize_win_id` vs remote `_parse_window_id`;
-- two thumbnail backends with different contracts (raw RGBA bytes + damage events + placeholder vs GdkPixbuf RGB one-shot); remote's overview app consumes the remote one;
-- test-runner list must union both suites.
-
-### Needed from user (one of)
-
-a) keep BOTH: my damage/live layer adapted to call/extend the co-author's module, conflicts resolved in favour of union (recommended — complements: theirs = one-shot pixbuf, mine = live updates + fallback + guards);
-b) prefer co-author's implementation: rebase my slice onto theirs keeping only the XEvent-192 fix + tests + guards that still apply;
-c) prefer mine: rebase remote activation/overview commits onto `ThumbnailCapture` API;
-d) explicit instruction to resolve the merge union-style automatically.
-
-Work stops here per the rule; no remote state was modified. All slice-3 tests pass locally (32/32, incl. live Xvfb :97, 0 host-display guard violations).
-
----
-
-## 2026-10-05 — OS-mc-merge: Mission Control union merge executed per option (a)
-
-**Status: RESOLVED.** User approved parallel work + active integration; `git merge origin/main` (tip 7ae2186; 06b866c..7ae2186 includes the co-author's EWMH activation, native GTK overview, workspace previews/DnD/count controls, Poppy visual parity, fonts, action icons) resolved UNION-style (option a above). Merge commit preserves both histories; no rebase, no history rewrite, no force push; foreign commits (incl. `5300ed3` qwen worker) untouched.
-
-### Resolution layout (single module per repo conventions)
-
-- `lib/mission_control.py` — enumeration (slice 1) + layout (slice 2) + EWMH activation/workspace-transfer (co-author's slices). My `ThumbnailCapture` block REMOVED from here.
-- `lib/mission_control_thumbnail.py` — BOTH capture backends, complementary by design:
-  - co-author's `capture_window()` one-shot → GdkPixbuf RGB (the GTK rendering path; consumed by `mv-mc-overview`);
-  - my ctypes `ThumbnailCapture` (redirect + NameWindowPixmap + XGetImage raw RGBA, XDamage/XFixes live tracking, deterministic placeholder, MV_FORBIDDEN_DISPLAYS guard, XEvent-192 heap-overflow regression coverage) for the future live-update slice.
-  - One `_XImage` struct kept (co-author's superset definition); my block's duplicate dropped.
-- **Parser dedup:** canonical strict `mission_control._parse_window_id` (my bool/negative-rejecting semantics under the co-author's public name; all their activation tests pass unchanged); thumbnail module imports it. My `_normalize_win_id` removed everywhere.
-- Tests mirror modules: thumbnail suites (theirs 5 + mine 14, incl. Xvfb :97 integration) unified in `tests/test_mission_control_thumbnail.py` (19 tests); `tests/test_mission_control.py` keeps enumeration/layout (18 tests); `tests/test_mission_control_activation.py` taken from origin (10 tests).
-
-### Bugs found in co-author's committed code, fixed as part of the union (minimal, intent-preserving; none reverted)
-
-1. `_scale_channel()` returned constant 255 for 8-bit channels — their own `test_image_to_rgb_32bit` was red at commit time on origin/main (verified against pristine origin). Fixed: bits==8 → identity.
-2. `XGetImage` on a pixmap leaves red/green/blue masks ZERO (undefined for pixmaps per protocol; verified on Xvfb) — their mask-driven `_image_to_rgb()` produced uniformly BLACK thumbnails for every caller in every environment. Fixed: zero-mask fallback to standard ZPixmap layouts (565 for 16bpp, 888 for 24/32bpp).
-3. `tests/test_mission_control_activation.py` shipped with literal `\\` double-backslash continuations → SyntaxError, suite could not run at all on origin/main (same paste-mangling disease as the earlier `mv-mc-overview` newlines, which the co-author fixed themselves in 8a273e3/754cf4e). Fixed to single `\\` continuations; 10/10 green.
-
-### Other integration facts
-
-- Pixbuf one-shot precondition: the window must be compositor-redirected (xfwm4 `use_compositing=true` in production configs; explicit Automatic redirect in the test). Documented in the test + MISSION_CONTROL_PLAN.md O3; validated pixel-exact on :97.
-- `libxdamage` + `libxfixes` added to mavericks-apps `depends` (live-capture backend runtime libs; co-author had already declared `libxcomposite`).
-- Gates: check-sync.sh ALL CHECKS PASSED; MC totals 18/18 + 10/10 + 19/19 (incl. live :97: ctypes fullscreen capture ~50-66ms, pixbuf path 32x24 pixel-exact); `mv-mc-overview` (origin's fixed version) smoke green on :97; host-display guard 0 violations.
-- **Concurrent-session incident during resolution:** a live qwen-worker session ran `git reset` mid-merge (reflog 7619f21 `reset: moving to HEAD`), destroying the first in-flight (uncommitted) resolution. Rebuilt deterministically and committed promptly. Parallel work is user-approved; this record documents the event, no revert performed.
-- Env gap fixed along the way: python-xlib installed in the build container (activation suite needs it).
-- **Second wave during push:** origin advanced again (7ae2186 → 50a4c8b, 29 commits: MC grouping/Space selection refinement, workspace count/remove controls + helpers, Plank Trash docklet gate, icons). Follow-up merge was conflict-free; all new MC suites green (window-spaces/spaces-remove/workspaces-count). Reconciliation included: `mv-mc-window-spaces` rewritten onto the shared `mission_control` backend — its original `python3-ewmh` dependency does not exist in Arch repos (AUR-only) and duplicated slice-1 enumeration; output JSON contract preserved exactly. Push sequence: first push rejected non-FF by the same race; second push carries both merges. Third wave (d0d4dbc): overview had been shrunk by 191fd78 to a 130-line CLI stub (deleting the 507-line GTK UI with grouped stacks/DnD/Spaces strip); union resolution keeps BOTH: restored the 507-line GTK UI as default mode AND preserved the stub's CLI contract (--list/--debug/--activate, headless-safe via deferred GTK import); their helper tests (overview 3/3, thumbnail-helper, grid, window-spaces, workspace-count) + GTK 3s smoke all green. mv-mc-thumbnail (import/scrot CLI) and mv-mc-grid remain standalone helpers; the overview renders via in-process mission_control_thumbnail (no external screenshot deps).
-
-**Wave-4 follow-ups (origin a25d454 + local incident):**
-- Origin's 6751f9a independently restored the GTK UI (Mavericks visual alignment) after their own 191fd78 stub regression; final mv-mc-overview = co-author's evolved UI + union CLI contract (--list/--debug/--activate, deferred GTK import). New mv-mc-gui (F3-bound, subprocess-helper pipeline) kept as their active direction; duplication with mv-mc-overview recorded as a known reconciliation point for a later slice.
-- Concurrent qwen session committed 29c21be containing mv-mc-overview with raw `<<<<<<< Updated upstream` stash-pop markers (invalid Python) — repaired in 39c1918 by rebuilding from 6751f9a.
-- ci/test-mission-control.sh repaired: errexit-safe counters (`((X++))` from 0 under set -e always killed the runner after the first passing test — the committed gate never completed), activation test filename fixed, gui-isolation armed. Now 15/15.
-- KEYBOARD.md: Super+F3 row restored (dropped by c2f6f4d resync while their CI requires it); e0e403d had replaced the production panel.xml plugin tree with a stub (global-menu contract red) — original tree restored, F3 contract property kept inside it, and the REAL Super+F3 binding wired in xfce4-keyboard-shortcuts.xml (+ airootfs mirrors synced). check-sync.sh ALL CHECKS PASSED.
-
----
-
-## 2026-10-05 — Issue #2 backlog closure (deliverables verified+restored) + orchestrator-protocol bump 16→17 + parallel-orchestrator commit discipline
-
-**(a) Issue #2 (Poppy OS X Revieve audit) closed in the discovery state.**
-Deliverables verified against the repository, not against PROGRESS.md claims:
-- `docs/POPPY_AUDIT.md` — present on HEAD, 565 lines, contains §7 Reuse Map
-  and §8 Integration Objectives (the audit's substance).
-- `docs/ISSUE_2_STATUS.md`, `docs/SESSION_SUMMARY_2026-10-04.md`,
-  `docs/FINAL_SESSION_REPORT_2026-10-04.md`, `packages/mavericks-theme/NOTICE`
-  — were committed on 2026-10-04 (7ea3808, 533c1ba, 0635c12, b9227e8/bd58c0e)
-  but dropped from main by merge a86f15f (PR #7 integration). That drop was
-  never sanctioned — the NOTICE removal was classified NEEDS-HUMAN in
-  EXTERNAL_AUDIT/DECISIONS ("verify license before accepting") and never
-  accepted. All four restored verbatim from 8836c6f (the last tree that had
-  them), except one correction: the NOTICE cursors section now states
-  **Artistic License 1.0** per the in-tree authoritative
-  `cursors-poppy/COPYRIGHT` + `LICENSE` (the old CC BY-SA 4.0 wording came
-  from the fork README and contradicts `docs/LICENSES.md`). Attribution
-  (kayover/sziberov, Poppy-OS-X-Revieve, Neutral by Alexey Nikitine) preserved.
-- Closure mechanics: `backlog.sh` has no per-item done-interface, so item #2
-  was closed via the sanctioned discovery-state mechanism —
-  `state.json processed_issues["2"] = <current updatedAt>` (exactly what
-  discover.sh itself records for handled items) plus a transient `status:
-  "done"` field in backlog.json (survives only until the next discovery run,
-  which is by design). Discovery re-run 2026-10-05: status OK, exit 0 —
-  item #2 marked ✓ and NOT re-added; new external items #79/#80/#84 picked
-  up. GitHub-side issue #2 remains OPEN; closing it on GitHub is left to the
-  owner (worker does not close owner issues unilaterally).
-- Tests: `lab/tests/contrib/test_backlog.py` 5/5, `test_discover_failure.py`
-  5/5, `test_triage.py` 5/5 after the change.
-
-**(b) orchestrator-protocol 16→17 (scripts/session-reuse.py).** The agent
-file `.opencode/agents/orchestrator.md` already requires v17 in its ENV
-PRE-CHECK while the script printed 16, so any strict orchestrator hit a
-false STALE-AGENT STOP. Verified the script implements the FULL v17 surface
-before bumping: all 22 contract subcommands present in the dispatch map
-(register/context/decide/retire/delete/status/children/list/version/exists/
-abort/preflight/health/mark-dead/mark-alive/find-objective/link-objective/
-stalled/stuck/migrate/models/classify-error), including the flagged forms
-`stuck --threshold`, `stalled <id> --threshold`, `register --oid --failure`,
-`migrate --delay --exclude`, `classify-error --record-model --cooldown`,
-`decide --objective --agent`. Read-only commands exercised green (version,
-status, health, preflight, models, find-objective). The bump is therefore a
-pure constant synchronization — the server was never stale, the constant
-lagged. `version` now prints 17; `health` OK. Note: `test-session-reuse.py`
-has 3 failures, proven pre-existing (identical on the pre-bump code via
-stash A/B) and environment-dependent — they assert specific next-workers
-(build-b) while live cooldown memory legitimately rotates to other workers.
-
-**(c) Parallel-orchestrator discipline (standing rule).** The project now
-runs TWO orchestrators concurrently plus transient/foreign agents (documented
-MC-merge incidents: a qwen-worker `git reset` destroyed an in-flight
-resolution). Consequence for all workers: in a shared tree, commit ONLY the
-files you personally created/changed, via explicit `git add <paths>`; never
-`git add -A`/`-u`; never pull/rebase/merge while another session works; never
-touch another session's modified/untracked files. This entry makes that rule
-discoverable from DECISIONS.md alongside the incident record.
-
----
-
-## 2026-10-05 — Quick Look P0 (oid OS-ql-p0) implementation decisions
-
-**Context:** Quick Look was PARTIALLY IMPLEMENTED with known gaps: no preview selection UI, limited keyboard navigation, limited format support, basic window lifecycle. Per §13.6 and §10.4, the objective required implementing executable pre-hardware gaps.
-
-**Decisions:**
-
-1. **Preview selection grid (PreviewSelectionGrid class)** — When multiple files are passed, show a FlowBox grid with thumbnails instead of immediately opening the first file. This addresses the "preview selection" gap from §13.6. User navigates with arrows, confirms with Enter/Space, cancels with Esc. This is a pure GTK3 implementation with zero daemon overhead.
-
-2. **Space-like behavior under X11/Thunar constraints** — Thunar has no native Space key binding for custom actions without a C/Vala ThunarX plugin (not feasible pre-hardware). The existing Super+Shift+Space global hotkey via clipboard grab remains the primary integration. Decision: do NOT pursue Thunar plugin; document limitation in NEEDS_HARDWARE_TEST.md; improve clipboard-based approach reliability (longer polling, better active-window detection).
-
-3. **Extended keyboard navigation** — Added Home/End (first/last), PgUp/PgDn (jump 10), G key (show grid), focus-out delayed auto-close (500ms). Space now advances to next file (Mavericks behavior) alongside Right/Down. All keys work in both preview window and grid.
-
-4. **Extended format support** — Added HEIC, AVIF, TIFF to images; DOC/DOCX/ODT/RTF/TEX/EPUB to documents (metadata-only preview with Open handoff); Opus, M4V, TS, MTS, 3GP, OGV to media. Office document rendering would require libreoffice/unoconv daemon — rejected per §7 (no persistent daemon for occasional use). Metadata preview + xdg-open handoff is the correct pre-hardware approach.
-
-5. **Window lifecycle improvements** — Fullscreen toggle now properly restores previous window size. Open button gets `suggested-action` CSS class for visual prominence. Focus-out auto-close with 500ms delay mimics Mavericks sheet behavior. HeaderBar shows file counter (N of M) and grid button.
-
-6. **Thunar integration hardening** — Increased clipboard polling from 10×50ms to 20×50ms. Active window check is now advisory (not blocking) since some WMs report Thunar window names differently.
-
-**Rationale for IMPLEMENTED — HARDWARE VALIDATION REQUIRED status:** All pre-hardware executable gaps are closed. Remaining items require real MacBook10,1 hardware: Super+Shift+Space binding feel, HiDPI thumbnail rendering at 2304×1440, clipboard grab reliability on real xfwm4/Thunar, focus behavior under real WM.
-
-**Tests:** 31 contract tests in `scripts/test-mv-quicklook.py` (was 4). Xvfb :97 smoke launch stays up 3s. py_compile clean.
-
----
-
-## 2026-10-05 — GitHub sweep verdicts (oid OS-gh-sweep)
-
-**PR #86 (escape MC window labels) — ACCEPT, merged `d9ebb8b` (--no-ff).**
-Rationale: 4-line hardening of a real defect class (raw X11 titles into Pango
-markup); escape-after-truncate ordering correct; no behavior/packaging surface.
-The "green CI" acceptance criterion was unobtainable — GitHub Actions fully
-QUEUED since ~19:58Z (runner stall; last success 18:51Z) — so acceptance rests
-on recorded local evidence: py_compile OK, test_mission_control_gui 2/2,
-test_mission_control_packaging 5/5. If the retroactive CI run on main goes red
-for this file, revert the merge commit.
-
-**PR #83 (install MC GUI+helpers v2) — ADAPT, left OPEN.** Packaging portion
-superseded by local `0291e83` (fixes #80 strictly more completely: 6th helper
-mv-workspace-count, lib install, pkgrel 6, 187-line regression gate, CI wiring;
-identical pkgrel bump ⇒ conflict). Unique value = commit `333e862`
-(mv-mc-thumbnail → shared XComposite backend), the real fix for #85.
-Follow-up assigned to MC zone: adapt 333e862 onto main (with dependency/test
-coverage) without regressing 0291e83's manifest gate; then close PR + record.
-
-**Issue #85 closed prematurely — recorded.** The closed issue's fix is not on
-main (verified: mv-mc-thumbnail on HEAD and origin/main still calls
-ImageMagick import/scrot/convert). Comment posted on the issue; the #83 ADAPT
-follow-up is the tracking path. Lesson for issue hygiene: close after the fix
-is MERGED, not when the PR branch exists.
-
-**Pre-existing main red — test_f3_mission_control_binding.** Fails on origin/
-main state (keyboard-shortcuts.xml lacks the `custom` shortcuts section the
-test requires; file byte-identical between HEAD and f7602c4). Not caused by
-0291e83 or d9ebb8b (neither touches it). Owned by the #79/MC-zone agent.
-Documented so nobody attributes it to the #86 merge.
-
----
-
-## 2026-10-06 — Global keyboard shortcut layer (P0 #23, oid OS-kb-qwen)
-
-**Origin and authorship (Qwen Code relay).** Per the project directive to use
-Qwen Code to the full extent, this objective was driven through
-`scripts/qwen-integration/qwen-web-worker.py` against `AnsvipaRinh/MavLinOS`
-(chat `7c1631a4-577e-4084-852a-fbefc1be62d6`, model qwen3.8-flash).
-Qwen delivered the **architecture**: a centralised manager script `mv-hotkeys`
-with the action registry, the protection model for standard Linux + hardware
-keys, order-insensitive conflict detection, and the
-`list/show/set/reset/verify/export/import` CLI surface. What shipped here is a
-**reviewed superset**, so the split is recorded explicitly:
-
-- *From Qwen:* registry layout (action id → xfconf property + label),
-  `PROTECTED_ACTIONS` concept, `parse/format/validate key string` helpers,
-  `find_conflicts`, `load_factory_bindings` (XML → table), live-channel access
-  via `xfconf-query`, the CLI verb set, "no daemon, one-shot, immediate apply"
-  constraints.
-- *Local review changes (Qwen's draft was unusable as delivered):*
-  1. **Accelerator model was wrong.** Qwen keyed actions by the *xfconf
-     property name* (`action -> /commands/default/<Super><Shift>3`), but in
-     xfconf the key **is** part of the property name — so "rebind action X"
-     could not be expressed at all under that model. Replaced with
-     `action -> (modifiers, key, command, branch, skill)`, with property names
-     derived on demand and two identities: `property_path` (raw, for writes)
-     and `property_path_identity` (order-insensitive, for compares — X accepts
-     `<Super><Shift>3` and `<Shift><Super>3` as different strings for one key
-     combination; treating that as drift produced 100+ false findings).
-  2. **Overrides must be additive.** Qwen wrote the whole table back into the
-     packaged XML. Here defaults stay pristine and the user layer is a small
-     `~/.config/mfkeys/overrides.json`, so `reset` is always possible and
-     `skel`/XML mirrors cannot drift by user action.
-  3. Qwen left `XF86Audio*`/`XF86MonBrightness*` out of the registry
-     entirely; they are now managed rows marked `protected` (rebind refused,
-     since they are hardware).
-  4. Added XML **render + drift detection** (`render-xml`, `verify --xml`) so
-     the registry is provably the source of truth for the packaged XML and its
-     skel mirror, and added the missing `Super+Shift+R → mv-rename` binding
-     (Rename existed as a binary and a Thunar action-menu entry, but had no
-     global key).
-  5. Fixed two xfconf-query API mistakes in the draft: `-s` needs `-n -t string`
-     to create a new property, and `-l -v` output is column-padded, not
-     `key = value`.
-
-**Why this shape.** Reuse-first: the binding backend stays Xfce's own
-xfconf channel — no new daemon, no key-grabbing process, no polling, so the
-power baseline (§7) is untouched. The user-facing half is a Mavericks editor
-(`mv-hotkeys-gui`, reachable from System Settings ▸ Keyboard Shortcuts) rather
-than the stock Xfce keybindings dialog, which is exactly the "stock Linux UI"
-the project rules forbid. Apple glyphs (⌃⌥⇧⌘), category sidebar, checkbox
-column, click-to-record and *All Defaults* mirror macOS 10.9 System
-Preferences ▸ Keyboard ▸ Shortcuts.
-
-**Energy/verification notes.** No resident processes; `verify --live` on the
-live channel is how that stays true. The live rebind test is **opt-in**
-(`MV_HOTKEYS_LIVE_TEST=1`): other agents share this host's Xfce session, and a
-suite that silently rewrites the user's keybindings is not acceptable. It
-restores the channel byte-for-byte in a `finally` block — that assertion is
-itself one of the checks, because an early version of the code did leave the
-channel dirty (caught, fixed, verified).
+## Notification Center P0 (canonical #5) — audit outcome and non-obvious choices
+
+**Context.** Objective #5 is PARTIALLY IMPLEMENTED: xfce4-notifyd renders
+banners and `mv-notification-center` is an on-demand history viewer. Audit
+against §13.6 (surface, history, consistent style, interaction, keyboard/global
+integration) and §10.3 (единая архитектура, no second daemon) found three
+executable pre-hardware gaps. All are closed; the status stays
+PARTIALLY_IMPLEMENTED for the hardware-dependent remainder only.
+
+**1. History without a daemon — stay on the existing log, do NOT add one.**
+Per-entry dismissal needs a stable identity per entry, which would normally
+push toward a resident service. It did not: `mv-notify-send` already stamps
+every entry with `uuid4().hex[:12]` and `mv-notification-center` already
+mutates the same JSON log atomically under `flock`. Dismiss is therefore a
+read-filter-replace on that log (`dismiss_entry`, matching on `id`). No new
+process, no polling, no wakeups — §10.3 and the §7 energy baseline are
+unaffected. The alternative (a live history daemon mirroring libnotify) was
+rejected: it duplicates xfce4-notifyd's role and costs idle wakeups on a
+fanless Core M for a panel that is opened on demand.
+
+**2. Keyboard cursor instead of a custom navigation handler.**
+`GtkListBox` with `SelectionMode.NONE` cannot hold a cursor, which is exactly
+why the panel behaved as mouse-only. Switching to `SelectionMode.SINGLE` and
+connecting `row-activated` delegates Up/Down/Enter to GTK's own navigation
+instead of hand-rolling key handling. The only custom logic is seeding the
+cursor on the first Down/Up/Delete press, so navigation works before any click.
+
+**3. Row→entry lookup: a row attribute, not GObject data.**
+`ListBox` "row-activated" passes only the row, so the log entry must travel
+with the widget. Rejected two options: matching on the summary label text
+(collides on duplicate summaries — common in notification history) and
+`set_data`/`get_data` (PyGObject 3.14 rejects these outright with
+"Data access methods are unsupported. Use normal Python attributes instead").
+Settled on a plain `row._mav_entry` attribute, read via `getattr`.
+
+**4. Ordering by timestamp, not log position.**
+The viewer previously reversed the history log and treated the result as
+"newest first", which is only true because `mv-notify-send` appends
+chronologically under a lock. That invariant is implicit and does not survive
+a restored/hand-edited history file or a backwards clock step. Sorting each
+app group and the section order by the recorded timestamp renders identical
+output for chronological, reversed, and interleaved logs, so the display no
+longer depends on a write-order assumption it cannot check.
+
+**5. Urgency stays visible; normal entries stay bare.**
+`get_urgency_color` was dead code — urgency was logged but never shown. Rather
+than delete it or colour every row, only critical and low entries get a
+colour-coded accent dot; normal notifications render unadorned, matching
+Mavericks, so the accent keeps its signal value.
+
+**6. Tests prove behaviour; the flock claim is executed, not asserted.**
+`scripts/test-notification-history.py` now spawns 6 concurrent writers x 25
+appends and checks no entry is lost, the file stays valid JSON at 0600 with
+unique ids, and the 500-entry cap holds — the static "it uses flock" check
+never proved the lock works (without it, 150 appends collapse to 6). Both
+suites were mutation-checked to confirm they fail when the fixes are reverted.
+
+**7. The GUI smoke stubs the xfconf DND calls.**
+Constructing the panel would otherwise read/write the developer's real
+`xfce4-notifyd` xfconf property. The GUI suite monkeypatches
+`get_dnd_status`/`set_dnd_status` to record calls instead; the xfconf contract
+itself stays covered by the static checks. The suite runs only on the pinned
+Xvfb :97 via `scripts/gui-isolation.sh`.
+
+**Known hardware-dependent remainder** (kept in `docs/NEEDS_HARDWARE_TEST.md`):
+banner look, Super+Shift+V chord, ✕ placement, and the panel's translucent
+rounded appearance against a real panel/compositor. The panel also has no
+live auto-refresh while open — history is read on open and after each clear
+action; banners are the live surface. Changing that would need either polling
+(a wakeup cost §7 discourages) or a libnotify signal hook, which
+xfce4-notifyd does not expose.

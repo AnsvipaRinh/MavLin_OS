@@ -270,10 +270,7 @@ procedures or active code reference them:
 ## Phase 5 — Iteration
 - [ ] Collect user feedback: dmesg, journalctl -b, photos of boot/DE
 - [ ] Document all regressions and fixes needed
-## E-MC — Mission Control overview (skippy-xd, on HW only) — SUPERSEDED
-> SUPERSEDED by the native `mv-mc-overview` (O1–O6 implemented; see
-> docs/MISSION_CONTROL_PLAN.md). skippy-xd config kept for reference only;
-> retirement completes with O10. The native-overview HW list is below.
+## E-MC — Mission Control overview (skippy-xd, on HW only)
 - [ ] Install: `yay -S skippy-xd-git` (AUR VCS; pulls giflib, libjpeg-turbo, libxcomposite, libxdamage, libxext, libxft, libxinerama + meson/cmake/git)
 - [ ] Baseline check first: Super+Tab = rofi script mode (mv-mission-control) works in live session
 - [ ] Apply: `sudo tools/experiments/mv-experiment.sh E-MC apply` (or configs/profiles/experiments/E-MC-skippy-xd.sh apply)
@@ -283,17 +280,6 @@ procedures or active code reference them:
 - [ ] Perf feel: animation 150ms snappy on HD 615, no stutter with 6+ windows
 - [ ] Revert check: `... E-MC revert` restores rofi binding; `... E-MC status` reports clean state
 - [ ] Record verdict in docs/APPS.md (promote to IMPLEMENTED — HARDWARE VALIDATION REQUIRED, or keep EXPERIMENT READY with findings)
-
-## Mission Control — native mv-mc-overview (on HW; plan §8 H1–H10)
-- [ ] H1 Thumbnail + Spaces-strip fidelity on 2304×1440 HiDPI (scaling, font clarity, wallpaper miniature)
-- [ ] H2 Choreography feel on Intel HD 615: entrance 160ms / exit 140ms smooth with 6+ windows, no stutter (Xvfb has no GPU — structural tests only)
-- [ ] H2b XDamage live updates under real compositing xfwm4: video/terminal output refreshes cards while overview open; CPU cost sane on battery
-- [ ] H3 XComposite behavior with production xfwm4 compositing ON vs OFF (placeholder fallback visible, no crashes)
-- [ ] H4 Real xfwm4 workspace ops: click/add/remove Space, Ctrl+←/→, drag window→Space
-- [ ] H6 Capture of hardware-accelerated windows (Firefox GL) — placeholder contract if capture fails
-- [ ] H8 Power impact of overview open/close + live sessions (battery discharge rate, RAPL sanity)
-- [ ] H9 Interaction with real Dock (plank) + menu bar (overview fullscreen occlusion, keep-above)
-- [ ] Process exit: hotkey → Escape → overview process gone (rc=0), zero mv-mc processes resident after close (§7)
 
 ## Mission Control — rofi/wmctrl path (on HW)
 - [ ] Super+Tab opens mv-mission-control window overview in live session
@@ -311,15 +297,9 @@ procedures or active code reference them:
 - [ ] Super+Shift+Space in Thunar copies selection to clipboard and opens mv-quicklook with selected files
 - [ ] **Native Space binding limitation**: Thunar does not support binding Space key to custom actions without a C/Vala plugin (ThunarX). Current workaround uses Super+Shift+Space. A native Thunar plugin would be required for true Space-key Quick Look integration (investigate thunarx-python or Vala plugin for future).
 - [ ] UCA context menu "Quick Look" works (right-click → Quick Look)
-- [ ] mv-quicklook on image/PDF/text/office/audio/video — multi-file nav (←/→/Space/Home/End/PgUp/PgDn), fullscreen (F), Open button work
-- [ ] Preview selection grid (G key / headerbar button) — thumbnail grid for multi-file selection, Enter/Space to preview, Esc to cancel
+- [ ] mv-quicklook on image/PDF/text/audio — multi-file nav (←/→/Space), fullscreen (F), Open button work
 - [ ] PDF preview via poppler-glib renders first page on 2304x1440
-- [ ] Media files show metadata via ffprobe (duration, bitrate, resolution, codecs, audio channels, subtitles)
-- [ ] Extended format support: HEIC, AVIF, TIFF images; DOC/DOCX/ODT/RTF office docs (metadata + Open handoff); Opus, M4V, TS, MTS video
-- [ ] Focus-out auto-close behavior (500ms delay) matches Mavericks sheet feel under real xfwm4
-- [ ] HiDPI rendering: thumbnails, grid, text preview, media metadata grid at 2304×1440 (2x scaling)
-- [ ] Clipboard grab reliability on real Thunar/xfwm4 — multi-select paste, special chars in filenames
-- [ ] Keyboard navigation feel: Space for next, arrows, Home/End, PgUp/PgDn, G for grid, F fullscreen, Esc close
+- [ ] Media files show metadata via ffprobe
 
 ## Thumbnailer — config gap (decision: no new daemon)
 - [ ] tumbler is absent from the ISO package list; thunarrc requests
@@ -347,9 +327,6 @@ procedures or active code reference them:
 - [ ] HUD: mv-hud в genmon показывает ватты RAPL m3-7Y32 (на хосте — graceful `n/a`)
 - [ ] Launchpad: Super+L открывает полноэкранную сетку; поиск фильтрует; папки (Utilities/Other) открываются; Back возвращает; иконки отображаются корректно на 2304x1440
 - [ ] Launchpad: mv-launchpad.desktop доступен в меню приложений и может быть закреплен в Dock
-- [ ] Launchpad: Super+Shift+L открывает mv-launchpad-edit GTK3 диалог для перетаскивания/переупорядочивания приложений; drag-and-drop и Ctrl+↑/↓ работают; изменения сохраняются в positions.json и отражаются в Launchpad после закрытия
-- [ ] Launchpad: Mavericks-style page dots (●○○) отображаются корректно на 2304×1440; переключение страниц Left/Right/PgUp/PgDn обновляет dots
-- [ ] Launchpad: "Edit Launchpad…" запись в сетке (page 0, не в поиске, не в папке) запускает mv-launchpad-edit; запись скрывается при поиске/внутри папки
 
 ## Control Center — hardware validation
 - [ ] Wi-Fi: network list populates, connect to open/secured AP, disconnect works, password prompt appears; NM D-Bus signal-driven refresh fires on scan/connect (phase B: заменил 5s `nmcli dev wifi list` rescan poll; 30s fallback + manual Refresh button) — проверить что спасает battery (rescan energy на BCM43602)
@@ -371,10 +348,15 @@ procedures or active code reference them:
 - [ ] Super+Shift+V opens mv-notification-center
 - [ ] Notification history shows grouped by app with timestamps
 - [ ] Clear/Clear All buttons work
+- [ ] Per-entry ✕ dismiss removes exactly that notification and the list updates without flicker
+- [ ] Delete/BackSpace dismisses the selected entry after Down/Up seeds the cursor
+- [ ] Enter activates a notification carrying a URL or desktop-entry hint (xdg-open / app launch)
+- [ ] Urgency accent dot is visible for critical/low entries and absent for normal ones
 - [ ] DND toggle in header syncs with xfce4-notifyd
 - [ ] Banner notifications appear top-right with Mavericks theme (rounded, translucent)
 - [ ] Urgency colors (low/normal/critical) render correctly on 2304x1440
-- [ ] Keyboard navigation (arrows, Escape) works
+- [ ] Keyboard navigation (arrows, Enter, Delete, Escape) works
+- [ ] Ordering is newest-first after a restore of a history file that is not chronologically sorted
 - [ ] Focus-out auto-close works
 
 ## Screenshot — hardware validation
@@ -638,13 +620,6 @@ External USB-C HID is the mandatory bring-up interface.
 ### External USB-C input (MANDATORY — bring-up first)
 - [ ] Verify USB-C hub + keyboard/mouse works out of box
 - [ ] Test all keyboard shortcuts (Super+Space, Super+L, Super+Tab, etc.)
-      — 55 managed bindings; full table in `docs/KEYBOARD.md`, source of
-      truth `lib/mv_hotkeys_core.py`. On hardware: (a) `mv-hotkeys verify --live`
-      must be clean, (b) `mv-hotkeys-gui` recorder must capture real keypresses
-      (Force Touch trackpad has no `key-press-event` path, so recording needs
-      the external keyboard), (c) confirm Super+Fn row maps volume/brightness
-      XF86 keysyms on this firmware, (d) confirm a rebind survives logout/login
-      and `xfsettingsd` restart.
 - [ ] Test trackpad multitouch (two-finger scroll, tap-to-click)
 - [ ] Test media keys (XF86AudioRaiseVolume, XF86AudioLowerVolume, XF86AudioMute)
 - [ ] Test USB-C power delivery while using hub
