@@ -16,6 +16,7 @@ import sys
 import subprocess
 import re
 import shutil
+import os
 
 
 def get_windows():
@@ -222,63 +223,17 @@ def minimize_window(win_id):
 
 
 def run_native_expose():
-    """Run an ephemeral skippy-xd session and expose all X11 desktops.
-
-    The daemon exists only for the capture/expose transaction. Visiting each
-    xfwm4 workspace while it is alive lets skippy-xd populate thumbnails for
-    windows that are normally unmapped on other workspaces. The original
-    workspace is always restored before the daemon is stopped.
-    """
-    skippy = shutil.which("skippy-xd")
-    wmctrl = shutil.which("wmctrl")
-    if not skippy or not wmctrl:
+    """Launch the native GTK Mission Control overview."""
+    native = shutil.which("mv-mc-overview")
+    if not native:
+        native = "/usr/bin/mv-mc-overview"
+    if not os.path.exists(native):
         return False
-
-    original_workspace = get_active_workspace()
-    daemon_started = False
-    import time
-
     try:
-        start = subprocess.run([skippy, "--start-daemon"], timeout=5)
-        if start.returncode != 0:
-            return False
-        daemon_started = True
-        time.sleep(0.15)
-
-        for workspace in range(get_workspace_count()):
-            subprocess.run(
-                [wmctrl, "-s", str(workspace)],
-                timeout=2,
-                check=False,
-            )
-            time.sleep(0.12)
-
-        result = subprocess.run(
-            [skippy, "--expose", "--desktop", "-1"],
-            timeout=300,
-        )
+        result = subprocess.run([native], timeout=300)
         return result.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
-    finally:
-        try:
-            subprocess.run(
-                [wmctrl, "-s", str(original_workspace)],
-                timeout=2,
-                check=False,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            pass
-        if daemon_started:
-            try:
-                subprocess.run(
-                    [skippy, "--stop-daemon"],
-                    timeout=5,
-                    check=False,
-                )
-            except (OSError, subprocess.TimeoutExpired):
-                pass
-
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--native":
