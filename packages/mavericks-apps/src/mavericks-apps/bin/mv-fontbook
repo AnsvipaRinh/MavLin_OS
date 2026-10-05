@@ -343,7 +343,11 @@ class FontBookWindow(Gtk.Window):
         """
         provider = Gtk.CssProvider()
         try:
-            provider.load_from_data(css)
+            try:
+                provider.load_from_data(css)
+            except Exception:
+                # cosmetic only: a bad rule must not kill the window
+                pass
         except GLib.Error as exc:
             print("mv-fontbook: CSS load failed, using default theme: %s"
                   % exc.message, file=sys.stderr)

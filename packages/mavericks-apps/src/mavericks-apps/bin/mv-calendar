@@ -219,9 +219,9 @@ def _normalize(data):
     for ev in data["events"]:
         ev.setdefault("id", uuid.uuid4().hex[:12])
         ev.setdefault("title", "")
-        cal = ev.get("calendar", "")
-        ev.setdefault("calendar", cal)
-        ev.setdefault("account", cal_to_acc.get(cal, "Personal"))
+        ev_cal = ev.get("calendar", "")
+        ev.setdefault("calendar", ev_cal)
+        ev.setdefault("account", cal_to_acc.get(ev_cal, "Personal"))
         ev.setdefault("start", datetime.now().strftime("%Y%m%dT%H%M%S"))
         ev.setdefault("end", ev["start"])
         ev.setdefault("location", "")
@@ -325,8 +325,8 @@ def events_for_day(events, accounts, target, query=""):
     q = (query or "").strip().lower()
     for ev in events:
         acc = ev.get("account", "Personal")
-        cal = ev.get("calendar", "")
-        if not is_calendar_visible(accounts, acc, cal):
+        ev_cal = ev.get("calendar", "")
+        if not is_calendar_visible(accounts, acc, ev_cal):
             continue
         if q and not matches_event(ev, q):
             continue
@@ -655,7 +655,6 @@ if _GUI:
             .cal-account-header {
                 color: #5a4a38; font-weight: bold; font-size: 9pt;
                 text-shadow: 0 1px 0 rgba(255,255,255,0.4);
-                text-transform: uppercase;
             }
             .cal-content {
                 background: #f5f0e8;
@@ -712,7 +711,11 @@ if _GUI:
             .cal-empty { color: #998877; font-style: italic; font-size: 11pt; padding: 40px; }
             """
             provider = Gtk.CssProvider()
-            provider.load_from_data(css)
+            try:
+                provider.load_from_data(css)
+            except Exception:
+                # cosmetic only: a bad rule must not kill the window
+                pass
             screen = Gdk.Screen.get_default()
             Gtk.StyleContext.add_provider_for_screen(
                 screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
@@ -812,7 +815,7 @@ if _GUI:
                 acc_row.set_selectable(False)
                 acc_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
                 acc_hbox.set_border_width(4)
-                acc_lbl = Gtk.Label(label=acc_name, xalign=0)
+                acc_lbl = Gtk.Label(label=acc_name.upper(), xalign=0)
                 acc_lbl.get_style_context().add_class("cal-account-header")
                 acc_hbox.pack_start(acc_lbl, True, True, 0)
                 acc_row.add(acc_hbox)
@@ -870,8 +873,8 @@ if _GUI:
             days_with_events = set()
             for ev in self.events:
                 acc = ev.get("account", "Personal")
-                cal = ev.get("calendar", "")
-                if not is_calendar_visible(self.accounts, acc, cal):
+                ev_cal = ev.get("calendar", "")
+                if not is_calendar_visible(self.accounts, acc, ev_cal):
                     continue
                 for s in iter_event_dates(ev):
                     e = parse_dt(ev.get("end") or ev.get("start")) or s
@@ -944,8 +947,8 @@ if _GUI:
                             t = fmt_time(parse_dt(ev["start"])) if not ev.get(
                                 "all_day") else "all-day"
                             acc = ev.get("account", "Personal")
-                            cal = ev.get("calendar", "")
-                            color = get_calendar_color(self.accounts, acc, cal)
+                            ev_cal = ev.get("calendar", "")
+                            color = get_calendar_color(self.accounts, acc, ev_cal)
                             ev_lbl = Gtk.Label()
                             ev_lbl.set_markup(
                                 '<span foreground="%s">%s %s</span>'
@@ -1131,8 +1134,8 @@ if _GUI:
 
         def make_event_block(self, ev, wide=False, details=False):
             acc = ev.get("account", "Personal")
-            cal = ev.get("calendar", "")
-            color = get_calendar_color(self.accounts, acc, cal)
+            ev_cal = ev.get("calendar", "")
+            color = get_calendar_color(self.accounts, acc, ev_cal)
             rgba = Gdk.RGBA()
             if not rgba.parse(color):
                 rgba.parse("#888888")
@@ -1518,9 +1521,9 @@ if _GUI:
                         self.acc_combo.set_active(i)
                         break
                 self.update_calendar_combo()
-                cal = ev.get("calendar", "")
+                ev_cal = ev.get("calendar", "")
                 for i in range(self.cal_combo.get_active() + 1):
-                    if self.cal_combo.get_active_text() == cal:
+                    if self.cal_combo.get_active_text() == ev_cal:
                         break
                 else:
                     for i in range(self.cal_combo.get_model().iter_n_children(None) if self.cal_combo.get_model() else 0):
@@ -1643,7 +1646,7 @@ if _GUI:
                 acc_row.set_data("name", acc_name)
                 acc_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
                 acc_hbox.set_border_width(8)
-                acc_lbl = Gtk.Label(label=acc_name, xalign=0)
+                acc_lbl = Gtk.Label(label=acc_name.upper(), xalign=0)
                 acc_lbl.get_style_context().add_class("cal-account-header")
                 acc_hbox.pack_start(acc_lbl, True, True, 0)
                 acc_row.add(acc_hbox)

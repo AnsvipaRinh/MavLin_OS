@@ -472,7 +472,11 @@ class ColorMeterWindow(Gtk.Window):
         """
         provider = Gtk.CssProvider()
         try:
-            provider.load_from_data(css)
+            try:
+                provider.load_from_data(css)
+            except Exception:
+                # cosmetic only: a bad rule must not kill the window
+                pass
         except GLib.Error as exc:
             print("mv-colormeter: CSS load failed, using default theme: %s"
                   % exc.message, file=sys.stderr)
@@ -743,3 +747,7 @@ def main():
     from mavericks_appmenu import run_application
     sys.exit(run_application(
         "com.mavlinos.colormeter", "Digital Color Meter", ColorMeterWindow, sys.argv))
+
+
+if __name__ == "__main__":
+    main()

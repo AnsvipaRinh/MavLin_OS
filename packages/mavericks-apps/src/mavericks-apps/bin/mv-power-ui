@@ -365,7 +365,11 @@ def build_powerui_class():
             self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
 
             self._provider = Gtk.CssProvider()
-            self._provider.load_from_data(CSS)
+            try:
+                self._provider.load_from_data(CSS)
+            except Exception:
+                # cosmetic only: a bad rule must not kill the window
+                pass
             screen = Gdk.Screen.get_default()
             Gtk.StyleContext.add_provider_for_screen(
                 screen, self._provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)

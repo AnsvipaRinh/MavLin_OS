@@ -243,7 +243,11 @@ class TextEdit(Gtk.Window):
         }
         """
         provider = Gtk.CssProvider()
-        provider.load_from_data(css)
+        try:
+            provider.load_from_data(css)
+        except Exception:
+            # cosmetic only: a bad rule must not kill the window
+            pass
         screen = Gdk.Screen.get_default()
         if screen is not None:
             Gtk.StyleContext.add_provider_for_screen(
@@ -349,6 +353,7 @@ class TextEdit(Gtk.Window):
         self.ruler_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         self.ruler_box.get_style_context().add_class("textedit-ruler")
         self.ruler_box.set_border_width(0)
+        self.ruler_box.set_visible(self.ruler_visible)
 
         self.ruler_drawing = Gtk.DrawingArea()
         self.ruler_drawing.set_size_request(-1, 18)
@@ -592,6 +597,10 @@ class TextEdit(Gtk.Window):
 
     def toggle_ruler(self, btn):
         self.ruler_visible = btn.get_active()
+        if not hasattr(self, "ruler_box"):
+            # build_format_bar runs before build_ruler; the initial state is
+            # applied in build_ruler right after the row exists.
+            return
         self.ruler_box.set_visible(self.ruler_visible)
 
     def print_document(self, _):

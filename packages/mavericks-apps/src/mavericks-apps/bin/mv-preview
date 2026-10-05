@@ -68,7 +68,6 @@ class Preview(Gtk.Window):
             font-weight: bold;
             color: #666;
             font-size: 9pt;
-            text-transform: uppercase;
             margin: 8px 12px 4px;
         }
         .preview-content {
@@ -98,7 +97,11 @@ class Preview(Gtk.Window):
         }
         """
         provider = Gtk.CssProvider()
-        provider.load_from_data(css)
+        try:
+            provider.load_from_data(css)
+        except Exception:
+            # cosmetic only: a bad rule must not kill the window
+            pass
         screen = Gdk.Screen.get_default()
         Gtk.StyleContext.add_provider_for_screen(
             screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
@@ -155,7 +158,7 @@ class Preview(Gtk.Window):
         self.sidebar.set_size_request(180, -1)
         self.sidebar.get_style_context().add_class("preview-sidebar")
 
-        lbl = Gtk.Label(label="Thumbnails")
+        lbl = Gtk.Label(label="THUMBNAILS")
         lbl.set_xalign(0)
         lbl.get_style_context().add_class("sidebar-header")
         self.sidebar.pack_start(lbl, False, False, 0)
@@ -215,11 +218,11 @@ class Preview(Gtk.Window):
         self.paned.add2(self.content_box)
         self.paned.set_position(200)
 
-        # Status bar
+        # Status bar (text filled by load_file -> update_status, which runs
+        # right after build_ui; current_path does not exist yet here)
         self.statusbar = Gtk.Statusbar()
         self.status_ctx = self.statusbar.get_context_id("info")
         self.content_box.pack_start(self.statusbar, False, False, 0)
-        self.update_status()
 
     def load_file(self, path):
         ext = os.path.splitext(path)[1].lower()
@@ -522,7 +525,10 @@ def main():
 
     app.connect("startup", startup)
     app.connect("activate", activate)
-    return app.run(sys.argv)
+    # GApplication treats positional argv entries as files to open; without
+    # HANDLES_OPEN it aborts ("This application can not open files") before
+    # activate ever runs. The files are already parsed into `args` above.
+    return app.run([sys.argv[0]])
 
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")

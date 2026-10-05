@@ -119,7 +119,9 @@ class NotificationCenter(Gtk.Window):
 
         # Key events
         self.connect("key-press-event", self.on_key_press)
+        self.connect("focus-in-event", self.on_focus_in)
         self.connect("focus-out-event", self.on_focus_out)
+        self.connect("map", lambda *_: setattr(self, "_shown_at", time.monotonic()))
 
         self.refresh()
 
@@ -337,7 +339,19 @@ class NotificationCenter(Gtk.Window):
             return True
         return False
 
+    def on_focus_in(self, widget, event):
+        self._ever_focused = True
+        return False
+
     def on_focus_out(self, widget, event):
+        # Without a window manager the panel receives a synthetic
+        # focus-in/out pair the moment it maps (proved under Xvfb/CI), which
+        # used to destroy it in milliseconds. Only close on a focus-out that
+        # comes a beat after mapping — i.e. a real click-away.
+        if not getattr(self, "_ever_focused", False):
+            return True
+        if time.monotonic() - getattr(self, "_shown_at", time.monotonic()) < 0.8:
+            return True
         self.destroy()
         return True
 

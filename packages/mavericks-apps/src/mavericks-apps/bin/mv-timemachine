@@ -392,7 +392,11 @@ def build_timemachine_class():
         def apply_css(self):
             try:
                 provider = Gtk.CssProvider()
-                provider.load_from_data(STARFIELD_CSS.encode())
+                try:
+                    provider.load_from_data(STARFIELD_CSS.encode())
+                except Exception:
+                    # cosmetic only: a bad rule must not kill the window
+                    pass
                 screen = Gdk.Screen.get_default()
                 Gtk.StyleContext.add_provider_for_screen(
                     screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)

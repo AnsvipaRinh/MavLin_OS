@@ -406,7 +406,11 @@ def build_diskutil_class():
             .mv-diskutil-frame-title { font-weight: bold; color: #3a352f; }
             """
             provider = Gtk.CssProvider()
-            provider.load_from_data(css)
+            try:
+                provider.load_from_data(css)
+            except Exception:
+                # cosmetic only: a bad rule must not kill the window
+                pass
             Gtk.StyleContext.add_provider_for_screen(
                 Gdk.Screen.get_default(), provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)

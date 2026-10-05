@@ -1,5 +1,5 @@
-import sys
 #!/usr/bin/env python3
+import sys
 """mv-reminders — Reminders (Mavericks-like). Lists + tasks + due dates +
 priorities + notifications. Local JSON storage
 (~/.local/share/mv-reminders/tasks.json). No daemon, no Electron, no
@@ -349,7 +349,11 @@ if _GUI:
             }
             """
             provider = Gtk.CssProvider()
-            provider.load_from_data(css)
+            try:
+                provider.load_from_data(css)
+            except Exception:
+                # cosmetic only: a bad rule must not kill the window
+                pass
             screen = Gdk.Screen.get_default()
             Gtk.StyleContext.add_provider_for_screen(
                 screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)

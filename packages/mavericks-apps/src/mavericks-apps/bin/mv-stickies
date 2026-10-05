@@ -309,7 +309,11 @@ def build_stickynote_class():
             }
             """ % {"color": self.color}).encode()
             try:
-                self.provider.load_from_data(css)
+                try:
+                    self.provider.load_from_data(css)
+                except Exception:
+                    # cosmetic only: a bad rule must not kill the window
+                    pass
             except GLib.Error as e:
                 print("mv-stickies: CSS failed (%s); using default theme" % e,
                       file=sys.stderr)
@@ -526,6 +530,12 @@ class StickiesApp:
 
     def create_sticky(self, data=None):
         sticky = self._note_cls(self, data)
+        # Track the note with the Gtk.Application (set by main()) so the
+        # application stays alive while any note exists; destroyed windows
+        # are removed from the application automatically.
+        application = getattr(self, "application", None)
+        if application is not None:
+            application.add_window(sticky)
         self.stickies.append(sticky)
         if data is None:
             self.data["stickies"].append({
@@ -661,6 +671,7 @@ def main():
     def activate(application):
         if state["stickies"] is None:
             state["stickies"] = StickiesApp()
+            state["stickies"].application = application
             state["stickies"].startup()
         for sticky in state["stickies"].stickies:
             sticky.present()

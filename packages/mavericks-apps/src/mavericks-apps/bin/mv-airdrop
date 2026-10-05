@@ -293,7 +293,11 @@ class AirDropWindow(Gtk.Window):
         }
         """
         provider = Gtk.CssProvider()
-        provider.load_from_data(css.encode())
+        try:
+            provider.load_from_data(css.encode())
+        except Exception:
+            # cosmetic only: a bad rule must not kill the window
+            pass
         screen = Gdk.Screen.get_default()
         Gtk.StyleContext.add_provider_for_screen(
             screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
