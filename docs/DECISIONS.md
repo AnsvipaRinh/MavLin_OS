@@ -534,8 +534,13 @@ rebased branch pushed.
 ### Gate state
 
 `scripts/check-sync.sh`: ALL CHECKS PASSED — 221 checks, 0 failures;
-app suites 32 passed / 1 skipped (`test-mv-spotlight.py`, pre-existing
-"not headless-portable yet") / 0 failed.
+app suites **33 passed / 0 skipped / 0 failed** — the last pre-existing
+skip (`test-mv-spotlight.py`) was ported in the same session: two
+tests loaded extension-less `bin/mv-spotlight` via
+`spec_from_file_location` (returns None without a loader — now
+`SourceFileLoader`), 24 over-escaped `\\n` made the .desktop fixtures
+single lines, and the never-registered `desktop_launch_contract` test
+was fixed to the canonical-ID contract (PR #64) and registered.
 `pytest tests/test_mv_launchpad.py`: 32/32. Standalone runner: 26/26.
 
 ### Note on concurrent tree activity

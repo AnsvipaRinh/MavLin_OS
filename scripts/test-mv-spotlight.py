@@ -161,7 +161,9 @@ def test_calculator_safety_contract():
 def test_desktop_launch_contract():
     from pathlib import Path
     source = (Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight").read_text(encoding="utf-8")
-    assert '"desktop_id": os.path.basename(e["path"])' in source
+    # Canonical IDs come from mv_desktop_cache (PR #64); basename is only
+    # the fallback for entries without one.
+    assert '"desktop_id": e.get("desktop_id", os.path.basename(e["path"]))' in source
     assert "gtk-launch" in source
     assert 'shlex.quote(desktop_id)' in source
 
@@ -176,6 +178,7 @@ def test_file_action_quoting_contract():
 
 
 def test_desktop_cache_semantics():
+    import importlib.machinery
     import importlib.util
     import tempfile
     from pathlib import Path
@@ -191,15 +194,15 @@ def test_desktop_cache_semantics():
         system = root / "system"
         user.mkdir()
         system.mkdir()
-        (system / "same.desktop").write_text("[Desktop Entry]\\nName=System App\\nExec=system-app\\n", encoding="utf-8")
-        (user / "same.desktop").write_text("[Desktop Entry]\\nName=User App\\nExec=user-app\\n", encoding="utf-8")
-        (system / "other.desktop").write_text("[Desktop Entry]\\nName=Other App\\nExec=other-app\\n", encoding="utf-8")
+        (system / "same.desktop").write_text("[Desktop Entry]\nName=System App\nExec=system-app\n", encoding="utf-8")
+        (user / "same.desktop").write_text("[Desktop Entry]\nName=User App\nExec=user-app\n", encoding="utf-8")
+        (system / "other.desktop").write_text("[Desktop Entry]\nName=Other App\nExec=other-app\n", encoding="utf-8")
         noisy = system / "noisy.desktop"
-        noisy.write_text("[Desktop Entry]\\nName=Visible\\nExec=visible\\nComment=NoDisplay=true is text, not a key\\n", encoding="utf-8")
+        noisy.write_text("[Desktop Entry]\nName=Visible\nExec=visible\nComment=NoDisplay=true is text, not a key\n", encoding="utf-8")
         hidden = system / "hidden.desktop"
-        hidden.write_text("[Desktop Entry]\\nName=Hidden\\nExec=hidden\\nHidden=true\\n", encoding="utf-8")
+        hidden.write_text("[Desktop Entry]\nName=Hidden\nExec=hidden\nHidden=true\n", encoding="utf-8")
         action_only = system / "action.desktop"
-        action_only.write_text("[Desktop Action Foo]\\nName=Wrong\\nExec=wrong\\n\\n[Desktop Entry]\\nName=Correct\\nExec=correct\\n", encoding="utf-8")
+        action_only.write_text("[Desktop Action Foo]\nName=Wrong\nExec=wrong\n\n[Desktop Entry]\nName=Correct\nExec=correct\n", encoding="utf-8")
         old_dirs = module.desktop_dirs
         old_cache = module._CACHE_PATH
         try:
@@ -218,9 +221,10 @@ def test_recent_items_file_uri_parsing():
     from pathlib import Path
 
     module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight"
-    spec = importlib.util.spec_from_file_location("mv_spotlight_recent_test", module_path)
+    loader = importlib.machinery.SourceFileLoader("mv_spotlight_recent_test", str(module_path))
+    spec = importlib.util.spec_from_loader("mv_spotlight_recent_test", loader)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    loader.exec_module(module)
 
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
@@ -247,12 +251,14 @@ def test_recent_items_file_uri_parsing():
 
 
 def test_recursive_desktop_ids_are_preserved():
+    import importlib.machinery
     import importlib.util
     from pathlib import Path
     module_path = Path(REPO) / "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight"
-    spec = importlib.util.spec_from_file_location("mv_spotlight_ids_test", module_path)
+    loader = importlib.machinery.SourceFileLoader("mv_spotlight_ids_test", str(module_path))
+    spec = importlib.util.spec_from_loader("mv_spotlight_ids_test", loader)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    loader.exec_module(module)
     original = module.mv_desktop_cache.load_desktop_entries
     try:
         module.mv_desktop_cache.load_desktop_entries = lambda: [{
@@ -307,6 +313,7 @@ if __name__ == "__main__":
         ("rofi_preview_integration", test_rofi_preview_integration),
         ("calculator_safety_contract", test_calculator_safety_contract),
         ("file_action_quoting_contract", test_file_action_quoting_contract),
+        ("desktop_launch_contract", test_desktop_launch_contract),
         ("desktop_cache_semantics", test_desktop_cache_semantics),
         ("recent_items_file_uri_parsing", test_recent_items_file_uri_parsing),
         ("recursive_desktop_ids_are_preserved", test_recursive_desktop_ids_are_preserved),

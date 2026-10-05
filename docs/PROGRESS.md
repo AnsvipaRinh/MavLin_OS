@@ -33,13 +33,12 @@
 5. Docs updated (this file + DECISIONS execution record).
 
 **Gates**: `check-sync.sh` ALL CHECKS PASSED (221 checks, 0 failures;
-app suites 32 passed / 1 skipped / 0 failed) · launchpad pytest 32/32 ·
+app suites 33 passed / **0 skipped** / 0 failed (last skip ported)) · launchpad pytest 32/32 ·
 standalone launchpad 26/26 · desktop-cache 83/83 · notification-center
 16/16 · timemachine 62/62 · stickies 74/74 · voice 63/63 ·
 getinfo 35/35 · finder suites 26+69 · power-ui 45.
 
 **Next executable work**:
-- `scripts/test-mv-spotlight.py` headless port (only remaining skipped suite)
 - Continue P0/P1 application matrix per §13.8 (Finder/Spotlight/Mission
   Control gaps, remaining applications)
 - Hardware-dependent items stay tracked in `docs/NEEDS_HARDWARE_TEST.md`
