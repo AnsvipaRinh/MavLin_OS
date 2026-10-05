@@ -37,19 +37,26 @@ window.mav-mc {
   font-weight: 600;
 }
 .mav-card {
-  background-color: rgba(45, 47, 52, 0.96);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 8px;
-  padding: 6px;
+  background-color: transparent;
+  border: 4px solid transparent;
+  border-radius: 6px;
+  padding: 0;
 }
-.mav-card.mav-selected { background-color: rgba(72, 104, 145, 0.98); border-color: rgba(255,255,255,0.78); box-shadow: 0 0 0 2px rgba(255,255,255,0.22); }
+.mav-card.mav-selected {
+  background-color: transparent;
+  border-color: rgba(83,110,191,1);
+  box-shadow: none;
+}
 .mav-card:hover {
-  background-color: rgba(70, 72, 78, 0.98);
-  border-color: rgba(255,255,255,0.38);
+  background-color: transparent;
+  border-color: rgba(83,110,191,0.72);
 }
 .mav-title {
-  color: #eeeeee;
-  font-size: 12px;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 500;
+  text-shadow: 0 1px 3px #000;
+  padding: 0;
 }
 .mav-workspace-button { background-color: rgba(38,40,45,0.90); color:#d8d8d8; border:1px solid rgba(255,255,255,0.13); border-radius:7px; padding:5px; min-width:132px; }
 .mav-workspace-button:checked { background-color:rgba(82,101,128,0.98); color:#fff; border-color:rgba(255,255,255,0.58); }
@@ -124,14 +131,10 @@ class Overview(Gtk.Window):
         active = mission_control.get_active_window() or {}
         active_id = str(active.get("win_id", "")).lower()
 
-        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
-        self.box.pack_start(header_row, False, False, 0)
-        header = Gtk.Label(label="Mission Control")
-        header.set_xalign(0)
-        header.get_style_context().add_class("mav-header")
-        header_row.pack_start(header, False, False, 0)
+        # Mavericks keeps the Spaces strip at the top without an extra
+        # application title/header inside Mission Control.
         workspace_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        header_row.pack_end(workspace_bar, False, False, 0)
+        self.box.pack_start(workspace_bar, False, False, 0)
         count = max(1, int(workspaces.get("count", 1)))
         current = int(workspaces.get("current", 0))
         names = workspaces.get("names", [])
@@ -223,8 +226,11 @@ class Overview(Gtk.Window):
 
         current_items = by_desktop[current]
         grid = Gtk.Grid()
-        grid.set_column_spacing(14)
-        grid.set_row_spacing(14)
+        grid.set_column_spacing(38)
+        grid.set_row_spacing(38)
+        grid.set_margin_start(38)
+        grid.set_margin_end(38)
+        grid.set_margin_top(12)
         content.pack_start(grid, True, True, 0)
 
         if not current_items:
@@ -364,7 +370,7 @@ class Overview(Gtk.Window):
         event.connect("drag-data-get", self._on_window_drag_data_get, win.get("win_id"))
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        box.set_size_request(250, 150)
+        box.set_size_request(250, 178)
 
         pixbuf = None
         try:
@@ -375,10 +381,10 @@ class Overview(Gtk.Window):
 
         if pixbuf is not None:
             image = Gtk.Image.new_from_pixbuf(pixbuf)
-            image.set_size_request(238, 112)
+            image.set_size_request(238, 134)
         else:
             image = Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.DIALOG)
-            image.set_size_request(238, 112)
+            image.set_size_request(238, 134)
 
         box.pack_start(image, True, True, 0)
 
@@ -387,11 +393,6 @@ class Overview(Gtk.Window):
         title.set_ellipsize(Pango.EllipsizeMode.END)
         title.get_style_context().add_class("mav-title")
         box.pack_start(title, False, False, 0)
-
-        meta = Gtk.Label(label=win.get("wm_class", ""))
-        meta.set_xalign(0)
-        meta.get_style_context().add_class("mav-muted")
-        box.pack_start(meta, False, False, 0)
 
         event.add(box)
         return event
