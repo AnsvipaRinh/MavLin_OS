@@ -279,26 +279,36 @@ def test_recursive_desktop_ids_are_preserved():
 def test_main_subprocess():
     import subprocess
 
+    # Prefer the installed binary; fall back to the repo script (CI).
+    bin_path = "/usr/bin/mv-spotlight"
+    if not os.path.isfile(bin_path):
+        bin_path = os.path.join(
+            REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-spotlight")
+
     # Calculator query
     result = subprocess.run(
-        ["/usr/bin/mv-spotlight", "2+2"],
+        [bin_path, "2+2"],
         capture_output=True, text=True, timeout=5
     )
-    assert result.returncode >= 0, f"mv-spotlight crashed on '2+2': {result.stderr}"
+    assert result.returncode == 0, f"mv-spotlight crashed on '2+2': {result.stderr}"
 
-    # Empty query
+    # Empty query -> CLI usage error (arg validation from the launcher port),
+    # not a traceback.
     result = subprocess.run(
-        ["/usr/bin/mv-spotlight"],
+        [bin_path],
         capture_output=True, text=True, timeout=5
     )
-    assert result.returncode >= 0, f"mv-spotlight crashed on empty query: {result.stderr}"
+    assert result.returncode != 0, "empty query must be rejected"
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "Traceback" not in combined, f"crash on empty query: {combined}"
+    assert "Usage" in combined, f"expected usage message, got: {combined!r}"
 
     # Non-matching query
     result = subprocess.run(
-        ["/usr/bin/mv-spotlight", "nonexistent_query_xyz"],
+        [bin_path, "nonexistent_query_xyz"],
         capture_output=True, text=True, timeout=5
     )
-    assert result.returncode >= 0, f"mv-spotlight crashed on nonexistent query: {result.stderr}"
+    assert result.returncode == 0, f"mv-spotlight crashed on nonexistent query: {result.stderr}"
     pass
 
 
@@ -326,8 +336,9 @@ if __name__ == "__main__":
         try:
             test_func()
             passed += 1
+            print(f"ok - {name}")
         except Exception as e:
-            print(f"ERROR in {name}: {e}")
+            print(f"FAIL - {name}: {e}")
             failed += 1
 
     print(f"\n{'='*50}")

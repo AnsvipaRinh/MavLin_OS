@@ -26,8 +26,8 @@ if ! command -v xvfb-run >/dev/null 2>&1; then
     exit 0
 fi
 
-if ! python3 -c "import gi" 2>/dev/null; then
-    echo "ok - smoke skipped (PyGObject not installed)"
+if ! python3 -c "import gi; gi.require_version('Gtk', '3.0')" 2>/dev/null; then
+    echo "ok - smoke skipped (Gtk3 typelib not available)"
     exit 0
 fi
 
@@ -38,7 +38,12 @@ export PYTHONPATH="$REPO/packages/mavericks-apps/src/mavericks-apps/lib${PYTHONP
 for app in "$@"; do
     path="$BIN/$app"
     if [[ ! -f "$path" ]]; then
-        echo "FAIL - smoke $app: script missing ($path)"
+        # installed names use dashes; some repo scripts keep underscores
+        # + .py (installed renamed, e.g. mv-launchpad-edit)
+        path="$BIN/${app//-/_}.py"
+    fi
+    if [[ ! -f "$path" ]]; then
+        echo "FAIL - smoke $app: script missing ($BIN/$app)"
         FAILURES=$((FAILURES + 1))
         continue
     fi

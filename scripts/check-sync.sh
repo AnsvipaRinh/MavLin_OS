@@ -138,7 +138,18 @@ fi
 
 echo "--- launch smoke (Xvfb) ---"
 if [[ -f scripts/smoke-launch.sh ]]; then
-  bash scripts/smoke-launch.sh mv-mail mv-keychain mv-diskutil && ok "launch smoke" || bad "launch smoke"
+  # Every windowed native surface: a broken window factory / CSS provider /
+  # missing import dies at activate() time, which text-based suites cannot
+  # see (proven: mv-mail/mv-keychain/mv-diskutil factory bug).
+  SMOKE_STAY=3 bash scripts/smoke-launch.sh \
+    mv-about mv-activity mv-airdrop mv-calendar mv-colormeter mv-diskutil \
+    mv-finder-columns mv-fontbook mv-console mv-dictionary mv-notes mv-photos \
+    mv-preview mv-reminders mv-settings mv-voice mv-stickies mv-music \
+    mv-mail mv-keychain mv-power-ui mv-control mv-notification-center \
+    mv-textedit mv-timemachine mv-launchpad-edit mv-recent-items mv-getinfo \
+    mv-finder-search mv-quicklook mv-newfolder mv-rename mv-openwith \
+    mv-force-quit \
+    && ok "launch smoke (34 windowed apps)" || bad "launch smoke"
 fi
 
 echo "--- app test suites (scripts/test-mv-*.py, auto-discovered) ---"
@@ -161,6 +172,9 @@ for suite in scripts/test-mv-*.py; do
     elif printf '%s' "$out" | grep -q '^ok - '; then
         bad "app suite $suite (assertions FAILED)"
         MV_SUITES_BAD=$((MV_SUITES_BAD+1))
+        # show the failing assertions (CI logs only carry this file)
+        printf '%s\n' "$out" | grep -E '^(FAIL|FAIL -|FAILED)' | tail -n 30 | sed 's/^/    | /'
+        printf '%s\n' "$out" | tail -n 10 | sed 's/^/    | /'
     else
         echo "SKIP $suite (target not headless-portable yet)"
         MV_SUITES_SKIP=$((MV_SUITES_SKIP+1))

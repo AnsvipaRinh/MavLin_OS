@@ -206,8 +206,9 @@ def test_gui_smoke(m, td):
         gi.require_version("Gdk", "3.0")
         gi.require_version("Gio", "2.0")
         from gi.repository import Gtk, Gdk
-    except ImportError:
-        print("ok - gui smoke skipped (no PyGObject on this host)")
+    except (ImportError, ValueError):
+        # ValueError = gi present but the Gtk typelib is not (CI runner)
+        print("ok - gui smoke skipped (no Gtk3 typelib on this host)")
         return
     if not Gtk.init_check()[0]:
         print("ok - gui smoke skipped (no display)")
