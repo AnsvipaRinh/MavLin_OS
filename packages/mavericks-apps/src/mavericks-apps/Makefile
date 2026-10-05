@@ -43,6 +43,7 @@ install: all
 	done
 	install -Dm755 bin/mv_launchpad_edit.py "$(DESTDIR)$(PREFIX)/bin/mv-launchpad-edit"
 	install -Dm755 bin/mv_desktop_cache.py "$(DESTDIR)$(PREFIX)/bin/mv_desktop_cache.py"
+	install -Dm755 bin/mv_calendar_eds.py "$(DESTDIR)$(PREFIX)/bin/mv_calendar_eds.py"
 	install -d "$(DESTDIR)$(PREFIX)/share/applications"
 	install -m644 desktop/*.desktop "$(DESTDIR)$(PREFIX)/share/applications/"
 	install -m644 config/mv-ytplayer-protocol.desktop "$(DESTDIR)$(PREFIX)/share/applications/"
