@@ -56,6 +56,12 @@ REQUIRED = [
     "folder-music", "folder-pictures", "folder-videos", "folder-templates",
     "folder-publicshare", "folder-remote", "folder-saved-search",
     "folder-recent", "folder-desktop", "user-bookmarks", "folder-online",
+    # 14 — preferences
+    "preferences-desktop-display", "preferences-desktop-locale",
+    "preferences-desktop-wallpaper", "preferences-desktop-notifications",
+    "preferences-system-privacy", "preferences-system-time",
+    "preferences-system", "preferences-desktop-accessibility",
+    "preferences-desktop-online-accounts", "preferences-desktop-font",
 ]
 
 # Known-broken text-path files still pending replacement in OTHER zones of
@@ -63,8 +69,6 @@ REQUIRED = [
 # Each entry here must be a file whose content starts with a Poppy checkout
 # relative path. Shrink this list as zones get fixed; never grow it.
 KNOWN_PENDING = {
-    # preferences font tile — replaced by Tier 2 category 14
-    "128x128/apps/preferences-desktop-font.svg",
     # other zones, pending owners
     "48x48/apps/system-file-manager.svg",
     "48x48/apps/utilities-terminal.svg",

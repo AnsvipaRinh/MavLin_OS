@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="tmFace" cx="38%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="80%" stop-color="#e9edf0"/>
+      <stop offset="100%" stop-color="#c6ced4"/>
+    </radialGradient>
+    <linearGradient id="tmRim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d8d8d8"/>
+      <stop offset="50%" stop-color="#a8a8a8"/>
+      <stop offset="100%" stop-color="#888888"/>
+    </linearGradient>
+    <linearGradient id="tmStand" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c8c0b8"/>
+      <stop offset="100%" stop-color="#989088"/>
+    </linearGradient>
+  </defs>
+  <rect x="88" y="200" width="80" height="14" rx="7" fill="url(#tmStand)"/>
+  <rect x="120" y="150" width="16" height="56" rx="4" fill="url(#tmStand)"/>
+  <circle cx="128" cy="106" r="86" fill="url(#tmRim)" stroke="#6e6e6e" stroke-width="4"/>
+  <circle cx="128" cy="106" r="72" fill="url(#tmFace)" stroke="#8a949c" stroke-width="2"/>
+  <ellipse cx="128" cy="62" rx="46" ry="20" fill="#ffffff" opacity=".6"/>
+  <g stroke="#3a444e" stroke-linecap="round">
+    <path d="M128 106V54" stroke-width="7"/>
+    <path d="M128 106l34 24" stroke-width="6"/>
+  </g>
+  <circle cx="128" cy="106" r="7" fill="#3a444e"/>
+  <g fill="#5a6570">
+    <circle cx="128" cy="46" r="5"/>
+    <circle cx="188" cy="106" r="5"/>
+    <circle cx="128" cy="166" r="5"/>
+    <circle cx="68" cy="106" r="5"/>
+  </g>
+</svg>

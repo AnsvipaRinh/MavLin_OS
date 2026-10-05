@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="acBody" cx="38%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#9ed4f4"/>
+      <stop offset="55%" stop-color="#4f96d8"/>
+      <stop offset="100%" stop-color="#2b6cae"/>
+    </radialGradient>
+  </defs>
+  <circle cx="128" cy="128" r="104" fill="url(#acBody)" stroke="#1f5787" stroke-width="5"/>
+  <ellipse cx="128" cy="66" rx="66" ry="30" fill="#ffffff" opacity=".3"/>
+  <g fill="#ffffff">
+    <circle cx="128" cy="78" r="16"/>
+    <path d="M96 188c0-24 14-40 32-40s32 16 32 40z"/>
+    <rect x="120" y="96" width="16" height="34" rx="8"/>
+  </g>
+  <path d="M206 58a104 104 0 0 1 0 140" fill="none" stroke="#e9f2f8" stroke-width="4" opacity=".35"/>
+</svg>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="globeBody" cx="38%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#9ed4f4"/>
+      <stop offset="55%" stop-color="#4f96d8"/>
+      <stop offset="100%" stop-color="#2b6cae"/>
+    </radialGradient>
+    <linearGradient id="globeStand" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c8c0b8"/>
+      <stop offset="100%" stop-color="#989088"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <rect x="88" y="196" width="80" height="14" rx="7" fill="url(#globeStand)"/>
+    <rect x="118" y="150" width="20" height="52" rx="4" fill="url(#globeStand)"/>
+    <circle cx="128" cy="106" r="82" fill="url(#globeBody)" stroke="#1f5787" stroke-width="4"/>
+    <ellipse cx="128" cy="58" rx="54" ry="26" fill="#ffffff" opacity=".3"/>
+    <path d="M128 24a82 82 0 0 1 0 164M128 24a82 82 0 0 0 0 164" fill="none" stroke="#e9f2f8" stroke-width="3" opacity=".6"/>
+    <path d="M46 106h164M54 66h148M54 146h148" fill="none" stroke="#e9f2f8" stroke-width="3" opacity=".6"/>
+    <path d="M96 78c14-10 34-10 48 0s6 28-8 38 10 26 24 16" fill="none" stroke="#e9f2f8" stroke-width="0" />
+    <path d="M84 60c22 8 24 34 12 50s-2 44 24 50 48-4 58-24" fill="none" stroke="#dbeaf5" stroke-width="5" opacity=".8"/>
+  </g>
+</svg>

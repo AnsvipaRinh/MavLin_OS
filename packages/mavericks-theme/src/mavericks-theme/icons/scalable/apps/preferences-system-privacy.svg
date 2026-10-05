@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="prShield" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f4f4f4"/>
+      <stop offset="55%" stop-color="#cfd4d8"/>
+      <stop offset="100%" stop-color="#9aa4ac"/>
+    </linearGradient>
+    <linearGradient id="prLock" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e8e8e8"/>
+      <stop offset="100%" stop-color="#9a9a9a"/>
+    </linearGradient>
+  </defs>
+  <path d="M128 18 226 54v74c0 58-42 100-98 116-56-16-98-58-98-116V54z" fill="url(#prShield)" stroke="#6e7a84" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M128 30 214 62v66c0 51-37 89-86 104-49-15-86-53-86-104V62z" fill="#ffffff" opacity=".22"/>
+  <g transform="translate(128,128)">
+    <path d="M-26 6v-14a26 26 0 0 1 52 0v14" fill="none" stroke="#5a6570" stroke-width="10" stroke-linecap="round"/>
+    <rect x="-34" y="4" width="68" height="52" rx="8" fill="url(#prLock)" stroke="#5a6570" stroke-width="4"/>
+    <circle cx="0" cy="24" r="7" fill="#3a444e"/>
+    <rect x="-3.5" y="26" width="7" height="16" rx="3" fill="#3a444e"/>
+    <path d="M-34 4h68v8h-68z" fill="#ffffff" opacity=".4"/>
+  </g>
+</svg>

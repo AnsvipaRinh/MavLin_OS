@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ntToast" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f6f6f6"/>
+      <stop offset="100%" stop-color="#d8d8d8"/>
+    </linearGradient>
+    <linearGradient id="ntBell" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f2f2f2"/>
+      <stop offset="50%" stop-color="#c9c9c9"/>
+      <stop offset="100%" stop-color="#9a9a9a"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <rect x="16" y="60" width="224" height="136" rx="16" fill="url(#ntToast)" stroke="#8a8a8a" stroke-width="4"/>
+    <path d="M16 76a16 16 0 0 1 16-16h192a16 16 0 0 1 16 16v14H16z" fill="#ffffff" opacity=".5"/>
+    <g transform="translate(128,120)">
+      <path d="M-36 18h72l-8-12v-26a28 28 0 0 0-56 0v26z" fill="url(#ntBell)" stroke="#6e6e6e" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M-12 30a12.8 12.8 0 0 0 24 0" fill="none" stroke="#6e6e6e" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M-36 4h72" stroke="#ffffff" stroke-width="3" opacity=".5"/>
+      <circle cx="46" cy="-34" r="18" fill="#d85454" stroke="#9c3535" stroke-width="3"/>
+      <circle cx="46" cy="-34" r="6" fill="#ffffff"/>
+    </g>
+    <rect x="40" y="164" width="120" height="10" rx="5" fill="#b8b8b8"/>
+  </g>
+</svg>
