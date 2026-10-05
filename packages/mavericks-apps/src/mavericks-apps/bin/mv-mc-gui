@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+"""Mission Control GUI Overlay - Full visual overview with thumbnails.
+
+Usage: mv-mc-gui [--debug]
+
+Creates a fullscreen overlay showing all windows across Spaces with:
+- Thumbnail previews
+- Workspace grouping
+- Click/keyboard activation
+- Escape to close
+"""
+import sys
+import os
+import subprocess
+import json
+import argparse
+
+try:
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
+except (ImportError, ValueError) as e:
+    print(f"Error: GTK3 not available: {e}", file=sys.stderr)
+    sys.exit(1)
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def run_helper(helper_name, args=None, binary=False):
+    """Run a Mission Control helper script."""
+    helper_path = os.path.join(SCRIPT_DIR, helper_name)
+    cmd = ["python3", helper_path]
+    if args:
+        cmd.extend(args)
+    
+    try:
+        if binary:
+            result = subprocess.run(cmd, capture_output=True, check=True)
+            return result.stdout
+        else:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            return result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Error running {helper_name}: {e.stderr}", file=sys.stderr)
+        return None
+    except FileNotFoundError:
+        print(f"Error: {helper_name} not found", file=sys.stderr)
+        return None
+
+
+class MissionControlOverlay(Gtk.Window):
+    """Fullscreen Mission Control overlay window."""
+    
+    def __init__(self, debug=False):
+        super().__init__()
+        self.debug = debug
+        self.windows_data = None
+        self.grid_data = None
+        self.thumbnails = {}
+        
+        # Setup window
+        self.set_app_paintable(True)
+        self.set_decorated(False)
+        self.set_keep_above(True)
+        self.fullscreen()
+        
+        screen = Gdk.Screen.get_default()
+        self.screen_width = screen.get_width()
+        self.screen_height = screen.get_height()
+        
+        # Main container
+        self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(self.main_box)
+        
+        # Top bar with workspace info
+        self.top_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.top_bar.set_margin_top(20)
+        self.top_bar.set_margin_start(20)
+        self.top_bar.set_margin_end(20)
+        self.main_box.pack_start(self.top_bar, False, False, 0)
+        
+        # Scrollable area for thumbnails
+        self.scroll = Gtk.ScrolledWindow()
+        self.scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.main_box.pack_start(self.scroll, True, True, 0)
+        
+        # Grid for thumbnails
+        self.grid = Gtk.FlowBox()
+        self.grid.set_column_spacing(20)
+        self.grid.set_row_spacing(20)
+        self.grid.set_homogeneous(True)
+        self.grid.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.grid.connect("child-activated", self.on_thumbnail_activated)
+        self.scroll.add(self.grid)
+        
+        # Bottom bar with instructions
+        self.bottom_bar = Gtk.Label()
+        self.bottom_bar.set_markup("<span size='large'>Click to activate • ESC to close</span>")
+        self.bottom_bar.set_margin_bottom(20)
+        self.main_box.pack_start(self.bottom_bar, False, False, 0)
+        
+        # Keyboard shortcuts
+        self.connect("key-press-event", self.on_key_press)
+        
+        # Load data
+        self.load_data()
+        
+        self.show_all()
+    
+    def load_data(self):
+        """Load windows and grid data."""
+        # Get windows by workspace
+        output = run_helper("mv-mc-window-spaces")
+        if not output:
+            print("Failed to get windows", file=sys.stderr)
+            Gtk.main_quit()
+            return
+        
+        try:
+            self.windows_data = json.loads(output)
+        except json.JSONDecodeError:
+            print("Invalid JSON from window-spaces", file=sys.stderr)
+            Gtk.main_quit()
+            return
+        
+        # Count total windows
+        total = sum(len(ws.get("windows", [])) for ws in self.windows_data.get("workspaces", []))
+        
+        # Get grid layout
+        grid_output = run_helper("mv-mc-grid", [str(total), str(self.screen_width), str(self.screen_height), "50"])
+        if grid_output:
+            try:
+                self.grid_data = json.loads(grid_output)
+            except json.JSONDecodeError:
+                self.grid_data = None
+        
+        # Generate thumbnails and add to grid
+        self.populate_grid()
+    
+    def populate_grid(self):
+        """Populate grid with window thumbnails."""
+        win_index = 0
+        
+        for ws in self.windows_data.get("workspaces", []):
+            for win in ws.get("windows", []):
+                wid = win.get("wid")
+                title = win.get("title", "Unknown")
+                app = win.get("app", "Unknown")
+                
+                # Generate thumbnail
+                thumb_data = run_helper("mv-mc-thumbnail", [str(wid), "200"], binary=True)
+                
+                if thumb_data:
+                    # Load image from data
+                    loader = GdkPixbuf.PixbufLoader.new_with_type("png")
+                    loader.write(thumb_data)
+                    loader.close()
+                    pixbuf = loader.get_pixbuf()
+                    
+                    # Create thumbnail widget
+                    image = Gtk.Image.new_from_pixbuf(pixbuf)
+                    
+                    # Create box with label
+                    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                    box.set_size_request(220, 250)
+                    box.pack_start(image, True, True, 0)
+                    
+                    label = Gtk.Label()
+                    label.set_markup(f"<b>{title[:30]}</b>\n<span size='small'>{app}</span>")
+                    label.set_line_wrap(True)
+                    box.pack_start(label, False, False, 5)
+                    
+                    # Add to grid
+                    child = self.grid.insert(box, win_index)
+                    child.wid = wid  # Store window ID
+                    
+                    win_index += 1
+        
+        if self.debug:
+            print(f"Added {win_index} thumbnails to grid", file=sys.stderr)
+    
+    def on_thumbnail_activated(self, flowbox, child):
+        """Handle thumbnail click/activation."""
+        if hasattr(child, 'wid'):
+            if self.debug:
+                print(f"Activating window {child.wid}", file=sys.stderr)
+            run_helper("mv-mc-activate-window", [str(child.wid)])
+            self.close_overlay()
+    
+    def on_key_press(self, widget, event):
+        """Handle keyboard shortcuts."""
+        keyname = Gdk.keyval_name(event.keyval)
+        
+        if keyname == "Escape":
+            self.close_overlay()
+        elif keyname == "Return" or keyname == "KP_Enter":
+            # Activate selected thumbnail
+            selected = self.grid.get_selected_children()
+            if selected:
+                child = selected[0]
+                if hasattr(child, 'wid'):
+                    run_helper("mv-mc-activate-window", [str(child.wid)])
+            self.close_overlay()
+    
+    def close_overlay(self):
+        """Close the overlay."""
+        self.unfullscreen()
+        self.close()
+        Gtk.main_quit()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Mission Control GUI Overlay")
+    parser.add_argument("--debug", action="store_true", help="Enable debug output")
+    args = parser.parse_args()
+    
+    # Initialize GTK
+    Gtk.init(None)
+    
+    # Create overlay
+    overlay = MissionControlOverlay(debug=args.debug)
+    
+    # Run
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()
