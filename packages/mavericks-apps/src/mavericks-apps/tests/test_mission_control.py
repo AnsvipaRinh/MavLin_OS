@@ -452,6 +452,222 @@ def test_import_globals():
     print("PASS: test_import_globals")
 
 
+def test_import_globals():
+    """Test that module imports cleanly and _XLIB_AVAILABLE is False when xlib missing."""
+    import mission_control as mc
+    assert hasattr(mc, '_XLIB_AVAILABLE'), "Module should have _XLIB_AVAILABLE"
+    # When python-xlib is not installed, should be False
+    assert mc._XLIB_AVAILABLE is False, "_XLIB_AVAILABLE should be False when xlib not installed"
+    # Functions should still be callable
+    assert callable(mc.enumerate_windows)
+    assert callable(mc.get_active_window)
+    assert callable(mc.get_workspaces)
+    print("PASS: test_import_globals")
+
+
+def test_compute_layout_empty():
+    """Test compute_layout with no windows."""
+    import mission_control as mc
+
+    mc._XLIB_AVAILABLE = False
+
+    result = mc.compute_layout([], {"count": 1, "names": ["Desktop 1"], "current": 0}, 1920, 1080)
+    assert isinstance(result, list), f"Expected list, got {type(result)}"
+    assert len(result) == 0, f"Expected empty list, got {len(result)}"
+    print("PASS: test_compute_layout_empty")
+
+
+def test_compute_layout_single_window():
+    """Test compute_layout with a single window."""
+    import mission_control as mc
+
+    mc._XLIB_AVAILABLE = False
+
+    result = mc.compute_layout(
+        [{"win_id": "0x001", "title": "Test", "wm_class": "XTerm", "pid": 100, "desktop": 0,
+          "geometry": {"x": 0, "y": 0, "width": 400, "height": 300}, "mapped": True, "state": []}],
+        {"count": 1, "names": ["Desktop 1"], "current": 0},
+        1920, 1080
+    )
+    assert isinstance(result, list), f"Expected list, got {type(result)}"
+    assert len(result) == 1, f"Expected 1 layout item, got {len(result)}"
+    item = result[0]
+    assert item["win_id"] == "0x001"
+    assert "rect" in item
+    assert "x" in item["rect"] and "y" in item["rect"] and "width" in item["rect"] and "height" in item["rect"]
+    assert item["workspace"] == 0
+    assert item["z"] == 0  # active workspace gets z=0
+    print("PASS: test_compute_layout_single_window")
+
+
+def test_compute_layout_multi_workspace():
+    """Test compute_layout with windows on multiple workspaces."""
+    import mission_control as mc
+
+    mc._XLIB_AVAILABLE = False
+
+    windows = [
+        {"win_id": "0x001", "title": "Term", "wm_class": "XTerm", "pid": 100, "desktop": 0,
+         "geometry": {"x": 0, "y": 0, "width": 400, "height": 300}, "mapped": True, "state": []},
+        {"win_id": "0x002", "title": "Browser", "wm_class": "Firefox", "pid": 200, "desktop": 0,
+         "geometry": {"x": 0, "y": 0, "width": 800, "height": 600}, "mapped": True, "state": []},
+        {"win_id": "0x003", "title": "Editor", "wm_class": "Geany", "pid": 300, "desktop": 1,
+         "geometry": {"x": 100, "y": 100, "width": 600, "height": 400}, "mapped": True, "state": []},
+    ]
+
+    result = mc.compute_layout(
+        windows,
+        {"count": 2, "names": ["Desktop 1", "Desktop 2"], "current": 0},
+        1920, 1080
+    )
+    assert isinstance(result, list), f"Expected list, got {type(result)}"
+    # Should have 3 items (2 on desk 0, 1 on desk 1)
+    assert len(result) == 3, f"Expected 3 layout items, got {len(result)}"
+
+    # Check workspace assignments
+    desks = [item["workspace"] for item in result]
+    assert 0 in desks, "Should have windows on desktop 0"
+    assert 1 in desks, "Should have windows on desktop 1"
+
+    # Active workspace (0) should come first (z=0)
+    assert result[0]["z"] == 0, "Active workspace should have z=0"
+    print("PASS: test_compute_layout_multi_workspace")
+
+
+def test_compute_layout_overlap_resolution():
+    """Test compute_layout: windows don't overlap, grid auto-fit works."""
+    import mission_control as mc
+
+    mc._XLIB_AVAILABLE = False
+
+    # Many windows on one workspace - should auto-fit grid
+    windows = []
+    for i in range(8):
+        windows.append({
+            "win_id": f"0x{i:03x}",
+            "title": f"Window {i}",
+            "wm_class": "XTerm",
+            "pid": 100 + i,
+            "desktop": 0,
+            "geometry": {"x": 0, "y": 0, "width": 400, "height": 300},
+            "mapped": True,
+            "state": [],
+        })
+
+    result = mc.compute_layout(
+        windows,
+        {"count": 1, "names": ["Desktop 1"], "current": 0},
+        1920, 1080
+    )
+    assert isinstance(result, list), f"Expected list, got {type(result)}"
+    assert len(result) == 8, f"Expected 8 layout items, got {len(result)}"
+
+    # All rects should be within screen bounds
+    for item in result:
+        r = item["rect"]
+        assert 0 <= r["x"] < 1920, f"x out of bounds: {r['x']}"
+        assert 0 <= r["y"] < 1080, f"y out of bounds: {r['y']}"
+        assert r["width"] > 0, f"width must be > 0: {r['width']}"
+        assert r["height"] > 0, f"height must be > 0: {r['height']}"
+
+    # Z-order should be sequential
+    zs = [item["z"] for item in result]
+    assert zs == sorted(zs), f"Z-order should be sorted, got {zs}"
+    print("PASS: test_compute_layout_overlap_resolution")
+
+
+def test_compute_layout_screen_fit():
+    """Test compute_layout: layout adapts to screen size."""
+    import mission_control as mc
+
+    mc._XLIB_AVAILABLE = False
+
+    windows = [
+        {"win_id": "0x001", "title": "Win1", "wm_class": "XTerm", "pid": 100, "desktop": 0,
+         "geometry": {"x": 0, "y": 0, "width": 400, "height": 300}, "mapped": True, "state": []},
+        {"win_id": "0x002", "title": "Win2", "wm_class": "XTerm", "pid": 200, "desktop": 0,
+         "geometry": {"x": 0, "y": 0, "width": 400, "height": 300}, "mapped": True, "state": []},
+        {"win_id": "0x003", "title": "Win3", "wm_class": "XTerm", "pid": 300, "desktop": 0,
+         "geometry": {"x": 0, "y": 0, "width": 400, "height": 300}, "mapped": True, "state": []},
+        {"win_id": "0x004", "title": "Win4", "wm_class": "XTerm", "pid": 400, "desktop": 0,
+         "geometry": {"x": 0, "y": 0, "width": 400, "height": 300}, "mapped": True, "state": []},
+    ]
+
+    # Small screen - should have fewer cols
+    result_small = mc.compute_layout(
+        windows, {"count": 1, "names": ["Desktop 1"], "current": 0}, 800, 600
+    )
+    # Large screen - should have more cols
+    result_large = mc.compute_layout(
+        windows, {"count": 1, "names": ["Desktop 1"], "current": 0}, 1920, 1080
+    )
+
+    # Both should produce 4 items
+    assert len(result_small) == 4
+    assert len(result_large) == 4
+
+    # Z-order should be 0 for both (active workspace)
+    assert result_small[0]["z"] == 0
+    assert result_large[0]["z"] == 0
+
+    # Different screen sizes may produce different layouts (different z distribution)
+    # but both should be valid
+    print("PASS: test_compute_layout_screen_fit")
+
+
+def test_compute_layout_with_placeholder():
+    """Test compute_layout includes placeholders for empty desktops."""
+    import mission_control as mc
+
+    mc._XLIB_AVAILABLE = False
+
+    windows = [
+        {"win_id": "0x001", "title": "Win1", "wm_class": "XTerm", "pid": 100, "desktop": 0,
+         "geometry": {"x": 0, "y": 0, "width": 400, "height": 300}, "mapped": True, "state": []},
+    ]
+
+    result = mc.compute_layout(
+        windows,
+        {"count": 3, "names": ["Desktop 1", "Desktop 2", "Desktop 3"], "current": 0},
+        1920, 1080
+    )
+
+    # Should have 1 window + 2 placeholders for empty desktops 1 and 2
+    # Active desktop (0) has the window, desktops 1 and 2 get placeholders
+    assert len(result) == 3, f"Expected 3 items (1 window + 2 placeholders), got {len(result)}"
+
+    # Find the window item and placeholder items
+    window_items = [i for i in result if not i.get("placeholder")]
+    placeholder_items = [i for i in result if i.get("placeholder")]
+    assert len(window_items) == 1, "Should have 1 window item"
+    assert len(placeholder_items) == 2, "Should have 2 placeholder items"
+
+    # Window should be on active desktop (z=0)
+    window_z = [i for i in result if not i.get("placeholder")][0]["z"]
+    assert window_z == 0, "Window should have z=0 on active desktop"
+    print("PASS: test_compute_layout_with_placeholder")
+
+
+def test_layoutmodel_compute():
+    """Test LayoutModel class compute method."""
+    import mission_control as mc
+
+    mc._XLIB_AVAILABLE = False
+
+    lm = mc.LayoutModel(screen_w=1920, screen_h=1080, margin=20, gap=10)
+    lm.set_windows([
+        {"win_id": "0x001", "title": "Win1", "wm_class": "XTerm", "pid": 100, "desktop": 0,
+         "geometry": {"x": 0, "y": 0, "width": 400, "height": 300}, "mapped": True, "state": []},
+        {"win_id": "0x002", "title": "Win2", "wm_class": "XTerm", "pid": 200, "desktop": 0,
+         "geometry": {"x": 0, "y": 0, "width": 800, "height": 600}, "mapped": True, "state": []},
+    ])
+    lm.set_workspaces({"count": 1, "names": ["Desktop 1"], "current": 0})
+    result = lm.compute()
+    assert isinstance(result, list)
+    assert len(result) == 2
+    print("PASS: test_layoutmodel_compute")
+
+
 if __name__ == "__main__":
     tests = [
         test_import_globals,

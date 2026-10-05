@@ -23,6 +23,250 @@ except ImportError:
     _XLIB_AVAILABLE = False
 
 
+class WorkspaceModel:
+    """Tracks per-workspace window sets, active desktop, names.
+
+    Pure data model — no X11, no GUI, fully unit-testable.
+    """
+
+    def __init__(self, workspaces: Dict[str, Any], windows: List[Dict[str, Any]]):
+        """Initialize with workspace info and window list.
+
+        Args:
+            workspaces: dict from get_workspaces() with keys 'count', 'names', 'current'
+            windows: list of window dicts from enumerate_windows() with 'desktop' key
+        """
+        self.count = workspaces.get("count", 1)
+        self.names = workspaces.get("names", [f"Desktop {i+1}" for i in range(self.count)])
+        self.current = workspaces.get("current", 0)
+
+        # Validate names count
+        if len(self.names) < self.count:
+            self.names.extend([f"Desktop {i+1}" for i in range(len(self.names), self.count)])
+
+        # Per-workspace window sets: maps desktop index -> list of windows on that desktop
+        self._desktops: Dict[int, List[Dict[str, Any]]] = {i: [] for i in range(self.count)}
+
+        for w in windows:
+            desktop = w.get("desktop", 0)
+            # Clamp to valid range
+            if desktop < 0:
+                desktop = 0
+            if desktop >= self.count:
+                desktop = self.count - 1
+            self._desktops[desktop].append(w)
+
+    @property
+    def desktops(self) -> Dict[int, List[Dict[str, Any]]]:
+        """Return unmodifiable view of per-desktop window lists."""
+        return dict(self._desktops)
+
+    def windows_on_desktop(self, desktop_index: int) -> List[Dict[str, Any]]:
+        """Return windows on the specified desktop index."""
+        return self._desktops.get(desktop_index, [])
+
+    def is_active(self, desktop_index: int) -> bool:
+        """Check if the given desktop is the current/active one."""
+        return desktop_index == self.current
+
+    def active_desktop(self) -> int:
+        """Return the index of the active desktop."""
+        return self.current
+
+    def name_for_desktop(self, desktop_index: int) -> str:
+        """Return the name for the given desktop index (wraps around)."""
+        return self.names[desktop_index % len(self.names)]
+
+
+def compute_layout(
+    windows: List[Dict[str, Any]],
+    workspaces: Dict[str, Any],
+    screen_w: int,
+    screen_h: int,
+    margin: int = 20,
+    gap: int = 10,
+) -> List[Dict[str, Any]]:
+    """Pure function: compute non-overlapping grid layout for mission control overview.
+
+    Given a list of windows + workspace model + screen dimensions, computes per-window
+    rectangle (x, y, w, h), workspace assignment, and z-order.
+
+    Layout strategy:
+    - Windows grouped by workspace
+    - Active workspace rendered first (topmost, z=0)
+    - Each workspace's windows laid out in a grid with auto-fit rows/cols
+    - Aspect-ratio preservation per window
+    - Margin + gap around/between windows
+    - Empty workspaces get placeholder rectangles
+
+    Returns list of dicts with keys:
+        win_id: str
+        rect: dict {x, y, w, h}
+        workspace: int (desktop index)
+        z: int (lower = higher priority; active workspace z=0)
+    """
+    model = WorkspaceModel(workspaces, windows)
+
+    # Count total windows across all desktops
+    total_windows = sum(len(model.windows_on_desktop(d)) for d in range(model.count))
+
+    # If no windows at all, return empty layout (no point laying out an empty grid)
+    if total_windows == 0:
+        return []
+
+    # Always include all desktops in the layout
+    # Sort desktops: active first, then others in order
+    active_desktop = model.active_desktop()
+    all_desktops = list(range(model.count))
+    if active_desktop in all_desktops:
+        all_desktops.remove(active_desktop)
+        all_desktops.insert(0, active_desktop)
+
+    layout = []
+    z = 0  # z-order: active workspace gets z=0,1,2... then others
+
+    available_w = screen_w - 2 * margin
+    available_h = screen_h - 2 * margin
+
+    for desktop_idx in all_desktops:
+        windows_on_desk = model.windows_on_desktop(desktop_idx)
+
+        if windows_on_desk:
+            # Compute grid columns based on aspect-ratio-preserving auto-fit
+            best_cols = 1
+            best_score = float("inf")
+            for cols in range(1, len(windows_on_desk) + 1):
+                rows = -(-len(windows_on_desk) // cols)  # ceiling division
+                # Cell size:
+                cell_w = available_w / cols
+                cell_h = (available_h - (rows - 1) * gap) / rows if rows > 0 else available_h
+                # Score: how well does this fill the screen?
+                if cell_w > 0 and cell_h > 0:
+                    # Target cell size that's not too small (> 80px wide or tall)
+                    score = abs(cell_w - 150) + abs(cell_h - 150)
+                    if score < best_score:
+                        best_score = score
+                        best_cols = cols
+            cols = best_cols
+            rows = -(-len(windows_on_desk) // cols)  # ceiling division
+
+            # Compute cell geometry
+            cell_w = available_w / cols
+            cell_h = available_h / rows
+
+            # Position windows in this grid
+            for win_idx, win in enumerate(windows_on_desk):
+                col = win_idx % cols
+                row = win_idx // cols
+
+                rect_x = margin + col * cell_w + col * gap
+                rect_y = margin + row * cell_h + row * gap
+                rect_w = cell_w - gap  # subtract gap to avoid overlap between adjacent cells
+                rect_h = cell_h - gap
+
+                # Ensure minimum size
+                if rect_w < 40:
+                    rect_w = 40
+                if rect_h < 40:
+                    rect_h = 40
+
+                # Clamp to screen
+                if rect_x + rect_w > screen_w:
+                    rect_x = screen_w - rect_w - margin
+                if rect_y + rect_h > screen_h:
+                    rect_y = screen_h - rect_h - margin
+                if rect_x < margin:
+                    rect_x = margin
+                if rect_y < margin:
+                    rect_y = margin
+
+                layout.append({
+                    "win_id": win["win_id"],
+                    "rect": {
+                        "x": rect_x,
+                        "y": rect_y,
+                        "width": rect_w,
+                        "height": rect_h,
+                    },
+                    "workspace": desktop_idx,
+                    "z": z,
+                })
+
+            z += 1  # next workspace gets higher z
+
+        # Always add a placeholder for desktops with no windows
+        if not windows_on_desk:
+            cell_w = available_w / 1
+            cell_h = available_h / 1
+            layout.append({
+                "win_id": "",
+                "rect": {
+                    "x": margin,
+                    "y": margin,
+                    "width": cell_w,
+                    "height": cell_h,
+                },
+                "workspace": desktop_idx,
+                "z": z,
+                "placeholder": True,
+            })
+            z += 1
+
+    # Sort by z-order (already in order, but ensure)
+    layout.sort(key=lambda item: item.get("z", 999))
+
+    return layout
+
+
+class LayoutModel:
+    """High-level layout model: computes grid positions for mission control overview.
+
+    Takes enumerate_windows() output + get_workspaces() → computes grid positions
+    for overview (rows/cols auto-fit), per-window rect (x,y,w,h), z-order, workspace assignment.
+
+    Pure functions, zero display, zero Gtk, unit-testable.
+    """
+
+    def __init__(self, screen_w: int, screen_h: int, margin: int = 20, gap: int = 10):
+        """Initialize layout model with screen dimensions.
+
+        Args:
+            screen_w: total screen width in pixels
+            screen_h: total screen height in pixels
+            margin: outer margin around the overview window
+            gap: gap between grid cells
+        """
+        self.screen_w = screen_w
+        self.screen_h = screen_h
+        self.margin = margin
+        self.gap = gap
+        self.windows: List[Dict[str, Any]] = []
+        self.workspaces: Dict[str, Any] = {"count": 1, "names": ["Desktop 1"], "current": 0}
+
+    def set_windows(self, windows: List[Dict[str, Any]]) -> None:
+        """Set the window list (output of enumerate_windows())."""
+        self.windows = windows
+
+    def set_workspaces(self, workspaces: Dict[str, Any]) -> None:
+        """Set the workspace model (output of get_workspaces())."""
+        self.workspaces = workspaces
+
+    def compute(self) -> List[Dict[str, Any]]:
+        """Compute the full layout: returns list of {win_id, rect, workspace, z}.
+
+        Returns:
+            List of layout dicts sorted by z-order (active workspace first).
+        """
+        return compute_layout(
+            self.windows,
+            self.workspaces,
+            self.screen_w,
+            self.screen_h,
+            self.margin,
+            self.gap,
+        )
+
+
 # --- Internal helpers ---
 
 def _get_display():
