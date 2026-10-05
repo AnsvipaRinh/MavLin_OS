@@ -61,9 +61,12 @@ window.mav-mc {
   text-shadow: 0 1px 3px #000;
   padding: 0;
 }
-.mav-workspace-button { background-color: rgba(38,40,45,0.90); color:#d8d8d8; border:1px solid rgba(255,255,255,0.13); border-radius:7px; padding:5px; min-width:132px; }
-.mav-workspace-button:checked { background-color:rgba(82,101,128,0.98); color:#fff; border-color:rgba(255,255,255,0.58); }
-.mav-workspace-add { background-color: rgba(38,40,45,0.90); color:#e4e4e4; border:1px solid rgba(255,255,255,0.13); border-radius:7px; min-width:34px; min-height:34px; font-size:18px; }
+.mav-workspace-button { background-color: rgba(30,31,33,0.35); color:#d8d8d8; border:1px solid transparent; border-radius:2px; padding:4px; min-width:132px; }
+.mav-workspace-button:checked { background-color:rgba(45,46,49,0.65); color:#fff; border-color:rgba(255,255,255,0.72); }
+.mav-workspace-button:hover { border-color:rgba(255,255,255,0.35); }
+.mav-workspace-button:checked:hover { border-color:rgba(255,255,255,0.85); }
+.mav-workspace-add { background-color:rgba(30,31,33,0.35); color:#e4e4e4; border:1px solid transparent; border-radius:2px; min-width:34px; min-height:34px; font-size:18px; }
+.mav-workspace-add:hover { border-color:rgba(255,255,255,0.35); }
 .mav-workspace-button:hover .mav-workspace-close { opacity:1; }
 .mav-workspace-close { opacity:0; min-width:18px; min-height:18px; padding:0; border:0; background:transparent; color:#ddd; font-size:12px; }
 .mav-workspace-button.mav-drop-target { background-color:rgba(100,125,160,0.98); border-color:rgba(255,255,255,0.95); box-shadow:0 0 0 2px rgba(255,255,255,0.32); }
