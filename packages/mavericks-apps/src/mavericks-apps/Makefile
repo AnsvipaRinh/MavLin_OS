@@ -3,7 +3,6 @@
 CC ?= cc
 CFLAGS ?= -march=skylake -mtune=skylake -O2 -pipe -fno-plt -fPIC
 LDFLAGS ?= -Wl,-O1,--sort-common,--as-needed -s
-PREFIX ?= /usr
 PANEL_CFLAGS := $(shell pkg-config --cflags libxfce4panel-2.0 gtk+-3.0 2>/dev/null)
 PANEL_LIBS := $(shell pkg-config --libs libxfce4panel-2.0 gtk+-3.0 2>/dev/null)
 
@@ -31,7 +30,8 @@ install: all
 	         bin/mv-quicklook-thunar bin/mv-spotlight-preview \
 	         bin/mv-notes bin/mv-reminders bin/mv-voice bin/mv-newfolder bin/mv-spotlight \
 	         bin/mv-getinfo bin/mv-openwith bin/mv-rename bin/mv-eject bin/mv-launchpad bin/mv-mission-control bin/mv-textedit bin/mv-calculator bin/mv-calendar bin/mv-dictionary bin/mv-music bin/mv-photos bin/mv-mail bin/mv-preview \
-	         bin/mv-mc-overview bin/mv-keychain bin/mv-fontbook bin/mv-colormeter bin/mv-stickies bin/mv-notify-send bin/mv-notification-center bin/mv-diskutil bin/mv-airdrop bin/mv-timemachine bin/mv-ytplayer \
+	         bin/mv-mc-overview bin/mv-mc-gui bin/mv-mc-window-spaces bin/mv-mc-activate-window bin/mv-mc-thumbnail bin/mv-mc-grid \
+	         bin/mv-keychain bin/mv-fontbook bin/mv-colormeter bin/mv-stickies bin/mv-notify-send bin/mv-notification-center bin/mv-diskutil bin/mv-airdrop bin/mv-timemachine bin/mv-ytplayer \
 	         bin/mv-finder-search bin/mv-finder-columns bin/mv-brightness \
 	         bin/mv-quit-app bin/mv-minimize-window bin/mv-hide-app bin/mv-close-window bin/mv-trash \
 	         bin/mv-force-quit bin/mv-recent-items; do \
