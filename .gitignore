@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 mv-hud
+# shared-object build artifacts (mavericks-apps Makefile: mv-hud + libmv-apple.so)
+*.so
 *.pkg.tar.zst
 # makepkg residue (build dirs; src/ is NOT ignored — it holds tracked sources)
 pkg/

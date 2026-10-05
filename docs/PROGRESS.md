@@ -1,8 +1,12 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-05 (GUI-test host-display isolation — zero Windows popups)
+**Last Updated**: 2026-10-05 (untracked OS-leftovers triage)
 
 ---
+
+## Session 2026-10-05 (OS-leftovers) — untracked leftover cleanup
+
+Deleted `docs/QWEN_INTEGRATION.md`, `docs/QWEN_WEB_AUTOMATION_RESEARCH.md` and `scripts/qwen-integration/` (unwired Qwen experiment: duplicate of AGENTS.md §14 + DECISIONS.md findings, execution path outside the chain-only worker model, prototype test fails on import, no playwright/chain wiring; DECISIONS.md §"Qwen Web Automation Research" keeps the decision record), plus the `libmv-apple.so` build artifact (now covered by a `*.so` gitignore rule; PKGBUILD `make` rebuilds it).
 
 ## Session 2026-10-05 (headless slice) — GUI tests never touch the host display
 
