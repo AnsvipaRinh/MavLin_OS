@@ -230,6 +230,7 @@ getinfo 35/35 · finder suites 26+69 · power-ui 45.
 - Self-contained firstboot implementation (4e3ede57)
 - Profile sync CI gates strengthened
 - oid OS-mc-impl-1: read-only window enumeration via EWMH/Xlib + wmctrl fallback (feat: mission-control window enumeration)
+- oid OS-mc-impl-3: thumbnail capture via XComposite/XDamage/XFixes (ctypes, raw RGBA + placeholder fallback; fixed libX11 XEvent-192 heap overflow) — live on Xvfb :97, 51ms fullscreen capture (feat: mission-control thumbnails)
 
 ---
 
