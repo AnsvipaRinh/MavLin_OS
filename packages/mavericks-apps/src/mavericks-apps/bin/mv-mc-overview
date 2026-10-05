@@ -54,6 +54,8 @@ window.mav-mc {
 .mav-workspace-button { background-color: rgba(38,40,45,0.90); color:#d8d8d8; border:1px solid rgba(255,255,255,0.13); border-radius:7px; padding:5px; min-width:132px; }
 .mav-workspace-button:checked { background-color:rgba(82,101,128,0.98); color:#fff; border-color:rgba(255,255,255,0.58); }
 .mav-workspace-add { background-color: rgba(38,40,45,0.90); color:#e4e4e4; border:1px solid rgba(255,255,255,0.13); border-radius:7px; min-width:34px; min-height:34px; font-size:18px; }
+.mav-workspace-button:hover .mav-workspace-close { opacity:1; }
+.mav-workspace-close { opacity:0; min-width:18px; min-height:18px; padding:0; border:0; background:transparent; color:#ddd; font-size:12px; }
 .mav-workspace-button.mav-drop-target { background-color:rgba(100,125,160,0.98); border-color:rgba(255,255,255,0.95); box-shadow:0 0 0 2px rgba(255,255,255,0.32); }
 .mav-workspace-preview { min-height:46px; }
 .mav-workspace-label { color:#e4e4e4; font-size:11px; font-weight:600; }
@@ -185,7 +187,18 @@ class Overview(Gtk.Window):
 
             button_box.pack_start(preview_row, False, False, 0)
             button_box.pack_start(text_row, False, False, 0)
-            button.add(button_box)
+
+            overlay = Gtk.Overlay()
+            overlay.add(button_box)
+            if desktop > 0 and desktop != current and count > 1:
+                close_button = Gtk.Button(label="×")
+                close_button.set_can_focus(False)
+                close_button.get_style_context().add_class("mav-workspace-close")
+                close_button.set_halign(Gtk.Align.START)
+                close_button.set_valign(Gtk.Align.START)
+                close_button.connect("clicked", self._remove_workspace, desktop)
+                overlay.add_overlay(close_button)
+            button.add(overlay)
             workspace_bar.pack_start(button, False, False, 0)
             self._workspace_buttons.append(button)
 
@@ -258,6 +271,10 @@ class Overview(Gtk.Window):
             self.destroy()
             return True
         return False
+
+    def _remove_workspace(self, _button, desktop):
+        if mission_control.remove_workspace(desktop):
+            self._refresh_after_workspace_switch()
 
     def _add_workspace(self, _button):
         workspaces = mission_control.get_workspaces()
