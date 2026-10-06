@@ -416,6 +416,60 @@ xfce4-notifyd does not expose.
 
 ---
 
+## 2026-10-04 — External Work Audit (origin/main + feat/global-menu-appmenu)
+
+> Salvaged 2026-10-06 from stash@{1} ("WIP on main: 7ba84f8") — the record was
+> never committed when the work landed; reproduced verbatim for provenance.
+
+**Context:** Autonomous audit of all work landed on GitHub origin from third-party agents (user reported "mountain of it"). Per AGENTS.md §14.2 GitHub Discovery Gate, external contribution backlog has priority. All PRs/Issues authored by repository owner AnsvipaRinh → MANDATORY directives per OWNER-ISSUES RULE.
+
+**Inventory:**
+- origin/main: ~200+ commits ahead of 7ba84f8 (PR #3,4,5,6,8 merged)
+- feat/global-menu-appmenu: ~200+ commits, 83 files, +2210/-1993 (PR #7 open)
+- 6 PRs total (1 closed/merged, 5 open → 4 merged via fast-forward, 1 via --no-ff)
+- 2 Issues (both owner directives)
+
+**Verdicts:**
+
+| Item | Verdict | Reason |
+|------|---------|--------|
+| Default Dock pins (PR #8) | ACCEPT | Minimal, tested, documented |
+| Super+Q/M/H/W shortcuts (PR #8) | ACCEPT | Wires existing scripts, tested |
+| NetworkManager guard (PR #8) | ACCEPT | Static guard, enforces baseline |
+| KEYBOARD.md update (PR #8) | ACCEPT | Documentation sync |
+| MIME apps list (PR #8) | ACCEPT | Proper default, mirrored, synced |
+| Firstboot/profile refactor (PR #4) | ACCEPT | Robust, idempotent, tested |
+| Panel config validity (PR #6) | ACCEPT | Fixes config, adds test |
+| CI theme validation (PR #3) | ACCEPT | Strengthens CI |
+| Global menu implementation (PR #7) | ACCEPT | Complete, tested, architecture-compliant, energy-neutral |
+| Apple menu plugin (PR #7) | ACCEPT | Native C plugin, Mavericks command set |
+| App lifecycle migration (PR #7) | ACCEPT | Gtk.Application pattern, all apps migrated |
+| Force Quit / Recent Items (PR #7) | ACCEPT | Native dialogs, one-shot |
+| Hardware selection rewrite (PR #7) | ACCEPT | Post-install tool, proper separation |
+| Test-global-menu.py (PR #7) | ACCEPT | Comprehensive static validation |
+| Issue #1 (Architecture plan) | MANDATORY | Owner directive — execute per §13.8 |
+| Issue #2 (Poppy audit) | MANDATORY | Owner directive — execute per §13.8 (already done, recorded above) |
+
+**Architecture Assessment:** No hardware-profile leakage into generic core. Global menu, Apple menu, app lifecycle, shortcuts, Dock pins — all generic core. Firstboot/profile selector, apply-hardware-selection.sh — properly isolated hardware-profile tools.
+
+**Mavericks Fidelity:** Significant improvement. Global menu + Apple menu + per-app GMenu = core Mavericks desktop metaphor implemented.
+
+**Licenses/Secrets:** CLEAN. No secrets. vala-panel-appmenu from upstream (GPL-3.0). All new code project-internal.
+
+**Energy/Performance:** NEGLIGIBLE impact. No persistent daemons, no polling, no Electron/Java/Python daemons. Panel plugins event-driven only.
+
+**Test Gates (post-merge):** 7/7 PASS (check-sync, test-dock-launchers, test-window-keys, test-network-stack, test-global-menu, test-panel-config, test-finder-launcher)
+
+**Actions Taken:**
+1. Fast-forward merge origin/main (7ba84f8 → 8836c6f)
+2. Merge --no-ff feat/global-menu-appmenu (930a0b5 → merge commit)
+3. All gates verified PASS
+4. Push origin main
+
+**Next Objectives:** Execute Issue #1 decomposition; continue P0 application completion per canonical inventory (§13.2).
+
+---
+
 ## 2026-10-06 — Dock (canonical #18): plank reads GSettings, not `dock1/settings`
 
 **Decision.** The Dock's preference authority is
@@ -991,3 +1045,137 @@ process action.
 - `docs/APPS.md` — Activity Monitor row updated
 - `docs/PROGRESS.md` — session entry added
 - `docs/NEEDS_HARDWARE_TEST.md` — hardware items added (see below)
+
+---
+
+## Session: Screenshot P0 (oid `OS-shot-p0`, canonical objective #8)
+
+Audit target: `packages/mavericks-apps/src/mavericks-apps/bin/mv-shot` +
+`desktop/mv-screenshot.desktop` + `scripts/test-mv-shot.py` + the Screenshot
+rows in `docs/*`. Read-only with respect to the shared hotkey registry.
+
+### Decisions
+
+1. **Mavericks save location and filename become the default: `~/Desktop`
+   with `Screen Shot YYYY-MM-DD at HH.MM.SS.png`.**
+   macOS 10.9 saves screen shots to the Desktop under exactly that name.
+   The previous default (`~/Pictures/Screenshots/shot-YYYYMMDD-HHMMSS.png`)
+   was an invented convention nobody would recognise as macOS. Collisions get
+   the macOS `… 2.png` suffix. `~/Pictures/Screenshots` is still reachable
+   through the `save_dir` config option, so nothing is taken away.
+   Rationale: §10 perceptual fidelity — a person comparing the two systems
+   looks for the filename and its location first.
+
+2. **The capture filename is computed AFTER the `-T` timer, not before.**
+   The old code built the path, then slept inside `take_screenshot`, so a
+   `-T 10` shot was filed under the moment the hotkey was pressed rather than
+   the moment the picture was taken. Now the timer runs first and the name is
+   derived afterwards.
+   Rationale: it is a correctness bug in the observable behavior, not taste.
+
+3. **The countdown is driven from a `time.monotonic()` deadline, polled at
+   100 ms — deliberately NOT `GLib.timeout_add_seconds(1, …)` decrementing a
+   counter.** GLib documents that `timeout_add_seconds` may fire up to a
+   second *early*; measurement showed a "1 second" timer returning after
+   0.77 s, i.e. every timed capture fired short. A 100 ms poll against a fixed
+   deadline cannot be released early, at a cost of 20 wakeups per second for
+   the few seconds the timer is actually on screen.
+   Rationale: caught by asserting the countdown's real elapsed time in the GUI
+   smoke, not by reading the code. Reading the code looked correct.
+   Deliberately kept cheap: the poll exists only during a timed capture, never
+   as a background loop, so §7's frozen power baseline is untouched.
+
+4. **Error paths must not block on a modal dialog when there is no terminal.**
+   A hotkey invocation has no TTY and nobody sitting there to click Close, so
+   the blocking `Gtk.MessageDialog` hung until killed (measured: `mv-shot
+   --bogus` hit the 30 s timeout). Now the dialog is used only when both
+   stdout and stderr are a TTY; otherwise the failure goes to stderr, exit
+   code 1, and a `notify-send` notification when the run is interactive.
+   Rationale: a P0 desktop surface must never leave an undismissable window
+   on the user's screen.
+
+5. **A malformed `config.ini` degrades per-option with a warning instead of
+   raising.** `show_preview = maybe` or `preview_timeout = soon` used to raise
+   an unhandled `ValueError` traceback and kill the process before any
+   capture. Values are now validated individually: invalid ones fall back to
+   the documented default and print `WARNING: mv-shot config: …`. Also
+   `_config_section` accepts `mv-shot`/`screenshot`/`shot` as section names,
+   because a plausible rename used to be silently ignored.
+   Rationale: a user-editable config file is an input surface; a typo must not
+   cost the user their screenshot.
+
+6. **The post-capture thumbnail became a borderless always-on-top float
+   anchored bottom-right and auto-fading, replacing a centred modal dialog.**
+   macOS parks the capture thumbnail in the bottom-right corner with a short
+   lifetime; a centred modal `Gtk.Dialog` blocks the whole desktop and reads
+   as a generic Linux dialog. Now: `Gtk.Window(TOPLEVEL)`, undecorated,
+   keep-above, skip-taskbar/pager, fade-out on timeout, click-the-thumbnail
+   opens Preview, Enter opens Preview, Escape/q dismisses.
+   Rationale: §13.3C/D — this is the surface the user actually sees after
+   every capture, so it is where the "is this macOS?" question is answered.
+
+7. **Clipboard-only capture (`-c`) now shows the thumbnail too, and
+   `Super+Shift+4` is the binding for it.** The old code skipped the preview
+   entirely in clipboard mode, i.e. the single most-used Screenshot shortcut
+   produced no visual feedback whatsoever. The clipboard image is pulled back
+   to a temp file and shown with an Open/Dismiss action pair (no Trash and no
+   "Show in Finder", because there is no saved file to act on).
+   Rationale: macOS shows the thumbnail for clipboard captures too.
+
+8. **Screen recording follows `$DISPLAY` instead of a hardcoded `:0.0`.**
+   The old `ffmpeg -i :0.0` recorded whatever the first display was,
+   regardless of where mv-shot was actually invoked.
+   Rationale: a latent wrong-output bug; one line, no downside.
+
+9. **Opacity goes through `Gdk.Window.set_opacity`, never the deprecated
+   `Gtk.Window.set_opacity`.** With no Gdk window yet (before realise) the
+   request is replayed from a `map-event` handler.
+   Rationale: the deprecated setter emitted a `DeprecationWarning` on every
+   capture, polluting stderr that the gate and the error paths also use.
+   Note for future work in this repo: `connect_once` is NOT exposed by the
+   PyGObject build here, so a one-shot handler must be written by hand.
+
+10. **`get_preferred_size()` return type is normalised.** On this build it
+    returns `Requisition` objects, on others plain ints, which made the
+    countdown/tools-bar centring arithmetic raise `TypeError` on
+    `int - Requisition`. `_preferred_size()` handles both.
+    Rationale: found only by exercising the real code on a real display.
+
+11. **The shared hotkey registry was deliberately NOT modified.** `Super+Shift+5`
+    is labelled "Screenshot: Interactive Tools" but binds `mv-shot -i`; now
+    that `--toolbar` exists, remapping it would be more truthful. It was left
+    alone because another agent owns `lib/mv_hotkeys_core.py` and both
+    `xfce4-keyboard-shortcuts.xml` copies in this parallel session, and the
+    owner directive for merge conflicts is to stop rather than resolve
+    automatically. The suite asserts all three bindings are present and that
+    every bound command is a valid `mv-shot` invocation, so a later remap
+    cannot silently break them.
+    Rationale: §14 — Orchestrator/worker zone discipline beats a small
+    fidelity win; the gap is recorded in `APPS.md` instead.
+
+12. **`mv-screenshot.desktop` now runs `mv-shot --toolbar %U`.** Launching
+    "Screenshot" from the menu previously started an opaque region grab with
+    no explanation, which is not what a Screenshot application should do. The
+    tools bar names the three modes and the timer; `%U` file arguments are
+    handed to `mv-preview` instead of being silently ignored.
+    Rationale: §13.3E — the launcher must explain itself.
+
+13. **Test suite asserts real behaviour, and asserts it on the AST.**
+    `scripts/test-mv-shot.py` (63 checks) loads the script as a module and
+    exercises naming, config tolerance, CLI parsing, recording display,
+    tools-bar and thumbnail keyboard contracts, EWMH `_NET_WM_STATE_ABOVE`,
+    and end-to-end captures through the real backend. The architectural
+    invariant "every `MainLoop().run()` sits in a function that also arms a
+    safety timeout" is checked on the parsed AST, so a refactor cannot quietly
+    reintroduce an unbounded main loop that would hang a hotkey.
+    Deliberately not text-grepping the source for the behaviours above: the
+    three real bugs in this session (the truncated countdown, the config
+    traceback, the blocking error dialog) would all have passed a grep.
+    Rationale: §8 — "works" is not established by reading code.
+
+14. **Files changed:**
+    - `packages/mavericks-apps/src/mavericks-apps/bin/mv-shot`
+    - `packages/mavericks-apps/src/mavericks-apps/desktop/mv-screenshot.desktop`
+    - `scripts/test-mv-shot.py` (new)
+    - `docs/APPS.md`, `docs/PROGRESS.md`, `docs/DECISIONS.md`,
+      `docs/NEEDS_HARDWARE_TEST.md`
