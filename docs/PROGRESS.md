@@ -4,6 +4,49 @@
 
 ---
 
+## Session 2026-10-06 — System Settings P0 (oid `OS-settings-p0`, canonical objective #3)
+
+**Zone:** `bin/mv-settings` + its suites + System Settings rows in `docs/*`.
+
+**Audit finding — the IMPLEMENTED claim was false.** mv-settings was a
+launcher grid spawning stock dialogs (§13.6 explicitly forbids calling
+that a coherent settings application), with two dead placeholder buttons
+(General, Users), and Date & Time / Language & Region dishonestly opening
+the generic xfce4-settings-manager.
+
+**Rework shipped (one coherent window):**
+
+- Mavericks System Preferences shell: Show All icon grid + embedded
+  native panes in the same window (Gtk.Stack), "Show All" back button,
+  Esc-back navigation, header search filter via `set_filter_func`.
+- 11 native panes with real cheap backends (no daemons/polling, one-shot
+  reads at pane open): General (xfconf xsettings), Dock (plank GSettings
+  user-taste keys; Mavericks-identity keys stay owned by mv-dock-config),
+  Mission Control (xfwm4 workspace_count 1–16 + wrap), Energy Saver
+  (UPower + xfconf blank/dpms + mv-power-ui), Date & Time (timedate1
+  read-only), Language & Region (locale.conf read-only), Security &
+  Privacy (screensaver lock, schema-optional), Desktop & Screen Saver
+  (hub), Trackpad (honest applespi-aware detection), Users/Sharing
+  (honest info states per §10).
+- Missing stock tools now open an honest "not installed" pane naming the
+  tool (blueman etc.) instead of dead insensitive buttons; Keyboard
+  Shortcuts → mv-hotkeys-gui integration unchanged.
+- Live bug caught by the new GUI smoke: `Gio.Settings.new` on a missing
+  schema g_error-ABORTS the process (no Python exception) — all
+  GSettings access now guarded by `SettingsSchemaSource.lookup`.
+- GTK3 mechanics recorded: FlowBox filtering maps/unmaps (get_visible
+  stays True); SearchEntry "search-changed" fires on a ~150 ms timeout,
+  so GUI tests must pump on wall-clock time.
+
+**Status:** PARTIALLY IMPLEMENTED (honest APPS row rewritten); HW items
+in NEEDS_HARDWARE_TEST § System Settings.
+
+**Tests:** scripts/test-mv-settings.py rewritten (59 headless) +
+scripts/test-mv-settings-gui.py new (32, pinned Xvfb :97); check-sync.sh
+green: 37 app suites, launch smoke 34/34.
+
+---
+
 ## Session 2026-10-06 — Screenshot P0 (oid `OS-shot-p0`, canonical objective #8)
 
 **Zone:** `bin/mv-shot` + `desktop/mv-screenshot.desktop` +

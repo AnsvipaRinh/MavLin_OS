@@ -1253,3 +1253,82 @@ Paste actions.
 - `scripts/test-mv-desktop-menu.py` (new — validates scripts + menu + desktop.xml)
 - `docs/APPS.md`, `docs/PROGRESS.md`, `docs/DECISIONS.md`,
   `docs/NEEDS_HARDWARE_TEST.md`
+
+## 2026-10-06 — System Settings P0: embedded-pane shell, honest backends (oid OS-settings-p0, canonical #3)
+
+**Context.** The old mv-settings was a launcher grid that spawned stock
+Xfce/GNOME dialogs — exactly what §13.6 forbids ("a coherent settings
+application rather than a collection of unrelated stock dialogs"), yet
+docs/APPS.md claimed IMPLEMENTED. Two pages were dead buttons
+("(coming soon)"), and Date & Time / Language & Region dishonestly opened
+the generic xfce4-settings-manager.
+
+**Decisions:**
+
+1. **Shell architecture: one window, Gtk.Stack, Mavericks System
+   Preferences flow.** Icon grid (Show All) at the top level; clicking a
+   pane opens an embedded pane inside the same window with a "Show All"
+   back button (visible only in panes) and Esc-to-go-back. Search
+   (SearchEntry, hidden in pane view) filters the grid via
+   `FlowBox.set_filter_func` — the canonical GTK filter API; the old
+   button-`set_visible` approach left empty cells because the
+   FlowBoxChild wrapper stays visible.
+2. **Routing policy is a pure function (`page_action`)**: native pane >
+   external stock tool (reuse-first) > honest "not installed" pane.
+   Missing tools are NO LONGER dead insensitive buttons — the click opens
+   an honest pane naming the tool and why it is absent (blueman: power
+   baseline + HW-phase install, per existing APPS row).
+3. **Reuse-first boundary kept explicit.** Mature stock dialogs
+   (displays, keyboard, mouse, sound, network, notifications, storage,
+   appearance) remain external windows, launched from clearly labelled
+   grid icons. We do NOT embed foreign GTK dialogs into our window
+   (socket/plug reparenting was rejected: fragile with GTK3 standalone
+   dialogs, zero fidelity gain pre-hardware).
+4. **Native panes only where a cheap real backend exists** (no fake
+   controls, AGENTS §9): General→xfconf `xsettings` (the same channel
+   xfce4-appearance writes; theme/icon theme/font), Dock→plank GSettings
+   (same authority mv-dock-config seeds), Mission Control→xfconf
+   `xfwm4/general/workspace_count` clamped 1–16 (Mavericks Spaces) +
+   `wrap_workspaces`, Energy Saver→UPower DisplayDevice one-shot GetAll +
+   xfconf `xfce4-power-manager` blank/dpms timeouts + mv-power-ui chain,
+   Date & Time→timedate1 read-only (setting the clock needs an admin;
+   the pane says so instead of pretending), Language & Region→
+   /etc/locale.conf read-only (writing system files silently was
+   rejected), Security & Privacy→org.xfce.screensaver `lock-enabled`
+   (schema-optional), Trackpad→/proc/bus/input/devices detection with an
+   applespi-honest empty state, Users/Sharing→honest info rows (account
+   management excluded per §10; sharing off by default per power
+   baseline).
+5. **Dock pane deliberately exposes ONLY user-taste keys** (size, zoom,
+   position, alignment, hide mode). The Mavericks-identity keys (theme,
+   auto-pinning, hide-delay=0, show-dock-item=false, lock-items) stay
+   owned by mv-dock-config seeding; the pane explains this in a row
+   instead of offering to break the Mavericks look.
+6. **`Gio.Settings.new` on a missing schema ABORTS the process**
+   (GLib-GIO-ERROR, no Python exception — caught live by the GUI smoke
+   on this dev box for org.xfce.screensaver). All GSettings access goes
+   through a `SettingsSchemaSource.lookup` guard; all D-Bus reads go
+   through a 2 s-timeout `GetAll` helper that returns {} on any failure
+   and lets the pane render an honest row.
+7. **Zero daemons/polling:** every backend read is one-shot at pane
+   open; writes happen only on explicit user clicks; no `timeout_add`
+   anywhere in the app (asserted by the GUI suite).
+
+**GTK3 mechanics learned (recorded so they are not re-broken):**
+FlowBox filtering maps/unmaps children (`get_mapped()`), it does NOT
+clear `get_visible()`; SearchEntry "search-changed" fires on a ~150 ms
+GLib timeout, so non-blocking iteration loops must run on wall-clock
+time (blocking iterations hang an event-idle Xvfb — this CI hazard is
+why the GUI suite pumps with a monotonic deadline).
+
+**Tests:** 0 GUI → 59 headless assertions (PAGES contract incl. §6
+surface coverage, routing policy, parsers/clamps, plank schema
+vocabulary freeze, icon-theme audit) + 32 pinned-Xvfb assertions (all
+panes build in-window, navigation, Escape semantics, search filtering,
+honest fallbacks for missing xfconf/schema/tool). check-sync.sh green
+(37 app suites, launch smoke 34/34).
+
+**Status:** PARTIALLY IMPLEMENTED — pre-hardware executable work done;
+remaining: per-surface pane icons (theme set lacks a dock/lightbulb
+metaphor), visual pass on real 2304×1440, real-session xfconf/UPower
+values, blueman install decision on hardware.

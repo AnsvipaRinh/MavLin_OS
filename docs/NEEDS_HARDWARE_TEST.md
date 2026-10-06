@@ -867,3 +867,32 @@ documented. LKML thread open (Sep 2026).
 - [ ] Multi-monitor: window capture (-w) with an external USB-C/DP display
       attached — confirm the correct window is picked and the grab is not
       offset by the second monitor's coordinate origin.
+
+## System Settings — hardware validation (OS-settings-p0, 2026-10-06)
+
+- [ ] Pane rendering on the real 2304×1440 panel: ListBox row spacing,
+      slider widths, icon-grid proportions and header typography at HiDPI
+      (pre-hardware only Xvfb geometry could be checked, not visual
+      fidelity).
+- [ ] General pane against a live xfsettingsd: confirm theme / icon-theme
+      / font writes via xfconf `xsettings` actually re-skin running apps
+      (mv-control, Thunar, mv-settings itself) on a real session.
+- [ ] Mission Control pane against live xfwm4: `workspace_count` writes
+      must be honoured by the running WM and reflected by
+      mv-mission-control / workspace switcher applet.
+- [ ] Energy Saver pane with a real battery: UPower DisplayDevice
+      percentage/state must read live on the MacBook10,1 battery; blank /
+      DPMS timeout writes must be enforced by the running
+      xfce4-power-manager (and not contradict the frozen TLP baseline).
+- [ ] Trackpad pane: with applespi working (best-effort track), the
+      pane must flip to "Trackpad detected" and pointing settings must
+      apply to the Force Touch trackpad; if applespi stays dead, the
+      honest empty state is the accepted outcome.
+- [ ] Security & Privacy pane on the ISO (xfce4-screensaver installed
+      there): the lock toggle must appear and persist; dev container
+      lacks the schema, so only the honest fallback path was testable.
+- [ ] Bluetooth pane after the blueman install decision on hardware:
+      pane must launch blueman-manager once installed.
+- [ ] Keyboard flows on the real keyboard: Esc-from-pane-back,
+      search-typing latency, Enter activation of grid items (FlowBox
+      keynav) under xfwm4 focus handling.

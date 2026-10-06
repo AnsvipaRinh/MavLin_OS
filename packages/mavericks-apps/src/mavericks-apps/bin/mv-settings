@@ -1,48 +1,116 @@
 #!/usr/bin/env python3
-"""mv-settings — Mavericks-like System Settings launcher (on-demand, exits on close).
-Backend: existing Xfce/GNOME tools + direct syscalls. No daemon.
-Pure logic (PAGES table, search filter) importable headless; Gtk loaded lazily.
+"""mv-settings — Mavericks-like System Settings (on-demand, exits on close).
+
+Architecture (System Settings P0, canonical #3):
+  * One coherent window: an icon grid (Show All) plus embedded native
+    preference panes opened inside the same window with a "Show All"
+    back button — not a launcher that spawns unrelated stock dialogs.
+  * Reuse-first: mature stock dialogs (Xfce display/keyboard/mouse,
+    pavucontrol, nm-connection-editor, gnome-disks) are still used, but
+    only for domains where a stock tool is genuinely the right backend.
+  * Native panes are wired to real, cheap backends only:
+      - General         -> xfconf xsettings (theme/icon theme/font; the
+                           same channel xfce4-appearance-settings writes)
+      - Desktop&Saver   -> hub to xfce4-desktop-settings / screensaver
+      - Dock            -> plank GSettings (net.launchpad.plank.dock
+                           settings, the authority mv-dock-config seeds)
+      - Mission Control -> xfconf xfwm4 (workspace_count, wrap_workspaces)
+      - Energy Saver    -> UPower D-Bus one-shot read + xfconf
+                           xfce4-power-manager blank timeouts + mv-power-ui
+      - Date & Time     -> timedate1 D-Bus read-only status
+      - Language/Region -> /etc/locale.conf + locale output (read-only)
+      - Security&Privacy-> org.xfce.screensaver lock toggle (schema-optional)
+      - Trackpad/Users/Sharing -> honest empty/info states, no fake controls
+  * No daemon, no polling: every read is one-shot at pane-open time; every
+    write is a direct settings change made by the user's click.
+
+Honesty rules (no fake completion):
+  * A stock tool that is not installed opens an honest "not installed"
+    pane naming the tool — never a dead button and never a mock control.
+  * Backends that are unavailable (no xfconfd, no schema, no battery)
+    render an explanatory row instead of pretending.
+
+Pure sections (PAGES table, routing, parsers, clamps) import headless with
+`gi` blocked; Gtk is loaded lazily by build_settings_class().
+
 License: GPL-2.0-or-later."""
-import shutil, subprocess, sys
+import getpass
+import os
+import re
+import shutil
+import socket
+import subprocess
+import sys
 
-def _gtk():
-    import gi
-    gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk
-    return Gtk
+# ---------------------------------------------------------------------------
+# Pure data: the page table.
+# Row shape: (label, icon-name, argv-or-None, native-pane-key-or-None)
+#   argv  -> external stock tool (reuse-first), launched by the pane router
+#   pane  -> embedded native pane built inside this window
+# A row may carry both: the native pane is the hub, argv is the "open the
+# full stock dialog" action offered inside it.
+# Icon names MUST exist in the Mavericks icon theme
+# (packages/mavericks-theme/src/mavericks-theme/icons); the suite audits it.
+# ---------------------------------------------------------------------------
 
-# (label, icon-name, command-argv or None for built-in page)
-# Icon names: prefer names that exist in the Mavericks icon theme
-# (packages/mavericks-theme/.../icons); Adwaita/hicolor fallbacks are OK but
-# scripts/test-mv-settings.py audits this table against the theme source.
 PAGES = [
-    ("General", "preferences-system", None),
-    ("Appearance", "color-picker", ["xfce4-appearance-settings"]),
-    ("Desktop & Dock", "folder", ["xfce4-desktop-settings"]),
-    ("Displays", "video-display", ["xfce4-display-settings"]),
-    ("Wallpaper", "image-x-generic", ["xfce4-desktop-settings"]),
-    ("Network", "computer", ["nm-connection-editor"]),
-    ("Bluetooth", "audio-x-generic", ["blueman-manager"]),
-    ("Sound", "preferences-desktop-sound", ["pavucontrol"]),
-    ("Notifications", "appointment", ["xfce4-notifyd-config"]),
-    ("Keyboard", "input-keyboard", ["xfce4-keyboard-settings"]),
-    ("Keyboard Shortcuts", "preferences-desktop-keyboard", ["mv-hotkeys-gui"]),
-    ("Mouse", "input-mouse", ["xfce4-mouse-settings"]),
-    ("Energy Saver", "display", ["xfce4-power-manager-settings"]),
-    ("Date & Time", "gnome-clocks", ["xfce4-settings-manager"]),
-    ("Language & Region", "preferences-system", ["xfce4-settings-manager"]),
-    ("Users", "dialog-password", None),
-    ("Startup Items", "system-file-manager", ["xfce4-session-settings"]),
-    ("Storage", "drive-harddisk", ["gnome-disks"]),
-    ("About", "help-about", ["mv-about"]),
+    ("General", "preferences-system", None, "general"),
+    ("Appearance", "color-picker", ["xfce4-appearance-settings"], None),
+    ("Desktop & Screen Saver", "preferences-desktop-wallpaper",
+     ["xfce4-desktop-settings"], "desktop_saver"),
+    ("Dock", "application-grid", None, "dock"),
+    ("Mission Control", "folder-desktop", None, "mission_control"),
+    ("Language & Region", "preferences-desktop-locale", None, "language"),
+    ("Date & Time", "gnome-clocks", None, "datetime"),
+    ("Security & Privacy", "preferences-system-privacy", None, "security"),
+    ("Notifications", "preferences-desktop-notifications",
+     ["xfce4-notifyd-config"], None),
+    ("Displays", "video-display", ["xfce4-display-settings"], None),
+    ("Energy Saver", "display", ["xfce4-power-manager-settings"], "energy"),
+    ("Keyboard", "input-keyboard", ["xfce4-keyboard-settings"], None),
+    ("Keyboard Shortcuts", "preferences-desktop-keyboard", ["mv-hotkeys-gui"], None),
+    ("Mouse", "input-mouse", ["xfce4-mouse-settings"], None),
+    ("Trackpad", "preferences-desktop-mouse", ["xfce4-mouse-settings"], "trackpad"),
+    ("Sound", "preferences-desktop-sound", ["pavucontrol"], None),
+    ("Network", "computer", ["nm-connection-editor"], None),
+    ("Bluetooth", "audio-x-generic", ["blueman-manager"], None),
+    ("Sharing", "emblem-shared", None, "sharing"),
+    ("Users", "dialog-password", None, "users"),
+    ("Startup Items", "system-file-manager", ["xfce4-session-settings"], None),
+    ("Storage", "drive-harddisk", ["gnome-disks"], None),
+    ("About", "help-about", ["mv-about"], None),
 ]
+
+# Native pane keys that must have a builder (_pane_<key>) in the GUI class.
+NATIVE_PANES = (
+    "general", "desktop_saver", "dock", "mission_control", "language",
+    "datetime", "security", "energy", "trackpad", "sharing", "users",
+    "unavailable",
+)
+
 
 def page_is_available(cmd):
     """True if a page's backend tool can actually be launched here.
-    cmd=None means an unimplemented built-in page -> not available."""
+    cmd=None means no external tool for this page."""
     if not cmd:
         return False
     return shutil.which(cmd[0]) is not None
+
+
+def page_action(row, tool_available=None):
+    """Pure routing policy shared by clicks and tests.
+    Returns ('pane', key) | ('launch', argv) | ('unavailable', tool)."""
+    if tool_available is None:
+        tool_available = page_is_available
+    _label, _icon, argv, pane = row
+    if pane:
+        return ("pane", pane)
+    if argv and tool_available(argv):
+        return ("launch", argv)
+    if argv:
+        return ("unavailable", argv[0])
+    return ("unavailable", "this component")
+
 
 def filter_pages(query):
     """Search semantics shared by the UI: case-insensitive substring match
@@ -50,63 +118,678 @@ def filter_pages(query):
     q = query.lower()
     return [row for row in PAGES if q in row[0].lower()]
 
+
+# ---------------------------------------------------------------------------
+# Pure helpers backing the native panes (headless-testable).
+# ---------------------------------------------------------------------------
+
+# --- Mission Control (xfconf xfwm4) ---
+WORKSPACE_MIN, WORKSPACE_MAX = 1, 16  # Mavericks Spaces limits
+
+
+def clamp_workspaces(n):
+    """Clamp a workspace count into the Mavericks Spaces range."""
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        return WORKSPACE_MIN
+    return max(WORKSPACE_MIN, min(WORKSPACE_MAX, n))
+
+
+# --- Dock (plank GSettings, same authority mv-dock-config seeds) ---
+DOCK_SCHEMA = "net.launchpad.plank.dock.settings"
+DOCK_PATH = "/net/launchpad/plank/docks/dock1/"
+# (key, label, kind, extra) — kinds: "range" (min,max,step), "bool",
+# "enum" with ordered (nick, human label) choices.
+DOCK_CONTROLS = (
+    ("icon-size", "Size", "range", (24, 96, 1)),
+    ("zoom-enabled", "Magnification", "bool", None),
+    ("zoom-percent", "Magnification size", "range", (100, 200, 5)),
+    ("position", "Position on screen", "enum",
+     (("left", "Left"), ("bottom", "Bottom"), ("right", "Right"))),
+    ("alignment", "Alignment", "enum",
+     (("start", "Left"), ("center", "Center"), ("end", "Right"))),
+    ("hide-mode", "Hide", "enum",
+     (("intelligent", "Automatically hide and show"),
+      ("auto", "Hide automatically"),
+      ("none", "Do not hide"),
+      ("dodge-maximized", "Hide when a window maximises"))),
+)
+DOCK_USER_KEYS = {c[0] for c in DOCK_CONTROLS}
+
+# --- General (xfconf xsettings — the channel xfce4-appearance uses) ---
+XSETTINGS_CHANNEL = "xsettings"
+GENERAL_KEYS = ("ThemeName", "IconThemeName", "FontName")
+THEME_DIRS = ("/usr/share/themes", os.path.expanduser("~/.themes"))
+ICON_THEME_DIRS = ("/usr/share/icons", os.path.expanduser("~/.icons"))
+
+# --- Energy Saver (xfconf xfce4-power-manager; minutes) ---
+XPM_CHANNEL = "xfce4-power-manager"
+ENERGY_BLANK_KEYS = (
+    ("blank-on-ac", "Blank display on power adapter after", 0, 120),
+    ("blank-on-battery", "Blank display on battery after", 0, 60),
+    ("dpms-sleep-on-ac", "Switch off display on power adapter after", 0, 120),
+    ("dpms-sleep-on-battery", "Switch off display on battery after", 0, 60),
+)
+
+
+def format_battery(props):
+    """Human string for a UPower display device property dict.
+    props: IsPresent(bool) Percentage(float) State(int); missing keys
+    mean 'no battery information' (honest, not an error)."""
+    if not props or not props.get("IsPresent"):
+        return "No battery present"
+    pct = props.get("Percentage")
+    if pct is None:
+        return "Battery present (charge level unknown)"
+    state = props.get("State", 0)
+    suffix = {1: "discharging", 2: "charging", 4: "fully charged"}.get(
+        state, "")
+    base = "Battery: %d%%" % round(pct)
+    return "%s%s" % (base, " (%s)" % suffix if suffix else "")
+
+
+def read_dbus_props(bus_name, object_path, interface):
+    """One-shot GetAll() on the SYSTEM bus. Returns {} on any failure
+    (no daemon, no bus, timeout) — panes render an honest row instead."""
+    try:
+        import gi
+        gi.require_version("Gio", "2.0")
+        gi.require_version("GLib", "2.0")
+        from gi.repository import Gio, GLib
+        bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        res = bus.call_sync(
+            bus_name, object_path, "org.freedesktop.DBus.Properties",
+            "GetAll", GLib.Variant("(s)", (interface,)), None,
+            Gio.DBusCallFlags.NONE, 2000, None)
+        return res.unpack()[0] if res else {}
+    except Exception:
+        return {}
+
+
+# --- Date & Time (timedate1, read-only) ---
+def parse_timedate(props):
+    """(timezone, ntp-on, ntp-synced, readable clock) from a timedate1
+    property dict (values may be missing -> honest placeholders)."""
+    tz = props.get("Timezone") or "unknown"
+    ntp = bool(props.get("NTP", False))
+    synced = bool(props.get("NTPSynchronized", False))
+    clock = "clock unavailable"
+    t = props.get("TimeUSec")
+    if isinstance(t, int) and t > 0:
+        import time
+        clock = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t / 1e6))
+    return (tz, ntp, synced, clock)
+
+
+# --- Language & Region (read-only) ---
+def parse_locale_conf(text):
+    """Extract the LANG/LC_* assignments from an /etc/locale.conf-style
+    file. Returns {var: value}; empty when the file is absent."""
+    out = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        out[key.strip()] = value.strip().strip('"')
+    return out
+
+
+# --- Trackpad (detection over /proc/bus/input/devices text) ---
+def detect_touchpad(devices_text):
+    """True if any input device announces a touchpad. Parsed from
+    /proc/bus/input/devices content (Name/Phys fields)."""
+    for block in devices_text.split("\n\n"):
+        name = re.search(r'N: Name="([^"]*)"', block)
+        if name and "touchpad" in name.group(1).lower():
+            return True
+        if re.search(r"P: Phys=.*touchpad", block, re.IGNORECASE):
+            return True
+    return False
+
+
+# --- Sharing (honest info: hostname + service state) ---
+SHARING_SERVICES = (("sshd.service", "File Sharing (sshd)"),)
+
+
+def service_enabled(unit, runner=None):
+    """True/False/None (unknown) for a systemd unit being enabled.
+    Read-only symlink check; tolerates systemd being absent."""
+    if runner is None:
+        def runner(argv, **kw):
+            return subprocess.run(argv, capture_output=True, text=True,
+                                  timeout=5, **kw)
+    try:
+        r = runner(["systemctl", "is-enabled", unit])
+        return r.returncode == 0
+    except Exception:
+        return None
+
+
+def current_user_home():
+    """(user, home) for the Users pane info row."""
+    home = os.environ.get("HOME") or os.path.expanduser("~")
+    try:
+        user = getpass.getuser()
+    except Exception:
+        user = os.environ.get("USER") or "unknown"
+    return user, home
+
+
+# ---------------------------------------------------------------------------
+# GUI
+# ---------------------------------------------------------------------------
+
+def _gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    return Gtk
+
+
 def build_settings_class():
-    """Build the GUI class lazily so PAGES/filter_pages import headless."""
-    Gtk = _gtk()
+    """Build the GUI class lazily so the pure layer imports headless."""
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gtk, Gdk
+
+    def value_label(text):
+        """Read-only value text for an info row."""
+        return Gtk.Label(label=text, halign=Gtk.Align.END, wrap=True,
+                         selectable=True)
+
+    def label_row(text, widget=None, subtitle=None):
+        """A Mavericks preference row: left label (+subtitle), right
+        control, inside a non-activatable ListBox row."""
+        row = Gtk.ListBoxRow(selectable=False, activatable=False)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2,
+                      margin=6)
+        line = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        if text is not None:
+            line.pack_start(Gtk.Label(label=text, halign=Gtk.Align.START,
+                                      hexpand=True), True, True, 0)
+        if widget is not None:
+            line.pack_end(widget, False, False, 0)
+        box.pack_start(line, True, True, 0)
+        if subtitle:
+            box.pack_start(Gtk.Label(label=subtitle, halign=Gtk.Align.START,
+                                     wrap=True, sensitive=False),
+                           True, True, 0)
+        row.add(box)
+        return row
+
+    def pane_shell():
+        """Scrolled framed ListBox every native pane is built inside."""
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        frame = Gtk.Frame(shadow_type=Gtk.ShadowType.IN, margin=12)
+        frame.add(lb)
+        sw.add(frame)
+        return sw, lb
 
     class Settings(Gtk.Window):
         def __init__(self):
             super().__init__(title="System Settings")
             self.set_default_size(760, 520)
             self.set_icon_name("preferences-system")
-            hb = Gtk.HeaderBar(title="System Settings", show_close_button=True)
-            self.set_titlebar(hb)
-            search = Gtk.SearchEntry(placeholder_text="Search settings")
-            search.connect("search-changed", self.on_search)
-            hb.pack_start(search)
+            self.hb = Gtk.HeaderBar(title="System Settings",
+                                    show_close_button=True)
+            self.set_titlebar(self.hb)
+
+            self.back = Gtk.Button(label="Show All", visible=False)
+            self.back.connect("clicked", lambda _b: self.show_grid())
+            self.hb.pack_start(self.back)
+
+            self.search = Gtk.SearchEntry(placeholder_text="Search settings")
+            self.search.connect("search-changed", self.on_search)
+            self.hb.pack_start(self.search)
+
+            self.stack = Gtk.Stack()
+            self.add(self.stack)
+
+            # --- Show All grid ---
             self.flow = Gtk.FlowBox(homogeneous=True, min_children_per_line=4,
                                     selection_mode=Gtk.SelectionMode.NONE,
                                     margin=12, row_spacing=6, column_spacing=6)
             sw = Gtk.ScrolledWindow()
             sw.add(self.flow)
-            self.add(sw)
-            self.buttons = []
-            for label, icon, cmd in PAGES:
+            self.stack.add_named(sw, "grid")
+
+            for row in PAGES:
+                label, icon, cmd, pane = row
                 b = Gtk.Button()
                 box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-                img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
-                box.pack_start(img, False, False, 0)
+                box.pack_start(Gtk.Image.new_from_icon_name(
+                    icon, Gtk.IconSize.DIALOG), False, False, 0)
                 box.pack_start(Gtk.Label(label=label), False, False, 0)
                 b.add(box)
-                if not cmd:
-                    tip = label + " (coming soon)"
-                elif not page_is_available(cmd):
-                    tip = label + " (%s not installed)" % cmd[0]
+                if cmd and not pane and not page_is_available(cmd):
+                    b.set_tooltip_text("%s (%s not installed)"
+                                       % (label, cmd[0]))
                 else:
-                    tip = label
-                b.set_tooltip_text(tip)
-                if cmd and page_is_available(cmd):
-                    b.connect("clicked", self.launch, cmd)
-                else:
-                    b.set_sensitive(False)
+                    b.set_tooltip_text(label)
+                b.connect("clicked", self.open_page, row)
                 self.flow.add(b)
-                self.buttons.append((label.lower(), b))
-            self.search = search
+            self.flow.connect("child-activated", self.on_child_activated)
+
+            self.stack.set_visible_child_name("grid")
+            self.connect("key-press-event", self.on_key_press)
+
+        # ---------------- routing ----------------
+        def open_page(self, _btn, row):
+            kind, target = page_action(row)
+            if kind == "launch":
+                self.launch(target)
+            elif kind == "unavailable":
+                self.show_pane("unavailable", tool=target)
+            else:
+                self.show_pane(target, title=row[0])
+
+        def on_child_activated(self, _flow, child):
+            try:
+                index = self.flow.get_children().index(child)
+            except ValueError:
+                return
+            if 0 <= index < len(PAGES):
+                self.open_page(None, PAGES[index])
+
+        # ---------------- navigation ----------------
+        def show_pane(self, key, title=None, tool=None):
+            name = "pane:" + key
+            child = self.stack.get_child_by_name(name)
+            if child is None:
+                if key == "unavailable":
+                    child = self._pane_unavailable(tool)
+                else:
+                    builder = getattr(self, "_pane_" + key, None)
+                    child = builder() if builder else self._pane_unavailable(key)
+                self.stack.add_named(child, name)
+            self.stack.set_visible_child(child)
+            self.hb.set_title(title if title else
+                              ("Not Installed" if key == "unavailable"
+                               else key.replace("_", " ").title()))
+            self.back.set_visible(True)
+            self.search.set_visible(False)
+
+        def show_grid(self):
+            self.stack.set_visible_child_name("grid")
+            self.hb.set_title("System Settings")
+            self.back.set_visible(False)
+            self.search.set_visible(True)
+
+        def on_key_press(self, _w, event):
+            if Gdk.keyval_name(event.keyval) == "Escape":
+                if self.stack.get_visible_child_name() != "grid":
+                    self.show_grid()
+                    return True
+                if self.search.get_text():
+                    self.search.set_text("")
+                    return True
+            return False
 
         def on_search(self, entry):
             q = entry.get_text().lower()
-            for label, b in self.buttons:
-                b.set_visible(q in label)
 
-        def launch(self, _btn, cmd):
+            def match(child):
+                try:
+                    idx = child.get_index()
+                except AttributeError:
+                    return True
+                return 0 <= idx < len(PAGES) and q in PAGES[idx][0].lower()
+
+            self.flow.set_filter_func(match)
+
+        def launch(self, cmd):
             try:
                 subprocess.Popen(cmd)
             except FileNotFoundError:
-                d = Gtk.MessageDialog(transient_for=self, modal=True,
-                    message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK,
-                    text="%s is not installed yet" % cmd[0])
-                d.run()
-                d.destroy()
+                self.show_pane("unavailable", tool=cmd[0])
+
+        # ---------------- shared backend helpers ----------------
+        def _xfconf_channel(self, name):
+            try:
+                import gi
+                gi.require_version("Xfconf", "0")
+                from gi.repository import Xfconf
+                if not Xfconf.init():
+                    return None
+                return Xfconf.Channel.get(name)
+            except Exception:
+                return None
+
+        def _gsettings(self, schema, path=None):
+            # NB: Gio.Settings.new() on a missing schema g_error()s and
+            # ABORTS the process (no Python exception) — the lookup()
+            # guard below is mandatory, not optional.
+            try:
+                import gi
+                gi.require_version("Gio", "2.0")
+                from gi.repository import Gio
+                source = Gio.SettingsSchemaSource.get_default()
+                if source is None or source.lookup(schema, True) is None:
+                    return None
+                if path is None:
+                    return Gio.Settings.new(schema)
+                return Gio.Settings.new_with_path(schema, path)
+            except Exception:
+                return None
+
+        def _spawn_row(self, lb, label, argv, subtitle=None):
+            """A row whose control is a button launching a stock tool."""
+            if page_is_available(argv):
+                b = Gtk.Button(label="Open\u2026")
+                b.connect("clicked", lambda _b: self.launch(argv))
+                lb.add(label_row(label, b, subtitle))
+            else:
+                lb.add(label_row(label, None,
+                                 "%s is not installed.%s"
+                                 % (argv[0],
+                                    " " + subtitle if subtitle else "")))
+
+        # ---------------- native panes ----------------
+        def _pane_general(self, _row=None):
+            sw, lb = pane_shell()
+            ch = self._xfconf_channel(XSETTINGS_CHANNEL)
+            if ch is None:
+                lb.add(label_row(
+                    "General preferences unavailable", None,
+                    "The xfconf configuration service is not running. "
+                    "Start the Xfce session once, then reopen this pane."))
+                return sw
+
+            def dir_names(dirs, must_contain=None):
+                found = []
+                for d in dirs:
+                    if not os.path.isdir(d):
+                        continue
+                    for name in sorted(os.listdir(d)):
+                        if name.startswith("."):
+                            continue
+                        if must_contain and not os.path.isdir(
+                                os.path.join(d, name, must_contain)):
+                            continue
+                        if name not in found:
+                            found.append(name)
+                return found
+
+            def combo(current, values, apply_):
+                c = Gtk.ComboBoxText()
+                for v in values:
+                    c.append_text(v)
+                if current in values:
+                    c.set_active(values.index(current))
+                c.connect("changed", lambda w: apply_(
+                    values[w.get_active()] if w.get_active() >= 0 else None))
+                return c
+
+            gtk_themes = dir_names(THEME_DIRS, "gtk-3.0")
+            lb.add(label_row("Theme",
+                             combo(ch.get_string("ThemeName", "Adwaita"),
+                                   gtk_themes,
+                                   lambda v: v and ch.set_string("ThemeName",
+                                                                 v)),
+                             "GTK theme for windows and controls (same "
+                             "setting as the Appearance pane)."))
+            icon_themes = dir_names(ICON_THEME_DIRS)
+            lb.add(label_row("Icon theme",
+                             combo(ch.get_string("IconThemeName", "Adwaita"),
+                                   icon_themes,
+                                   lambda v: v and ch.set_string(
+                                       "IconThemeName", v))))
+            font = Gtk.FontButton(
+                font_name=ch.get_string("FontName", "Sans 10"))
+            font.connect("font-set", lambda f: ch.set_string(
+                "FontName", f.get_font_name()))
+            lb.add(label_row("System font", font))
+            return sw
+
+        def _pane_desktop_saver(self, _row=None):
+            sw, lb = pane_shell()
+            self._spawn_row(lb, "Desktop & Wallpaper",
+                            ["xfce4-desktop-settings"],
+                            "Wallpaper, desktop icons and per-workspace "
+                            "backgrounds.")
+            self._spawn_row(lb, "Screen Saver",
+                            ["xfce4-screensaver-preferences"],
+                            "Screen saver selection and timing; the lock "
+                            "toggle lives in Security & Privacy.")
+            return sw
+
+        def _pane_dock(self, _row=None):
+            sw, lb = pane_shell()
+            st = self._gsettings(DOCK_SCHEMA, DOCK_PATH)
+            if st is None:
+                lb.add(label_row(
+                    "Dock preferences unavailable", None,
+                    "The plank GSettings schema is not installed, so this "
+                    "pane has nothing to configure. The Dock itself is "
+                    "seeded by mv-dock-config at login."))
+                return sw
+            for key, text, kind, extra in DOCK_CONTROLS:
+                if kind == "range":
+                    lo, hi, step = extra
+                    scale = Gtk.Scale.new_with_range(
+                        Gtk.Orientation.HORIZONTAL, lo, hi, step)
+                    scale.set_value(st.get_int(key))
+                    scale.set_size_request(220, -1)
+                    scale.set_draw_value(True)
+                    scale.connect("value-changed", lambda s, k=key:
+                                  st.set_int(k, int(s.get_value())))
+                    lb.add(label_row(text, scale))
+                elif kind == "bool":
+                    toggle = Gtk.Switch(active=st.get_boolean(key))
+                    toggle.connect("notify::active", lambda s, _p, k=key:
+                                   st.set_boolean(k, s.get_active()))
+                    lb.add(label_row(text, toggle))
+                elif kind == "enum":
+                    c = Gtk.ComboBoxText()
+                    nicks = [n for n, _l in extra]
+                    for _n, human in extra:
+                        c.append_text(human)
+                    cur = st.get_string(key)
+                    if cur in nicks:
+                        c.set_active(nicks.index(cur))
+                    c.connect("changed", lambda w, k=key: (
+                        st.set_string(k, nicks[w.get_active()])
+                        if w.get_active() >= 0 else None))
+                    lb.add(label_row(text, c))
+            lb.add(label_row(
+                "Dock behaviour", None,
+                "The Mavericks glass theme, auto-pinning, the zero-second "
+                "hide delay and the Trash docklet are seeded by "
+                "mv-dock-config at login and intentionally not editable "
+                "here (they define the Mavericks look)."))
+            return sw
+
+        def _pane_mission_control(self, _row=None):
+            sw, lb = pane_shell()
+            ch = self._xfconf_channel("xfwm4")
+            if ch is None:
+                lb.add(label_row(
+                    "Mission Control preferences unavailable", None,
+                    "The xfconf configuration service is not running. "
+                    "Workspace settings apply once the Xfce session is up."))
+                return sw
+            count = Gtk.SpinButton.new_with_range(WORKSPACE_MIN,
+                                                  WORKSPACE_MAX, 1)
+            count.set_value(clamp_workspaces(
+                ch.get_int("general/workspace_count", 4)))
+            count.connect("value-changed", lambda s: ch.set_int(
+                "general/workspace_count", clamp_workspaces(s.get_value())))
+            lb.add(label_row("Spaces", count,
+                             "Number of workspaces Mission Control shows "
+                             "(1\u201316, as on Mavericks)."))
+            wrap = Gtk.Switch(
+                active=ch.get_bool("general/wrap_workspaces", False))
+            wrap.connect("notify::active", lambda s, _p: ch.set_bool(
+                "general/wrap_workspaces", s.get_active()))
+            lb.add(label_row("Wrap around when switching Spaces", wrap,
+                             "Moving past the last Space continues at the "
+                             "first one."))
+            if page_is_available(["mv-mission-control"]):
+                b = Gtk.Button(label="Open Mission Control\u2026")
+                b.connect("clicked",
+                          lambda _x: self.launch(["mv-mission-control"]))
+                lb.add(label_row("Overview", b,
+                                 "The full-window overview of all Spaces is "
+                                 "provided by Mission Control itself."))
+            return sw
+
+        def _pane_datetime(self, _row=None):
+            sw, lb = pane_shell()
+            props = read_dbus_props("org.freedesktop.timedate1",
+                                    "/org/freedesktop/timedate1",
+                                    "org.freedesktop.timedate1")
+            tz, ntp, synced, clock = parse_timedate(props)
+            lb.add(label_row("Time zone", value_label(tz)))
+            lb.add(label_row("Network time",
+                             value_label("on" if ntp else "off"),
+                             "Synchronised with a time server" if synced
+                             else "Not synchronised with a time server"))
+            lb.add(label_row("Date & time", value_label(clock),
+                             "Changing the clock needs an administrator: "
+                             "run timedatectl from a terminal."))
+            return sw
+
+        def _pane_language(self, _row=None):
+            sw, lb = pane_shell()
+            try:
+                with open("/etc/locale.conf", encoding="utf-8") as f:
+                    conf = parse_locale_conf(f.read())
+            except OSError:
+                conf = {}
+            lang = conf.get("LANG") or os.environ.get("LANG") or "not set"
+            lb.add(label_row("Language", value_label(lang),
+                             "System-wide language, from /etc/locale.conf."))
+            lb.add(label_row("Region formats",
+                             value_label(os.environ.get(
+                                 "LC_TIME", "same as language")),
+                             "Date, time and number formats follow the "
+                             "system locale."))
+            lb.add(label_row(
+                "Changing the language", None,
+                "Adding locales needs an administrator: edit "
+                "/etc/locale.conf and run locale-gen. This pane reports "
+                "the state; it does not silently rewrite system files."))
+            return sw
+
+        def _pane_security(self, _row=None):
+            sw, lb = pane_shell()
+            st = self._gsettings("org.xfce.screensaver")
+            if st is None:
+                lb.add(label_row(
+                    "Screen locking unavailable", None,
+                    "xfce4-screensaver is not installed on this build, so "
+                    "there is no lock backend to configure."))
+            else:
+                lock = Gtk.Switch(active=st.get_boolean("lock-enabled"))
+                lock.connect("notify::active", lambda s, _p:
+                             st.set_boolean("lock-enabled", s.get_active()))
+                lb.add(label_row("Require a password after sleep or "
+                                 "screen saver begins", lock))
+            self._spawn_row(lb, "Screen Saver settings",
+                            ["xfce4-screensaver-preferences"])
+            lb.add(label_row(
+                "Privacy", None,
+                "MavLinOS ships no telemetry or background reporting, so "
+                "there is nothing to opt out of here."))
+            return sw
+
+        def _pane_energy(self, _row=None):
+            sw, lb = pane_shell()
+            props = read_dbus_props(
+                "org.freedesktop.UPower",
+                "/org/freedesktop/UPower/devices/DisplayDevice",
+                "org.freedesktop.UPower.Device")
+            lb.add(label_row("Battery", value_label(format_battery(props))))
+            ch = self._xfconf_channel(XPM_CHANNEL)
+            if ch is None:
+                lb.add(label_row(
+                    "Display sleep timing unavailable", None,
+                    "The xfconf configuration service is not running; "
+                    "values are read once the Xfce session is up."))
+            else:
+                for key, text, lo, hi in ENERGY_BLANK_KEYS:
+                    scale = Gtk.Scale.new_with_range(
+                        Gtk.Orientation.HORIZONTAL, lo, hi, 5)
+                    scale.set_value(ch.get_int(key, 14))
+                    scale.set_size_request(220, -1)
+                    scale.set_draw_value(True)
+                    scale.connect("value-changed", lambda s, k=key:
+                                  ch.set_int(k, int(s.get_value())))
+                    lb.add(label_row(text + " (minutes)", scale))
+            if page_is_available(["mv-power-ui"]):
+                b = Gtk.Button(label="Sleep / Restart / Shut Down\u2026")
+                b.connect("clicked", lambda _x: self.launch(["mv-power-ui"]))
+                lb.add(label_row("Power actions", b))
+            self._spawn_row(lb, "Advanced power settings",
+                            ["xfce4-power-manager-settings"])
+            return sw
+
+        def _pane_trackpad(self, _row=None):
+            sw, lb = pane_shell()
+            try:
+                with open("/proc/bus/input/devices", encoding="utf-8") as f:
+                    text = f.read()
+            except OSError:
+                text = ""
+            if detect_touchpad(text):
+                lb.add(label_row(
+                    "Trackpad detected", None,
+                    "On Xfce, trackpad and mouse pointing settings (speed, "
+                    "acceleration, tapping) are shared."))
+                self._spawn_row(lb, "Pointing device settings",
+                                ["xfce4-mouse-settings"])
+            else:
+                lb.add(label_row(
+                    "No trackpad detected", None,
+                    "On the MacBook10,1 the built-in trackpad uses the "
+                    "applespi driver and needs the real hardware (see "
+                    "docs/NEEDS_HARDWARE_TEST.md). External USB pointing "
+                    "devices are configured in the Mouse pane."))
+                self._spawn_row(lb, "Mouse settings",
+                                ["xfce4-mouse-settings"])
+            return sw
+
+        def _pane_sharing(self, _row=None):
+            sw, lb = pane_shell()
+            lb.add(label_row("Computer name",
+                             value_label(socket.gethostname())))
+            for unit, human in SHARING_SERVICES:
+                enabled = service_enabled(unit)
+                state = ("on" if enabled else "off") if enabled is not None \
+                    else "unknown"
+                lb.add(label_row(human, value_label(state),
+                                 "Sharing services stay off by default to "
+                                 "keep the power baseline minimal."))
+            return sw
+
+        def _pane_users(self, _row=None):
+            sw, lb = pane_shell()
+            user, home = current_user_home()
+            lb.add(label_row("Current user", value_label(user),
+                             "Home folder: %s" % home))
+            lb.add(label_row(
+                "Account management", None,
+                "Full account editing (add/remove users, passwords, "
+                "parental controls) is intentionally out of scope for this "
+                "build — see docs/DECISIONS.md. Use useradd/passwd from a "
+                "terminal."))
+            return sw
+
+        def _pane_unavailable(self, tool=None):
+            sw, lb = pane_shell()
+            lb.add(label_row(
+                "%s is not installed" % (tool or "This component"), None,
+                "This build ships a minimal system: the stock tool behind "
+                "this pane was left out on purpose (power baseline, or it "
+                "belongs to the post-install hardware phase). After "
+                "installing it with pacman, the pane launches it "
+                "directly."))
+            return sw
 
     return Settings
 
@@ -116,4 +799,5 @@ if __name__ == "__main__":
     from mavericks_appmenu import run_application
     Settings = build_settings_class()
     sys.exit(run_application(
-        "com.mavlinos.SystemPreferences", "System Preferences", Settings, sys.argv))
+        "com.mavlinos.SystemPreferences", "System Preferences", Settings,
+        sys.argv))
