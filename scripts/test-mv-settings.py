@@ -159,8 +159,11 @@ def main():
     check("route: native pane wins over everything",
           m.page_action(general) == ("pane", "general"))
     displays = [r for r in m.PAGES if r[0] == "Displays"][0]
-    check("route: available external tool -> launch",
-          m.page_action(displays) == ("launch", ["xfce4-display-settings"]))
+    check("route: Displays uses native pane",
+          displays[2] == ["xfce4-display-settings"] and displays[3] == "displays",
+          str(displays))
+    check("native pane registry: Displays is declared",
+          "displays" in m.NATIVE_PANES)
     network = [r for r in m.PAGES if r[0] == "Network"][0]\n    sound = [r for r in m.PAGES if r[0] == "Sound"][0]
     check("route: Sound uses native pane",
           sound[2] is None and sound[3] == "sound", str(sound))
@@ -179,6 +182,29 @@ def main():
     check("route: pane row with argv still routes to the pane",
           m.page_action([r for r in m.PAGES if r[0] == "Energy Saver"][0])[0]
           == "pane")
+
+    # --- pure pane helpers: xrandr Displays ---
+    sample_xrandr = """Screen 0: minimum 8 x 8, current 2304 x 1440, maximum 32767 x 32767
+eDP-1 connected primary 2304x1440+0+0 (normal left inverted right x axis y axis) 286mm x 179mm
+   2304x1440     60.00*+ 48.00
+   1920x1200     60.00
+HDMI-1 connected 1920x1080+2304+0 (normal left inverted right x axis y axis) 530mm x 300mm
+   1920x1080     60.00*
+"""
+    displays_parsed = m.parse_xrandr_outputs(sample_xrandr)
+    check("xrandr: connected outputs parsed",
+          [d["name"] for d in displays_parsed] == ["eDP-1", "HDMI-1"],
+          str(displays_parsed))
+    check("xrandr: primary output parsed",
+          displays_parsed[0]["primary"] is True and displays_parsed[1]["primary"] is False)
+    check("xrandr: modes and rates parsed",
+          displays_parsed[0]["modes"][0]["name"] == "2304x1440"
+          and "60.00" in displays_parsed[0]["rates_by_mode"]["2304x1440"])
+    check("xrandr: current mode detected",
+          displays_parsed[0]["current_mode"] == "2304x1440")
+    check("xrandr: disconnected output ignored",
+          all(d["name"] != "DP-9" for d in m.parse_xrandr_outputs(
+              "DP-9 disconnected (normal left inverted right x axis y axis)")))
 
     # --- filter_pages search semantics ---
     check("filter: empty query -> all pages", len(m.filter_pages("")) == len(m.PAGES))
