@@ -13,6 +13,12 @@ DESKTOP = os.path.join(
 SOURCE = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c"
 )
+if os.path.isfile(SOURCE):
+    src = open(SOURCE, encoding="utf-8").read()
+    if "gtk_menu_item_new_with_mnemonic(label)" not in src:
+        errors.append("Apple menu items must use GTK mnemonic labels")
+    if "gtk_menu_item_new_with_label(label)" in src:
+        errors.append("Apple menu must not construct labels without mnemonic support")
 ICON = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/icons/mv-apple.svg"
 )
