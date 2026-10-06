@@ -517,6 +517,8 @@ def test_native_drag_drop_contract():
     assert 'mv_launchpad.reorder_launchpad_apps(' in source
     assert 'mv_launchpad.save_positions(' in source
     assert 'mv_launchpad.save_folders(' in source
+    assert 'self.positions.pop(source_id, None)' in source
+    assert 'if self.query' in source
     print("PASS: test_native_drag_drop_contract")
 
 def test_full_integration_basic():
