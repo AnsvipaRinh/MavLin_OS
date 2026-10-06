@@ -197,4 +197,4 @@ construct (XfcePanelPlugin *plugin)
     gtk_widget_show_all (GTK_WIDGET (plugin));
 }
 
-XFCE_PANEL_PLUGIN_REGISTER (construct);
+XFCE_PANEL_PLUGIN_REGISTER(construct);
