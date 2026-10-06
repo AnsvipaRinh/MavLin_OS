@@ -1,9 +1,3 @@
-,
-      "workspace", skill="workspace", branch=BRANCH_XFWM4),
-    A("workspace-2", "Switch to Space 2", ["Super"], "2", "workspace_2_key",
-      "workspace", skill="workspace", branch=BRANCH_XFWM4),
-    A("workspace-3", "Switch to Space 3", ["Super"], "3", "workspace_3_key",
-      "workspace", skill="workspace", branch=BRANCH_XFWM4),
     A("workspace-4", "Switch to Space 4", ["Super"], "4", "workspace_4_key",
       "workspace", skill="workspace", branch=BRANCH_XFWM4),
 
@@ -24,4 +18,10 @@
       "mv-music --media-key next", "keyboard", skill="keyboard",
       protected=True),
     A("media-prev", "Previous Track", [], "XF86AudioPrev",
-      "m
+      "mv-music --media-key prev", "keyboard", skill="keyboard",
+      protected=True),
+    A("media-stop", "Stop", [], "XF86AudioStop",
+      "mv-music --media-key stop", "keyboard", skill="keyboard",
+      protected=True),
+    A("brightness-up", "Brightness Up", [], "XF86MonBrightnessUp",
+      "mv-brightness up", "keyboard", skill="keyboar
