@@ -566,6 +566,12 @@ def test_scan_cache(m, tmp):
     m.scan_cache_dir = lambda: os.path.expanduser("~/.cache/mv-music")
 
 
+    path = os.path.join(BIN, "mv-music")
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("music: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("music: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
 def main():
     global m
     m = load_app()
