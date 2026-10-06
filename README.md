@@ -30,6 +30,7 @@ mv-mc-gui
 ## Documentation
 
 - [`docs/QUICKSTART.md`](docs/QUICKSTART.md) — **First-time user guide** ⭐
+- [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — **Developer guide** 🛠️
 - [`docs/KEYBOARD.md`](docs/KEYBOARD.md) — Complete keyboard reference
 - [`docs/MISSION_CONTROL.md`](docs/MISSION_CONTROL.md) — Mission Control implementation guide
 - [`docs/INSTALL.md`](docs/INSTALL.md) — Installation instructions
@@ -87,6 +88,8 @@ GPL-3.0-or-later
 
 ## Contributing
 
+See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for the developer guide.
+
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
@@ -105,7 +108,7 @@ GPL-3.0-or-later
 ✅ Spaces management (1-16)
 ✅ Mavericks theme
 ✅ Keyboard shortcuts
-✅ Documentation (QUICKSTART, KEYBOARD, MISSION_CONTROL)
+✅ Documentation (QUICKSTART, CONTRIBUTING, KEYBOARD, MISSION_CONTROL)
 ✅ Test coverage
 ✅ CI gates
 ✅ Easy installation (`make install-mission-control`)
