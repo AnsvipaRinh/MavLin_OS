@@ -1,35 +1,45 @@
-).
-FACTORY_XML_CANDIDATES.append(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir,
-                 "config", "xfce4-keyboard-shortcuts.xml"))
+        "protected": bool(protected),
+        "rebindable": bool(rebindable and not protected),
+    }
 
-BRANCH_COMMANDS = "commands"
-BRANCH_XFWM4 = "xfwm4"
-BRANCHES = (BRANCH_COMMANDS, BRANCH_XFWM4)
 
-# Modifier canonical order used by xfconf: <Primary><Alt><Super><Shift>.
-# Secondary is accepted and preserved but not offered by the GUI (it needs
-# the raw keysym, which the registry deliberately does not model).
-MODIFIER_ORDER = ("Primary", "Alt", "Super", "Shift")
-MODIFIER_ALIASES = {
-    "ctrl": "Primary", "control": "Primary", "primary": "Primary",
-    "alt": "Alt", "option": "Alt", "opt": "Alt",
-    "super": "Super", "win": "Super", "windows": "Super", "meta": "Super",
-    "cmd": "Super", "command": "Super",
-    "shift": "Shift",
-}
-MODIFIER_LABELS = {
-    "Primary": "Ctrl", "Alt": "Alt", "Super": "Super", "Shift": "Shift",
-}
-ACCEL_MODIFIER_LABELS = {
-    "Primary": "Ctrl", "Alt": "Alt", "Super": "Super", "Shift": "Shift",
-}
+# ---------------------------------------------------------------------------
+# The registry.  Keep in sync with config/xfce4-keyboard-shortcuts.xml --
+# `mv-hotkeys verify --xml <path>` fails the build if they drift.
+# ---------------------------------------------------------------------------
+ACTIONS = [
+    # --- Core Mavericks surfaces -------------------------------------------
+    A("spotlight", "Spotlight Search", ["Super"], "space",
+      "/usr/bin/mv-spotlight-gui",
+      "core", skill="spotlight"),
+    A("launchpad", "Launchpad", ["Super"], "l",
+      "/usr/bin/mv-launchpad-gui",
+      "core", skill="launchpad"),
+    A("launchpad-edit", "Launchpad Edit Mode", ["Super", "Shift"], "l",
+      "/usr/bin/mv-launchpad-edit", "core", skill="launchpad"),
+    A("mission-control", "Mission Control", ["Super"], "Tab",
+      "mv-mission-control --native", "core", skill="mission-control"),
+    A("mission-control-gui", "Mission Control (Window Overview)", ["Super"], "F3",
+      "mv-mc-gui", "core", skill="mission-control"),
+    A("quicklook", "Quick Look (Finder Selection)", ["Super", "Shift"], "space",
+      "mv-quicklook-thunar", "core", skill="quick-look"),
+    A("screenshot-full", "Screenshot: Full Screen", ["Super", "Shift"], "3",
+      "mv-shot -m", "core", skill="screenshot"),
+    A("screenshot-area", "Screenshot: Selection", ["Super", "Shift"], "4",
+      "mv-shot -i -c", "core", skill="screenshot"),
+    A("screenshot-interactive", "Screenshot: Interactive Tools", ["Super", "Shift"], "5",
+      "mv-shot -i", "core", skill="screenshot"),
 
-# Named keys offered by the recorder / renderer.  Keysym names are
-# case-sensitive in X11, which is why this table exists.
-NAMED_KEYS = (
-    "space", "Tab", "Return", "Escape", "Delete", "Home", "End",
-    "Up", "Down", "Left", "Right", "Prior", "Next",
-    "comma", "period", "slash", "backslash", "minus", "equal", "semicolon",
-    "apostrophe", "grave", "bracketleft", "bracketright",
-    "
+    # --- Finder ------------------------------------------------------------
+    A("finder", "Finder", ["Super"], "e", "mv-finder-columns",
+      "finder", skill="finder"),
+    A("finder-columns", "Finder (Browse as Columns)", ["Super", "Shift"], "f",
+      "mv-finder-columns", "finder", skill="finder"),
+    A("new-folder-desktop", "New Folder on Desktop", ["Primary", "Alt"], "n",
+      "mv-newfolder $HOME/Desktop", "finder", skill="finder"),
+    A("new-folder-home", "New Folder in Home Folder", ["Super", "Shift"], "n",
+      "mv-newfolder $HOME", "finder", skill="finder"),
+    A("rename", "Rename", ["Super", "Shift"], "r", "mv-rename",
+      "finder", skill="finder"),
+    A("get-info", "Get Info", ["Super"], "i", "mv-getinfo $HOME",
+      "finder", skill="finder"),
