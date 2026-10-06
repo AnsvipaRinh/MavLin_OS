@@ -331,9 +331,38 @@ class OverlayGuiTests(unittest.TestCase):
             bar.destroy()
 
     def test_countdown_returns_after_requested_delay(self):
+        """GLib's timeout_add_seconds can fire up to a second early; a timed
+        capture must still honour the full delay."""
         start = time.time()
         self.assertEqual(self.mod.countdown(1), 1)
-        self.assertGreaterEqual(time.time() - start, 1.0)
+        elapsed = time.time() - start
+        self.assertGreaterEqual(elapsed, 1.0)
+        self.assertLess(elapsed, 3.0)
+
+    def test_countdown_is_not_shortened(self):
+        start = time.time()
+        self.mod.countdown(2)
+        elapsed = time.time() - start
+        self.assertGreaterEqual(elapsed, 2.0)
+        self.assertLess(elapsed, 4.0)
+
+    def test_countdown_timer_window_is_destroyed(self):
+        """The timer surface must be gone before the backend takes the shot,
+        otherwise the countdown ends up inside the screenshot."""
+        from unittest import mock as m
+        windows = []
+        real_init = self.mod.Gtk.Window.__init__
+
+        def _spy(self, *args, **kwargs):
+            real_init(self, *args, **kwargs)
+            windows.append(self)
+
+        with m.patch.object(self.mod.Gtk.Window, "__init__", _spy):
+            self.mod.countdown(1)
+        self.assertTrue(windows, "countdown never mapped a window")
+        for window in windows:
+            self.assertFalse(window.get_property("visible")
+                             and not window.get_realized())
 
     def test_countdown_zero_is_a_noop(self):
         start = time.time()

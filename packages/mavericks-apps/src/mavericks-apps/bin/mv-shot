@@ -379,14 +379,21 @@ def countdown(seconds):
     """Mavericks pre-capture timer. Shows an on-screen countdown when a
     display is reachable, otherwise falls back to a plain sleep. The timer
     surface is always torn down before the backend takes the shot, so it can
-    never end up inside the screenshot."""
+    never end up inside the screenshot.
+
+    Driven from a monotonic deadline rather than by decrementing on each
+    callback: GLib's timeout_add_seconds may fire up to a second early, which
+    would silently shorten every timed capture."""
     if seconds is None or seconds <= 0:
         return 0
 
-    remaining = float(seconds)
+    deadline = time.monotonic() + float(seconds)
+
+    def remaining():
+        return int(deadline - time.monotonic() + 0.999)
 
     if not _have_display() or not os.environ.get("DISPLAY"):
-        time.sleep(remaining)
+        time.sleep(max(0.0, deadline - time.monotonic()))
         return int(seconds)
 
     try:
@@ -413,7 +420,7 @@ def countdown(seconds):
             return False
 
         window.connect("show", _place)
-        label.set_text(str(int(round(remaining))))
+        label.set_text(str(max(0, remaining())))
         window.show_all()
         _set_opacity(window, 0.94)
         window.get_preferred_size()
@@ -421,22 +428,21 @@ def countdown(seconds):
         loop = GLib.MainLoop()
 
         def _tick():
-            nonlocal remaining
-            remaining -= 1
-            if remaining <= 0:
+            left = remaining()
+            if left <= 0:
                 loop.quit()
                 return False
-            label.set_text(str(int(remaining)))
+            label.set_text(str(left))
             return True
 
-        GLib.timeout_add_seconds(1, _tick)
-        GLib.timeout_add_seconds(int(remaining) + 5, loop.quit)
+        GLib.timeout_add(100, _tick)
+        GLib.timeout_add_seconds(int(seconds) + 5, loop.quit)
         loop.run()
         window.destroy()
         while Gtk.events_pending():
             Gtk.main_iteration()
     except Exception:
-        time.sleep(remaining)
+        time.sleep(max(0.0, deadline - time.monotonic()))
     return int(seconds)
 
 
