@@ -815,3 +815,59 @@ from `HEAD` plus only this zone's hunk and staged with `git update-index
 is not swept into this commit. Zone-local dirty files (`xfce4-panel.xml` ×2,
 `scripts/test-global-menu.py`) were restored from `HEAD` first — nothing is lost,
 since the newer state is committed.
+
+## 2026-10-06 — Worktree mass-rewind incident #3: per-file triage and recovery protocol
+
+**Pattern (third destructive incident today, after two `git stash` incidents).**
+At ~01:45 a parallel actor rewound ~131 tracked files (123 `M` + 1 typechange in
+`git status`) to older revisions, including exec-bit losses on 17 `bin/mv-*`
+helpers, the `pkgrel=3` bump, `build_mail_menu`, the Dock launchers stanza, the
+Lucida Grande font fix and recent CI/check-sync test hardening. Forensic tell:
+three files (`bin/mv-calculator`, `bin/mv-launchpad`, `bin/mv-settings`) carried
+literal unresolved conflict markers against commit `2d463fa` — the actor had run
+a botched old-tree merge/checkout, not a clean operation. All newer state was
+safe on `origin/main` (HEAD == origin/main at recovery time).
+
+**Recovery protocol (reusable for incident #4+):**
+
+1. `git fetch origin`; verify divergence both ways before anything else. Do NOT
+   `git pull --rebase` with a dirty tree (it fails anyway; stash is banned).
+2. Classify **per file**, mechanically: `git hash-object <file>` matched against
+   the blob history of that path (`git log --format=%H -- <file>` → `git
+   rev-parse <commit>:<file>`). An exact match to an older commit = PURE REVERT
+   (worktree lost features that exist in HEAD). No historical match = candidate
+   WIP → inspect the diff manually; conflict markers or pure deletions of
+   HEAD-side hunks classify as damage, added never-committed content classifies
+   as someone's in-flight work.
+3. PURE REVERTs → `git restore <file>` (explicit paths only). GENUINE WIP →
+   LEAVE UNTOUCHED. Untracked build junk → leave alone, report, never commit
+   and never delete (not the recovering agent's call).
+4. Never `git stash` (banned), never `git add -A/-a/.`, never reset/checkout
+   branches, never rewrite history, never auto-commit foreign WIP.
+5. Validate with `scripts/check-sync.sh`; classify residual failures as
+   incident-caused vs pre-existing-at-HEAD (prove with a pristine `git worktree
+   add --detach` at HEAD in `/tmp`, then remove it) vs WIP-caused.
+
+**Outcome.** 121 files restored from HEAD (incl. the symlink-mode
+`inode-directory.svg` → `folder.svg`, which the rewind had replaced with a
+regular file pointing into the external `Poppy-OS-X-Revieve` tree, and
+`.gitignore`, whose loss alone explained the sudden "untracked junk" noise:
+`out/`, `test_serial.log`, `libmv-apple.so`, `mv-hud`, generated `gtk.css`).
+2 files kept as genuine concurrent WIP: `bin/mv-control` (Control-Center work,
+blob == PR#64 side-branch commit `3c32358`, outside HEAD history) and
+`scripts/demo/run-demo.sh` (icon-fallback staging on top of d9f3c45). Also left
+as-is/untracked: `scripts/__init__.py`, `scripts/apply-hardware-selection.sh`,
+`artifacts/`.
+
+**check-sync after recovery — residual failures are NOT incident damage**
+(proven against a pristine HEAD checkout): `rofi_preview_integration`
+(test expects the `listview-split`/`icon-current-entry` rofi layout that
+`1eecbb9` deliberately removed after it made rofi abort; test not updated);
+`mv-finder-columns` `build_columns_classes` (test expects an API the HEAD bin
+no longer defines); `mv-control` launch smoke `NameError: sys` (bug in the
+preserved WIP file itself — its author must fix); one flaky `mv-textedit`
+respawn timing check under parallel-agent load. All incident-caused suite
+failures (airdrop/mail/keychain/desktop-cache/finder-search, packaging
+SyntaxError) are green again. The two pre-existing HEAD inconsistencies are
+recorded here for the next zone to fix; this recovery commit intentionally
+touches only this file.
