@@ -73,12 +73,19 @@ export XDG_DATA_HOME="$TMP/data" XDG_RUNTIME_DIR="$TMP/run" HOME="$TMP"
 chmod 700 "$XDG_RUNTIME_DIR"
 eval "$(dbus-launch --sh-syntax 2>/dev/null)" || true
 
-# In its own process group + job-control messages silenced: the panel is
-# SIGKILLed below and we do not want a "Killed" line in the test output.
-set +m
-{ timeout -s TERM 14 xfce4-panel --disable-wm-check \
-    >"$TMP/panel.out" 2>"$TMP/panel.err" 2>&1 & } 2>/dev/null
-PANEL_PID=$(pgrep -n -x xfce4-panel || true)
+# The panel runs under `timeout`, and we terminate *timeout*, not the panel:
+# a signal-killed background job makes bash print a "Killed" line into the
+# test output, whereas timeout exits with a normal status.  It forwards SIGTERM
+# to the panel, which saves and quits cleanly.
+timeout -s TERM 16 xfce4-panel --disable-wm-check \
+    >"$TMP/panel.out" 2>"$TMP/panel.err" </dev/null &
+TIMEOUT_PID=$!
+PANEL_PID=""
+for _ in $(seq 1 100); do
+    PANEL_PID="$(pgrep -n -x xfce4-panel || true)"
+    [ -n "$PANEL_PID" ] && break
+    sleep 0.05
+done
 
 # Watch for the mv-apple plugin wrapper while the panel is up.
 SAW_APPLE_WRAPPER=0
@@ -101,12 +108,12 @@ PANEL_LINE="$(printf '%s\n' "$TREE" \
 PANEL_GEOM="$(printf '%s\n' "$PANEL_LINE" \
               | sed -n 's/.*"xfce4-panel".* \([0-9]*x[0-9]*+[0-9-]*+[0-9-]*\).*/\1/p')"
 
+kill -TERM "$TIMEOUT_PID" 2>/dev/null
+sleep 2
 if [ -n "${PANEL_PID:-}" ]; then
     kill -TERM "$PANEL_PID" 2>/dev/null
-    sleep 2
-    kill -KILL "$PANEL_PID" 2>/dev/null
+    sleep 1
 fi
-pkill -f "timeout -s TERM 14 xfce4-panel --disable-wm-check" 2>/dev/null
 
 FAILURES=0
 pass() { echo "ok - $1"; }
