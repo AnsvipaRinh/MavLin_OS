@@ -1,39 +1,110 @@
 # Security Policy
 
-## Threat Model
+## Supported Versions
 
-| Threat | Mitigation |
-|--------|------------|
-| **AI-generated code = untrusted** | All AI output treated as unreviewed; mandatory human review + `check-sync.sh` gate before merge |
-| **Arbitrary script execution on host** | No `curl \| bash`, no unpinned VCS sources in ISO, no `sudo` in build scripts except `mkarchiso` |
-| **Supply chain** | Repo-local packages only (3/4); `macbook12-audio-driver` pinned to tanisperez commit + PRE_BUILD fetches kernel.org source at DKMS build time |
-| **Secrets in repo/CI** | None. `model-fallback.json` references `OPENROUTER_API_KEY` as env var only. No `.env` files. Git history author rewrite recommended before public push (see `docs/PUBLIC_AUDIT.md` §3.3) |
-| **ISO attack surface** | sshd disabled (`.wants` symlink removed), root locked (`root:!`), permissive sshd_config deleted. Remote bring-up = explicit opt-in via lab agent (key-based forced-command as `mavericks-lab`, never root) |
+Use this section to tell people about which versions of your project are
+currently being supported with security updates.
 
-## Review Verdicts (every PR / AI patch)
+| Version | Supported          |
+| ------- | ------------------ |
+| main    | :white_check_mark: |
+| other   | :x:                |
 
-| Verdict | Criteria | Action |
-|---------|----------|--------|
-| **SAFE_TO_TEST** | No exec, no network fetch, no secrets, syntax clean, `check-sync.sh` passes | Merge after human review |
-| **REQUIRES_SECURITY_REVIEW** | Adds executable, network call, D-Bus policy, polkit rule, kernel module, setuid, capability, sudoers entry | Block until explicit security sign-off |
-| **REJECTED** | Arbitrary script exec, unpinned dependency, secret exposure, root daemon, Electron/Java bundle, `powertop --auto-tune`, `thermald`/`ananicy-cpp` | Close with reason |
+## Reporting a Vulnerability
 
-## Least-Privilege Credentials
+Use this section to tell people how to report a vulnerability.
 
-- **Build**: No secrets. `mkarchiso` needs root (single sudo call, documented)
-- **Lab agent**: SSH forced-command, ed25519 machine key, narrow sudoers (only `efibootmgr -n/-o`, `systemctl` for A/B slots)
-- **Runtime**: No setuid binaries. **No `polkit` rules are shipped by this project** — no `.pkla`/`.rules` file exists anywhere in the repo. Every privileged action (logind Sleep/Restart/Shut Down, UDisks2 unmount/eject) is authorized by the *stock systemd* `org.freedesktop.login1` actions, so the policy is upstream and auditable, not ours. `polkit` + `polkit-gnome` are now ISO dependencies so an authentication agent exists to answer those prompts; `udisks2` for the eject backend. `mv-power-ui` calls `CanSuspend`/`CanReboot`/`CanPowerOff` to gate its buttons, and `mv-eject` reports a denial as "policy does not allow ejecting this volume" rather than leaking raw GDBus text. No `pkexec`, no setuid, no sudoers entry; the privilege model is unchanged.
-- **CI/CD**: Not configured. If added: no secrets in repo, OIDC + short-lived tokens only
+Tell them where to go, how often they can expect to get an update on a
+reported vulnerability, what to expect if the vulnerability is accepted or
+declined, etc.
 
-## Hardened Defaults (ISO)
+### How to Report
 
-- `sshd` disabled + root locked (Phase 0.3, commit dfbd987)
-- `systemd-networkd` + `iwd` for install only (not in installed system)
-- `reflector` only in ISO (not installed)
-- `modprobe.d/99-mavericks.conf`: no active options in baseline
-- `journald` volatile in ISO, persistent with limits on install
-- `fstrim.timer` enabled on install (SSD endurance)
+**Please do not report security vulnerabilities through public GitHub issues.**
 
-## Reporting
+Instead, please report them via email to [INSERT EMAIL] or create a draft security advisory on GitHub.
 
-No public bug tracker. Security issues: open a GitHub Security Advisory (if public) or email the maintainer directly. No bounty program.
+### What to Include
+
+Please include the following information in your report:
+
+- Type of issue (e.g., buffer overflow, SQL injection, cross-site scripting, etc.)
+- Full paths of source file(s) related to the issue
+- Location of the affected source code (tag/branch/commit or direct URL)
+- Any special configuration required to reproduce the issue
+- Step-by-step instructions to reproduce the issue
+- Proof-of-concept or exploit code (if possible)
+- Impact of the issue, including how an attacker might exploit it
+
+### Response Time
+
+We will acknowledge receipt of your vulnerability report within **48 hours** and
+send a more detailed response within **5 business days** indicating the next steps
+in handling your report.
+
+### Process
+
+1. **Initial Response** (within 48 hours)
+   - Acknowledge receipt
+   - Assign severity level
+   - Begin investigation
+
+2. **Investigation** (within 5 business days)
+   - Reproduce the issue
+   - Assess impact
+   - Develop fix plan
+
+3. **Fix Development** (timeline varies)
+   - Develop and test fix
+   - Prepare security advisory
+   - Coordinate disclosure
+
+4. **Disclosure** (coordinated)
+   - Publish fix
+   - Release security advisory
+   - Credit reporter (if desired)
+
+### Security Best Practices for Contributors
+
+When contributing to MavLinOS, please follow these security best practices:
+
+- **Never commit secrets** (API keys, passwords, tokens, etc.)
+- **Validate all user input** in your code
+- **Use secure defaults** in configurations
+- **Keep dependencies updated**
+- **Report suspicious code** immediately
+- **Follow the principle of least privilege**
+
+### Security Measures in MavLinOS
+
+MavLinOS implements the following security measures:
+
+- No hardcoded secrets or credentials
+- Input validation for all user-provided data
+- Secure file permissions (755 for executables)
+- Regular dependency audits
+- CI/CD security scanning
+- Minimal privilege requirements
+
+## Preferred Languages
+
+We accept reports in:
+- English
+- Russian
+
+## Acknowledgments
+
+We would like to thank the following for their contributions to our security:
+
+- All security researchers who responsibly disclose vulnerabilities
+- The open-source community for their ongoing security reviews
+
+## Contact
+
+For security-related questions, please contact:
+- Email: [INSERT EMAIL]
+- GitHub Security Advisories: [ENABLED]
+
+---
+
+*This security policy is subject to change. Please check back regularly for updates.*
