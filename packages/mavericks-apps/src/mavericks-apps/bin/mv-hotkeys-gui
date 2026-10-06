@@ -41,7 +41,11 @@ except ImportError:
     sys.exit(2)
 
 
-from mv_dialogs import alert
+try:
+    from mv_dialogs import alert
+except ImportError:
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mv_dialogs import alert
 
 # --- Apple modifier glyphs (mavericks look, not the Linux names) -----------
 APPLE_GLYPHS = {"Primary": "⌃", "Alt": "⌥", "Shift": "⇧", "Super": "⌘"}
