@@ -1,6 +1,6 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (Window Management P0 — oid `OS-wm-p0`, canonical #25: the Mavericks traffic lights were never drawn at all — 40 of the 67 shipped XPM assets could not be decoded by GdkPixbuf, so a focused title bar had **no close button**; button artwork is now generated, the title font matched the desktop UI font, snapping is pinned off, a zoomed window keeps its title bar (it used to have no frame at all), `frame_border_*` is dead config and removed, the two missing macOS chords are bound, and a new 38-check suite measures a real xfwm4 on the pinned Xvfb instead of reading config)
+**Last Updated**: 2026-10-06 (Window Management P0 — oid `OS-wm-p0`, canonical #25: the Mavericks traffic lights were never drawn at all — 40 of the 67 shipped XPM assets could not be decoded by GdkPixbuf, so a focused title bar had **no close button**; button artwork is now generated, the title font matched the desktop UI font, snapping is pinned off, a zoomed window keeps its title bar (it used to have no frame at all), `frame_border_*` is dead config and removed, the two missing macOS chords are bound, and a new 39-check suite measures a real xfwm4 on the pinned Xvfb instead of reading config)
 ---
 
 ## Session 2026-10-06 — Window Management P0 (oid `OS-wm-p0`, canonical objective #25)
@@ -45,8 +45,14 @@
   class as the panel theme, the plank INI and the chooser CSS.
 
 **Also verified live:** frame borders (5px) match the artwork and the 22px title
-strip matches `title-1-active.xpm`; `Alt+Tab` moves focus between two windows
-through xfwm4's own key handler.
+strip matches `title-1-active.xpm`; an **unfocused** window keeps all three
+traffic lights, muted to grey (macOS never removes them from a background
+window, and a theme with active-only artwork would leave one with no way to
+close itself); `Alt+Tab` moves focus between two windows through xfwm4's own key
+handler. Both needed detector work rather than new config — the muted discs are
+grey by design, so the blob finder had to switch from "saturated" to "differs from
+the title background", with a width bound so the window's own grey title text is
+not counted as a fourth light.
 
 **Third pass:** `show_frame_shadow` was missing while the dock and popup shadows
 were switched on — the window shadow everyone actually looks at was inherited

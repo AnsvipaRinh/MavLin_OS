@@ -1070,3 +1070,9 @@ click-to-focus/raise, and that a drag to the screen edge does not resize.
       Confirm on the 2304×1440 panel that a zoomed window still clears the
       panel, keeps the menu bar visible, and that the retained title bar does
       not read as a duplicated menu given the global app menu above it.
+- [ ] **Unfocused window chrome on the panel.** An unfocused window keeps its
+      three traffic lights, muted to grey discs with a grey glyph (measured in
+      both states). On the 2304×1440 panel check the muted grey still reads as
+      three buttons at a glance and stays distinguishable from the inactive
+      title-bar background, and that hovering an unfocused window brings its
+      colour back (`prelight` artwork).

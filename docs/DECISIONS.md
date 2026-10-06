@@ -1569,3 +1569,19 @@ Two more findings, both from measuring the frame instead of the config.
   Xvfb another suite's full-screen window sits behind the test window, so a
   root-window grab cannot distinguish a 50%-opacity shadow from whatever is
   painted underneath, and guessing would have been worse than saying so.
+
+- **An unfocused window is measured too, because "the buttons are there" is not
+  the same as "the buttons are always there".** macOS keeps all three traffic
+  lights on a background window and desaturates them; a theme that only shipped
+  active artwork would leave every background window with no way to close itself
+  from its own chrome. Measuring it needed the detector to stop keying on
+  saturation (the muted discs are grey, by design) and instead key on *difference
+  from the title bar's background*, plus an upper bound on blob width — without
+  that bound the window's own title text, which is grey and wide, is detected as
+  a fourth "light". Both bounds are now part of the detector and are documented
+  there, because a detector tuned to one state of the same widget is a detector
+  that will quietly pass in the other.
+- **The Alt+Tab check retries.** The pinned display is shared with other suites,
+  and a foreign window taking focus between keypress and read is not an xfwm4
+  defect. The check re-establishes the initial focus and retries, and only fails
+  when focus never lands on the second window.

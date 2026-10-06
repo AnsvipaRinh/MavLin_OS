@@ -605,14 +605,19 @@ class WMSession:
         return int(m.group(1), 16) if m else None
 
     # -- measurement helpers ---------------------------------------------
-    def lights(self, client):
+    def lights(self, client, focus=True):
         """Traffic-light centres in absolute screen coordinates.
 
         Re-measured from the live frame every time, because every click that
         changes the window state also moves it: clicking coordinates captured
         before a maximise lands on the wrong pixels afterwards.
+
+        `focus=False` measures the window *without* raising it — needed for the
+        unfocused artwork, since activating the window would overwrite exactly
+        the state under test.
         """
-        self.activate(client)
+        if focus:
+            self.activate(client)
         frame = self.frame_id(client)
         fg = self.geometry(frame)
         cg = self.geometry(client)
@@ -620,7 +625,8 @@ class WMSession:
         png = os.path.join(self.home, "frame.png")
         if not self.grab(frame, png, fg["w"], fg["h"]):
             return None, []
-        found = find_lights(load_png(png), title_h)
+        found = find_lights(load_png(png), title_h,
+                            require_saturation=focus)
         centres = [(fg["x"] + (l["x0"] + l["x1"]) // 2,
                     fg["y"] + (l["y0"] + l["y1"]) // 2,
                     classify(l["rgb"])) for l in found]
@@ -724,29 +730,45 @@ def load_png(path):
     return Image.open(path).convert("RGB")
 
 
-MIN_BLOB = 8   # a traffic light is a 12-14px disc; anything smaller is text
+MIN_BLOB = 8     # a traffic light is a 12-14px disc; anything smaller is text
+MAX_BLOB = 20    # wider than that is a run of title text, not one button
 
 
-def find_lights(img, title_h):
-    """Locate button-sized saturated colour blobs in the top `title_h` rows.
+def find_lights(img, title_h, require_saturation=True):
+    """Locate button-sized blobs in the top `title_h` rows.
 
     Returns a list of dicts sorted left→right, each with the blob's bounding
     box and mean colour, so the caller can assert the macOS red→amber→green
     order and that all three sit on the left.  Sub-MIN_BLOB specks are dropped:
     antialiased window-title text is saturated enough to match otherwise, and
     keeping it would make the "three lights" assertion pass for the wrong reason.
+
+    `require_saturation=False` is for an *unfocused* window, whose lights are
+    grey by design: saturation is the wrong filter there, so blobs are found by
+    differing from the title bar's background colour instead.
     """
     width = img.size[0]
     top = img.crop((0, 0, width, min(title_h, img.size[1])))
     pixels = top.load()
+    background = (232, 232, 224)
+    if not require_saturation:
+        from collections import Counter
+        hist = Counter(pixels[x, y] for x in range(0, width, 2)
+                       for y in range(top.size[1]))
+        background = hist.most_common(1)[0][0]
     columns = {}
     for x in range(width):
         for y in range(top.size[1]):
             r, g, b = pixels[x, y]
-            if max(r, g, b) < 90:
-                continue
-            if max(r, g, b) - min(r, g, b) < 45:
-                continue
+            if require_saturation:
+                if max(r, g, b) < 90:
+                    continue
+                if max(r, g, b) - min(r, g, b) < 45:
+                    continue
+            else:
+                if max(abs(r - background[0]), abs(g - background[1]),
+                       abs(b - background[2])) < 22:
+                    continue
             columns.setdefault(x, []).append((y, r, g, b))
     if not columns:
         return []
@@ -768,12 +790,16 @@ def find_lights(img, title_h):
         width_px = grp[-1] - grp[0] + 1
         height_px = (ymax - ymin + 1) if ymax >= 0 else 0
         mean = (rs // n, gs // n, bs // n)
-        if width_px < MIN_BLOB or height_px < MIN_BLOB:
+        # A button is a single 14px disc drawn 12px wide; anything much wider
+        # is window-title text (which is what an unfocused scan picks up once
+        # saturation stops being the filter).
+        if not (MIN_BLOB <= width_px <= MAX_BLOB) or height_px < MIN_BLOB:
             continue
         # Antialiased title text also contains scattered saturated pixels; its
         # per-blob mean comes out grey, so a mean-saturation test rejects it
-        # without hard-coding where the text is.
-        if max(mean) - min(mean) < 40:
+        # without hard-coding where the text is.  (Only in the saturated mode:
+        # an unfocused window's buttons are legitimately grey.)
+        if require_saturation and max(mean) - min(mean) < 40:
             continue
         out.append(dict(x0=grp[0], x1=grp[-1], n=n, y0=ymin, y1=ymax,
                         rgb=mean, w=width_px, h=height_px))
@@ -932,6 +958,31 @@ def live():
                    "title bar (rightmost at x=%d of a %dpx frame)"
                    % (lights[2][0] - fg["x"], fg["w"]))
 
+        # --- unfocused windows keep their buttons, muted -------------------
+        # macOS keeps all three lights on an unfocused window and desaturates
+        # them; a theme that only drew active artwork would leave the background
+        # window with no way to close it, so this is measured, not assumed.
+        app6, client6 = wms.spawn_window("WMTEST INACTIVE", size=(340, 200))
+        wms.move(client6, 950, 620)
+        wms.activate(client)
+        time.sleep(0.6)
+        if wms.active_window() != client:
+            wms.activate(client)
+        fg6, dim = wms.lights(client6, focus=False)
+        if len(dim) == 3 and [d[2] for d in dim] != ["red", "amber", "green"]:
+            ok("an unfocused window still shows three traffic lights, muted to "
+               "grey — macOS never removes them from a background window")
+        elif len(dim) != 3:
+            fail("an unfocused window shows %d traffic lights, expected 3 — a "
+                 "background window would have no way to close itself" % len(dim))
+        else:
+            fail("an unfocused window's traffic lights are still fully "
+                 "coloured; macOS mutes them with the inactive artwork")
+        app6.kill()
+        time.sleep(0.4)
+        wms.activate(client)
+        time.sleep(0.4)
+
         # --- the buttons must actually do the macOS things ----------------
         by_name = dict((l[2], l) for l in lights)
         if "green" in by_name:
@@ -1023,19 +1074,25 @@ def live():
         sw_b, sw_b_client = wms.spawn_window("WMTEST SWITCH B", size=(300, 180))
         wms.move(sw_a_client, 80, 140)
         wms.move(sw_b_client, 950, 620)
-        wms.activate(sw_a_client)
-        if wms.active_window() == sw_a_client:
+        switched = False
+        for _ in range(5):
+            wms.activate(sw_a_client)
+            if wms.active_window() != sw_a_client:
+                # Another suite sharing the pinned display took focus; retry.
+                time.sleep(0.5)
+                continue
             sh("xdotool key --clearmodifiers alt+Tab", wms.env)
             time.sleep(1.0)
             if wms.active_window() == sw_b_client:
-                ok("Alt+Tab switches the focused window (xfwm4's own key "
-                   "handler, no resident switcher process)")
-            else:
-                fail("Alt+Tab did not move focus to the other window "
-                     "(active=0x%x, expected 0x%x)"
-                     % (wms.active_window() or 0, sw_b_client))
+                switched = True
+                break
+        if switched:
+            ok("Alt+Tab switches the focused window (xfwm4's own key "
+               "handler, no resident switcher process)")
         else:
-            fail("could not establish initial focus for the window-switch test")
+            fail("Alt+Tab did not move focus to the other window "
+                 "(active=0x%x, expected 0x%x)"
+                 % (wms.active_window() or 0, sw_b_client))
         sw_a.kill()
         sw_b.kill()
         time.sleep(0.4)
