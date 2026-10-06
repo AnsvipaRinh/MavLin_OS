@@ -1,27 +1,68 @@
-Shift"], "v",
-      "mv-notification-center", "system", skill="system"),
-    A("calendar", "Calendar", ["Primary", "Alt"], "c", "mv-calendar",
-      "system", skill="system"),
-    A("terminal", "Terminal", ["Primary", "Alt"], "t", "xfce4-terminal",
-      "system", skill="system", rebindable=False),
-    A("lock-screen", "Lock Screen", ["Primary", "Alt"], "l",
-      "xfce4-screensaver-command --lock", "system", skill="system",
-      rebindable=False),
-    A("power-dialog", "Power / Restart / Shut Down…", ["Primary", "Alt"],
-      "Escape", "mv-power-ui", "system", skill="system"),
-    A("log-out", "Log Out…", ["Primary", "Alt"], "Delete",
-      "mv-power-ui logout", "system", skill="system"),
+    """Map aliases to canonical xfconf modifier names and order them."""
+    out = set()
+    for m in mods:
+        key = str(m).strip().lower()
+        if key not in MODIFIER_ALIASES:
+            raise ValueError("unknown modifier: %s" % m)
+        out.add(MODIFIER_ALIASES[key])
+    return [m for m in MODIFIER_ORDER if m in out]
 
-    # --- Application -------------------------------------------------------
-    A("quit-app", "Quit Application", ["Super"], "q", "mv-quit-app",
-      "application", skill="application"),
-    A("force-quit", "Force Quit Applications…", ["Super", "Shift"], "q",
-      "mv-force-quit", "application", skill="application"),
-    A("force-quit-dialog", "Force Quit (Command-Option-Escape)",
-      ["Super", "Alt"], "Escape", "mv-force-quit",
-      "application", skill="application"),
-    A("hide-app", "Hide Application", ["Super"], "h", "mv-hide-app",
-      "application", skill="application"),
 
-    # --- Windows (xfwm4 branch) -------------------------------------------
-    A("minimize-window", "M
+def is_valid_key(key):
+    if not isinstance(key, str) or not key:
+        return False
+    if _KEY_CHAR_RE.match(key) or _KEY_FN_RE.match(key):
+        return True
+    if key in NAMED_KEYS or key in MEDIA_KEYS:
+        return True
+    return False
+
+
+def normalize_accelerator(accel):
+    """Accept a string or dict and return a canonical {'modifiers','key'}.
+
+    Accepted string forms:
+      'Super+Shift+3'   'Super + Shift + 3'   '<Super><Shift>3'
+      '<Super><Shift>3' (as stored in the factory XML)
+    Case is normalised: letters lowercase, named keys/keysyms exact.
+    Raises ValueError with a human message on anything else.
+
+    A dict keeps its modifier ORDER (X11 property names are order-sensitive
+    as strings even though the key combination is not); only string input is
+    reordered into MODIFIER_ORDER.  Use `modifier_identity()` when two
+    combinations must be compared for equality.
+    """
+    if isinstance(accel, dict):
+        mods = []
+        for m in accel.get("modifiers") or []:
+            if str(m) not in MODIFIER_ORDER:
+                raise ValueError("unknown modifier: %r" % m)
+            mods.append(str(m))
+        key = accel.get("key")
+        if not is_valid_key(key):
+            raise ValueError("invalid key: %r" % key)
+        return {"modifiers": mods, "key": key}
+
+    s = str(accel).strip()
+    if not s:
+        raise ValueError("empty accelerator")
+
+    unescaped = s.replace("<", "<").replace(">", ">")
+    if "<" in unescaped:
+        pattern = re.compile(
+            r"^<(Primary|Control|Ctrl|Alt|Option|Super|Meta|Shift)>")
+        mods = []
+        while True:
+            m = pattern.match(unescaped)
+            if not m:
+                break
+            mods.append(m.group(1))
+            unescaped = unescaped[len(m.group(0)):]
+        key = unescaped
+        if not key:
+            raise ValueError("accelerator has modifiers but no key: %r" % accel)
+        if not is_valid_key(key):
+            raise ValueError("invalid key: %r" % key)
+        return {"modifiers": normalize_modifiers(mods), "key": key}
+
+    parts = [p.strip() for p in s.split("+") if p.strip()]
