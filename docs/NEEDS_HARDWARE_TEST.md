@@ -777,7 +777,7 @@ documented. LKML thread open (Sep 2026).
 - [ ] Verify snapshot hooks work on installed btrfs system
 
 ## Visual demo follow-ups (2026-10-06, from scripts/demo)
-
+ 
 - [ ] xfdesktop wallpaper: xfdesktop 4.20.2 ignored every /backdrop xfconf
       property layout tried under Xvfb (monitor0 / monitorVNStr /
       monitor<connector> / single-workspace-mode); the demo harness falls
@@ -791,3 +791,29 @@ documented. LKML thread open (Sep 2026).
       gains the same DecorationLayout so all windows match xfwm4's CHM|.
 - [ ] Launchpad icon resolution on the real session (full icon theme set);
       in the demo container the rofi grid rendered text-only.
+ 
+## Activity Monitor — hardware validation (OS-activity-p0, 2026-10-06)
+ 
+- [ ] Per-process Energy Impact accuracy: correlate mv-activity %CPU categories
+      (Very High/High/Moderate/Low/None) with actual RAPL package power
+      readings on m3-7Y32 during sustained CPU loads
+- [ ] Disk I/O counter rollover behavior: verify /proc/PID/io read_bytes/write_bytes
+      do not wrap or reset unexpectedly on long-running processes (e.g., browser,
+      compiler) over multi-hour sessions
+- [ ] Renice permission behavior: confirm SIGKILL/renice dialogs correctly handle
+      CAP_SYS_NICE; negative nice values (-20..-1) require root — test with
+      real sudo/polkit setup on installed system
+- [ ] Column rendering and sort behavior on 2304×1440 HiDPI panel: verify
+      sortable column headers, right-aligned numeric columns, default sort by
+      %CPU desc, Energy tab hidden %CPU sort, and search filter all render
+      correctly at 2x scaling
+- [ ] Process action dialogs (Quit/Force Quit/Renice/Inspect) appear correctly
+      on the real display with Mavericks theme; confirm modal behavior,
+      destructive-action button styling, and keyboard shortcuts (Enter/Escape)
+- [ ] Network tab interface rates: verify RX/TX bytes/s from /proc/net/dev delta
+      matches actual throughput on BCM43602 Wi-Fi and USB-C ethernet dongle
+- [ ] Energy cost of open window: measure mv-activity idle CPU/wakeups with
+      window open (2s refresh) vs closed; confirm zero cost when closed
+      (no GLib timer, no background threads)
+- [ ] Window geometry persistence: Activity Monitor window size/position
+      restores correctly on relaunch in a real session

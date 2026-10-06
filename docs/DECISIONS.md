@@ -922,3 +922,72 @@ secrets grep over both PR diffs clean; `ls-remote` SHA proven after push.
 (`HARDWARE.md:42`, `BOOT_AUDIT.md:247`, `COMPLETENESS_C2.md:295`) are stale after
 #107+#112; `scripts/demo/run-demo.sh:40` comment still blames scrot in
 `mv-mc-thumbnail`; duplicate timezone commits `b00ad0b` + `7c7cd5a`.
+
+---
+
+## 2026-10-06 — Activity Monitor (canonical #9) P0 Implementation Decisions
+
+**Context:** oid OS-activity-p0 — audit and close executable pre-hardware gaps in
+`bin/mv-activity` per §13.6. Prior state: only CPU/Memory tabs with basic tables;
+Energy/Disk/Network were static labels; no column sorting; only Quit (SIGTERM)
+process action.
+
+**Decisions:**
+
+1. **Per-process energy not available on Linux → use %CPU as Energy Impact proxy.**
+   macOS Activity Monitor shows per-process "Energy Impact" derived from CPU +
+   wakeups + GPU. Linux `/proc` exposes only CPU ticks. Decision: categorize %CPU
+   into Very High (≥50%), High (≥20%), Moderate (≥5%), Low (>0%), None (0%).
+   Hidden %CPU column retained for correct sort order. Rationale: no new deps,
+   zero cost, user-visible differentiation matches Mavericks intent. Hardware
+   validation needed: correlate with actual RAPL package energy on m3-7Y32.
+
+2. **Per-process disk I/O from `/proc/PID/io` (read_bytes, write_bytes).**
+   Available since kernel 2.6.20. Provides Mavericks Disk tab equivalent (Bytes
+   Read / Written per process). Sorted by total I/O desc. Empty-I/O processes
+   hidden unless searching. Rationale: existing kernel interface, no daemon,
+   matches Mavericks disk-activity view.
+
+3. **Network tab shows system interface rates only (RX/TX bytes/s).**
+   Per-process network I/O not available in Linux without eBPF/Netlink
+   (complex, high overhead). Decision: show per-interface delta rates computed
+   from `/proc/net/dev` every 2s. Matches Mavericks system-level network view.
+
+4. **Process actions: Quit (SIGTERM), Force Quit (SIGKILL), Renice (-20..19).**
+   - Quit: graceful SIGTERM with confirmation dialog.
+   - Force Quit: immediate SIGKILL with destructive-action styling + explicit
+     "ALL UNSAVED DATA WILL BE LOST" warning.
+   - Renice: Gtk.SpinButton dialog; `resource.setpriority(PRIO_PROCESS, pid, nice)`.
+     Negative values require root (CAP_SYS_NICE) — documented in dialog.
+   - Inspect: read-only dialog showing `/proc/PID/status`, `/proc/PID/stat`,
+     disk I/O.
+   Rationale: Mavericks has Quit/Force Quit; Renice is the Linux equivalent of
+   "Set Priority"; Inspect replaces "Sample Process" / "Get Info".
+
+5. **Sortable columns on all tabs via Gtk.TreeView clickable headers.**
+   Default sort by %CPU desc (Energy tab sorts by hidden %CPU column 4).
+   Numeric columns right-aligned. `set_sort_func` with numeric descending.
+   Rationale: Mavericks tables are sortable; Gtk.TreeView supports this natively.
+
+6. **Zero cost when closed: single 2s GLib timeout, no daemon, no polling.**
+   Refresh only fires while window exists; `on_destroy` would remove timeout
+   (handled by GTK). Network delta state kept in `prev_net`/`prev_net_t`.
+   Rationale: AGENTS.md §7 — power baseline frozen; no background wakeups.
+
+7. **Test suite on pinned Xvfb :97 only (scripts/gui-isolation.sh).**
+   Host display (WSLg :0) forbidden by fail-loud guard. GUI smoke verifies
+   window construction, 5 tabs, tab labels, search entry, action buttons,
+   refresh timer. No host windows ever opened.
+
+**Hardware validation items added to NEEDS_HARDWARE_TEST.md:**
+- Per-process Energy Impact accuracy vs RAPL package power on m3-7Y32
+- Disk I/O counter rollover behavior on long-running processes
+- Renice permission behavior (negative nice values) on real system
+- Column rendering and sort behavior on 2304×1440 HiDPI panel
+
+**Files changed:**
+- `packages/mavericks-apps/src/mavericks-apps/bin/mv-activity` — complete rewrite
+- `scripts/test-mv-activity.py` — new comprehensive test suite (34 checks)
+- `docs/APPS.md` — Activity Monitor row updated
+- `docs/PROGRESS.md` — session entry added
+- `docs/NEEDS_HARDWARE_TEST.md` — hardware items added (see below)

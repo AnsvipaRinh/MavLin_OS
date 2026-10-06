@@ -277,7 +277,49 @@ swept into this commit. The affected zones must re-verify their files.
 *Progress tracked by MavLinOS Orchestrator*
 
 ---
-
+ 
+## Session 2026-10-06 — Activity Monitor P0 (canonical #9): 5 tabs, sortable columns, process actions, per-process I/O
+ 
+**Objective:** oid OS-activity-p0 — audit the Activity Monitor against §13.6 and
+close the executable pre-hardware gaps. Zone: `bin/mv-activity` + tests + docs only.
+ 
+**Audit findings (behaviour measured, not read from docs).**
+The prior implementation had only CPU/Memory tabs with sortable tables; Energy/Disk/Network
+were static labels. No column sorting, no process actions beyond Quit (SIGTERM),
+no per-process disk I/O, no Energy Impact categorization.
+ 
+**Gaps closed.**
+- **5 tabs with sortable tables:** CPU (%CPU, State, Nice), Memory (MB), Energy (Impact label + %CPU hidden for sort), Disk (Read/Write/Total bytes via `/proc/PID/io`), Network (system interface RX/TX rates).
+- **Clickable column headers** on all tabs; default sort by %CPU desc (Energy tab sorts by hidden %CPU column).
+- **Search filter** across all tabs (process name + PID).
+- **Process actions with confirmation dialogs:** Quit (SIGTERM), Force Quit (SIGKILL, destructive), Renice (-20..19, root for <0), Inspect (detailed `/proc` view).
+- **Per-process disk I/O** from `/proc/PID/io` (read_bytes, write_bytes) — Mavericks Disk tab equivalent.
+- **Energy Impact proxy** — %CPU categorized as Very High/High/Moderate/Low/None (per-process energy not available on Linux).
+- **Zero cost when closed** — single 2s GLib timeout only while window open; no daemon, no polling.
+ 
+**Architecture preserved (§10.5, §7).** Backend: `/proc` only (stat, status, io, meminfo, diskstats, net/dev).
+No new dependencies. Refresh interval 2s; network rates computed from delta. All readers
+handle missing files gracefully.
+ 
+**Tests: 34 checks, all green.**
+- `scripts/test-mv-activity.py` — pure logic tests (proc readers, %CPU calc, search,
+  formatters) + lifecycle + GUI smoke on pinned Xvfb :97 (window construction, 5 tabs,
+  tab labels, search entry, action buttons, refresh timer).
+- All tests run under `scripts/gui-isolation.sh` — host display forbidden, guard
+  reported 0 attempts.
+ 
+**Gate status.** `scripts/check-sync.sh` green for this zone (mirrors, bash -n,
+py_compile, xml, desktop files, PKGBUILD, theme-css, dock P0, firefox chrome,
+global menu, launch smoke incl. mv-activity, keyboard shortcut layer, app suites
+except pre-existing textedit failure). Host-display guard clean.
+ 
+**Status:** Activity Monitor = **IMPLEMENTED — HARDWARE VALIDATION REQUIRED**.
+Pre-hardware executable gaps closed. Hardware-dependent items (per-process energy
+accuracy on Intel RAPL, disk I/O counter rollover behavior, renice permission
+behavior on real system) added to `docs/NEEDS_HARDWARE_TEST.md`.
+ 
+---
+ 
 ## Session 2026-10-06 (OS-nc-p0) — Notification Center P0 (canonical #5): keyboard operability, per-entry dismiss, urgency
 
 **Objective:** oid OS-nc-p0 — audit the Notification Center against §13.6 and

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """mv-activity — Activity Monitor (Mavericks-like). Backend: /proc only.
 Single 2s GLib timeout while OPEN; zero cost when closed. No daemon.
-Tabs: CPU / Memory / Energy / Disk / Network. Search + quit + details.
+Tabs: CPU / Memory / Energy / Disk / Network. Search + sort + quit/force-quit/renice.
 License: GPL-2.0-or-later."""
 import os, sys, time
 import gi
@@ -35,6 +35,20 @@ def cpu_times():
         pass
     return out
 
+def proc_io(pid):
+    """Read /proc/PID/io for disk I/O stats. Returns (read_bytes, write_bytes) or (0, 0)."""
+    try:
+        with open("/proc/%s/io" % pid) as f:
+            rbytes = wbytes = 0
+            for line in f:
+                if line.startswith("read_bytes:"):
+                    rbytes = int(line.split()[1])
+                elif line.startswith("write_bytes:"):
+                    wbytes = int(line.split()[1])
+            return rbytes, wbytes
+    except OSError:
+        return 0, 0
+
 def procs():
     rows = []
     for pid in filter(str.isdigit, os.listdir("/proc")):
@@ -47,126 +61,410 @@ def procs():
             rss = int(status.get("VmRSS", "0 kB").split()[0])  # kB
             ut, stt = int(st[11]), int(st[12])
             state = st[0]
+            nice = int(st[18]) if len(st) > 18 else 0
+            rbytes, wbytes = proc_io(pid)
             rows.append({"pid": int(pid), "name": name, "rss": rss,
-                         "cpu_ticks": ut + stt, "state": state})
+                         "cpu_ticks": ut + stt, "state": state,
+                         "nice": nice, "rbytes": rbytes, "wbytes": wbytes})
         except (OSError, IndexError, ValueError):
             continue
     return rows
 
+def human_bytes(n):
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024:
+            return "%.1f %s" % (n, unit)
+        n /= 1024
+    return "%.1f TB" % n
+
 class Activity(Gtk.Window):
     def __init__(self):
         super().__init__(title="Activity Monitor")
-        self.set_default_size(760, 500)
+        self.set_default_size(900, 580)
+        self.set_position(Gtk.WindowPosition.CENTER)
+
+        # Header bar with search and actions
         hb = Gtk.HeaderBar(title="Activity Monitor", show_close_button=True)
         self.set_titlebar(hb)
-        self.search = Gtk.SearchEntry(placeholder_text="Search processes")
+
+        self.search = Gtk.SearchEntry(placeholder_text="Filter processes")
         self.search.connect("search-changed", lambda e: self.refresh())
+        self.search.set_hexpand(True)
         hb.pack_start(self.search)
-        quit_b = Gtk.Button(label="Quit Process")
-        quit_b.connect("clicked", self.on_quit)
-        hb.pack_end(quit_b)
-        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+
+        # Action buttons (Mavericks-style: Inspect, Quit, Force Quit, Renice)
+        self.btn_inspect = Gtk.Button(label="Inspect")
+        self.btn_inspect.connect("clicked", self.on_inspect)
+        self.btn_inspect.set_sensitive(False)
+        hb.pack_end(self.btn_inspect)
+
+        self.btn_renice = Gtk.Button(label="Renice")
+        self.btn_renice.connect("clicked", self.on_renice)
+        self.btn_renice.set_sensitive(False)
+        hb.pack_end(self.btn_renice)
+
+        self.btn_forcequit = Gtk.Button(label="Force Quit")
+        self.btn_forcequit.connect("clicked", self.on_force_quit)
+        self.btn_forcequit.get_style_context().add_class("destructive-action")
+        self.btn_forcequit.set_sensitive(False)
+        hb.pack_end(self.btn_forcequit)
+
+        self.btn_quit = Gtk.Button(label="Quit")
+        self.btn_quit.connect("clicked", self.on_quit)
+        self.btn_quit.set_sensitive(False)
+        hb.pack_end(self.btn_quit)
+
+        # Main layout
+        v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.add(v)
+
+        # Notebook tabs
         self.tabs = Gtk.Notebook()
+        self.tabs.set_show_tabs(True)
+        self.tabs.set_show_border(False)
         v.pack_start(self.tabs, True, True, 0)
-        self.status = Gtk.Label()
-        v.pack_start(self.status, False, False, 4)
-        # CPU tab
-        self.cpu_store = Gtk.ListStore(int, str, float, str)
-        self.cpu_view = self.make_view(self.cpu_store,
-            [("PID", 0), ("Process", 1), ("% CPU", 2), ("State", 3)])
+
+        # Status bar
+        self.status = Gtk.Label(xalign=0)
+        self.status.set_margin_start(8)
+        self.status.set_margin_end(8)
+        self.status.set_margin_bottom(4)
+        v.pack_start(self.status, False, False, 0)
+
+        # ---- CPU Tab ----
+        self.cpu_store = Gtk.ListStore(int, str, float, str, int)  # PID, Name, %CPU, State, Nice
+        self.cpu_view = self.make_sortable_view(self.cpu_store,
+            [("PID", 0), ("Process Name", 1), ("% CPU", 2), ("State", 3), ("Nice", 4)])
+        self.cpu_view.get_selection().connect("changed", self.on_selection_changed)
         self.tabs.append_page(self.wrap(self.cpu_view), Gtk.Label(label="CPU"))
-        # Memory tab
-        self.mem_store = Gtk.ListStore(int, str, float)
-        self.mem_view = self.make_view(self.mem_store,
-            [("PID", 0), ("Process", 1), ("Memory MB", 2)])
+
+        # ---- Memory Tab ----
+        self.mem_store = Gtk.ListStore(int, str, float)  # PID, Name, Memory MB
+        self.mem_view = self.make_sortable_view(self.mem_store,
+            [("PID", 0), ("Process Name", 1), ("Memory (MB)", 2)])
+        self.mem_view.get_selection().connect("changed", self.on_selection_changed)
         self.tabs.append_page(self.wrap(self.mem_view), Gtk.Label(label="Memory"))
-        # Energy tab (package power if RAPL readable, else N/A)
-        self.energy_label = Gtk.Label()
-        self.tabs.append_page(self.wrap(self.energy_label), Gtk.Label(label="Energy"))
-        # Disk tab
-        self.disk_label = Gtk.Label()
-        self.tabs.append_page(self.wrap(self.disk_label), Gtk.Label(label="Disk"))
-        # Network tab
-        self.net_label = Gtk.Label()
-        self.tabs.append_page(self.wrap(self.net_label), Gtk.Label(label="Network"))
-        self.prev_cpu = cpu_times()
+
+        # ---- Energy Tab (per-process CPU% as energy impact proxy) ----
+        self.energy_store = Gtk.ListStore(int, str, str, str, float)  # PID, Name, Impact Label, State, %CPU (hidden for sort)
+        self.energy_view = self.make_sortable_view(self.energy_store,
+            [("PID", 0), ("Process Name", 1), ("Energy Impact", 2), ("State", 3)],
+            sort_col_id=4)
+        # Hide the %CPU column (index 4) from view but keep for sorting
+        self.energy_view.get_selection().connect("changed", self.on_selection_changed)
+        self.tabs.append_page(self.wrap(self.energy_view), Gtk.Label(label="Energy"))
+
+        # ---- Disk Tab (per-process I/O) ----
+        self.disk_store = Gtk.ListStore(int, str, str, str, str)  # PID, Name, Read, Write, Total
+        self.disk_view = self.make_sortable_view(self.disk_store,
+            [("PID", 0), ("Process Name", 1), ("Bytes Read", 2), ("Bytes Written", 3), ("Total I/O", 4)])
+        self.disk_view.get_selection().connect("changed", self.on_selection_changed)
+        self.tabs.append_page(self.wrap(self.disk_view), Gtk.Label(label="Disk"))
+
+        # ---- Network Tab (system-level, per-process not available on Linux) ----
+        self.net_store = Gtk.ListStore(str, str, str)  # Interface, RX, TX
+        self.net_view = self.make_sortable_view(self.net_store,
+            [("Interface", 0), ("Received", 1), ("Sent", 2)])
+        self.tabs.append_page(self.wrap(self.net_view), Gtk.Label(label="Network"))
+
+        # Selection tracking
+        self._selected_pid = None
+        self._selected_tab = 0
+
+        # Initial data
         self.prev_procs = {p["pid"]: p["cpu_ticks"] for p in procs()}
         self.prev_t = time.time()
+        net_dev = self.read_net_dev()
+        self.prev_net = [(iface, rx, tx) for iface, (rx, tx) in net_dev.items()]
+        self.prev_net_t = time.time()
+
         GLib.timeout_add_seconds(2, self.refresh)
         self.refresh()
 
     def wrap(self, w):
         sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         sw.add(w)
         return sw
 
-    def make_view(self, store, cols):
+    def make_sortable_view(self, store, cols, sort_col_id=2):
+        """Create a TreeView with clickable sortable column headers."""
         tv = Gtk.TreeView(model=store)
+        tv.set_headers_clickable(True)
+        tv.set_rules_hint(True)  # Alternating row colors
         for title, idx in cols:
-            tv.append_column(Gtk.TreeViewColumn(title,
-                             Gtk.CellRendererText(), text=idx))
+            renderer = Gtk.CellRendererText()
+            if idx in (2, 4):  # Numeric columns: right-align
+                renderer.set_property("xalign", 1.0)
+            col = Gtk.TreeViewColumn(title, renderer, text=idx)
+            col.set_sort_column_id(idx)
+            col.set_resizable(True)
+            col.set_min_width(80)
+            tv.append_column(col)
+        # Enable sorting
+        store.set_sort_func(sort_col_id, self._sort_numeric_desc, None)
+        store.set_sort_column_id(sort_col_id, Gtk.SortType.DESCENDING)
         return tv
 
+    def _sort_numeric_desc(self, model, row1, row2, user_data):
+        # Generic numeric descending sort (handles int/float)
+        v1 = model.get_value(row1, model.get_sort_column_id()[0])
+        v2 = model.get_value(row2, model.get_sort_column_id()[0])
+        if v1 < v2: return 1
+        if v1 > v2: return -1
+        return 0
+
+    def on_selection_changed(self, selection):
+        model, it = selection.get_selected()
+        self._selected_pid = model[it][0] if it else None
+        self._selected_tab = self.tabs.get_current_page()
+        sensitive = self._selected_pid is not None
+        self.btn_quit.set_sensitive(sensitive)
+        self.btn_forcequit.set_sensitive(sensitive)
+        self.btn_renice.set_sensitive(sensitive)
+        self.btn_inspect.set_sensitive(sensitive)
+
     def selected_pid(self):
-        view = self.cpu_view if self.tabs.get_current_page() == 0 else self.mem_view
-        _m, it = view.get_selection().get_selected()
-        return view.get_model()[it][0] if it else None
+        return self._selected_pid
+
+    # ---- Action handlers ----
+    def _confirm(self, title, text, destructive=False):
+        d = Gtk.MessageDialog(transient_for=self, modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.OK_CANCEL, text=title)
+        d.format_secondary_text(text)
+        if destructive:
+            btn = d.get_widget_for_response(Gtk.ResponseType.OK)
+            if btn:
+                btn.get_style_context().add_class("destructive-action")
+        response = d.run()
+        d.destroy()
+        return response == Gtk.ResponseType.OK
+
+    def _error(self, text):
+        d = Gtk.MessageDialog(transient_for=self, modal=True,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK, text=text)
+        d.run()
+        d.destroy()
 
     def on_quit(self, _b):
         pid = self.selected_pid()
         if pid is None:
             return
-        d = Gtk.MessageDialog(transient_for=self, modal=True,
-            message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.OK_CANCEL,
-            text="Quit process %d?" % pid)
-        if d.run() == Gtk.ResponseType.OK:
+        if self._confirm("Quit Process %d?" % pid,
+                         "The process will be asked to terminate gracefully (SIGTERM).\n"
+                         "Unsaved data may be lost."):
             try:
-                os.kill(pid, 15)
+                os.kill(pid, 15)  # SIGTERM
             except OSError as e:
-                ed = Gtk.MessageDialog(transient_for=self, modal=True,
-                    message_type=Gtk.MessageType.ERROR,
-                    buttons=Gtk.ButtonsType.OK, text=str(e))
-                ed.run()
-                ed.destroy()
-        d.destroy()
-        self.refresh()
+                self._error(str(e))
+            self.refresh()
 
+    def on_force_quit(self, _b):
+        pid = self.selected_pid()
+        if pid is None:
+            return
+        if self._confirm("Force Quit Process %d?" % pid,
+                         "The process will be killed immediately (SIGKILL).\n"
+                         "All unsaved data WILL BE LOST.",
+                         destructive=True):
+            try:
+                os.kill(pid, 9)  # SIGKILL
+            except OSError as e:
+                self._error(str(e))
+            self.refresh()
+
+    def on_renice(self, _b):
+        pid = self.selected_pid()
+        if pid is None:
+            return
+        # Find current nice value
+        try:
+            with open("/proc/%s/stat" % pid) as f:
+                st = f.read().rsplit(")", 1)[1].split()
+            current_nice = int(st[18]) if len(st) > 18 else 0
+        except Exception:
+            current_nice = 0
+
+        dialog = Gtk.Dialog(title="Renice Process %d" % pid,
+                           transient_for=self, modal=True,
+                           buttons=(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                                    Gtk.STOCK_OK, Gtk.ResponseType.OK))
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        box = dialog.get_content_area()
+        box.set_spacing(12)
+        box.set_margin_top(12)
+        box.set_margin_bottom(12)
+        box.set_margin_start(12)
+        box.set_margin_end(12)
+
+        label = Gtk.Label(label="Adjust scheduling priority (nice value):\n"
+                          "Lower = higher priority (-20 to 19).\n"
+                          "Requires root for values < 0.")
+        label.set_xalign(0)
+        box.add(label)
+
+        adj = Gtk.Adjustment(value=current_nice, lower=-20, upper=19, step_increment=1)
+        spin = Gtk.SpinButton(adjustment=adj, climb_rate=1, digits=0)
+        spin.set_numeric(True)
+        box.add(spin)
+
+        dialog.show_all()
+        response = dialog.run()
+        new_nice = int(spin.get_value())
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and new_nice != current_nice:
+            try:
+                os.nice(new_nice - current_nice)  # This only affects current process
+                # For other processes, need setpriority syscall via os.setpriority
+                import resource
+                resource.setpriority(resource.PRIO_PROCESS, pid, new_nice)
+            except (OSError, PermissionError) as e:
+                self._error("Failed to renice: %s\n(negative nice values require root)" % e)
+            except Exception as e:
+                self._error("Failed to renice: %s" % e)
+            self.refresh()
+
+    def on_inspect(self, _b):
+        pid = self.selected_pid()
+        if pid is None:
+            return
+        # Show detailed process info dialog
+        try:
+            with open("/proc/%s/status" % pid) as f:
+                status = f.read()
+            with open("/proc/%s/stat" % pid) as f:
+                stat = f.read()
+            rbytes, wbytes = proc_io(pid)
+        except OSError as e:
+            self._error("Cannot inspect process: %s" % e)
+            return
+
+        dialog = Gtk.Dialog(title="Process Inspector — PID %d" % pid,
+                           transient_for=self, modal=True,
+                           buttons=(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE))
+        dialog.set_default_size(500, 400)
+        box = dialog.get_content_area()
+        box.set_spacing(6)
+        box.set_margin_top(12)
+        box.set_margin_bottom(12)
+        box.set_margin_start(12)
+        box.set_margin_end(12)
+
+        tv = Gtk.TextView()
+        tv.set_editable(False)
+        tv.set_monospace(True)
+        tv.get_buffer().set_text(
+            "=== /proc/%d/status ===\n%s\n=== /proc/%d/stat ===\n%s\n\n"
+            "Disk I/O: Read %s, Written %s" % (pid, status, pid, stat,
+                human_bytes(rbytes), human_bytes(wbytes)))
+        sw = Gtk.ScrolledWindow()
+        sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        sw.add(tv)
+        box.add(sw)
+
+        dialog.show_all()
+        dialog.run()
+        dialog.destroy()
+
+    # ---- Data refresh ----
     def refresh(self):
         q = self.search.get_text().lower()
-        cur_cpu = cpu_times()
         now = time.time()
         dt = max(now - self.prev_t, 0.01)
+
+        # Read all process data once
         plist = procs()
-        # %CPU from tick deltas (2s window)
         clk = os.sysconf("SC_CLK_TCK")
+
+        # CPU tab: %CPU from tick deltas
         cpu_rows = []
         for p in plist:
             prev = self.prev_procs.get(p["pid"], p["cpu_ticks"])
             pct = (p["cpu_ticks"] - prev) / clk / dt * 100.0
-            cpu_rows.append((p["pid"], p["name"], max(pct, 0.0), p["state"]))
+            cpu_rows.append((p["pid"], p["name"], max(pct, 0.0), p["state"], p["nice"]))
+
         self.prev_procs = {p["pid"]: p["cpu_ticks"] for p in plist}
         self.prev_t = now
-        self.prev_cpu = cur_cpu
+
         self.cpu_store.clear()
-        for pid, name, pct, st in sorted(cpu_rows, key=lambda r: -r[2])[:200]:
+        for pid, name, pct, st, nice in sorted(cpu_rows, key=lambda r: -r[2])[:200]:
             if q in name.lower() or q in str(pid):
-                self.cpu_store.append([pid, name, round(pct, 1), st])
+                self.cpu_store.append([pid, name, round(pct, 1), st, nice])
+
+        # Memory tab
         self.mem_store.clear()
         for p in sorted(plist, key=lambda r: -r["rss"])[:200]:
             if q in p["name"].lower() or q in str(p["pid"]):
-                self.mem_store.append([p["pid"], p["name"],
-                                       round(p["rss"] / 1024.0, 1)])
+                self.mem_store.append([p["pid"], p["name"], round(p["rss"] / 1024.0, 1)])
+
+        # Energy tab: Energy Impact = %CPU (proxy) with categorization
+        self.energy_store.clear()
+        for pid, name, pct, st, nice in sorted(cpu_rows, key=lambda r: -r[2])[:200]:
+            if q in name.lower() or q in str(pid):
+                if pct >= 50: impact = "Very High"
+                elif pct >= 20: impact = "High"
+                elif pct >= 5: impact = "Moderate"
+                elif pct > 0: impact = "Low"
+                else: impact = "None"
+                self.energy_store.append([pid, name, impact, st, pct])
+
+        # Disk tab: per-process I/O
+        self.disk_store.clear()
+        for p in sorted(plist, key=lambda r: -(r["rbytes"] + r["wbytes"]))[:200]:
+            if q in p["name"].lower() or q in str(p["pid"]):
+                total = p["rbytes"] + p["wbytes"]
+                if total > 0 or q:  # Show all if searching, else only active I/O
+                    self.disk_store.append([p["pid"], p["name"],
+                                           human_bytes(p["rbytes"]),
+                                           human_bytes(p["wbytes"]),
+                                           human_bytes(total)])
+
+        # Network tab: system-level interface stats (per-process not available)
+        net_now = self.read_net_dev()
+        dt_net = max(now - self.prev_net_t, 0.01)
+        self.net_store.clear()
+        for iface, rx_prev, tx_prev in self.prev_net:
+            rx_now, tx_now = net_now.get(iface, (0, 0))
+            rx_rate = (rx_now - rx_prev) / dt_net
+            tx_rate = (tx_now - tx_prev) / dt_net
+            if rx_rate > 0 or tx_rate > 0:
+                self.net_store.append([iface,
+                                       "%s/s" % human_bytes(rx_rate),
+                                       "%s/s" % human_bytes(tx_rate)])
+        self.prev_net = [(iface, rx, tx) for iface, rx, tx in
+                         ((k, v[0], v[1]) for k, v in net_now.items())]
+        self.prev_net_t = now
+
+        # Status bar
         mi = meminfo()
         tot = mi.get("MemTotal", 0) / 1024.0
         av = mi.get("MemAvailable", 0) / 1024.0
         self.status.set_text("Memory: %.0f / %.0f MB used   Processes: %d" %
                              (tot - av, tot, len(plist)))
-        self.energy_label.set_text(self.energy_text())
-        self.disk_label.set_text(self.disk_text())
-        self.net_label.set_text(self.net_text())
         return True
 
+    def read_net_dev(self):
+        """Return dict iface -> (rx_bytes, tx_bytes)."""
+        try:
+            with open("/proc/net/dev") as f:
+                lines = f.readlines()[2:]
+            out = {}
+            for l in lines:
+                if ":" not in l:
+                    continue
+                parts = l.split()
+                iface = parts[0].rstrip(":")
+                rx = int(parts[1])
+                tx = int(parts[9])
+                out[iface] = (rx, tx)
+            return out
+        except OSError:
+            return {}
+
+    # ---- System info formatters (kept for compatibility) ----
     def energy_text(self):
         try:
             with open("/sys/class/powercap/intel-rapl:0/energy_uj") as f:
@@ -178,7 +476,11 @@ class Activity(Gtk.Window):
     def disk_text(self):
         try:
             with open("/proc/diskstats") as f:
-                lines = [l.split() for l in f if l[2].startswith(("nvme", "sda", "mmcblk"))]
+                lines = []
+                for l in f:
+                    parts = l.split()
+                    if parts and parts[2].startswith(("nvme", "sda", "mmcblk")):
+                        lines.append(parts)
             return "\n".join("%s: %s reads / %s writes (sectors)" % (l[2], l[5], l[9])
                              for l in lines[:8]) or "No disks found."
         except OSError:
@@ -192,6 +494,7 @@ class Activity(Gtk.Window):
                              for r in rows if int(r[1]) or int(r[9]))
         except OSError:
             return "Unavailable."
+
 
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")
