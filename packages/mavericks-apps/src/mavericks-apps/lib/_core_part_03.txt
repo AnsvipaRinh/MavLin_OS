@@ -1,45 +1,37 @@
-nder"),
-    A("move-to-trash", "Move to Trash", ["Super"], "Delete", "mv-trash",
-      "finder", skill="finder"),
-    # Empty Trash used to run `trash-empty` directly, which is immediate,
-    # silent and irreversible — so one stray chord permanently erased the
-    # Trash. mv-empty-trash shows Finder's confirmation first (Cancel is the
-    # default action); --yes is the only non-interactive path and it is
-    # deliberately not bound to a key.
-    A("empty-trash", "Empty Trash", ["Super", "Shift"], "Delete",
-      "mv-empty-trash", "finder", skill="finder"),
-    A("empty-trash-alt", "Empty Trash (alternate)", ["Super", "Shift"], "e",
-      "mv-empty-trash", "finder", skill="finder"),
-    A("airdrop", "AirDrop", ["Super", "Shift"], "a", "mv-airdrop",
-      "finder", skill="finder"),
-    A("eject", "Eject", ["Super"], "F4", "mv-eject", "finder", skill="finder"),
+Insert", "Menu", "Pause",
+) + tuple("F%d" % n for n in range(1, 13))
+MEDIA_KEYS = (
+    "XF86AudioRaiseVolume", "XF86AudioLowerVolume", "XF86AudioMute",
+    "XF86AudioPlay", "XF86AudioNext", "XF86AudioPrev", "XF86AudioStop",
+    "XF86MonBrightnessUp", "XF86MonBrightnessDown",
+)
+SPECIAL_KEYS = tuple(x for x in MEDIA_KEYS)
 
-    # --- System ------------------------------------------------------------
-    A("settings", "System Settings", ["Super"], "comma", "mv-settings",
-      "system", skill="system"),
-    A("control-center", "Control Center", ["Super", "Shift"], "c",
-      "mv-control", "system", skill="system"),
-    A("notification-center", "Notification Center", ["Super", "Shift"], "v",
-      "mv-notification-center", "system", skill="system"),
-    A("calendar", "Calendar", ["Primary", "Alt"], "c", "mv-calendar",
-      "system", skill="system"),
-    A("terminal", "Terminal", ["Primary", "Alt"], "t", "xfce4-terminal",
-      "system", skill="system", rebindable=False),
-    A("lock-screen", "Lock Screen", ["Primary", "Alt"], "l",
-      "xfce4-screensaver-command --lock", "system", skill="system",
-      rebindable=False),
-    A("power-dialog", "Power / Restart / Shut Down…", ["Primary", "Alt"],
-      "Escape", "mv-power-ui", "system", skill="system"),
-    A("log-out", "Log Out…", ["Primary", "Alt"], "Delete",
-      "mv-power-ui logout", "system", skill="system"),
 
-    # --- Application -------------------------------------------------------
-    A("quit-app", "Quit Application", ["Super"], "q", "mv-quit-app",
-      "application", skill="application"),
-    A("force-quit", "Force Quit Applications…", ["Super", "Shift"], "q",
-      "mv-force-quit", "application", skill="application"),
-    A("force-quit-dialog", "Force Quit (Command-Option-Escape)",
-      ["Super", "Alt"], "Escape", "mv-force-quit",
-      "application", skill="application"),
-    A("hide-app", "Hide Application", ["Super"], "h", "mv-hide-app",
-      "appli
+def A(action, label, modifiers, key, command, group, skill="system",
+      branch=BRANCH_COMMANDS, protected=False, rebindable=True):
+    """Registry row. `modifiers` is a list of canonical modifier names."""
+    return {
+        "action": action,
+        "label": label,
+        "modifiers": list(modifiers),
+        "key": key,
+        "command": command,
+        "group": group,
+        "skill": skill,
+        "branch": branch,
+        "protected": bool(protected),
+        "rebindable": bool(rebindable and not protected),
+    }
+
+
+# ---------------------------------------------------------------------------
+# The registry.  Keep in sync with config/xfce4-keyboard-shortcuts.xml —
+# `mv-hotkeys verify --xml <path>` fails the build if they drift.
+# ---------------------------------------------------------------------------
+ACTIONS = [
+    # --- Core Mavericks surfaces -------------------------------------------
+    A("spotlight", "Spotlight Search", ["Super"], "space",
+      "/usr/bin/mv-spotlight-gui",
+      "core", skill="spotlight"),
+    A("launchpad", "Launch
