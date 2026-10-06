@@ -653,3 +653,12 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def test_native_window_chrome_contract():
+    with open(APP_PATH, encoding="utf-8") as fh:
+        source = fh.read()
+    check("keychain has no GTK HeaderBar", "Gtk.HeaderBar" not in source)
+    check("keychain uses Mavericks toolbar", 'mav-toolbar' in source)
+    check("keychain keeps real window chrome", 'self.set_titlebar' not in source)
+    check("keychain toolbar has search", 'Search items...' in source)
