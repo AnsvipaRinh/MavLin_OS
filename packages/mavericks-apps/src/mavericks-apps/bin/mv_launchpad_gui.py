@@ -6,6 +6,7 @@ This UI provides the actual full-screen Mavericks-style application surface:
 search, paginated grid, folders, keyboard navigation, application launch,
 and the existing Launchpad editor.
 """
+import importlib.util
 import os
 import subprocess
 import sys
@@ -15,8 +16,33 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
-import mv_launchpad
 
+def _load_launchpad_backend():
+    """Load the shared Launchpad backend from the installed sibling script.
+
+    mv-launchpad is intentionally kept as the executable backend entry point.
+    It cannot be imported by Python's normal module loader because its
+    filename contains a hyphen, so loading it by filesystem path avoids
+    duplicating the backend or relying on a fragile sys.path hack.
+    """
+    candidates = [
+        Path(__file__).with_name("mv-launchpad"),
+        Path("/usr/bin/mv-launchpad"),
+    ]
+    for backend_path in candidates:
+        if not backend_path.is_file():
+            continue
+        spec = importlib.util.spec_from_file_location(
+            "mavericks_launchpad_backend", backend_path
+        )
+        if spec is None or spec.loader is None:
+            continue
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    raise ImportError("Unable to locate the mv-launchpad backend")
+
+mv_launchpad = _load_launchpad_backend()
 
 ITEMS_PER_PAGE = mv_launchpad.ITEMS_PER_PAGE
 COLUMNS = 7
