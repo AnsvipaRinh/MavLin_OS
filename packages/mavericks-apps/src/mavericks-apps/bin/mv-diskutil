@@ -966,14 +966,19 @@ def build_diskutil_class():
             self._pending_refresh = False
             self._nvme_cache = None
 
-            hb = Gtk.HeaderBar(title="Disk Utility", show_close_button=True)
+            self.set_decorated(True)
+            toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            toolbar.get_style_context().add_class("mavericks-diskutil-toolbar")
             self.refresh_btn = Gtk.Button.new_from_icon_name(
                 "view-refresh-symbolic", Gtk.IconSize.BUTTON)
             self.refresh_btn.set_tooltip_text("Refresh")
             self.refresh_btn.connect("clicked", lambda _: self.refresh())
             hb.pack_start(self.refresh_btn)
             hb.pack_end(self.about_btn())
-            self.set_titlebar(hb)
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            root.pack_start(toolbar, False, False, 0)
+            root.pack_start(paned, True, True, 0)
+            self.add(root)
 
             paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
             self.add(paned)
