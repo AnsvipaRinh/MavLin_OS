@@ -22,28 +22,4 @@ Design (P0 #23, AGENTS.md §6 "Keyboard shortcut architecture"):
     rebinding them is refused unless `--force` is given, so the layer can
     never swallow Ctrl+Alt+T, Alt+Tab, brightness or audio keys.
 
-Origin: architecture, action registry layout, conflict/protection model and
-the CLI surface (`list/show/set/reset/verify/export/import`) were produced
-by Qwen Code (qwen3.8-flash) driven through
-`scripts/qwen-integration/qwen-web-worker.py` on 2026-10-06; its delivered
-`mv-hotkeys` draft is kept in git history.  This module supersedes it after
-review: the accelerator model was changed from "action -> xfconf property
-name" (which cannot express a rebind, since the key *is* part of the
-property name) to "action -> modifiers + key + command" (see
-docs/DECISIONS.md), protected hardware keys were completed, and XML
-rendering/drift detection was added.
-
-Pure logic (registry, override merging, accelerator parsing/formatting,
-conflict detection, XML rendering/parsing) is importable headless — no gi,
-no GTK, no xfconf.  License: GPL-2.0-or-later.
-"""
-import json
-import os
-import re
-import subprocess
-import xml.etree.ElementTree as ET
-
-CHANNEL = "xfce4-keyboard-shortcuts"
-DEFAULT_OVERRIDES_PATH = os.path.expanduser("~/.config/mfkeys/overrides.json")
-# MV_HOTKEYS_OVERRIDES lets tests (and a temporary session) redirect the
-# override file
+Origin: architecture, action registry layout
