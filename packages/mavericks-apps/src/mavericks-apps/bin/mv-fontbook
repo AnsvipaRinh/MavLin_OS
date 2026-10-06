@@ -221,8 +221,11 @@ class FontBookWindow(Gtk.Window):
 
         self.apply_css()
 
-        hb = Gtk.HeaderBar(title="Font Book", show_close_button=True)
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hb.get_style_context().add_class("mavericks-mv-fontbook-toolbar")
+        title_label = Gtk.Label(label="Font Book")
+        hb.pack_start(title_label, True, True, 8)
 
         self.install_btn = Gtk.Button.new_from_icon_name(
             "list-add", Gtk.IconSize.SMALL_TOOLBAR)
@@ -308,7 +311,10 @@ class FontBookWindow(Gtk.Window):
         self.error_bar.set_no_show_all(True)
         self.root_box.pack_start(paned, True, True, 0)
         self.root_box.pack_start(self.error_bar, False, False, 0)
-        self.add(self.root_box)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.pack_start(hb, False, False, 0)
+        root.pack_start(self.root_box, True, True, 0)
+        self.add(root)
 
         self.connect("key-press-event", self.on_key_press)
 
