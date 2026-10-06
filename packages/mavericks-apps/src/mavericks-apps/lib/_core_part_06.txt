@@ -23,7 +23,7 @@ def normalize_accelerator(accel):
 
     Accepted string forms:
       'Super+Shift+3'   'Super + Shift + 3'   '<Super><Shift>3'
-      '<Super><Shift>3' (as stored in the factory XML)
+      XML-escaped form as stored in the factory XML
     Case is normalised: letters lowercase, named keys/keysyms exact.
     Raises ValueError with a human message on anything else.
 
@@ -47,7 +47,7 @@ def normalize_accelerator(accel):
     if not s:
         raise ValueError("empty accelerator")
 
-    unescaped = s.replace("<", "<").replace(">", ">")
+    unescaped = s.replace("&" "lt;", "<").replace("&" "gt;", ">")
     if "<" in unescaped:
         pattern = re.compile(
             r"^<(Primary|Control|Ctrl|Alt|Option|Super|Meta|Shift)>")
