@@ -129,38 +129,38 @@ class LaunchpadWindow(Gtk.Window):
         css = Gtk.CssProvider()
         css.load_from_data(b"""
         #mavericks-launchpad {
-            background: rgba(18, 20, 25, 0.96);
+            background: rgba(28, 45, 60, 0.72);
         }
         .launchpad-title {
             color: white;
-            font: 700 20px "Helvetica Neue";
+            font: 600 18px "Lucida Grande";
         }
         .launchpad-pages {
             color: rgba(255,255,255,0.88);
-            font: 14px "Helvetica Neue";
+            font: 11px "Lucida Grande";
         }
         .launchpad-hint {
             color: rgba(255,255,255,0.45);
-            font: 11px "Helvetica Neue";
+            font: 10px "Lucida Grande";
         }
         .launchpad-item {
             background: transparent;
             border: 1px solid transparent;
-            border-radius: 12px;
-            padding: 10px 8px;
+            border-radius: 4px;
+            padding: 8px 8px;
             color: white;
         }
         .launchpad-item:hover,
         .launchpad-item:focus {
-            background: rgba(255,255,255,0.13);
-            border-color: rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.10);
+            border-color: rgba(255,255,255,0.25);
         }
         .launchpad-item label {
             color: white;
         }
         .launchpad-folder {
-            background: rgba(255,255,255,0.08);
-            border-radius: 16px;
+            background: rgba(20,30,40,0.35);
+            border-radius: 6px;
         }
         """)
         Gtk.StyleContext.add_provider_for_screen(
