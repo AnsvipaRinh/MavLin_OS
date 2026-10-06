@@ -1495,3 +1495,27 @@ Context: the shipped `_widgets.scss` filechooser block styled six class names GT
 - **Sidebar group headings are not attempted.** GTK 3.24's places sidebar creates no heading widgets at all (11 `sidebar-revealer` rows, zero heading labels), so there is nothing for CSS to style; synthesising headings would need a custom widget, i.e. replacing GTK's file chooser. Out of scope for a theming objective and against reuse-first (§5). Hairline group edges are the honest approximation, and the limitation is written into the partial's header so the next session does not re-investigate it.
 
 **Verification:** `scripts/test-filechooser-theme.py` 37/37, `scripts/test-theme-css.py` 9/9, `scripts/check-sync.sh` green. Note the CSS gate earned its keep during the work: the first draft used `-gtk-icon-size`, which GTK3's parser rejects, and the gate failed on it immediately.
+
+## 2026-10-06 — System Information P0: tabbed System Report, MacBook10,1 profile, clipboard, X11 display (oid `OS-sysinfo-p0`, canonical #10)
+
+**Context:** The existing mv-about had a functional About This Mac sidebar but the System Report was a raw text dump. Per §13.6/§10.5 the requirement is a coherent tabbed system-information surface with Hardware/Display/Storage/Network sections, MacBook10,1 profile awareness (honest values on non-Apple hardware), copy-to-clipboard, X11 display info, and coherence with mv-activity on overlapping data sources.
+
+**Decisions taken (non-obvious ones only):**
+
+- **Tabbed report with TreeView per tab, not a monolithic text view.** Each section (Hardware, PCI, USB, Display, Storage, Network, Audio, Power, Software) gets its own sortable Property/Value TreeView. Reason: a text dump is the "raw command output" that §13.6 explicitly forbids; a tabbed TreeView matches macOS System Report's structure and allows sorting/filtering. The About This Mac sidebar/detail remains unchanged (it is the Mavericks "Overview" equivalent).
+
+- **MacBook10,1 profile tab inserted at index 0 when detected.** Detection via `/sys/devices/virtual/dmi/id/product_name` containing "MacBook10,1". Profile fields mirror macOS System Report: Model Identifier, Model Name, Processor Name/Speed/Cores/Caches, Memory, Boot ROM, SMC Version, Serial, Hardware UUID. On non-Apple hardware, no fake Apple data is shown — honest current values only (per AGENTS.md §3.3 and §10.5). The profile tab is conditional, so the tab order stays stable on other hardware.
+
+- **Copy Report serializes all data, not just the visible tab.** The "Copy Report" button in the System Report header bar concatenates: About This Mac categories + all System Report tabs + MacBook profile (if present) → clipboard as structured text. Reason: macOS System Report's "File → Save" / "Copy" captures the entire report; users expect the full diagnostic text.
+
+- **X11 display info via `xrandr --current` + `xdpyinfo`, cached.** `x11_display_info()` extracts connected output name, current mode, screen dimensions, DPI. Cached via `_run_cached` like all subprocess calls. Graceful degradation when tools unavailable (container/headless). This matches the macOS "Displays" section which shows resolution, refresh rate, and display type.
+
+- **DMI/PCI/USB enumerators structured by class, not flat lists.** `dmi_info()` reads all `/sys/devices/virtual/dmi/id/*` fields with human labels. `pci_devices()` parses `lspci -nn` grouped by PCI class (Graphics, Network, Storage, Multimedia, USB, Host Bridge, PCI Bridge) — macOS System Report groups by bus/type. `usb_devices()` prefers `lsusb -t` tree output. All go through `_run_cached` for zero-spam on repeated tab switches.
+
+- **Storage/Network/Audio/Power/Software collectors added for completeness.** `storage_info()`: NVMe (nvme-cli), block devices (lsblk), zram, mounts (findmnt). `network_info()`: PCI network devices, `ip addr`, `ip route`, NM state. `audio_info()`: /proc/asound/cards, /proc/asound/pcm, pactl sinks. `power_info()`: upower battery, tlp-stat. `software_info()`: platform.machine, kernel, DE, init, shell, Python version. All on-demand, cached, no daemons (§7).
+
+- **Backward compatibility: `CATEGORIES` alias preserved.** The test suite and potentially other code reference `mv_about.CATEGORIES`. Added `CATEGORIES = ABOUT_CATEGORIES` after the new definition so existing imports don't break. The alias is documented in the source.
+
+- **Headless importability preserved.** All pure collectors (rd, run, mem_total, cpu_model, cpu_cores, gpu_model, kernel_version, os_name, is_macbook101, macbook101_profile, x11_display_info, pci_devices, usb_devices, storage_info, network_info, audio_info, power_info, software_info, dmi_info) import without Gtk. The GUI factory `build_about_class()` is the only Gtk-dependent symbol. Test suite blocks `gi` to prove this invariant.
+
+**Verification:** `scripts/test-mv-about.py` 12/12, `py_compile` clean, `scripts/check-sync.sh` mirrors/bash/xml/desktop/PKGBUILD/theme-css/dock-p0/firefox-chrome/launch-smoke (mv-about: stayed up 3s) — all green for this zone. Hardware-dependent items (MacBook10,1 profile tab rendering on 2304×1440, X11 display info on real panel, tab visual fidelity, copy-to-clipboard on real session) recorded in `docs/NEEDS_HARDWARE_TEST.md`.

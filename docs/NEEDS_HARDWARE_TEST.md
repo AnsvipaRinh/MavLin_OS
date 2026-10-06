@@ -863,6 +863,25 @@ documented. LKML thread open (Sep 2026).
 - [ ] Window geometry persistence: Activity Monitor window size/position
       restores correctly on relaunch in a real session
 
+## System Information (About This Mac / System Report) — hardware validation (OS-sysinfo-p0, 2026-10-06)
+
+- [ ] About This Mac window renders correctly on 2304×1440 HiDPI panel: sidebar labels, detail pane, Mavericks theme integration, window size (620×460), header bar with "System Report…" button
+- [ ] System Report window opens on "System Report…" click: tabbed interface with Hardware, PCI Devices, USB Devices, Display, Storage, Network, Audio, Power, Software tabs (and MacBook Profile tab first when on MacBook10,1)
+- [ ] MacBook Profile tab (MacBook10,1 only): shows Model Identifier (MacBook10,1), Model Name (MacBook Retina 12-inch Mid 2017), Processor Name/Speed/Cores/Caches, Memory, Boot ROM Version, SMC Version, Serial Number, Hardware UUID — all populated from DMI; verify no fake Apple data on non-Apple hardware
+- [ ] Hardware tab: DMI/SMBIOS fields (BIOS Vendor/Version/Date, System Manufacturer/Product/Version/Serial/UUID, Board Name/Vendor/Version, Chassis Vendor/Type/Version) readable and correctly formatted
+- [ ] PCI Devices tab: devices grouped by class (Graphics, Network, Storage, Multimedia, USB, Host Bridge, PCI Bridge) with address, description, vendor:device IDs; verify real Apple S3X NVMe and Intel GPU appear on MacBook10,1
+- [ ] USB Devices tab: `lsusb -t` tree renders correctly; verify internal devices (keyboard/trackpad via applespi, Bluetooth, FaceTime camera) and external USB-C hub devices appear
+- [ ] Display tab: xrandr current mode shows 2304×1440 @ 60Hz (or actual panel mode), xdpyinfo DPI shows ~226 DPI (2x scaling); verify connected output name (eDP-1) and available modes list
+- [ ] Storage tab: NVMe section shows Apple SSD model (APPLE SSD SM0256*), firmware, serial; block devices (lsblk) show root filesystem; zram size = RAM/2 with zstd; mount points list all mounted volumes with fstype/options
+- [ ] Network tab: PCI network device (BCM43602), interfaces (ip addr), routes, NetworkManager state; verify Wi-Fi interface appears and state transitions work
+- [ ] Audio tab: ALSA cards (Cirrus codec), PCM devices, PipeWire/PulseAudio sinks; verify internal speakers and microphone appear after Cirrus driver install
+- [ ] Power tab: Battery percentage/state/time-to-empty from UPower; TLP status; verify on battery vs AC behavior
+- [ ] Software tab: OS (Mavericks Linux), Kernel, Architecture (x86_64), DE (Xfce 4 Mavericks), Display Server (X11), Init (systemd), Shell, Python version
+- [ ] Copy Report button: copies entire report (About + all tabs + MacBook Profile) to clipboard as structured text; verify paste into TextEdit/terminal preserves formatting
+- [ ] Tab sorting: Property/Value columns sortable by clicking headers; verify on 2304×1440
+- [ ] Window geometry persistence: System Report window size/position restores on relaunch
+- [ ] Energy cost: confirm zero idle cost when window closed (no timers, no daemons); measure CPU/wakeups with window open (on-demand reads only)
+
 ## Screenshot — hardware validation (OS-shot-p0, 2026-10-06)
 
 - [ ] `Super+Shift+3/4/5` on the real keyboard: confirm xfce4-keyboard-shortcuts

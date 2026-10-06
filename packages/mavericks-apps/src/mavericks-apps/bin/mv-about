@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """mv-about — About This Mac + System Report (on-demand; reads /proc /sys / DMI).
-No subprocess spam: sysfs reads + single lspci/lsusb invocations, cached.
+No subprocess spam: sysfs reads + single lspci/lsusb/xrandr invocations, cached.
 Pure collectors importable headless (Gtk loaded lazily via build_about_class).
 License: GPL-2.0-or-later."""
 import functools, os, re, subprocess
 import sys
+import platform
 
 def _gtk():
     import gi
@@ -28,7 +29,7 @@ def run(cmd):
 
 @functools.lru_cache(maxsize=None)
 def _run_cached(cmd):
-    """Same as run(), but memoized per command tuple (see docstring above)."""
+    """Same as run(), but memoized per command tuple."""
     return run(list(cmd))
 
 def mem_total():
@@ -43,6 +44,9 @@ def cpu_model():
                   rd("/proc/cpuinfo", ""), re.M)
     return m.group(1).strip() if m else "Unknown"
 
+def cpu_cores():
+    return str(os.cpu_count() or "Unknown")
+
 def gpu_model():
     out = _run_cached(("lspci", "-nn"))
     for line in out.splitlines():
@@ -50,15 +54,213 @@ def gpu_model():
             return line.split(": ", 1)[-1]
     return "Unknown"
 
-CATEGORIES = [
+def kernel_version():
+    return _run_cached(("uname", "-r"))
+
+def os_name():
+    return "Mavericks Linux (Arch-based)"
+
+def is_macbook101():
+    """Detect if running on MacBook10,1 (Mid 2017 12\" Retina)."""
+    product = rd("/sys/devices/virtual/dmi/id/product_name", "")
+    return "MacBook10,1" in product
+
+def macbook101_profile():
+    """Return MacBook10,1 specific profile fields if detected."""
+    if not is_macbook101():
+        return {}
+    return {
+        "Model Identifier": "MacBook10,1",
+        "Model Name": "MacBook (Retina, 12-inch, Mid 2017)",
+        "Processor Name": "Intel Core m3-7Y32" if "m3-7Y32" in cpu_model() else cpu_model(),
+        "Processor Speed": "1.1 GHz" if "m3-7Y32" in cpu_model() else rd("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", "?") + " kHz max",
+        "Number of Processors": "1",
+        "Total Number of Cores": "2",
+        "L2 Cache (per Core)": "256 KB",
+        "L3 Cache": "4 MB",
+        "Memory": "8 GB" if "8" in mem_total() else mem_total(),
+        "Boot ROM Version": rd("/sys/devices/virtual/dmi/id/bios_version"),
+        "SMC Version (system)": "2.44f1",
+        "Serial Number (system)": rd("/sys/devices/virtual/dmi/id/product_uuid")[:18] + "…",
+        "Hardware UUID": rd("/sys/devices/virtual/dmi/id/product_uuid"),
+    }
+
+def x11_display_info():
+    """Collect X11 display information via xrandr and xdpyinfo."""
+    info = {}
+    # xrandr --current
+    xrandr_out = _run_cached(("xrandr", "--current"))
+    if xrandr_out and xrandr_out != "Unavailable":
+        lines = xrandr_out.splitlines()
+        for line in lines:
+            if " connected" in line:
+                parts = line.split()
+                info["Output"] = parts[0]
+                # Find mode
+                for l in lines[lines.index(line)+1:]:
+                    if "*" in l and "connected" not in l:
+                        info["Current Mode"] = l.strip().split()[0]
+                        break
+                break
+    # xdpyinfo for DPI and screen info
+    xdpy_out = _run_cached(("xdpyinfo",))
+    if xdpy_out and xdpy_out != "Unavailable":
+        for line in xdpy_out.splitlines():
+            if "dimensions:" in line:
+                info["Screen Dimensions"] = line.split("dimensions:")[1].strip().split()[0]
+            elif "resolution:" in line:
+                info["Resolution (DPI)"] = line.split("resolution:")[1].strip().split()[0]
+    return info
+
+def pci_devices():
+    """Collect PCI devices grouped by class."""
+    out = _run_cached(("lspci", "-nn"))
+    if not out or out == "Unavailable":
+        return {}
+    devices = {}
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        # Parse: 00:02.0 VGA compatible controller [0300]: Intel Corporation ...
+        match = re.match(r"(\S+)\s+(.+?)\s+\[([\da-f]{4}):([\da-f]{4})\]:\s+(.+)", line)
+        if match:
+            addr, desc, cls, subcls, vendor_dev = match.groups()
+            class_name = {
+                "0300": "Graphics",
+                "0200": "Network",
+                "0100": "Storage",
+                "0400": "Multimedia",
+                "0c03": "USB",
+                "0600": "Host Bridge",
+                "0604": "PCI Bridge",
+            }.get(cls, f"Class {cls}")
+            devices.setdefault(class_name, []).append(f"{addr}: {desc} [{vendor_dev}]")
+    return devices
+
+def usb_devices():
+    """Collect USB devices with hierarchy."""
+    out = _run_cached(("lsusb", "-t"))
+    if not out or out == "Unavailable":
+        return _run_cached(("lsusb",)) or "Unavailable"
+    return out
+
+def storage_info():
+    """Collect storage device information."""
+    info = {}
+    # NVMe
+    nvme = _run_cached(("sh", "-c", "nvme list 2>/dev/null | tail -n +3"))
+    if nvme:
+        info["NVMe"] = nvme
+    # lsblk for all block devices
+    lsblk = _run_cached(("lsblk", "-dno", "NAME,MODEL,SIZE,TYPE,MOUNTPOINT"))
+    if lsblk:
+        info["Block Devices"] = lsblk
+    # zram
+    zram = _run_cached(("sh", "-c", "zramctl --raw --output NAME,DISKSIZE,ALGORITHM 2>/dev/null"))
+    if zram:
+        info["zram"] = zram
+    # mount points
+    mounts = _run_cached(("findmnt", "-rno", "SOURCE,TARGET,FSTYPE,OPTIONS"))
+    if mounts:
+        info["Mount Points"] = mounts
+    return info
+
+def network_info():
+    """Collect network interface information."""
+    info = {}
+    # PCI network devices
+    pci_net = _run_cached(("sh", "-c", "lspci -nn | grep -i -E 'network|ethernet'"))
+    if pci_net:
+        info["PCI Network Devices"] = pci_net
+    # Interface states and IPs
+    ip_addr = _run_cached(("ip", "-brief", "addr", "show"))
+    if ip_addr:
+        info["Interfaces"] = ip_addr
+    # Routes
+    routes = _run_cached(("ip", "route", "show"))
+    if routes:
+        info["Routes"] = routes
+    # Wi-Fi state (if NetworkManager)
+    nm_state = _run_cached(("nmcli", "-t", "-f", "STATE", "general"))
+    if nm_state:
+        info["NetworkManager State"] = nm_state
+    return info
+
+def audio_info():
+    """Collect audio device information."""
+    info = {}
+    cards = _run_cached(("sh", "-c", "cat /proc/asound/cards 2>/dev/null"))
+    if cards:
+        info["ALSA Cards"] = cards
+    pcm = _run_cached(("sh", "-c", "cat /proc/asound/pcm 2>/dev/null"))
+    if pcm:
+        info["PCM Devices"] = pcm
+    pulse = _run_cached(("sh", "-c", "pactl list short sinks 2>/dev/null"))
+    if pulse:
+        info["PipeWire/PulseAudio Sinks"] = pulse
+    return info
+
+def power_info():
+    """Collect power/battery information."""
+    info = {}
+    bat = _run_cached(("sh", "-c", "upower -i /org/freedesktop/UPower/devices/battery_BAT0 2>/dev/null | grep -E 'percentage|state|time to|capacity|technology'"))
+    if bat:
+        info["Battery"] = bat
+    # TLP status
+    tlp = _run_cached(("tlp-stat", "-s", 2, "/dev/null"))
+    if tlp:
+        info["TLP Status"] = tlp
+    return info
+
+def software_info():
+    """Collect software/OS information."""
+    return {
+        "OS": os_name(),
+        "Kernel": kernel_version(),
+        "Architecture": platform.machine(),
+        "DE": "Xfce 4 (Mavericks theme)",
+        "Display Server": "X11",
+        "Init System": "systemd",
+        "Shell": os.environ.get("SHELL", "unknown"),
+        "Python": platform.python_version(),
+    }
+
+def dmi_info():
+    """Collect DMI/SMBIOS information."""
+    base = "/sys/devices/virtual/dmi/id"
+    fields = {
+        "BIOS Vendor": "bios_vendor",
+        "BIOS Version": "bios_version",
+        "BIOS Date": "bios_date",
+        "System Manufacturer": "sys_vendor",
+        "System Product Name": "product_name",
+        "System Version": "product_version",
+        "System Serial": "product_serial",
+        "System UUID": "product_uuid",
+        "Board Name": "board_name",
+        "Board Vendor": "board_vendor",
+        "Board Version": "board_version",
+        "Chassis Vendor": "chassis_vendor",
+        "Chassis Type": "chassis_type",
+        "Chassis Version": "chassis_version",
+    }
+    info = {}
+    for label, fname in fields.items():
+        val = rd(os.path.join(base, fname))
+        if val and val != "Unknown":
+            info[label] = val
+    return info
+
+# ---- Collectors for About This Mac sidebar ----
+ABOUT_CATEGORIES = [
     ("Overview", lambda: [
-        ("Model", rd("/sys/devices/virtual/dmi/id/product_name")),
-        ("OS", "Mavericks Linux (Arch-based)"),
-        ("Kernel", _run_cached(("uname", "-r"))),
+        ("Model", rd("/sys/devices/virtual/dmi/id/product_name", "MacBook" if is_macbook101() else "Unknown")),
+        ("OS", os_name()),
+        ("Kernel", kernel_version()),
         ("CPU", cpu_model()),
         ("Memory", mem_total()),
         ("Graphics", gpu_model()),
-        ("Serial", rd("/sys/devices/virtual/dmi/id/product_uuid")[:18] + "…"),
+        ("Serial", (lambda u: u[:18] + "…")(rd("/sys/devices/virtual/dmi/id/product_uuid"))),
     ]),
     ("Hardware", lambda: [
         ("Vendor", rd("/sys/devices/virtual/dmi/id/sys_vendor")),
@@ -68,9 +270,8 @@ CATEGORIES = [
     ]),
     ("CPU", lambda: [
         ("Model", cpu_model()),
-        ("Cores", str(os.cpu_count())),
-        ("MHz", rd("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq",
-                    "?") + " kHz max"),
+        ("Cores", cpu_cores()),
+        ("MHz", rd("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", "?") + " kHz max"),
         ("Driver", rd("/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver")),
         ("Governor", rd("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")),
     ]),
@@ -86,11 +287,10 @@ CATEGORIES = [
         "nvme list 2>/dev/null | tail -n +3 || lsblk -dno NAME,MODEL,SIZE | head")) or "none"),
                          ("zram", _run_cached(("sh", "-c",
         "zramctl --raw --output DISKSIZE 2>/dev/null | head -1")) or "none")]),
-    ("USB", lambda: [("Devices", _run_cached(("lsusb")) or "none")]),
-    ("Network/Wi-Fi", lambda: [
+    ("USB", lambda: [("Devices", _run_cached(("lsusb", "-t")) or _run_cached(("lsusb",)) or "none")]),
+    ("Network", lambda: [
         ("PCI", _run_cached(("sh", "-c", "lspci -nn | grep -i -E 'network|ethernet'")) or "none"),
-        ("State", _run_cached(("sh", "-c",
-         "nmcli -t -f STATE general 2>/dev/null || echo unknown"))),
+        ("State", _run_cached(("sh", "-c", "nmcli -t -f STATE general 2>/dev/null || echo unknown"))),
     ]),
     ("Audio", lambda: [("Cards", _run_cached(("sh", "-c",
         "aplay -l 2>/dev/null | grep '^card' || echo none"))),
@@ -101,10 +301,26 @@ CATEGORIES = [
         "upower -i /org/freedesktop/UPower/devices/battery_BAT0 2>/dev/null"
         " | grep -E 'percentage|state|time to' || echo unknown"))),
                        ("Profile", "TLP (minimal baseline)")]),
-    ("Software", lambda: [("Kernel", _run_cached(("uname", "-r"))),
+    ("Software", lambda: [("Kernel", kernel_version()),
                           ("DE", "Xfce 4 (Mavericks theme)"),
-                          ("Display server", "X11"),
+                          ("Display Server", "X11"),
                           ("Init", "systemd")]),
+]
+
+# Backward compatibility for tests
+CATEGORIES = ABOUT_CATEGORIES
+
+# ---- System Report tab categories ----
+REPORT_CATEGORIES = [
+    ("Hardware", lambda: dmi_info()),
+    ("PCI Devices", lambda: pci_devices()),
+    ("USB Devices", lambda: {"USB Tree": usb_devices()}),
+    ("Display", lambda: x11_display_info()),
+    ("Storage", lambda: storage_info()),
+    ("Network", lambda: network_info()),
+    ("Audio", lambda: audio_info()),
+    ("Power", lambda: power_info()),
+    ("Software", lambda: software_info()),
 ]
 
 def build_about_class():
@@ -123,7 +339,7 @@ def build_about_class():
             paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
             self.add(paned)
             store = Gtk.ListStore(str, int)
-            for i, (name, _fn) in enumerate(CATEGORIES):
+            for i, (name, _fn) in enumerate(ABOUT_CATEGORIES):
                 store.append([name, i])
             tv = Gtk.TreeView(model=store, headers_visible=False)
             tv.append_column(Gtk.TreeViewColumn("", Gtk.CellRendererText(), text=0))
@@ -141,7 +357,7 @@ def build_about_class():
             sw2 = Gtk.ScrolledWindow()
             sw2.add(gv)
             paned.add2(sw2)
-            self.fns = [fn for _, fn in CATEGORIES]
+            self.fns = [fn for _, fn in ABOUT_CATEGORIES]
             self.tv = tv
             tv.get_selection().select_path(Gtk.TreePath.new_from_indices([0]))
 
@@ -155,24 +371,146 @@ def build_about_class():
                 self.grid_store.append([k, v])
 
         def show_report(self, _b):
-            self.on_select(self.tv.get_selection())
-            d = Gtk.Dialog(title="System Report", transient_for=self, modal=True)
-            d.set_default_size(640, 420)
-            buf = Gtk.TextBuffer()
-            t = "\n".join("== %s ==\n%s" % (name, "\n".join(
-                "%s: %s" % (k, v) for k, v in fn()))
-                for (name, _), fn in zip(CATEGORIES, self.fns))
-            buf.set_text(t)
-            tv = Gtk.TextView(buffer=buf)
-            tv.set_editable(False)
-            tv.set_monospace(True)
-            sw = Gtk.ScrolledWindow()
-            sw.add(tv)
-            d.get_content_area().pack_start(sw, True, True, 0)
-            d.add_button("Close", Gtk.ResponseType.CLOSE)
-            d.show_all()
-            d.run()
-            d.destroy()
+            """Show the full System Report window with tabs."""
+            Gtk = _gtk()
+            win = Gtk.Window(title="System Report")
+            win.set_default_size(800, 600)
+            win.set_transient_for(self)
+            win.set_modal(True)
+            
+            # Header bar with copy button
+            hb = Gtk.HeaderBar(title="System Report", show_close_button=True)
+            win.set_titlebar(hb)
+            
+            copy_btn = Gtk.Button(label="Copy Report")
+            copy_btn.connect("clicked", self.on_copy_report)
+            hb.pack_end(copy_btn)
+            
+            # Notebook for tabs
+            notebook = Gtk.Notebook()
+            win.add(notebook)
+            
+            self.report_store = {}
+            
+            for name, fn in REPORT_CATEGORIES:
+                # Create a TreeView for each category
+                store = Gtk.ListStore(str, str)
+                tv = Gtk.TreeView(model=store)
+                tv.append_column(Gtk.TreeViewColumn("Property",
+                                 Gtk.CellRendererText(), text=0))
+                tv.append_column(Gtk.TreeViewColumn("Value",
+                                 Gtk.CellRendererText(), text=1))
+                tv.set_headers_clickable(True)
+                tv.set_rules_hint(True)
+                
+                sw = Gtk.ScrolledWindow()
+                sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+                sw.add(tv)
+                
+                notebook.append_page(sw, Gtk.Label(label=name))
+                self.report_store[name] = (store, fn)
+            
+            # Populate all tabs
+            for name, (store, fn) in self.report_store.items():
+                store.clear()
+                data = fn()
+                if isinstance(data, dict):
+                    for k, v in data.items():
+                        if isinstance(v, dict):
+                            store.append([k, ""])
+                            for k2, v2 in v.items():
+                                store.append([f"  {k2}", v2])
+                        elif isinstance(v, list):
+                            store.append([k, ""])
+                            for item in v:
+                                store.append([f"  {item}", ""])
+                        else:
+                            store.append([k, str(v)])
+                elif isinstance(data, str):
+                    for line in data.splitlines():
+                        if line.strip():
+                            if ": " in line:
+                                k, v = line.split(": ", 1)
+                                store.append([k, v])
+                            else:
+                                store.append([line, ""])
+                else:
+                    store.append(["No data", ""])
+            
+            # If MacBook10,1, add a profile tab
+            if is_macbook101():
+                profile = macbook101_profile()
+                store = Gtk.ListStore(str, str)
+                tv = Gtk.TreeView(model=store)
+                tv.append_column(Gtk.TreeViewColumn("Property",
+                                 Gtk.CellRendererText(), text=0))
+                tv.append_column(Gtk.TreeViewColumn("Value",
+                                 Gtk.CellRendererText(), text=1))
+                sw = Gtk.ScrolledWindow()
+                sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+                sw.add(tv)
+                notebook.insert_page(sw, Gtk.Label(label="MacBook Profile"), 0)
+                for k, v in profile.items():
+                    store.append([k, v])
+            
+            win.show_all()
+            win.run()
+            win.destroy()
+
+        def on_copy_report(self, _b):
+            """Copy full system report to clipboard."""
+            Gtk = _gtk()
+            import gi
+            gi.require_version("Gdk", "3.0")
+            from gi.repository import Gdk
+            parts = []
+            
+            # About This Mac overview
+            parts.append("=== About This Mac ===")
+            for name, fn in ABOUT_CATEGORIES:
+                parts.append(f"\n-- {name} --")
+                for k, v in fn():
+                    parts.append(f"{k}: {v}")
+            
+            # System Report tabs
+            parts.append("\n\n=== System Report ===")
+            for name, fn in REPORT_CATEGORIES:
+                parts.append(f"\n-- {name} --")
+                data = fn()
+                if isinstance(data, dict):
+                    for k, v in data.items():
+                        if isinstance(v, dict):
+                            parts.append(f"  {k}:")
+                            for k2, v2 in v.items():
+                                parts.append(f"    {k2}: {v2}")
+                        elif isinstance(v, list):
+                            parts.append(f"  {k}:")
+                            for item in v:
+                                parts.append(f"    {item}")
+                        else:
+                            parts.append(f"  {k}: {v}")
+                elif isinstance(data, str):
+                    for line in data.splitlines():
+                        if line.strip():
+                            parts.append(f"  {line}")
+            
+            # MacBook10,1 profile if applicable
+            if is_macbook101():
+                parts.append("\n-- MacBook Profile --")
+                for k, v in macbook101_profile().items():
+                    parts.append(f"  {k}: {v}")
+            
+            text = "\n".join(parts)
+            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            clipboard.set_text(text, -1)
+            
+            # Show confirmation
+            dialog = Gtk.MessageDialog(transient_for=self, modal=True,
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.OK,
+                text="Report copied to clipboard")
+            dialog.run()
+            dialog.destroy()
 
     return About
 

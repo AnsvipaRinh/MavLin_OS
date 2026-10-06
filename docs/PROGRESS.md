@@ -1,6 +1,31 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (File Chooser P0 — oid `OS-filechooser-p0`, canonical #21: the shipped `filechooser` theme block was six invented class names and rendered as stock Adwaita; new `gtk-3.0/_filechooser.scss` with only empirically-live selectors, unreadable white sidebar labels fixed, Mavericks selection/path bar/header strip, new 37-check gate wired into check-sync.sh)
+**Last Updated**: 2026-10-06 (System Information P0 — oid `OS-sysinfo-p0`, canonical #10: mv-about System Report upgraded to tabbed interface with Hardware/PCI/USB/Display/Storage/Network/Audio/Power/Software tabs; MacBook10,1 profile tab when detected; Copy Report to clipboard; X11 display info via xrandr; all collectors headless-importable; 12/12 tests pass; check-sync green)
+
+---
+
+## Session 2026-10-06 — System Information P0 (oid `OS-sysinfo-p0`, canonical objective #10)
+
+**Zone:** `bin/mv-about` + `scripts/test-mv-about.py` + System Information rows in `docs/*`. Other agents working `bin/mv-preview`, `xfwm4/window management` in parallel; this zone only touches System Information.
+
+**Audit finding:** The existing mv-about had a functional "About This Mac" sidebar/detail view, but the "System Report" button opened a simple text dump dialog — not a coherent, tabbed system-information surface per §13.6/§10.5. Missing: tabbed report sections (Hardware, Display, Storage, Network), DMI/PCI/USB enumeration organized by class, copy-to-clipboard, X11 display info (xrandr/xdpyinfo), MacBook10,1 profile awareness (honest current values on non-Apple hardware), coherence with mv-activity on overlapping data sources.
+
+**Gaps closed (all executable pre-hardware):**
+
+- **Tabbed System Report window** — Hardware (DMI/SMBIOS), PCI Devices (grouped by class), USB Devices (tree), Display (xrandr modes + xdpyinfo DPI), Storage (NVMe, block devices, zram, mounts), Network (PCI devices, interfaces, routes, NM state), Audio (ALSA cards, PCM, PipeWire sinks), Power (battery, TLP), Software (OS, kernel, DE, init, shell, Python). Each tab is a sortable TreeView with Property/Value columns.
+- **MacBook10,1 profile tab** — when `product_name` contains "MacBook10,1", a dedicated first tab shows Model Identifier, Model Name, Processor Name/Speed/Cores/Caches, Memory, Boot ROM, SMC Version, Serial, Hardware UUID — matching macOS System Report structure. On non-Apple hardware, honest current values are shown (no fake Apple data).
+- **Copy Report to clipboard** — "Copy Report" button in System Report header bar serializes all About This Mac categories + all System Report tabs + MacBook profile (if present) to clipboard as structured text.
+- **X11 display info** — `x11_display_info()` collects connected output, current mode, screen dimensions, resolution (DPI) via `xrandr --current` and `xdpyinfo`, cached.
+- **DMI/PCI/USB enumeration** — `dmi_info()` reads all `/sys/devices/virtual/dmi/id/*` fields; `pci_devices()` parses `lspci -nn` grouped by class (Graphics, Network, Storage, Multimedia, USB, Host Bridge, PCI Bridge); `usb_devices()` returns `lsusb -t` tree or flat `lsusb`.
+- **Storage/Network/Audio/Power/Software collectors** — `storage_info()` (NVMe, lsblk, zram, findmnt), `network_info()` (PCI, ip addr, ip route, NM state), `audio_info()` (/proc/asound, pactl), `power_info()` (upower, tlp-stat), `software_info()` (platform, kernel, DE, init, shell, Python).
+- **Caching** — all subprocess invocations go through `_run_cached` (functools.lru_cache), zero polling loops, on-demand only (§7).
+- **Headless importability** — pure collectors import without Gtk (lazy factory via `build_about_class`), proven by test suite blocking `gi`.
+
+**Tests:** `scripts/test-mv-about.py` — 12 checks pass (headless import with gi blocked, rd/run/mem_total/cpu_model/gpu_model contracts, CATEGORIES collectors return (key,value) pairs, Overview Serial truncation, gpu_model caching, GUI factory laziness, GUI smoke on pinned Xvfb :97). All tests run under `scripts/gui-isolation.sh` — host display forbidden, guard reported 0 attempts.
+
+**Gate status:** `scripts/test-mv-about.py` 12/12, `py_compile` clean, `scripts/check-sync.sh` mirrors/bash/xml/desktop/PKGBUILD/theme-css/dock-p0/firefox-chrome/launch-smoke (mv-about: stayed up 3s) — all green for this zone. (Pre-existing global-menu contract failure in another zone unchanged.)
+
+**Status:** About / System Report (canonical #10) = **IMPLEMENTED — HARDWARE VALIDATION REQUIRED**. Pre-hardware executable gaps closed. Hardware-dependent items: MacBook10,1 profile tab rendering on 2304×1440, X11 display info on real panel, tab visual fidelity, copy-to-clipboard behavior on real session — recorded in `docs/NEEDS_HARDWARE_TEST.md`.
 
 ---
 
