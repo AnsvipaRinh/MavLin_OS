@@ -156,6 +156,11 @@ def test_pure():
     check("contract: Finder exposes Empty Trash action",
           'add_action("empty-trash"' in source
           and 'app_menu.append("Empty Trash", "app.empty-trash")' in source)
+    check("contract: Finder exposes Quick Look",
+          'def _quick_look(self, path):' in source
+          and 'Gtk.MenuItem(label="Quick Look")' in source
+          and 'mv-quicklook", path' in source
+          and 'key in ("space", "Space")' in source)
     check("contract: drag-and-drop move implementation remains present",
           'selection_data.set_uris' in source
           and 'shutil.move(source_abs, destination)' in source
