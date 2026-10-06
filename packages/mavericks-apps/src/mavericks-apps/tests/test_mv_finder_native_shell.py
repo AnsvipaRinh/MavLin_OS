@@ -40,6 +40,10 @@ def test_finder_file_action_contract():
     assert '"Get Info"' in text
     assert '"Rename"' in text
     assert '"Open With…"' in text
+    assert 'Gio.AppInfo.get_all_for_type(content_type)' in text
+    assert 'Gtk.Dialog(title="Open With"' in text
+    assert 'selected.launch([Gio.File.new_for_path(path)], None)' in text
+    assert 'subprocess.Popen(["xdg-open", path]' not in text
     assert 'Gio.File.new_for_path(path).trash(None)' in text
     assert 'def _move_to_trash(self, path, confirm=False):' in text
     assert 'response = confirm_delete(' in text
