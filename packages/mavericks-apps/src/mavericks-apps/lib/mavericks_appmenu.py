@@ -33,6 +33,18 @@ def install_application_menu(app, app_name, get_window, menu_builder=None):
     add_action("minimize",
                lambda: get_window().iconify() if get_window() else None)
 
+    def zoom_window():
+        window = get_window()
+        if window is None:
+            return
+        if window.is_maximized():
+            window.unmaximize()
+        else:
+            window.maximize()
+
+    add_action("zoom", zoom_window)
+    add_action("help", lambda: _show_help(get_window(), app_name))
+
     if menu_builder is not None:
         menu = menu_builder(app, app_name, get_window, add_action)
     else:
@@ -54,7 +66,7 @@ def install_application_menu(app, app_name, get_window, menu_builder=None):
         menu.append_submenu("Window", window_menu)
 
         help_menu = Gio.Menu()
-        help_menu.append("About %s" % app_name, "app.about")
+        help_menu.append("MavLinOS Help", "app.help")
         menu.append_submenu("Help", help_menu)
 
     app.set_app_menu(menu)
@@ -100,6 +112,18 @@ def _show_about(window, app_name):
         window,
         "About %s" % app_name,
         secondary="MavLinOS native application",
+        msg_type=Gtk.MessageType.INFO,
+        buttons=[("Close", Gtk.ResponseType.CLOSE)],
+    )
+
+
+def _show_help(window, app_name):
+    if window is None:
+        return
+    alert(
+        window,
+        "%s Help" % app_name,
+        secondary="MavLinOS application help is not available for this application yet.",
         msg_type=Gtk.MessageType.INFO,
         buttons=[("Close", Gtk.ResponseType.CLOSE)],
     )
