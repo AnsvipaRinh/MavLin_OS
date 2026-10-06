@@ -71,6 +71,12 @@ def load_app():
     return mod
 
 
+    path = os.path.join(BIN, "mv-reminders")
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("reminders: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("reminders: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
 def main():
     mv = load_app()
     check("module imports headless", True)
