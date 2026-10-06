@@ -234,9 +234,9 @@ def build_stickynote_class():
             self.apply_css()
             self.get_style_context().add_class("sticky-note")
 
-            self.hb = Gtk.HeaderBar()
-            self.hb.set_show_close_button(True)
-            self.set_titlebar(self.hb)
+            self.set_decorated(True)
+            self.hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+            self.hb.get_style_context().add_class("mavericks-app-toolbar")
 
             rgba = Gdk.RGBA()
             rgba.parse(self.color)
@@ -274,7 +274,10 @@ def build_stickynote_class():
 
             self.sw = Gtk.ScrolledWindow()
             self.sw.add(tv)
-            self.add(self.sw)
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            root.pack_start(self.hb, False, False, 0)
+            root.pack_start(self.sw, True, True, 0)
+            self.add(root)
             self.tv = tv
 
             self.buf.set_text(self.text)
@@ -300,7 +303,7 @@ def build_stickynote_class():
                 background-color: %(color)s;
                 border: 1px solid #e8d8a0;
             }
-            .sticky-note headerbar {
+            .sticky-note .mavericks-app-toolbar {
                 background-color: %(color)s;
                 border-bottom: 1px solid #e8d8a0;
             }
@@ -328,7 +331,7 @@ def build_stickynote_class():
         def _update_title(self):
             text = self.buf.get_text(self.buf.get_start_iter(),
                                      self.buf.get_end_iter(), True)
-            self.hb.set_title(_note_title(text))
+            self.set_title(_note_title(text))
 
         def _apply_collapse(self):
             if self.collapsed:
@@ -449,8 +452,9 @@ def build_searchwindow_class():
             self.set_default_size(380, 320)
             self.set_type_hint(Gdk.WindowTypeHint.NORMAL)
 
-            hb = Gtk.HeaderBar(title="Find in Stickies", show_close_button=True)
-            self.set_titlebar(hb)
+            self.set_decorated(True)
+            hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+            hb.get_style_context().add_class("mavericks-app-toolbar")
             self.entry = Gtk.SearchEntry(placeholder_text="Search all notes")
             self.entry.connect("changed", self.on_search)
             self.entry.connect("key-press-event", self.on_entry_key)
@@ -464,7 +468,10 @@ def build_searchwindow_class():
             tv.connect("row-activated", self.on_jump)
             sw = Gtk.ScrolledWindow()
             sw.add(tv)
-            self.add(sw)
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            root.pack_start(hb, False, False, 0)
+            root.pack_start(sw, True, True, 0)
+            self.add(root)
             self.tv = tv
 
             self.refresh()

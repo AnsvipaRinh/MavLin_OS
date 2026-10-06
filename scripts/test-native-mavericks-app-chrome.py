@@ -3,7 +3,7 @@
 import os
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BIN = os.path.join(REPO, "packages", "mavericks-apps", "src", "mavericks-apps", "bin")
-APPS = ("mv-airdrop", "mv-colormeter", "mv-fontbook", "mv-mail", "mv-music", "mv-notes", "mv-photos", "mv-reminders", "mv-textedit", "mv-voice")
+APPS = ("mv-airdrop", "mv-colormeter", "mv-fontbook", "mv-mail", "mv-music", "mv-notes", "mv-photos", "mv-reminders", "mv-stickies", "mv-textedit", "mv-voice")
 failures = []
 for app in APPS:
     with open(os.path.join(BIN, app), encoding="utf-8") as fh:
