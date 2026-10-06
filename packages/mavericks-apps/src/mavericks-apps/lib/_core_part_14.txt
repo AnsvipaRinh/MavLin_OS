@@ -1,42 +1,58 @@
-cel["modifiers"]]
-    if accel["key"] in ("space",):
-        labels.append("Space")
-    elif _KEY_FN_RE.match(accel["key"]):
-        labels.append(accel["key"])
-    elif _KEY_CHAR_RE.match(accel["key"]):
-        labels.append(accel["key"].upper())
+    live_by_id = {canonical_property(p): v for p, v in live_raw_map.items()}
+    target_id = canonical_property(target)
+    occupant = live_by_id.get(target_id)
+    if occupant is not None and occupant != command and not force:
+        owner = None
+        for other in ACTIONS:
+            other_target = property_path(
+                other["branch"],
+                action_accelerator(other["action"], overrides))
+            if canonical_property(other_target) == target_id:
+                owner = other["action"]
+                break
+        raise ValueError(
+            "%s is already bound to %s%s -- use --force to replace"
+            % (display_accelerator(accel), occupant,
+               "" if owner is None else " (%s)" % owner))
+
+    for stale in _stale_paths(row, overrides, live_raw_map):
+        live_remove(stale)
+        steps.append("removed %s" % stale)
+    if live_by_id.get(target_id) != command:
+        live_set(target, command)
+        steps.append("set %s = %s" % (target, command))
     else:
-        labels.append(accel["key"])
-    return "+".join(labels)
+        steps.append("%s already current" % target)
+    return steps
 
 
-def action_accelerator(action_id, overrides=None):
-    """Effective accelerator of an action: factory, or the user override."""
-    row = ACTION_INDEX[action_id]
-    override = (overrides or {}).get(action_id)
-    if override:
-        return normalize_accelerator(override.get("accelerator", {}))
-    return {"modifiers": list(row["modifiers"]), "key": row["key"]}
+def reset_action(action_id, overrides=None, path=None):
+    """Restore factory state: drop the override AND clean the live channel.
 
-
-def action_command(action_id, overrides=None):
-    row = ACTION_INDEX[action_id]
-    override = (overrides or {}).get(action_id)
-    if override and override.get("command"):
-        return override["command"]
-    return row["command"]
-
-
-def effective_bindings(overrides=None):
-    """action id -> {'modifiers','key','command','branch','label',...}."""
-    out = {}
-    for row in ACTIONS:
-        aid = row["action"]
-        out[aid] = {
-            "action": aid,
-            "label": row["label"],
-            "group": row["group"],
-            "skill": row["skill"],
-            "branch": row["branch"],
-            "protected": row["protected"] or not row["rebindable"],
-            "overridden": bool((ov
+    Stale paths are computed while the override is still known, otherwise the
+    rebind the user made would be invisible here and left behind in xfconf as
+    an orphan property.
+    """
+    previous = overrides if overrides is not None else load_overrides(path)
+    overrides = clear_override(action_id, previous, path)
+    steps = []
+    try:
+        row = ACTION_INDEX[action_id]
+        live = live_raw()
+        factory = {"modifiers": list(row["modifiers"]), "key": row["key"]}
+        factory_raw = property_path(row["branch"], factory)
+        override = (previous or {}).get(action_id)
+        stale = []
+        if override:
+            try:
+                override_raw = property_path(
+                    row["branch"],
+                    normalize_accelerator(override.get("accelerator", {})))
+            except ValueError:
+                override_raw = None
+            if override_raw and override_raw != factory_raw and \
+                    live.get(override_raw) in (row["command"],
+                                               action_command(action_id,
+                                                             previous)):
+                stale.append(override_raw)
+        stale += [p for p in _stale_paths(row, {}, live)
