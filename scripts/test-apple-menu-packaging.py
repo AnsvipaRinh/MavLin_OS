@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate mv-apple panel plugin is built and installed by Makefile."""
+"""Validate mv-apple panel plugin is built, installed, and wired correctly."""
 import os
 import sys
 
@@ -13,12 +13,6 @@ DESKTOP = os.path.join(
 SOURCE = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c"
 )
-if os.path.isfile(SOURCE):
-    src = open(SOURCE, encoding="utf-8").read()
-    if "gtk_menu_item_new_with_mnemonic(label)" not in src:
-        errors.append("Apple menu items must use GTK mnemonic labels")
-    if "gtk_menu_item_new_with_label(label)" in src:
-        errors.append("Apple menu must not construct labels without mnemonic support")
 ICON = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/icons/mv-apple.svg"
 )
@@ -36,8 +30,23 @@ PANEL = [
 ]
 
 errors = []
+
 if not os.path.isfile(SOURCE):
     errors.append("mv-apple.c missing")
+else:
+    src = open(SOURCE, encoding="utf-8").read()
+    if "gtk_menu_item_new_with_mnemonic(label)" not in src:
+        errors.append("Apple menu items must use GTK mnemonic labels")
+    if "gtk_menu_item_new_with_label(label)" in src:
+        errors.append("Apple menu must not construct labels without mnemonic support")
+    for action in ("sleep", "restart", "shutdown", "logout"):
+        if '"mv-power-ui %s"' % action not in src:
+            errors.append("Apple menu must route %s through mv-power-ui" % action)
+    if "const gchar *fallback" not in src or             "if (fallback != NULL)" not in src:
+        errors.append("Apple menu power actions must retain an explicit fallback")
+    if "systemctl suspend" not in src or             "systemctl reboot" not in src or             "systemctl poweroff" not in src:
+        errors.append("Sleep/Restart/Shut Down must retain systemctl fallbacks")
+
 if not os.path.isfile(ICON):
     errors.append("mv-apple.svg missing")
 if not os.path.isfile(MAKEFILE):
@@ -81,4 +90,5 @@ if errors:
 
 print("ok - mv-apple.c / desktop / icon present")
 print("ok - Makefile builds and installs panel plugin + helpers")
+print("ok - Apple menu uses mnemonics and Mavericks power-dialog routing")
 print("ok - panel XML references mv-apple")
