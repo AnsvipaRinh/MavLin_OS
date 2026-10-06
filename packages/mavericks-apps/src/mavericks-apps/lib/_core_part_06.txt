@@ -1,0 +1,25 @@
+-----------------------------------------------------
+    A("settings", "System Settings", ["Super"], "comma", "mv-settings",
+      "system", skill="system"),
+    A("control-center", "Control Center", ["Super", "Shift"], "c",
+      "mv-control", "system", skill="system"),
+    A("notification-center", "Notification Center", ["Super", "Shift"], "v",
+      "mv-notification-center", "system", skill="system"),
+    A("calendar", "Calendar", ["Primary", "Alt"], "c", "mv-calendar",
+      "system", skill="system"),
+    A("terminal", "Terminal", ["Primary", "Alt"], "t", "xfce4-terminal",
+      "system", skill="system", rebindable=False),
+    A("lock-screen", "Lock Screen", ["Primary", "Alt"], "l",
+      "xfce4-screensaver-command --lock", "system", skill="system",
+      rebindable=False),
+    A("power-dialog", "Power / Restart / Shut Down…", ["Primary", "Alt"],
+      "Escape", "mv-power-ui", "system", skill="system"),
+    A("log-out", "Log Out…", ["Primary", "Alt"], "Delete",
+      "mv-power-ui logout", "system", skill="system"),
+
+    # --- Application -------------------------------------------------------
+    A("quit-app", "Quit Application", ["Super"], "q", "mv-quit-app",
+      "application", skill="application"),
+    A("force-quit", "Force Quit Applications…", ["Super", "Shift"], "q",
+      "mv-force-quit", "application", skill="application"),
+    A("force-quit-dialog", "Force Quit ("
