@@ -318,6 +318,50 @@ def save_positions(positions):
     _atomic_save_json(POSITIONS_FILE, positions)
 
 
+
+def reorder_launchpad_apps(apps, source_id, destination_id):
+    """Return a reordered copy of standalone Launchpad apps.
+
+    Drag-and-drop operates on canonical desktop IDs. Unknown IDs and a
+    self-drop are treated as no-ops so UI input cannot corrupt ordering.
+    """
+    if source_id == destination_id:
+        return list(apps)
+    ids = [app.get("id") for app in apps]
+    if source_id not in ids or destination_id not in ids:
+        return list(apps)
+    reordered = list(apps)
+    source_index = ids.index(source_id)
+    destination_index = ids.index(destination_id)
+    item = reordered.pop(source_index)
+    reordered.insert(destination_index, item)
+    return reordered
+
+
+def positions_for_launchpad_apps(apps):
+    """Return canonical positions for an ordered standalone app list."""
+    return {app["id"]: index for index, app in enumerate(apps) if isinstance(app, dict) and isinstance(app.get("id"), str)}
+
+
+def move_app_to_folder(folders, app_id, folder_id):
+    """Return folder configuration with app_id moved into folder_id."""
+    if not isinstance(app_id, str) or not isinstance(folder_id, str):
+        return folders
+    if folder_id not in folders or not isinstance(folders[folder_id], dict):
+        return folders
+    updated = {
+        key: {
+            **value,
+            "apps": list(value.get("apps", [])) if isinstance(value, dict) else [],
+        }
+        for key, value in folders.items()
+    }
+    for data in updated.values():
+        data["apps"] = [item for item in data["apps"] if item != app_id]
+    if app_id not in updated[folder_id]["apps"]:
+        updated[folder_id]["apps"].append(app_id)
+    return updated
+
 def build_launchpad_structure(apps, folders, positions, query="", open_folder=None):
     """Build the launchpad structure with folders and pagination.
     

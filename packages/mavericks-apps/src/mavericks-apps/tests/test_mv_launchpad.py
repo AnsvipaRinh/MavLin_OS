@@ -249,6 +249,64 @@ def test_edit_entry_launch():
         assert launched, "mv-launchpad-edit stub was never executed"
 
     print("PASS: test_edit_entry_launch")
+def test_native_launchpad_drag_drop_contract():
+    """Native Launchpad DnD must use the shared persistence backend."""
+    gui = open(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "bin", "mv_launchpad_gui.py"
+        )
+    ).read()
+    backend = open(SCRIPT).read()
+    assert 'Gtk.TargetEntry.new("text/plain", Gtk.TargetFlags.SAME_APP, 0)' in gui
+    assert 'button.drag_source_set(' in gui
+    assert 'button.drag_dest_set(' in gui
+    assert 'drag-data-get' in gui
+    assert 'drag-data-received' in gui
+    assert 'mv_launchpad.save_positions(self.positions)' in gui
+    assert 'mv_launchpad.save_folders(self.folders)' in gui
+    assert 'def reorder_launchpad_apps(' in backend
+    assert 'def positions_for_launchpad_apps(' in backend
+    assert 'def move_app_to_folder(' in backend
+    print('PASS: test_native_launchpad_drag_drop_contract')
+
+def test_native_launchpad_drag_drop_helpers():
+    """Pure DnD helpers must reorder apps and move membership deterministically."""
+    import importlib.util
+
+    source_dir = os.path.dirname(SCRIPT)
+    sys.path.insert(0, source_dir)
+    try:
+        spec = importlib.util.spec_from_file_location("mv_launchpad_backend", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(source_dir)
+
+    apps = [
+        {"id": "a.desktop", "name": "A"},
+        {"id": "b.desktop", "name": "B"},
+        {"id": "c.desktop", "name": "C"},
+    ]
+    reordered = module.reorder_launchpad_apps(apps, "a.desktop", "c.desktop")
+    assert [item["id"] for item in reordered] == ["b.desktop", "c.desktop", "a.desktop"]
+    assert [item["id"] for item in apps] == ["a.desktop", "b.desktop", "c.desktop"]
+    assert module.reorder_launchpad_apps(apps, "missing.desktop", "b.desktop") == apps
+    assert module.positions_for_launchpad_apps(reordered) == {
+        "b.desktop": 0, "c.desktop": 1, "a.desktop": 2
+    }
+
+    folders = {
+        "Utilities": {"name": "Utilities", "apps": ["a.desktop"]},
+        "Other": {"name": "Other", "apps": ["b.desktop"]},
+    }
+    moved = module.move_app_to_folder(folders, "b.desktop", "Utilities")
+    assert moved["Utilities"]["apps"] == ["a.desktop", "b.desktop"]
+    assert moved["Other"]["apps"] == []
+    assert folders["Other"]["apps"] == ["b.desktop"]
+    assert module.move_app_to_folder(folders, "b.desktop", "missing") == folders
+    print('PASS: test_native_launchpad_drag_drop_helpers')
+
 def test_native_launchpad_entrypoint():
     """The desktop entry must launch the native GTK surface, not rofi."""
     desktop = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "desktop", "mv-launchpad.desktop")).read()
@@ -413,6 +471,54 @@ def test_corrupt_folder_config_is_not_overwritten():
     print("PASS: test_corrupt_folder_config_is_not_overwritten")
 
 
+def test_native_drag_helpers():
+    """Native Launchpad drag helpers must reorder and move apps deterministically."""
+    source = open(SCRIPT).read()
+    assert "def reorder_launchpad_apps(apps, source_id, destination_id):" in source
+    assert "def positions_for_launchpad_apps(apps):" in source
+    assert "def move_app_to_folder(folders, app_id, folder_id):" in source
+
+    namespace = {}
+    prefix = source[:source.index("def main():")]
+    exec(prefix, namespace)
+
+    apps = [{"id": "A"}, {"id": "B"}, {"id": "C"}]
+    reordered = namespace["reorder_launchpad_apps"](apps, "B", "A")
+    assert [item["id"] for item in reordered] == ["B", "A", "C"]
+    assert namespace["reorder_launchpad_apps"](apps, "A", "missing") == apps
+    assert namespace["reorder_launchpad_apps"](apps, "A", "A") == apps
+    assert namespace["positions_for_launchpad_apps"](reordered) == {
+        "B": 0, "A": 1, "C": 2
+    }
+
+    folders = {
+        "Utilities": {"name": "Utilities", "apps": ["A", "C"]},
+        "Other": {"name": "Other", "apps": ["B"]},
+    }
+    moved = namespace["move_app_to_folder"](folders, "B", "Utilities")
+    assert moved["Utilities"]["apps"] == ["A", "C", "B"]
+    assert moved["Other"]["apps"] == []
+    assert folders["Other"]["apps"] == ["B"], "helper must not mutate input"
+
+    print("PASS: test_native_drag_helpers")
+
+
+def test_native_drag_drop_contract():
+    """GTK surface must expose native app drag source and app/folder drop targets."""
+    gui_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "bin", "mv_launchpad_gui.py"
+    )
+    source = open(gui_path).read()
+    assert "button.drag_source_set(" in source
+    assert "button.drag_dest_set(" in source
+    assert 'item.get("type") == "app"' in source
+    assert '("app", "folder")' in source
+    assert 'mv_launchpad.move_app_to_folder(' in source
+    assert 'mv_launchpad.reorder_launchpad_apps(' in source
+    assert 'mv_launchpad.save_positions(' in source
+    assert 'mv_launchpad.save_folders(' in source
+    print("PASS: test_native_drag_drop_contract")
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
@@ -446,6 +552,8 @@ if __name__ == "__main__":
         test_rofi_live_search_callback,
         test_edit_entry_launch,
         test_native_launchpad_entrypoint,
+        test_native_launchpad_drag_drop_contract,
+        test_native_launchpad_drag_drop_helpers,
         test_config_writes_are_atomic,
         test_search_hides_folder_containers,
         test_many_top_level_folders_are_paginated,
@@ -455,6 +563,8 @@ if __name__ == "__main__":
         test_folder_members_are_not_duplicated_on_main_grid,
         test_position_conflicts_and_invalid_values_do_not_drop_apps,
         test_folder_config_is_normalized,
+        test_native_drag_helpers,
+        test_native_drag_drop_contract,
         test_full_integration_basic,
         test_edit_mode_entry_present,
         test_edit_mode_entry_hidden_when_searching,
