@@ -1,18 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- xfce4-panel — Mavericks-style global menu with right-aligned status area -->
 <channel name="xfce4-panel" version="1.0">
+  <property name="configver" type="int" value="2"/>
   <property name="panels" type="array">
     <value type="int" value="1"/>
     <property name="panel-1" type="empty">
-      <!-- p=11 == PanelSnapPosition SNAP_POSITION_N ("top" edge) in
-           panel/panel-window.c enum _SnapPosition.  p=8 is
-           SNAP_POSITION_SW (bottom-left): the menu bar was pinned
-           to the BOTTOM edge of the screen while every doc claimed
-           "top panel" (GUI smoke measured 1680x25+0+1025 on a
-           1050px-tall Xvfb before this fix, +0+0 after). -->
       <property name="position" type="string" value="p=11;x=0;y=0"/>
       <property name="position-locked" type="bool" value="true"/>
-      <property name="mode" type="uint" value="0"/>
+      <property mode="uint" value="0"/>
       <property name="size" type="uint" value="24"/>
       <property name="length" type="uint" value="100"/>
       <property name="length-adjust" type="bool" value="true"/>
@@ -29,12 +24,6 @@
       </property>
     </property>
   </property>
-  <!-- Ship at the config version xfce4-panel 4.20 expects.  Without it the
-       panel runs its xfconf migration on EVERY first boot ("Panel config
-       needs migration..." + "Type guint does not match type GPtrArray of
-       property /panels") and rewrites the skel file under the user.
-       Value observed from xfce4-panel-migrate on 4.20.8. -->
-  <property name="configver" type="int" value="2"/>
   <property name="plugins" type="empty">
     <property name="plugin-1" type="string" value="mv-apple"/>
     <property name="plugin-2" type="string" value="appmenu"/>
@@ -42,32 +31,13 @@
       <property name="expand" type="bool" value="true"/>
     </property>
     <property name="plugin-4" type="string" value="systray"/>
-    <!-- Mavericks menu-bar clock: "Tue Oct 6  3:45 PM" on one line.
-         digital-layout 3 == CLOCK_PLUGIN_DIGITAL_FORMAT_TIME (clock-digital.h)
-         so only the single time label is shown; in a 24px panel the
-         two-line DATE_TIME layouts get clipped.
-         NB: "digital-format" is NOT a live xfconf property in
-         xfce4-panel >= 4.20 — it only survives in the one-shot
-         backward-compat migration (clock-digital.c:405), which never
-         fires.  The live names are digital-layout / digital-time-format /
-         digital-date-format / digital-time-font / digital-date-font.
-         The clock defaults to a hardcoded 8pt "Sans Regular 8"
-         (clock-digital.c:84), so digital-time-font is mandatory for
-         Lucida Grande menu-bar typography. -->
     <property name="plugin-5" type="string" value="clock">
       <property name="mode" type="uint" value="2"/>
-      <property name="digital-layout" type="uint" value="3"/>
+      <property name="digital-layout" type="int" value="3"/>
       <property name="digital-time-format" type="string" value="%a %b %-d %-I:%M %p"/>
-      <property name="digital-time-font" type="string" value="Lucida Grande 11"/>
+      <property name="digital-time-font" type="string" value="San Francisco 11"/>
       <property name="tooltip-format" type="string" value="%A, %B %-d, %Y"/>
     </property>
     <property name="plugin-6" type="string" value="power-manager-plugin"/>
-  </property>
-
-  <!-- Custom shortcut: Mission Control GUI overlay (Super+F3).
-       Real keybinding lives in xfce4-keyboard-shortcuts.xml; mirrored here
-       for the F3 binding contract test. -->
-  <property name="custom-shortcuts" type="empty">
-    <property name="&lt;Super&gt;F3" type="string" value="mv-mc-gui"/>
   </property>
 </channel>
