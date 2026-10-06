@@ -226,7 +226,6 @@ class FontBookWindow(Gtk.Window):
         hb.get_style_context().add_class("mavericks-mv-fontbook-toolbar")
         title_label = Gtk.Label(label="Font Book")
         hb.pack_start(title_label, True, True, 8)
-self.set_titlebar(hb)
 
         self.install_btn = Gtk.Button.new_from_icon_name(
             "list-add", Gtk.IconSize.SMALL_TOOLBAR)
