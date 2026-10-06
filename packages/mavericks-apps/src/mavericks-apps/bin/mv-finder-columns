@@ -292,6 +292,15 @@ class ColumnsWindow(Gtk.Window):
             self.chain = self.history[self.history_index].copy()
             self.rebuild_columns()
 
+    def on_home(self, _button):
+        home = os.path.expanduser("~")
+        if self.chain == [home]:
+            return
+        self.history = self.history[:self.history_index + 1] + [[home]]
+        self.history_index += 1
+        self.chain = [home]
+        self.rebuild_columns()
+
     def on_up(self, _button):
         parent = os.path.dirname(self.chain[-1])
         if parent and parent != self.chain[-1]:
@@ -837,8 +846,8 @@ def build_finder_menu(app, app_name, get_window, add_action):
         return get_window()
 
     add_action("back", lambda: w().on_back(None) if w() else None)
-    add_action("home", lambda: (setattr(w(), "chain", [os.path.expanduser("~")]),
-                                w().rebuild_columns()) if w() else None)
+    add_action("forward", lambda: w().on_forward(None) if w() else None)
+    add_action("home", lambda: w().on_home(None) if w() else None)
     add_action("open-thunar", lambda: w().on_open_thunar(None) if w() else None)
     add_action("empty-trash", lambda: w()._empty_trash() if w() else None)
     add_action("zoom-in", lambda: w().set_icon_size(zoom_step(w().icon_size, 1))
@@ -869,6 +878,7 @@ def build_finder_menu(app, app_name, get_window, add_action):
 
     go_menu = Gio.Menu()
     go_menu.append("Back", "app.back")
+    go_menu.append("Forward", "app.forward")
     go_menu.append("Home", "app.home")
     menu.append_submenu("Go", go_menu)
 
