@@ -1,0 +1,38 @@
+Y_FN_RE.match(raw_key):
+        key = "F" + _KEY_FN_RE.match(raw_key).group(1)
+    elif raw_key in NAMED_KEYS or raw_key in MEDIA_KEYS:
+        key = raw_key
+    else:
+        # Named keys are case-sensitive in X11 but users type them in any
+        # case; accept the exact-name lookup case-insensitively.
+        lowered = {k.lower(): k for k in NAMED_KEYS}
+        if raw_key.lower() in lowered:
+            key = lowered[raw_key.lower()]
+        else:
+            raise ValueError("unrecognised key: %r" % raw_key)
+    if not canonical and key not in MEDIA_KEYS:
+        raise ValueError(
+            "a bare key (%s) would swallow ordinary typing; add a modifier"
+            % key)
+    return {"modifiers": canonical, "key": key}
+
+
+def modifier_identity(modifiers):
+    """Order-independent identity of a modifier set (conflict detection)."""
+    return tuple(sorted(set(str(m) for m in modifiers)))
+
+
+def property_accelerator(accel):
+    """Accelerator as an Xfce property suffix ('<Super>space')."""
+    accel = normalize_accelerator(accel)
+    return "".join("<%s>" % m for m in accel["modifiers"]) + accel["key"]
+
+
+def property_path(branch, accel):
+    return "/%s/default/%s" % (branch, property_accelerator(accel))
+
+
+def property_path_identity(branch, accel):
+    """Conflict-detecting twin of property_path: order-insensitive."""
+    accel = normalize_accelerator(accel)
+    return "/%s/
