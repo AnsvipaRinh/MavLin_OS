@@ -717,6 +717,14 @@ class ColumnsWindow(Gtk.Window):
         path = os.path.join(self.chain[index], entry["name"])
         self._activate_path(path)
 
+    def _empty_trash(self):
+        """Invoke Finder's native Empty Trash surface with confirmation."""
+        try:
+            subprocess.Popen(["mv-empty-trash"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as e:
+            self._show_error("Empty Trash", e.strerror or str(e))
+
     def on_open_thunar(self, _button):
         target = self.chain[-1]
         opener = ["thunar", target] if shutil.which("thunar") else ["xdg-open", target]
@@ -794,6 +802,7 @@ def build_finder_menu(app, app_name, get_window, add_action):
     add_action("home", lambda: (setattr(w(), "chain", [os.path.expanduser("~")]),
                                 w().rebuild_columns()) if w() else None)
     add_action("open-thunar", lambda: w().on_open_thunar(None) if w() else None)
+    add_action("empty-trash", lambda: w()._empty_trash() if w() else None)
     add_action("zoom-in", lambda: w().set_icon_size(zoom_step(w().icon_size, 1))
                if w() else None)
     add_action("zoom-out", lambda: w().set_icon_size(zoom_step(w().icon_size, -1))
@@ -805,6 +814,7 @@ def build_finder_menu(app, app_name, get_window, add_action):
     menu = Gio.Menu()
     app_menu = Gio.Menu()
     app_menu.append("About Finder", "app.about")
+    app_menu.append("Empty Trash", "app.empty-trash")
     app_menu.append("Quit Finder", "app.quit")
     menu.append_submenu("Finder", app_menu)
 
