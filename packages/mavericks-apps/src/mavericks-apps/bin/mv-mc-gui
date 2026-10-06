@@ -173,9 +173,14 @@ class MissionControlOverlay(Gtk.Window):
                     label.set_line_wrap(True)
                     box.pack_start(label, False, False, 5)
                     
-                    # Add to grid
-                    child = self.grid.insert(box, win_index)
-                    child.wid = wid  # Store window ID
+                    # Add to grid. insert() returns None when win_index is
+                    # beyond the current child count (happens when a previous
+                    # thumbnail capture failed and was skipped) — wrap in an
+                    # explicit FlowBoxChild so the overlay never crashes here.
+                    fbc = Gtk.FlowBoxChild()
+                    fbc.add(box)
+                    self.grid.insert(fbc, win_index)
+                    fbc.wid = wid  # Store window ID
                     
                     win_index += 1
         
