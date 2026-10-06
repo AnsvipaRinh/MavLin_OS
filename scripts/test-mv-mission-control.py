@@ -46,44 +46,25 @@ class MissionControlTests(unittest.TestCase):
     def setUpClass(cls):
         cls.mod = load_script()
 
-    def test_native_backend_primes_workspaces_then_exposes(self):
+    def test_native_backend_launches_gtk_overview(self):
         commands = []
 
         def fake_run(command, **kwargs):
             commands.append((command, kwargs))
-            result = mock.Mock(returncode=0)
-            result.stdout = "0  * DG: 0 0 0 0\n"
-            return result
+            return mock.Mock(returncode=0)
 
         with mock.patch.object(
-            self.mod.shutil, "which", return_value="/usr/bin/skippy-xd"
+            self.mod.shutil, "which", return_value="/usr/bin/mv-mc-overview"
+        ), mock.patch.object(
+            self.mod.os.path, "exists", return_value=True
         ), mock.patch.object(
             self.mod.subprocess, "run", side_effect=fake_run
-        ), mock.patch.object(time, "sleep"):
+        ):
             self.assertTrue(self.mod.run_native_expose())
 
-        self.assertIn(
-            (["/usr/bin/skippy-xd", "--start-daemon"], {"timeout": 5}),
-            commands,
-        )
-        self.assertIn(
-            (
-                ["/usr/bin/skippy-xd", "--expose", "--desktop", "-1"],
-                {"timeout": 300},
-            ),
-            commands,
-        )
-        self.assertIn(
-            (
-                ["/usr/bin/skippy-xd", "--stop-daemon"],
-                {"timeout": 5, "check": False},
-            ),
-            commands,
-        )
-        self.assertTrue(any(cmd[:2] == ["/usr/bin/skippy-xd", "-s"] for cmd, _ in commands))
         self.assertEqual(
-            commands[-1][0],
-            ["/usr/bin/skippy-xd", "--stop-daemon"],
+            commands,
+            [(["/usr/bin/mv-mc-overview"], {"timeout": 300})],
         )
 
     def test_native_backend_is_optional(self):
@@ -92,7 +73,9 @@ class MissionControlTests(unittest.TestCase):
 
     def test_native_failure_falls_back(self):
         with mock.patch.object(
-            self.mod.shutil, "which", return_value="/usr/bin/skippy-xd"
+            self.mod.shutil, "which", return_value="/usr/bin/mv-mc-overview"
+        ), mock.patch.object(
+            self.mod.os.path, "exists", return_value=True
         ), mock.patch.object(self.mod.subprocess, "run", side_effect=OSError):
             self.assertFalse(self.mod.run_native_expose())
 
