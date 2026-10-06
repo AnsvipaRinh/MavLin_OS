@@ -28,6 +28,13 @@ if _GUI:
     gi.require_version("Gtk", "3.0")
     from gi.repository import Gtk, GLib, Gdk, Gio
 
+# Import mv_dialogs from same directory (source) or installed location
+_bin_dir = os.path.dirname(os.path.abspath(__file__))
+if _GUI and _bin_dir not in sys.path:
+    sys.path.insert(0, _bin_dir)
+if _GUI:
+    from mv_dialogs import alert, confirm_delete
+
 # Import EDS sync bridge (always available for headless --sync)
 try:
     # When imported as module (from same package)
@@ -725,13 +732,9 @@ if _GUI:
         def _warn_if_needed(self):
             if not self.store_warnings:
                 return
-            d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                 message_type=Gtk.MessageType.WARNING,
-                                 buttons=Gtk.ButtonsType.OK,
-                                 text="Calendar store warning")
-            d.format_secondary_text("\n".join(self.store_warnings))
-            d.run()
-            d.destroy()
+            alert(self, "Calendar store warning",
+                  secondary="\n".join(self.store_warnings),
+                  msg_type=Gtk.MessageType.WARNING)
 
         def save(self):
             save_store(STORE, self.data)
@@ -1217,21 +1220,13 @@ if _GUI:
             ev = self.find_event(eid)
             if ev is None:
                 return
-            d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                 message_type=Gtk.MessageType.WARNING,
-                                 buttons=Gtk.ButtonsType.NONE,
-                                 text="Delete event?")
-            d.format_secondary_text('"%s" will be permanently removed.'
-                                    % ev["title"])
-            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "Delete", Gtk.ResponseType.OK)
-            if d.run() == Gtk.ResponseType.OK:
+            if confirm_delete(self, "Delete event?",
+                              '"%s" will be permanently removed.' % ev["title"]):
                 self.events = [e for e in self.events if e["id"] != eid]
                 if self.selected_id == eid:
                     self.selected_id = None
                 self.save()
                 self.refresh()
-            d.destroy()
 
         def ctx_edit(self, _it):
             if self.selected_id:
@@ -1311,18 +1306,10 @@ if _GUI:
             dialog.destroy()
 
         def toast(self, text):
-            d = Gtk.MessageDialog(transient_for=self, modal=False,
-                                 message_type=Gtk.MessageType.INFO,
-                                 buttons=Gtk.ButtonsType.OK, text=text)
-            d.run()
-            d.destroy()
+            alert(self, text, msg_type=Gtk.MessageType.INFO)
 
         def error_dialog(self, text):
-            d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                 message_type=Gtk.MessageType.ERROR,
-                                 buttons=Gtk.ButtonsType.OK, text=text)
-            d.run()
-            d.destroy()
+            alert(self, text, msg_type=Gtk.MessageType.ERROR)
 
         # ------------------------------------------------------------ calendars
 
@@ -1585,11 +1572,7 @@ if _GUI:
                 end = datetime(end.year, end.month, end.day)
             err = validate_event(title, start, end, all_day)
             if err:
-                d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                     message_type=Gtk.MessageType.WARNING,
-                                     buttons=Gtk.ButtonsType.OK, text=err)
-                d.run()
-                d.destroy()
+                alert(self, err, msg_type=Gtk.MessageType.WARNING)
                 return None
             return {
                 "id": uuid.uuid4().hex[:12],
@@ -1757,31 +1740,17 @@ if _GUI:
             if not item:
                 return
             if item["type"] == "account":
-                d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                     message_type=Gtk.MessageType.WARNING,
-                                     buttons=Gtk.ButtonsType.NONE,
-                                     text="Delete account?")
-                d.format_secondary_text('Account "%s" and all its calendars and events '
-                                        "will be permanently removed." % item["name"])
-                d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                              "Delete", Gtk.ResponseType.OK)
-                if d.run() == Gtk.ResponseType.OK:
+                if confirm_delete(self, "Delete account?",
+                                  'Account "%s" and all its calendars and events '
+                                  "will be permanently removed." % item["name"]):
                     del self.accounts[item["name"]]
                     self.refresh_list()
-                d.destroy()
             else:
-                d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                     message_type=Gtk.MessageType.WARNING,
-                                     buttons=Gtk.ButtonsType.NONE,
-                                     text="Delete calendar?")
-                d.format_secondary_text('Calendar "%s" and its events will be permanently '
-                                        "removed." % item["name"])
-                d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                              "Delete", Gtk.ResponseType.OK)
-                if d.run() == Gtk.ResponseType.OK:
+                if confirm_delete(self, "Delete calendar?",
+                                  'Calendar "%s" and its events will be permanently '
+                                  "removed." % item["name"]):
                     del self.accounts[item["account"]]["calendars"][item["name"]]
                     self.refresh_list()
-                d.destroy()
 
         def edit_item(self, _):
             item = self.get_selected_item()

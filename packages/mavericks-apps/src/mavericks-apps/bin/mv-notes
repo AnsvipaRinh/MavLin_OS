@@ -10,6 +10,12 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, Pango, GLib, Gio
 
+# Import mv_dialogs from same directory (source) or installed location
+_bin_dir = os.path.dirname(os.path.abspath(__file__))
+if _bin_dir not in sys.path:
+    sys.path.insert(0, _bin_dir)
+from mv_dialogs import alert, confirm_delete
+
 try:
     import cairo
 except ImportError:
@@ -348,12 +354,8 @@ class Notes(Gtk.Window):
         self.show_all()
         self.import_argv()
         for msg in self.store_warnings:
-            dlg = Gtk.MessageDialog(
-                self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
-                Gtk.ButtonsType.OK, "Notes store warning")
-            dlg.format_secondary_text(msg)
-            dlg.run()
-            dlg.destroy()
+            alert(self, "Notes store warning", secondary=msg,
+                  msg_type=Gtk.MessageType.WARNING)
 
     def apply_mavericks_css(self):
         css = b"""
@@ -677,59 +679,38 @@ class Notes(Gtk.Window):
     def delete_forever_action(self, _b=None):
         if not self.cur_id:
             return
-        dlg = Gtk.MessageDialog(
-            self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
-            Gtk.ButtonsType.YES_NO, "Delete note forever?")
-        dlg.format_secondary_text(
-            "This permanently deletes the note. This cannot be undone.")
-        if dlg.run() != Gtk.ResponseType.YES:
-            dlg.destroy()
-            return
-        dlg.destroy()
-        delete_forever(self.data, self.cur_id)
-        self.cur_id = None
-        self.buf.set_text("")
-        save_store(STORE, self.data)
-        self.refresh_folders()
+        if confirm_delete(self, "Delete note forever?",
+                          "This permanently deletes the note. This cannot be undone."):
+            delete_forever(self.data, self.cur_id)
+            self.cur_id = None
+            self.buf.set_text("")
+            save_store(STORE, self.data)
+            self.refresh_folders()
 
     def empty_trash_action(self, _b=None):
         if not self.data.get("trash"):
             return
-        dlg = Gtk.MessageDialog(
-            self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
-            Gtk.ButtonsType.YES_NO, "Empty Recently Deleted?")
-        dlg.format_secondary_text(
-            "All notes in Recently Deleted will be permanently deleted.")
-        if dlg.run() != Gtk.ResponseType.YES:
-            dlg.destroy()
-            return
-        dlg.destroy()
-        empty_trash(self.data)
-        self.cur_id = None
-        self.buf.set_text("")
-        save_store(STORE, self.data)
-        self.refresh_folders()
+        if confirm_delete(self, "Empty Recently Deleted?",
+                          "All notes in Recently Deleted will be permanently deleted."):
+            empty_trash(self.data)
+            self.cur_id = None
+            self.buf.set_text("")
+            save_store(STORE, self.data)
+            self.refresh_folders()
 
     def delete_folder_action(self, folder):
         if folder not in self.data["folders"]:
             return
-        dlg = Gtk.MessageDialog(
-            self, Gtk.DialogFlags.MODAL, Gtk.MessageType.WARNING,
-            Gtk.ButtonsType.YES_NO, 'Delete folder "%s"?' % folder)
-        dlg.format_secondary_text(
-            "Its notes will be moved to Recently Deleted.")
-        if dlg.run() != Gtk.ResponseType.YES:
-            dlg.destroy()
-            return
-        dlg.destroy()
-        delete_folder(self.data, folder)
-        if self.cur_folder == folder or self.mode != "folder":
-            self.mode = "folder"
-            self.cur_folder = next(iter(self.data["folders"]))
-        self.cur_id = None
-        self.buf.set_text("")
-        save_store(STORE, self.data)
-        self.refresh_folders()
+        if confirm_delete(self, 'Delete folder "%s"?' % folder,
+                          "Its notes will be moved to Recently Deleted."):
+            delete_folder(self.data, folder)
+            if self.cur_folder == folder or self.mode != "folder":
+                self.mode = "folder"
+                self.cur_folder = next(iter(self.data["folders"]))
+            self.cur_id = None
+            self.buf.set_text("")
+            save_store(STORE, self.data)
+            self.refresh_folders()
 
     def export_note(self, _b):
         note = self.current_note()
@@ -746,12 +727,8 @@ class Notes(Gtk.Window):
                 with open(dlg.get_filename(), "w") as f:
                     f.write(note.get("text", ""))
             except OSError as e:
-                err = Gtk.MessageDialog(
-                    self, Gtk.DialogFlags.MODAL, Gtk.MessageType.ERROR,
-                    Gtk.ButtonsType.OK, "Export failed")
-                err.format_secondary_text(str(e))
-                err.run()
-                err.destroy()
+                alert(self, "Export failed", secondary=str(e),
+                      msg_type=Gtk.MessageType.ERROR)
         dlg.destroy()
 
     def print_note(self, _b):
@@ -759,12 +736,9 @@ class Notes(Gtk.Window):
         if not note:
             return
         if cairo is None:
-            err = Gtk.MessageDialog(
-                self, Gtk.DialogFlags.MODAL, Gtk.MessageType.ERROR,
-                Gtk.ButtonsType.OK, "Printing unavailable")
-            err.format_secondary_text("The python-cairo package is required.")
-            err.run()
-            err.destroy()
+            alert(self, "Printing unavailable",
+                  secondary="The python-cairo package is required.",
+                  msg_type=Gtk.MessageType.ERROR)
             return
         op = Gtk.PrintOperation()
         pages = paginate(note.get("text", ""), 42)

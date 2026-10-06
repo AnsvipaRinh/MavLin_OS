@@ -852,3 +852,34 @@ validation on real 2304×1440 panel are hardware-dependent.
 pre-hardware gaps closed; hardware validation required for wallpaper
 application, menu behavior, and icon grid fidelity on 2304×1440. See
 `docs/APPS.md` row, `docs/NEEDS_HARDWARE_TEST.md` (connector migration item).
+
+---
+
+## Session 2026-10-06 — Global Dialogs Migration Batch 1 (oid `OS-dialogs-mig1`)
+
+**Zone:** `bin/mv-notes`, `bin/mv-stickies`, `bin/mv-reminders`, `bin/mv-calendar`, `bin/mv-calculator` + their test suites + `docs/APPS.md` Global Dialogs row + `docs/DECISIONS.md`. Parallel agents worked on Finder/mimeapps, mv-power-ui/mv-trash/xarchiver in other zones; this zone only touches the 5 named apps' dialog migration.
+
+**Objective:** Migrate the first batch of ~19 mv-* apps from stock `Gtk.MessageDialog` to the shared `mv_dialogs` Mavericks system (`alert()` / `confirm_delete()` / `confirm_discard()` / `entry_dialog()` — API finalized in commit 51f1328 with unified keyboard contract: Escape=cancel, Enter=default, focus=entry-else-default-button).
+
+**Apps migrated (4 of 5; mv-calculator had no stock dialogs):**
+
+| App | Dialog Sites Converted | Types |
+|-----|------------------------|-------|
+| mv-notes | 6 | store warnings (alert), delete forever (confirm_delete), empty trash (confirm_delete), delete folder (confirm_delete), export error (alert), print error (alert) |
+| mv-stickies | 3 | print error (alert), delete note (confirm_delete), store warnings (alert) |
+| mv-reminders | 5 | delete task (confirm_delete), clear completed (confirm_delete with "Clear" label), cannot delete last list (alert), delete list (confirm_delete), store warnings (alert) |
+| mv-calendar | 7 | store warnings (alert), delete event (confirm_delete), import toast (alert), error dialog (alert), event validation (alert), delete account (confirm_delete), delete calendar (confirm_delete) |
+
+**Technical changes:**
+- Added `mv_dialogs` import with source-path fallback (`_bin_dir = os.path.dirname(os.path.abspath(__file__))`) for headless testability
+- Replaced all inline `Gtk.MessageDialog` construction with `mv_dialogs.alert()` (info/warning/error) and `confirm_delete()` (destructive confirms with Cancel default + destructive class)
+- `clear_completed` in mv-reminders uses `confirm_delete(delete_label="Clear")` for semantic button text
+- All dialogs now inherit Mavericks visual contract: 64px alert icon, rightmost-button default (aqua), destructive-action styling, Escape→Cancel, Enter→default
+
+**Tests:** All 5 app test suites pass (mv-notes 41, mv-stickies 74, mv-reminders 32, mv-calendar 64, mv-calculator 141). `py_compile` clean for all 5 binaries. `scripts/check-sync.sh` Python compile gate green. GUI smoke of `mv-notes` on pinned Xvfb :97 via `scripts/gui-isolation.sh` — imports OK, host-display guard 0 attempts.
+
+**Documentation:**
+- `docs/APPS.md` Global Dialogs row updated: batch 1 of N migration complete (4 apps, 14 dialog sites), ~15 remaining apps still use stock `Gtk.MessageDialog`
+- `docs/DECISIONS.md` updated with migration rationale
+
+**Status:** Batch 1 **IMPLEMENTED** (pre-hardware). Next batch will target mv-textedit, mv-diskutil, mv-force-quit, mv-shot, and other consumers.

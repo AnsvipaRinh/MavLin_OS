@@ -19,6 +19,13 @@ if _GUI:
     gi.require_version("Gtk", "3.0")
     from gi.repository import Gtk, Gdk, Pango, Gio
 
+# Import mv_dialogs from same directory (source) or installed location
+_bin_dir = os.path.dirname(os.path.abspath(__file__))
+if _GUI and _bin_dir not in sys.path:
+    sys.path.insert(0, _bin_dir)
+if _GUI:
+    from mv_dialogs import alert, confirm_delete
+
 STORE = os.path.expanduser("~/.local/share/mv-reminders/tasks.json")
 PRIORITIES = ["", "Low", "Medium", "High"]
 
@@ -532,40 +539,23 @@ if _GUI:
             task = next((t for t in tasks if t["id"] == tid), None)
             if task is None:
                 return
-            d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                 message_type=Gtk.MessageType.WARNING,
-                                 buttons=Gtk.ButtonsType.NONE,
-                                 text="Delete task?")
-            d.format_secondary_text('"%s" will be permanently removed '
-                                    "from the list." % task["title"])
-            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "Delete", Gtk.ResponseType.OK)
-            if d.run() == Gtk.ResponseType.OK:
-                self.data["lists"][self.cur] = [t for t in tasks
-                                               if t["id"] != tid]
+            if confirm_delete(self, "Delete task?",
+                              '"%s" will be permanently removed from the list.' % task["title"]):
+                self.data["lists"][self.cur] = [t for t in tasks if t["id"] != tid]
                 save_store(STORE, self.data)
                 self.refresh()
-            d.destroy()
 
         def clear_completed(self, _b):
             tasks = self.data["lists"].get(self.cur, [])
             done = [t for t in tasks if t.get("done")]
             if not done:
                 return
-            d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                 message_type=Gtk.MessageType.WARNING,
-                                 buttons=Gtk.ButtonsType.NONE,
-                                 text="Clear completed tasks?")
-            d.format_secondary_text('%d completed task(s) will be removed '
-                                    'from "%s".' % (len(done), self.cur))
-            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "Clear", Gtk.ResponseType.OK)
-            if d.run() == Gtk.ResponseType.OK:
-                self.data["lists"][self.cur] = [t for t in tasks
-                                               if not t.get("done")]
+            if confirm_delete(self, "Clear completed tasks?",
+                              '%d completed task(s) will be removed from "%s".' % (len(done), self.cur),
+                              delete_label="Clear"):
+                self.data["lists"][self.cur] = [t for t in tasks if not t.get("done")]
                 save_store(STORE, self.data)
                 self.refresh()
-            d.destroy()
 
         def rename_list(self, _it):
             d = Gtk.Dialog(title="Rename List", transient_for=self, modal=True)
@@ -586,28 +576,16 @@ if _GUI:
 
         def delete_list(self, _it):
             if len(self.data["lists"]) <= 1:
-                d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                     message_type=Gtk.MessageType.INFO,
-                                     buttons=Gtk.ButtonsType.OK,
-                                     text="Cannot delete the last list.")
-                d.run()
-                d.destroy()
+                alert(self, "Cannot delete the last list.",
+                      msg_type=Gtk.MessageType.INFO)
                 return
             n = len(self.data["lists"].get(self.cur, []))
-            d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                 message_type=Gtk.MessageType.WARNING,
-                                 buttons=Gtk.ButtonsType.NONE,
-                                 text="Delete list?")
-            d.format_secondary_text('"%s" and its %d task(s) will be '
-                                    "permanently removed." % (self.cur, n))
-            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "Delete", Gtk.ResponseType.OK)
-            if d.run() == Gtk.ResponseType.OK:
+            if confirm_delete(self, "Delete list?",
+                              '"%s" and its %d task(s) will be permanently removed.' % (self.cur, n)):
                 del self.data["lists"][self.cur]
                 self.cur = next(iter(self.data["lists"]))
                 save_store(STORE, self.data)
                 self.refresh()
-            d.destroy()
 
         def selected_task_id(self):
             _m, it = self.ttv.get_selection().get_selected()
@@ -703,13 +681,9 @@ if _GUI:
         def _warn_if_needed(self):
             if not self.store_warnings:
                 return
-            d = Gtk.MessageDialog(transient_for=self, modal=True,
-                                 message_type=Gtk.MessageType.WARNING,
-                                 buttons=Gtk.ButtonsType.OK,
-                                 text="Reminders store warning")
-            d.format_secondary_text("\n".join(self.store_warnings))
-            d.run()
-            d.destroy()
+            alert(self, "Reminders store warning",
+                  secondary="\n".join(self.store_warnings),
+                  msg_type=Gtk.MessageType.WARNING)
 
 
 

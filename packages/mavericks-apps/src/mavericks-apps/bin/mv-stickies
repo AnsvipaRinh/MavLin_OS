@@ -23,6 +23,13 @@ try:
 except (ImportError, ValueError):
     HAS_GTK = False
 
+# Import mv_dialogs from same directory (source) or installed location
+_bin_dir = os.path.dirname(os.path.abspath(__file__))
+if HAS_GTK and _bin_dir not in sys.path:
+    sys.path.insert(0, _bin_dir)
+if HAS_GTK:
+    from mv_dialogs import alert, confirm_delete
+
 try:
     import cairo
 except ImportError:
@@ -363,13 +370,9 @@ def build_stickynote_class():
             text = self.buf.get_text(self.buf.get_start_iter(),
                                      self.buf.get_end_iter(), True)
             if cairo is None:
-                err = Gtk.MessageDialog(
-                    transient_for=self, modal=True,
-                    message_type=Gtk.MessageType.ERROR,
-                    buttons=Gtk.ButtonsType.OK, text="Printing unavailable")
-                err.format_secondary_text("The python-cairo package is required.")
-                err.run()
-                err.destroy()
+                alert(self, "Printing unavailable",
+                      secondary="The python-cairo package is required.",
+                      msg_type=Gtk.MessageType.ERROR)
                 return
             op = Gtk.PrintOperation()
             pages = paginate(text, 42)
@@ -396,16 +399,9 @@ def build_stickynote_class():
             op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self)
 
         def confirm_delete(self):
-            d = Gtk.MessageDialog(
-                transient_for=self, modal=True,
-                message_type=Gtk.MessageType.WARNING,
-                buttons=Gtk.ButtonsType.NONE, text="Delete this note?")
-            d.format_secondary_text("The note will be permanently removed.")
-            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "Delete", Gtk.ResponseType.OK)
-            if d.run() == Gtk.ResponseType.OK:
+            if confirm_delete(self, "Delete this note?",
+                              "The note will be permanently removed."):
                 self.destroy()
-            d.destroy()
 
         def on_key(self, _w, ev):
             ctrl = ev.state & Gdk.ModifierType.CONTROL_MASK
@@ -575,13 +571,10 @@ class StickiesApp:
     def _warn_if_needed(self):
         if not self.store_warnings:
             return
-        d = Gtk.MessageDialog(
-            transient_for=self.stickies[0] if self.stickies else None,
-            modal=True, message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.OK, text="Stickies store warning")
-        d.format_secondary_text("\n".join(self.store_warnings))
-        d.run()
-        d.destroy()
+        parent = self.stickies[0] if self.stickies else None
+        alert(parent, "Stickies store warning",
+              secondary="\n".join(self.store_warnings),
+              msg_type=Gtk.MessageType.WARNING)
 
 
 

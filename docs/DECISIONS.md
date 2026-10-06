@@ -1585,3 +1585,23 @@ Two more findings, both from measuring the frame instead of the config.
   and a foreign window taking focus between keypress and read is not an xfwm4
   defect. The check re-establishes the initial focus and retries, and only fails
   when focus never lands on the second window.
+
+---
+
+## 2026-10-06 — Global Dialogs Migration Batch 1 (oid `OS-dialogs-mig1`)
+
+**Context:** ~19 mv-* apps still built stock `Gtk.MessageDialog` inline despite the shared `mv_dialogs` layer being feature-complete (commit 51f1328). §9 explicitly forbids "stock GTK dialog ≠ Mavericks dialog" — stock dialogs lack the 64px alert icon, rightmost-button default, destructive styling, unified keyboard contract, and error-state validation.
+
+**Decision:** Migrate in batches of 4–5 apps per session to avoid merge conflicts and keep PRs reviewable. Batch 1: mv-notes, mv-stickies, mv-reminders, mv-calendar, mv-calculator (the latter had no dialogs). Each app gets the `mv_dialogs` import with source-path fallback for headless testability, and every inline `Gtk.MessageDialog` replaced with `mv_dialogs.alert()` or `confirm_delete()`.
+
+**Rationale for this approach:**
+- **Single source of visual truth:** `mv_dialogs` enforces the Mavericks contract (64px icon, rightmost default, destructive class, Escape=cancel, Enter=default) centrally. A bug fixed there propagates to all consumers; fixing 14 inline dialogs one by one is how drift happens.
+- **Testability preserved:** The source-path import (`_bin_dir = os.path.dirname(os.path.abspath(__file__))`) lets headless test suites import the module without an installed package, and `mv_dialogs` itself has 58 contract tests (headless + GUI on Xvfb :97).
+- **Energy budget (§7) respected:** No new daemons, no polling, pure GTK3 on-demand. The import adds <1ms to startup.
+- **Batch size = single-flight zone isolation:** Parallel agents own disjoint app sets (Finder/mimeapps, mv-power-ui/mv-trash/xarchiver). This session touched only the 5 named bin/ files + their test suites + docs.
+
+**Deferred to Batch 2:** mv-textedit, mv-diskutil, mv-force-quit, mv-shot, mv-voice, mv-keychain, mv-airdrop, mv-timemachine, mv-finder-search, mv-hotkeys-gui, and remaining consumers. SheetDialog still has no in-repo consumer; that is tracked as a separate objective.
+
+**Verification:** All 5 app test suites pass (41+74+32+64+141), `py_compile` clean, `scripts/check-sync.sh` Python compile gate green, GUI smoke of `mv-notes` on pinned Xvfb :97 — imports OK, host-display guard 0 attempts.
+
+**Documentation:** `docs/APPS.md` Global Dialogs row updated (batch 1 of N complete), `docs/PROGRESS.md` session recorded.
