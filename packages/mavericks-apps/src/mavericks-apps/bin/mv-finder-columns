@@ -131,6 +131,8 @@ class ColumnsWindow(Gtk.Window):
         super().__init__(title=os.path.basename(root) or root)
         self.root = os.path.abspath(root)
         self.chain = [self.root]
+        self.history = [self.root]
+        self.history_index = 0
         self.listboxes = []
         self.icon_size = ZOOM_DEFAULT
 
@@ -139,9 +141,9 @@ class ColumnsWindow(Gtk.Window):
 
         self._install_finder_css()
 
-        hb = Gtk.HeaderBar(title=self.get_title(), show_close_button=True)
-        hb.set_subtitle("Finder")
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        hb.get_style_context().add_class("mavericks-finder-toolbar")
 
         self.back_button = Gtk.Button(label="‹")
         self.back_button.set_tooltip_text("Back")
@@ -198,6 +200,7 @@ class ColumnsWindow(Gtk.Window):
         content.pack2(self.overlay, True, False)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        vbox.pack_start(hb, False, False, 0)
         vbox.pack_start(content, True, True, 0)
         vbox.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
         vbox.pack_start(status, False, False, 0)
@@ -384,13 +387,10 @@ class ColumnsWindow(Gtk.Window):
         return os.path.join(self.chain[index], row.entry["name"])
 
     def _show_error(self, title, message):
-        dialog = Gtk.MessageDialog(
-            transient_for=self, modal=True,
-            message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK, text=title)
-        dialog.format_secondary_text(message)
-        dialog.run()
-        dialog.destroy()
+        from mv_dialogs import alert
+        alert(self, title, secondary=message,
+              msg_type=Gtk.MessageType.ERROR,
+              buttons=[("OK", Gtk.ResponseType.OK)])
 
     def _selected_path(self):
         for listbox in self.listboxes:
@@ -452,14 +452,12 @@ class ColumnsWindow(Gtk.Window):
     def _move_to_trash(self, path):
         if not path or not os.path.exists(path):
             return
-        dialog = Gtk.MessageDialog(
-            transient_for=self, modal=True,
-            message_type=Gtk.MessageType.QUESTION,
-            buttons=Gtk.ButtonsType.CANCEL,
-            text="Move “%s” to the Trash?" % os.path.basename(path))
-        dialog.add_button("Move to Trash", Gtk.ResponseType.OK)
-        response = dialog.run()
-        dialog.destroy()
+        from mv_dialogs import confirm_delete
+        response = confirm_delete(
+            self,
+            "Move “%s” to the Trash?" % os.path.basename(path),
+            "The item will be moved to the Trash.",
+            delete_label="Move to Trash")
         if response != Gtk.ResponseType.OK:
             return
         try:
