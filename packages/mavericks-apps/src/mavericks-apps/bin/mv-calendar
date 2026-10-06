@@ -539,8 +539,9 @@ if _GUI:
             self.selected_id = None
             self.apply_mavericks_css()
 
-            hb = Gtk.HeaderBar(title="Calendar", show_close_button=True)
-            self.set_titlebar(hb)
+            self.set_decorated(True)
+            toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            toolbar.get_style_context().add_class("mavericks-calendar-toolbar")
 
             self.search = Gtk.SearchEntry(placeholder_text="Search")
             self.search.connect("changed", self.on_search)
@@ -587,10 +588,13 @@ if _GUI:
 
             self.title_label = Gtk.Label()
             self.title_label.set_margin_end(12)
-            hb.set_custom_title(self.title_label)
+            toolbar.pack_start(self.title_label, True, True, 8)
 
             paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-            self.add(paned)
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            root.pack_start(toolbar, False, False, 0)
+            root.pack_start(paned, True, True, 0)
+            self.add(root)
 
             # === LEFT: leather sidebar (mini month + calendar list) ===
             side = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
