@@ -333,7 +333,7 @@ def build_settings_class():
     class Settings(Gtk.Window):
         def __init__(self):
             super().__init__(title="System Settings")
-            self.set_default_size(760, 520)
+            self.set_default_size(800, 560)
             self.set_icon_name("preferences-system")
             self.hb = Gtk.HeaderBar(title="System Settings",
                                     show_close_button=True)
@@ -351,9 +351,9 @@ def build_settings_class():
             self.add(self.stack)
 
             # --- Show All grid ---
-            self.flow = Gtk.FlowBox(homogeneous=True, min_children_per_line=4,
+            self.flow = Gtk.FlowBox(homogeneous=True, min_children_per_line=5, max_children_per_line=5,
                                     selection_mode=Gtk.SelectionMode.NONE,
-                                    margin=12, row_spacing=6, column_spacing=6)
+                                    margin=18, row_spacing=10, column_spacing=10)
             sw = Gtk.ScrolledWindow()
             sw.add(self.flow)
             self.stack.add_named(sw, "grid")
@@ -361,9 +361,12 @@ def build_settings_class():
             for row in PAGES:
                 label, icon, cmd, pane = row
                 b = Gtk.Button()
-                box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-                box.pack_start(Gtk.Image.new_from_icon_name(
-                    icon, Gtk.IconSize.DIALOG), False, False, 0)
+                b.set_relief(Gtk.ReliefStyle.NONE)
+                b.get_style_context().add_class("mavericks-preferences-item")
+                box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+                image = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
+                image.set_pixel_size(40)
+                box.pack_start(image, False, False, 0)
                 box.pack_start(Gtk.Label(label=label), False, False, 0)
                 b.add(box)
                 if cmd and not pane and not page_is_available(cmd):
