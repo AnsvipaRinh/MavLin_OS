@@ -1,9 +1,4 @@
-,
-      "tile_right_key", "window", skill="window", branch=BRANCH_XFWM4),
-    # macOS Command-` cycles the windows of the frontmost application.  xfwm4
-    # already implements it as switch_window_key; before this it was unbound, so
-    # the closest thing to a Command-Tab-style window switch only reached across
-    # applications (Alt-Tab).  xfwm4's own key handler runs it, so it costs no
+t-Tab).  xfwm4's own key handler runs it, so it costs no
     # resident process.
     A("cycle-app-windows", "Cycle Windows of This Application (Command-`)",
       ["Super"], "grave", "switch_window_key", "window", skill="window",
@@ -20,4 +15,9 @@
     A("workspace-next", "Move to Next Space", ["Super", "Alt"], "Right",
       "right_workspace_key", "workspace", skill="workspace",
       branch=BRANCH_XFWM4),
-    A("workspace-1", "Switch to Space 1", ["Super"], "1", "workspace_1_key"
+    A("workspace-1", "Switch to Space 1", ["Super"], "1", "workspace_1_key",
+      "workspace", skill="workspace", branch=BRANCH_XFWM4),
+    A("workspace-2", "Switch to Space 2", ["Super"], "2", "workspace_2_key",
+      "workspace", skill="workspace", branch=BRANCH_XFWM4),
+    A("workspace-3", "Switch to Space 3", ["Super"], "3", "workspace_3_key",
+      "workspace", skill="workspace", branch=BRANCH_XFWM4),
