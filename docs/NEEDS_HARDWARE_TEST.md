@@ -261,6 +261,14 @@ procedures or active code reference them:
 - [ ] Submenu behavior (if nested menus added later) works with trackpad/mouse on real hardware
 - [ ] Energy: context menu population is instant (no measurable delay) on fanless Core M
 
+## Global Dialogs — hardware validation (phase dialogs-p0)
+- [ ] Alert look on real panel: 64px alert icon size, `.mavericks-alert` background, action-area button metrics (min-width 90px, aqua `suggested-action` default, `destructive-action` red) at 2304×1440 HiDPI
+- [ ] `entry_dialog()` visual: message + entry + inline validator hint spacing/coherence with alert chrome on HiDPI
+- [ ] SheetDialog attached geometry under real xfwm4: flush under parent title bar, parent-width match, square top corners, 12-frame ease-down slide smoothness on the real GPU/compositor path
+- [ ] SheetDialog parentless fallback: centered on the real screen (Xvfb has no WM; real placement only verifiable in session)
+- [ ] Keyboard contract on real input devices: Escape=cancel and Enter=default in alerts, entry dialogs and sheets, with focus landing on the entry (input surfaces) / default button (plain alerts) — external USB-C keyboard first, applespi best-effort later
+- [ ] Destructive confirms read correctly at default zoom (Cancel default in confirm_delete, rightmost aqua default elsewhere)
+
 ### Icon Theme — hardware validation (2304×1440)
 - [ ] All 28 core Mavericks app icons render correctly at 2304×1440 (HiDPI 2x scaling)
 - [ ] Finder icon (smiling face) appears correctly in Dock/panel/Thunar

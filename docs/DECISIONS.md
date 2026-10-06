@@ -1465,3 +1465,18 @@ values, blueman install decision on hardware.
 
 **Verification:** mirrors byte-identical, XML valid, py_compile clean, test-thunar-uca.py 15/15 pass, hotkey registry consistent.
 
+
+## 2026-10-06 — Global Dialogs P0: contracts in mv_dialogs (oid `OS-dialogs-p0`, canonical #20)
+
+**Context:** the shared dialog module had theming but no input dialog, dead Enter keys (no default button unless the caller passed one), a degenerate sheet slide, and a parentless-sheet attach bug. Decisions taken (non-obvious ones only):
+
+- **Default-button fallback = rightmost button** (`buttons[-1]`), Mavericks convention — an explicit `default=` still wins, which keeps `confirm_delete()` on Cancel-default (destructive safety) and `confirm_discard()` on Save. Reason: "no default" means Enter does nothing and focus lands nowhere; a Mavericks dialog always has a live default.
+- **`entry_dialog()` returns `text-or-None`**, not `(response, text)`. Reason: every consumer pattern found (mv-rename and friends) branches on "cancelled?" — None is that answer; callers needing the raw response use `_build_entry_dialog`. Empty input disables OK (live `changed` signal) instead of a modal re-prompt loop — that is the sheet behavior Mavericks uses for name fields.
+- **Error-state contract = ValueError** on empty/None message or empty button list. Reason: both produce visibly broken dialogs (empty alert body / action-less alert); failing loud at the call site is cheaper to debug than a rendered defect on hardware.
+- **Sheet slide starts on the first `size-allocate`**, not in `run()`. Reason: window height is 0 before mapping, so the old code animated from `target-0` — mathematically a no-op; deferring to the first allocation gives the real height and a visible ease-down from under the parent's title bar.
+- **Parentless sheet = centered modal, not attached.** `set_attached_to(None)` clears attachment *without raising*, so the old `try/except` never fired and an orphan sheet was flagged attached and parked at (0, y-titlebar). Attachment is now `parent is not None`.
+- **Sheet buttons get `set_can_default` + `Gtk.Window.set_default`** (SheetDialog subclasses Gtk.Window, not GtkDialog, so `set_default_response` does not exist there). Reason: only real window-default wiring makes `entry.set_activates_default(True)` fire the default button — the sheet focus policy relies on it (entry focused for input sheets, default button otherwise).
+- **Test strategy for Enter:** synthetic `Gdk.Event` Return emitted on a GtkEntry is unreliable (NULL event window → Gdk-CRITICALs, handler bails, `run()` hangs). The suite therefore asserts the wiring (`activates_default`, `has-default`) and drives `activate_default()` — the exact code path Enter triggers — and keeps synthetic *Escape* events (our own handler ignores event.window).
+- **Consumer apps were NOT rewritten.** ~19 mv-* apps still build stock `Gtk.MessageDialog` inline; migrating them is per-app work outside the mv_dialogs zone (parallel-agent boundary + §13.7: rename-a-consumer is not the goal, giving every app the shared surface is). mv-rename is the first natural `entry_dialog()` consumer when its zone is touched.
+
+**Verification:** scripts/test-mv-dialogs.py 58/58 (headless + Xvfb :97 GUI), test-mv-textedit.py 12/12, test-mv-diskutil.py 250/250, app suites 38 pass / 0 fail in check-sync.sh.
