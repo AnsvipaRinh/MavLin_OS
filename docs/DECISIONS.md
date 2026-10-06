@@ -593,3 +593,21 @@ navigation-only feature on fanless hardware, which AGENTS.md §7 rules out.
 Left as a documented architectural limit; `scripts/test-dock-plank.py` asserts
 that this limit stays recorded in `docs/APPS.md` and `docs/DECISIONS.md` so it
 cannot quietly disappear from the docs.
+
+---
+
+## 2026-10-06 — Git Stash Ban in Parallel Agent Discipline + SyntaxError Fix (PR #108)
+
+**Context:** Two incidents converged in the same session:
+1. A parallel agent ran `git stash` mid-session and swept another agent's uncommitted hardening (host-display guard files briefly reverted; restored by the affected agent). This confirmed that `git stash` is not a safe coordination primitive in parallel agent workflows — it operates on the shared worktree and silently overwrites uncommitted changes across agents.
+2. `scripts/test-mavericks-apps-packaging.py` had a SyntaxError at line 54 (two `else:` on one construct), committed in 0be8063 (PR #108). Verified to reproduce on clean HEAD.
+
+**Decisions:**
+1. Added GIT STASH BAN rule to AGENTS.md §8 (after GLM CODING PLAN RESTORED): Workers must NEVER use `git stash` (any form: `git stash`, `git stash push`, `git stash pop`, `git stash apply`, `git stash drop`, `git stash clear`). If work must be set aside, commit it to a branch or leave it untouched and report the situation.
+2. Fixed the SyntaxError in `scripts/test-mavericks-apps-packaging.py` by correcting the indentation of the `else:` block at line 52 to properly align with the `if os.path.isdir(DESKTOP):` at line 36 (inside the outer else block for MAKEFILE check).
+
+**Verification:**
+- `python3 scripts/test-mavericks-apps-packaging.py` runs without SyntaxError (now reports pre-existing Makefile coverage failures, not syntax errors)
+- `scripts/check-sync.sh` passes all syntax/compile/XML/desktop/PKGBUILD/theme-css/dock P0 checks (app suite failures are pre-existing, unrelated to the syntax fix)
+
+**Follow-up:** Both changes committed and pushed per PUBLISH RULE.

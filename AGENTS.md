@@ -501,8 +501,6 @@ local-only работы: завершённый objective без push на origi
 блокер в PROGRESS.md и продолжить работу (это НЕ останавливает
 objectives).
 
-**GitHub — основная площадка работы (source of truth); локальный репозиторий — бэкап** (owner directive 2026-10-06).
-
 ### ISSUE #1 RULE (https://github.com/AnsvipaRinh/MavLinOS/issues/1)
 
 Крупная, но доказанно необходимая архитектурная работа НЕ
@@ -537,6 +535,17 @@ quota-отказ одной блокирует failover внутри пула.
 технически неразрешимое решение, конфликтующие требования, риск уничтожения
 данных, выбор между архитектурами с необратимыми последствиями. Отсутствие
 hardware — не повод спрашивать, а повод делать pre-hardware работу.
+
+### GIT STASH BAN (owner directive 2026-10-06; incident from parallel agent session)
+
+Workers must NEVER use `git stash` (any form: `git stash`, `git stash push`,
+`git stash pop`, `git stash apply`, `git stash drop`, `git stash clear`).
+If work must be set aside, commit it to a branch or leave it untouched and
+report the situation. Rationale: a parallel agent ran `git stash` mid-session
+and swept another agent's uncommitted hardening (host-display guard files
+briefly reverted; restored by the affected agent). Stash is not a safe
+coordination primitive in parallel agent workflows — it operates on the
+shared worktree and silently overwrites uncommitted changes across agents.
 
 ## 9. НЕ «fake completion» + статусы + app surface audit
 

@@ -51,12 +51,11 @@ else:
                 errors.append("%s references command not installed by Makefile: %s" % (name, command))
     else:
         errors.append("desktop directory missing")
-else:
-    # Keep directory checks explicit so failures are understandable.
-    if not os.path.isdir(BIN):
-        errors.append("bin directory missing")
-    if not os.path.isdir(DESKTOP):
-        errors.append("desktop directory missing")
+        # Keep directory checks explicit so failures are understandable.
+        if not os.path.isdir(BIN):
+            errors.append("bin directory missing")
+        if not os.path.isdir(DESKTOP):
+            errors.append("desktop directory missing")
 
 if errors:
     for error in errors:
