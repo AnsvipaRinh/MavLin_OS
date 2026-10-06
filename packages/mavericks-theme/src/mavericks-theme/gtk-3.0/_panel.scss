@@ -1,0 +1,81 @@
+/* Mavericks menu bar — xfce4-panel (OS X 10.9).
+ *
+ * WHY THIS FILE LIVES IN THE GTK THEME (and not as
+ * xfce4/panel/themes/<name>/panel.css):
+ *   xfce4-panel 4.20 has no CSS-theme loader.  `strings` over both
+ *   /usr/sbin/xfce4-panel and /usr/lib/libxfce4panel-2.0.so.4 finds no
+ *   reference to "panel/themes" or "panel.css"; the panel window is an
+ *   ordinary GTK3 toplevel whose style comes from GtkSettings, i.e. from
+ *   the GTK theme named in xsettings.xml (ThemeName = Mavericks).  So the
+ *   menu-bar look has to live here to take effect at all.
+ *
+ * Node names verified against the 4.20.8 sources / binaries:
+ *   .panel-N     style class of the panel window itself
+ *                (panel/panel-window.c panel_window_constructed adds
+ *                 "panel-%d" for the panel id; MavLinOS ships one panel)
+ *   .xfce4-panel style class of every plugin plug window
+ *                (wrapper/wrapper-plug-x11.c adds "panel" + "xfce4-panel").
+ *                Each panel item lives in its own socketed toplevel, so the
+ *                item widgets are NOT descendants of the panel window in the
+ *                widget tree and need their own selectors.
+ *   #clock-button  the clock plugin's button (plugins/clock/clock.c)
+ */
+
+$panel_bg_tint: rgba(246, 246, 243, 0.94);
+$panel_bg_top: rgba(255, 255, 255, 0.55);
+$panel_bg_bottom: rgba(186, 186, 180, 0.35);
+$panel_edge: rgba(118, 118, 112, 0.55);
+$panel_hover: rgba(0, 122, 255, 0.12);
+$panel_active: rgba(0, 122, 255, 0.22);
+
+.panel-1 {
+    background-color: $panel_bg_tint;
+    background-image: linear-gradient(to bottom,
+        $panel_bg_top,
+        $panel_bg_bottom);
+    border-bottom: 1px solid $panel_edge;
+    color: $mavericks-charcoal;
+}
+
+/* Plugin plug windows: transparent so the panel gradient reads as one
+ * continuous surface, which is what makes macOS' menu bar look like a bar
+ * rather than a row of buttons. */
+.xfce4-panel {
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    box-shadow: none;
+    color: $mavericks-charcoal;
+}
+
+.xfce4-panel button,
+.panel-1 button {
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    border-radius: 3px;
+    box-shadow: none;
+    color: $mavericks-charcoal;
+    min-height: 0;
+    padding: 0 6px;
+    text-shadow: none;
+}
+
+.xfce4-panel button:hover,
+.panel-1 button:hover {
+    background-color: $panel_hover;
+}
+
+.xfce4-panel button:active,
+.xfce4-panel button:checked,
+.panel-1 button:active,
+.panel-1 button:checked {
+    background-color: $panel_active;
+}
+
+/* Menu-bar clock: Lucida Grande 11 comes from the clock plugin's
+ * digital-time-font; macOS menu-bar text is regular weight. */
+#clock-button {
+    font-weight: 400;
+    padding: 0 10px;
+}
