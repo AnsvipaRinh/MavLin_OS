@@ -4,7 +4,7 @@
  * (listview-split/icon-current-entry) make rofi abort with a parse-error
  * dialog. Keep this file valid rasi (validated with rofi -dump-theme). */
 * {
-    font: "San Francisco 11";
+    font: "Lucida Grande 11";
     background-color: rgba (245, 245, 245, 98%);
     text-color: #2d2d2d;
     accent: #007aff;
