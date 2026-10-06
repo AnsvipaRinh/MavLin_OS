@@ -331,13 +331,21 @@ def build_about_class():
         def __init__(self):
             super().__init__(title="About This Mac")
             self.set_default_size(620, 460)
-            hb = Gtk.HeaderBar(title="About This Mac", show_close_button=True)
-            self.set_titlebar(hb)
+            self.set_decorated(True)
+            toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            toolbar.get_style_context().add_class("mavericks-about-toolbar")
+            title_label = Gtk.Label(label="About This Mac")
+            title_label.get_style_context().add_class("mavericks-about-title")
+            toolbar.pack_start(title_label, True, True, 8)
             rep = Gtk.Button(label="System Report…")
             rep.connect("clicked", self.show_report)
-            hb.pack_end(rep)
+            toolbar.pack_end(rep, False, False, 0)
             paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-            self.add(paned)
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            root.get_style_context().add_class("mavericks-about-shell")
+            root.pack_start(toolbar, False, False, 0)
+            root.pack_start(paned, True, True, 0)
+            self.add(root)
             store = Gtk.ListStore(str, int)
             for i, (name, _fn) in enumerate(ABOUT_CATEGORIES):
                 store.append([name, i])
@@ -505,12 +513,8 @@ def build_about_class():
             clipboard.set_text(text, -1)
             
             # Show confirmation
-            dialog = Gtk.MessageDialog(transient_for=self, modal=True,
-                message_type=Gtk.MessageType.INFO,
-                buttons=Gtk.ButtonsType.OK,
-                text="Report copied to clipboard")
-            dialog.run()
-            dialog.destroy()
+            from mv_dialogs import alert
+            alert(self, "Report copied to clipboard", "The system report is now on the clipboard.", "info")
 
     return About
 
