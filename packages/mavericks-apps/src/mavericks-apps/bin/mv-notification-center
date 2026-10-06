@@ -14,11 +14,11 @@ MAVERICKS_CSS = """
 .mavericks-notification-center,
 .mavericks-notification-center viewport,
 .mavericks-notification-center scrolledwindow { background-color: rgba(31,34,38,0.97); color: #f2f2f2; }
-.mavericks-notification-center headerbar { min-height: 48px; padding: 0 12px; background-image: none; background-color: #2b2e33; color: #fff; border: none; box-shadow: none; }
-.mavericks-notification-center headerbar .title { font-weight: normal; font-size: 15px; }
-.mavericks-notification-center headerbar .subtitle { color: #bfc2c6; font-size: 11px; }
-.mavericks-notification-center headerbar button { color: #e7e7e7; background-image: none; background-color: transparent; border: none; box-shadow: none; border-radius: 3px; }
-.mavericks-notification-center headerbar button:hover { background-color: rgba(255,255,255,0.10); }
+.mavericks-notification-center .mav-toolbar { min-height: 46px; padding: 0 12px; background-color: #2b2e33; color: #fff; border: none; border-bottom: 1px solid #4a4d51; }
+.mavericks-notification-center .mav-toolbar-title { font-weight: normal; font-size: 15px; color: #fff; }
+.mavericks-notification-center .mav-toolbar-subtitle { color: #bfc2c6; font-size: 11px; }
+.mavericks-notification-center .mav-toolbar button { color: #e7e7e7; background-image: none; background-color: transparent; border: none; box-shadow: none; border-radius: 3px; }
+.mavericks-notification-center .mav-toolbar button:hover { background-color: rgba(255,255,255,0.10); }
 .mavericks-notification-center .mav-section-header { background-color: #36393e; color: #f0f0f0; border-bottom: 1px solid #4a4d51; }
 .mavericks-notification-center .mav-section-header label { color: #f0f0f0; }
 .mavericks-notification-center list, .mavericks-notification-center list row { background-color: transparent; color: #eee; }
@@ -139,30 +139,54 @@ class NotificationCenter(Gtk.Window):
         self.set_skip_pager_hint(True)
         self.connect("realize", self.position_panel)
 
-        # Header bar
-        hb = Gtk.HeaderBar(title="Notification Center", show_close_button=True)
-        hb.set_subtitle("Notifications")
-        self.set_titlebar(hb)
+        # Mavericks-style chrome: use an ordinary GTK box rather than Gtk.HeaderBar.
+        # HeaderBar brings platform-era titlebar geometry and decorations that
+        # visibly read as modern GTK rather than OS X 10.9.
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        toolbar.set_size_request(-1, 46)
+        toolbar.set_border_width(8)
+        toolbar.get_style_context().add_class("mav-toolbar")
 
-        # DND toggle
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        title = Gtk.Label(label="Notification Center")
+        title.get_style_context().add_class("mav-toolbar-title")
+        title.set_xalign(0)
+        subtitle = Gtk.Label(label="Notifications")
+        subtitle.get_style_context().add_class("mav-toolbar-subtitle")
+        subtitle.set_xalign(0)
+        title_box.pack_start(title, False, False, 0)
+        title_box.pack_start(subtitle, False, False, 0)
+        toolbar.pack_start(title_box, True, True, 0)
+
         self.dnd_switch = Gtk.Switch()
         self.dnd_switch.set_active(get_dnd_status())
         self.dnd_switch.connect("notify::active", self.on_dnd_toggle)
-        dnd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        dnd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         dnd_box.pack_start(Gtk.Label(label="Do Not Disturb"), False, False, 0)
         dnd_box.pack_start(self.dnd_switch, False, False, 0)
-        hb.pack_end(dnd_box)
+        toolbar.pack_end(dnd_box, False, False, 0)
 
-        # Clear all button
         clear_btn = Gtk.Button(label="Clear All")
         clear_btn.connect("clicked", self.on_clear_all)
         clear_btn.get_style_context().add_class("mav-clear")
-        hb.pack_end(clear_btn)
+        toolbar.pack_end(clear_btn, False, False, 0)
+
+        close_btn = Gtk.Button()
+        close_btn.set_relief(Gtk.ReliefStyle.NONE)
+        close_btn.set_focus_on_click(False)
+        close_btn.add(Gtk.Image.new_from_icon_name("window-close-symbolic", Gtk.IconSize.MENU))
+        close_btn.set_tooltip_text("Close Notification Center")
+        close_btn.connect("clicked", lambda _button: self.destroy())
+        toolbar.pack_end(close_btn, False, False, 0)
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        outer.pack_start(toolbar, False, False, 0)
+        self.add(outer)
 
         # Main scrolled window
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        self.add(scrolled)
+        outer.pack_start(scrolled, True, True, 0)
 
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.main_box.set_border_width(0)
