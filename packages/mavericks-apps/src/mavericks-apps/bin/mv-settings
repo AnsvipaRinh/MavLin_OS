@@ -65,7 +65,7 @@ PAGES = [
     ("Security & Privacy", "preferences-system-privacy", None, "security"),
     ("Notifications", "preferences-desktop-notifications",
      ["xfce4-notifyd-config"], None),
-    ("Displays", "video-display", ["xfce4-display-settings"], None),
+    ("Displays", "video-display", None, "displays"),
     ("Energy Saver", "display", ["xfce4-power-manager-settings"], "energy"),
     ("Keyboard", "input-keyboard", ["xfce4-keyboard-settings"], None),
     ("Keyboard Shortcuts", "preferences-desktop-keyboard", ["mv-hotkeys-gui"], None),
@@ -84,7 +84,7 @@ PAGES = [
 # Native pane keys that must have a builder (_pane_<key>) in the GUI class.
 NATIVE_PANES = (
     "general", "desktop_saver", "dock", "mission_control", "language",
-    "datetime", "security", "energy", "trackpad", "network", "sound", "sharing", "users",
+    "datetime", "security", "energy", "trackpad", "network", "sound", "displays", "sharing", "users",
     "unavailable",
 )
 
@@ -205,6 +205,62 @@ def read_dbus_props(bus_name, object_path, interface):
         return res.unpack()[0] if res else {}
     except Exception:
         return {}
+
+
+# --- Displays (X11 RandR) ---
+def parse_xrandr(text):
+    """Parse connected X11 RandR outputs and their advertised modes."""
+    outputs = []
+    current = None
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        if not line or line.startswith("Screen "):
+            continue
+        m = re.match(r"^(\\S+) connected(?: primary)?(?: \\S+)?", line)
+        if m:
+            name = m.group(1)
+            primary = " connected primary " in (" " + line + " ")
+            geom = re.search(r"(\\d+)x(\\d+)\\+(-?\\d+)\\+(-?\\d+)", line)
+            current = {
+                "name": name,
+                "primary": primary,
+                "position": (int(geom.group(3)), int(geom.group(4))) if geom else (0, 0),
+                "current": "%sx%s" % (geom.group(1), geom.group(2)) if geom else None,
+                "modes": [],
+                "rotation": "normal",
+            }
+            rot = re.search(r"\\((normal|left|right|inverted)\\s+left", line)
+            if rot:
+                current["rotation"] = rot.group(1)
+            outputs.append(current)
+            continue
+        if current is not None:
+            mm = re.match(r"^\\s+(\\d+x\\d+)(.*)$", line)
+            if mm:
+                mode = mm.group(1)
+                rest = mm.group(2)
+                rates = []
+                for token in re.findall(r"(?<![A-Za-z])(\\d+(?:\\.\\d+)?)(?:[+*])?", rest):
+                    try:
+                        rate = float(token)
+                    except ValueError:
+                        continue
+                    if 20 <= rate <= 240 and rate not in rates:
+                        rates.append(rate)
+                current["modes"].append({"mode": mode, "rates": rates,
+                                        "current": "*" in rest})
+    return outputs
+
+
+def xrandr_command(args, runner=None):
+    """Run one short-lived xrandr command and return (ok, output)."""
+    if runner is None:
+        runner = subprocess.run
+    try:
+        p = runner(["xrandr"] + list(args), capture_output=True, text=True, timeout=5)
+        return p.returncode == 0, (p.stdout or "") + (p.stderr or "")
+    except Exception as exc:
+        return False, str(exc)
 
 
 # --- Date & Time (timedate1, read-only) ---
@@ -553,6 +609,79 @@ def build_settings_class():
                 "FontName", f.get_font_name()))
             lb.add(label_row("System font", font))
             return sw
+
+        def _pane_displays(self, _row=None):
+            sw, lb = pane_shell()
+            ok, raw = xrandr_command(["--query"])
+            if not ok:
+                lb.add(label_row("Displays unavailable", None,
+                                 "X11 RandR could not be queried: %s" % raw.strip()))
+                return sw
+            outputs = parse_xrandr(raw)
+            if not outputs:
+                lb.add(label_row("No connected displays", None,
+                                 "No active X11 display outputs were reported by RandR."))
+                return sw
+
+            def apply_mode(output, mode, rate=None):
+                args = ["--output", output, "--mode", mode]
+                if rate is not None:
+                    args += ["--rate", str(rate)]
+                good, detail = xrandr_command(args)
+                if not good:
+                    self._display_error("Could not change resolution", detail)
+
+            def apply_rotation(output, rotation):
+                good, detail = xrandr_command(["--output", output, "--rotate", rotation])
+                if not good:
+                    self._display_error("Could not change rotation", detail)
+
+            for out in outputs:
+                frame = Gtk.Frame(label=out["name"], margin=8)
+                box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin=10)
+                frame.add(box)
+                status = "Primary display" if out["primary"] else "Connected display"
+                box.pack_start(Gtk.Label(label=status, xalign=0), False, False, 0)
+                x, y = out["position"]
+                box.pack_start(Gtk.Label(label="Position: %d, %d" % (x, y), xalign=0), False, False, 0)
+
+                modes = [m["mode"] for m in out["modes"]]
+                if modes:
+                    combo = Gtk.ComboBoxText()
+                    for mode in modes:
+                        combo.append_text(mode)
+                    if out["current"] in modes:
+                        combo.set_active(modes.index(out["current"]))
+                    combo.connect("changed", lambda w, name=out["name"]: (
+                        apply_mode(name, w.get_active_text()) if w.get_active_text() else None))
+                    box.pack_start(label_row("Resolution", combo), False, False, 0)
+
+                rot = Gtk.ComboBoxText()
+                for value in ("normal", "left", "right", "inverted"):
+                    rot.append_text(value.title())
+                rot.set_active(("normal", "left", "right", "inverted").index(out["rotation"]))
+                rot.connect("changed", lambda w, name=out["name"]: (
+                    apply_rotation(name, ("normal", "left", "right", "inverted")[w.get_active()])
+                    if w.get_active() >= 0 else None))
+                box.pack_start(label_row("Rotation", rot), False, False, 0)
+
+                primary = Gtk.Button(label="Make Primary")
+                primary.set_sensitive(not out["primary"])
+                primary.connect("clicked", lambda _b, name=out["name"]: (
+                    self._set_primary_display(name)))
+                box.pack_start(label_row("Primary display", primary), False, False, 0)
+                lb.add(frame)
+            return sw
+
+        def _display_error(self, title, detail):
+            self._show_error(title, detail)
+
+        def _set_primary_display(self, output):
+            good, detail = xrandr_command(["--output", output, "--primary"])
+            if not good:
+                self._display_error("Could not set primary display", detail)
+            else:
+                self.show_pane("displays", title="Displays")
 
         def _pane_desktop_saver(self, _row=None):
             sw, lb = pane_shell()
