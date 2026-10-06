@@ -664,9 +664,13 @@ class TextEdit(Gtk.Window):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
-            self.buffer.begin_notifiable_actions()
+            # GtkSourceView 3 pair; removed in GtkSourceView 4 — degrade to
+            # a plain set_text on 4.x instead of aborting load_file.
+            if hasattr(self.buffer, "begin_notifiable_actions"):
+                self.buffer.begin_notifiable_actions()
             self.buffer.set_text(content)
-            self.buffer.end_notifiable_actions()
+            if hasattr(self.buffer, "end_notifiable_actions"):
+                self.buffer.end_notifiable_actions()
             self.file_path = path
             self.modified = False
             name = os.path.basename(path)
@@ -782,9 +786,11 @@ class TextEdit(Gtk.Window):
                 with open(DRAFT_FILE) as f:
                     draft = json.load(f)
                 if draft.get("text"):
-                    self.buffer.begin_notifiable_actions()
+                    if hasattr(self.buffer, "begin_notifiable_actions"):
+                        self.buffer.begin_notifiable_actions()
                     self.buffer.set_text(draft["text"])
-                    self.buffer.end_notifiable_actions()
+                    if hasattr(self.buffer, "end_notifiable_actions"):
+                        self.buffer.end_notifiable_actions()
                     self.modified = True
                     self.set_title("Untitled (Recovered) - TextEdit")
         except Exception:

@@ -100,7 +100,6 @@ element-text {
     vertical-align: 0.95;
     text-color: #ffffff;
     font: "Helvetica Neue 10";
-    text-overflow: ellipsis;
 }
 
 element-icon {
