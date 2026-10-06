@@ -454,7 +454,7 @@ def test_gui(m):
 
 def _native_chrome_contract():
     bin_name = "mv-calculator"
-    path = os.path.join(BIN, bin_name)
+    path = APP_PATH
     with open(path, "r", encoding="utf-8") as fh:
         source = fh.read()
     check("calculator: native XFWM4 decoration", "self.set_decorated(True)" in source)
