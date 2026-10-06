@@ -10,6 +10,7 @@ import json
 import time
 import argparse
 import subprocess
+import math
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -29,7 +30,7 @@ import mission_control_live
 try:
     import gi
     gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, Gdk, GLib, Pango
+    from gi.repository import Gtk, Gdk, GLib, Pango, GdkPixbuf
     _GTK_OK = True
 except (ImportError, ValueError):
     _GTK_OK = False
@@ -38,8 +39,11 @@ except (ImportError, ValueError):
 if _GTK_OK:
     CSS = """
     window.mav-mc {
-      background-color: rgba(25,27,30,0.96);
+      background-color: #111317;
       color: #eeeeee;
+    }
+    .mav-backdrop-dim {
+      background-color: rgba(0,0,0,0.38);
     }
     .mav-header {
       color: #f5f5f5;
@@ -177,12 +181,23 @@ if _GTK_OK:
                 screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
             )
 
+            # Mavericks Mission Control is presented over the desktop wallpaper.
+            self._backdrop = Gtk.Overlay()
+            self.add(self._backdrop)
+            wallpaper = self._load_wallpaper(screen)
+            if wallpaper is not None:
+                self._backdrop.add(Gtk.Image.new_from_pixbuf(wallpaper))
+            dim = Gtk.EventBox()
+            dim.set_above_child(False)
+            dim.get_style_context().add_class("mav-backdrop-dim")
+            self._backdrop.add_overlay(dim)
+
             self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
             self.box.set_margin_start(28)
             self.box.set_margin_end(28)
             self.box.set_margin_top(22)
             self.box.set_margin_bottom(22)
-            self.add(self.box)
+            self._backdrop.add_overlay(self.box)
 
             self._cards = []
             self._card_images = {}
@@ -199,6 +214,41 @@ if _GTK_OK:
             self._live = None
             self._live_capture = None
             self._build()
+
+        def _wallpaper_path(self):
+            """Return the active XFCE wallpaper path, if one is configured."""
+            try:
+                result = subprocess.run(
+                    ["xfconf-query", "-c", "xfce4-desktop", "-l"],
+                    capture_output=True, text=True, timeout=2, check=False,
+                )
+                paths = [line.strip() for line in result.stdout.splitlines()
+                         if "/backdrop/screen0/" in line and "/last-image" in line]
+                for prop in paths:
+                    value = subprocess.run(
+                        ["xfconf-query", "-c", "xfce4-desktop", "-p", prop],
+                        capture_output=True, text=True, timeout=2, check=False,
+                    ).stdout.strip()
+                    if value and os.path.isfile(value):
+                        return value
+            except (OSError, subprocess.SubprocessError):
+                pass
+            return "/usr/share/backgrounds/mavericks/mavericks-desktop.png"
+
+        def _load_wallpaper(self, screen):
+            """Load and crop the wallpaper to the primary monitor dimensions."""
+            path = self._wallpaper_path()
+            try:
+                geom = screen.get_monitor_geometry(0)
+                source = GdkPixbuf.Pixbuf.new_from_file(path)
+                sw, sh = source.get_width(), source.get_height()
+                scale = max(geom.width / sw, geom.height / sh)
+                dw, dh = max(1, int(math.ceil(sw * scale))), max(1, int(math.ceil(sh * scale)))
+                scaled = source.scale_simple(dw, dh, GdkPixbuf.InterpType.BILINEAR)
+                x, y = max(0, (dw - geom.width) // 2), max(0, (dh - geom.height) // 2)
+                return scaled.new_subpixbuf(x, y, geom.width, geom.height)
+            except Exception:
+                return None
 
         def _build(self):
             windows = mission_control.enumerate_windows()

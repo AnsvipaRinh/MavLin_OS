@@ -90,3 +90,12 @@ if __name__ == "__main__":
     test_overview_help()
     test_overview_list_mode()
     test_overview_debug_mode()
+
+
+def test_overview_uses_wallpaper_backdrop():
+    script_path = "packages/mavericks-apps/src/mavericks-apps/bin/mv-mc-overview"
+    source = open(script_path, encoding="utf-8").read()
+    assert "xfconf-query" in source
+    assert "_load_wallpaper" in source
+    assert "mav-backdrop-dim" in source
+    assert "new_subpixbuf" in source
