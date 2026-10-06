@@ -928,8 +928,11 @@ class PhotosWindow(Gtk.Window):
             screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def build_ui(self):
-        hb = Gtk.HeaderBar(title="Photos", show_close_button=True)
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hb.get_style_context().add_class("mavericks-mv-photos-toolbar")
+        title_label = Gtk.Label(label="Photos")
+        hb.pack_start(title_label, True, True, 8)
 
         self.search_entry = Gtk.SearchEntry(placeholder_text="Search photos...")
         self.search_entry.set_hexpand(True)
@@ -949,7 +952,10 @@ class PhotosWindow(Gtk.Window):
         hb.pack_end(slideshow_btn)
 
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.pack_start(hb, False, False, 0)
+        root.pack_start(paned, True, True, 0)
+        self.add(root)
 
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         sidebar.set_size_request(220, -1)
