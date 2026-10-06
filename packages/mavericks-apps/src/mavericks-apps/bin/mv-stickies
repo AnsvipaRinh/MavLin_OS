@@ -234,7 +234,11 @@ def build_stickynote_class():
             self.apply_css()
             self.get_style_context().add_class("sticky-note")
 
-            self.hb = Gtk.HeaderBar()
+            self.self.set_decorated(True)
+hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+hb.get_style_context().add_class("mavericks-mv-stickies-toolbar")
+title_label = Gtk.Label(label="mv-stickies")
+hb.pack_start(title_label, True, True, 8)
             self.hb.set_show_close_button(True)
             self.set_titlebar(self.hb)
 
@@ -274,7 +278,10 @@ def build_stickynote_class():
 
             self.sw = Gtk.ScrolledWindow()
             self.sw.add(tv)
-            self.add(self.sw)
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+root.pack_start(hb, False, False, 0)
+root.pack_start(self.sw, True, True, 0)
+self.add(root)
             self.tv = tv
 
             self.buf.set_text(self.text)
@@ -450,8 +457,7 @@ def build_searchwindow_class():
             self.set_type_hint(Gdk.WindowTypeHint.NORMAL)
 
             hb = Gtk.HeaderBar(title="Find in Stickies", show_close_button=True)
-            self.set_titlebar(hb)
-            self.entry = Gtk.SearchEntry(placeholder_text="Search all notes")
+                        self.entry = Gtk.SearchEntry(placeholder_text="Search all notes")
             self.entry.connect("changed", self.on_search)
             self.entry.connect("key-press-event", self.on_entry_key)
             hb.pack_start(self.entry)
