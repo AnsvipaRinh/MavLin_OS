@@ -37,7 +37,7 @@ install: all
 	for f in bin/mv-settings bin/mv-about bin/mv-activity bin/mv-console \
 	         bin/mv-control bin/mv-power-ui bin/mv-shot bin/mv-quicklook \
 	         bin/mv-quicklook-thunar bin/mv-spotlight-preview \
-	         bin/mv-notes bin/mv-reminders bin/mv-voice bin/mv-newfolder bin/mv-spotlight \
+	         bin/mv-notes bin/mv-spotlight-gui bin/mv-reminders bin/mv-voice bin/mv-newfolder bin/mv-spotlight \
 	         bin/mv-getinfo bin/mv-openwith bin/mv-rename bin/mv-eject bin/mv-launchpad bin/mv-mission-control bin/mv-textedit bin/mv-calculator bin/mv-calendar bin/mv-dictionary bin/mv-music bin/mv-photos bin/mv-mail bin/mv-preview \
 	         bin/mv-mc-overview bin/mv-mc-gui bin/mv-mc-grid \
 	         bin/mv-mc-thumbnail bin/mv-mc-window-spaces bin/mv-mc-activate-window \
