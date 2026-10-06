@@ -1,0 +1,453 @@
+// Mavericks GTK3 Theme — FILE CHOOSER (open/save/folder dialogs)
+//
+// WHY A SEPARATE PARTIAL
+// ----------------------
+// `_widgets.scss` carried a `filechooser { ... }` block written against
+// class names that GTK3 never emits: `.file-list`, `.file-name`,
+// `.file-size`, `.file-date`, `.button-box`, `.column-header`.  GTK3 ignores
+// selectors that match nothing, so the block compiled clean, passed
+// scripts/test-theme-css.py and did nothing on screen — the dialog stayed
+// stock Adwaita (Adwaita's light-blue rounded selection pill, 2px blue
+// focus ring around the whole file list, invisible white sidebar labels).
+//
+// WHAT IS IN HERE IS EMPIRICALLY LIVE.  Every selector below was verified
+// against a real Gtk.FileChooserDialog (OPEN/SAVE/SELECT_FOLDER, with and
+// without a header bar) by injecting a sentinel value at
+// STYLE_PROVIDER_PRIORITY_APPLICATION and checking which live widget moved —
+// scripts/test-filechooser-theme.py, which is the regression gate for it.
+// The node/class names come from walking that same dialog:
+//
+//   filechooser                            the GtkFileChooserWidget/…Dialog
+//   .sidebar (class)                       GtkPlacesSidebar   [frame,sidebar]
+//   .sidebar-revealer (class)              per-row GtkRevealer wrapper
+//   .sidebar-row (class)                   GtkPlacesSidebarRow
+//   .sidebar-label (class)                 the row's GtkLabel
+//   .sidebar-icon  (class)                 the row's GtkImage
+//   .path-bar (class)                      GtkPathBar         [linked,path-bar]
+//   .dialog-action-area (class)            GtkButtonBox holding Cancel/Open
+//   .view (class)                          the file list      [TreeView:view]
+//   .dim-label (class)                     secondary column text (Size/Date)
+//   .search (class)                        the chooser's GtkSearchEntry
+//
+// NOT addressable from CSS, listed so nobody re-litigates it:
+//   * section headings ("FAVORITES", "DEVICES", "LOCATIONS") — GTK 3.24's
+//     places sidebar has no heading widgets at all (11 `sidebar-revealer`
+//     rows, no heading labels), so there is nothing to style.  Grouping is
+//     done with hairline separators instead, which is what the sidebar
+//     looks like in Mavericks once you ignore the group titles.
+//   * the `places.sidebar` / `pathbar box` / `filechooser list view` NODE
+//     names (GTK 3.20 spelling) — they match nothing on GTK 3.24.x as
+//     shipped on Arch; the style classes above do.  Verified: see
+//     docs/DECISIONS.md.
+//   * a per-column `column-header button` selector — the header buttons do
+//     not expose min-height, so they are styled through `.view header`
+//     geometry plus the generic `button` rules they inherit.
+//
+// MAVERICKS TARGET (OS X 10.9 open/save panel)
+//   * sidebar: warm paper, 22px rows, hairline group separators, and a
+//     4px-radius system-blue pill with white text for the current location
+//     (Finder behaviour — a filled pill, not Adwaita's 12px pale one)
+//   * path bar: 22px brushed-metal breadcrumb, transparent segment buttons
+//     with the current crumb filled blue (Poppy/Mavericks crumb geometry)
+//   * file list: white list, 20px rows, filled-blue selection, NO focus ring
+//     around the whole view (Mavericks draws the ring on the row only)
+//   * column header: flat 22px grey strip, small charcoal text, no rounding
+//   * action area: brushed-metal strip, Cancel/Open right-aligned, Open as
+//     the pulsing default button the theme already defines
+
+@import "colors";
+@import "variables";
+@import "mixins";
+
+/* Sidebar geometry shared by the row, its revealer and its label.  Keeping
+ * one number here is what stops the label drifting out of its row. */
+$fc_row_min_height: 22px;
+$fc_row_pad_x: 6px;
+$fc_radius: 4px;
+$fc_strip_height: 22px;
+$fc_crumb_radius: 3px;
+
+/* Filled system-blue pill — the Mavericks selection, not Adwaita's pale
+ * tinted one.  `background-color` too: GTK3 keeps drawing a selection
+ * background-image from the theme default if only one of the two is set. */
+@mixin fc-selection-pill {
+    background-color: $accent_bg_color;
+    background-image: linear-gradient(to bottom,
+        shade($accent_bg_color, 1.18),
+        shade($accent_bg_color, 0.94));
+    color: $accent_fg_color;
+}
+
+/* Brushed-metal strip (titlebar / path bar / action area) — same gradient
+ * the window titlebar uses, so the chooser reads as part of one system. */
+@mixin fc-metal-strip {
+    background-color: $titlebar_bg_color;
+    background-image: linear-gradient(to bottom, #e9e9e9, #b2b2b2);
+    box-shadow: inset 0 1px #f1f1f1,
+                inset 0 -1px rgba(0, 0, 0, 0.28);
+    color: $mavericks-charcoal;
+}
+
+/* ============================================================
+   DIALOG SHELL
+   ============================================================ */
+
+filechooser {
+    background-color: $window_bg_color;
+    color: $fg_color;
+
+    /* The chooser owns its own shadow; radius 0 because the WM/GTK draws
+     * the frame (the same rule `windowframe` applies elsewhere). */
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+}
+
+/* Non-header-bar dialogs get a plain charcoal body instead of the generic
+ * dialog chrome so the sidebar and the list are the only framed surfaces. */
+filechooser.dialog {
+    background-color: $window_bg_color;
+}
+
+/* ============================================================
+   SIDEBAR — Finder source list
+   ============================================================ */
+
+filechooser .sidebar {
+    background-color: $sidebar_bg_color;
+    background-image: none;
+    border-right: 1px solid shade($sidebar_bg_color, 0.72);
+    color: $sidebar_fg_color;
+    min-width: 170px;
+    padding-top: 4px;
+
+    /* The frame the places sidebar is wrapped in must not draw its own
+     * 1px border + 4px padding twice (it does by default). */
+    & > frame {
+        border: none;
+        border-radius: 0;
+        padding: 0;
+        background-color: transparent;
+    }
+}
+
+/* The sidebar's own text colour.  Without this the chooser inherits GTK's
+ * `places.sidebar row:selected { color: #ffffff }` for *every* row, which is
+ * how white labels ended up on a near-white sidebar: unreadable.
+ *
+ * `.sidebar-label` is spelled out as well as the bare `label` descendant
+ * selector because it is the more specific of the two and it is what actually
+ * fixed the last white row ("Other Locations"): one of GTK's internal rows
+ * carries the class but inherits its colour from a rule that beats
+ * `.sidebar label`. */
+filechooser .sidebar label {
+    color: $sidebar_fg_color;
+}
+
+filechooser .sidebar .sidebar-label {
+    color: $sidebar_fg_color;
+}
+
+filechooser .sidebar .dim-label {
+    color: shade($sidebar_fg_color, 0.58);
+}
+
+/* Per-row revealer: neutral by default, hairline only between groups.
+ * `sidebar-revealer` is what GTK draws the group separator on, so this is
+ * where the FAVORITES/DEVICES/LOCATIONS division is faked with one hairline
+ * per row instead of three missing headings. */
+filechooser .sidebar .sidebar-revealer {
+    background-color: transparent;
+    background-image: none;
+    border: none;
+    border-bottom: 1px solid shade($sidebar_bg_color, 0.9);
+    box-shadow: none;
+    min-height: $fc_row_min_height;
+}
+
+filechooser .sidebar .sidebar-revealer:last-child {
+    border-bottom: none;
+}
+
+/* The 8px horizontal margin is what insets the blue pill from the sidebar
+ * edge; without it the pill spans the full width and reads as a selection
+ * *bar* rather than Finder's inset source-list pill. */
+filechooser .sidebar row {
+    min-height: $fc_row_min_height;
+    margin: 0 $fc_row_pad_x;
+    padding: 0;
+    border-radius: $fc_radius;
+    color: $sidebar_fg_color;
+    transition: background-color 0.1s ease-out;
+}
+
+filechooser .sidebar row > box {
+    padding: 0 4px;
+}
+
+filechooser .sidebar row:hover:not(:selected) {
+    background-color: shade($sidebar_bg_color, 0.955);
+}
+
+filechooser .sidebar row:selected {
+    @include fc-selection-pill;
+    border-radius: $fc_radius;
+
+    /* The pill must be inset from the sidebar edge, which means the
+     * selected state has to reach the label too, not just the row. */
+    label {
+        color: $accent_fg_color;
+        font-weight: 500;
+    }
+
+    .dim-label {
+        color: shade($accent_fg_color, 1.6);
+    }
+
+    .sidebar-icon {
+        opacity: 1;
+    }
+}
+
+filechooser .sidebar row:selected:backdrop {
+    background-image: linear-gradient(to bottom,
+        shade($accent_bg_color, 1.05),
+        shade($accent_bg_color, 0.9));
+    color: $accent_fg_color;
+}
+
+/* "New bookmark" / "Other Locations" rows are actions, not locations:
+ * no pill, accent-coloured like every other MavLinOS action row. */
+filechooser .sidebar .sidebar-new-bookmark-row {
+    background-color: transparent;
+}
+
+filechooser .sidebar .sidebar-new-bookmark-row label {
+    color: $focus_color;
+    font-weight: 500;
+}
+
+/* 16px icons, the Finder sidebar size. */
+/* Icon spacing only.  The row icon SIZE cannot be set from CSS on the GTK
+ * this targets: `icon-size` (GTK3) and `-gtk-icon-size` (GTK4) are both
+ * rejected by the parser (`'icon-size' is not a valid property name`), and
+ * scripts/test-theme-css.py fails on either.  GtkPlacesSidebar already sizes
+ * these to 16px, which is the Finder value, so nothing is lost. */
+filechooser .sidebar .sidebar-icon {
+    margin: 0 4px 0 2px;
+    opacity: 0.85;
+}
+
+filechooser .sidebar row:selected .sidebar-icon {
+    opacity: 1;
+}
+
+/* ============================================================
+   PATH BAR — Mavericks breadcrumb
+   ============================================================ */
+
+filechooser .path-bar {
+    @include fc-metal-strip;
+    border-bottom: 1px solid #8c8c8c;
+    min-height: $fc_strip_height;
+    padding: 0 6px;
+    border-radius: 0;
+}
+
+/* `.path-bar` carries `.linked`, whose global rule zeroes the radius and
+ * the right border.  Crumbs are separate buttons in Mavericks, so put the
+ * radius back and give each crumb its own edge.
+ *
+ * The extra `.view` in these selectors is load-bearing, not decoration: the
+ * path-bar box carries the `.view` class, so the column-header rule
+ * (`filechooser .view button`) would otherwise tie on specificity (0,1,2) and
+ * win on source order — that is what painted grey boxes around every crumb
+ * before this was added. */
+filechooser .view .path-bar > button {
+    background-color: transparent;
+    background-image: none;
+    border: 1px solid transparent;
+    border-radius: $fc_crumb_radius;
+    box-shadow: none;
+    color: $fg_color;
+    font-size: 0.9em;
+    margin: 0 1px;
+    min-height: 18px;
+    padding: 0 7px;
+    text-shadow: none;
+}
+
+filechooser .view .path-bar > button:hover {
+    background-color: shade($titlebar_bg_color, 0.88);
+    border-color: shade($titlebar_bg_color, 0.7);
+}
+
+filechooser .view .path-bar > button:checked {
+    @include fc-selection-pill;
+    font-weight: 500;
+}
+
+filechooser .view .path-bar > button:backdrop {
+    color: shade($fg_color, 0.55);
+}
+
+/* ============================================================
+   FILE LIST
+   ============================================================ */
+
+filechooser .view {
+    background-color: $view_bg_color;
+    background-image: none;
+    color: $fg_color;
+}
+
+/* Mavericks draws the keyboard focus ring on the row, not as a 2px blue
+ * rectangle around the entire list — that ring was one of the most
+ * obviously non-Mavericks things in the dialog. */
+filechooser .view:focus {
+    outline: none;
+    box-shadow: none;
+    border: none;
+}
+
+/* Row selection.  The selector is `.view:selected` — the LIST NODE — not
+ * `.view row:selected`, and that is not a stylistic preference: on this GTK
+ * (3.24.52) a GtkTreeView never paints a `row` node's own background at all.
+ * Proven by injection on a live dialog:
+ *   treeview row          { background-color: #f00 }  -> paints nothing
+ *   treeview row:selected { background-image: …    }  -> paints nothing
+ *   treeview:selected     { background-color: #f00 }  -> paints the selected
+ *                                                       row, and only it
+ * So `.view:selected` is what actually produces the filled Mavericks blue
+ * selection bar with white text; the row-level rules that stood here were
+ * inert (they were also the reason the chooser kept Adwaita's selection).
+ * Row HEIGHT is likewise unreachable from CSS: rows stay 18px against
+ * Finder's 20px.  Recorded as a known delta, not a silent one. */
+filechooser .view:selected {
+    @include fc-selection-pill;
+    color: $accent_fg_color;
+}
+
+filechooser .view:selected:backdrop {
+    background-image: linear-gradient(to bottom,
+        shade($accent_bg_color, 1.05),
+        shade($accent_bg_color, 0.9));
+}
+
+/* Column header strip: flat, 22px, charcoal, no rounding — a header bar
+ * inside a dialog that already has a title bar reads as two title bars.
+ *
+ * The selector is `.view button`, NOT `.view header button`, and that is not
+ * a typo.  GtkTreeViewHeader is created by GtkTreeView's C code and is NOT a
+ * widget child, so it does not appear in the widget tree and neither
+ * `header`, `column-header` nor `column-header button` matches anything
+ * (all three verified dead by pixel injection).  What does exist, and is
+ * reachable from CSS, are the GtkTreeViewColumn header buttons — and they
+ * ARE descendants of the list's `.view` node.  Measured result: the strip
+ * paints #fdfdfd→#ececec from y=6 to y=22. */
+filechooser .view button {
+    background-color: shade($view_bg_color, 0.94);
+    background-image: linear-gradient(to bottom, #fdfdfd, #ececec);
+    border: none;
+    border-bottom: 1px solid $border_color;
+    border-radius: 0;
+    box-shadow: none;
+    color: shade($mavericks-charcoal, 0.25);
+    font-size: 0.85em;
+    font-weight: 500;
+    min-height: $fc_strip_height;
+    padding: 0 6px;
+    text-shadow: none;
+}
+
+filechooser .view button:hover {
+    background-color: shade($view_bg_color, 0.88);
+    color: $fg_color;
+}
+
+/* The remaining widgets on the path-bar strip are not children of the
+ * GtkPathBar, so the crumb rules above cannot reach them: the breadcrumb
+ * scroll buttons (`.slider-button`) and the LIST/ICON view toggle
+ * (`.image-button.toggle`) are children of the path-bar BOX.  Flatten them
+ * so the strip stays one continuous metal band. */
+filechooser .view .path-bar > button.slider-button,
+filechooser .view > button.image-button.toggle {
+    background-color: transparent;
+    background-image: none;
+    border: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+    border-radius: 3px;
+    box-shadow: none;
+}
+
+filechooser .view > button.image-button.toggle:hover {
+    background-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Secondary columns (Location / Size / Type / Modified). */
+filechooser .view .dim-label {
+    color: shade($mavericks-charcoal, 0.35);
+}
+
+/* ============================================================
+   SEARCH ENTRY (the chooser's own search box)
+   ============================================================
+   The search entry lives in a popover the chooser only builds when the
+   search toggle is pressed.  No `filechooser`-scoped selector was proven to
+   reach it (`.search`, `entry.search`, `filechooser .search-entry` all read
+   dead on the un-popped-up dialog), so it inherits the theme's global flat
+   Mavericks `entry` styling and nothing chooser-specific is claimed here.
+   Verified open/popped-up as a hardware-validation item — see
+   docs/NEEDS_HARDWARE_TEST.md. */
+
+/* ============================================================
+   ACTION AREA — Cancel / Open strip
+   ============================================================
+   DELIBERATELY NOT STYLED HERE.
+
+   GtkDialog's action area is NOT inside the filechooser CSS node: a pixel
+   injection of `filechooser button`, `filechooser .dialog-action-area
+   button` and `filechooser .dialog-action-area` (padding included) moves
+   nothing, while the same injection on `.dialog-action-area` alone does.
+   The chooser already inherits a Mavericks metal strip, a hairline top edge
+   and right-aligned buttons from the global `dialog .dialog-action-area`
+   rule in _windows.scss, so there is nothing to win here — and changing that
+   global rule would restyle every MavLinOS dialog, which is canonical #20
+   (Global Dialogs), not #21.
+
+   Known remaining gap, for whoever owns #20: the chooser's Cancel/Open
+   buttons are 42px tall (130x42 measured) because GTK's default CSS gives
+   `dialog-action-area button { padding: 12px 16px }`.  A Mavericks open
+   sheet wants ~22px.  The fix is one global rule,
+   `dialog .dialog-action-area button { padding: 4px 18px; min-height: 22px }`.
+   It is deliberately NOT added here — it changes every dialog in the OS. */
+
+/* ============================================================
+   EMBEDDED WIDGET + HEADER-BAR VARIANT
+   ============================================================ */
+
+/* GtkFileChooserWidget embedded in an app window (no dialog action area). */
+filechooser.widget {
+    background-color: $window_bg_color;
+    border-radius: 0;
+}
+
+/* Header-bar dialogs: keep the 22px Mavericks titlebar height that
+ * `headerbar` sets globally, and drop the chooser's own body padding. */
+filechooser headerbar {
+    background-image: linear-gradient(to bottom, #e9e9e9, #b2b2b2);
+    border-bottom: 1px solid #8c8c8c;
+    min-height: 22px;
+    padding: 0 8px;
+    box-shadow: inset 0 1px #f1f1f1,
+                inset 0 -2px rgba(255, 255, 255, 0.085),
+                inset 0 -1px rgba(0, 0, 0, 0.38);
+    color: $mavericks-charcoal;
+}
+
+/* The file chooser inside a popover (Open-with / Recents): keep the paper
+ * body so the popover's rounded glass does not show through. */
+popover > filechooser,
+filechooser popover {
+    background-color: $window_bg_color;
+}

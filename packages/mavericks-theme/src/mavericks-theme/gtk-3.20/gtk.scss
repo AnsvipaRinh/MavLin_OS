@@ -10,6 +10,7 @@
 @import "../gtk-3.0/notebook";
 @import "../gtk-3.0/menus";
 @import "../gtk-3.0/panel";
+@import "../gtk-3.0/filechooser";
 /* ============================================================
    GTK 3.20+ SPECIFIC OVERRIDES
    ============================================================ */
@@ -26,10 +27,12 @@ popover {
     /* 3.20+ native popover */
 }
 
-/* Improved file chooser */
-filechooser {
-    /* 3.20+ native file chooser */
-}
+/* Improved file chooser
+   The rules live in ../gtk-3.0/_filechooser.scss (imported above). They are
+   written against style CLASSES, which is what matches on GTK 3.24.x; the
+   3.20 node names (`places.sidebar`, `pathbar box`, `filechooser list view`)
+   were verified to match nothing here. Do not re-add an empty `filechooser {}`
+   block — see the notes at the top of ../gtk-3.0/_filechooser.scss. */
 
 /* Better color chooser */
 colorchooser {

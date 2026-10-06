@@ -150,6 +150,24 @@ if [[ -f scripts/test-theme-css.py ]]; then
   python3 scripts/test-theme-css.py && ok "theme-css" || bad "theme-css"
 fi
 
+echo "--- file chooser theme (canonical #21) ---"
+# Two halves, because the first one cannot catch the failure this gate exists
+# for: GTK3 ignores a selector that matches nothing, so a filechooser block
+# full of invented class names compiled clean and rendered as stock Adwaita.
+# Static half = selector vocabulary in the SCSS sources; GUI half = real
+# GtkFileChooserDialog rendered on the pinned Xvfb with the repo's own compiled
+# theme over stock Adwaita, asserted on pixels.
+if [[ -f scripts/test-filechooser-theme.py ]]; then
+  FC_OUT="$(mktemp)"
+  if timeout 180 python3 scripts/test-filechooser-theme.py >"$FC_OUT" 2>&1; then
+    ok "file chooser theme: $(grep -c '^ok - ' "$FC_OUT") assertions"
+  else
+    bad "file chooser theme"
+    grep -E '^FAIL' "$FC_OUT" | sed 's/^/    | /'
+  fi
+  rm -f "$FC_OUT"
+fi
+
 echo "--- dock P0: plank reads GSettings, not dock1/settings ---"
 # plank 0.11 ignores ~/.config/plank/dock1/settings entirely, so the static
 # contract is asserted against the installed gschema and the measured
