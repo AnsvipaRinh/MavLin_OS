@@ -161,6 +161,12 @@ def main():
     displays = [r for r in m.PAGES if r[0] == "Displays"][0]
     check("route: available external tool -> launch",
           m.page_action(displays) == ("launch", ["xfce4-display-settings"]))
+    network = [r for r in m.PAGES if r[0] == "Network"][0]
+    check("route: Network uses native pane",
+          network[2] is None and network[3] == "network", str(network))
+    check("native pane registry: Network is declared",
+          "network" in m.NATIVE_PANES)
+
     bt = [r for r in m.PAGES if r[0] == "Bluetooth"][0]
     fake = m.page_action(bt, tool_available=lambda cmd: False)
     check("route: missing tool -> honest unavailable",
