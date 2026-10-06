@@ -910,12 +910,7 @@ def unsubscribe_device_signals(conn, sub_id):
 
 
 def _dialogs_module():
-    """Shared Mavericks dialog helpers (installed to share/mavericks-apps).
-
-    Falling back to plain Gtk.MessageDialog keeps the app functional when
-    the shared module is unavailable (e.g. running straight from a source
-    checkout), at the cost of the shared alert styling.
-    """
+    """Load the mandatory shared Mavericks dialog helpers."""
     for extra in ("/usr/share/mavericks-apps",
                   os.path.dirname(os.path.abspath(__file__))):
         if extra not in sys.path:
@@ -1570,14 +1565,7 @@ def build_diskutil_class():
                                     msg_type=MT.get(level, _Gtk.MessageType.INFO),
                                     buttons=buttons, default=default,
                                     destructive=destructive)
-            dialog = Gtk.MessageDialog(transient_for=self, modal=True,
-                                       message_type=MT.get(level, Gtk.MessageType.INFO),
-                                       buttons=Gtk.ButtonsType.OK, text=message)
-            if secondary:
-                dialog.format_secondary_text(secondary)
-            dialog.run()
-            dialog.destroy()
-            return Gtk.ResponseType.OK
+            raise RuntimeError("mv_dialogs shared helper is unavailable")
 
         def confirm(self, message, secondary, ok_label, destructive=False):
             import gi
@@ -1591,15 +1579,7 @@ def build_diskutil_class():
                     buttons=[("Cancel", _Gtk.ResponseType.CANCEL),
                              (ok_label, _Gtk.ResponseType.OK)],
                     default=_Gtk.ResponseType.CANCEL, destructive=destructive)
-            dialog = Gtk.MessageDialog(
-                transient_for=self, modal=True,
-                message_type=Gtk.MessageType.WARNING,
-                buttons=Gtk.ButtonsType.OK_CANCEL, text=message)
-            dialog.format_secondary_text(secondary)
-            response = dialog.run()
-            dialog.destroy()
-            return (Gtk.ResponseType.OK if response == Gtk.ResponseType.OK
-                    else Gtk.ResponseType.CANCEL)
+            raise RuntimeError("mv_dialogs shared helper is unavailable")
 
         # -- actions --------------------------------------------------------
         def show_in_finder(self, block):
