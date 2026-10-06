@@ -253,7 +253,13 @@ class LaunchpadWindow(Gtk.Window):
         self, widget, context, x, y, selection, _info, time, target_item
     ):
         source_id = selection.get_text()
-        if not source_id or target_item.get("type") not in ("app", "folder"):
+        # Search results are a filtered projection, not the authoritative
+        # top-level ordering. Reordering them would corrupt global positions.
+        if (
+            not source_id
+            or self.query
+            or target_item.get("type") not in ("app", "folder")
+        ):
             Gtk.drag_finish(context, False, False, time)
             return
 
@@ -265,7 +271,9 @@ class LaunchpadWindow(Gtk.Window):
                 Gtk.drag_finish(context, False, False, time)
                 return
             self.folders = updated_folders
+            self.positions.pop(source_id, None)
             mv_launchpad.save_folders(self.folders)
+            mv_launchpad.save_positions(self.positions)
             self.page = 0
             self.selected_index = 0
             self._render()
