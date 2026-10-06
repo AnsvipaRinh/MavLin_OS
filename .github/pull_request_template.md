@@ -39,3 +39,6 @@ Delete the instructional comments (<!-- ... -->) before submitting.
 
 ### Limitations
 <!-- Known gaps, TODOs, deferred items, architectural constraints, follow-up work. -->
+
+### Coordination
+<!-- OPTIONAL, но рекомендуется (docs/COORDINATION.md). Одной строкой: `Claim: <id из .agents/claims/>` или `Claim: none`; не пересекается ли с открытыми PR/ветками (да/нет); затронуты ли защищённые файлы из .agents/protected.txt. -->

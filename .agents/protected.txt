@@ -1,0 +1,9 @@
+# Файлы с высокой ценой ошибки. Менять только под активным claim (docs/COORDINATION.md, R4).
+# Один glob на строку; * совпадает и с /.
+AGENTS.md
+opencode.jsonc
+.opencode/*
+.github/workflows/*
+scripts/check-sync.sh
+*mv_hotkeys_core*
+*xfce4-keyboard-shortcuts.xml
