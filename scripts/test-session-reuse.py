@@ -398,18 +398,21 @@ class MigrateTests(ScriptCase):
     def test_migrate_preserves_session(self):
         # Register a session on the CURRENT primary model, migrate after
         # a simulated provider delay -> cooldown recorded, next healthy
-        # worker (build-b, first fallback) becomes the new backend.
+        # worker (first fallback by CHAIN ORDER — build-j since the GLM
+        # restoration; never hardcode the role) becomes the new backend.
         primary_model = sr.worker_pins()[0][1]
+        expected_role, _m, _w = sr.resolve_next_worker([primary_model])
+        self.assertTrue(expected_role)
         self.register_live(agent="build", model=primary_model)
         r = self.run_script("migrate", "ses_LIVE", "--objective",
                             "Test Objective", "--delay", "7000")
         self.assertIn("task_id=ses_LIVE", r.stdout, r.stdout + r.stderr)
-        self.assertIn("subagent_type=build-b", r.stdout)
+        self.assertIn(f"subagent_type={expected_role}", r.stdout)
         self.assertNotIn("NO `task_id`", r.stdout)
         with open(REG) as f:
             reg = json.load(f)
         meta = reg["sessions"]["ses_LIVE"]
-        self.assertEqual(meta["agent"], "build-b")  # backend switched
+        self.assertEqual(meta["agent"], expected_role)  # backend switched
         self.assertEqual(meta["state"], "reusable")  # session NOT killed
         self.assertIn("migratedFrom", meta)
         # Cooldown recorded for the dead model with provider delay.
@@ -551,12 +554,15 @@ class PreflightTests(ScriptCase):
 
     def test_preflight_skips_cooldown_primary(self):
         # Primary model in cooldown -> next healthy worker BEFORE any Task.
+        # Expected fallback derived from the chain (never hardcoded).
         primary_model = sr.worker_pins()[0][1]
+        expected_role = sr.resolve_next_worker([primary_model])[0]
+        self.assertTrue(expected_role)
         self.run_script("mark-dead", primary_model, "--reason", "test")
         r = self.run_script("preflight")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("PRIMARY_COOLDOWN build", r.stdout)
-        self.assertIn("PREFLIGHT_OK subagent_type=build-b", r.stdout)
+        self.assertIn(f"PREFLIGHT_OK subagent_type={expected_role}", r.stdout)
 
     def test_preflight_all_cooling_waits(self):
         # ALL worker pins must cool (pool size comes from live config,
@@ -680,14 +686,18 @@ class WatchdogTests(ScriptCase):
     def test_migrate_uses_abort_delay(self):
         # migrate without --delay picks up a fresh watchdog abort record.
         # Primary model is aborted -> cooldown recorded with observed delay
-        # -> migrate picks next healthy worker (build-b, first fallback).
+        # -> migrate picks next healthy worker by chain order (derived,
+        # not hardcoded — build-j since the GLM restoration).
+        expected_role = sr.resolve_next_worker(
+            [sr.worker_pins()[0][1]])[0]
+        self.assertTrue(expected_role)
         self.reg_busy()
         self.run_watchdog("--once", "--session", "ses_BUSY",
                           "--threshold", "600")
         r = self.run_script("migrate", "ses_BUSY", "--objective",
                             "Busy Objective")
         self.assertIn("task_id=ses_BUSY", r.stdout, r.stdout + r.stderr)
-        self.assertIn("subagent_type=build-b", r.stdout)
+        self.assertIn(f"subagent_type={expected_role}", r.stdout)
         r2 = self.run_script("health")
         self.assertIn("1h56m", r2.stdout)  # abort delay, not 3h default
 
@@ -1139,11 +1149,420 @@ class WatchdogEnsureTests(unittest.TestCase):
                 pass
 
 
+class HealthStoreConsistencyTests(ScriptCase):
+    """A1 (E3/E4 split-brain): ONE health store for every writer and
+    reader. Writers may use any spelling (bare or full model id); readers
+    (preflight/migrate/models) resolve symmetrically and never return a
+    cooldown model without an explicit --force."""
+
+    def test_mark_dead_bare_spelling_blocks_pin(self):
+        # The E3 incident shape: classify-error --record-model used the
+        # BARE id while preflight resolves the FULL pin.
+        primary = sr.worker_pins()[0]
+        fallbacks = [(r, m) for r, m in sr.worker_pins() if r != "build"]
+        fb_role, fb_model = fallbacks[0]
+        bare = fb_model.split("/")[-1]
+        r = self.run_script("classify-error", "rate limited, retry later",
+                            "--record-model", bare)
+        self.assertEqual(r.returncode, 11, r.stdout + r.stderr)
+        self.assertGreater(sr.cooldown_remaining(fb_model), 0,
+                           "bare-id record must block the full pin")
+        # Primary also dead -> preflight must NOT return the fallback.
+        self.run_script("mark-dead", primary[1], "--reason", "test")
+        r = self.run_script("preflight")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn(f"PREFLIGHT_OK subagent_type={fb_role}", r.stdout)
+        chosen = [l for l in r.stdout.splitlines()
+                  if l.startswith("PREFLIGHT_OK")]
+        self.assertTrue(chosen)
+        # Defensive: the model actually recommended is cooldown-free.
+        m = chosen[0].split("model=")[1]
+        self.assertEqual(sr.cooldown_remaining(m), 0)
+
+    def test_migrate_skips_cooldown_model_and_force_overrides(self):
+        # E4 shape: migrate must not select a model whose cooldown was
+        # recorded under a different spelling; --force is the human escape.
+        primary_model = sr.worker_pins()[0][1]
+        fb1_role = sr.resolve_next_worker([primary_model])[0]  # chain rank
+        fb1_model = dict((r, m) for r, m in sr.worker_pins())[fb1_role]
+        self.assertTrue(fb1_role)
+        self.register_live(agent="build", model=primary_model)
+        self.run_script("mark-dead", primary_model, "--reason", "dead")
+        self.run_script("mark-dead", fb1_model.split("/")[-1],
+                        "--reason", "bare-spelling death")
+        r = self.run_script("migrate", "ses_LIVE", "--objective",
+                            "Test Objective", "--delay", "7000")
+        self.assertIn("task_id=ses_LIVE", r.stdout, r.stdout + r.stderr)
+        self.assertNotIn(f"subagent_type={fb1_role}", r.stdout)
+        chosen = [l for l in r.stdout.splitlines()
+                  if l.startswith("subagent_type=")][0].split("=")[1]
+        # --force explicitly overrides cooldowns (owner directive only):
+        # with the new backend now excluded as old_model, the ranking puts
+        # the (cooling) PRIMARY first — force hands it out anyway.
+        r2 = self.run_script("migrate", "ses_LIVE", "--objective",
+                             "Test Objective", "--delay", "7000",
+                             "--force")
+        self.assertIn("task_id=ses_LIVE", r2.stdout, r2.stdout + r2.stderr)
+        self.assertIn("subagent_type=build", r2.stdout)
+        self.assertNotIn("subagent_type=" + chosen, r2.stdout)
+
+    def test_reset_timestamp_becomes_cooldown(self):
+        # E2: "Usage limit reached for 5 hour ... reset <ts>" — the exact
+        # revival time (+20 min margin) becomes the cooldown, not 3h.
+        import datetime as _dt
+        primary_model = sr.worker_pins()[0][1]
+        reset = (_dt.datetime.now(_dt.timezone.utc) +
+                 _dt.timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
+        r = self.run_script(
+            "classify-error",
+            f"Usage limit reached for 5 hour window, reset {reset} UTC",
+            "--record-model", primary_model)
+        self.assertEqual(r.returncode, 10, r.stdout + r.stderr)
+        rem = sr.cooldown_remaining(primary_model)
+        self.assertGreater(rem, 3 * 3600)          # not the flat 3h default
+        self.assertLess(rem, 3 * 3600 + 25 * 60)   # reset + 20m margin
+
+    def test_cooldown_never_shrinks(self):
+        # A re-migrate with a shorter delay must not cut a longer
+        # provider cooldown (record_dead keep_longer).
+        m = sr.worker_pins()[0][1]
+        self.run_script("mark-dead", m, "--in", "7200", "--reason", "long")
+        self.run_script("mark-dead", m, "--in", "300", "--reason", "short")
+        self.assertGreater(sr.cooldown_remaining(m), 7000)
+
+
+class ConfigDriftTests(ScriptCase):
+    """A2 (E6 tug-of-war): models/preflight compare the live worker config
+    with HEAD and print a loud banner when they diverge."""
+
+    def setUp(self):
+        super().setUp()
+        import tempfile
+        self.tmp = tempfile.mkdtemp(prefix="sr-drift-")
+        self.run_cmd(["git", "init", "-q"], {})
+        self.run_cmd(["git", "config", "user.email", "t@t"], {})
+        self.run_cmd(["git", "config", "user.name", "t"], {})
+        for name in (".opencode/model-fallback.json", "opencode.jsonc"):
+            path = os.path.join(self.tmp, name)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                f.write('{}\n')
+        self.run_cmd(["git", "add", "-A"], {})
+        self.run_cmd(["git", "commit", "-qm", "init"], {})
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        super().tearDown()
+
+    def run_cmd(self, cmd, _extra):
+        import subprocess
+        return subprocess.run(cmd, cwd=self.tmp, capture_output=True)
+
+    def test_no_drift_when_clean(self):
+        self.assertEqual(sr.config_drift(repo=self.tmp), [])
+
+    def test_modified_drift_detected(self):
+        with open(os.path.join(self.tmp, ".opencode/model-fallback.json"),
+                  "a") as f:
+            f.write('\n{"silently": "rewritten"}\n')
+        d = sr.config_drift(repo=self.tmp)
+        self.assertIn((".opencode/model-fallback.json", "modified"), d)
+        self.assertIn("CONFIG-DRIFT", _banner_for(self.tmp))
+
+    def test_untracked_drift_detected(self):
+        with open(os.path.join(self.tmp, "x-new.json"), "w") as f:
+            f.write("{}")
+        self.assertIn(("x-new.json", "untracked"),
+                      sr.config_drift(repo=self.tmp, files=["x-new.json"]))
+
+    def test_preflight_prints_banner_only_on_drift(self):
+        import subprocess
+        base_env = dict(os.environ)
+        base_env.update({"OPENCODE_SERVER_HOST": "127.0.0.1",
+                         "OPENCODE_SERVER_PORT": str(self.port),
+                         "OPENCODE_SERVER_USERNAME": "u",
+                         "OPENCODE_SERVER_PASSWORD": "p"})
+        clean = dict(base_env, SR_DRIFT_REPO=self.tmp)
+        r = subprocess.run([sys.executable, SCRIPT, "preflight"],
+                           capture_output=True, text=True, env=clean)
+        self.assertNotIn("CONFIG-DRIFT", r.stdout)
+        with open(os.path.join(self.tmp, "opencode.jsonc"), "a") as f:
+            f.write('\n{"pin": "changed"}\n')
+        dirty = dict(base_env, SR_DRIFT_REPO=self.tmp)
+        r2 = subprocess.run([sys.executable, SCRIPT, "preflight"],
+                            capture_output=True, text=True, env=dirty)
+        self.assertIn("CONFIG-DRIFT", r2.stdout)
+        self.assertIn("opencode.jsonc", r2.stdout)
+
+
+def _banner_for(repo):
+    saved = os.environ.get("SR_DRIFT_REPO")
+    os.environ["SR_DRIFT_REPO"] = repo
+    try:
+        return sr.drift_banner()
+    finally:
+        if saved is None:
+            os.environ.pop("SR_DRIFT_REPO", None)
+        else:
+            os.environ["SR_DRIFT_REPO"] = saved
+
+
+class OrphanGcTests(ScriptCase):
+    """B1 (E1): verified-only orphan GC; registry-only rows are ORPHAN
+    noise, not STUCK signal."""
+
+    def _write_reg(self, sessions):
+        with open(REG, "w") as f:
+            json.dump({"$schema": "session-registry v1",
+                       "sessions": sessions}, f)
+
+    @staticmethod
+    def _meta(age_sec, model="opencode/longcat-2.5-preview-free"):
+        from datetime import datetime, timezone, timedelta
+        return {"agent": "build", "objective": "o", "task": "t",
+                "model": model, "oid": "", "state": "reusable",
+                "lastUsed": (datetime.now(timezone.utc) -
+                             timedelta(seconds=age_sec)).isoformat(
+                                 timespec="seconds")}
+
+    def test_gc_retires_verified_gone_only(self):
+        # 'ses_LIVE' EXISTS on the mock server; the others do not.
+        self._write_reg({
+            "ses_GONE_OLD": self._meta(2 * 24 * 3600),   # absent + old
+            "ses_LIVE": self._meta(2 * 24 * 3600),       # exists on server
+            "ses_GONE_FRESH": self._meta(3600),          # absent but fresh
+        })
+        r = self.run_script("stuck", "--gc", "--threshold", "600")
+        # Exit may be 2: the mock server always carries genuinely stuck
+        # sessions (ses_BUSY retry 7000s) — not this test's concern.
+        self.assertIn(r.returncode, (0, 2), r.stdout + r.stderr)
+        with open(REG) as f:
+            reg = json.load(f)["sessions"]
+        self.assertEqual(reg["ses_GONE_OLD"]["state"], "retired")
+        self.assertIn("gcReason", reg["ses_GONE_OLD"])
+        self.assertEqual(reg["ses_LIVE"]["state"], "reusable")
+        self.assertEqual(reg["ses_GONE_FRESH"]["state"], "reusable")
+
+    def test_orphan_rows_are_not_stuck(self):
+        # The E1 noise: 150 registry-only rows used to be verdict=STUCK and
+        # drove exit 2. Status absence = idle: ORPHAN, and THIS row never
+        # makes the run exit 2 (mock's own stuck sessions may).
+        self._write_reg({"ses_GONE_OLD": self._meta(50 * 3600)})
+        r = self.run_script("stuck", "--threshold", "600")
+        self.assertIn(r.returncode, (0, 2), r.stdout + r.stderr)
+        self.assertIn("ORPHAN ses_GONE_OLD", r.stdout)
+        self.assertNotIn("STUCK ses_GONE_OLD", r.stdout)
+
+    def test_gc_never_retires_when_api_blind(self):
+        self._write_reg({"ses_GONE_OLD": self._meta(2 * 24 * 3600)})
+        r = self.run_script("stuck", "--gc", "--threshold", "600",
+                            port=self.port + 1)  # nothing listens there
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        with open(REG) as f:
+            reg = json.load(f)["sessions"]
+        self.assertEqual(reg["ses_GONE_OLD"]["state"], "reusable")
+
+
+class PoolTests(ScriptCase):
+    """B3 (E10): account pools — a quota death blocks failover INSIDE the
+    pool; provider timeouts stay per-model."""
+
+    FLASH = "zai-coding-plan/glm-5.3-flash"
+    GLM = "zai-coding-plan/glm-5.3"
+
+    def test_chain_declares_glm_pool(self):
+        self.assertEqual(sr.pool_of(self.FLASH), "zai-coding-plan")
+        self.assertEqual(sr.pool_of(self.GLM), "zai-coding-plan")
+
+    def test_quota_death_is_pool_wide(self):
+        r = self.run_script("classify-error",
+                            "usage limit exceeded, billing required",
+                            "--record-model", self.FLASH)
+        self.assertEqual(r.returncode, 10, r.stdout + r.stderr)
+        self.assertGreater(sr.cooldown_remaining(self.GLM), 0,
+                           "sibling pool member must be blocked")
+        self.assertGreater(sr.pool_wide_remaining("zai-coding-plan"), 0)
+        # mark-alive --pool clears the whole pool (owner word > memory).
+        r2 = self.run_script("mark-alive", "--pool", "zai-coding-plan")
+        self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
+        self.assertEqual(sr.cooldown_remaining(self.GLM), 0)
+        self.assertEqual(sr.cooldown_remaining(self.FLASH), 0)
+
+    def test_timeout_death_is_not_pool_wide(self):
+        self.run_script("mark-dead", self.FLASH, "--in", "7200",
+                        "--reason", "provider timeout")
+        self.assertGreater(sr.cooldown_remaining(self.FLASH), 0)
+        self.assertEqual(sr.cooldown_remaining(self.GLM), 0,
+                         "per-model timeout must not block the sibling")
+
+    def test_preflight_avoids_dead_pool(self):
+        self.run_script("mark-dead", self.FLASH, "--in", "7200",
+                        "--reason", "quota", "--pool-wide")
+        r = self.run_script("preflight")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("PRIMARY_COOLDOWN", r.stdout)
+        self.assertNotIn("zai-coding-plan", r.stdout.split("PREFLIGHT_OK")[1])
+
+
+class ChaosFailoverTests(ScriptCase):
+    """B4: end-to-end failover chain against the mock server — detection,
+    cooldown, migration skipping cooldown models, all without real
+    network."""
+
+    def reg_busy(self):
+        r = self.run_script("register", "ses_BUSY", "--agent", "build",
+                            "--objective", "Busy Objective", "--task",
+                            "do Y", "--model", sr.worker_pins()[0][1],
+                            "--oid", "busy-o")
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_retry_stuck_to_migration_skipping_cooldowns(self):
+        # 1. Detection: watchdog aborts the provider-retry session and
+        #    records the observed delay as cooldown.
+        self.reg_busy()
+        r = self.run_watchdog("--once", "--session", "ses_BUSY",
+                              "--threshold", "600")
+        self.assertIn("aborted ses_BUSY", r.stdout, r.stdout + r.stderr)
+        primary_model = sr.worker_pins()[0][1]
+        self.assertGreater(sr.cooldown_remaining(primary_model), 6000)
+        # 2. Migration: same task_id on the next healthy worker.
+        r = self.run_script("migrate", "ses_BUSY", "--objective",
+                            "Busy Objective")
+        self.assertIn("task_id=ses_BUSY", r.stdout, r.stdout + r.stderr)
+        first_role = [l for l in r.stdout.splitlines()
+                      if l.startswith("subagent_type=")][0].split("=")[1]
+        self.assertNotEqual(first_role, "build")
+        # 3. Chaos: the fallback also dies (recorded under a BARE spelling —
+        #    the E4 shape); the next migrate must skip it too.
+        fb_model = dict((r_, m) for r_, m in sr.worker_pins())[first_role]
+        self.run_script("mark-dead", fb_model.split("/")[-1],
+                        "--in", "7200", "--reason", "chaos kill")
+        r2 = self.run_script("migrate", "ses_BUSY", "--objective",
+                             "Busy Objective")
+        self.assertIn("task_id=ses_BUSY", r2.stdout, r2.stdout + r2.stderr)
+        second_role = [l for l in r2.stdout.splitlines()
+                       if l.startswith("subagent_type=")][0].split("=")[1]
+        self.assertNotEqual(second_role, first_role)
+        self.assertNotEqual(second_role, "build")
+        # 4. Preflight stays consistent with the two deaths.
+        r3 = self.run_script("preflight")
+        self.assertEqual(r3.returncode, 0, r3.stdout + r3.stderr)
+        self.assertNotIn(f"subagent_type={first_role}", r3.stdout)
+
+    def test_dashboard_smoke(self):
+        self.reg_busy()
+        r = self.run_script("dashboard")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("next-worker:", r.stdout)
+        self.assertIn("model-health:", r.stdout)
+
+
+class WatchdogLoudnessTests(unittest.TestCase):
+    """B2 (E9): --ensure is ALWAYS loud; --status reports pid/heartbeat/
+    aborts; supervision of the supervisor exists."""
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "tw_loud", os.path.join(BASE, "task-watchdog.py"))
+        cls.tw = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.tw)
+
+    def test_status_not_running(self):
+        import tempfile
+        tw = self.__class__.tw
+        real_j, real_l = tw.JOURNAL, tw.LOCKFILE
+        tw.JOURNAL = os.path.join(tempfile.mkdtemp(), "nope.log")
+        tw.LOCKFILE = os.path.join(tempfile.mkdtemp(), "nope.lock")
+        try:
+            with open(os.devnull, "w") as devnull, \
+                    _redirect_stdout(devnull):
+                code = tw.cmd_status()
+            self.assertEqual(code, 1)
+        finally:
+            tw.JOURNAL, tw.LOCKFILE = real_j, real_l
+
+    def test_status_stale(self):
+        import tempfile
+        tw = self.__class__.tw
+        tmp = tempfile.mkdtemp()
+        real_j, real_l = tw.JOURNAL, tw.LOCKFILE
+        tw.JOURNAL = os.path.join(tmp, "wd.log")
+        tw.LOCKFILE = os.path.join(tmp, "wd.lock")
+        real_hb = tw.daemon_healthy
+        try:
+            with open(tw.JOURNAL, "a") as f:
+                f.write('{"ts": "%s", "event": "HEARTBEAT"}\n'
+                        % (_dt_now_minus(3600)))
+            with open(tw.LOCKFILE, "w") as f:
+                json.dump({"pid": 999999999,
+                           "at": _dt_now_minus(3600).isoformat()}, f)
+            tw.daemon_healthy = lambda m=90: False
+            with open(os.devnull, "w") as devnull, \
+                    _redirect_stdout(devnull):
+                code = tw.cmd_status()
+            self.assertEqual(code, 2)
+        finally:
+            tw.daemon_healthy = real_hb
+            tw.JOURNAL, tw.LOCKFILE = real_j, real_l
+
+    def test_ensure_started_path_is_loud(self):
+        import tempfile
+        import io
+        tw = self.__class__.tw
+        tmp = tempfile.mkdtemp()
+        real_j, real_l = tw.JOURNAL, tw.LOCKFILE
+        tw.JOURNAL = os.path.join(tmp, "wd.log")
+        tw.LOCKFILE = os.path.join(tmp, "wd.lock")
+        real_daemonize, real_execv = tw.daemonize, os.execv
+        real_hb, real_lockfn = tw.heartbeat_fresh, tw.lock_held_by_live_process
+        real_gc = tw.sr.gc_orphans
+        calls = {}
+        tw.sr.gc_orphans = lambda *a, **k: ([], 0)
+        tw.heartbeat_fresh = lambda max_age: False
+        tw.lock_held_by_live_process = lambda: False
+        tw.daemonize = lambda: calls.__setitem__("daemonized", True)
+
+        def fake_execv(*a):
+            calls["exec"] = a
+            raise SystemExit(99)
+        os.execv = fake_execv
+        try:
+            buf = io.StringIO()
+            with _redirect_stdout(buf):
+                with self.assertRaises(SystemExit) as cm:
+                    tw.cmd_ensure([], ["--threshold", "600"])
+            self.assertEqual(cm.exception.code, 99)
+            self.assertIn("watchdog STARTED", buf.getvalue())
+            self.assertTrue(calls.get("daemonized"))
+        finally:
+            tw.sr.gc_orphans = real_gc
+            tw.daemonize, os.execv = real_daemonize, real_execv
+            tw.heartbeat_fresh, tw.lock_held_by_live_process = real_hb, real_lockfn
+            tw.JOURNAL, tw.LOCKFILE = real_j, real_l
+
+
+def _dt_now_minus(sec):
+    import datetime as _dt
+    return _dt.datetime.now(_dt.timezone.utc).replace(
+        microsecond=0) - _dt.timedelta(seconds=sec)
+
+
+try:
+    from contextlib import redirect_stdout as _redirect_stdout
+except ImportError:  # pragma: no cover
+    import contextlib
+    _redirect_stdout = contextlib.redirect_stdout
+
+
 class ProtocolVersionConsistency(unittest.TestCase):
     """Issue #84: docs must require the SAME orchestrator-protocol version
     that session-reuse.py implements (sr.ORCHESTRATOR_PROTOCOL). Stale
     numbers (e.g. 'need v16', 'orchestrator-protocol: 15') caused wrong
-    STALE-AGENT decisions."""
+    STALE-AGENT decisions. (Restored 2026-10-06 after being silently
+    deleted from the worktree while the numbers were in flux.)"""
 
     AGENTS_MD = os.path.join(BASE, "..", "AGENTS.md")
     ORCH_MD = os.path.join(BASE, "..", ".opencode", "agents", "orchestrator.md")
