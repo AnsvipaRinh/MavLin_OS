@@ -1,26 +1,54 @@
-"Alt"], "n",
-      "mv-newfolder $HOME/Desktop", "finder", skill="finder"),
-    A("new-folder-home", "New Folder in Home Folder", ["Super", "Shift"], "n",
-      "mv-newfolder $HOME", "finder", skill="finder"),
-    A("rename", "Rename", ["Super", "Shift"], "r", "mv-rename",
-      "finder", skill="finder"),
-    A("get-info", "Get Info", ["Super"], "i", "mv-getinfo $HOME",
-      "finder", skill="finder"),
-    A("open-with", "Open With", ["Super"], "o", "mv-openwith $HOME",
-      "finder", skill="finder"),
-    A("move-to-trash", "Move to Trash", ["Super"], "Delete", "mv-trash",
-      "finder", skill="finder"),
-    A("empty-trash", "Empty Trash", ["Super", "Shift"], "Delete", "mv-empty-trash",
-      "finder", skill="finder"),
-    A("empty-trash-alt", "Empty Trash (alternate)", ["Super", "Shift"], "e",
-      "mv-empty-trash", "finder", skill="finder"),
-    A("airdrop", "AirDrop", ["Super", "Shift"], "a", "mv-airdrop",
-      "finder", skill="finder"),
-    A("eject", "Eject", ["Super"], "F4", "mv-eject", "finder", skill="finder"),
+    A("workspace-2", "Switch to Space 2", ["Super"], "2", "workspace_2_key",
+      "workspace", skill="workspace", branch=BRANCH_XFWM4),
+    A("workspace-3", "Switch to Space 3", ["Super"], "3", "workspace_3_key",
+      "workspace", skill="workspace", branch=BRANCH_XFWM4),
+    A("workspace-4", "Switch to Space 4", ["Super"], "4", "workspace_4_key",
+      "workspace", skill="workspace", branch=BRANCH_XFWM4),
 
-    # --- System ------------------------------------------------------------
-    A("settings", "System Settings", ["Super"], "comma", "mv-settings",
-      "system", skill="system"),
-    A("control-center", "Control Center", ["Super", "Shift"], "c",
-      "mv-control", "system", skill="system"),
-    A("notification-center", "Notification Center", ["Super", "
+    # --- Hardware function row (protected: not rebindable) -----------------
+    A("volume-raise", "Volume Up", [], "XF86AudioRaiseVolume",
+      "pactl set-sink-volume @DEFAULT_SINK@ +5%", "keyboard",
+      skill="keyboard", protected=True),
+    A("volume-lower", "Volume Down", [], "XF86AudioLowerVolume",
+      "pactl set-sink-volume @DEFAULT_SINK@ -5%", "keyboard",
+      skill="keyboard", protected=True),
+    A("volume-mute", "Mute", [], "XF86AudioMute",
+      "pactl set-sink-mute @DEFAULT_SINK@ toggle", "keyboard",
+      skill="keyboard", protected=True),
+    A("media-play", "Play / Pause", [], "XF86AudioPlay",
+      "mv-music --media-key playpause", "keyboard", skill="keyboard",
+      protected=True),
+    A("media-next", "Next Track", [], "XF86AudioNext",
+      "mv-music --media-key next", "keyboard", skill="keyboard",
+      protected=True),
+    A("media-prev", "Previous Track", [], "XF86AudioPrev",
+      "mv-music --media-key prev", "keyboard", skill="keyboard",
+      protected=True),
+    A("media-stop", "Stop", [], "XF86AudioStop",
+      "mv-music --media-key stop", "keyboard", skill="keyboard",
+      protected=True),
+    A("brightness-up", "Brightness Up", [], "XF86MonBrightnessUp",
+      "mv-brightness up", "keyboard", skill="keyboard", protected=True),
+    A("brightness-down", "Brightness Down", [], "XF86MonBrightnessDown",
+      "mv-brightness down", "keyboard", skill="keyboard", protected=True),
+]
+
+ACTION_INDEX = {row["action"]: row for row in ACTIONS}
+PROTECTED_ACTIONS = frozenset(
+    row["action"] for row in ACTIONS if row["protected"] or not row["rebindable"])
+
+
+def action_ids():
+    return [row["action"] for row in ACTIONS]
+
+
+# ---------------------------------------------------------------------------
+# Pure accelerator logic
+# ---------------------------------------------------------------------------
+
+_KEY_CHAR_RE = re.compile(r"^[a-z0-9]$")
+_KEY_FN_RE = re.compile(r"^[fF]([1-9]|1[0-3])$")
+_XF86_RE = re.compile(r"^XF86[A-Za-z0-9_]+$")
+
+
+def normalize_modifiers(mods):
