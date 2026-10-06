@@ -65,7 +65,7 @@ PAGES = [
     ("Security & Privacy", "preferences-system-privacy", None, "security"),
     ("Notifications", "preferences-desktop-notifications",
      ["xfce4-notifyd-config"], None),
-    ("Displays", "video-display", ["xfce4-display-settings"], None),
+    ("Displays", "video-display", ["xfce4-display-settings"], "displays"),
     ("Energy Saver", "display", ["xfce4-power-manager-settings"], "energy"),
     ("Keyboard", "input-keyboard", ["xfce4-keyboard-settings"], None),
     ("Keyboard Shortcuts", "preferences-desktop-keyboard", ["mv-hotkeys-gui"], None),
@@ -84,7 +84,7 @@ PAGES = [
 # Native pane keys that must have a builder (_pane_<key>) in the GUI class.
 NATIVE_PANES = (
     "general", "desktop_saver", "dock", "mission_control", "language",
-    "datetime", "security", "energy", "trackpad", "network", "sound", "sharing", "users",
+    "datetime", "security", "energy", "trackpad", "network", "sound", "displays", "sharing", "users",
     "unavailable",
 )
 
@@ -863,6 +863,152 @@ def build_settings_class():
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except OSError as e:
                 self._show_error("Sound", str(e))
+
+        def _pane_displays(self, _row=None):
+            sw, lb = pane_shell()
+
+            def xrandr(*args):
+                try:
+                    result = subprocess.run(
+                        ["xrandr", *args], capture_output=True,
+                        text=True, timeout=3)
+                    return result.stdout.strip()
+                except (OSError, subprocess.SubprocessError):
+                    return ""
+
+            raw = xrandr("--query")
+            monitors = parse_xrandr_outputs(raw)
+            if not monitors:
+                lb.add(label_row(
+                    "Display configuration unavailable", None,
+                    "xrandr did not report a connected display. "
+                    "Use Advanced Display Settings if the X11 display backend is available."))
+                advanced = Gtk.Button(label="Advanced Display Settings…")
+                advanced.connect("clicked", lambda _b: self.launch(
+                    ["xfce4-display-settings"]))
+                lb.add(label_row("Display settings", advanced))
+                return sw
+
+            output_combo = Gtk.ComboBoxText()
+            for output in monitors:
+                label = output["name"]
+                if output.get("primary"):
+                    label += " (Primary)"
+                output_combo.append(output["name"], label)
+
+            selected_output = next(
+                (o for o in monitors if o.get("primary")), monitors[0])
+            output_combo.set_active_id(selected_output["name"])
+
+            mode_combo = Gtk.ComboBoxText()
+            rate_combo = Gtk.ComboBoxText()
+            rotate_combo = Gtk.ComboBoxText()
+            rotate_values = ("normal", "left", "right", "inverted")
+            for value in rotate_values:
+                rotate_combo.append(value, value.title())
+            rotate_combo.set_active_id(selected_output.get("rotation", "normal"))
+
+            def selected_monitor():
+                name = output_combo.get_active_id()
+                return next((o for o in monitors if o["name"] == name), None)
+
+            def repopulate_modes():
+                output = selected_monitor()
+                mode_combo.remove_all()
+                rate_combo.remove_all()
+                if not output:
+                    return
+                for mode in output["modes"]:
+                    mode_combo.append(mode["name"], mode["name"])
+                current_mode = output.get("current_mode")
+                if current_mode and current_mode in {
+                        mode["name"] for mode in output["modes"]}:
+                    mode_combo.set_active_id(current_mode)
+                elif output["modes"]:
+                    mode_combo.set_active(0)
+                refresh_rates()
+
+            def refresh_rates(*_args):
+                output = selected_monitor()
+                mode = mode_combo.get_active_id()
+                rate_combo.remove_all()
+                if not output or not mode:
+                    return
+                for rate in next(
+                        (m["rates"] for m in output["modes"]
+                         if m["name"] == mode), []):
+                    rate_combo.append(rate, "%s Hz" % rate)
+                current_rate = output.get("current_rate")
+                if current_rate and current_rate in {
+                        m for m in output["rates_by_mode"].get(mode, [])}:
+                    rate_combo.set_active_id(current_rate)
+                elif rate_combo.get_model() is not None and output["rates_by_mode"].get(mode):
+                    rate_combo.set_active(0)
+
+            def apply_display(*_args):
+                output = selected_monitor()
+                mode = mode_combo.get_active_id()
+                rate = rate_combo.get_active_id()
+                rotation = rotate_combo.get_active_id() or "normal"
+                if not output or not mode:
+                    return
+                argv = ["xrandr", "--output", output["name"], "--mode", mode]
+                if rate:
+                    argv += ["--rate", rate]
+                argv += ["--rotate", rotation]
+                try:
+                    subprocess.Popen(
+                        argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except OSError as e:
+                    self._show_error("Displays", str(e))
+
+            output_combo.connect("changed", lambda *_: repopulate_modes())
+            mode_combo.connect("changed", refresh_rates)
+
+            repopulate_modes()
+
+            lb.add(label_row(
+                "Display", output_combo,
+                "Connected X11 outputs reported by xrandr."))
+            lb.add(label_row(
+                "Resolution", mode_combo,
+                "Changing resolution applies immediately."))
+            lb.add(label_row(
+                "Refresh Rate", rate_combo,
+                "Choose an advertised refresh rate for the selected mode."))
+            lb.add(label_row(
+                "Rotation", rotate_combo,
+                "X11 rotation is applied together with the next display change."))
+
+            apply_button = Gtk.Button(label="Apply")
+            apply_button.connect("clicked", apply_display)
+            lb.add(label_row(
+                "Display configuration", apply_button,
+                "Uses xrandr directly; no resident service or polling is added."))
+
+            primary_button = Gtk.Button(label="Set Primary")
+            def set_primary(_button):
+                output = selected_monitor()
+                if not output:
+                    return
+                try:
+                    subprocess.Popen(
+                        ["xrandr", "--output", output["name"], "--primary"],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except OSError as e:
+                    self._show_error("Displays", str(e))
+            primary_button.connect("clicked", set_primary)
+            lb.add(label_row(
+                "Primary display", primary_button,
+                "Marks the selected output as the X11 primary display."))
+
+            advanced = Gtk.Button(label="Advanced Display Settings…")
+            advanced.connect("clicked", lambda _b: self.launch(
+                ["xfce4-display-settings"]))
+            lb.add(label_row(
+                "More display options", advanced,
+                "Open Xfce's full display arrangement and profile editor."))
+            return sw
 
         def _pane_network(self, _row=None):
             sw, lb = pane_shell()
