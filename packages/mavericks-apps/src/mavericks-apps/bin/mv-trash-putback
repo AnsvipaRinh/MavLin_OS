@@ -1,0 +1,289 @@
+#!/usr/bin/env python3
+"""mv-trash-putback — Finder's "Put Back": restore one trashed item to
+the exact place it came from.
+
+The Trash surface used to wire Put Back to
+`xfce4-terminal --hold -e trash-restore`, which is not a Finder surface at
+all: it opens a Linux terminal in a file-manager context menu and then
+asks the user to pick a number from a list. Measured, trash-restore has no
+non-interactive form — `trash-restore <path>` still prints
+
+    0 2026-10-06 08:35:30 /tmp/orig/r1.txt
+    What file to restore [0..0]:
+
+and blocks on stdin, because it accepts the path only to narrow the list,
+not to pick the entry. And `%f` inside the Trash folder is a trash:// URI,
+which trash-restore cannot consume at all.
+
+So Put Back is implemented directly against the freedesktop.org trash
+spec instead, which is what trash-cli and GIO write and what makes this
+exact and silent:
+
+    $XDG_DATA_HOME/Trash/files/<name>        the bytes
+    $XDG_DATA_HOME/Trash/info/<name>.trashinfo   [Trash Info] Path=<original>
+
+Usage:
+  mv-trash-putback <item> [...]     restore each item to its original path
+  mv-trash-putback --status <item>  print where <item> would go back to
+  mv-trash-putback --list           list trashed items with original paths
+
+<item> may be the trash:// URI Thunar passes in a context menu
+(trash:///files/report.pdf), the trash files/ path, the .trashinfo path,
+or the item's original path — all four are resolved to the same entry.
+
+Returns 0 when every requested item was restored, 1 otherwise.
+License: GPL-2.0-or-later.
+"""
+import argparse
+import os
+import sys
+
+TRASH_URI_PREFIX = "trash://"
+
+
+def trash_roots(home=None, environ=None):
+    """Candidate Trash roots, XDG_DATA_HOME first, then HOME fallback."""
+    env = os.environ if environ is None else environ
+    home = home or env.get("HOME", "")
+    out = []
+    data_home = env.get("XDG_DATA_HOME")
+    if data_home:
+        out.append(os.path.join(data_home, "Trash"))
+    for base in filter(None, (env.get("XDG_DATA_DIRS") or "").split(":")):
+        out.append(os.path.join(base, "Trash"))
+    if home:
+        out.append(os.path.join(home, ".local", "share", "Trash"))
+    seen, roots = set(), []
+    for r in out:
+        if r not in seen:
+            seen.add(r)
+            roots.append(r)
+    return roots
+
+
+def read_trashinfo(path):
+    """Parse a .trashinfo file into a dict. None when unreadable."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    except OSError:
+        return None
+    info = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("[") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        info[key.strip()] = value.strip()
+    return info
+
+
+def item_name_from_argument(arg):
+    """Reduce any accepted form to the trash entry basename.
+
+    'trash:///files/report.pdf'      -> 'report.pdf'
+    '/…/Trash/files/report.pdf'      -> 'report.pdf'
+    '/…/Trash/info/report.pdf.trashinfo' -> 'report.pdf'
+    """
+    if arg.startswith(TRASH_URI_PREFIX):
+        rest = arg[len(TRASH_URI_PREFIX):].lstrip("/")
+        for marker in ("files/", "info/"):
+            idx = rest.find(marker)
+            if idx != -1:
+                rest = rest[idx + len(marker):]
+                break
+        rest = rest.split("?", 1)[0]
+        name = os.path.basename(rest)
+        if name.endswith(".trashinfo"):
+            name = name[: -len(".trashinfo")]
+        return name
+    base = os.path.basename(arg.rstrip("/"))
+    if base.endswith(".trashinfo"):
+        base = base[: -len(".trashinfo")]
+    return base
+
+
+def original_path_from_info(info, root):
+    """Resolve the trashinfo Path value against the trash root.
+
+    Per the spec a relative Path means the item was trashed from the same
+    filesystem, so it is relative to that trash root's parent.
+    """
+    if not info:
+        return None
+    path = info.get("Path")
+    if not path:
+        return None
+    if os.path.isabs(path):
+        return os.path.normpath(path)
+    return os.path.normpath(os.path.join(os.path.dirname(root), path))
+
+
+def find_entry(target, home=None, environ=None):
+    """Locate a trash entry for any accepted spelling of it.
+
+    Returns (root, name, info) or (None, name, None).
+    """
+    name = item_name_from_argument(target)
+    roots = trash_roots(home, environ)
+
+    # 1. direct hit: the basename exists in a Trash files/ directory
+    for root in roots:
+        candidate = os.path.join(root, "files", name)
+        if os.path.lexists(candidate):
+            return root, name, read_trashinfo(
+                os.path.join(root, "info", name + ".trashinfo"))
+
+    # 2. the argument was the ORIGINAL path — match it against Path= values
+    wanted = os.path.normpath(os.path.abspath(os.path.expanduser(target)))
+    for root in roots:
+        info_dir = os.path.join(root, "info")
+        if not os.path.isdir(info_dir):
+            continue
+        for entry in sorted(os.listdir(info_dir)):
+            if not entry.endswith(".trashinfo"):
+                continue
+            base = entry[: -len(".trashinfo")]
+            info = read_trashinfo(os.path.join(info_dir, entry))
+            if original_path_from_info(info, root) == wanted:
+                return root, base, info
+
+    return None, name, None
+
+
+def list_entries(home=None, environ=None):
+    """All trashed items as dicts: name, root, original, deletion_date."""
+    out = []
+    for root in trash_roots(home, environ):
+        files_dir = os.path.join(root, "files")
+        if not os.path.isdir(files_dir):
+            continue
+        for name in sorted(os.listdir(files_dir)):
+            info = read_trashinfo(os.path.join(root, "info",
+                                               name + ".trashinfo")) or {}
+            out.append({
+                "name": name,
+                "root": root,
+                "trash_path": os.path.join(files_dir, name),
+                "original": original_path_from_info(info, root),
+                "deletion_date": info.get("DeletionDate", ""),
+            })
+    return out
+
+
+def unique_target(path, taken=()):
+    """Finder never silently overwrites: append ' copy', then ' 2' …"""
+    if not os.path.exists(path) and path not in taken:
+        return path
+    directory, base = os.path.split(path)
+    stem, ext = os.path.splitext(base)
+    candidate = os.path.join(directory, "%s copy%s" % (stem, ext))
+    n = 2
+    while os.path.exists(candidate) or candidate in taken:
+        candidate = os.path.join(directory, "%s copy %d%s" % (stem, n, ext))
+        n += 1
+    return candidate
+
+
+def plan_putback(target, home=None, environ=None):
+    """Build the restore plan without touching the disk.
+
+    Returns (ok, payload). payload on ok is a dict with root, name,
+    trash_path, target_path, info. On failure payload is a reason string.
+    """
+    root, name, info = find_entry(target, home, environ)
+    if root is None:
+        return False, ("no trashed item named %r — use --list to see the "
+                       "Trash" % name)
+    trash_path = os.path.join(root, "files", name)
+    if not os.path.lexists(trash_path):
+        return False, "%s has no payload in the Trash" % name
+    original = original_path_from_info(info, root)
+    if not original:
+        return False, ("%s has no Path= in its .trashinfo, so there is "
+                       "nowhere to put it back" % name)
+    return True, {
+        "root": root,
+        "name": name,
+        "trash_path": trash_path,
+        "target_path": original,
+        "info": info,
+    }
+
+
+def move_across_devices(src, dst):
+    """shutil.move already falls back to copy+unlink across filesystems,
+    which a trash root on a removable volume requires."""
+    import shutil
+    shutil.move(src, dst)
+
+
+def putback(target, home=None, environ=None):
+    """Restore one item. Returns (rc, message)."""
+    ok, payload = plan_putback(target, home, environ)
+    if not ok:
+        return 1, "Put Back failed: %s" % payload
+
+    destination = unique_target(payload["target_path"])
+    try:
+        parent = os.path.dirname(destination)
+        if parent and not os.path.isdir(parent):
+            os.makedirs(parent, exist_ok=True)
+        move_across_devices(payload["trash_path"], destination)
+        info_file = os.path.join(payload["root"], "info",
+                                 payload["name"] + ".trashinfo")
+        try:
+            os.unlink(info_file)
+        except OSError:
+            pass
+    except OSError as exc:
+        return 1, "Put Back failed for %s: %s" % (payload["name"], exc)
+    return 0, "Put back %s -> %s" % (payload["name"], destination)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Restore a trashed item to its original location")
+    parser.add_argument("items", nargs="*",
+                        help="trash item: trash:// URI, trash path, or "
+                             "original path")
+    parser.add_argument("--status", action="store_true",
+                        help="print where the item would go back to")
+    parser.add_argument("--list", action="store_true",
+                        help="list trashed items with their original paths")
+    args = parser.parse_args(argv)
+
+    if args.list:
+        entries = list_entries()
+        if not entries:
+            print("The Trash is empty")
+            return 0
+        for e in entries:
+            when = ("  (" + e["deletion_date"].replace("T", " ") + ")"
+                    if e["deletion_date"] else "")
+            print("%s  <-  %s%s" % (e["name"], e["original"] or "?", when))
+        return 0
+
+    if not args.items:
+        parser.print_usage(sys.stderr)
+        print("mv-trash-putback: need at least one item", file=sys.stderr)
+        return 1
+
+    rc = 0
+    for item in args.items:
+        if args.status:
+            ok, payload = plan_putback(item)
+            if ok:
+                print("%s  ->  %s" % (payload["name"], payload["target_path"]))
+            else:
+                print("%s: %s" % (item, payload), file=sys.stderr)
+                rc = 1
+            continue
+        r, message = putback(item)
+        print(message, file=sys.stdout if r == 0 else sys.stderr)
+        rc = rc or r
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,489 @@
+#!/usr/bin/env python3
+"""mv-archive-utility — the Mavericks Archive Utility surface.
+
+The canonical surface was a bare `.desktop` alias:
+
+    Exec=xarchiver %U
+    X-Mavericks-Alias-For=xarchiver
+
+which is not an Archive Utility, it is a renamed File Roller. Measured
+gaps behind that alias:
+
+  * There was no extraction path at all. thunar-uca.xml had a "Compress"
+    action and nothing for the other direction, so the one thing a user
+    does with an archive — expand it — was not reachable from the Finder
+    context menu, and double-clicking a .zip went to whatever the desktop
+    default happened to be, because mv-archive-utility.desktop carried no
+    MimeType and mimeapps.list had no archive associations.
+  * macOS 10.9 expands an archive into a new folder named after the
+    archive and opens that folder ("demo.tar.gz" -> "demo.tar/"), reports
+    failures with a "The archive couldn't be expanded because …" alert,
+    and offers Try Again / Cancel. None of that existed.
+
+Usage:
+  mv-archive-utility <archive> [...]    expand into a folder named after
+                                        the archive, then open it
+  mv-archive-utility --here <archive>    expand into the archive's own
+                                        directory ("Extract Here")
+  mv-archive-utility --list <archive>    print the archive's contents
+  mv-archive-utility --new <name> <files...>
+                                        create <name>.zip ("Compress …")
+  mv-archive-utility --editor [archive]  open the browsing editor
+                                        (xarchiver, themed by the GTK
+                                        theme); with no argument the
+                                        launchable is a no-op-safe alias
+
+Backend: bsdtar(1) from libarchive — it is already a hard dependency of
+xarchiver, so no new package is pulled in for extraction. On-demand, no
+daemon, no polling: one subprocess per action.
+
+License: GPL-2.0-or-later.
+"""
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+
+ARCHIVE_SUFFIXES = (
+    ".zip", ".jar", ".apk", ".epub",
+    ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tbz",
+    ".tar.xz", ".txz", ".tar.lz", ".tlz", ".tar.lzma",
+    ".tar.zst", ".tzst", ".tar.Z", ".taz",
+    ".7z", ".rar", ".cab", ".cpio", ".iso", ".lzh", ".lha", ".arj",
+    ".cbz", ".cbr", ".cba", ".deb", ".rpm",
+    ".ar", ".z", ".gz", ".bz2", ".xz", ".zst", ".zlib",
+)
+
+# Single source of truth for which archive types this surface claims.
+# mv-archive-utility.desktop's MimeType= line must equal exactly this, and
+# scripts/test-mv-archive-utility.py enforces that — the two drifted once
+# (the constant gained application/gzip while the desktop file did not),
+# and only a direct equality check catches that.
+DESKTOP_MIME_TYPES = (
+    "application/zip", "application/x-zip-compressed",
+    "application/java-archive", "application/vnd.android.package-archive",
+    "application/epub+zip", "application/x-gtar",
+    "application/x-tar", "application/x-bzip", "application/x-bzip2",
+    "application/x-compressed-tar", "application/x-xz",
+    "application/x-lzma", "application/x-lzop",
+    "application/x-zstd", "application/x-lzh-compressed",
+    "application/x-rar", "application/vnd.rar",
+    "application/gzip", "application/x-gzip",
+    "application/x-7z-compressed", "application/x-archive",
+    "application/x-cpio", "application/x-cbr", "application/x-cbz",
+    "application/x-iso9660-image", "application/x-ace", "application/x-arj",
+    "application/x-lha", "application/x-rpm",
+)
+
+FAILURE_TITLE = "The archive couldn’t be expanded because"
+FAILURE_ALT_TITLE = "The archive couldn’t be expanded because"
+
+
+class ArchiveError(Exception):
+    """Extraction/compression failure with a human reason."""
+
+
+# --------------------------------------------------------------------------
+# Backend discovery
+# --------------------------------------------------------------------------
+
+def find_bsdtar():
+    """bsdtar(1) from libarchive. Raises ArchiveError when absent."""
+    path = shutil.which("bsdtar")
+    if not path:
+        raise ArchiveError("bsdtar (libarchive) is not installed")
+    return path
+
+
+def archive_kind(path):
+    """Classify by suffix. Unknown suffixes are still worth trying."""
+    low = path.lower()
+    for suffix in sorted(ARCHIVE_SUFFIXES, key=len, reverse=True):
+        if low.endswith(suffix):
+            return suffix
+    return ""
+
+
+def is_archive(path):
+    return bool(archive_kind(path)) or os.path.isfile(path)
+
+
+def expand_target_name(archive_path):
+    """The folder macOS creates for an expansion.
+
+    It strips the whole chain of recognised archive extensions, not just
+    the last one: 'demo.zip' -> 'demo' and 'demo.tar.gz' -> 'demo' both
+    become a folder called 'demo'. Keeping '.zip' in the name was the
+    original bug here — the computed destination collided with the archive
+    file itself and every expansion of a plain .zip failed with
+    "demo.zip already exists".
+    """
+    name = os.path.basename(archive_path.rstrip("/"))
+    stem = name
+    while True:
+        suffix = archive_kind(stem)
+        if not suffix:
+            break
+        trimmed = stem[: -len(suffix)]
+        if not trimmed or trimmed == stem:
+            break
+        stem = trimmed
+    if stem == name:
+        # Unrecognised suffix: fall back to dropping just the extension so
+        # the folder still reads like Finder's.
+        trimmed = os.path.splitext(name)[0]
+        if trimmed:
+            stem = trimmed
+    return stem or name
+
+
+def folder_name_for(archive_path, parent):
+    """Directory the expansion goes into, with Finder-style collision
+    handling: 'demo', then 'demo 2', then 'demo 3'."""
+    base = expand_target_name(archive_path)
+    candidate = os.path.join(parent, base)
+    if not os.path.exists(candidate):
+        return candidate
+    n = 2
+    while os.path.exists(os.path.join(parent, "%s %d" % (base, n))):
+        n += 1
+    return os.path.join(parent, "%s %d" % (base, n))
+
+
+# --------------------------------------------------------------------------
+# Operations
+# --------------------------------------------------------------------------
+
+def list_contents(archive_path):
+    """Print the archive listing. Raises ArchiveError on failure."""
+    bsdtar = find_bsdtar()
+    try:
+        proc = subprocess.run([bsdtar, "-tf", archive_path],
+                              stdin=subprocess.DEVNULL, capture_output=True,
+                              text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ArchiveError(str(exc))
+    if proc.returncode != 0:
+        raise ArchiveError(reason_from(stderr=proc.stderr,
+                                       stderr_alt=proc.stdout))
+    sys.stdout.write(proc.stdout)
+    return 0
+
+
+def expand(archive_path, destination, create=True):
+    """Extract archive_path into destination.
+
+    With create=True the destination folder is created first and the
+    archive's own entries land inside it — that is what macOS does, and it
+    is why 'demo.tar.gz' produces a folder 'demo.tar' holding the payload
+    rather than scattering files next to the archive.
+
+    With create=False (Extract Here) the already-existing directory is
+    merged into, which is libarchive's default overwrite behaviour.
+
+    A failed expansion removes the folder it created, so a corrupt archive
+    never leaves a half-extracted directory behind.
+    """
+    bsdtar = find_bsdtar()
+    if not os.path.exists(archive_path):
+        raise ArchiveError("%s no longer exists" % archive_path)
+    if not os.path.isfile(archive_path):
+        raise ArchiveError("%s is not a file" % archive_path)
+
+    created = False
+    if create:
+        if os.path.exists(destination):
+            raise ArchiveError("%s already exists"
+                               % os.path.basename(destination))
+        parent = os.path.dirname(destination) or "."
+        if not os.path.isdir(parent):
+            raise ArchiveError("%s does not exist" % parent)
+        try:
+            os.mkdir(destination)
+            created = True
+        except OSError as exc:
+            raise ArchiveError("cannot create %s: %s" % (destination, exc))
+    elif not os.path.isdir(destination):
+        raise ArchiveError("%s is not a directory" % destination)
+
+    argv = [bsdtar, "-xf", archive_path, "-C", destination,
+            "--no-same-owner"]
+    try:
+        proc = subprocess.run(argv, stdin=subprocess.DEVNULL,
+                              capture_output=True, text=True, timeout=1800)
+    except subprocess.TimeoutExpired:
+        _discard(destination, created)
+        raise ArchiveError("the expansion timed out")
+    except (OSError, subprocess.SubprocessError) as exc:
+        _discard(destination, created)
+        raise ArchiveError(str(exc))
+    if proc.returncode != 0:
+        _discard(destination, created)
+        raise ArchiveError(reason_from(stderr=proc.stderr,
+                                       stderr_alt=proc.stdout))
+    if created and not os.listdir(destination):
+        _discard(destination, created)
+        raise ArchiveError("the archive was empty")
+    return destination
+
+
+def _discard(destination, created):
+    """Remove a folder we created for a failed expansion. Best effort."""
+    if not created:
+        return
+    import shutil as _shutil
+    try:
+        _shutil.rmtree(destination)
+    except OSError:
+        pass
+
+
+def reason_from(stderr, stderr_alt=None):
+    """First useful line of bsdtar's stderr, never a raw tool dump."""
+    for stream in (stderr, stderr_alt):
+        if not stream:
+            continue
+        lines = [l.strip() for l in stream.splitlines() if l.strip()]
+        if lines:
+            return lines[-1]
+    return "the archive could not be read"
+
+
+def compress(destination, sources):
+    """Create destination (zip) containing sources."""
+    bsdtar = find_bsdtar()
+    parent = os.path.dirname(os.path.abspath(destination))
+    if not os.path.isdir(parent):
+        raise ArchiveError("%s does not exist" % parent)
+    if not destination.lower().endswith(".zip"):
+        raise ArchiveError("only .zip is supported for compression")
+    # The top-level name is kept, so compressing a folder named 'src2'
+    # produces an archive containing 'src2/…' — what Finder's Compress
+    # does. (Stripping components is bsdtar's -s PATTERN option, not a
+    # bare flag: passing '-s' alone makes bsdtar read the next argument as
+    # the pattern, which is how the first version of this failed.)
+    argv = [bsdtar, "-a", "-cf", destination] + list(sources)
+    try:
+        proc = subprocess.run(argv, stdin=subprocess.DEVNULL,
+                              capture_output=True, text=True, timeout=1800)
+    except subprocess.TimeoutExpired:
+        raise ArchiveError("the compression timed out")
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ArchiveError(str(exc))
+    if proc.returncode != 0:
+        raise ArchiveError(reason_from(stderr=proc.stderr,
+                                       stderr_alt=proc.stdout))
+    return destination
+
+
+# --------------------------------------------------------------------------
+# UI (on-demand, only when a display exists)
+# --------------------------------------------------------------------------
+
+def _gtk():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Gdk", "3.0")
+    from gi.repository import Gtk
+    return Gtk
+
+
+def _display_usable():
+    try:
+        import gi
+        gi.require_version("Gdk", "3.0")
+        from gi.repository import Gdk
+        return Gdk.Display.get_default() is not None
+    except Exception:
+        return False
+
+
+def show_failure(reason, archive_path):
+    """Mavericks 'The archive couldn’t be expanded because …' alert.
+
+    Returns the response when an alert was shown, None when the failure had
+    to be reported on stderr instead (no usable display — the hotkey must
+    never hang waiting for a window that cannot be mapped).
+    """
+    message = "%s:\n%s" % (FAILURE_TITLE, reason)
+    if not _display_usable():
+        print("%s %s" % (FAILURE_TITLE, reason), file=sys.stderr)
+        print("mv-archive-utility: %s was not expanded" % archive_path,
+              file=sys.stderr)
+        return None
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        sys.path.insert(0, "/usr/share/mavericks-apps")
+        import mv_dialogs
+        from gi.repository import Gtk
+        # ACCEPT, not RETRY: Gtk.ResponseType has no RETRY member at all
+        # (AttributeError on import-time lookup), so the whole alert was
+        # silently downgraded to stderr output and the Try Again button
+        # never existed.
+        return mv_dialogs.alert(
+            None, FAILURE_TITLE, secondary=reason,
+            msg_type=Gtk.MessageType.WARNING,
+            buttons=[("Try Again", Gtk.ResponseType.ACCEPT),
+                     ("Cancel", Gtk.ResponseType.CANCEL)])
+    except Exception:
+        print("%s %s" % (FAILURE_TITLE, reason), file=sys.stderr)
+        return None
+
+
+def open_in_finder(path):
+    """Reveal the expansion in Finder (mv-finder.desktop / Thunar)."""
+    opener = shutil.which("exo-open")
+    if opener:
+        try:
+            subprocess.Popen([opener, path], stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+            return True
+        except OSError:
+            pass
+    try:
+        subprocess.Popen(["xdg-open", path], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except OSError:
+        return False
+
+
+def notify(message, icon="package-x-generic"):
+    notifier = shutil.which("notify-send")
+    if not notifier:
+        return
+    try:
+        # Bounded: notify-send blocks when no notification daemon answers
+        # (measured ~5 s), and this runs from a double-click.
+        subprocess.run([notifier, "-a", "Archive Utility", "-i", icon,
+                        "Archive Utility", message],
+                       stdin=subprocess.DEVNULL, capture_output=True,
+                       timeout=2)
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+def launch_editor(archive=None):
+    """The browsing editor: xarchiver, which the GTK theme already dresses.
+
+    Reusing xarchiver is deliberate (reuse-first): the MimeType/MIME wiring
+    is MavLinOS's job, the window furniture is the theme's, and there is no
+    second archiver daemon to pay for on a fanless Core M.
+    """
+    editor = shutil.which("xarchiver")
+    if not editor:
+        print("mv-archive-utility: xarchiver is not installed",
+              file=sys.stderr)
+        return 127
+    argv = [editor]
+    if archive:
+        argv.append(archive)
+    try:
+        return subprocess.run(argv, stdin=subprocess.DEVNULL).returncode
+    except (OSError, subprocess.SubprocessError) as exc:
+        print("mv-archive-utility: %s" % exc, file=sys.stderr)
+        return 1
+
+
+# --------------------------------------------------------------------------
+# Flow
+# --------------------------------------------------------------------------
+
+def expand_one(archive_path, here=False, no_open=False, quiet=False):
+    """Expand one archive. Returns (rc, message)."""
+    archive_path = os.path.abspath(os.path.expanduser(archive_path))
+    parent = os.path.dirname(archive_path)
+    if here:
+        destination = parent
+    else:
+        destination = folder_name_for(archive_path, parent)
+    try:
+        expand(archive_path, destination, create=not here)
+    except ArchiveError as exc:
+        reason = str(exc)
+        response = None if quiet else show_failure(reason, archive_path)
+        if response is not None:
+            # "Try Again" earns exactly one honest retry, then we stop
+            # instead of looping on an archive that will never expand.
+            try:
+                expand(archive_path, destination, create=not here)
+            except ArchiveError as exc2:
+                return 1, "The archive couldn’t be expanded: %s" % exc2
+        return 1, "The archive couldn’t be expanded: %s" % reason
+    if not quiet:
+        print("Expanded %s -> %s" % (os.path.basename(archive_path),
+                                     destination))
+        if not (here or no_open):
+            open_in_finder(destination)
+            notify("Expanded “%s”" % os.path.basename(archive_path))
+    return 0, destination
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Mavericks Archive Utility")
+    parser.add_argument("archives", nargs="*", help="archives to expand")
+    parser.add_argument("--here", action="store_true",
+                        help="expand into the archive's own directory")
+    parser.add_argument("--no-open", action="store_true",
+                        help="do not open the expansion in Finder")
+    parser.add_argument("--list", action="store_true",
+                        help="print the archive's contents")
+    parser.add_argument("--new", metavar="NAME",
+                        help="create NAME.zip from the given files")
+    parser.add_argument("--editor", action="store_true",
+                        help="open the browsing editor (xarchiver)")
+    parser.add_argument("--quiet", action="store_true",
+                        help="no notification, no Finder hand-off")
+    args = parser.parse_args(argv)
+
+    if args.editor:
+        return launch_editor(args.archives[0] if args.archives else None)
+
+    if args.new:
+        if not args.archives:
+            print("mv-archive-utility: --new needs at least one file",
+                  file=sys.stderr)
+            return 1
+        destination = args.new if args.new.endswith(".zip") else args.new + ".zip"
+        try:
+            compress(destination, args.archives)
+        except ArchiveError as exc:
+            print("mv-archive-utility: %s" % exc, file=sys.stderr)
+            return 1
+        print("Created %s" % destination)
+        return 0
+
+    if args.list:
+        if not args.archives:
+            print("mv-archive-utility: --list needs an archive",
+                  file=sys.stderr)
+            return 1
+        rc = 0
+        for archive in args.archives:
+            try:
+                list_contents(archive)
+            except ArchiveError as exc:
+                print("mv-archive-utility: %s: %s" % (archive, exc),
+                      file=sys.stderr)
+                rc = 1
+        return rc
+
+    if not args.archives:
+        # Launchable behaviour: open the editor rather than do nothing.
+        return launch_editor()
+
+    rc = 0
+    for archive in args.archives:
+        r, message = expand_one(archive, here=args.here,
+                                no_open=args.no_open, quiet=args.quiet)
+        if r != 0:
+            print(message, file=sys.stderr)
+        rc = rc or r
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())
