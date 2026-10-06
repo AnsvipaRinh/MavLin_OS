@@ -1089,8 +1089,11 @@ class MusicWindow(Gtk.Window):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.add(outer)
 
-        hb = Gtk.HeaderBar(title="Music", show_close_button=True)
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hb.get_style_context().add_class("mavericks-mv-music-toolbar")
+        title_label = Gtk.Label(label="Music")
+        hb.pack_start(title_label, True, True, 8)
         self.search = Gtk.SearchEntry(placeholder_text="Search your library")
         self.search.set_hexpand(True)
         self.search.connect("search-changed", self.on_search_changed)
