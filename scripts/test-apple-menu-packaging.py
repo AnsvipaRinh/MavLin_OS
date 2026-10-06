@@ -1,66 +1,56 @@
 #!/usr/bin/env python3
-"""Validate mv-apple panel plugin is built and installed by Makefile."""
+"""Validate mv-apple panel plugin is built, installed, and wired correctly."""
 import os
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MAKEFILE = os.path.join(
-    REPO, "packages/mavericks-apps/src/mavericks-apps/Makefile"
-)
-DESKTOP = os.path.join(
-    REPO, "packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop"
-)
-SOURCE = os.path.join(
-    REPO, "packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c"
-)
-if os.path.isfile(SOURCE):
-    src = open(SOURCE, encoding="utf-8").read()
-    if "gtk_menu_item_new_with_mnemonic(label)" not in src:
-        errors.append("Apple menu items must use GTK mnemonic labels")
-    if "gtk_menu_item_new_with_label(label)" in src:
-        errors.append("Apple menu must not construct labels without mnemonic support")
-ICON = os.path.join(
-    REPO, "packages/mavericks-apps/src/mavericks-apps/icons/mv-apple.svg"
-)
+MAKEFILE = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/Makefile")
+DESKTOP = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop")
+SOURCE = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.c")
+ICON = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/icons/mv-apple.svg")
 HELPERS = [
     "packages/mavericks-apps/src/mavericks-apps/bin/mv-force-quit",
     "packages/mavericks-apps/src/mavericks-apps/bin/mv-recent-items",
 ]
 PANEL = [
     os.path.join(REPO, "configs/desktop/xfce/xfce4-panel.xml"),
-    os.path.join(
-        REPO,
-        "archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/"
-        "xfce-perchannel-xml/xfce4-panel.xml",
-    ),
+    os.path.join(REPO, "archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml"),
 ]
 
 errors = []
 if not os.path.isfile(SOURCE):
     errors.append("mv-apple.c missing")
+else:
+    src = open(SOURCE, encoding="utf-8").read()
+    if "gtk_menu_item_new_with_mnemonic(label)" not in src:
+        errors.append("Apple menu items must use GTK mnemonic labels")
+    if "gtk_menu_item_new_with_label(label)" in src:
+        errors.append("Apple menu must not construct labels without mnemonic support")
+    for action in ("sleep", "restart", "shutdown", "logout"):
+        if '"mv-power-ui %s"' % action not in src:
+            errors.append("Apple menu must route %s through mv-power-ui" % action)
+    if "const gchar *fallback" not in src or "if (fallback != NULL)" not in src:
+        errors.append("Apple menu power actions must retain an explicit fallback")
+    for fallback in ("systemctl suspend", "systemctl reboot", "systemctl poweroff"):
+        if fallback not in src:
+            errors.append("Apple menu missing fallback: %s" % fallback)
+
 if not os.path.isfile(ICON):
     errors.append("mv-apple.svg missing")
 if not os.path.isfile(MAKEFILE):
     errors.append("Makefile missing")
 else:
     mk = open(MAKEFILE, encoding="utf-8").read()
-    for needle in (
-        "libmv-apple.so",
-        "panel/mv-apple.c",
-        "mv-apple.desktop",
-        "lib/xfce4/panel/plugins",
-        "mv-force-quit",
-        "mv-recent-items",
-        "mv-apple.svg",
-    ):
+    for needle in ("libmv-apple.so", "panel/mv-apple.c", "mv-apple.desktop",
+                   "lib/xfce4/panel/plugins", "mv-force-quit",
+                   "mv-recent-items", "mv-apple.svg"):
         if needle not in mk:
             errors.append("Makefile missing %s" % needle)
 
 if not os.path.isfile(DESKTOP):
     errors.append("mv-apple.desktop missing")
 else:
-    desk = open(DESKTOP, encoding="utf-8").read()
-    if "X-XFCE-Module=mv-apple" not in desk:
+    if "X-XFCE-Module=mv-apple" not in open(DESKTOP, encoding="utf-8").read():
         errors.append("mv-apple.desktop must set X-XFCE-Module=mv-apple")
 
 for rel in HELPERS:
@@ -81,4 +71,5 @@ if errors:
 
 print("ok - mv-apple.c / desktop / icon present")
 print("ok - Makefile builds and installs panel plugin + helpers")
+print("ok - Apple menu uses mnemonics and Mavericks power-dialog routing")
 print("ok - panel XML references mv-apple")
