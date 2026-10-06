@@ -254,6 +254,12 @@ def test_gui(m):
         w.destroy()
 
 
+    path = os.path.join(BIN, "mv-airdrop")
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("airdrop: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("airdrop: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
 def main():
     m = load_app()
     test_pure(m)
