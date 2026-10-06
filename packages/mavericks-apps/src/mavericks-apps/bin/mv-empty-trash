@@ -1,122 +1,382 @@
 #!/usr/bin/env python3
-"""mv-empty-trash — Empty Trash with a Mavericks confirmation alert.
+"""mv-empty-trash — Empty Trash the way macOS asks for it.
 
-Empty Trash used to be bound straight to `trash-empty`, which is immediate,
-silent and irreversible. This helper shows Finder's confirmation first:
+The Trash surface used to wire Empty Trash straight to `trash-empty`,
+which is immediate, silent and irreversible. Three entry points reached it
+with no confirmation at all: Super+Shift+Delete, Super+Shift+E and the
+Finder "Empty Trash" context action. One stray keypress permanently
+erased the freedesktop trash, and Finder always asks first:
 
-  "Are you sure you want to permanently erase the items in the Trash?"
+    Are you sure you want to permanently erase the items in the Trash?
+    You can't undo this action.        [Empty Trash]   <- Cancel is default
 
-Cancel is the default action. `--yes` is the only non-interactive path and
-is deliberately not bound to a keyboard shortcut.
+Usage:
+  mv-empty-trash                 confirm, then erase (GUI)
+  mv-empty-trash --yes           erase without asking (scripts, tests)
+  mv-empty-trash --status        item count + total size, exit 0
+  mv-empty-trash --list          the items that would be erased
 
+Backend: the freedesktop.org trash spec under $XDG_DATA_HOME/Trash
+(XDG_DATA_DIRS fallbacks), which is the same store trash-cli/GIO/Thunar
+write. Read-only inspection needs no D-Bus and no daemon; the erase is
+one `trash-empty` call, plus a per-item unlink fallback when trash-cli is
+absent so the command never silently does nothing.
+
+Returns: 0 done, 1 error, 2 nothing to do.
 License: GPL-2.0-or-later.
 """
-from __future__ import print_function
-
 import argparse
 import os
 import shutil
 import subprocess
 import sys
 
+CANCEL_MESSAGE = ("Are you sure you want to permanently erase the items "
+                   "in the Trash?")
+CANCEL_SECONDARY = "You can't undo this action."
+EMPTY_LABEL = "Empty Trash"
 
-def trash_dir():
-    home = os.path.expanduser("~")
-    return os.path.join(home, ".local", "share", "Trash", "files")
+
+# --------------------------------------------------------------------------
+# Trash store discovery (freedesktop.org trash spec)
+# --------------------------------------------------------------------------
+
+def trash_dirs(home=None, environ=None):
+    """Candidate Trash roots, most specific first.
+
+    XDG_DATA_HOME wins; then each XDG_DATA_DIRS/Trash. The home fallback
+    (~/.local/share/Trash) is last because that is where trash-cli and
+    GIO put files when XDG_DATA_HOME is unset.
+    """
+    env = os.environ if environ is None else environ
+    home = home or env.get("HOME", "")
+    candidates = []
+    data_home = env.get("XDG_DATA_HOME")
+    if data_home:
+        candidates.append(os.path.join(data_home, "Trash"))
+    for base in filter(None, (env.get("XDG_DATA_DIRS") or "").split(":")):
+        candidates.append(os.path.join(base, "Trash"))
+    if home:
+        candidates.append(os.path.join(home, ".local", "share", "Trash"))
+    seen, out = set(), []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
 
 
-def count_items():
-    path = trash_dir()
-    if not os.path.isdir(path):
-        return 0
+def read_trashinfo(path):
+    """Parse a .trashinfo file. Returns dict or None.
+
+    Format (spec):
+        [Trash Info]
+        Path=<absolute path, or a relative path for a same-device trash>
+        DeletionDate=YYYY-MM-DDTHH:MM:SS
+    """
     try:
-        return len([n for n in os.listdir(path) if not n.startswith(".")])
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    except OSError:
+        return None
+    info = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("[") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        info[key.strip()] = value.strip()
+    return info or None
+
+
+def list_trash_items(home=None, environ=None):
+    """Items currently in the Trash.
+
+    Returns a list of dicts: name, trash_path, original_path,
+    deletion_date, size (bytes, recursive), is_dir. Sorted by name so the
+    confirmation text is stable between the query and the erase.
+    """
+    items = []
+    for root in trash_dirs(home, environ):
+        files_dir = os.path.join(root, "files")
+        info_dir = os.path.join(root, "info")
+        if not os.path.isdir(files_dir):
+            continue
+        for name in sorted(os.listdir(files_dir)):
+            trash_path = os.path.join(files_dir, name)
+            info = read_trashinfo(os.path.join(info_dir, name + ".trashinfo")) or {}
+            items.append({
+                "name": name,
+                "trash_path": trash_path,
+                "original_path": info.get("Path", ""),
+                "deletion_date": info.get("DeletionDate", ""),
+                "is_dir": os.path.isdir(trash_path),
+                "size": path_size(trash_path),
+            })
+    return items
+
+
+def path_size(path):
+    """Recursive size in bytes without following symlinks. Missing path=0."""
+    try:
+        st = os.lstat(path)
     except OSError:
         return 0
-
-
-def empty_trash():
-    """Permanently erase Trash contents. Prefer trash-empty, then direct remove."""
-    if shutil.which("trash-empty"):
-        return subprocess.call(["trash-empty"])
-    files = trash_dir()
-    info = os.path.join(os.path.expanduser("~"), ".local", "share", "Trash", "info")
-    for root in (files, info):
-        if not root or not os.path.isdir(root):
-            continue
-        for name in os.listdir(root):
-            target = os.path.join(root, name)
+    if not os.path.isdir(path) or os.path.islink(path):
+        return st.st_size
+    total = st.st_size
+    for root, dirs, files in os.walk(path, onerror=lambda _e: None):
+        for f in files:
             try:
-                if os.path.isdir(target) and not os.path.islink(target):
-                    shutil.rmtree(target)
-                else:
-                    os.remove(target)
-            except OSError as exc:
-                print("mv-empty-trash: %s" % exc, file=sys.stderr)
-    return 0
+                total += os.lstat(os.path.join(root, f)).st_size
+            except OSError:
+                pass
+    return total
 
 
-def confirm_and_empty():
-    import gi
-    gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk
+def format_size(num_bytes):
+    """Mavericks/Finder-ish short sizes: '512 bytes', '4.5 MB'."""
+    n = float(num_bytes)
+    for unit in ("bytes", "KB", "MB", "GB", "TB"):
+        if n < 1024 or unit == "TB":
+            if unit == "bytes":
+                return "%d bytes" % int(n)
+            return "%.1f %s" % (n, unit)
+        n /= 1024.0
+    return "%.1f TB" % n
 
-    n = count_items()
-    if n == 0:
-        dialog = Gtk.MessageDialog(
-            message_type=Gtk.MessageType.INFO,
-            buttons=Gtk.ButtonsType.OK,
-            text="The Trash is empty.",
-        )
-        dialog.set_title("Empty Trash")
-        dialog.run()
-        dialog.destroy()
-        return 0
 
-    if n == 1:
-        body = "Are you sure you want to permanently erase the item in the Trash?"
-    else:
-        body = (
-            "Are you sure you want to permanently erase the %d items "
-            "in the Trash?" % n
-        )
+def summarize(items):
+    """(count_text, size_text) for the confirmation alert."""
+    if not items:
+        return ("The Trash is empty", "")
+    count = len(items)
+    total = sum(i["size"] for i in items)
+    count_text = ("1 item" if count == 1 else "%d items" % count)
+    if total:
+        count_text += ", %s" % format_size(total)
+    return count_text, ""
 
-    dialog = Gtk.MessageDialog(
-        message_type=Gtk.MessageType.WARNING,
-        text=body,
-    )
-    dialog.set_title("Empty Trash")
-    dialog.format_secondary_text("You can't undo this action.")
-    dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-    empty_btn = dialog.add_button("Empty Trash", Gtk.ResponseType.OK)
-    dialog.set_default_response(Gtk.ResponseType.CANCEL)
-    empty_btn.get_style_context().add_class("destructive-action")
 
-    response = dialog.run()
-    dialog.destroy()
-    if response != Gtk.ResponseType.OK:
-        return 0
-    return empty_trash()
+# --------------------------------------------------------------------------
+# Confirmation
+# --------------------------------------------------------------------------
+
+def _display_usable():
+    """True when GTK can actually put a window on a screen.
+
+    Ambient DISPLAY is not enough: this project's gui-isolation work
+    exists precisely because an inherited DISPLAY can point at a server
+    the process cannot use. Measured here: DISPLAY=:0 set but
+    Gdk.Display.get_default() is None, and GtkMessageDialog.run() then
+    blocks forever on a window that will never be mapped — a hang, not an
+    error. Ask GDK instead of guessing.
+    """
+    try:
+        import gi
+        # Without this, `from gi.repository import Gdk` pulls Gdk 4.0, whose
+        # Display.get_default() returns None even on a working display —
+        # the check then refuses every time (measured on Xvfb :97).
+        gi.require_version("Gdk", "3.0")
+        from gi.repository import Gdk
+        return Gdk.Display.get_default() is not None
+    except Exception:
+        return False
+
+
+def confirm_interactive(count_text):
+    """Mavericks destructive confirm. Returns True only on Empty Trash.
+
+    Escape and Cancel both abort — Cancel is the default action, exactly
+    as in Finder, so an extra Return or a stray Escape never erases.
+
+    Never blocks on a terminal. The alert is built with no parent so it
+    is centred even when the trigger was a hotkey with nothing focused.
+    If there is no usable display we REFUSE instead of prompting on
+    stdin: an irreversible action asked for by a keystroke must never
+    wait on an invisible tty, and a failed dialog must never be read as
+    consent. --yes is the only non-interactive erase path.
+    """
+    if not _display_usable():
+        print("mv-empty-trash: no usable display for the confirmation; "
+              "nothing was erased", file=sys.stderr)
+        print("mv-empty-trash: re-run with --yes to skip it "
+              "(scripts/tests).", file=sys.stderr)
+        return False
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        sys.path.insert(0, "/usr/share/mavericks-apps")
+        import mv_dialogs
+        from gi.repository import Gtk
+        secondary = CANCEL_SECONDARY
+        if count_text:
+            secondary = "%s\n%s" % (CANCEL_SECONDARY, count_text)
+        response = mv_dialogs.confirm_delete(
+            None, CANCEL_MESSAGE, secondary, delete_label=EMPTY_LABEL)
+        return response == Gtk.ResponseType.OK
+    except Exception as exc:
+        print("mv-empty-trash: cannot ask for confirmation (%s)"
+              % (str(exc).splitlines()[0] if str(exc) else "no GTK display"),
+              file=sys.stderr)
+        print("mv-empty-trash: nothing was erased. Re-run with --yes to "
+              "skip the confirmation (scripts/tests).", file=sys.stderr)
+        return False
+
+
+def confirm(count_text, assume_yes=False, assume_no=False):
+    if assume_yes:
+        return True
+    if assume_no:
+        return False
+    return confirm_interactive(count_text)
+
+
+# --------------------------------------------------------------------------
+# Erase
+# --------------------------------------------------------------------------
+
+def erase_with_trash_cli():
+    """Use trash-cli when present. Returns (ok, message)."""
+    if not shutil.which("trash-empty"):
+        return False, "trash-empty(1) is not installed"
+    try:
+        # stdin=DEVNULL is load-bearing: trash-empty inherits the caller's
+        # stdin, and when mv-empty-trash was started from a hotkey that
+        # stdin is a pty nobody is ever going to answer — the confirmed
+        # erase then blocks forever instead of erasing.
+        proc = subprocess.run(["trash-empty"], stdin=subprocess.DEVNULL,
+                              capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, str(exc)
+    if proc.returncode == 0:
+        return True, "Trash emptied (trash-empty)"
+    detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+    return False, detail[-1] if detail else "trash-empty failed (rc=%d)" % proc.returncode
+
+
+def erase_fallback(items):
+    """Delete the listed trash entries directly. Returns (ok, message).
+
+    Only reached when trash-cli is missing, so it must never widen the
+    blast radius: it unlinks exactly the paths reported by list_trash_items
+    and never touches anything outside a Trash root.
+    """
+    if not items:
+        return True, "Trash is already empty"
+    removed = 0
+    failures = []
+    for item in items:
+        try:
+            if item["is_dir"]:
+                shutil.rmtree(item["trash_path"])
+            else:
+                os.unlink(item["trash_path"])
+            info = item["trash_path"].replace(os.sep + "files" + os.sep,
+                                              os.sep + "info" + os.sep)
+            try:
+                os.unlink(info + ".trashinfo")
+            except OSError:
+                pass
+            removed += 1
+        except OSError as exc:
+            failures.append("%s: %s" % (item["name"], exc))
+    if failures:
+        return False, ("erased %d of %d — %s"
+                       % (removed, len(items), failures[0]))
+    return True, "Erased %d item%s" % (removed, "" if removed == 1 else "s")
+
+
+def erase(items):
+    """Erase the Trash. Returns (rc, message)."""
+    ok, message = erase_with_trash_cli()
+    if ok:
+        remaining = list_trash_items()
+        if not remaining:
+            return 0, message
+        # trash-cli reported success but the store is not empty: finish the
+        # job on the entries that survived rather than claiming success.
+        ok2, message2 = erase_fallback(remaining)
+        if not ok2:
+            return 1, "%s; then %s" % (message, message2)
+        return 0, message2
+    return 1, "Empty Trash failed: %s" % message
+
+
+def notify_done(ok, message):
+    """Mavericks posts a notification; fall back to stdout/stderr.
+
+    Bounded on purpose. notify-send blocks until it gives up talking to a
+    notification daemon that is not there — measured 5.0 s here with none
+    running — and this command is reachable from Super+Shift+Delete, so an
+    unbounded child would make the keystroke look frozen. 2 s cap, then it
+    is simply silent.
+    """
+    if os.environ.get("MV_TRASH_QUIET"):
+        return
+    notifier = shutil.which("notify-send")
+    if ok and notifier:
+        try:
+            subprocess.run([notifier, "-a", "Trash", "-i", "user-trash-full",
+                            "Trash", message],
+                           stdin=subprocess.DEVNULL, capture_output=True,
+                           timeout=2)
+            return
+        except (OSError, subprocess.SubprocessError):
+            pass
+    print(message, file=sys.stdout if ok else sys.stderr)
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Empty Trash (with confirmation)")
-    parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="skip confirmation (not bound to any hotkey)",
-    )
+    parser = argparse.ArgumentParser(
+        description="Empty the Trash, with the Finder confirmation")
+    parser.add_argument("--yes", action="store_true",
+                        help="erase without asking (scripts/tests)")
+    parser.add_argument("--no", action="store_true",
+                        help="print the confirmation and exit (dry run)")
+    parser.add_argument("--status", action="store_true",
+                        help="print item count + size and exit")
+    parser.add_argument("--list", action="store_true",
+                        help="print the items that would be erased")
     args = parser.parse_args(argv)
-    if args.yes:
-        return empty_trash()
-    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-        print(
-            "mv-empty-trash: no display; pass --yes to empty without confirmation",
-            file=sys.stderr,
-        )
-        return 2
-    return confirm_and_empty()
+
+    items = list_trash_items()
+    if args.status:
+        count_text, _ = summarize(items)
+        print(count_text or "The Trash is empty")
+        return 0
+    if args.list:
+        if not items:
+            print("The Trash is empty")
+            return 0
+        for item in items:
+            when = ("  (" + item["deletion_date"].replace("T", " ") + ")"
+                    if item["deletion_date"] else "")
+            print("%s  <-  %s%s" % (item["name"],
+                                     item["original_path"] or "?", when))
+        return 0
+
+    if not items:
+        notify_done(True, "The Trash is already empty")
+        return 0
+
+    count_text, _ = summarize(items)
+    if args.no:
+        print(CANCEL_MESSAGE)
+        print(count_text)
+        print(CANCEL_SECONDARY)
+        return 0
+    # Both flags must reach confirm(). They used to be parsed and then
+    # dropped on the floor, so --yes still opened the destructive alert and
+    # blocked forever in gtk_dialog_run() — the documented non-interactive
+    # path was unusable, and a scripted Empty Trash would hang the caller.
+    if not confirm(count_text, assume_yes=args.yes, assume_no=args.no):
+        print("Empty Trash cancelled — nothing was erased", file=sys.stderr)
+        return 0
+
+    rc, message = erase(items)
+    notify_done(rc == 0, message)
+    return rc
 
 
 if __name__ == "__main__":
-    sys.exit(main() or 0)
+    sys.exit(main())
