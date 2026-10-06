@@ -1,0 +1,31 @@
+w = property_path(
+                    row["branch"],
+                    normalize_accelerator(override.get("accelerator", {})))
+            except ValueError:
+                override_raw = None
+            if override_raw and override_raw != factory_raw and \
+                    live.get(override_raw) in (row["command"],
+                                               action_command(action_id,
+                                                             previous)):
+                stale.append(override_raw)
+        stale += [p for p in _stale_paths(row, {}, live)
+                  if p not in stale]
+        for stale_path in stale:
+            live_remove(stale_path)
+            steps.append("removed %s" % stale_path)
+        target = property_path(row["branch"], row)
+        live_after = {canonical_property(p): v for p, v in live_list().items()}
+        if live_after.get(canonical_property(target)) != row["command"]:
+            live_set(target, row["command"])
+            steps.append("set %s = %s" % (target, row["command"]))
+    except XfconfUnavailable as exc:
+        steps.append("xfconf unavailable (%s); factory XML left unchanged"
+                     % exc)
+    return steps, overrides
+
+
+def apply_all(overrides=None, path=None, force=False):
+    overrides = overrides if overrides is not None else load_overrides(path)
+    steps = []
+    for row in ACTIONS:
+        steps
