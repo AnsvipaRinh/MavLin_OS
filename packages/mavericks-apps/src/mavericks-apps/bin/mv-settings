@@ -122,6 +122,48 @@ def filter_pages(query):
 # ---------------------------------------------------------------------------
 # Pure helpers backing the native panes (headless-testable).
 # ---------------------------------------------------------------------------
+_XRANDR_OUTPUT_RE = re.compile(r"^(\\S+) (connected|disconnected)(?: primary)?(?: (\\d+x\\d+)\\+(-?\\d+)\\+(-?\\d+))?.*$")
+_XRANDR_MODE_RE = re.compile(r"^\\s+(\\d+x\\d+)(?:\\s+(.+?))?\\s*$")
+
+def parse_xrandr_outputs(text):
+    """Parse stable xrandr output/mode/rate data for the Displays pane."""
+    outputs = []
+    current = None
+    for raw_line in text.splitlines():
+        if raw_line and not raw_line.startswith((" ", "\\t")):
+            match = _XRANDR_OUTPUT_RE.match(raw_line)
+            if not match:
+                current = None
+                continue
+            name, state, _geometry, _x, _y = match.groups()
+            if state != "connected":
+                current = None
+                continue
+            current = {"name": name, "primary": " connected primary " in raw_line,
+                       "modes": [], "rates_by_mode": {},
+                       "current_mode": None, "current_rate": None, "rotation": "normal"}
+            outputs.append(current)
+            continue
+        if current is None or not raw_line.strip():
+            continue
+        match = _XRANDR_MODE_RE.match(raw_line)
+        if not match:
+            continue
+        mode_name, rate_blob = match.groups()
+        rates = []
+        for token in (rate_blob or "").split():
+            if not re.fullmatch(r"\\d+(?:\\.\\d+)?[+*]*i?", token):
+                continue
+            rate = token.rstrip("i+*")
+            if rate and rate not in rates:
+                rates.append(rate)
+        current["modes"].append({"name": mode_name, "rates": rates})
+        current["rates_by_mode"][mode_name] = rates
+        if "*" in (rate_blob or ""):
+            current["current_mode"] = mode_name
+            current["current_rate"] = next((r for r in rates if r in rate_blob and "*" in rate_blob), rates[0] if rates else None)
+    return outputs
+
 
 # --- Mission Control (xfconf xfwm4) ---
 WORKSPACE_MIN, WORKSPACE_MAX = 1, 16  # Mavericks Spaces limits
