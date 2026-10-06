@@ -109,6 +109,21 @@ class MissionControlTests(unittest.TestCase):
             text,
         )
 
+
+    def test_native_overview_has_mavericks_surface(self):
+        overview = os.path.join(
+            ROOT, "packages", "mavericks-apps", "src", "mavericks-apps",
+            "bin", "mv-mc-overview",
+        )
+        with open(overview, encoding="utf-8") as fh:
+            css = fh.read()
+        self.assertIn("window.mav-mc", css)
+        self.assertIn("rgba(25,27,30,0.96)", css)
+        self.assertIn(".mav-card.mav-selected", css)
+        self.assertIn(".mav-workspace-button", css)
+        self.assertIn("linear-gradient", css)
+        self.assertNotIn("background-color: #3b3c3f", css)
+
     def test_iso_declares_x11_runtime_tools(self):
         with open(PACKAGES, encoding="utf-8") as fh:
             package_names = set(fh.read().split())
