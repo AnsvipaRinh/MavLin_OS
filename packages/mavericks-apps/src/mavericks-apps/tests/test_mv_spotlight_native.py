@@ -42,7 +42,6 @@ def test_keyboard_and_async_contract():
     assert "threading.Thread" in source
     assert "GLib.idle_add" in source
     assert "self.search_generation" in source
-    assert "threading.Thread" in source
     print("PASS: keyboard and stale-search guards present")
 
 
@@ -69,4 +68,5 @@ if __name__ == "__main__":
     test_gui_compiles()
     test_backend_contract_reused()
     test_keyboard_and_async_contract()
+    test_hotkey_contract()
     test_packaging_contract()
