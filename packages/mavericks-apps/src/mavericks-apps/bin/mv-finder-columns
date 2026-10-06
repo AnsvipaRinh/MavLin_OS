@@ -149,28 +149,28 @@ class ColumnsWindow(Gtk.Window):
         self.back_button = Gtk.Button(label="‹")
         self.back_button.set_tooltip_text("Back")
         self.back_button.connect("clicked", self.on_back)
-        hb.pack_start(self.back_button)
+        hb.pack_start(self.back_button, False, False, 0)
 
         self.forward_button = Gtk.Button(label="›")
         self.forward_button.set_tooltip_text("Forward")
         self.forward_button.connect("clicked", self.on_forward)
-        hb.pack_start(self.forward_button)
+        hb.pack_start(self.forward_button, False, False, 0)
 
         up_button = Gtk.Button(label="↑")
         up_button.set_tooltip_text("Enclosing Folder")
         up_button.connect("clicked", self.on_up)
-        hb.pack_start(up_button)
+        hb.pack_start(up_button, False, False, 0)
 
         self.search_entry = Gtk.SearchEntry()
         self.search_entry.set_placeholder_text("Search")
         self.search_entry.set_width_chars(18)
         self.search_entry.connect("activate", self.on_search)
-        hb.pack_end(self.search_entry)
+        hb.pack_end(self.search_entry, False, False, 0)
 
         open_tb = Gtk.Button(label="Open in Thunar")
         open_tb.set_tooltip_text("Open current location in Thunar")
         open_tb.connect("clicked", self.on_open_thunar)
-        hb.pack_end(open_tb)
+        hb.pack_end(open_tb, False, False, 0)
 
         self.columns_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
 
