@@ -277,9 +277,9 @@ def build_stickynote_class():
             self.sw = Gtk.ScrolledWindow()
             self.sw.add(tv)
             root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-root.pack_start(hb, False, False, 0)
-root.pack_start(self.sw, True, True, 0)
-self.add(root)
+            root.pack_start(self.hb, False, False, 0)
+            root.pack_start(self.sw, True, True, 0)
+            self.add(root)
             self.tv = tv
 
             self.buf.set_text(self.text)
