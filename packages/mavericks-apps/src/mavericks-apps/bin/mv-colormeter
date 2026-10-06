@@ -323,7 +323,6 @@ class ColorMeterWindow(Gtk.Window):
         hb.get_style_context().add_class("mavericks-mv-colormeter-toolbar")
         title_label = Gtk.Label(label="Digital Color Meter")
         hb.pack_start(title_label, True, True, 8)
-self.set_titlebar(hb)
 
         self.copy_btn = Gtk.Button.new_from_icon_name(
             "edit-copy", Gtk.IconSize.SMALL_TOOLBAR)
