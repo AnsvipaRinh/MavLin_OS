@@ -362,6 +362,36 @@ def move_app_to_folder(folders, app_id, folder_id):
         updated[folder_id]["apps"].append(app_id)
     return updated
 
+def create_folder_from_apps(folders, app_ids, folder_id=None, name="Folder"):
+    """Return folders with two or more standalone apps grouped into a new folder."""
+    if not isinstance(folders, dict) or not isinstance(app_ids, (list, tuple)):
+        return folders
+    ids = []
+    for app_id in app_ids:
+        if isinstance(app_id, str) and app_id not in ids:
+            ids.append(app_id)
+    if len(ids) < 2:
+        return folders
+    updated = {
+        key: {
+            **value,
+            "apps": list(value.get("apps", [])) if isinstance(value, dict) else [],
+        }
+        for key, value in folders.items()
+    }
+    if folder_id is None or folder_id in updated:
+        index = 1
+        while "folder-%d" % index in updated:
+            index += 1
+        folder_id = "folder-%d" % index
+    if not isinstance(name, str) or not name.strip():
+        name = "Folder"
+    for data in updated.values():
+        data["apps"] = [item for item in data["apps"] if item not in ids]
+    updated[folder_id] = {"name": name.strip(), "apps": ids}
+    return updated
+
+
 def build_launchpad_structure(apps, folders, positions, query="", open_folder=None):
     """Build the launchpad structure with folders and pagination.
     

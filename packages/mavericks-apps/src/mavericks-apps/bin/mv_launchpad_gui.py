@@ -272,17 +272,41 @@ class LaunchpadWindow(Gtk.Window):
             Gtk.drag_finish(context, True, False, time)
             return
 
-        # App -> app: reorder the existing standalone-app sequence and persist
-        # canonical zero-based positions. Folder membership remains separate.
+        # App -> app: in Mavericks, dropping one app onto another creates a
+        # folder. This is distinct from reordering: the two apps become the
+        # initial members and their standalone positions are removed.
         if target_item.get("id") == source_id:
             Gtk.drag_finish(context, False, False, time)
             return
 
         structure = self._structure()
+        target_id = target_item.get("id")
+        if target_id and source_id:
+            source_and_target = [target_id, source_id]
+            folder_id = None
+            index = 1
+            while "folder-%d" % index in self.folders:
+                index += 1
+            folder_id = "folder-%d" % index
+            self.folders = mv_launchpad.create_folder_from_apps(
+                self.folders, source_and_target, folder_id=folder_id, name="Folder"
+            )
+            mv_launchpad.save_folders(self.folders)
+            self.positions = {
+                app_id: pos for app_id, pos in self.positions.items()
+                if app_id not in source_and_target
+            }
+            mv_launchpad.save_positions(self.positions)
+            self.page = 0
+            self.selected_index = 0
+            self._render()
+            Gtk.drag_finish(context, True, False, time)
+            return
+
         reordered = mv_launchpad.reorder_launchpad_apps(
             structure.get("apps", []),
             source_id,
-            target_item.get("id"),
+            target_id,
         )
         if [app.get("id") for app in reordered] == [
             app.get("id") for app in structure.get("apps", [])
