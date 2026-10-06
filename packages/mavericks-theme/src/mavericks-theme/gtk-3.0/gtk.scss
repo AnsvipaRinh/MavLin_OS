@@ -623,6 +623,18 @@ aboutdialog {
 }
 
 /* System Preferences icon grid — Mavericks uses icon tiles, not generic GTK buttons. */
+.mavericks-settings-toolbar {
+  min-height: 24px;
+  padding: 2px 8px;
+}
+
+.mavericks-settings-search {
+  min-width: 180px;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
 .mavericks-preferences-item,
 .mavericks-preferences-item.flat {
     background-image: none;
