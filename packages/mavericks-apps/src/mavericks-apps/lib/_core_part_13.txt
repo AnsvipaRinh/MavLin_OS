@@ -1,11 +1,4 @@
-Y_FN_RE.match(raw_key):
-        key = "F" + _KEY_FN_RE.match(raw_key).group(1)
-    elif raw_key in NAMED_KEYS or raw_key in MEDIA_KEYS:
-        key = raw_key
-    else:
-        # Named keys are case-sensitive in X11 but users type them in any
-        # case; accept the exact-name lookup case-insensitively.
-        lowered = {k.lower(): k for k in NAMED_KEYS}
+ k for k in NAMED_KEYS}
         if raw_key.lower() in lowered:
             key = lowered[raw_key.lower()]
         else:
@@ -35,4 +28,13 @@ def property_path(branch, accel):
 def property_path_identity(branch, accel):
     """Conflict-detecting twin of property_path: order-insensitive."""
     accel = normalize_accelerator(accel)
-    return "/%s/
+    return "/%s/default/%s" % (
+        branch,
+        "".join("<%s>" % m for m in modifier_identity(accel["modifiers"]))
+        + accel["key"])
+
+
+def display_accelerator(accel):
+    """Human/Mavericks rendering: 'Super+Shift+3' (XML-escaped for widgets)."""
+    accel = normalize_accelerator(accel)
+    labels = [ACCEL_MODIFIER_LABELS[m] for m in ac
