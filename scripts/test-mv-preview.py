@@ -58,6 +58,11 @@ def check(name, cond):
 
 
 def headless_suite():
+    # --- native Mavericks window chrome ---
+    check("Preview uses real XFWM4 window decoration", "self.set_decorated(True)" in text)
+    check("Preview no longer uses Gtk.HeaderBar CSD", "Gtk.HeaderBar" not in text and "self.set_titlebar(" not in text)
+    check("Preview toolbar remains inside content area", "mavericks-preview-toolbar" in text and "root.pack_start(hb" in text)
+
     # --- render backend ---
     check("dead poppler API render_to_pixbuf is absent",
           "render_to_pixbuf" not in text)

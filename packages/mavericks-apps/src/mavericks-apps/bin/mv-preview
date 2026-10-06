@@ -70,6 +70,7 @@ class Preview(Gtk.Window):
     def __init__(self, paths):
         super().__init__(title="Preview")
         self.set_default_size(1000, 700)
+        self.set_decorated(True)
 
         self.paths = [p for p in paths if os.path.isfile(p)]
         if not self.paths:
@@ -120,6 +121,11 @@ class Preview(Gtk.Window):
         }
         .preview-content {
             background: #f5f0e8;
+        }
+        .mavericks-preview-toolbar {
+            background-image: linear-gradient(to bottom, #f7f7f7, #dedede);
+            border-bottom: 1px solid #b7b7b7;
+            padding: 3px 6px;
         }
         .mavericks-toolbar-btn {
             border-radius: 4px;
@@ -183,9 +189,8 @@ class Preview(Gtk.Window):
             screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def build_ui(self):
-        hb = Gtk.HeaderBar(title="Preview", show_close_button=True)
-        hb.set_subtitle("")
-        self.set_titlebar(hb)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        hb.get_style_context().add_class("mavericks-preview-toolbar")
 
         if len(self.paths) > 1:
             prev_b = Gtk.Button.new_from_icon_name("go-previous", Gtk.IconSize.BUTTON)
@@ -217,7 +222,10 @@ class Preview(Gtk.Window):
         hb.pack_end(open_b)
 
         self.paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(self.paned)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.pack_start(hb, False, False, 0)
+        root.pack_start(self.paned, True, True, 0)
+        self.add(root)
 
         self.sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.sidebar.set_size_request(180, -1)
