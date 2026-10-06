@@ -20,7 +20,7 @@ def test_backend_contract_reused():
     backend = BACKEND.read_text()
     assert "_load_backend()" in source
     assert "Path('/usr/bin/mv-spotlight')" not in source
-    assert "Path("/usr/bin/mv-spotlight")" in source
+    assert 'Path("/usr/bin/mv-spotlight")' in source
     for symbol in (
         "load_desktop_apps",
         "search_apps",
