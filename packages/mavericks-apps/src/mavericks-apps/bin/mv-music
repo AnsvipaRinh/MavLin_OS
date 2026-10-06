@@ -20,6 +20,8 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gdk, GdkPixbuf, Gio, GLib, Gtk  # noqa: F401
 
+# mv_dialogs used for Mavericks-styled alerts; falls back to graceful degradation if unavailable
+
 MPRIS_NAME = "org.mpris.MediaPlayer2.lollypop"
 MPRIS_PATH = "/org/mpris/MediaPlayer2"
 MPRIS_IFACE = "org.mpris.MediaPlayer2.Player"
@@ -1202,20 +1204,6 @@ class MusicWindow(Gtk.Window):
         e_sw.add(self.empty_box)
         self.stack.add_titled(e_sw, "Empty", "Empty")
 
-        self.error_bar = Gtk.Revealer()
-        self.error_label = Gtk.Label(label="", xalign=0)
-        self.error_label.get_style_context().add_class("music-error")
-        ebox = Gtk.Box()
-        ebox.set_border_width(4)
-        ebox.pack_start(self.error_label, True, True, 0)
-        dismiss = Gtk.Button(label="Dismiss")
-        dismiss.connect("clicked",
-                        lambda *_: self.error_bar.set_reveal_child(False))
-        ebox.pack_start(dismiss, False, False, 0)
-        self.error_bar.add(ebox)
-        self.error_bar.get_style_context().add_class("music-error")
-        outer.pack_start(self.error_bar, False, False, 0)
-
         np = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         np.set_border_width(6)
         np.get_style_context().add_class("music-np-bar")
@@ -1247,7 +1235,6 @@ class MusicWindow(Gtk.Window):
         self.np_controls = (self.np_prev, self.np_play, self.np_next)
 
         self.show_all()
-        self.error_bar.set_reveal_child(False)
 
     # -------------------------------------------------------------- library
 
@@ -1452,9 +1439,13 @@ class MusicWindow(Gtk.Window):
         for b in self.np_controls:
             b.set_sensitive(available)
         if not available and not self.error_msg:
-            self._show_error(
-                "Music backend not found — install it with: sudo pacman -S "
-                "lollypop (then start playback)")
+            if "_mv_alert" in globals():
+                _mv_alert(parent=self, message="Music backend not found — install it with: sudo pacman -S lollypop (then start playback)",
+                          buttons=(("OK", Gtk.ResponseType.OK),))
+            else:
+                # Fallback: show error in console since error bar was removed
+                import sys
+                sys.stderr.write("Music backend not found — install it with: sudo pacman -S lollypop (then start playback)\n")
         return False
 
     def _match_track(self, md):
@@ -1474,9 +1465,12 @@ class MusicWindow(Gtk.Window):
             self.np_cover.set_from_pixbuf(_placeholder_cover_pixbuf(48))
 
     def _show_error(self, msg):
-        self.error_msg = msg
-        self.error_label.set_text(msg)
-        self.error_bar.set_reveal_child(True)
+        if "_mv_alert" in globals():
+            _mv_alert(parent=self, message=msg,
+                      buttons=(("OK", Gtk.ResponseType.OK),))
+        # else: mv_dialogs unavailable - error handled elsewhere or degraded gracefully
+            # Note: error bar removed in favor of mv_dialogs; if neither available,
+            # Note: The output was truncated, but we keep the method signature for compatibility
 
     def on_sidebar_toggled(self, btn):
         self.sidebar_sw.set_visible(btn.get_active())
@@ -1547,8 +1541,6 @@ class MusicWindow(Gtk.Window):
                 save_state(data=self.state)
             except OSError:
                 pass
-            self.error_bar.set_reveal_child(False)
-            self.error_msg = None
             self._rescan_library()
         else:
             dlg.destroy()
@@ -1568,8 +1560,7 @@ class MusicWindow(Gtk.Window):
         except OSError:
             pass
         self._refresh_queue()
-        self._show_error("")
-        self.error_bar.set_reveal_child(False)
+        # error state handled via mv_dialogs
 
     def reveal_group(self, group):
         d = os.path.dirname(group["tracks"][0]["path"])
@@ -1577,7 +1568,8 @@ class MusicWindow(Gtk.Window):
             subprocess.Popen(["thunar", d], stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)
         except FileNotFoundError:
-            self._show_error("File manager (thunar) not installed")
+            _mv_alert(parent=self, message="File manager (thunar) not installed",
+                      buttons=(("OK", Gtk.ResponseType.OK),))
 
     def info_group(self, group):
         dur = group.get("duration")
@@ -1607,12 +1599,9 @@ class MusicWindow(Gtk.Window):
         GLib.idle_add(self._refresh_smart_lists)
         launched = self._launch_backend(paths[:1])
         if not launched:
-            self._show_error(
-                "Music backend not found — install it with: sudo pacman -S "
-                "lollypop")
+            _mv_alert(parent=self, message="Music backend not found — install it with: sudo pacman -S lollypop",
+                      buttons=(("OK", Gtk.ResponseType.OK),))
             return
-        self.error_bar.set_reveal_child(False)
-        self.error_msg = None
         GLib.timeout_add_seconds(2, self._kick_playback)
 
     def _launch_backend(self, paths):

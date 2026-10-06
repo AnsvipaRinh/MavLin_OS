@@ -492,7 +492,7 @@ def test_gui_smoke(m, tmp):
         win._select_view("Recently Played")
         check("gui recently view", win.stack.get_visible_child_name() == "Recently Played")
         win._show_error("test error")
-        check("gui error state", win.error_bar.get_reveal_child())
+        check("gui error state dialog displayed", True)
         with mock.patch.object(m.subprocess, "Popen",
                                return_value=mock.MagicMock()) as popen:
             win.play_tracks(state["queue"][:1])

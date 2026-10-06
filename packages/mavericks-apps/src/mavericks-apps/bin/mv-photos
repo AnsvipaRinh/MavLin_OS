@@ -1448,10 +1448,15 @@ class PhotosWindow(Gtk.Window):
         return items
 
     def _show_error(self, msg):
-        from gi.repository import GLib
-        GLib.idle_add(self._show_error_idle, msg)
+        if "_mv_alert" in globals():
+            _mv_alert(parent=self, message=msg,
+                      buttons=(("OK", Gtk.ResponseType.OK),))
+        else:
+            # Fallback: Gtk.InfoBar (original behavior)
+            GLib.idle_add(self._show_error_idle, msg)
 
     def _show_error_idle(self, msg):
+        # Fallback when mv_dialogs unavailable
         bar = Gtk.InfoBar()
         bar.set_message_type(Gtk.MessageType.WARNING)
         bar.get_content_area().pack_start(
