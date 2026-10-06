@@ -136,6 +136,12 @@ def watch_respawn(exclude_pid, seconds):
     return seen
 
 
+    path = os.path.join(BIN, "mv-textedit")
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("textedit: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("textedit: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
 def main():
     print("mv-textedit lifecycle test")
     print("  app: %s" % APP_PATH)
