@@ -13,7 +13,18 @@ static void
 activate_command(GtkWidget *item, gpointer data)
 {
     (void)data;
-    launch((const gchar *)g_object_get_data(G_OBJECT(item), "mv-command"));
+    const gchar *command =
+        (const gchar *)g_object_get_data(G_OBJECT(item), "mv-command");
+    const gchar *fallback =
+        (const gchar *)g_object_get_data(G_OBJECT(item), "systemctl-command");
+
+    GError *error = NULL;
+    if (!g_spawn_command_line_async(command, &error)) {
+        if (error != NULL)
+            g_error_free(error);
+        if (fallback != NULL)
+            launch(fallback);
+    }
 }
 
 static void
@@ -44,8 +55,8 @@ add_power_item (GtkWidget *menu, const gchar *label, const gchar *command,
 static const gchar * const accel_force_quit = "\u2325\u2318\u238B";
 static const gchar * const accel_lock_screen = "\u21E7\u2303\u2318\u0051";
 
-/* Power routing: Sleep/Restart/Shut Down/Lg Out go through mv-power-ui,
-   with systemctl kept only as a missing-helper fallback. */
+/* Power routing: Sleep/Restart/Shut Down/Log Out open mv-power-ui first,
+   with direct systemctl/session logout kept only as a missing-helper fallback. */
 static const gchar * const power_routes = "launch (fallback);";
 static const gchar * const launch_power = "launch_power";
 
@@ -69,16 +80,16 @@ popup_menu(GtkWidget *button, gpointer data)
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
     gtk_widget_show(sep);
 
-    add_power_item (menu, "S_leep", "sleep", "systemctl suspend");
-    add_power_item (menu, "_Restart...", "restart", "systemctl reboot");
-    add_power_item (menu, "Shut _Down...", "shutdown", "systemctl poweroff");
+    add_power_item (menu, "S_leep", "mv-power-ui sleep", "systemctl suspend");
+    add_power_item (menu, "_Restart...", "mv-power-ui restart", "systemctl reboot");
+    add_power_item (menu, "Shut _Down...", "mv-power-ui shutdown", "systemctl poweroff");
 
     sep = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
     gtk_widget_show(sep);
 
     add_item (menu, "_Lock Screen", "xfce4-screensaver-command --lock");
-    add_power_item (menu, "_Log Out...", "logout", "xfce4-session-logout");
+    add_power_item (menu, "_Log Out...", "mv-power-ui logout", "xfce4-session-logout");
 
     gtk_widget_show_all(menu);
     xfce_panel_plugin_popup_menu(plugin, GTK_MENU(menu), button, NULL);
