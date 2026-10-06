@@ -9,6 +9,21 @@ MavLinOS implements a full Mavericks-style Mission Control with:
 - Dynamic Space management (1-16 Spaces)
 - Non-breaking integration with Xfce
 
+## Quick Start
+
+```bash
+# Install dependencies
+sudo apt install python3-gi gir1.2-gtk-3.0 imagemagick wmctrl xdotool python3-ewmh python3-xlib
+
+# Install Mission Control helpers
+make -f packages/mavericks-apps/src/mavericks-apps/MISSION_CONTROL_Makefile install
+
+# Try it!
+mv-mc-gui
+
+# Or press F3
+```
+
 ## Architecture
 
 ```
@@ -95,41 +110,13 @@ mv-mc-activate-window <wid>
 
 **Dependencies:** `wmctrl` or `xdotool`
 
-### 5. `mv-mc-overview` (native overview — the primary Mission Control surface)
+### 5. `mv-mc-overview` (CLI integration)
 
-Integrates all helpers for CLI-based overview AND renders the native GTK3
-overview (the primary path behind the Mission Control hotkey; rofi stays as
-fallback until O10).
+Integrates all helpers for CLI-based overview.
 
 **Modes:**
 - `--list`: Text list of windows
 - `--debug`: JSON debug output
-- `--activate <id>`: Activate a window by X11 id (headless)
-- default: fullscreen native overview
-
-**Native overview features (O1–O6 implemented):**
-- EWMH window enumeration + application grouping (Mavericks stacks)
-- XComposite thumbnails with placeholder fallback
-- Spaces strip: one composed per-Space miniature (one-shot window
-  captures over the scaled Mavericks wallpaper; empty Spaces show the
-  bare desktop; click to switch, +/× to add/remove, Ctrl+←/→ to cycle)
-- Entrance/exit choreography: fade + directional pull from each
-  window's real position (~160ms/~140ms, ease-out; reduced-motion aware)
-- Live thumbnails while open: XDamage-driven refresh via the
-  ThumbnailCapture backend — event-driven (fd watch), zero polling,
-  zero residual state after close
-- Window→Space drag-and-drop; scroll to scatter/collapse app groups
-- One-shot process: exits on selection/Escape; `destroy` is wired to
-  `Gtk.main_quit` (clean process exit, rc=0)
-
-**Shared libraries (`/usr/share/mavericks-apps/`):** `mission_control.py`
-(enumeration/EWMH ops), `mission_control_thumbnail.py` (one-shot pixbuf +
-ctypes XDamage backends), `mission_control_previews.py` (Space miniatures),
-`mission_control_anim.py` (timeline model), `mission_control_live.py`
-(live-update controller).
-
-**Dependencies:** `python-gobject`, `python-xlib`, `libxcomposite`,
-`libxdamage`, `libxfixes`, `wmctrl` (fallback/ops)
 
 ### 6. `mv-mc-gui` (GTK3 overlay)
 
@@ -159,6 +146,28 @@ mv-workspace-count get           # Show current count
 mv-workspace-count set 4         # Set to 4 Spaces
 mv-workspace-count add           # Add one Space
 mv-workspace-count remove        # Remove one Space
+```
+
+## Installation
+
+### System-wide (recommended)
+
+```bash
+# Install dependencies
+sudo apt install python3-gi gir1.2-gtk-3.0 imagemagick wmctrl xdotool python3-ewmh python3-xlib
+
+# Install helpers
+make -f packages/mavericks-apps/src/mavericks-apps/MISSION_CONTROL_Makefile install
+
+# Verify installation
+which mv-mc-gui
+mv-workspace-count get
+```
+
+### Uninstall
+
+```bash
+make -f packages/mavericks-apps/src/mavericks-apps/MISSION_CONTROL_Makefile uninstall
 ```
 
 ## Keyboard Bindings
@@ -205,6 +214,10 @@ python3 tests/test_f3_mission_control_binding.py
 ### CI Gates
 
 ```bash
+# Full test suite
+ci/test-mission-control.sh
+
+# Individual gates
 ci/test-f3-binding.sh
 ```
 
@@ -271,6 +284,16 @@ Or manually run:
 mv-mc-gui
 ```
 
+### Helpers not found after install
+
+Check PATH:
+```bash
+echo $PATH
+which mv-mc-gui
+```
+
+If not in PATH, helpers are in `/usr/local/bin` by default.
+
 ## Future Enhancements
 
 - [ ] Smooth animations (zoom in/out)
@@ -285,3 +308,4 @@ mv-mc-gui
 - Issue #1: Architecture execution plan
 - Issue #2: Poppy OS X Revieve audit
 - `docs/KEYBOARD.md`: Full keyboard reference
+- `README.md`: Project overview
