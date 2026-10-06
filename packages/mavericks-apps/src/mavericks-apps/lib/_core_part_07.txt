@@ -1,22 +1,63 @@
-inimise Window (Command-M)", ["Super"], "m",
-      "mv-minimize-window", "window", skill="window"),
-    A("close-window", "Close Window (Command-W)", ["Super"], "w",
-      "mv-close-window", "window", skill="window"),
-    A("cycle-windows", "Cycle Windows (Alt-Tab)", ["Alt"], "Tab",
-      "cycle_windows_key", "window", skill="application",
-      branch=BRANCH_XFWM4, rebindable=False),
-    A("cycle-windows-reverse", "Cycle Windows Backwards (Alt-Shift-Tab)",
-      ["Alt", "Shift"], "Tab", "cycle_reverse_windows_key", "window",
-      skill="application", branch=BRANCH_XFWM4, rebindable=False),
-    A("tile-up", "Maximise Window", ["Super"], "Up", "tile_up_key",
-      "window", skill="window", branch=BRANCH_XFWM4),
-    A("tile-down", "Minimise Window (window manager)", ["Super"], "Down",
-      "tile_down_key", "window", skill="window", branch=BRANCH_XFWM4),
-    A("tile-left", "Tile Window Left Half", ["Super"], "Left", "tile_left_key",
-      "window", skill="window", branch=BRANCH_XFWM4),
-    A("tile-right", "Tile Window Right Half", ["Super"], "Right",
-      "tile_right_key", "window", skill="window", branch=BRANCH_XFWM4),
-    # macOS Command-` cycles the windows of the frontmost application.  xfwm4
-    # already implements it as switch_window_key; before this it was unbound, so
-    # the closest thing to a Command-Tab-style window switch only reached across
-    # applications (Al
+    if len(parts) == 1:
+        # A lone hardware keysym (XF86AudioMute, XF86MonBrightnessUp, …) is
+        # a valid accelerator: the function row has no modifiers.
+        if _XF86_RE.match(parts[0]) and parts[0] in MEDIA_KEYS:
+            return {"modifiers": [], "key": parts[0]}
+        raise ValueError(
+            "accelerator needs at least one modifier, e.g. Super+Space")
+    mods, raw_key = parts[:-1], parts[-1]
+    canonical = normalize_modifiers(mods)
+    if _XF86_RE.match(raw_key):
+        key = raw_key
+    elif len(raw_key) == 1 and raw_key.isalnum():
+        key = raw_key.lower()
+    elif _KEY_FN_RE.match(raw_key):
+        key = "F" + _KEY_FN_RE.match(raw_key).group(1)
+    elif raw_key in NAMED_KEYS or raw_key in MEDIA_KEYS:
+        key = raw_key
+    else:
+        # Named keys are case-sensitive in X11 but users type them in any
+        # case; accept the exact-name lookup case-insensitively.
+        lowered = {k.lower(): k for k in NAMED_KEYS}
+        if raw_key.lower() in lowered:
+            key = lowered[raw_key.lower()]
+        else:
+            raise ValueError("unrecognised key: %r" % raw_key)
+    if not canonical and key not in MEDIA_KEYS:
+        raise ValueError(
+            "a bare key (%s) would swallow ordinary typing; add a modifier"
+            % key)
+    return {"modifiers": canonical, "key": key}
+
+
+def modifier_identity(modifiers):
+    """Order-independent identity of a modifier set (conflict detection)."""
+    return tuple(sorted(set(str(m) for m in modifiers)))
+
+
+def property_accelerator(accel):
+    """Accelerator as an Xfce property suffix ('<Super>space')."""
+    accel = normalize_accelerator(accel)
+    return "".join("<%s>" % m for m in accel["modifiers"]) + accel["key"]
+
+
+def property_path(branch, accel):
+    return "/%s/default/%s" % (branch, property_accelerator(accel))
+
+
+def property_path_identity(branch, accel):
+    """Conflict-detecting twin of property_path: order-insensitive."""
+    accel = normalize_accelerator(accel)
+    return "/%s/default/%s" % (
+        branch,
+        "".join("<%s>" % m for m in modifier_identity(accel["modifiers"]))
+        + accel["key"])
+
+
+def display_accelerator(accel):
+    """Human/Mavericks rendering: 'Super+Shift+3' (XML-escaped for widgets)."""
+    accel = normalize_accelerator(accel)
+    labels = [ACCEL_MODIFIER_LABELS[m] for m in accel["modifiers"]]
+    if accel["key"] in ("space",):
+        labels.append("Space")
+    elif _KEY_FN_RE.match(accel["key"]):
