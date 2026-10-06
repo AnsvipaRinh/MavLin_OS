@@ -2,7 +2,7 @@
  * NOTE: keep this file valid rasi — rgba() alpha is a percentage and web-only
  * properties (font-weight, margin) abort rofi with a parse-error dialog. */
 * {
-    font: "San Francisco 11";
+    font: "Lucida Grande 11";
     background-color: rgba (245, 245, 245, 98%);
     text-color: #2d2d2d;
     accent: #007aff;
