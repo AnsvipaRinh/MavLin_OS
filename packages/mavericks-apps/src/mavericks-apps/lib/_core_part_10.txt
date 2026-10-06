@@ -1,46 +1,72 @@
-d", protected=True),
-    A("brightness-down", "Brightness Down", [], "XF86MonBrightnessDown",
-      "mv-brightness down", "keyboard", skill="keyboard", protected=True),
-]
-
-ACTION_INDEX = {row["action"]: row for row in ACTIONS}
-PROTECTED_ACTIONS = frozenset(
-    row["action"] for row in ACTIONS if row["protected"] or not row["rebindable"])
+                 .replace(">", ">").replace('"', """))
 
 
-def action_ids():
-    return [row["action"] for row in ACTIONS]
+def parse_xml_bindings(xml_text):
+    """XML text -> {'/commands/default/<accel>': command, ...}."""
+    root = ET.fromstring(xml_text)
+    bindings = {}
+    for branch in BRANCHES:
+        container = root.find("property[@name='%s']" % branch)
+        if container is None:
+            continue
+        default = container.find("property[@name='default']")
+        if default is None:
+            continue
+        for prop in default.findall("property"):
+            name = prop.get("name")
+            value = prop.get("value")
+            if name is None:
+                continue
+            bindings[canonical_property(
+                "/%s/default/%s" % (branch, name))] = value
+    return bindings
 
 
-# ---------------------------------------------------------------------------
-# Pure accelerator logic
-# ---------------------------------------------------------------------------
-
-_KEY_CHAR_RE = re.compile(r"^[a-z0-9]$")
-_KEY_FN_RE = re.compile(r"^[fF]([1-9]|1[0-3])$")
-_XF86_RE = re.compile(r"^XF86[A-Za-z0-9_]+$")
-
-
-def normalize_modifiers(mods):
-    """Map aliases to canonical xfconf modifier names and order them."""
-    out = set()
-    for m in mods:
-        key = str(m).strip().lower()
-        if key not in MODIFIER_ALIASES:
-            raise ValueError("unknown modifier: %s" % m)
-        out.add(MODIFIER_ALIASES[key])
-    return [m for m in MODIFIER_ORDER if m in out]
+def registry_bindings():
+    """Registry -> {canonical property path: command, ...}."""
+    return {
+        property_path_identity(row["branch"], row): row["command"]
+        for row in ACTIONS
+    }
 
 
-def is_valid_key(key):
-    if not isinstance(key, str) or not key:
-        return False
-    if _KEY_CHAR_RE.match(key) or _KEY_FN_RE.match(key):
-        return True
-    if key in NAMED_KEYS or key in MEDIA_KEYS:
-        return True
-    return False
+def xml_escape(name):
+    return (name.replace("&", "&").replace("<", "<")
+                 .replace(">", ">").replace('"', """))
 
 
-def normalize_accelerator(accel):
-    """Accept a strin
+def canonical_property(path):
+    """Order-insensitive canonical form of an Xfce property path.
+
+    Xfce writes modifiers in the order <Primary><Alt><Super><Shift>, but any
+    order parses to the same key combination.  Comparing canonically keeps
+    verify/drift detection from flagging a pure ordering difference as a
+    missing binding.
+    """
+    parts = path.split("/")
+    if len(parts) < 4:
+        return path
+    try:
+        accel = normalize_accelerator(parts[-1])
+    except ValueError:
+        return path
+    return "/".join(parts[:-1] + [property_path_identity(parts[-2], accel)
+                                  .split("/")[-1]])
+
+
+def compare_bindings(expected, actual):
+    """Diff two property->command maps. Returns a list of problem strings.
+
+    Both sides are canonicalised first, so a modifier-order difference is not
+    reported as drift.
+    """
+    expected = {canonical_property(k): v for k, v in expected.items()}
+    actual = {canonical_property(k): v for k, v in actual.items()}
+    problems = []
+    for path in sorted(set(expected) | set(actual)):
+        want, have = expected.get(path), actual.get(path)
+        if want == have:
+            continue
+        if want is None:
+            problems.append("unexpected binding: %s = %s" % (path, have))
+        elif have is None:
