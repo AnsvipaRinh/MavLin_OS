@@ -6,6 +6,11 @@ import signal
 import subprocess
 import sys
 
+_bin_dir = os.path.dirname(os.path.abspath(__file__))
+if _bin_dir not in sys.path:
+    sys.path.insert(0, _bin_dir)
+from mv_dialogs import alert
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -88,14 +93,12 @@ class ForceQuit(Gtk.Dialog):
         try:
             os.kill(pid, signal.SIGKILL)
         except OSError as exc:
-            error = Gtk.MessageDialog(
-                transient_for=self,
-                modal=True,
-                message_type=Gtk.MessageType.ERROR,
-                buttons=Gtk.ButtonsType.OK,
-                text="Could not force quit process %d: %s" % (pid, exc))
-            error.run()
-            error.destroy()
+            alert(
+                self,
+                "Could not force quit process %d" % pid,
+                secondary=str(exc),
+                msg_type=Gtk.MessageType.ERROR,
+                buttons=[("OK", Gtk.ResponseType.OK)])
 
 
 def main():
