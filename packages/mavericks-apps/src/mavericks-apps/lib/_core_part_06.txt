@@ -1,9 +1,4 @@
------------------------------------------------------
-    A("settings", "System Settings", ["Super"], "comma", "mv-settings",
-      "system", skill="system"),
-    A("control-center", "Control Center", ["Super", "Shift"], "c",
-      "mv-control", "system", skill="system"),
-    A("notification-center", "Notification Center", ["Super", "Shift"], "v",
+Shift"], "v",
       "mv-notification-center", "system", skill="system"),
     A("calendar", "Calendar", ["Primary", "Alt"], "c", "mv-calendar",
       "system", skill="system"),
@@ -22,4 +17,11 @@
       "application", skill="application"),
     A("force-quit", "Force Quit Applications…", ["Super", "Shift"], "q",
       "mv-force-quit", "application", skill="application"),
-    A("force-quit-dialog", "Force Quit ("
+    A("force-quit-dialog", "Force Quit (Command-Option-Escape)",
+      ["Super", "Alt"], "Escape", "mv-force-quit",
+      "application", skill="application"),
+    A("hide-app", "Hide Application", ["Super"], "h", "mv-hide-app",
+      "application", skill="application"),
+
+    # --- Windows (xfwm4 branch) -------------------------------------------
+    A("minimize-window", "M
