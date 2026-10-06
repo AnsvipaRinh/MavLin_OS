@@ -511,7 +511,7 @@ def test_native_drag_drop_contract():
     source = open(gui_path).read()
     assert "button.drag_source_set(" in source
     assert "button.drag_dest_set(" in source
-    assert '"type" == "app"' in source
+    assert 'item.get("type") == "app"' in source
     assert '("app", "folder")' in source
     assert 'mv_launchpad.move_app_to_folder(' in source
     assert 'mv_launchpad.reorder_launchpad_apps(' in source
