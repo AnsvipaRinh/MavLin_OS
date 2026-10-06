@@ -14,27 +14,44 @@ So this suite starts the **real** xfwm4 4.20 on the project's pinned Xvfb
 (:97, via scripts/gui-isolation.sh — never the host display), with a private
 HOME / XDG tree / private D-Bus, and measures what it actually decorates:
 
-  1. theme is really loaded   — strace-proven file opens, not a config claim;
+  1. settings are live        — every declared xfwm4 property equals the value
+                                 the settings daemon holds, which catches dead
+                                 config AND a polluted test environment;
   2. traffic lights exist     — the title bar is grabbed through GDK and the
-                                 red/amber/green circles are located in PIXELS,
+                                 red/amber/green discs are located in PIXELS,
                                  left to right, proving close-left ordering;
-  3. the detector is not      — the same detector is run against a theme with
+  3. an unfocused window keeps all three, muted to grey — macOS never removes
+                                 them from a background window;
+  4. the detector is not      — the same detector is run against a theme with
      vacuous                   the button pixmaps deleted and MUST find nothing;
-  4. the buttons work         — real clicks: leftmost closes, middle iconifies,
+  5. the buttons work         — real clicks: leftmost closes, middle iconifies,
                                  rightmost maximizes (macOS semantics);
-  5. double-click zooms       — double_click_action=maximize, measured through
+  6. a zoomed window keeps a title bar — macOS 10.9 zoom, not full screen; with
+                                 titleless_maximize the maximised window had no
+                                 frame at all and no way to close itself;
+  7. double-click zooms       — double_click_action=maximize, measured through
                                  _NET_WM_STATE on the live client;
-  6. focus follows click      — clicking an unfocused window's title makes it
+  8. focus follows click      — clicking an unfocused window's title makes it
                                  _NET_ACTIVE_WINDOW (macOS click-to-focus model);
-  7. snapping is OFF          — Mavericks never tiles; a real mouse drag to the
+  9. Alt+Tab switches windows — through xfwm4's own key handler;
+ 10. snapping is OFF          — Mavericks never tiles; a real mouse drag to the
                                  screen edge must leave the window where it was
                                  dropped, while a snap-enabled control run
                                  proves the drag test is capable of detecting
                                  snapping at all;
-  8. theme + config integrity — every XPM parses (GdkPixbuf, the same library
-                                 xfwm4 uses), frame geometry matches the theme's
-                                 declared borders, and the skel mirror is
-                                 byte-identical to the source of truth.
+ 11. frame geometry is the theme's — borders match the artwork width, the title
+                                 strip matches title-1-active.xpm, and themerc
+                                 carries no inert frame_border_* keys;
+ 12. every XPM parses         — through GdkPixbuf, the same library xfwm4 uses,
+                                 and matches tools/gen-xfwm-buttons.py, so the
+                                 artwork cannot drift back into being broken.
+
+What it cannot check here, and says so instead of pretending: the appearance of
+the window shadow (the pinned display is shared, another suite's full-screen
+window sits behind the test window, so a root grab cannot separate a 50%-opacity
+shadow from the paint underneath) and Super-modified key grabs (a Super chord
+never reaches the grab on this Xvfb, though Alt+Tab does).  Both are hardware
+items in docs/NEEDS_HARDWARE_TEST.md § Window Management.
 
 Run: python3 scripts/test-window-management-gui.py
 """
