@@ -216,11 +216,11 @@ def parse_xrandr(text):
         line = raw.rstrip()
         if not line or line.startswith("Screen "):
             continue
-        m = re.match(r"^(\\S+) connected(?: primary)?(?: \\S+)?", line)
+        m = re.match(r"^(\S+) connected(?: primary)?(?: \S+)?", line)
         if m:
             name = m.group(1)
             primary = " connected primary " in (" " + line + " ")
-            geom = re.search(r"(\\d+)x(\\d+)\\+(-?\\d+)\\+(-?\\d+)", line)
+            geom = re.search(r"(\d+)x(\d+)\+(-?\d+)\+(-?\d+)", line)
             current = {
                 "name": name,
                 "primary": primary,
@@ -229,18 +229,18 @@ def parse_xrandr(text):
                 "modes": [],
                 "rotation": "normal",
             }
-            rot = re.search(r"\\((normal|left|right|inverted)\\s+left", line)
+            rot = re.search(r"\((normal|left|right|inverted)\s+left", line)
             if rot:
                 current["rotation"] = rot.group(1)
             outputs.append(current)
             continue
         if current is not None:
-            mm = re.match(r"^\\s+(\\d+x\\d+)(.*)$", line)
+            mm = re.match(r"^\s+(\d+x\d+)(.*)$", line)
             if mm:
                 mode = mm.group(1)
                 rest = mm.group(2)
                 rates = []
-                for token in re.findall(r"(?<![A-Za-z])(\\d+(?:\\.\\d+)?)(?:[+*])?", rest):
+                for token in re.findall(r"(?<![A-Za-z])(\d+(?:\.\d+)?)(?:[+*])?", rest):
                     try:
                         rate = float(token)
                     except ValueError:
