@@ -1,41 +1,168 @@
 #!/usr/bin/env python3
-"""mv-shot — Mavericks-like screenshot frontend.
-Backend: xfce4-screenshooter (stills) + ffmpeg x11grab (recording architecture).
-macOS-compatible subset: -i (interactive region), -w (window), -m (fullscreen),
--T seconds (delay), -c (clipboard), -o file. No daemon.
-Config: ~/.config/mv-shot/config.ini (save_dir, show_preview, preview_timeout).
-Post-capture preview with actions: Open in Preview, Show in Finder, Move to Trash.
-Annotation handoff: Open in Preview → use annotation toolbar.
+"""mv-shot — Mavericks-like Screenshot (canonical objective #8).
+
+Backend: xfce4-screenshooter (stills) + ffmpeg x11grab (screen recording).
+Surfaces: region selection, active window, full screen, screenshot tools bar,
+timed capture (-T), clipboard capture (-c), capture flash, and the floating
+post-capture thumbnail with Mavericks actions. One-shot process, no daemon.
+
+macOS-compatible flag subset: -i (region), -w (window), -m (full screen),
+-T seconds (timer), -c (clipboard), -o file, --record, --toolbar,
+--no-preview, --config, --version.
+Config: ~/.config/mv-shot/config.ini — save_dir, show_preview,
+preview_timeout, copy_to_clipboard, flash, countdown.
+Save default: ~/Desktop with 'Screen Shot YYYY-MM-DD at HH.MM.SS.png'
+(macOS 10.9 naming); ~/Pictures/Screenshots remains a valid override.
 License: GPL-2.0-or-later."""
 import os
 import sys
 import time
+import shutil
+import tempfile
 import subprocess
 import configparser
 
 try:
     import gi
     gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
+    from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango
     HAVE_GTK = True
 except (ImportError, ValueError):
     HAVE_GTK = False
 
-SAVE_DIR_DEFAULT = os.path.expanduser("~/Pictures/Screenshots")
-CONFIG_PATH = os.path.expanduser("~/.config/mv-shot/config.ini")
-APP = "xfce4-screenshooter"
+VERSION = "1.1"
+APP = os.environ.get("MV_SHOT_BACKEND", "xfce4-screenshooter")
 PREVIEW_APP = "mv-preview"
+SAVE_DIR_DEFAULT = os.path.expanduser("~/Desktop")
+LEGACY_SAVE_DIR = os.path.expanduser("~/Pictures/Screenshots")
+MOVIES_DIR_DEFAULT = os.path.expanduser("~/Movies")
+CONFIG_PATH = os.path.expanduser("~/.config/mv-shot/config.ini")
+CONFIG_SECTIONS = ("defaults", "mv-shot", "screenshot", "shot")
+THUMB_W, THUMB_H = 260, 146
+MARGIN = 24
+
+CONFIG_DEFAULTS = {
+    "save_dir": SAVE_DIR_DEFAULT,
+    "show_preview": "true",
+    "preview_timeout": "5",
+    "copy_to_clipboard": "false",
+    "flash": "true",
+    "countdown": "true",
+}
+
+MAVERICKS_CSS = b"""
+window.mv-shot-float {
+    background-color: rgba(246, 243, 238, 0.94);
+    border: 1px solid #c9bfb0;
+    border-radius: 6px;
+}
+.mv-thumb-frame {
+    background: #ffffff;
+    border: 1px solid #d8cfc0;
+    border-radius: 3px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+.mv-shot-float .mv-caption {
+    color: #4a4640;
+    font-size: 9pt;
+}
+.mv-shot-float .mv-action {
+    border: 1px solid #c3b8a7;
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: #2f2b26;
+}
+.mv-shot-float .mv-action:hover {
+    background-image: none;
+    background-color: #007aff;
+    border-color: #007aff;
+    color: #ffffff;
+}
+.mv-shot-float .mv-action.primary {
+    background-image: none;
+    background-color: #007aff;
+    border-color: #0069d9;
+    color: #ffffff;
+}
+.mv-shot-float .mv-action.primary:hover {
+    background-color: #0056cc;
+}
+.mv-tools-bar {
+    background-image: linear-gradient(180deg, #f7f4ef 0%, #e3dcd0 100%);
+    border: 1px solid #b8ae9d;
+    border-radius: 7px;
+}
+.mv-tools-bar .mv-tool {
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 6px 10px;
+    color: #23201c;
+}
+.mv-tools-bar .mv-tool:hover {
+    background-color: rgba(0, 122, 255, 0.16);
+}
+.mv-tools-bar .mv-tool:focus {
+    background-color: rgba(0, 122, 255, 0.30);
+    border-color: #007aff;
+}
+.mv-timer-box {
+    background-color: rgba(38, 34, 30, 0.86);
+    border-radius: 10px;
+}
+.mv-timer-label {
+    color: #ffffff;
+    font-size: 34pt;
+    font-weight: 300;
+}
+"""
+
+
+def _css_provider():
+    """Return a provider carrying the shared screenshot CSS (never fatal)."""
+    provider = Gtk.CssProvider()
+    try:
+        provider.load_from_data(MAVERICKS_CSS)
+    except Exception:
+        pass
+    screen = Gdk.Screen.get_default()
+    if screen is not None:
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    return provider
+
+
+def _truthy(value, fallback=True):
+    """Coerce a config value to bool without raising on typos."""
+    if value is None:
+        return fallback
+    try:
+        return configparser.ConfigParser.BOOLEAN_STATES[str(value).strip().lower()]
+    except KeyError:
+        return fallback
+
+
+def _intish(value, fallback=0):
+    """Coerce a config value to int without raising on typos."""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _config_section(config):
+    """Return the config section to read, tolerating a renamed section."""
+    for name in CONFIG_SECTIONS:
+        if config.has_section(name):
+            return name
+    sections = config.sections()
+    return sections[0] if sections else None
 
 
 def load_config():
-    """Load configuration from file."""
+    """Load configuration from file. An unreadable or malformed file yields
+    an empty parser rather than partial state, so resolve_settings can fall
+    back per option."""
     config = configparser.ConfigParser()
-    config["defaults"] = {
-        "save_dir": SAVE_DIR_DEFAULT,
-        "show_preview": "true",
-        "preview_timeout": "5",
-        "copy_to_clipboard": "false",
-    }
     if os.path.isfile(CONFIG_PATH):
         try:
             config.read(CONFIG_PATH)
@@ -44,13 +171,76 @@ def load_config():
     return config
 
 
-def ensure_save_dir(path):
-    """Create save directory if it doesn't exist."""
+def resolve_settings(config):
+    """Resolve settings into a plain dict. Malformed values degrade to the
+    default and are reported as warnings instead of raising a traceback."""
+    section = _config_section(config)
+    warnings = []
+    settings = {}
+
+    def raw(option):
+        if section is not None and config.has_option(section, option):
+            return config[section].get(option)
+        return CONFIG_DEFAULTS[option]
+
+    for option in ("save_dir",):
+        value = str(raw(option)).strip() or CONFIG_DEFAULTS[option]
+        settings[option] = os.path.expanduser(value)
+
+    for option in ("show_preview", "copy_to_clipboard", "flash", "countdown"):
+        given = str(raw(option)).strip().lower()
+        try:
+            configparser.ConfigParser.BOOLEAN_STATES[given]
+            settings[option] = _truthy(given)
+        except KeyError:
+            warnings.append("%s: not a boolean (%r); using %s" % (
+                option, given, CONFIG_DEFAULTS[option]))
+            settings[option] = _truthy(CONFIG_DEFAULTS[option])
+
+    given = str(raw("preview_timeout")).strip()
+    if given.lstrip("-").isdigit():
+        settings["preview_timeout"] = _intish(given, 5)
+    else:
+        warnings.append("preview_timeout: not an integer (%r); using 5" % given)
+        settings["preview_timeout"] = 5
+
+    settings["preview_timeout"] = max(0, min(settings["preview_timeout"], 120))
+    return settings, warnings
+
+
+def ensure_dir(path):
+    """Create a directory if needed, returning True when it is usable."""
     try:
         os.makedirs(path, exist_ok=True)
-        return True
+        return os.access(path, os.W_OK)
     except Exception:
         return False
+
+
+def resolve_save_dir(save_dir):
+    """Return a writable save directory, falling back to ~/Pictures."""
+    if ensure_dir(save_dir):
+        return save_dir
+    if save_dir != LEGACY_SAVE_DIR and ensure_dir(LEGACY_SAVE_DIR):
+        return LEGACY_SAVE_DIR
+    return None
+
+
+def mavericks_stem(when=None):
+    """macOS 10.9 screenshot name stem: 'Screen Shot 2026-10-06 at 04.21.30'."""
+    when = time.localtime() if when is None else when
+    return "Screen Shot %s at %s" % (time.strftime("%Y-%m-%d", when),
+                                     time.strftime("%H.%M.%S", when))
+
+
+def unique_path(directory, stem, ext):
+    """Return a non-colliding path, macOS style: name, 'name 2', 'name 3'."""
+    candidate = os.path.join(directory, stem + ext)
+    counter = 2
+    while os.path.exists(candidate):
+        candidate = os.path.join(directory, "%s %d%s" % (stem, counter, ext))
+        counter += 1
+    return candidate
 
 
 def run(cmd):
@@ -59,11 +249,11 @@ def run(cmd):
 
 
 def check_backend_available():
-    """Check if xfce4-screenshooter is available."""
+    """Check if the stills backend is available."""
     try:
         subprocess.run([APP, "--help"], capture_output=True, timeout=2)
         return True
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return False
 
 
@@ -72,335 +262,814 @@ def check_preview_available():
     try:
         subprocess.run([PREVIEW_APP, "--help"], capture_output=True, timeout=2)
         return True
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return False
 
 
-def take_screenshot(mode, delay, clip, out_path):
-    """Take screenshot using xfce4-screenshooter."""
+def backend_flag(mode):
+    """Map a capture mode to its backend flag."""
+    return {"region": "-r", "window": "-w", "fullscreen": "-f"}.get(mode, "-r")
+
+
+def _work_area():
+    """Return the usable work area of the primary monitor."""
+    display = Gdk.Display.get_default()
+    if display is None:
+        return None
+    monitor = display.get_primary_monitor() or display.get_monitor(0)
+    return monitor.get_workarea() if monitor is not None else None
+
+
+def _have_display():
+    """True when an X display is reachable for any overlay surface."""
+    return HAVE_GTK and Gdk.Display.get_default() is not None
+
+
+def _set_opacity(widget, value):
+    """Set whole-widget opacity without the deprecated Gtk.Window setter.
+    Before the window is realised the Gdk window does not exist yet, so the
+    request is replayed once it is mapped."""
+    value = max(0.0, min(1.0, float(value)))
+    gdk_window = widget.get_window()
+    if gdk_window is not None:
+        gdk_window.set_opacity(value)
+        return True
+    try:
+        pending = [value]
+
+        def _on_map(widget, _event):
+            if pending:
+                _set_opacity(widget, pending.pop())
+
+        widget.connect("map-event", _on_map)
+    except Exception:
+        widget.set_opacity(value)
+    return False
+
+
+def _preferred_size(widget):
+    """Normalise get_preferred_size(), which returns ints on some
+    PyGObject builds and Requisition objects on others."""
+    width, height = widget.get_preferred_size()
+    width = getattr(width, "width", width)
+    height = getattr(height, "height", height)
+    return int(width), int(height)
+
+
+def flash_screen(hold_ms=70, fade_ms=200):
+    """One-shot white capture flash, macOS style. No resident process:
+    the overlay maps, fades out and destroys itself inside one nested loop."""
+    if not _have_display() or not os.environ.get("DISPLAY"):
+        return False
+
+    try:
+        area = _work_area()
+        if area is None:
+            return False
+
+        window = Gtk.Window(type=Gtk.WindowType.POPUP)
+        window.set_decorated(False)
+        window.set_keep_above(True)
+        window.set_accept_focus(False)
+        window.set_app_paintable(True)
+        window.set_size_request(area.width, area.height)
+        window.move(area.x, area.y)
+        window.connect("draw", lambda _w, cr: _paint_white(cr, area.width, area.height))
+
+        loop = GLib.MainLoop()
+
+        def _fade_in():
+            _set_opacity(window, 0.85)
+            GLib.timeout_add(hold_ms, _fade_out)
+
+        def _fade_out():
+            def _step(step):
+                _set_opacity(window, 0.85 * (1.0 - step / 10.0))
+                return True if step < 10 else None
+
+            GLib.timeout_add(max(1, fade_ms // 10), _step, 0)
+            GLib.timeout_add(hold_ms + fade_ms, _shutdown)
+
+        def _shutdown():
+            loop.quit()
+            return False
+
+        window.show_all()
+        _set_opacity(window, 0.0)
+        GLib.timeout_add(30, _fade_in)
+        GLib.timeout_add(3000, _shutdown)
+        loop.run()
+        window.destroy()
+        while Gtk.events_pending():
+            Gtk.main_iteration()
+        return True
+    except Exception:
+        return False
+
+
+def _paint_white(cr, width, height):
+    """Fill a cairo context with the flash white."""
+    cr.set_source_rgb(1.0, 1.0, 1.0)
+    cr.rectangle(0, 0, width, height)
+    cr.fill()
+    return False
+
+
+def countdown(seconds):
+    """Mavericks pre-capture timer. Shows an on-screen countdown when a
+    display is reachable, otherwise falls back to a plain sleep. The timer
+    surface is always torn down before the backend takes the shot, so it can
+    never end up inside the screenshot."""
+    if seconds is None or seconds <= 0:
+        return 0
+
+    remaining = float(seconds)
+
+    if not _have_display() or not os.environ.get("DISPLAY"):
+        time.sleep(remaining)
+        return int(seconds)
+
+    try:
+        window = Gtk.Window(type=Gtk.WindowType.POPUP)
+        window.set_decorated(False)
+        window.set_keep_above(True)
+        window.set_app_paintable(True)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        box.get_style_context().add_class("mv-timer-box")
+        box.set_border_width(22)
+        label = Gtk.Label()
+        label.get_style_context().add_class("mv-timer-label")
+        box.pack_start(label, False, False, 0)
+        window.add(box)
+
+        def _place(*_args):
+            area = _work_area()
+            if area is None:
+                return False
+            width, height = _preferred_size(window)
+            window.move(area.x + (area.width - width) // 2,
+                        area.y + (area.height - height) // 2)
+            return False
+
+        window.connect("show", _place)
+        label.set_text(str(int(round(remaining))))
+        window.show_all()
+        _set_opacity(window, 0.94)
+        window.get_preferred_size()
+
+        loop = GLib.MainLoop()
+
+        def _tick():
+            nonlocal remaining
+            remaining -= 1
+            if remaining <= 0:
+                loop.quit()
+                return False
+            label.set_text(str(int(remaining)))
+            return True
+
+        GLib.timeout_add_seconds(1, _tick)
+        GLib.timeout_add_seconds(int(remaining) + 5, loop.quit)
+        loop.run()
+        window.destroy()
+        while Gtk.events_pending():
+            Gtk.main_iteration()
+    except Exception:
+        time.sleep(remaining)
+    return int(seconds)
+
+
+def take_screenshot(mode, out_path, clip=False):
+    """Capture via the stills backend. Returns (ok, message|path)."""
     if not check_backend_available():
-        return False, "Backend 'xfce4-screenshooter' not found. Install xfce4-screenshooter."
+        return False, ("Backend %r not found — install xfce4-screenshooter "
+                       "(or set MV_SHOT_BACKEND)." % APP)
 
-    if delay:
-        time.sleep(delay)
-
-    flag_map = {"region": "-r", "window": "-w", "fullscreen": "-f"}
-    flag = flag_map.get(mode, "-r")
-
-    cmd = [APP, flag]
-
-    if clip:
-        cmd.append("-c")
-    else:
-        cmd += ["-s", out_path]
+    cmd = [APP, backend_flag(mode)]
+    cmd.append("-c") if clip else cmd.extend(["-s", out_path])
 
     result = run(cmd)
     if result.returncode != 0:
-        return False, f"Screenshot failed (exit code {result.returncode})"
-
+        return False, "Screenshot failed (exit code %d)" % result.returncode
     if clip:
         return True, None
+    if not os.path.isfile(out_path):
+        return False, "Backend reported success but wrote no file."
     return True, out_path
 
 
-def record_screen(output_path):
-    """Record screen using ffmpeg x11grab."""
+def copy_to_clipboard(image_path):
+    """Put a saved screenshot on the CLIPBOARD selection."""
+    if not HAVE_GTK:
+        return False
     try:
-        subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=2)
-    except FileNotFoundError:
-        return False, "Backend 'ffmpeg' not found. Install ffmpeg for recording."
-
-    cmd = [
-        "ffmpeg", "-f", "x11grab", "-i", ":0.0",
-        "-c:v", "libx264", "-preset", "ultrafast",
-        output_path
-    ]
-    print(f"Recording to {output_path} (Ctrl+C to stop)…")
-    result = subprocess.run(cmd)
-    if result.returncode != 0:
-        return False, f"Recording failed (exit code {result.returncode})"
-    return True, output_path
-
-
-class PreviewDialog(Gtk.Dialog):
-    """Post-capture preview dialog with actions."""
-
-    def __init__(self, parent, image_path, timeout_sec=5):
-        super().__init__(
-            title="Screenshot Captured",
-            transient_for=parent,
-            flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT
-        )
-        self.set_default_size(400, 200)
-        self.set_resizable(False)
-        self.image_path = image_path
-        self.result_action = None
-
-        # Apply Mavericks-style CSS
-        self.apply_css()
-
-        # Build UI
-        self.build_ui()
-
-        # Auto-close timer
-        if timeout_sec > 0:
-            GLib.timeout_add_seconds(timeout_sec, self.on_timeout)
-
-    def apply_css(self):
-        css = b"""
-        .preview-dialog {
-            background: #f5f0e8;
-            background-image: linear-gradient(180deg, #f5f0e8 0%, #e8ddd0 100%);
-        }
-        .preview-image {
-            border: 1px solid #d4c8b8;
-            border-radius: 4px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-        }
-        .action-button {
-            border-radius: 4px;
-            padding: 8px 16px;
-            margin: 4px;
-            font-weight: 500;
-        }
-        .action-button:hover {
-            background: #007aff;
-            color: white;
-        }
-        .action-button.primary {
-            background: #007aff;
-            color: white;
-        }
-        .action-button.primary:hover {
-            background: #0056cc;
-        }
-        .info-label {
-            color: #666;
-            font-size: 10pt;
-        }
-        """
-        provider = Gtk.CssProvider()
-        try:
-            provider.load_from_data(css)
-        except Exception:
-            # cosmetic only: a bad rule must not kill the window
-            pass
-        screen = Gdk.Screen.get_default()
-        Gtk.StyleContext.add_provider_for_screen(
-            screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-        self.get_style_context().add_class("preview-dialog")
-
-    def build_ui(self):
-        content = self.get_content_area()
-        content.set_spacing(12)
-        content.set_border_width(16)
-
-        # Thumbnail
-        try:
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                self.image_path, 320, 180, True)
-            img = Gtk.Image.new_from_pixbuf(pixbuf)
-            img.get_style_context().add_class("preview-image")
-            content.pack_start(img, False, False, 0)
-        except Exception:
-            pass
-
-        # Info label
-        filename = os.path.basename(self.image_path)
-        size = os.path.getsize(self.image_path)
-        size_str = f"{size / 1024:.1f} KB" if size < 1024*1024 else f"{size / (1024*1024):.1f} MB"
-        info = Gtk.Label(label=f"{filename}  •  {size_str}")
-        info.get_style_context().add_class("info-label")
-        info.set_xalign(0)
-        content.pack_start(info, False, False, 0)
-
-        # Action buttons
-        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        btn_box.set_halign(Gtk.Align.CENTER)
-        content.pack_start(btn_box, False, False, 0)
-
-        actions = [
-            ("Open in Preview", "document-open", "preview", True),
-            ("Show in Finder", "folder-open", "finder", False),
-            ("Move to Trash", "user-trash", "trash", False),
-            ("Dismiss", "window-close", "dismiss", False),
-        ]
-
-        for label, icon, action, primary in actions:
-            btn = Gtk.Button()
-            btn.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
-            btn.set_label(f"  {label}")
-            btn.set_always_show_image(True)
-            btn.get_style_context().add_class("action-button")
-            if primary:
-                btn.get_style_context().add_class("primary")
-            btn.connect("clicked", lambda _, a=action: self.on_action(a))
-            btn_box.pack_start(btn, False, False, 0)
-
-        self.show_all()
-
-    def on_action(self, action):
-        self.result_action = action
-        self.response(Gtk.ResponseType.OK)
-
-    def on_timeout(self):
-        self.response(Gtk.ResponseType.CLOSE)
+        pixbuf = GdkPixbuf.Pixbuf.new_from_file(image_path)
+        Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_image(pixbuf)
+        return True
+    except Exception:
         return False
 
 
-def show_preview_dialog(image_path, timeout_sec=5):
-    """Show post-capture preview dialog. Returns action or None."""
+def record_screen(output_path):
+    """Record the screen using ffmpeg x11grab on the active display."""
+    try:
+        subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=2)
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return False, "Backend 'ffmpeg' not found — install ffmpeg to record."
+
+    display = os.environ.get("DISPLAY", ":0")
+    cmd = [
+        "ffmpeg", "-f", "x11grab", "-i", display,
+        "-c:v", "libx264", "-preset", "ultrafast",
+        output_path,
+    ]
+    print("Recording %s (press Ctrl+C to stop)…" % output_path)
+    try:
+        result = subprocess.run(cmd)
+    except KeyboardInterrupt:
+        return True, output_path
+    if result.returncode != 0:
+        return False, "Recording failed (exit code %d)" % result.returncode
+    return True, output_path
+
+
+class CaptureThumbnail(Gtk.Window):
+    """Mavericks floating capture thumbnail: borderless, always on top,
+    bottom-right of the work area, auto-fading, with post-capture actions."""
+
+    def __init__(self, image_path, caption, actions, timeout_sec=5):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.set_title("Screenshot Captured")
+        self.set_decorated(False)
+        self.set_keep_above(True)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_resizable(False)
+        self.set_app_paintable(True)
+        self.image_path = image_path
+        self.result_action = None
+        self.finished = False
+        self.add_events(
+            Gdk.EventMask.KEY_PRESS_MASK | Gdk.EventMask.BUTTON_PRESS_MASK)
+        self.connect("key-press-event", self.on_key_press)
+        self.connect("button-press-event", self.on_click_thumb)
+        self.connect("destroy", self.on_destroy)
+
+        _css_provider()
+        self.get_style_context().add_class("mv-shot-float")
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        root.set_border_width(10)
+        self.add(root)
+
+        pixbuf = None
+        try:
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                image_path, THUMB_W, THUMB_H, True)
+        except Exception:
+            pixbuf = None
+
+        if pixbuf is not None:
+            image = Gtk.Image.new_from_pixbuf(pixbuf)
+            frame = Gtk.EventBox()
+            frame.add(image)
+            frame.get_style_context().add_class("mv-thumb-frame")
+            root.pack_start(frame, False, False, 0)
+        else:
+            fallback = Gtk.Image.new_from_icon_name(
+                "image-missing", Gtk.IconSize.DIALOG)
+            root.pack_start(fallback, False, False, 0)
+
+        label = Gtk.Label(label=caption)
+        label.get_style_context().add_class("mv-caption")
+        label.set_ellipsize(Pango.EllipsizeMode.END)
+        label.set_max_width_chars(THUMB_W // 5)
+        root.pack_start(label, False, False, 0)
+
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        row.set_halign(Gtk.Align.CENTER)
+        root.pack_start(row, False, False, 0)
+
+        for label_text, icon, action, primary in actions:
+            button = Gtk.Button()
+            button.set_label(label_text)
+            button.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+            button.set_always_show_image(True)
+            button.get_style_context().add_class("mv-action")
+            if primary:
+                button.get_style_context().add_class("primary")
+            button.connect("clicked", lambda _b, a=action: self.finish(a))
+            row.pack_start(button, False, False, 0)
+
+        self.show_all()
+        self._place()
+
+        if timeout_sec > 0:
+            GLib.timeout_add_seconds(timeout_sec, self.on_timeout)
+
+    def _place(self):
+        """Anchor the thumbnail to the bottom-right of the work area."""
+        area = _work_area()
+        if area is None:
+            return
+        width, height = self.get_size()
+        self.move(max(area.x, area.x + area.width - width - MARGIN),
+                  max(area.y, area.y + area.height - height - MARGIN))
+
+    def on_key_press(self, _widget, event):
+        """Keyboard contract: Enter opens Preview, Escape/q dismisses."""
+        name = Gdk.keyval_name(event.keyval)
+        if name in ("Escape", "q", "Q"):
+            self.finish("dismiss")
+            return True
+        if name in ("Return", "KP_Enter"):
+            self.finish("preview")
+            return True
+        return False
+
+    def on_click_thumb(self, _widget, _event):
+        """Clicking the thumbnail opens it in Preview, as in macOS."""
+        self.finish("preview")
+        return True
+
+    def on_timeout(self):
+        """Auto-dismiss once the preview window lapsed."""
+        self.fade_out()
+        return False
+
+    def fade_out(self):
+        """Fade the thumbnail away, then close it."""
+        def _step(step):
+            _set_opacity(self, max(0.0, 1.0 - step / 10.0))
+            return True if step < 10 else None
+
+        GLib.timeout_add(25, _step, 0)
+        GLib.timeout_add(300, self.finish, "dismiss")
+        return False
+
+    def finish(self, action):
+        """Record the chosen action and close exactly once."""
+        if self.result_action is None:
+            self.result_action = action
+        self.finished = True
+        self.destroy()
+
+    def on_destroy(self, _widget):
+        self.finished = True
+
+
+def show_capture_thumbnail(image_path, caption, actions, timeout_sec=5):
+    """Show the floating thumbnail and block until the user acts or it
+    lapses. Returns the chosen action, or None when no UI was possible."""
     if not HAVE_GTK:
         return None
+    try:
+        window = CaptureThumbnail(image_path, caption, actions, timeout_sec)
+    except Exception:
+        return None
 
-    # Create a minimal hidden parent window
-    parent = Gtk.Window()
-    parent.set_opacity(0)
-    parent.show()
+    loop = GLib.MainLoop()
 
-    dialog = PreviewDialog(parent, image_path, timeout_sec)
-    response = dialog.run()
-    action = dialog.result_action
-    dialog.destroy()
-    parent.destroy()
+    def _quit(_widget=None):
+        loop.quit()
+        return False
 
-    # Process pending events
+    window.connect("destroy", _quit)
+    GLib.timeout_add_seconds(max(1, timeout_sec) + 5, _quit)
+    loop.run()
     while Gtk.events_pending():
         Gtk.main_iteration()
+    return window.result_action
 
-    return action
+
+def thumbnail_caption(image_path):
+    """Build the 'name.png • 12.4 KB' caption macOS shows under the shot."""
+    name = os.path.basename(image_path)
+    try:
+        size = os.path.getsize(image_path)
+    except OSError:
+        return name
+    if size >= 1024 * 1024:
+        return "%s  •  %.1f MB" % (name, size / (1024.0 * 1024.0))
+    return "%s  •  %.1f KB" % (name, size / 1024.0)
+
+
+SAVED_ACTIONS = [
+    ("Open", "document-open", "preview", True),
+    ("Finder", "folder-open", "finder", False),
+    ("Trash", "user-trash", "trash", False),
+]
+
+CLIP_ACTIONS = [
+    ("Open", "document-open", "preview", True),
+    ("Dismiss", "window-close", "dismiss", False),
+]
+
+
+def open_in_preview(image_path):
+    """Hand a capture to mv-preview; report whether the handoff worked."""
+    try:
+        subprocess.Popen([PREVIEW_APP, image_path])
+        return True
+    except Exception:
+        return False
 
 
 def handle_post_capture_actions(image_path, action):
-    """Execute post-capture action."""
+    """Execute a post-capture action chosen in the thumbnail."""
     if action == "preview":
-        # Open in Preview with annotation handoff
-        try:
-            subprocess.Popen([PREVIEW_APP, image_path])
-            return True
-        except Exception:
-            pass
-    elif action == "finder":
-        # Show in Thunar (Finder equivalent)
+        return open_in_preview(image_path)
+    if action == "finder":
         try:
             subprocess.Popen(["thunar", "--select", image_path])
             return True
         except Exception:
-            pass
-    elif action == "trash":
-        # Move to Trash
+            return False
+    if action == "trash":
         try:
             subprocess.run(["trash-put", image_path], check=True)
             return True
         except Exception:
-            pass
+            return False
     return False
 
 
-def show_error_dialog(message):
-    """Show error dialog if GTK available, else print to stderr."""
-    if HAVE_GTK:
-        parent = Gtk.Window()
-        parent.set_opacity(0)
-        parent.show()
+class ToolsBar(Gtk.Window):
+    """Mavericks screenshot tools bar: pick the capture mode and the delay
+    from one surface, fully keyboard operable. Returns (mode, delay)."""
 
+    MODES = [
+        ("Screen", "video-display", "fullscreen"),
+        ("Area", "edit-select", "region"),
+        ("Window", "window-new", "window"),
+    ]
+    DELAYS = [0, 3, 5, 10]
+
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.set_title("Screenshot Tools")
+        self.set_decorated(False)
+        self.set_keep_above(True)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_app_paintable(True)
+        self.result = None
+        self.add_events(Gdk.EventMask.KEY_PRESS_MASK)
+        self.connect("key-press-event", self.on_key_press)
+
+        _css_provider()
+        self.get_style_context().add_class("mv-tools-bar")
+
+        root = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        root.set_border_width(10)
+        self.add(root)
+
+        self.buttons = []
+        for index, (label, icon, mode) in enumerate(self.MODES):
+            button = Gtk.Button()
+            button.set_label(label)
+            button.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+            button.set_always_show_image(True)
+            button.get_style_context().add_class("mv-tool")
+            button.connect("clicked", self.on_mode_clicked, mode, self.DELAYS[index])
+            root.pack_start(button, False, False, 0)
+            self.buttons.append(button)
+
+        root.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False,
+                        False, 0)
+
+        self.delay_index = 1
+        self.delay_button = Gtk.Button()
+        self.delay_button.get_style_context().add_class("mv-tool")
+        root.pack_start(self.delay_button, False, False, 0)
+        self.delay_button.connect("clicked", self.on_delay_clicked)
+        self._update_delay_label()
+
+        cancel = Gtk.Button(label="Cancel")
+        cancel.get_style_context().add_class("mv-tool")
+        cancel.connect("clicked", lambda _b: self.finish(None))
+        root.pack_start(cancel, False, False, 0)
+
+        self.show_all()
+        self._place()
+        if self.buttons:
+            self.buttons[0].grab_focus()
+
+    def _place(self):
+        """Centre the bar horizontally near the top of the work area."""
+        area = _work_area()
+        if area is None:
+            return
+        width, height = _preferred_size(self)
+        self.move(area.x + (area.width - width) // 2, area.y + MARGIN)
+
+    def _update_delay_label(self):
+        self.delay_button.set_label("Timer: %ds" % self.DELAYS[self.delay_index])
+
+    def on_mode_clicked(self, _button, mode, _unused_delay):
+        self.finish((mode, self.DELAYS[self.delay_index]))
+
+    def on_delay_clicked(self, _button):
+        self.delay_index = (self.delay_index + 1) % len(self.DELAYS)
+        self._update_delay_label()
+
+    def on_key_press(self, _widget, event):
+        """Keyboard contract: arrows move, Enter captures, Escape cancels."""
+        name = Gdk.keyval_name(event.keyval)
+        if name == "Escape":
+            self.finish(None)
+            return True
+        if name in ("Left", "Right"):
+            self.delay_index = (self.delay_index + (1 if name == "Right" else -1)) \
+                % len(self.DELAYS)
+            self._update_delay_label()
+            return True
+        if name in ("Return", "KP_Enter", "space"):
+            focus = self.get_focus()
+            mode = self.MODES[self.buttons.index(focus)][2] if focus in self.buttons \
+                else "region"
+            self.finish((mode, self.DELAYS[self.delay_index]))
+            return True
+        return False
+
+    def finish(self, result):
+        self.result = result
+        self.destroy()
+
+
+def show_tools_bar():
+    """Show the screenshot tools bar. Returns (mode, delay) or None."""
+    if not HAVE_GTK:
+        return None
+    try:
+        bar = ToolsBar()
+    except Exception:
+        return None
+
+    loop = GLib.MainLoop()
+
+    def _quit(_widget=None):
+        loop.quit()
+        return False
+
+    bar.connect("destroy", _quit)
+    GLib.timeout_add_seconds(60, _quit)
+    loop.run()
+    while Gtk.events_pending():
+        Gtk.main_iteration()
+    return bar.result
+
+
+def notify(message, icon="camera-photo"):
+    """Non-blocking desktop notification, best effort."""
+    if not shutil.which("notify-send"):
+        return False
+    try:
+        subprocess.Popen(["notify-send", "-i", icon, "Screenshot", message])
+        return True
+    except Exception:
+        return False
+
+
+def show_error_dialog(message):
+    """Report a failure. A hotkey invocation has no terminal and nobody to
+    dismiss a modal dialog, so the blocking GTK dialog is reserved for an
+    interactive CLI run; otherwise it degrades to stderr + notification."""
+    print("ERROR: %s" % message, file=sys.stderr)
+    interactive = sys.stderr.isatty() and sys.stdout.isatty()
+    if interactive:
+        notify(message)
+    if not HAVE_GTK or not interactive:
+        return False
+    try:
         dialog = Gtk.MessageDialog(
-            transient_for=parent,
-            flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            flags=Gtk.DialogFlags.MODAL,
             message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK,
-            text="Screenshot Error"
-        )
+            buttons=Gtk.ButtonsType.CLOSE,
+            text="Screenshot Error")
         dialog.format_secondary_text(message)
         dialog.run()
         dialog.destroy()
-        parent.destroy()
         while Gtk.events_pending():
             Gtk.main_iteration()
-    else:
-        print(f"ERROR: {message}", file=sys.stderr)
+        return True
+    except Exception:
+        return False
 
 
-def main(argv):
-    config = load_config()
-    save_dir = config["defaults"].get("save_dir", SAVE_DIR_DEFAULT)
-    show_preview = config["defaults"].getboolean("show_preview", True)
-    preview_timeout = config["defaults"].getint("preview_timeout", 5)
+USAGE = """\
+Usage: mv-shot [options] [file...]
 
-    mode, delay, clip, out, record = "region", 0, False, None, False
-    i = 0
-    while i < len(argv):
-        a = argv[i]
-        if a == "-i":
-            mode = "region"
-        elif a == "-w":
-            mode = "window"
-        elif a == "-m":
-            mode = "fullscreen"
-        elif a == "-T" and i + 1 < len(argv):
-            i += 1
+macOS-compatible capture modes (one per run):
+  -i              interactive region selection (Shift+Cmd+4)
+  -w              active window capture
+  -m              full screen capture (Shift+Cmd+3)
+  -T <seconds>    timed capture; shows the Mavericks countdown
+  -c              copy the capture to the clipboard only
+  -o <path>       write to <path> (a directory gets a Mavericks name)
+
+MavLinOS surfaces:
+  --toolbar       screenshot tools bar: mode + timer in one place
+  --no-preview    skip the floating post-capture thumbnail
+  --record        screen recording to ~/Movies (experimental)
+  --config        print the config path
+  --version       print the version
+
+Save default: ~/Desktop/'Screen Shot YYYY-MM-DD at HH.MM.SS.png'
+Config: %s (save_dir, show_preview, preview_timeout,
+copy_to_clipboard, flash, countdown)
+""" % CONFIG_PATH
+
+
+def parse_args(argv):
+    """Parse the CLI into a settings overlay."""
+    opts = {
+        "mode": "region", "delay": 0, "clip": False, "out": None,
+        "record": False, "toolbar": False, "preview": True, "files": [],
+    }
+    index = 0
+    while index < len(argv):
+        arg = argv[index]
+        if arg == "-i":
+            opts["mode"] = "region"
+        elif arg == "-w":
+            opts["mode"] = "window"
+        elif arg == "-m":
+            opts["mode"] = "fullscreen"
+        elif arg == "-T" and index + 1 < len(argv):
+            index += 1
             try:
-                delay = int(argv[i])
+                opts["delay"] = max(0, int(argv[index]))
             except ValueError:
-                show_error_dialog("Invalid delay value")
-                return 1
-        elif a == "-c":
-            clip = True
-        elif a == "-o" and i + 1 < len(argv):
-            i += 1
-            out = argv[i]
-        elif a == "--record":
-            record = True
-        elif a in ("-h", "--help"):
-            print(__doc__)
-            return 0
-        elif a == "--config":
-            # Show config path
-            print(f"Config: {CONFIG_PATH}")
-            return 0
-        i += 1
+                raise ValueError("invalid delay value: %r" % argv[index])
+        elif arg == "-c":
+            opts["clip"] = True
+        elif arg == "-o" and index + 1 < len(argv):
+            index += 1
+            opts["out"] = argv[index]
+        elif arg == "--record":
+            opts["record"] = True
+        elif arg == "--toolbar":
+            opts["toolbar"] = True
+        elif arg == "--no-preview":
+            opts["preview"] = False
+        elif arg in ("-h", "--help"):
+            opts["help"] = True
+        elif arg == "--version":
+            opts["version"] = True
+        elif arg == "--config":
+            opts["config"] = True
+        elif arg.startswith("-") and arg != "-":
+            raise ValueError("unknown option: %s" % arg)
+        else:
+            opts["files"].append(arg)
+        index += 1
+    return opts
 
-    if record:
-        # Screen-recording architecture: ffmpeg x11grab → ~/Movies.
-        # EXPERIMENT: validate CPU/power on m3-7Y32 before default use.
-        mov_dir = os.path.expanduser("~/Movies")
-        os.makedirs(mov_dir, exist_ok=True)
-        mov = os.path.join(mov_dir, f"recording-{time.strftime('%Y%m%d-%H%M%S')}.mkv")
-        success, error = record_screen(mov)
-        if not success:
-            show_error_dialog(error)
-            return 1
-        return 0
 
-    if not ensure_save_dir(save_dir):
-        show_error_dialog(f"Cannot create save directory: {save_dir}")
+def capture(opts, settings):
+    """Run one capture honouring mode, delay, clipboard and save behaviour."""
+    save_dir = resolve_save_dir(settings["save_dir"])
+    if not save_dir:
+        show_error_dialog("No writable save directory (%s, %s)" % (
+            settings["save_dir"], LEGACY_SAVE_DIR))
         return 1
 
-    out_path = out or os.path.join(save_dir, f"shot-{time.strftime('%Y%m%d-%H%M%S')}.png")
+    target = opts["out"]
+    if target and os.path.isdir(target):
+        target = unique_path(target, mavericks_stem(), ".png")
+    elif target:
+        parent = os.path.dirname(os.path.abspath(target))
+        if not ensure_dir(parent):
+            show_error_dialog("Cannot create directory: %s" % parent)
+            return 1
+    elif not opts["clip"]:
+        # Name the capture after the timer, not before it, so -T N files
+        # carry the moment the shot was actually taken.
+        target = unique_path(save_dir, mavericks_stem(), ".png")
 
-    success, result = take_screenshot(mode, delay, clip, out_path)
-    if not success:
+    if settings["countdown"]:
+        countdown(opts["delay"])
+    else:
+        time.sleep(opts["delay"])
+
+    ok, result = take_screenshot(opts["mode"], target, clip=opts["clip"])
+    if not ok:
         show_error_dialog(result)
         return 1
 
-    # Clipboard copy: if -c flag was used, xfce4-screenshooter handles it
-    # If not using -c but config says copy_to_clipboard, do it after save
-    if not clip and config["defaults"].getboolean("copy_to_clipboard", False) and HAVE_GTK:
-        try:
-            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file(out_path)
-            clipboard.set_image(pixbuf)
-            clipboard.store()
-        except Exception:
-            pass
+    if opts["clip"]:
+        return finish_clipboard_capture(settings)
 
-    # Post-capture preview (only for saved files, not clipboard-only)
-    if not clip and show_preview and os.path.isfile(out_path):
-        action = show_preview_dialog(out_path, preview_timeout)
-        if action and action != "dismiss":
-            handle_post_capture_actions(out_path, action)
+    if settings["flash"]:
+        flash_screen()
 
+    if settings["copy_to_clipboard"]:
+        copy_to_clipboard(target)
+
+    if not opts["preview"] or not settings["show_preview"]:
+        return 0
+
+    action = show_capture_thumbnail(
+        target, thumbnail_caption(target), SAVED_ACTIONS,
+        settings["preview_timeout"])
+    if action and action != "dismiss":
+        if not handle_post_capture_actions(target, action):
+            notify("Could not run '%s' on %s" % (action, os.path.basename(target)))
     return 0
+
+
+def finish_clipboard_capture(settings):
+    """Clipboard-only capture still shows the macOS thumbnail."""
+    if not HAVE_GTK or not settings["show_preview"]:
+        return 0
+    try:
+        pixbuf = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).wait_for_image()
+    except Exception:
+        pixbuf = None
+    if pixbuf is None:
+        return 0
+
+    handle, temp_path = tempfile.mkstemp(prefix="mv-shot-", suffix=".png")
+    os.close(handle)
+    try:
+        pixbuf.savev(temp_path, "png", [], [])
+    except Exception:
+        return 0
+
+    try:
+        action = show_capture_thumbnail(
+            temp_path, "Copied to Clipboard", CLIP_ACTIONS,
+            settings["preview_timeout"])
+        if action == "preview":
+            open_in_preview(temp_path)
+    finally:
+        try:
+            os.unlink(temp_path)
+        except OSError:
+            pass
+    return 0
+
+
+def main(argv):
+    settings, warnings = resolve_settings(load_config())
+    for warning in warnings:
+        print("WARNING: mv-shot config: %s" % warning, file=sys.stderr)
+
+    try:
+        opts = parse_args(argv)
+    except ValueError as exc:
+        show_error_dialog(str(exc))
+        return 1
+
+    if opts.get("help"):
+        print(USAGE)
+        return 0
+    if opts.get("version"):
+        print("mv-shot %s" % VERSION)
+        return 0
+    if opts.get("config"):
+        print(CONFIG_PATH)
+        return 0
+
+    if opts["files"]:
+        opened = 0
+        for path in opts["files"]:
+            if os.path.exists(path) and open_in_preview(path):
+                opened += 1
+        if not opened:
+            show_error_dialog("mv-preview is unavailable for: %s" % ", ".join(opts["files"]))
+            return 1
+        return 0
+
+    if opts["toolbar"] and not _have_display():
+        print("WARNING: mv-shot: no display reachable; falling back to a "
+              "timed full-screen capture.", file=sys.stderr)
+        opts["mode"] = "fullscreen"
+
+    if opts["toolbar"]:
+        choice = show_tools_bar()
+        if choice is None:
+            return 1
+        opts["mode"], opts["delay"] = choice
+
+    if opts["preview"]:
+        opts["preview"] = settings["show_preview"]
+
+    if opts["record"]:
+        if not ensure_dir(MOVIES_DIR_DEFAULT):
+            show_error_dialog("Cannot create directory: %s" % MOVIES_DIR_DEFAULT)
+            return 1
+        stem = "Screen Recording %s" % time.strftime("%Y-%m-%d at %H.%M.%S")
+        target = unique_path(MOVIES_DIR_DEFAULT, stem, ".mkv")
+        ok, result = record_screen(target)
+        if not ok:
+            show_error_dialog(result)
+            return 1
+        return 0
+
+    return capture(opts, settings)
 
 
 if __name__ == "__main__":

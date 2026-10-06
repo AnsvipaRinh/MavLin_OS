@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=Screenshot
-Comment=Screenshot (Mavericks)
-Exec=mv-shot %U
+Comment=Take a screenshot (Mavericks screenshot tools)
+Exec=mv-shot --toolbar %U
 Icon=applets-screenshooter
 Categories=Graphics;
 StartupNotify=true
