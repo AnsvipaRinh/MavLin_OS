@@ -215,7 +215,7 @@ def build_calculator_class():
                 border: 1px solid #c0c0c0;
                 border-radius: 4px;
                 color: #222;
-                font-family: "San Francisco", "Helvetica Neue", sans-serif;
+                font-family: "Lucida Grande", "Helvetica Neue", sans-serif;
                 font-size: 28px;
                 padding: 8px 12px;
             }
@@ -227,7 +227,7 @@ def build_calculator_class():
                 border: 1px solid #b8b8b8;
                 border-radius: 4px;
                 color: #222;
-                font-family: "San Francisco", "Helvetica Neue", sans-serif;
+                font-family: "Lucida Grande", "Helvetica Neue", sans-serif;
                 font-size: 15px;
                 padding: 10px 0;
             }
