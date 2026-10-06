@@ -117,6 +117,16 @@ def main():
     check("scss sources free of @use/GTK4 constructs", not hits,
           "; ".join(hits[:5]))
 
+    menus_path = os.path.join(THEME, "gtk-3.0", "_menus.scss")
+    with open(menus_path, encoding="utf-8") as f:
+        menus_css = f.read()
+    check("Mavericks menu typography is compact",
+          "font-size: 13px;" in menus_css and "font-size: 16px;" not in menus_css,
+          "menu item typography must not use the oversized 16px rule")
+    check("Mavericks menu items use normal weight",
+          "font-weight: normal;" in menus_css,
+          "menu item weight should match the compact system menu")
+
     compiled = {}
     if sassc:
         for target in TARGETS:
