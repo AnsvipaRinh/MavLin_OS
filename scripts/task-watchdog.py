@@ -35,6 +35,9 @@ periodic HEARTBEAT in daemon mode (proves liveness via `tail`).
 USAGE:
   task-watchdog.py --daemon --all [--interval 20] [--threshold 600]
   task-watchdog.py --once --oid <objective-id> | --session <id> [--all]
+  task-watchdog.py --ensure [--all]   loud ALIVE/STARTED + best-effort orphan GC
+  task-watchdog.py --status           pid / uptime / heartbeat age / aborts
+                                      (exit 0 running, 1 not running, 2 stale)
 """
 import importlib.util
 import json
@@ -278,15 +281,13 @@ def check_session(sid, threshold, do_abort=True):
         journal("ABORT_FAILED", session=sid, reason="session vanished")
         return "gone", "abort: 404"
     if model and evidence_fresh:
-        h = sr.load_health()
-        h["models"][model.lower()] = {
-            "model": model, "state": "dead",
-            "deadAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "retryAfter": time.time() + delay,
-            "cooldownSec": delay,
-            "reason": f"watchdog abort {sid}: {verdict} delay={delay:.0f}s",
-        }
-        sr.save_health(h)
+        # Single writer shape (E3/E4): the watchdog records cooldowns
+        # through the SAME record_dead() mark-dead/classify-error/migrate
+        # use — symmetric matching, pool stamping, never-shrinking.
+        sr.record_dead(
+            model, delay,
+            f"watchdog abort {sid}: {verdict} delay={delay:.0f}s",
+            pool_wide=verdict in sr.POOL_WIDE_VERDICTS)
     try:
         reg = sr.load_reg()
         m = reg["sessions"][sid]
@@ -384,7 +385,13 @@ def daemonize():
 def cmd_ensure(args, carry_argv):
     """One self-maintaining entrypoint: alive? -> print + exit 0.
     Stale/missing? -> spawn a detached daemon and exit at once.
-    Synchronous, returns immediately either way (no `&` needed)."""
+    Synchronous, returns immediately either way (no `&` needed).
+
+    ALWAYS loud (E9): both outcomes print an unambiguous line — the old
+    version printed nothing on the STARTED path (parent exited via
+    daemonize before any output), which read as 'did nothing'. Also runs
+    a best-effort orphan GC (stuck --gc) so the registry noise the
+    orchestrator sees shrinks without anybody remembering the command."""
     interval, max_age = 20.0, 90.0
     i = 0
     while i < len(args):
@@ -402,9 +409,20 @@ def cmd_ensure(args, carry_argv):
             i += 2
         else:
             i += 1
+    # Best-effort orphan GC (verified-absent registry entries only):
+    # failures here must never block the daemon lifecycle.
+    try:
+        retired, unavail = sr.gc_orphans()
+        if retired:
+            print(f"gc: retired {len(retired)} verified-gone registry "
+                  f"entries (older than 24h)")
+        if unavail:
+            print(f"gc: {unavail} aged entries unverifiable — kept")
+    except Exception as e:  # noqa: BLE001 — GC is opportunistic here
+        print(f"gc: skipped ({str(e)[:100]})")
     if daemon_healthy(max_age):
-        print("watchdog ALIVE (fresh HEARTBEAT + server reachable, "
-              "nothing to do)")
+        print(f"watchdog ALIVE (fresh HEARTBEAT + server reachable, "
+              f"pid={lock_holder_pid()}, nothing to do)")
         return 0
     if terminate_lock_holder():
         print("stopped previous deaf daemon; starting a fresh one")
@@ -413,11 +431,75 @@ def cmd_ensure(args, carry_argv):
             os.remove(LOCKFILE)
     except OSError:
         pass
+    # Print BEFORE daemonize(): the parent process is the one whose stdout
+    # the caller sees; after daemonize() the parent is gone (E9 fix).
+    print("watchdog STARTED (detached daemon spawning; verify with "
+          "'task-watchdog.py --status' in a few seconds)")
     daemonize()
     # Child continues here: re-exec as a real daemon process.
     os.execv(sys.executable, [sys.executable, os.path.abspath(__file__),
                               "--daemon", "--all", "--interval",
                               str(interval)] + carry_argv)
+
+
+def cmd_status():
+    """Liveness snapshot (E9: 'надзор за надзирателем'). Exit 0 = running,
+    1 = not running, 2 = lock/journal present but stale or deaf."""
+    pid = lock_holder_pid()
+    live = bool(pid) and lock_held_by_live_process()
+    hb_age = None
+    recs = recent_events()
+    for rec in recs:
+        if rec.get("event") == "HEARTBEAT":
+            ts = _rec_ts(rec)
+            hb_age = (time.time() - ts) if ts else None
+            break
+    # Count aborts over the whole journal (streaming: the file is huge).
+    aborts = 0
+    try:
+        with open(JOURNAL) as f:
+            for line in f:
+                if '"event": "ABORTED"' in line or \
+                        '"event":"ABORTED"' in line:
+                    aborts += 1
+    except OSError:
+        pass
+    started = None
+    try:
+        with open(LOCKFILE) as f:
+            started = (json.load(f) or {}).get("at", "")
+    except (OSError, ValueError):
+        pass
+    uptime = ""
+    if started:
+        try:
+            ts = datetime.fromisoformat(str(started).replace(
+                "Z", "+00:00")).timestamp()
+            uptime = f" uptime={int(time.time() - ts)}s"
+        except (ValueError, TypeError):
+            pass
+    healthy = live and recs and daemon_healthy(90)
+    if healthy:
+        print(f"watchdog RUNNING pid={pid}{uptime} "
+              f"heartbeat-age={int(hb_age) if hb_age is not None else '?'}s "
+              f"aborts-total={aborts}")
+        return 0
+    if pid or recs:
+        state = []
+        if pid and not live:
+            state.append(f"lock pid={pid} not running")
+        if live and hb_age is not None and hb_age > 90:
+            state.append(f"heartbeat stale ({int(hb_age)}s)")
+        if recs and not daemon_healthy(90):
+            state.append("deaf to server (no fresh signal events)")
+        print(f"watchdog STALE/DEAF ({'; '.join(state) or 'unknown'}) "
+              f"pid={pid or '-'} heartbeat-age="
+              f"{int(hb_age) if hb_age is not None else '?'}s "
+              f"aborts-total={aborts}")
+        return 2
+    print("watchdog NOT RUNNING (no lock, no journal) — start with "
+          "'task-watchdog.py --ensure --all'")
+    return 1
 
 
 def recent_events(limit=60):
@@ -526,8 +608,11 @@ def lock_held_by_live_process():
 
 def main(argv):
     import argparse
-    # --ensure is handled before the target group (it takes no target).
-    # Only --interval/--threshold pass through to the spawned daemon.
+    # --ensure / --status are handled before the target group (they take
+    # no target). Only --interval/--threshold pass through to the spawned
+    # daemon.
+    if "--status" in argv:
+        return cmd_status()
     if "--ensure" in argv:
         rest = [x for x in argv if x != "--ensure"]
         keep, carry = [], []
