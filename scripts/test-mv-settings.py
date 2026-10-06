@@ -153,7 +153,7 @@ def main():
           bluetooth[2] is None and bluetooth[3] == "bluetooth", str(bluetooth))
     check("route: native Bluetooth wins over blueman availability",
           m.page_action(bluetooth, tool_available=lambda _cmd: True) == ("pane", "bluetooth"))
-    source = open(m.APP_PATH, encoding="utf-8").read()
+    source = open(os.path.join(BIN, "mv-settings"), encoding="utf-8").read()
     check("native Bluetooth backend uses BlueZ ObjectManager",
           'org.freedesktop.DBus.ObjectManager' in source and 'GetManagedObjects' in source)
     check("native Bluetooth has adapter power control",
