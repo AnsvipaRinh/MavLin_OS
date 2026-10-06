@@ -7,10 +7,51 @@ Design (P0 #23, AGENTS.md §6 "Keyboard shortcut architecture"):
     its Mavericks-style accelerator, the command it runs, the Xfce channel
     branch it lives in and the System Settings skill group it is shown
     under.  The registry is the source of truth: the packaged
-    `xfce4-keyboard-shortcuts.xml` is checked against it — `mv-hotkeys verify
-    --xml <path>` fails the build on drift.
+    `xfce4-keyboard-shortcuts.xml` is checked against it (drift detection)
+    and can be regenerated from it.
+  * USER OVERRIDES live in `~/.config/mfkeys/overrides.json` (a small JSON
+    file, not a second copy of the defaults).  Only the actions the user
+    actually changed are recorded, so the shipped XML stays the pristine
+    factory state and `reset` is always possible.
+  * APPLICATION is via `xfconf-query` on the live channel, so a rebind
+    takes effect immediately without restarting anything.  This repo runs
+    a real xfconf on the default system profile, so the channel must NOT
+    be unloaded by mistake.
+  * NOTHING here is a daemon: every entry point is a one-shot CLI call.
+  * Standard Linux shortcuts and the hardware function row are PROTECTED:
+    rebinding them is refused unless `--force` is given, so the layer can
+    never swallow Ctrl+Alt+T, Alt+Tab, brightness or audio keys.
 
-This is part 00 of the multi-part restore. Full content continues in subsequent parts.
+Origin: architecture, action registry layout, conflict/protection model and
+the CLI surface (`list/show/set/reset/verify/export/import`) were primarily
+implemented against AGENTS.md §6 and the Mavericks System Preferences ▸
+Keyboard ▸ Shortcuts mental model.  The concrete command list evolved with
+the rest of the desktop (Finder columns, Force Quit, Empty Trash confirmation,
+AirDrop, etc.).
+
+This module is intentionally self-contained so the hotkey layer can be
+imported, unit-tested and regenerated without pulling in the rest of the
+mavericks-apps package at import time.
 """
-# truncated for this test - will fix with full
-pass
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+# ---------------------------------------------------------------------------
+# Paths / constants
+# ---------------------------------------------------------------------------
+
+_HERE = Path(__file__).resolve().parent
+_PKG_ROOT = _HERE.parent  # .../mavericks-apps
+_CONFIG = _PKG_ROOT / "config" / "xfce4-keyboard-shortcuts.xml"
+
+# Override file (user)
+_DEFAULT_OVERRIDES = Path.home() / ".config" / "mfkeys" / "overrides.json"
+# MV_HOTKEYS_OVERRIDES lets tests (and a temporary session) redirect the
+# override file
