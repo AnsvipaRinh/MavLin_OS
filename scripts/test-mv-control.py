@@ -91,6 +91,15 @@ def bare_window(m):
     return w
 
 
+def test_power_mode_is_honest(m):
+    source = open(APP_PATH, encoding="utf-8").read()
+    check("power mode uses read-only label", "self.power_mode_label = Gtk.Label()" in source)
+    check("power mode does not expose fake combo", 'self.power_mode = Gtk.ComboBoxText()' not in source)
+    check("power mode links to System Settings", 'run_async(["mv-settings"])' in source)
+    check("info dialog uses shared Mavericks dialogs", "from mv_dialogs import alert" in source)
+    check("inline Gtk.MessageDialog removed", "Gtk.MessageDialog" not in source)
+
+
 def test_pure(m):
     with mock.patch.object(m.Gtk, "ListBox", FakeListBox):
         lb = FakeListBox()
@@ -287,6 +296,7 @@ def test_gui_smoke(m):
 def main():
     m = load_app()
     test_pure(m)
+    test_power_mode_is_honest(m)
     test_gui_smoke(m)
     print("passed: %d, failed: %d" % (PASSED, len(FAILURES)))
     return 1 if FAILURES else 0
