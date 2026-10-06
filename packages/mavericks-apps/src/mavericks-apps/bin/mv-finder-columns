@@ -107,6 +107,7 @@ class ColumnRow(Gtk.ListBoxRow):
     def __init__(self, entry, icon_size=ZOOM_DEFAULT):
         super().__init__()
         self.entry = entry
+        self.set_tooltip_text(entry["name"])
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         box.set_margin_top(3)
         box.set_margin_bottom(3)
@@ -172,6 +173,9 @@ class ColumnsWindow(Gtk.Window):
         hb.pack_end(open_tb)
 
         self.columns_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+
+        self._drag_source = None
+        self._drag_target = None
 
         self.scrolled = Gtk.ScrolledWindow()
         self.scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
@@ -346,10 +350,13 @@ class ColumnsWindow(Gtk.Window):
         listbox.set_activate_on_single_click(False)
         listbox.connect("row-activated", self.on_row_activated)
         listbox.connect("button-press-event", self.on_column_button_press)
+        self._setup_drop_target(listbox)
         listbox.get_style_context().add_class("mavericks-finder-column")
         if entries:
             for entry in entries:
-                listbox.add(ColumnRow(entry, self.icon_size))
+                row = ColumnRow(entry, self.icon_size)
+                self._setup_drag_source(row)
+                listbox.add(row)
         elif entries is None:
             error_row = Gtk.ListBoxRow()
             lbl = Gtk.Label(label="Cannot open")
@@ -360,6 +367,85 @@ class ColumnsWindow(Gtk.Window):
         self.columns_box.pack_start(listbox, False, False, 0)
         self.columns_box.pack_start(separator, False, False, 0)
         self.listboxes.append(listbox)
+
+    # ---------- Finder drag and drop ----------
+
+    def _setup_drag_source(self, row):
+        target = Gtk.TargetEntry.new("text/uri-list", 0, 0)
+        row.drag_source_set(Gdk.ModifierType.BUTTON1_MASK,
+                            [target], Gdk.DragAction.MOVE)
+        row.connect("drag-begin", self._on_drag_begin)
+        row.connect("drag-data-get", self._on_drag_data_get)
+
+    def _setup_drop_target(self, listbox):
+        target = Gtk.TargetEntry.new("text/uri-list", 0, 0)
+        listbox.drag_dest_set(Gtk.DestDefaults.ALL, [target], Gdk.DragAction.MOVE)
+        listbox.connect("drag-motion", self._on_drag_motion)
+        listbox.connect("drag-data-received", self._on_drag_data_received)
+
+    def _on_drag_begin(self, row, _context):
+        self._drag_source = row
+
+    def _on_drag_data_get(self, row, _context, selection_data, _info, _time):
+        if not hasattr(row, "entry"):
+            return
+        index = None
+        for i, listbox in enumerate(self.listboxes):
+            if row.get_parent() is listbox:
+                index = i
+                break
+        if index is None:
+            return
+        path = os.path.join(self.chain[index], row.entry["name"])
+        selection_data.set_uris([Gio.File.new_for_path(path).get_uri()])
+
+    def _drop_directory(self, listbox, x, y):
+        row = listbox.get_row_at_y(int(y))
+        index = self.listboxes.index(listbox)
+        if row is not None and hasattr(row, "entry") and row.entry["is_dir"]:
+            return os.path.join(self.chain[index], row.entry["name"])
+        return self.chain[index]
+
+    def _on_drag_motion(self, listbox, context, x, y, _time):
+        self._drag_target = self._drop_directory(listbox, x, y)
+        Gdk.drag_status(context, Gdk.DragAction.MOVE, _time)
+        return True
+
+    def _on_drag_data_received(self, listbox, context, x, y, selection_data, _info, time_):
+        target_dir = self._drop_directory(listbox, x, y)
+        uris = selection_data.get_uris() or []
+        moved = False
+        try:
+            for uri in uris:
+                source = Gio.File.new_for_uri(uri).get_path()
+                if not source or not os.path.exists(source):
+                    continue
+                source_abs = os.path.abspath(source)
+                target_abs = os.path.abspath(target_dir)
+                if source_abs == target_abs:
+                    continue
+                if os.path.isdir(source_abs) and os.path.commonpath(
+                        [source_abs, target_abs]) == source_abs:
+                    continue
+                destination = os.path.join(target_abs, os.path.basename(source_abs))
+                if os.path.abspath(destination) == source_abs:
+                    continue
+                if os.path.exists(destination):
+                    self._show_error(
+                        "Move",
+                        "An item named “%s” already exists in the destination."
+                        % os.path.basename(source_abs))
+                    continue
+                shutil.move(source_abs, destination)
+                moved = True
+        except (OSError, ValueError) as e:
+            self._show_error("Move", e.strerror or str(e))
+        finally:
+            self._drag_source = None
+            self._drag_target = None
+            context.drag_finish(bool(moved), False, time_)
+            if moved:
+                self.rebuild_columns()
 
     def set_icon_size(self, size):
         """Finder-like Ctrl+=/-/0 zoom: rebuild columns with new icon size."""
