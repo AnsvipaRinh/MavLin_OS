@@ -165,6 +165,13 @@ def test_pure():
           "self.history = [[self.root]]" in source
           and "self.history = self.history[:self.history_index + 1] + [new_chain]" in source
           and "self.chain = self.history[self.history_index].copy()" in source)
+    check("contract: Forward restores a complete chain",
+          "def on_forward(self, _button):" in source
+          and "self.chain = self.history[self.history_index].copy()" in source
+          and "self.chain = [self.history[self.history_index]]" not in source)
+    check("contract: Backspace and Go Back use navigation history",
+          "self.history = self.history[:self.history_index + 1] + [new_chain]" in source
+          and 'add_action("back", lambda: w().on_back(None) if w() else None)' in source)
     check("contract: drag-and-drop move implementation remains present",
           'selection_data.set_uris' in source
           and 'shutil.move(source_abs, destination)' in source
