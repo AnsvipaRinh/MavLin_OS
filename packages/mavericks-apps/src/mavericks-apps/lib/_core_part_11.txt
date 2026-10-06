@@ -1,18 +1,4 @@
-MODIFIER_ORDER if m in out]
-
-
-def is_valid_key(key):
-    if not isinstance(key, str) or not key:
-        return False
-    if _KEY_CHAR_RE.match(key) or _KEY_FN_RE.match(key):
-        return True
-    if key in NAMED_KEYS or key in MEDIA_KEYS:
-        return True
-    return False
-
-
-def normalize_accelerator(accel):
-    """Accept a string or dict and return a canonical {'modifiers','key'}.
+g or dict and return a canonical {'modifiers','key'}.
 
     Accepted string forms:
       'Super+Shift+3'   'Super + Shift + 3'   '<Super><Shift>3'
@@ -37,4 +23,14 @@ def normalize_accelerator(accel):
         return {"modifiers": mods, "key": key}
 
     s = str(accel).strip()
-    if not 
+    if not s:
+        raise ValueError("empty accelerator")
+
+    unescaped = s.replace("<", "<").replace(">", ">")
+    if "<" in unescaped:
+        pattern = re.compile(
+            r"^<(Primary|Control|Ctrl|Alt|Option|Super|Meta|Shift)>")
+        mods = []
+        while True:
+            m = pattern.match(unescaped)
+            if not m:
