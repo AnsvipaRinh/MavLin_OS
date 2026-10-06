@@ -651,9 +651,6 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
-    sys.exit(main())
-
 
 def test_native_window_chrome_contract():
     with open(APP_PATH, encoding="utf-8") as fh:
