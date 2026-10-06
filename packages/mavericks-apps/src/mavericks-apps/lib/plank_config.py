@@ -120,10 +120,15 @@ PREFERENCES = (
      "the macOS Dock is rearrangeable by drag"),
     ("tooltips-enabled", "true",
      "macOS labels Dock icons on hover"),
-    ("auto-pinning", "false",
-     "macOS never adds running applications to the Dock automatically; "
-     "plank defaults this to TRUE, which would fill the Dock with whatever "
-     "happens to be running"),
+    ("auto-pinning", "true",
+     "macOS shows every running application in the Dock and removes it again "
+     "when it quits — it does not become a permanent pin. plank's "
+     "auto-pinning is the same thing: the item appears while the window is "
+     "open and is dropped from dock-items when it closes (measured: an "
+     "unpinned app grew the dock 424px -> 484px). Setting this false — the "
+     "intuitive 'macOS never auto-pins' reading — was tried first and "
+     "measurably WRONG: the Dock then only ever showed what was pinned, so "
+     "running apps were invisible. Do not flip it without measuring."),
     ("pinned-only", "false",
      "running-but-unpinned applications stay visible, like macOS"),
     ("current-workspace-only", "false",

@@ -63,8 +63,10 @@ implemented", but the Dock on a real session was a stock plank:
 - Dock session autostart now seeds preferences **before** plank starts and is
   installed into `/etc/skel` by `mavericks-apps` (source of truth
   `configs/desktop/plank/plank.desktop`, mirrored to airootfs, gated).
-- `auto-pinning=false` — macOS never auto-pins running applications (plank
-  defaults to true).
+- Running-application behaviour **measured, not assumed**: with a WM, an
+  unpinned running app grows the Dock 424→484 px and leaves again when it
+  quits. That is plank's `auto-pinning=true` — the "macOS never auto-pins"
+  reading was tried first and measurably hid every running app.
 - **Mission Control added to the Dock** (Mavericks-accurate): new
   `mv-mission-control.desktop` + `mission-control.dockitem`; 8 pins total
   (Finder, Launchpad, Mission Control, Firefox, Mail, System Settings,

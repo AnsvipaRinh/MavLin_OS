@@ -18,7 +18,12 @@ session dconf database and the host display are never touched):
                              could never have satisfied);
   4. pins are read        — eight pins are wider than seven, and the Trash
                              docklet loads without taking the dock down;
-  5. customisation sticks — an icon-size the user set through plank's own
+  5. running apps appear  — an application that is NOT pinned still shows up
+                             in the Dock and is registered as a running item
+                             (the state that draws the macOS indicator dot),
+                             which is what `pinned-only=false` + 
+                             `auto-pinning=false` are for;
+  6. customisation sticks — an icon-size the user set through plank's own
                              preferences dialog survives `--apply`.
 
 Display isolation is mandatory (AGENTS.md: the dev host forwards DISPLAY=:0
@@ -76,9 +81,12 @@ def make_home(pin_names):
     return home
 
 
-def run_scenario(script, pin_names):
+def run_scenario(script, pin_names, extra_files=None):
     """Run ``script`` under a private D-Bus session with a throwaway HOME."""
     home = make_home(pin_names)
+    for name, content in (extra_files or {}).items():
+        with open(os.path.join(home, name), "w", encoding="utf-8") as handle:
+            handle.write(content)
     inner = os.path.join(home, "scenario.sh")
     with open(inner, "w", encoding="utf-8") as handle:
         handle.write(script)
@@ -87,11 +95,12 @@ def run_scenario(script, pin_names):
     env.pop("DBUS_SESSION_BUS_ADDRESS", None)
     env["PYTHONPATH"] = os.path.join(APPS, "lib") + ":" + env.get("PYTHONPATH", "")
     env["PATH"] = os.path.join(APPS, "bin") + ":" + env.get("PATH", "")
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     try:
         proc = subprocess.run(
             ["dbus-run-session", "--", "bash", inner],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-            env=env, text=True, timeout=120)
+            env=env, text=True, timeout=180)
     finally:
         shutil.rmtree(home, ignore_errors=True)
     return proc.stdout
@@ -110,6 +119,44 @@ plank >/dev/null 2>&1 &
 PLANK_PID=$!
 sleep 5
 """
+
+# Scenario 5 (running, unpinned application). "@WM@" is replaced with the
+# detected window manager. It runs its own WM because plank enumerates windows
+# through WNCK/BAMF, which report nothing at all without one.
+RUNNING_APP_BODY = """
+@WM@ >/dev/null 2>&1 &
+WM_PID=$!
+sleep 4
+echo "wm=$(wmctrl -m 2>/dev/null | head -1 | cut -d: -f2 | tr -d \' \')"
+echo "geo_before=$(geo)"
+python3 "$HOME/probe_window.py" >/dev/null 2>&1 &
+PROBE_PID=$!
+sleep 7
+echo "geo_after=$(geo)"
+echo "window=$(xdotool search --name MavericksDockProbe | head -1)"
+kill $PROBE_PID 2>/dev/null || true
+pkill -f probe_window.py 2>/dev/null || true
+sleep 3
+echo "geo_closed=$(geo)"
+kill $WM_PID 2>/dev/null || true
+pkill -f "@WM@" 2>/dev/null || true
+kill $PLANK_PID 2>/dev/null || true
+wait $PLANK_PID 2>/dev/null || true
+"""
+
+# A minimal GTK window used as an *unpinned* application.  It is deliberately
+# not a MavLinOS binary: the point is a foreign .desktop-id, which is what a
+# running-but-unpinned app looks like to plank.
+PROBE_WINDOW = '''
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+window = Gtk.Window(title="MavericksDockProbe")
+window.set_default_size(320, 200)
+window.connect("destroy", Gtk.main_quit)
+window.show_all()
+Gtk.main()
+'''
 
 # ---------------------------------------------------------------------------
 # Preconditions
@@ -169,9 +216,10 @@ if values.get("theme") != "'Mavericks'":
     fail("--apply did not seed theme='Mavericks' (got %r)" % values.get("theme"))
 if values.get("zoom") != "true":
     fail("--apply did not enable zoom (got %r)" % values.get("zoom"))
-if values.get("auto-pinning") != "false":
-    fail("auto-pinning must be false so running apps are not auto-pinned to "
-         "the Dock (macOS behaviour); got %r" % values.get("auto-pinning"))
+if values.get("auto-pinning") != "true":
+    fail("auto-pinning must be true so every running app appears in the Dock "
+         "and leaves again when it quits (macOS behaviour); got %r"
+         % values.get("auto-pinning"))
 if values.get("hide-mode") != "'intelligent'":
     fail("hide-mode must be 'intelligent' (macOS auto-hide); got %r"
          % values.get("hide-mode"))
@@ -286,7 +334,68 @@ else:
           % (len(ALL_PINS), with_pins, len(FEWER_PINS), without_pins))
 
 # ---------------------------------------------------------------------------
-# 5: user customisation survives --apply
+# 5: a running but UNPINNED application shows up in the Dock
+#    This is macOS behaviour (every running app is in the Dock, and it leaves
+#    again when it quits) and it is what the running-indicator dot is drawn
+#    for. In plank it is `auto-pinning=true` — the counterintuitive part.
+#
+#    A window manager is mandatory here: plank enumerates windows through
+#    WNCK/BAMF, and without a WM the pinned Xvfb session reports no clients at
+#    all. The geometry scenarios deliberately stay WM-free so the bottom-edge
+#    assertion is not polluted by the WM's own workarea.
+# ---------------------------------------------------------------------------
+
+WM = next((wm for wm in ("openbox", "xfwm4") if have(wm)), None)
+if WM is None or not have("xdotool"):
+    print("SKIP running-app scenario (need xdotool + a window manager "
+          "for plank to enumerate windows)")
+else:
+    scenario = (HEADER + RUNNING_APP_BODY).replace("@WM@", WM)
+    out_running = run_scenario(scenario, ALL_PINS,
+                               extra_files={"probe_window.py": PROBE_WINDOW})
+
+    def field(name):
+        for line in out_running.splitlines():
+            if line.startswith("%s=" % name):
+                return line.split("=", 1)[1].strip()
+        return None
+
+    wm_name = field("wm")
+    before = width_of("geo=%s" % (field("geo_before") or ""))
+    after = width_of("geo=%s" % (field("geo_after") or ""))
+    closed = width_of("geo=%s" % (field("geo_closed") or ""))
+    probe_window = field("window")
+
+    if not wm_name:
+        fail("the window manager did not come up, so plank cannot enumerate "
+             "windows and the running-app scenario is unproven: %r"
+             % out_running)
+    elif not probe_window:
+        fail("the probe window never mapped — running-app scenario unproven: %r"
+             % out_running)
+    elif before is None or after is None:
+        fail("could not measure the dock before/after the probe window: %r"
+             % out_running)
+    elif after <= before:
+        fail("an unpinned running application did NOT appear in the Dock "
+             "(%dpx -> %dpx). macOS shows every running app in the Dock; in "
+             "plank that is auto-pinning=true, which must stay in the "
+             "authority." % (before, after))
+    else:
+        print("ok - a WM (%s) lets plank see windows; an unpinned running app "
+              "appears in the Dock (%dpx -> %dpx) — macOS behaviour, and the "
+              "state the indicator dot is drawn for"
+              % (wm_name, before, after))
+        if closed is not None and closed <= after:
+            print("ok - and the Dock returns to %dpx once the window closes "
+                  "(macOS: the item leaves again, it is not a permanent pin)"
+                  % closed)
+        else:
+            print("note - the Dock measured %r after the probe window closed; "
+                  "removal timing is asynchronous" % closed)
+
+
+# 6: user customisation survives --apply
 # ---------------------------------------------------------------------------
 
 out_custom = run_scenario(HEADER + """

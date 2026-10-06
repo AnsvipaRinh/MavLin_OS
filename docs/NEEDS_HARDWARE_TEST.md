@@ -6,7 +6,8 @@ reach it, 8 pins, bottom-edge geometry, user customisation preserved), but the
 *look* and the *feel* need the real 2304×1440 panel and the trackpad:
 - [ ] Zoom feel: 150% magnification depth reads like macOS at 2x scaling (not too shallow, not overshooting the screen edge with 8 pins)
 - [ ] Metallic shelf: FillStart/FillEnd gradient + hairline outer/inner stroke + TopRoundness=4 looks like a Mavericks Dock, not a Linux panel
-- [ ] Running-indicator dots under pinned icons are legible; un-pinned running apps appear without being auto-pinned (auto-pinning=false)
+- [ ] Running-indicator dots under pinned and un-pinned icons are legible and in the Mavericks accent; the Dock grows when an app launches and shrinks when it quits (pre-hardware this is proven with Openbox on Xvfb, 424→484→424 px — confirm with the real WM, xfwm4, since plank enumerates windows through WNCK/BAMF)
+- [ ] Clicking a Dock icon switches to that application / raises its window (needs a real WM; not testable on bare Xvfb)
 - [ ] Intelligent auto-hide: reveal on approach, hide when a maximised window covers the edge, no jitter at the screen edge
 - [ ] Tooltips (app names) render in the Mavericks font/skin
 - [ ] Trash docklet: icon present, count/label behaviour, click opens Thunar at Trash, right-click offers Empty Trash

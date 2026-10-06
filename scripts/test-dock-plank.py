@@ -230,10 +230,15 @@ if os.path.isfile(LEGACY_INI_CFG) and os.path.isfile(LEGACY_INI_SKEL):
           "legacy INI drifted from the Dock authority: %s" % report["drift"])
     check(not report["unknown"],
           "legacy INI has untranslated keys: %s" % report["unknown"])
-    check(any(entry.startswith("auto-pinning=false")
+    check(any(entry.startswith("auto-pinning=true")
               for entry in report["authority_only"]),
-          "auto-pinning (the macOS no-auto-pin behaviour) must be part of "
-          "the authority: it cannot be expressed in the legacy INI")
+          "auto-pinning must be part of the authority: it cannot be expressed "
+          "in the legacy INI, and plank's default happens to be the macOS "
+          "behaviour (running apps appear and disappear again)")
+check(prefs.get("auto-pinning") == "true",
+      "auto-pinning must stay true: macOS shows running apps in the Dock and "
+      "drops them when they quit (measured in test-dock-plank-gui.py); false "
+      "would hide every unpinned running app")
 
 parser = configparser.ConfigParser(interpolation=None)
 parser.optionxform = str

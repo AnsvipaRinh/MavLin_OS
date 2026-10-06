@@ -441,8 +441,15 @@ run gives a 304 px dock at `icon-size=48` and a 604 px dock at
 2. A plain pacman install shipped the Dock pins but **no autostart entry**
    (it only existed in the ISO's `airootfs`), i.e. no Dock at all outside the
    live image. `mavericks-apps` now installs it into `/etc/skel`.
-3. `auto-pinning` defaults to **TRUE** in plank, so every launched application
-   was silently added to the Dock. macOS never does that → forced `false`.
+3. `auto-pinning` was changed from plank's default `true` to `false`, on the
+   reading that "macOS never auto-pins running apps". **That was wrong**, and
+   the GUI smoke caught it: measured with a window manager, an *unpinned*
+   running application grew the Dock 424 px → 484 px with `auto-pinning=true`
+   and did **not** appear at all with `false`. macOS does show every running
+   app in the Dock and removes it again when it quits — it is not a permanent
+   pin — and that is exactly plank's `auto-pinning`. Reverted to `true`, with
+   the measurement recorded in `PREFERENCES` so the next reader does not
+   "fix" it back.
 
 **Why a seeder script and not `/etc/dconf/db/local.d`.** The declarative
 system-db route needs `/etc/dconf/profile/user`, which risks a pacman file
