@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- xfce4-desktop — Mavericks wallpaper + desktop icons (Home/Trash/removable) -->
+<!-- xfce4-desktop — Mavericks wallpaper + desktop icons (Home/Trash/removable)
+     Icon grid/snap behavior configured for Mavericks-like arrangement. -->
 <channel name="xfce4-desktop" version="1.0">
   <property name="backdrop" type="empty">
     <property name="screen0" type="empty">
@@ -20,5 +21,9 @@
       <property name="show-trash" type="bool" value="true"/>
       <property name="show-removable" type="bool" value="true"/>
     </property>
+    <property name="sort-column" type="int" value="0"/>
+    <property name="sort-order" type="int" value="0"/>
+    <property name="icon-size" type="int" value="64"/>
+    <property name="tooltip-size" type="int" value="128"/>
   </property>
 </channel>

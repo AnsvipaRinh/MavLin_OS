@@ -1179,3 +1179,77 @@ rows in `docs/*`. Read-only with respect to the shared hotkey registry.
     - `scripts/test-mv-shot.py` (new)
     - `docs/APPS.md`, `docs/PROGRESS.md`, `docs/DECISIONS.md`,
       `docs/NEEDS_HARDWARE_TEST.md`
+
+---
+
+## 2026-10-06 — Desktop P0: Mavericks-style desktop right-click menu + icon grid (oid OS-desktop-p0, canonical #24)
+
+**Context:** APPS.md claimed "no xfdesktop config (no desktop icons); no session
+management config". Actual audit found xfce4-desktop.xml with wallpaper +
+Home/Trash/removable icons, but missing: icon grid config (sort, icon-size),
+desktop right-click menu (menu.xml), Change Wallpaper action, Clean Up/Sort By/
+Paste actions.
+
+**Decisions:**
+
+1. **Desktop right-click menu via xfdesktop menu.xml** (system-wide +
+   skel) rather than Thunar UCA. Rationale: xfdesktop owns the desktop
+   background right-click; Thunar UCA only applies inside Thunar windows.
+   Menu items: Change Wallpaper, New Folder, Clean Up, Sort By (Name/Kind/
+   Date/Size/None/Snap), Paste, Show Desktop.
+
+2. **Change Wallpaper → zenity file chooser + xfconf**. Rationale: No
+   native Mavericks-style wallpaper picker exists in the stack. zenity is
+   lightweight, GTK-native, dependency already present (libnotify pulls
+   zenity via gnome-shell dep chain, but zenity itself is minimal). Detects
+   active monitor via xfconf introspection, falls back to monitor0. Sets
+   image-style=5 (zoom/fill) for all workspaces.
+
+3. **Clean Up → toggle desktop-icons/style (1→2)**. Rationale: xfdesktop
+   exposes no "arrange icons" D-Bus method. Toggling style from minimal
+   to icon view forces a re-layout. Pragmatic, zero-daemon, instant.
+
+4. **Sort By → xfconf sort-column/sort-order**. Rationale: Direct xfconf
+   properties map to Thunar's column constants (0=Name, 1=Size, 2=Type,
+   3=Date Modified). "None" = sort-column=-1 (manual). "Snap" = style=2
+   (icon view with grid). No daemon, persistent across sessions.
+
+5. **Paste → Gtk clipboard text/uri-list → gio copy to ~/Desktop**.
+   Rationale: Only file URIs are actionable on Desktop (Mavericks behavior).
+   Text content ignored. Uses Python + Gtk/Gio for proper clipboard access;
+   falls back gracefully if no file URIs present.
+
+6. **Icon grid defaults: 64px, sort by name ascending**. Rationale: Matches
+   Mavericks Finder default icon size (64px at 1x, 128px at 2x; 64px on our
+   2x-scaled 2304×1440 logical 1152×720). Sort by name is Finder default.
+
+7. **Connector-specific backdrop migration remains hardware-dependent**.
+   xfdesktop 4.20.2 ignores static `monitor0` backdrop path on Xvfb; real
+   hardware uses connector names (e.g., `monitorDP-1`). Migration script
+   needed at first boot or via xfconf-query post-login. Tracked in
+   NEEDS_HARDWARE_TEST.md.
+
+**Trade-offs accepted:**
+- zenity for wallpaper picker is not Mavericks-visual (no preview grid,
+  no dynamic desktop picture rotation). Acceptable pre-hardware; could be
+  replaced with a custom GTK dialog later.
+- Clean Up via style toggle is a workaround; may flash briefly. No user-
+  visible regression observed on Xvfb.
+- Paste only handles file URIs; Mavericks also allows pasting text as
+  .txt files. Deferred — low priority.
+
+**Files changed:**
+- `configs/desktop/xfce/xfce4-desktop.xml` (icon grid settings)
+- `configs/desktop/xfce/menu.xml` (new — desktop right-click menu)
+- `archiso-profile/releng/airootfs/etc/skel/.config/xfce4/desktop/menu.xml` (mirror)
+- `archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml` (mirror)
+- `packages/mavericks-apps/src/mavericks-apps/bin/mv-change-wallpaper` (new)
+- `packages/mavericks-apps/src/mavericks-apps/bin/mv-desktop-cleanup` (new)
+- `packages/mavericks-apps/src/mavericks-apps/bin/mv-desktop-sort` (new)
+- `packages/mavericks-apps/src/mavericks-apps/bin/mv-desktop-paste` (new)
+- `packages/mavericks-apps/src/mavericks-apps/Makefile` (install new scripts)
+- `scripts/check-sync.sh` (menu.xml mirror pair)
+- `scripts/test-desktop-icons.py` (validate new icon grid properties)
+- `scripts/test-mv-desktop-menu.py` (new — validates scripts + menu + desktop.xml)
+- `docs/APPS.md`, `docs/PROGRESS.md`, `docs/DECISIONS.md`,
+  `docs/NEEDS_HARDWARE_TEST.md`

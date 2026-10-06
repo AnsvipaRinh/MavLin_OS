@@ -493,3 +493,60 @@ issue #85's substance re-verified for 13 owner issues; 4 stale-doc/stale-comment
 follow-ups created by the merged PRs (zram "enabled" claims, demo scrot comment,
 duplicate timezone commits `b00ad0b`/`7c7cd5a`).
 Full detail: `docs/EXTERNAL_AUDIT.md` §"2026-10-06 — Second sweep of the day".
+
+---
+
+## Session 2026-10-06 — Desktop P0 (oid `OS-desktop-p0`, canonical objective #24)
+
+**Zone:** Desktop/Wallpaper/Session Behavior — `configs/desktop/xfce/*`,
+`packages/mavericks-apps/src/mavericks-apps/bin/mv-desktop-*`,
+`scripts/test-mv-desktop-menu.py`, `scripts/test-desktop-icons.py`,
+`docs/APPS.md` Desktop row, `docs/NEEDS_HARDWARE_TEST.md`.
+
+**Audit finding:** APPS.md claimed "wallpaper created; autostart for plank +
+notification logger; no xfdesktop config (no desktop icons); no session
+management config". Actual state: xfce4-desktop.xml existed with wallpaper +
+desktop icons (Home/Trash/removable), but no icon grid config (sort, icon-size),
+no desktop right-click menu (menu.xml), no "Change Wallpaper" action, no
+"Clean Up"/"Sort By"/"Paste" actions.
+
+**Closed this session (all executable pre-hardware):**
+- xfce4-desktop.xml: added icon grid settings (sort-column=name ascending,
+  sort-order=ascending, icon-size=64px, tooltip-size=128px).
+- Created configs/desktop/xfce/menu.xml — Mavericks-style desktop right-click
+  menu with: Change Desktop Background… (zenity file chooser), New Folder
+  (mv-newfolder $HOME/Desktop), Clean Up (arrange icons to grid), Sort By
+  submenu (Name/Kind/Date Modified/Size/None/Snap to Grid), Paste (clipboard
+  to Desktop via gio/Gtk clipboard), Show Desktop.
+- Created four one-shot bash/Python scripts in mavericks-apps/bin/:
+  mv-change-wallpaper (detects monitor, sets backdrop via xfconf),
+  mv-desktop-cleanup (toggles icon style to force re-layout),
+  mv-desktop-sort (configures sort-column/sort-order via xfconf),
+  mv-desktop-paste (Gtk clipboard URI list → copy to ~/Desktop).
+- Added menu.xml to check-sync.sh mirror (configs ↔ airootfs skel).
+- Updated test-desktop-icons.py to validate new icon grid properties.
+- Created test-mv-desktop-menu.py validating scripts + menu.xml + desktop.xml.
+- All tests pass; check-sync.sh mirrors green; bash -n / py_compile / XML /
+  desktop-file-validate clean.
+
+**Known gaps (explicitly documented):**
+- xfdesktop 4.20.2 ignores `/backdrop` xfconf properties with static
+  `monitor0` path on Xvfb; real HW needs connector-name migration (tracked in
+  NEEDS_HARDWARE_TEST.md line 781: "xfdesktop wallpaper: xfdesktop 4.20.2
+  ignored every /backdrop xfconf property layout tried under Xvfb").
+- Session management config still minimal (logout/restart via mv-power-ui
+  exists, but no desktop-specific session save/restore).
+- "Change Wallpaper" uses zenity (GTK dialog) — not a native Mavericks-style
+  wallpaper picker; acceptable pre-hardware, could be enhanced later.
+- "Clean Up" toggles style property; xfdesktop has no direct "arrange icons"
+  D-Bus method; this is a pragmatic workaround.
+- "Paste" requires Gtk clipboard; works for file URIs only; text content
+  ignored (Mavericks behavior: only files/folders paste to Desktop).
+
+**Next executable steps:** none pre-hardware — connector migration + visual
+validation on real 2304×1440 panel are hardware-dependent.
+
+**Status:** Desktop/Wallpaper/Session remains **PARTIALLY IMPLEMENTED** —
+pre-hardware gaps closed; hardware validation required for wallpaper
+application, menu behavior, and icon grid fidelity on 2304×1440. See
+`docs/APPS.md` row, `docs/NEEDS_HARDWARE_TEST.md` (connector migration item).

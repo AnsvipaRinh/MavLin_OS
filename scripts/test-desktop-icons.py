@@ -19,6 +19,9 @@ REQUIRED = [
     'name="show-removable" type="bool" value="true"',
     'name="show-filesystem" type="bool" value="false"',
     'name="style" type="int" value="2"',
+    'name="sort-column" type="int" value="0"',
+    'name="sort-order" type="int" value="0"',
+    'name="icon-size" type="int" value="64"',
     "mavericks-desktop.png",
 ]
 
@@ -44,5 +47,6 @@ if errors:
 
 print("ok - desktop icons enabled (Home/Trash/removable)")
 print("ok - filesystem root icon hidden")
+print("ok - icon grid: sort by name ascending, 64px icons")
 print("ok - wallpaper path preserved")
 print("ok - configs ↔ airootfs mirrors identical")

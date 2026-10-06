@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+# mv-desktop-paste — Paste clipboard contents to Desktop.
+# Uses Gtk/Gio to copy files from the clipboard to ~/Desktop.
+# License: GPL-2.0-or-later.
+import os
+import sys
+
+try:
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk, Gdk, Gio, GLib
+except ImportError:
+    # GTK not available — fail silently (notify-send will handle notification)
+    sys.exit(0)
+
+clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+targets = clipboard.wait_for_targets()
+if not targets:
+    sys.exit(0)
+
+# Check for text/uri-list (file URIs)
+has_uris = any('text/uri-list' in str(t) for t in targets)
+if not has_uris:
+    sys.exit(0)
+
+uris = clipboard.wait_for_uris()
+if not uris:
+    sys.exit(0)
+
+desktop = os.path.expanduser('~/Desktop')
+os.makedirs(desktop, exist_ok=True)
+
+pasted_any = False
+for uri in uris:
+    if uri.startswith('file://'):
+        src = uri[7:]  # Remove 'file://'
+        src = GLib.uri_unescape_string(src, None)
+        if os.path.exists(src):
+            dst = os.path.join(desktop, os.path.basename(src))
+            # Handle name collision
+            base, ext = os.path.splitext(os.path.basename(src))
+            counter = 1
+            while os.path.exists(dst):
+                dst = os.path.join(desktop, f'{base} {counter}{ext}')
+                counter += 1
+            try:
+                Gio.File.new_for_path(src).copy(
+                    Gio.File.new_for_path(dst),
+                    Gio.FileCopyFlags.OVERWRITE,
+                    None, None, None
+                )
+                pasted_any = True
+            except Exception:
+                pass
+
+if pasted_any:
+    # Best-effort notification
+    try:
+        import subprocess
+        subprocess.run(['notify-send', 'Desktop', 'Pasted to Desktop'],
+                       capture_output=True, timeout=3)
+    except Exception:
+        pass
+else:
+    try:
+        import subprocess
+        subprocess.run(['notify-send', 'Desktop', 'Clipboard has no files'],
+                       capture_output=True, timeout=3)
+    except Exception:
+        pass

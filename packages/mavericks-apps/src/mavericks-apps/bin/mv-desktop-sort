@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# mv-desktop-sort — "Sort By" desktop icons (Name, Kind, Date, Size, None, Snap).
+# Configures xfdesktop icon sorting via xfconf.
+# Usage: mv-desktop-sort {name|kind|date|size|none|snap}
+# License: GPL-2.0-or-later.
+set -uo pipefail
+
+[[ $# -eq 1 ]] || { echo "Usage: mv-desktop-sort {name|kind|date|size|none|snap}" >&2; exit 1; }
+
+case "$1" in
+    name)
+        # Sort by name (default)
+        xfconf-query -c xfce4-desktop -p "/desktop-icons/sort-order" -s 0 -t int 2>/dev/null || true  # GTK_SORT_ASCENDING
+        xfconf-query -c xfce4-desktop -p "/desktop-icons/sort-column" -s 0 -t int 2>/dev/null || true  # THUNAR_COLUMN_NAME
+        notify-send "Desktop" "Sorted by Name" 2>/dev/null || true
+        ;;
+    kind)
+        # Sort by type/kind
+        xfconf-query -c xfce4-desktop -p "/desktop-icons/sort-order" -s 0 -t int 2>/dev/null || true
+        xfconf-query -c xfce4-desktop -p "/desktop-icons/sort-column" -s 2 -t int 2>/dev/null || true  # THUNAR_COLUMN_TYPE
+        notify-send "Desktop" "Sorted by Kind" 2>/dev/null || true
+        ;;
+    date)
+        # Sort by date modified
+        xfconf-query -c xfce4-desktop -p "/desktop-icons/sort-order" -s 1 -t int 2>/dev/null || true  # GTK_SORT_DESCENDING (newest first)
+        xfconf-query -c xfce4-desktop -p "/desktop-icons/sort-column" -s 3 -t int 2>/dev/null || true  # THUNAR_COLUMN_DATE_MODIFIED
+        notify-send "Desktop" "Sorted by Date Modified" 2>/dev/null || true
+        ;;
+    size)
+        # Sort by size
+        xfconf-query -c xfce4-desktop -p "/desktop-icons/sort-order" -s 1 -t int 2>/dev/null || true  # GTK_SORT_DESCENDING (largest first)
+        xfconf-query -c xfce4-desktop -p "/desktop-icons/sort-column" -s 1 -t int 2>/dev/null || true  # THUNAR_COLUMN_SIZE
+        notify-send "Desktop" "Sorted by Size" 2>/dev/null || true
+        ;;
+    none)
+        # No sorting (manual arrangement)
+        xfconf-query -c xfce4-desktop -p "/desktop-icons/sort-column" -s -1 -t int 2>/dev/null || true
+        notify-send "Desktop" "Manual arrangement (no auto-sort)" 2>/dev/null || true
+        ;;
+    snap)
+        # Snap to grid - this is the default icon view behavior
+        xfconf-query -c xfce4-desktop -p "/desktop-icons/style" -s 2 -t int 2>/dev/null || true
+        notify-send "Desktop" "Snap to Grid enabled" 2>/dev/null || true
+        ;;
+    *)
+        echo "Unknown sort option: $1" >&2
+        echo "Valid options: name, kind, date, size, none, snap" >&2
+        exit 1
+        ;;
+esac

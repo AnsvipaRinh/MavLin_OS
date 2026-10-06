@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# mv-change-wallpaper — Mavericks-style "Change Desktop Background..." dialog.
+# Opens a GTK file chooser for selecting an image, then sets it as the
+# wallpaper via xfconf (xfce4-desktop backdrop). No daemon, one-shot.
+# License: GPL-2.0-or-later.
+set -uo pipefail
+
+# Resolve the correct monitor property path for xfconf.
+# xfdesktop 4.20 uses dynamic monitor names (connector-based). Try to detect
+# the active monitor, fall back to monitor0.
+detect_monitor() {
+    # Query xfconf for existing backdrop properties to find the monitor name
+    xfconf-query -c xfce4-desktop -l 2>/dev/null | \
+        grep -E '^/backdrop/screen0/(monitor[^/]+)/workspace0/last-image$' | \
+        head -1 | sed -E 's|^/backdrop/screen0/(monitor[^/]+)/workspace0/last-image$|\1|'
+}
+
+MONITOR=$(detect_monitor)
+if [[ -z "$MONITOR" ]]; then
+    MONITOR="monitor0"
+fi
+
+IMAGE_PATH=$(zenity --file-selection \
+    --title="Choose Desktop Background" \
+    --file-filter="Image files | *.jpg *.jpeg *.png *.bmp *.tiff *.webp" \
+    --file-filter="All files | *" \
+    2>/dev/null)
+
+if [[ -n "$IMAGE_PATH" && -f "$IMAGE_PATH" ]]; then
+    # Set the wallpaper for all workspaces on the detected monitor
+    xfconf-query -c xfce4-desktop -p "/backdrop/screen0/${MONITOR}/workspace0/last-image" -s "$IMAGE_PATH" -t string 2>/dev/null || true
+    xfconf-query -c xfce4-desktop -p "/backdrop/screen0/${MONITOR}/workspace0/image-style" -s 5 -t int 2>/dev/null || true  # Zoom (fill)
+    # Apply to other workspaces if they exist
+    for ws in 1 2 3 4 5 6 7 8 9; do
+        xfconf-query -c xfce4-desktop -p "/backdrop/screen0/${MONITOR}/workspace${ws}/last-image" -s "$IMAGE_PATH" -t string 2>/dev/null || break
+        xfconf-query -c xfce4-desktop -p "/backdrop/screen0/${MONITOR}/workspace${ws}/image-style" -s 5 -t int 2>/dev/null || true
+    done
+    # Notify user
+    notify-send "Desktop Background" "Wallpaper changed to $(basename "$IMAGE_PATH")" 2>/dev/null || true
+else
+    # User cancelled or no file selected
+    exit 0
+fi

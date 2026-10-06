@@ -785,6 +785,13 @@ documented. LKML thread open (Sep 2026).
       xfce4-desktop.xml backdrop properties (monitor0 paths) actually apply
       with the panel's real connector name; if not, the product needs a
       backdrop-path migration to the live connector name.
+- [ ] Desktop right-click menu: verify menu.xml loads and all items work —
+      Change Wallpaper (zenity file chooser → xfconf), New Folder (mv-newfolder),
+      Clean Up (icon re-layout), Sort By submenu (Name/Kind/Date/Size/None/Snap),
+      Paste (clipboard file URIs → ~/Desktop), Show Desktop.
+- [ ] Desktop icon grid: verify 64px icons, sort by name ascending, snap-to-grid
+      behavior on real 2304×1440 panel; Home/Trash/removable icons visible and
+      functional (click opens Thunar, right-click offers Empty Trash for Trash).
 - [ ] Traffic-light side consistency: headerbar apps follow the
       Gtk/DecorationLayout xsetting (demo override set it to
       `close,minimize,maximize:` = left); confirm the skel xsettings.xml

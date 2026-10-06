@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- xfdesktop menu — Mavericks-style right-click desktop menu.
+     Installed to /etc/xdg/xfce4/desktop/menu.xml (system-wide) and mirrored
+     to skel for new users. -->
+<menu name="desktop-menu" title="Desktop Menu">
+  <separator/>
+  <item name="Change Desktop Background...">
+    <action name="Run">
+      <command>mv-change-wallpaper</command>
+    </action>
+  </item>
+  <separator/>
+  <item name="New Folder">
+    <action name="Run">
+      <command>mv-newfolder $HOME/Desktop</command>
+    </action>
+  </item>
+  <item name="Clean Up">
+    <action name="Run">
+      <command>mv-desktop-cleanup</command>
+    </action>
+  </item>
+  <menu name="sort-by-menu" title="Sort By">
+    <item name="Name">
+      <action name="Run">
+        <command>mv-desktop-sort name</command>
+      </action>
+    </item>
+    <item name="Kind">
+      <action name="Run">
+        <command>mv-desktop-sort kind</command>
+      </action>
+    </item>
+    <item name="Date Modified">
+      <action name="Run">
+        <command>mv-desktop-sort date</command>
+      </action>
+    </item>
+    <item name="Size">
+      <action name="Run">
+        <command>mv-desktop-sort size</command>
+      </action>
+    </item>
+    <separator/>
+    <item name="None">
+      <action name="Run">
+        <command>mv-desktop-sort none</command>
+      </action>
+    </item>
+    <separator/>
+    <item name="Snap to Grid">
+      <action name="Run">
+        <command>mv-desktop-sort snap</command>
+      </action>
+    </item>
+  </menu>
+  <separator/>
+  <item name="Paste">
+    <action name="Run">
+      <command>mv-desktop-paste</command>
+    </action>
+  </item>
+  <separator/>
+  <item name="Show Desktop">
+    <action name="Run">
+      <command>xfce4-popup-applicationsmenu -p</command>
+    </action>
+  </item>
+</menu>

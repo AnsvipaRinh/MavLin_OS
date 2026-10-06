@@ -45,7 +45,7 @@ install: all
 	         bin/mv-keychain bin/mv-fontbook bin/mv-colormeter bin/mv-stickies bin/mv-notify-send bin/mv-notification-center bin/mv-diskutil bin/mv-airdrop bin/mv-timemachine bin/mv-ytplayer \
 	         bin/mv-finder-search bin/mv-finder-columns bin/mv-brightness \
 	         bin/mv-quit-app bin/mv-minimize-window bin/mv-hide-app bin/mv-close-window bin/mv-trash \
-	         bin/mv-force-quit bin/mv-recent-items bin/mv-hotkeys bin/mv-hotkeys-gui; do \
+	         bin/mv-force-quit bin/mv-recent-items bin/mv-hotkeys bin/mv-hotkeys-gui bin/mv-change-wallpaper bin/mv-desktop-cleanup bin/mv-desktop-sort bin/mv-desktop-paste; do \
 		install -Dm755 "$$f" "$(DESTDIR)$(PREFIX)/bin/$$(basename $$f)"; \
 	done
 	install -Dm755 bin/mv_launchpad_edit.py "$(DESTDIR)$(PREFIX)/bin/mv-launchpad-edit"

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# mv-desktop-cleanup — "Clean Up" desktop icons (arrange to grid).
+# Uses xfconf to trigger xfdesktop's built-in icon arrangement.
+# License: GPL-2.0-or-later.
+set -uo pipefail
+
+# xfdesktop doesn't expose a direct "arrange icons" D-Bus method, but we can
+# toggle the icon view style to force a re-layout. The 'style' property:
+# 0 = none, 1 = minimal, 2 = icon view (with grid)
+# Temporarily set to minimal then back to icon view to trigger rearrangement.
+
+xfconf-query -c xfce4-desktop -p "/desktop-icons/style" -s 1 -t int 2>/dev/null || true
+sleep 0.1
+xfconf-query -c xfce4-desktop -p "/desktop-icons/style" -s 2 -t int 2>/dev/null || true
+
+notify-send "Desktop" "Cleaned up" 2>/dev/null || true
