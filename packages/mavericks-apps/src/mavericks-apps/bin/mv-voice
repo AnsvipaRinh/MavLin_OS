@@ -404,11 +404,13 @@ def build_voice_classes():
             self.memo_dir = memo_dir or MEMO_DIR
 
             self.apply_mavericks_css()
+            self.set_decorated(True)
 
-            hb = Gtk.HeaderBar(title="Voice Memos", show_close_button=True)
-            self.set_titlebar(hb)
+            hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+            hb.get_style_context().add_class("mavericks-app-toolbar")
 
             vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+            vbox.pack_start(hb, False, False, 0)
             vbox.set_border_width(16)
             self.add(vbox)
 
