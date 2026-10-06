@@ -687,14 +687,16 @@ class ControlCenter(Gtk.Window):
                 lbl.set_xalign(0)
                 box.pack_start(lbl, False, False, 0)
 
-        # Power mode
-        self.power_mode = Gtk.ComboBoxText()
-        self.power_mode.append_text("Balanced")
-        self.power_mode.append_text("Power Saver")
-        self.power_mode.append_text("Performance")
+        # Power mode is read-only here: TLP does not expose a safe unprivileged
+        # mode switch through the interface this app owns. Do not present a
+        # combo box that only changes its own label.
+        self.power_mode_label = Gtk.Label()
+        self.power_mode_label.set_xalign(0)
         self.refresh_power_mode()
-        self.power_mode.connect("changed", self.on_power_mode_changed)
-        self.add_row(box, "Power Mode", self.power_mode)
+        self.add_row(box, "Power Mode", self.power_mode_label)
+        settings_btn = Gtk.Button(label="Energy Saver Settings")
+        settings_btn.connect("clicked", lambda _b: run_async(["mv-settings"]))
+        box.pack_start(settings_btn, False, False, 0)
 
     def get_battery_info(self):
         result = sh(["upower", "-i", "/org/freedesktop/UPower/devices/battery_BAT0"])
@@ -712,7 +714,7 @@ class ControlCenter(Gtk.Window):
         # Try to get current TLP mode
         current = self.get_tlp_mode()
         mode_map = {"balanced": 0, "powersave": 1, "performance": 2}
-        self.power_mode.set_active(mode_map.get(current, 0))
+        self.power_mode_label.set_text(current.title())
 
     def get_tlp_mode(self):
         # TLP doesn't have a simple "get mode" command, check tlp-stat or config
@@ -724,22 +726,15 @@ class ControlCenter(Gtk.Window):
                 return "performance"
         return "balanced"
 
-    def on_power_mode_changed(self, combo):
-        mode_map = {0: "balanced", 1: "powersave", 2: "performance"}
-        mode = mode_map.get(combo.get_active(), "balanced")
-        # TLP mode switching requires root, so we can only show current state
-        # For actual switching, would need polkit or sudo - show info
-        self.show_info_dialog("Power Mode", 
-            f"Power mode set to {mode}. Changing TLP mode requires root privileges.\n"
-            f"Run: sudo tlp set-mode {mode}")
-
     def show_info_dialog(self, title, message):
-        dialog = Gtk.MessageDialog(parent=self, flags=Gtk.DialogFlags.MODAL,
-                                    type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK,
-                                    message_format=message)
-        dialog.set_title(title)
-        dialog.run()
-        dialog.destroy()
+        try:
+            from mv_dialogs import alert
+        except ImportError:
+            sys.path.insert(0, "/usr/share/mavericks-apps")
+            from mv_dialogs import alert
+        return alert(self, title, secondary=message,
+                     msg_type=Gtk.MessageType.INFO,
+                     buttons=[("OK", Gtk.ResponseType.OK)])
 
     # ==================== Do Not Disturb ====================
 
