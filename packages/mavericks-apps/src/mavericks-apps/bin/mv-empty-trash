@@ -299,6 +299,9 @@ def erase(items):
         if not ok2:
             return 1, "%s; then %s" % (message, message2)
         return 0, message2
+    if "not installed" in message:
+        ok2, message2 = erase_fallback(items)
+        return (0, message2) if ok2 else (1, message2)
     return 1, "Empty Trash failed: %s" % message
 
 
