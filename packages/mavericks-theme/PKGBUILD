@@ -1,7 +1,7 @@
 # Maintainer: Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL>
 pkgname=mavericks-theme
 pkgver=1.0.0
-pkgrel=3
+pkgrel=4
 pkgdesc="OS X 10.9 Mavericks skeuomorphic theme for Xfce/GTK3 - textures, shadows, glass, leather/paper"
 arch=('any')
 url="https://github.com/AnsvipaRinh/MavLinOS"
@@ -104,7 +104,7 @@ gtk-theme-name=Mavericks
 gtk-icon-theme-name=Mavericks
 gtk-cursor-theme-name=Mavericks-Cursors
 gtk-cursor-theme-size=24
-gtk-font-name=San Francisco 11
+gtk-font-name=Lucida Grande 11
 gtk-enable-animations=1
 gtk-enable-event-sounds=1
 gtk-enable-input-feedback-sounds=1

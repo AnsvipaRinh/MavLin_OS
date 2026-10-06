@@ -694,7 +694,7 @@ textview {
                 inset 0 -1px rgba(0,0,0,0.12);
 }
 
-entry.search { border-radius: 50px; }
+entry.search { border-radius: 12px; }
 
 entry:focus,
 spinbutton:focus,
@@ -986,4 +986,40 @@ statusbar {
     background-image: linear-gradient(to bottom, #d4d4d4, #b2b2b2);
     box-shadow: inset 0 1px #e1e1e1;
     border-top: 1px solid #818181;
+}
+
+
+/* System Preferences icon grid — Mavericks uses icon tiles, not generic GTK buttons. */
+.mavericks-preferences-item,
+.mavericks-preferences-item.flat {
+    background-image: none;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    box-shadow: none;
+    min-width: 112px;
+    min-height: 82px;
+    padding: 8px 10px;
+    color: $mavericks-charcoal;
+    text-shadow: none;
+}
+
+.mavericks-preferences-item:hover,
+.mavericks-preferences-item:focus {
+    background-color: rgba(111, 143, 189, 0.10);
+    border-color: rgba(111, 143, 189, 0.20);
+    box-shadow: none;
+}
+
+.mavericks-preferences-item:active,
+.mavericks-preferences-item:checked {
+    background-color: rgba(111, 143, 189, 0.18);
+    border-color: rgba(111, 143, 189, 0.32);
+    box-shadow: inset 0 1px rgba(0,0,0,0.08);
+}
+
+.mavericks-preferences-item label {
+    color: $mavericks-charcoal;
+    font-size: 11px;
+    text-shadow: 0 1px rgba(255,255,255,0.7);
 }

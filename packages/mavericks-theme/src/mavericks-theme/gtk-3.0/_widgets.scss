@@ -16,10 +16,10 @@ button.text-button {
     color: $button_fg_color;
     border: 1px solid shade($button_bg_color, 0.5);
     border-radius: $button_border_radius;
-    padding: 6px 16px;
+    padding: 3px 12px;
     min-height: $button_min_height;
     min-width: $button_min_width;
-    @include text-emboss();
+    text-shadow: 0 1px rgba(255,255,255,0.55);
     @include control-shadow();
     @include transition-normal;
 
@@ -35,7 +35,7 @@ button.text-button {
     }
 
     &:focus {
-        box-shadow: inset 0 0 0 2px $focus_color,
+        box-shadow: inset 0 0 0 1px $focus_color,
                     0 1px 2px rgba(0,0,0,0.15);
     }
 
@@ -143,7 +143,7 @@ textview {
     color: $entry_fg_color;
     border: none;
     border-radius: 0;
-    padding: 2px 8px;
+    padding: 2px 7px;
     min-height: 18px;
     caret-color: currentColor;
     box-shadow: inset 0 1px rgba(0,0,0,0.36),
@@ -190,7 +190,7 @@ textview {
 }
 
 entry.search {
-    border-radius: 50px;
+    border-radius: 12px;
 }
 
 entry.flat,
