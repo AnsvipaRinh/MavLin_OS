@@ -29,6 +29,7 @@ def test_finder_native_mavericks_shell_contract():
 def test_finder_file_action_contract():
     source = Path(__file__).parents[1] / "bin" / "mv-finder-columns"
     text = source.read_text(encoding="utf-8")
+    assert 'listbox.select_row(row)' in text
     assert '"Move to Trash"' in text
     assert '"Get Info"' in text
     assert '"Rename"' in text
