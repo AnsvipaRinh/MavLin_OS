@@ -335,6 +335,12 @@ def test_portable(m):
         ok("gi present: factories callable")
 
 
+    path = os.path.join(BIN, "mv-stickies")
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("stickies: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("stickies: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
 def main():
     m = load_app()
     test_pure(m)
