@@ -15,7 +15,25 @@ def test_finder_native_mavericks_shell_contract():
         "on_up",
         "mavericks-finder-sidebar",
         "mavericks-finder-column",
+        "on_column_button_press",
+        "_popup_context_menu",
+        "_rename",
+        "_move_to_trash",
+        "_get_info",
     ):
         assert token in text
     assert 'hb.set_subtitle("Finder")' in text
     assert 'hb.set_subtitle("Column View")' not in text
+
+    
+def test_finder_file_action_contract():
+    source = Path(__file__).parents[1] / "bin" / "mv-finder-columns"
+    text = source.read_text(encoding="utf-8")
+    assert '"Move to Trash"' in text
+    assert '"Get Info"' in text
+    assert '"Rename"' in text
+    assert '"Open With…"' in text
+    assert 'Gio.File.new_for_path(path).trash(None)' in text
+    assert 'key == "F2"' in text
+    assert '"Delete", "KP_Delete"' in text
+    assert 'ctrl and key in ("i", "I")' in text
