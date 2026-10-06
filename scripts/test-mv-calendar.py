@@ -76,7 +76,17 @@ def load_app():
     return mod
 
 
+def _native_chrome_contract():
+    bin_name = "mv-calendar"
+    path = os.path.join(BIN, bin_name)
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("calendar: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("calendar: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
+
 def main():
+    _native_chrome_contract()
     mv = load_app()
     check("module imports headless", True)
 
