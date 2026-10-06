@@ -41,6 +41,12 @@ except ImportError:
     sys.exit(2)
 
 
+try:
+    from mv_dialogs import alert
+except ImportError:
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mv_dialogs import alert
+
 # --- Apple modifier glyphs (mavericks look, not the Linux names) -----------
 APPLE_GLYPHS = {"Primary": "⌃", "Alt": "⌥", "Shift": "⇧", "Super": "⌘"}
 APPLE_KEY_NAMES = {
@@ -281,13 +287,10 @@ def build_class():
             self.open_recorder(row)
 
         def info(self, title, text):
-            dialog = Gtk.MessageDialog(
-                transient_for=self, modal=True,
-                message_type=Gtk.MessageType.INFO,
-                buttons=Gtk.ButtonsType.OK, text=title)
-            dialog.format_secondary_text(text)
-            dialog.run()
-            dialog.destroy()
+            alert(
+                self, title, secondary=text,
+                msg_type=Gtk.MessageType.INFO,
+                buttons=[("OK", Gtk.ResponseType.OK)])
 
         def open_recorder(self, row):
             dialog = Gtk.Dialog(title="Keyboard Shortcuts", transient_for=self)
@@ -392,15 +395,16 @@ def build_class():
             self.refresh(self.stack.get_visible_child_name())
 
         def on_reset_all(self, _button):
-            dialog = Gtk.MessageDialog(
-                transient_for=self, modal=True,
-                message_type=Gtk.MessageType.QUESTION,
-                buttons=Gtk.ButtonsType.OK_CANCEL,
-                text="Restore all keyboard shortcuts to factory defaults?")
-            if dialog.run() != Gtk.ResponseType.OK:
-                dialog.destroy()
+            response = alert(
+                self,
+                "Restore all keyboard shortcuts to factory defaults?",
+                msg_type=Gtk.MessageType.QUESTION,
+                buttons=[("Cancel", Gtk.ResponseType.CANCEL),
+                         ("Restore", Gtk.ResponseType.OK)],
+                default=Gtk.ResponseType.CANCEL,
+                destructive=True)
+            if response != Gtk.ResponseType.OK:
                 return
-            dialog.destroy()
             self.overrides = core.clear_override_all()
             self.rows = build_rows(self.skills, self.overrides)
             self.refresh(self.stack.get_visible_child_name())
