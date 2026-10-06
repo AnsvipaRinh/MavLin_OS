@@ -164,7 +164,8 @@ def main():
           str(displays))
     check("native pane registry: Displays is declared",
           "displays" in m.NATIVE_PANES)
-    network = [r for r in m.PAGES if r[0] == "Network"][0]\n    sound = [r for r in m.PAGES if r[0] == "Sound"][0]
+    network = [r for r in m.PAGES if r[0] == "Network"][0]
+    sound = [r for r in m.PAGES if r[0] == "Sound"][0]
     check("route: Sound uses native pane",
           sound[2] is None and sound[3] == "sound", str(sound))
     check("native pane registry: Sound is declared",
