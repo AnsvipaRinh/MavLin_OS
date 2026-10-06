@@ -1,0 +1,46 @@
+   "rebindable": bool(rebindable and not protected),
+    }
+
+
+# ---------------------------------------------------------------------------
+# The registry.  Keep in sync with config/xfce4-keyboard-shortcuts.xml —
+# `mv-hotkeys verify --xml <path>` fails the build if they drift.
+# ---------------------------------------------------------------------------
+ACTIONS = [
+    # --- Core Mavericks surfaces -------------------------------------------
+    A("spotlight", "Spotlight Search", ["Super"], "space",
+      "/usr/bin/mv-spotlight-gui",
+      "core", skill="spotlight"),
+    A("launchpad", "Launchpad", ["Super"], "l",
+      "/usr/bin/mv-launchpad-gui",
+      "core", skill="launchpad"),
+    A("launchpad-edit", "Launchpad Edit Mode", ["Super", "Shift"], "l",
+      "/usr/bin/mv-launchpad-edit", "core", skill="launchpad"),
+    A("mission-control", "Mission Control", ["Super"], "Tab",
+      "mv-mission-control --native", "core", skill="mission-control"),
+    A("mission-control-gui", "Mission Control (Window Overview)", ["Super"], "F3",
+      "mv-mc-gui", "core", skill="mission-control"),
+    A("quicklook", "Quick Look (Finder Selection)", ["Super", "Shift"], "space",
+      "mv-quicklook-thunar", "core", skill="quick-look"),
+    A("screenshot-full", "Screenshot: Full Screen", ["Super", "Shift"], "3",
+      "mv-shot -m", "core", skill="screenshot"),
+    A("screenshot-area", "Screenshot: Selection", ["Super", "Shift"], "4",
+      "mv-shot -i -c", "core", skill="screenshot"),
+    A("screenshot-interactive", "Screenshot: Interactive Tools", ["Super", "Shift"], "5",
+      "mv-shot -i", "core", skill="screenshot"),
+
+    # --- Finder ------------------------------------------------------------
+    A("finder", "Finder", ["Super"], "e", "mv-finder-columns",
+      "finder", skill="finder"),
+    A("finder-columns", "Finder (Browse as Columns)", ["Super", "Shift"], "f",
+      "mv-finder-columns", "finder", skill="finder"),
+    A("new-folder-desktop", "New Folder on Desktop", ["Primary", "Alt"], "n",
+      "mv-newfolder $HOME/Desktop", "finder", skill="finder"),
+    A("new-folder-home", "New Folder in Home Folder", ["Super", "Shift"], "n",
+      "mv-newfolder $HOME", "finder", skill="finder"),
+    A("rename", "Rename", ["Super", "Shift"], "r", "mv-rename",
+      "finder", skill="finder"),
+    A("get-info", "Get Info", ["Super"], "i", "mv-getinfo $HOME",
+      "finder", skill="finder"),
+    A("open-with", "Open With", ["Super"], "o", "mv-openwith $HOME",
+      "finder", skill="fi
