@@ -71,7 +71,7 @@ PAGES = [
     ("Keyboard Shortcuts", "preferences-desktop-keyboard", ["mv-hotkeys-gui"], None),
     ("Mouse", "input-mouse", ["xfce4-mouse-settings"], None),
     ("Trackpad", "preferences-desktop-mouse", ["xfce4-mouse-settings"], "trackpad"),
-    ("Sound", "preferences-desktop-sound", ["pavucontrol"], None),
+    ("Sound", "preferences-desktop-sound", None, "sound"),
     ("Network", "computer", None, "network"),
     ("Bluetooth", "audio-x-generic", ["blueman-manager"], None),
     ("Sharing", "emblem-shared", None, "sharing"),
@@ -84,7 +84,7 @@ PAGES = [
 # Native pane keys that must have a builder (_pane_<key>) in the GUI class.
 NATIVE_PANES = (
     "general", "desktop_saver", "dock", "mission_control", "language",
-    "datetime", "security", "energy", "trackpad", "network", "sharing", "users",
+    "datetime", "security", "energy", "trackpad", "network", "sound", "sharing", "users",
     "unavailable",
 )
 
@@ -761,6 +761,111 @@ def build_settings_class():
                 self._spawn_row(lb, "Mouse settings",
                                 ["xfce4-mouse-settings"])
             return sw
+
+        def _pane_sound(self, _row=None):
+            sw, lb = pane_shell()
+
+            def pactl(*args):
+                try:
+                    result = subprocess.run(
+                        ["pactl", *args], capture_output=True,
+                        text=True, timeout=3)
+                    return result.stdout.strip()
+                except Exception:
+                    return ""
+
+            volume = 50
+            raw_volume = pactl("get-sink-volume", "@DEFAULT_SINK@")
+            match = re.search(r"(\\d+)%", raw_volume)
+            if match:
+                volume = max(0, min(150, int(match.group(1))))
+
+            scale = Gtk.Scale.new_with_range(
+                Gtk.Orientation.HORIZONTAL, 0, 150, 1)
+            scale.set_value(volume)
+            scale.set_digits(0)
+            scale.set_size_request(220, -1)
+            scale.connect(
+                "value-changed",
+                lambda widget: self._pactl_set_volume(
+                    int(widget.get_value())))
+            lb.add(label_row(
+                "Output volume", scale,
+                "PulseAudio/PipeWire compatibility layer (pactl)."))
+
+            mute_raw = pactl("get-sink-mute", "@DEFAULT_SINK@")
+            mute = Gtk.Switch(active="yes" in mute_raw.lower())
+            mute.connect(
+                "notify::active",
+                lambda widget, _param: self._pactl_set_mute(
+                    widget.get_active()))
+            lb.add(label_row("Mute", mute))
+
+            sinks = []
+            raw_sinks = pactl(
+                "-f", "index,name,description", "list", "sinks")
+            current = pactl("get-default-sink")
+            for line in raw_sinks.splitlines():
+                parts = line.split("\t", 2)
+                if len(parts) != 3:
+                    continue
+                index, name, description = parts
+                name = name.strip()
+                description = description.strip() or name
+                if name:
+                    sinks.append((name, description))
+
+            if sinks:
+                combo = Gtk.ComboBoxText()
+                for name, description in sinks:
+                    combo.append(name, description)
+                if current in {name for name, _description in sinks}:
+                    combo.set_active_id(current)
+                combo.connect(
+                    "changed",
+                    lambda widget: (
+                        self._pactl_set_default(widget.get_active_id())
+                        if widget.get_active_id() else None))
+                lb.add(label_row(
+                    "Output device", combo,
+                    "Select the default audio output for new streams."))
+            else:
+                lb.add(label_row(
+                    "Output device", value_label("unavailable"),
+                    "No PulseAudio/PipeWire sinks were reported."))
+
+            advanced = Gtk.Button(label="Advanced Sound Settings…")
+            advanced.connect(
+                "clicked", lambda _b: self.launch(["pavucontrol"]))
+            lb.add(label_row(
+                "Sound configuration", advanced,
+                "Open the full mixer for applications, ports and profiles."))
+            return sw
+
+        def _pactl_set_volume(self, value):
+            try:
+                subprocess.Popen(
+                    ["pactl", "set-sink-volume", "@DEFAULT_SINK@", "%d%%" % value],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as e:
+                self._show_error("Sound", str(e))
+
+        def _pactl_set_mute(self, enabled):
+            try:
+                subprocess.Popen(
+                    ["pactl", "set-sink-mute", "@DEFAULT_SINK@",
+                     "yes" if enabled else "no"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as e:
+                self._show_error("Sound", str(e))
+
+        def _pactl_set_default(self, name):
+            try:
+                subprocess.Popen(
+                    ["pactl", "set-default-sink", name],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as e:
+                self._show_error("Sound", str(e))
 
         def _pane_network(self, _row=None):
             sw, lb = pane_shell()
