@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Spotlight
+Comment=Mavericks-style search
+Exec=/usr/bin/mv-spotlight-gui
+Icon=system-search
+Terminal=false
+Type=Application
+Categories=Utility;
