@@ -959,3 +959,14 @@ application, menu behavior, and icon grid fidelity on 2304×1440. See
 - Real Apple S3X NVMe search latency
 
 **Status:** **IMPLEMENTED — HARDWARE VALIDATION REQUIRED** (pre-hardware complete).
+
+
+---
+
+## Session 2026-10-06 — Mission Control P0 status audit
+
+**Objective:** re-audit canonical P0 Mission Control against the §13.6 DoD rather than treating the old rofi/skippy architecture as the implementation.
+
+**Finding:** the current native mv-mc-overview already provides the actual overview surface required by the roadmap: X11 window enumeration, per-window XComposite thumbnails, XDamage-driven live updates while open, Spaces strip with previews, grouped windows, keyboard selection/activation, workspace switching/add/remove, drag-to-Space, and entrance/exit choreography. rofi is only a deterministic fallback when the native surface cannot start; it is not the primary implementation.
+
+**Classification change:** Mission Control is now **IMPLEMENTED — HARDWARE VALIDATION REQUIRED**. No new runtime dependency or daemon was introduced. Remaining validation is genuinely hardware/compositor dependent: thumbnail fidelity, workspace animation, Super+Tab keyboard synthesis and 2304×1440 rendering.
