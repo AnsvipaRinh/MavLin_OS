@@ -32,11 +32,13 @@ GEOMETRY="${MV_DEMO_GEOMETRY:-1680x1050x24}"
 OUT_DIR="$REPO/artifacts/demo"
 SHOT_DIR="$DEMO_ROOT/shots"
 LOGS="$DEMO_ROOT/logs"
-BIN="$REPO/packages/mavericks-apps/src/mavericks-apps/bin"
-THEME_SRC="$REPO/packages/mavericks-theme/src/mavericks-theme"
+BIN="$DEMO_ROOT/src/packages/mavericks-apps/src/mavericks-apps/bin"
 PREFIX="$DEMO_ROOT/prefix"
 HOME_DIR="$DEMO_ROOT/home"
 mkdir -p "$DEMO_ROOT" "$SHOT_DIR" "$LOGS" "$OUT_DIR"
+
+# some child helpers (mv-mc-thumbnail -> scrot) exec bare names; pin PATH
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 log() { echo "[demo] $*"; }
 die() { echo "[demo] FATAL: $*" >&2; exit 1; }
@@ -51,15 +53,23 @@ fi
 
 # ------------------------------------------------------------ stage prefix
 stage_prefix() {
-    log "staging demo prefix (mavericks-apps + mavericks-theme from this checkout)"
-    make -C "$REPO/packages/mavericks-apps/src/mavericks-apps" clean >/dev/null 2>&1
-    make -C "$REPO/packages/mavericks-apps/src/mavericks-apps" -j4 >/dev/null 2>&1 \
+    command -v scrot >/dev/null || die "scrot is required for Mission Control thumbnails"
+    # Snapshot the last COMMITTED state: a concurrent dirty working tree
+    # (in-progress merges, conflict markers) must never break a demo run.
+    local SRC="$DEMO_ROOT/src"
+    log "staging demo prefix from git archive HEAD"
+    rm -rf "$SRC"
+    mkdir -p "$SRC"
+    git -C "$REPO" archive HEAD | tar -x -C "$SRC"
+
+    make -C "$SRC/packages/mavericks-apps/src/mavericks-apps" clean >/dev/null 2>&1
+    make -C "$SRC/packages/mavericks-apps/src/mavericks-apps" -j4 >/dev/null 2>&1 \
         || die "mavericks-apps build failed"
-    make -C "$REPO/packages/mavericks-apps/src/mavericks-apps" \
+    make -C "$SRC/packages/mavericks-apps/src/mavericks-apps" \
         DESTDIR="$PREFIX" PREFIX=/usr install >/dev/null 2>&1 \
         || die "mavericks-apps staging failed"
 
-    local P="$PREFIX/usr/share" T="$THEME_SRC"
+    local P="$PREFIX/usr/share" T="$SRC/packages/mavericks-theme/src/mavericks-theme"
     rm -rf "$P/themes/Mavericks" "$P/icons/Mavericks" \
            "$P/icons/Mavericks-Cursors" "$P/plank/themes/Mavericks"
     mkdir -p "$P/themes/Mavericks/gtk-3.0" "$P/themes/Mavericks/gtk-3.20" \
@@ -81,11 +91,11 @@ stage_prefix
 # (X-XFCE-Module lookup is not XDG_DATA_DIRS-relative in xfce4-panel 4.20).
 # This dev container already carries the project's installed mv-* bits
 # (docs/ENVIRONMENT.md); install the freshly built plugin there, idempotently.
-if ! cmp -s packages/mavericks-apps/src/mavericks-apps/libmv-apple.so \
+if ! cmp -s "$DEMO_ROOT/src/packages/mavericks-apps/src/mavericks-apps/libmv-apple.so" \
             /usr/lib/xfce4/panel/plugins/libmv-apple.so 2>/dev/null; then
-    sudo -n install -Dm755 packages/mavericks-apps/src/mavericks-apps/libmv-apple.so \
+    sudo -n install -Dm755 "$DEMO_ROOT/src/packages/mavericks-apps/src/mavericks-apps/libmv-apple.so" \
         /usr/lib/xfce4/panel/plugins/libmv-apple.so \
-        && sudo -n install -Dm644 packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop \
+        && sudo -n install -Dm644 "$DEMO_ROOT/src/packages/mavericks-apps/src/mavericks-apps/panel/mv-apple.desktop" \
         /usr/share/xfce4/panel/plugins/mv-apple.desktop \
         || die "cannot install mv-apple panel plugin (sudo required)"
     log "mv-apple panel plugin installed to /usr"
@@ -93,14 +103,14 @@ fi
 # mv-* app __main__ blocks import the shared runner from the hardcoded path
 # /usr/share/mavericks-apps — keep it current with this checkout (dev host
 # already carries the installed package per docs/ENVIRONMENT.md).
-sudo -n cp packages/mavericks-apps/src/mavericks-apps/lib/mavericks_appmenu.py \
-           packages/mavericks-apps/src/mavericks-apps/lib/mission_control_thumbnail.py \
+sudo -n cp "$DEMO_ROOT/src/packages/mavericks-apps/src/mavericks-apps/lib/mavericks_appmenu.py" \
+           "$DEMO_ROOT/src/packages/mavericks-apps/src/mavericks-apps/lib/mission_control_thumbnail.py" \
            /usr/share/mavericks-apps/ 2>/dev/null || true
-sudo -n cp packages/mavericks-apps/src/mavericks-apps/config/rofi-mavericks.rasi \
-           packages/mavericks-apps/src/mavericks-apps/config/rofi-launchpad.rasi \
-           packages/mavericks-apps/src/mavericks-apps/config/rofi-mission-control.rasi \
-           packages/mavericks-apps/src/mavericks-apps/config/thunar-uca.xml \
-           packages/mavericks-apps/src/mavericks-apps/config/xfce4-keyboard-shortcuts.xml \
+sudo -n cp "$DEMO_ROOT"/src/packages/mavericks-apps/src/mavericks-apps/config/rofi-mavericks.rasi \
+           "$DEMO_ROOT"/src/packages/mavericks-apps/src/mavericks-apps/config/rofi-launchpad.rasi \
+           "$DEMO_ROOT"/src/packages/mavericks-apps/src/mavericks-apps/config/rofi-mission-control.rasi \
+           "$DEMO_ROOT"/src/packages/mavericks-apps/src/mavericks-apps/config/thunar-uca.xml \
+           "$DEMO_ROOT"/src/packages/mavericks-apps/src/mavericks-apps/config/xfce4-keyboard-shortcuts.xml \
            /usr/share/mavericks-apps/ 2>/dev/null || true
 
 # --------------------------------------------------------------- demo HOME
@@ -167,6 +177,7 @@ fi
 export DISPLAY="$DEMO_DISPLAY"
 
 PIDS=()
+RUN_TAG="$(date +%H%M%S)"
 start() { # start <name> <logfile> <cmd...>
     local name="$1" lf="$2"; shift 2
     "$@" >>"$LOGS/$lf" 2>&1 &
@@ -247,83 +258,128 @@ shot 00-session-test
 log "test capture done: $SHOT_DIR/00-session-test.png"
 
 # --------------------------------------------- app launch + shot sequence
-MVBIN="$REPO/packages/mavericks-apps/src/mavericks-apps/bin"
-MVLIB="$REPO/packages/mavericks-apps/src/mavericks-apps/lib"
+MVBIN="$DEMO_ROOT/src/packages/mavericks-apps/src/mavericks-apps/bin"
+MVLIB="$DEMO_ROOT/src/packages/mavericks-apps/src/mavericks-apps/lib"
 ROFI_THEME_DIR="$PREFIX/usr/share/mavericks-apps"
 
-runapp() { # runapp <binary-name> [args...]
-    PYTHONPATH="$MVLIB" setsid "$MVBIN/$1" "${@:2}" >>"$LOGS/app-$1.log" 2>&1 &
-}
-wait_win() { # wait_win <title-substring> <timeout-sec>
-    for _ in $(seq 1 $(("$2" * 4))); do
-        wmctrl -l 2>/dev/null | grep -F "$1" >/dev/null 2>&1 && return 0
+runapp() { # runapp <binary-name> [args...] — sets APP_PID to the real process pid
+    PYTHONPATH="$MVLIB" setsid "$MVBIN/$1" "${@:2}" >>"$LOGS/app-$1-$RUN_TAG.log" 2>&1 &
+    APP_PID=$!
+    # setsid may fork (pid changes) — resolve the actual app process
+    for _ in 1 2 3 4 5 6 7 8; do
+        local p; p="$(pgrep -n -f "$MVBIN/$1( |$)" 2>/dev/null)"
+        [ -n "$p" ] && { APP_PID=$p; return 0; }
+        kill -0 "$APP_PID" 2>/dev/null || return 0
         sleep 0.25
     done
-    log "WARN: window '$1' not seen in ${2}s"
+}
+win_of_pid() { # win_of_pid <pid> — first mapped window id of the process
+    wmctrl -lp 2>/dev/null | awk -v p="$1" '$3 == p {print $1; exit}'
+}
+wait_win() { # wait_win <pid> <timeout-sec>
+    for _ in $(seq 1 $(("$2" * 4))); do
+        [ -n "$(win_of_pid "$1")" ] && return 0
+        sleep 0.25
+    done
+    log "WARN: no window for pid $1 in ${2}s"
     return 1
 }
-place() { # place <title-substring> <x> <y> <w> <h>
+place_pid() { # place_pid <pid> <x> <y> <w> <h>
+    local w; w="$(win_of_pid "$1")"
+    [ -z "$w" ] && return 0
+    wmctrl -i -r "$w" -b remove,maximized_vert,maximized_horz 2>/dev/null
+    wmctrl -i -r "$w" -e "0,$2,$3,$4,$5" 2>/dev/null
+}
+place_thunar() { # place_thunar <folder-title> <x> <y> <w> <h> — Thunar is a foreign binary
     wmctrl -r "$1" -b remove,maximized_vert,maximized_horz 2>/dev/null
     wmctrl -r "$1" -e "0,$2,$3,$4,$5" 2>/dev/null
 }
 close_all_apps() {
-    wmctrl -l 2>/dev/null | awk '{$1=$2=$3=""; sub(/^ +/,""); print}' \
-        | grep -vE '^$|MavLinOS Demo' >/dev/null 2>&1 || true
-    for t in $(wmctrl -l 2>/dev/null | awk '{$1=$2=$3=""; sub(/^ +/,""); print}'); do
-        wmctrl -c "$t" 2>/dev/null
+    # close every managed window (mv-* apps exit when their window dies)
+    wmctrl -l 2>/dev/null | awk '{print $1}' | while read -r w; do
+        wmctrl -i -c "$w" 2>/dev/null
     done
-    sleep 1
+    sleep 1.5
 }
 
+# parallel agent sessions on this host occasionally sweep session daemons;
+# make every shot phase self-healing instead of trusting the WM to persist
+ensure_wm() {
+    if ! wmctrl -m >/dev/null 2>&1; then
+        log "window manager gone — restarting xfwm4"
+        ( setsid xfwm4 --replace >>"$LOGS/xfwm4.log" 2>&1 & )
+        for _ in $(seq 1 20); do
+            wmctrl -m >/dev/null 2>&1 && return 0
+            sleep 0.5
+        done
+        log "WARN: window manager still absent"
+    fi
+}
 log "opening apps for screenshots"
 # --- Shot A: desktop with real apps -----------------------------------
-thunar "$HOME_DIR/Documents" >>"$LOGS/app-finder.log" 2>&1 &
-wait_win "Documents" 10 && place "Documents" 70 110 780 540
+setsid thunar "$HOME_DIR/Documents" >>"$LOGS/app-finder-$RUN_TAG.log" 2>&1 &
+THUNAR_PID=$!
+wait_win "$THUNAR_PID" 10 && place_pid "$THUNAR_PID" 70 110 780 540
 runapp mv-textedit "$HOME_DIR/Documents/Q4 Roadmap.txt"
-wait_win "Q4 Roadmap" 10 && place "Q4 Roadmap" 900 150 600 460
+TE_PID=$APP_PID
+wait_win "$APP_PID" 10 && place_pid "$APP_PID" 900 150 600 460
 runapp mv-calculator
-wait_win "Calculator" 10 && place "Calculator" 1210 620 280 400
+wait_win "$APP_PID" 10 && place_pid "$APP_PID" 1210 620 280 400
 sleep 2
 shot 01-desktop
 log "shot A done"
 
-# --- Shot B: Finder solo ----------------------------------------------
-wmctrl -c "Q4 Roadmap" 2>/dev/null; wmctrl -c "Calculator" 2>/dev/null
+# --- Shot B: Finder solo ---
+ensure_wm-------------------------------------------
+kill "$TE_PID" "$APP_PID" 2>/dev/null
+sleep 2
 sleep 1.5
-place "Documents" 190 120 1300 810
-sleep 1.5
+place_thunar "Documents" 190 120 1300 810
+sleep 1
+xdotool mousemove 840 700 click 1 >/dev/null 2>&1 || true
+sleep 0.3
+# "as List" (product Finder view switch): the icon-view relayout after the
+# resize renders stale label boxes under this GTK/theme combination, while
+# the detailed list renders correctly and is a first-class Finder view.
+wmctrl -a "Documents" >/dev/null 2>&1
+sleep 0.3
+xdotool key ctrl+2 >/dev/null 2>&1 || true
+sleep 1
 shot 02-finder
 log "shot B done"
-wmctrl -c "Documents" 2>/dev/null
+kill "$THUNAR_PID" 2>/dev/null
 sleep 1
 
-# --- Shot C: System Settings (+ About This Mac alternative) -----------
+# --- Shot C: System Settings (+ About This Mac alternative) ---
+ensure_wm--------
 runapp mv-settings
-wait_win "System Settings" 10 && place "System Settings" 460 210 760 520
+wait_win "$APP_PID" 10 && place_pid "$APP_PID" 460 210 760 520
 sleep 1.5
 shot 03-system-settings
 log "shot C done"
-wmctrl -c "System Settings" 2>/dev/null
+kill "$APP_PID" "$TE_PID" 2>/dev/null
 sleep 1
 
 runapp mv-about
-wait_win "About This Mac" 10 && place "About This Mac" 490 220 700 500
+wait_win "$APP_PID" 10 && place_pid "$APP_PID" 490 220 700 500
 sleep 1.5
 shot 03b-about-this-mac
-wmctrl -c "About This Mac" 2>/dev/null
+kill "$APP_PID" 2>/dev/null
 sleep 1
 
-# --- Shot D: Mission Control over real windows ------------------------
-thunar "$HOME_DIR/Projects" >>"$LOGS/app-finder2.log" 2>&1 &
-wait_win "Projects" 10 && place "Projects" 60 110 700 480
+# --- Shot D: Mission Control over real windows ---
+ensure_wm---------------------
+setsid thunar "$HOME_DIR/Projects" >>"$LOGS/app-finder2-$RUN_TAG.log" 2>&1 &
+THUNAR_PID=$!
+wait_win "$THUNAR_PID" 10 && place_pid "$THUNAR_PID" 60 110 700 480
 runapp mv-textedit "$HOME_DIR/Documents/MavLinOS Project Brief.md"
-wait_win "MavLinOS Project Brief" 10 && place "MavLinOS Project Brief" 830 130 620 470
+wait_win "$APP_PID" 10 && place_pid "$APP_PID" 830 130 620 470
 runapp mv-notes
-wait_win "Notes" 10 && place "Notes" 180 620 420 330
+wait_win "$APP_PID" 10 && place_pid "$APP_PID" 180 620 420 330
 runapp mv-calculator
-wait_win "Calculator" 10 && place "Calculator" 1090 600 300 400
-runapp mv-about
-wait_win "About This Mac" 10 && place "About This Mac" 520 240 640 460
+wait_win "$APP_PID" 10 && place_pid "$APP_PID" 1120 610 300 400
+runapp mv-textedit "$HOME_DIR/Documents/Q4 Roadmap.txt"
+wait_win "$APP_PID" 10 && place_pid "$APP_PID" 860 150 560 420
 sleep 2
 runapp mv-mc-gui
 sleep 5
@@ -334,7 +390,8 @@ sleep 1
 close_all_apps
 
 # --- Shot E: Launchpad (rofi, product command) ------------------------
-DISPLAY="$DEMO_DISPLAY" setsid rofi -show -modi "launchpad:$MVBIN/mv-launchpad" \
+DISPLAY="$DEMO_DISPLAY" XDG_DATA_DIRS="$PREFIX/usr/share" \
+    setsid rofi -modes "launchpad:$MVBIN/mv-launchpad" -show launchpad -show-icons \
     -theme "$ROFI_THEME_DIR/rofi-launchpad.rasi" >>"$LOGS/rofi-launchpad.log" 2>&1 &
 sleep 4
 shot 05-launchpad
@@ -342,9 +399,12 @@ pkill -x rofi 2>/dev/null
 log "shot E done"
 
 # --- Shot F candidate: Spotlight (rofi, product command) --------------
-DISPLAY="$DEMO_DISPLAY" setsid rofi -show -modi "spotlight:$MVBIN/mv-spotlight" \
+DISPLAY="$DEMO_DISPLAY" XDG_DATA_DIRS="$PREFIX/usr/share:/usr/share" \
+    setsid rofi -modes "spotlight:$MVBIN/mv-spotlight" -show spotlight -show-icons \
     -theme "$ROFI_THEME_DIR/rofi-mavericks.rasi" >>"$LOGS/rofi-spotlight.log" 2>&1 &
-sleep 4
+sleep 2.5
+DISPLAY="$DEMO_DISPLAY" xdotool type --delay 60 "note" >/dev/null 2>&1 || true
+sleep 2.5
 shot 05b-spotlight
 pkill -x rofi 2>/dev/null
 log "shot F candidate done"

@@ -89,6 +89,36 @@ sed -i 's|<property name="DPI" type="int" value="192"/>|<property name="DPI" typ
 sed -i 's|<property name="position" type="string" value="p=8;x=0;y=0"/>|<property name="position" type="string" value="p=1;x=0;y=0"/>|' \
     "$XFCONF/xfce4-panel.xml"
 
+# 3c. headerbar windows: traffic lights on the LEFT (Mavericks placement).
+#     The skel xsettings channel carries no Gtk DecorationLayout, so
+#     headerbar apps (TextEdit, Notes, …) fall back to GTK's default
+#     right-side layout while xfwm4 windows correctly use CHM| — visibly
+#     inconsistent. Demo override; recommended product follow-up.
+sed -i 's|<property name="ShellShowsMenubar" type="bool" value="true"/>|<property name="ShellShowsMenubar" type="bool" value="true"/>\n    <property name="DecorationLayout" type="string" value="close,minimize,maximize:"/>|' \
+    "$XFCONF/xsettings.xml"
+
+# 3d. demo Notes content (mv-notes reads ~/.local/share/mv-notes/notes.json)
+mkdir -p "$HOME_DIR/.local/share/mv-notes"
+python3 - "$HOME_DIR/.local/share/mv-notes/notes.json" <<'EOF'
+import json, sys, time
+now = int(time.time())  # mv-notes stores int epoch mtimes
+notes = {
+    "folders": {
+        "Notes": [
+            {"id": "demo0001", "pinned": True, "mtime": now,
+             "text": "Demo day checklist\n\n[x] Boot the MavLinOS ISO in QEMU\n[x] Finder with Mavericks theme\n[x] Mission Control overview\n[ ] Ship the ISO to the MacBook\n[ ] Power measurements on battery"},
+            {"id": "demo0002", "pinned": False, "mtime": now,
+             "text": "Why MavLinOS targets 10.9\n\nMavericks is the last skeuomorphic release: linen menu bar,\npolished windows, real metaphors. Modern macOS flattened all of\nthat away — we rebuild the era on top of a mature Linux stack."},
+            {"id": "demo0003", "pinned": False, "mtime": now,
+             "text": "Hardware notes (MacBook10,1)\n\n- applespi keyboard/trackpad: 3 strategies, external USB-C first\n- BCM43602 Wi-Fi: broadcom-wl-dkms + brcmfmac fallback\n- Cirrus CS42L83 audio: DKMS patch prepared\n- Apple S3X NVMe: pcie_port_pm=off provisional resume fix"},
+        ]
+    },
+    "trash": [],
+    "geometry": {}
+}
+json.dump(notes, open(sys.argv[1], "w"), indent=1)
+EOF
+
 # 4. plank: always visible for deterministic screenshots (product skel uses
 #    intellihide HideMode=1, which cannot be forced open by remote control)
 sed -i 's/^HideMode=1$/HideMode=0/' "$HOME_DIR/.config/plank/dock1/settings"
