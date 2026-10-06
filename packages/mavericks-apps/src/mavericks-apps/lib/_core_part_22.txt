@@ -1,0 +1,48 @@
+fUnavailable(proc.stderr.strip() or "xfconf-query failed")
+    return proc.stdout
+
+
+def live_available():
+    try:
+        _run(["-l"], timeout=5)
+    except XfconfUnavailable:
+        return False
+    return True
+
+
+def live_raw():
+    """Live properties keyed by their RAW X property path.
+
+    Writes must use these exact strings; X treats the property name as an
+    opaque string, so the order-insensitive canonical form is only for
+    comparisons.
+    """
+    text = _run(["-l", "-v"])  # -v: without it xfconf-query prints names only
+    out = {}
+    for line in text.splitlines():
+        # `-v` output is column-padded, not "key = value": split on the first
+        # run of whitespace.  Values may themselves contain spaces.
+        parts = line.strip().split(None, 1)
+        if len(parts) != 2:
+            continue
+        path, value = parts
+        if "/default/" in path:
+            out[path.strip()] = value.strip()
+    return out
+
+
+def live_list():
+    """Live properties keyed by canonical (order-insensitive) path."""
+    return {canonical_property(p): v for p, v in live_raw().items()}
+
+
+def live_get(path):
+    try:
+        return _run(["-p", path, "-g"]).strip()
+    except XfconfUnavailable:
+        return None
+
+
+def live_set(path, value):
+    # -n creates the property when the accelerator is brand new and -t pins
+    # the type; without both, xfconf-query refuses to add 
