@@ -90,6 +90,10 @@ class MissionControlOverlay(Gtk.Window):
         self.grid.set_column_spacing(20)
         self.grid.set_row_spacing(20)
         self.grid.set_homogeneous(True)
+        # Without a max the FlowBox defaults to ONE child per row and every
+        # thumbnail takes a full-width row of the overlay.
+        self.grid.set_min_children_per_line(3)
+        self.grid.set_max_children_per_line(6)
         self.grid.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.grid.connect("child-activated", self.on_thumbnail_activated)
         self.scroll.add(self.grid)
