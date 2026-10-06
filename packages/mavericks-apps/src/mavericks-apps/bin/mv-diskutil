@@ -1570,14 +1570,7 @@ def build_diskutil_class():
                                     msg_type=MT.get(level, _Gtk.MessageType.INFO),
                                     buttons=buttons, default=default,
                                     destructive=destructive)
-            dialog = Gtk.MessageDialog(transient_for=self, modal=True,
-                                       message_type=MT.get(level, Gtk.MessageType.INFO),
-                                       buttons=Gtk.ButtonsType.OK, text=message)
-            if secondary:
-                dialog.format_secondary_text(secondary)
-            dialog.run()
-            dialog.destroy()
-            return Gtk.ResponseType.OK
+            raise RuntimeError("mv_dialogs shared helper is unavailable")
 
         def confirm(self, message, secondary, ok_label, destructive=False):
             import gi
@@ -1591,15 +1584,7 @@ def build_diskutil_class():
                     buttons=[("Cancel", _Gtk.ResponseType.CANCEL),
                              (ok_label, _Gtk.ResponseType.OK)],
                     default=_Gtk.ResponseType.CANCEL, destructive=destructive)
-            dialog = Gtk.MessageDialog(
-                transient_for=self, modal=True,
-                message_type=Gtk.MessageType.WARNING,
-                buttons=Gtk.ButtonsType.OK_CANCEL, text=message)
-            dialog.format_secondary_text(secondary)
-            response = dialog.run()
-            dialog.destroy()
-            return (Gtk.ResponseType.OK if response == Gtk.ResponseType.OK
-                    else Gtk.ResponseType.CANCEL)
+            raise RuntimeError("mv_dialogs shared helper is unavailable")
 
         # -- actions --------------------------------------------------------
         def show_in_finder(self, block):
