@@ -1,40 +1,66 @@
- k for k in NAMED_KEYS}
-        if raw_key.lower() in lowered:
-            key = lowered[raw_key.lower()]
-        else:
-            raise ValueError("unrecognised key: %r" % raw_key)
-    if not canonical and key not in MEDIA_KEYS:
-        raise ValueError(
-            "a bare key (%s) would swallow ordinary typing; add a modifier"
-            % key)
-    return {"modifiers": canonical, "key": key}
+def live_set(path, value):
+    # -n creates the property when the accelerator is brand new and -t pins
+    # the type; without both, xfconf-query refuses to add a key that does not
+    # exist yet.
+    _run(["-p", path, "-s", value, "-n", "-t", "string"])
 
 
-def modifier_identity(modifiers):
-    """Order-independent identity of a modifier set (conflict detection)."""
-    return tuple(sorted(set(str(m) for m in modifiers)))
+def live_remove(path):
+    _run(["-p", path, "-r"])
 
 
-def property_accelerator(accel):
-    """Accelerator as an Xfce property suffix ('<Super>space')."""
-    accel = normalize_accelerator(accel)
-    return "".join("<%s>" % m for m in accel["modifiers"]) + accel["key"]
+def _stale_paths(row, overrides, live):
+    """Candidate old property paths for an action, filtered to bindings
+    that actually belong to that action (never collateral damage).
+
+    Returns RAW (writable) X property paths; `live` is keyed by raw path.
+    """
+    factory = {"modifiers": list(row["modifiers"]), "key": row["key"]}
+    target_raw = property_path(row["branch"],
+                               action_accelerator(row["action"], overrides))
+    target_id = canonical_property(target_raw)
+    wanted_commands = {row["command"],
+                       action_command(row["action"], overrides)}
+    found = []
+    seen_ids = {target_id}
+    for raw, value in sorted(live.items()):
+        ident = canonical_property(raw)
+        if ident in seen_ids or raw == target_raw:
+            continue
+        if value in wanted_commands and ident == canonical_property(
+                property_path(row["branch"], factory)):
+            seen_ids.add(ident)
+            found.append(raw)
+    override = (overrides or {}).get(row["action"])
+    if override:
+        try:
+            raw = property_path(
+                row["branch"],
+                normalize_accelerator(override.get("accelerator", {})))
+        except ValueError:
+            raw = None
+        if raw and raw != target_raw and \
+                canonical_property(raw) not in seen_ids and \
+                live.get(raw) in wanted_commands:
+            seen_ids.add(canonical_property(raw))
+            found.append(raw)
+    return found
 
 
-def property_path(branch, accel):
-    return "/%s/default/%s" % (branch, property_accelerator(accel))
+def apply_action(action_id, overrides=None, path=None, force=False):
+    """Make the live channel match the effective binding for one action.
 
+    Returns a list of human-readable steps (what was removed/set).
+    """
+    overrides = overrides if overrides is not None else load_overrides(path)
+    row = ACTION_INDEX[action_id]
+    accel = action_accelerator(action_id, overrides)
+    command = action_command(action_id, overrides)
+    target = property_path(row["branch"], accel)
+    steps = []
 
-def property_path_identity(branch, accel):
-    """Conflict-detecting twin of property_path: order-insensitive."""
-    accel = normalize_accelerator(accel)
-    return "/%s/default/%s" % (
-        branch,
-        "".join("<%s>" % m for m in modifier_identity(accel["modifiers"]))
-        + accel["key"])
+    errors = check_overrides(overrides)
+    if errors:
+        raise ValueError("; ".join(errors))
 
-
-def display_accelerator(accel):
-    """Human/Mavericks rendering: 'Super+Shift+3' (XML-escaped for widgets)."""
-    accel = normalize_accelerator(accel)
-    labels = [ACCEL_MODIFIER_LABELS[m] for m in ac
+    live_raw_map = live_raw()
