@@ -61,4 +61,4 @@ def render_xml(actions=None):
 
 
 def _xml_attr(value):
-    return (value.replace("&", "&").replace("<", "<")
+    return (value.replace("&", "&" "amp;").replace("<", "&" "lt;")
