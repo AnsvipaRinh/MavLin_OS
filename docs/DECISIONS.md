@@ -491,3 +491,82 @@ touched.
 * *A fallback Dock when plank is missing* — plank is a hard dependency of both
   `packages.x86_64` and `mavericks-theme`; a second Dock implementation would
   violate reuse-first and add an always-on cost for a case that cannot occur.
+
+## 2026-10-06 — Failover forensic audit (E1–E11) and the v18 failover contract
+
+Full analysis: `docs/FAILOVER_AUDIT.md`. Summary of what was accepted as
+evidence, what was fixed, and why.
+
+**E1 (orphan flood).** `stuck` reported registry-only rows as STUCK by
+lastUsed age, but status absence = IDLE on this platform; ~150 dead
+entries (busyAge to 50h) drowned real signal and no GC existed. DECISION:
+registry-only rows are `ORPHAN` (informational, never exit 2); `stuck --gc`
+retires entries verified absent (GET /session/{id} → 404) and unused >24h;
+watchdog `--ensure` runs the GC best-effort. Verified-only means a flapping
+API never garbage-collects live sessions.
+
+**E2 (quota refusal class invisible).** Hard «Usage limit reached … reset
+<timestamp>» arrived via Task return, invisible to the watchdog. DECISION:
+`classify-error` parses provider reset timestamps into the exact cooldown
+(+20 min safety margin, per the FAILOVER DISCIPLINE rule: provider 15 min →
+record 20 min); the flat 3h default remains only when no timestamp exists.
+
+**E3/E4 (split-brain preflight/migrate).** Root cause: cooldown store keyed
+by whatever string the writer typed (bare id) while readers looked up pin
+strings (full provider/model). DECISION: single symmetric matching
+(`health_entry`: full OR bare id) and a single writer shape (`record_dead`)
+shared by mark-dead / classify-error / migrate / watchdog; preflight and
+migrate additionally re-verify their chosen model and refuse to print a
+cooldown one; `--force` is the explicit human override. Cooldowns may grow
+but never shrink (re-migrate used to cut a 20h entry back to 3h).
+
+**E5 (cancelled Task loses task_id).** Platform limitation, not fixable in
+our layer. Kept: registry bookkeeping + watchdog live discovery; GC never
+retires sessions that still exist server-side.
+
+**E6 (config tug-of-war).** Uncommitted worktree rewrites of
+`.opencode/model-fallback.json` + `opencode.jsonc` (GLM wiped, primary
+repointed) went unnoticed; a stale «GLM REMOVAL RULE» in AGENTS.md gave the
+rewrite doctrinal cover; the protocol consistency test had been deleted
+from the worktree while versions drifted (17 committed vs 16/15 worktree).
+DECISION: CONFIG-DRIFT gate — preflight/migrate/models/health/dashboard
+compare the two worker-config files against HEAD and print a loud banner on
+divergence (fail-open without git); the deleted test is restored;
+ORCHESTRATOR_PROTOCOL bumped to v18 (contract change) and synchronized in
+AGENTS.md §14.2/§14.5.1 + orchestrator.md.
+
+**E7 (mass foreign churn, ~170 files).** Actor unidentified. This objective
+implemented ON TOP of the worktree state (no checkouts/restores of foreign
+edits); the drift gate covers the two files that steer model choice; the
+rest of the churn is outside the failover plane and left for its owner.
+
+**E8 (dead pin 13h, random-model fallback).** The committed chain already
+neutralizes both (openrouter/free has worker:null «random-model router
+unsuitable»). Residual gap is continuous per-pin liveness probing — recorded
+as future work in the audit, surfaced today via `models` live tags +
+`dashboard`.
+
+**E9 (silent --ensure).** The STARTED path printed nothing (parent exited
+inside daemonize before output). DECISION: both paths print unambiguous
+lines (ALIVE pid=… / STARTED); new `--status` (pid, uptime, heartbeat age,
+aborts total) with exits 0 running / 1 not running / 2 stale-deaf.
+
+**E10 (shared quota pool unmodelled).** glm-5.3-flash and glm-5.3 share one
+zai-coding-plan quota; prose in health reasons did not steer rotation.
+DECISION: `"pool"` field in the chain; quota-class verdicts record
+`poolWide` and block the whole pool for failover; provider timeouts stay
+per-model; `mark-alive --pool` clears a pool in one call.
+
+**E11 (owner word vs static memory).** Owner declared GLM alive while
+cooldowns ran (9h52m / 1h25m). DECISION (doctrine, A3): the owner's live
+word outranks health memory — after a directive run `mark-alive … [--pool]`
+and continue; GLM entries may not be removed without a NEW explicit owner
+directive. AGENTS.md now carries «GLM CODING PLAN RESTORED» instead of the
+stale removal rule.
+
+**A1–A3 implementation notes.** A1 single store + `--force` (regression
+tests: mark-dead under a bare spelling blocks preflight and migrate);
+A2 drift gate (tests: modified/untracked/clean); A3 doctrine + protocol v18
+everywhere, `ProtocolVersionConsistency` green again. Test suite: 95 OK
+(was 71 with 3 stale-expectation failures, fixed by deriving the expected
+fallback from the chain rather than hardcoding build-b).

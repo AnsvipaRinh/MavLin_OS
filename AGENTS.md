@@ -516,6 +516,22 @@ Hardware-зависимая валидация фиксируется как я�
 Примеры: global menu, Mission Control overview layer, замена
 rofi-поверхностей при доказанном потолке fidelity. + DECISIONS.md.
 
+### GLM CODING PLAN RESTORED (owner directive 2026-10-05/06; supersedes the old removal rule)
+
+GLM жив и является primary: `zai-coding-plan/glm-5.3-flash` =
+primary worker #1 (`build` pin, chain order 1);
+`zai-coding-plan/glm-5.3` = зарезервирован для сложных задач
+(worker=null, opt-in, chain order 11). Обе записи — pool
+`zai-coding-plan` (одна квота кодинг-плана на двоих, E10):
+quota-отказ одной блокирует failover внутри пула.
+ЗАПРЕЩЕНО удалять GLM-записи из `.opencode/model-fallback.json`
+или менять primary-пин без НОВОЙ явной директивы owner'а.
+Живое слово owner'а старше health-памяти: после директивы owner'а
+выполни `scripts/session-reuse.py mark-alive <модели...> [--pool P]`
+и продолжай. `preflight`/`migrate`/`models` печатают CONFIG-DRIFT
+баннер, если worktree-конфиг разошёлся с HEAD — при расхождении
+проверь `git diff` и разберись, прежде чем запускать Task.
+
 Остановиться и запросить пользователя ТОЛЬКО если действительно требуется:
 физическое hardware, непредоставленный секрет, destructive operation,
 технически неразрешимое решение, конфликтующие требования, риск уничтожения
@@ -1102,7 +1118,7 @@ READ state (AGENTS.md, PROGRESS.md, APPS.md, DECISIONS.md, NEEDS_HARDWARE_TEST.m
 TASK LIFECYCLE (binding, full text in `.opencode/agents/orchestrator.md`):
 ENV PRE-CHECK (`git status` + `version` must both succeed; else
 PROJECT-NOT-LOADED/STALE-AGENT = stop, no improvising) →
-protocol check `version` (need v17) →
+protocol check `version` (need v18) →
 REBOOT RULE (sessions PERSIST across restart — verified vs 1.18.32 SDK:
 `GET /session/{id}` is authoritative; status absence = idle, never gone;
 fresh ONLY on verified 404) →
@@ -1231,7 +1247,7 @@ scripts/session-reuse.py migrate <id> --objective <O> --delay <sec>  # same-sess
 scripts/session-reuse.py find-objective <oid>          # resume-first lookup: oid -> LIVE session + Task block
 scripts/session-reuse.py health                    # cooldown memory (dead models + retry-in)
 scripts/session-reuse.py mark-alive <model>        # clear cooldown after good result
-scripts/session-reuse.py version                   # need orchestrator-protocol: 17 (else STALE-AGENT)
+scripts/session-reuse.py version                   # need orchestrator-protocol: 18 (else STALE-AGENT)
 scripts/session-reuse.py exists <id>               # SESSION_EXISTS_IDLE/BUSY/RETRYING vs DOES_NOT_EXIST
 scripts/session-reuse.py abort <id>                # cancel blocked attempt, history survives
 scripts/session-reuse.py preflight                 # offline: skip cooldown models BEFORE Task

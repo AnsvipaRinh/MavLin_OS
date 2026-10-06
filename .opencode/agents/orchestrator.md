@@ -65,7 +65,7 @@ AUTONOMOUS LOOP (trigger word: "приступай" / "продолжай" = wor
 0. ENV PRE-CHECK (once per session, BEFORE anything else — both commands
    must succeed in the SAME session):
 `git status` AND `scripts/session-reuse.py version` (need
-    `orchestrator-protocol: 17`).
+    `orchestrator-protocol: 18`).
    - Either fails ("file not found", unknown subcommand, older version) →
      PROJECT-NOT-LOADED or STALE-AGENT: the server started outside the repo
      or cached an old agent file (no hot-reload — AGENTS.md 14.6). STOP and
@@ -247,7 +247,7 @@ forever. Two mechanisms, in order:
 ABORT-WAKEUP RULE: a Task error arriving after a fresh `lastAbort` (registry)
 or ABORTED line (watchdog.log) for that session is a watchdog-confirmed STUCK,
 NOT a user cancel: skip re-waiting, `classify-error` the recorded reason,
-then resume the SAME `task_id`. Protocol v17: the registrar rotates
+then resume the SAME `task_id`. Protocol v18: the registrar rotates
 AUTOMATICALLY — the watchdog abort and `abort`/`decide` re-point the session
 record at the next healthy worker themselves; `migrate --delay <recorded-sec>`
 is the MANUAL override (still correct, never harmful). Resume on the
@@ -255,7 +255,7 @@ registry's CURRENT worker (`find-objective`/`decide` prints it).
 
 TASK LIFECYCLE (mandatory — SESSION ≠ MODEL: a model change NEVER means a new session):
 
-- WORKER POOL: `build` (primary, GLM 5.3 via Z.ai Coding Plan) + `build-b`..`build-j`
+- WORKER POOL: `build` (primary, GLM 5.3 Flash via Z.ai Coding Plan) + `build-b`..`build-j`
   (hidden subagent fallbacks, different chain pins). All do the same work;
   only the model differs. Runtime agent switch = Task with a different
   `subagent_type` on the SAME `task_id` — session, history and context preserved. NO server restart,
@@ -347,7 +347,7 @@ BLOCKER POLICY: code/test/build failures, unclear details, unknown backends, res
 MODEL FALLBACK (one dead model is NEVER a silent stop):
 
 - Two planes, both in-chain. Orchestrator-plane = this agent's session model
-  (default: chain head, GLM 5.3 Z.ai Coding Plan; /models offers FULL list,
+  (default: chain head, GLM 5.3 Flash via Z.ai Coding Plan; /models offers FULL list,
   including Muse Spark — user explicitly selects it for orchestration).
   Worker-plane = `build` + hidden `build-b`..`build-j` pins in project
   `opencode.jsonc` (chain #1 primary + fallbacks). Background-plane (title/summary/compaction)

@@ -19,28 +19,44 @@ and keeps lightweight metadata in .opencode/sessions/registry.json.
                             SESSION_API_UNAVAILABLE
   abort <id>                cancel a blocked generation
                             (POST /session/{id}/abort); history survives
-  preflight [--exclude M]   offline worker/health decision BEFORE every Task:
-                            PRIMARY_READY/COOLDOWN + PREFLIGHT_OK/WAIT,
-                            zero API calls
-  version                   print orchestrator protocol version (v17 required
+  preflight [--exclude M] [--force]  offline worker/health decision BEFORE
+                            every Task: PRIMARY_READY/COOLDOWN +
+                            PREFLIGHT_OK/WAIT, zero API calls. NEVER returns
+                            a model in cooldown (single health store,
+                            symmetric full/bare-id matching); --force is the
+                            explicit human override.
+  dashboard                one screen: watchdog liveness, model health +
+                            pools, active sessions, orphan count, CONFIG-DRIFT
+  version                   print orchestrator protocol version (v18 required
                             by the current orchestrator prompt; unknown
                             subcommand = stale agent file -> STALE-AGENT)
   health                    show model cooldown memory (dead models + retry-in)
-  mark-dead <model> [--in Sec] [--reason R]
+  mark-dead <model> [--in Sec] [--reason R] [--pool-wide]
                             record a model as dead: skip it for Sec seconds
                             (default 10800 = 3h when the provider gave no
-                            explicit retry time)
-  mark-alive <model>        clear a model's cooldown (call after a good result)
-  stuck [--threshold 600] [--format text|json]
+                            explicit retry time). --pool-wide also blocks the
+                            model's account pool (shared quota, E10).
+  mark-alive <model> [...] [--pool P]
+                            clear cooldown (call after a good result or an
+                            owner directive: the owner's live word outranks
+                            health memory). Multiple models and whole pools
+                            are clearable in one call.
+  stuck [--threshold 600] [--format text|json] [--gc]
                             stuck-task watchdog: parse live /session/status
                             retry/unavailable delays; any non-idle session
                             with delay > threshold (default 600s = 10min)
                             is STUCK -> must be paused + migrated.
-  migrate <id> --objective O [--task T] [--exclude M,...] [--delay Sec]
+                            Registry-only rows are ORPHAN (informational,
+                            not STUCK: status absence = idle). --gc retires
+                            registry entries VERIFIED absent from the live
+                            server and unused for >24h (E1).
+  migrate <id> --objective O [--task T] [--exclude M,...] [--delay Sec] [--force]
                             same-session model migration (SESSION != MODEL):
                             keep task_id, record dead-model cooldown
                             (= delay when known, else 3h), print a Task block
                             resuming the SAME session on the next worker.
+                            NEVER selects a model in cooldown unless --force
+                            (single health store, symmetric matching).
   find-objective <oid-or-text>
                             resume-first lookup: Objective -> live child
                             session + ready Task invocation (one status call,
@@ -107,11 +123,14 @@ CHAIN = os.path.join(BASE, "..", ".opencode", "model-fallback.json")
 # if `version` prints anything older (or the subcommand is unknown = stale
 # agent file cached by a long-lived server), the orchestrator must report
 # STALE-AGENT and stop instead of silently running the old loop.
-# v17 bump (2026-10-05): pure synchronization with .opencode/agents/orchestrator.md
-# — that file already requires v17 while the script implemented the full v17
-# subcommand surface (all 22 commands incl. stalled/link-objective/children/
-# list/retire/delete). No behavior change; closing the false STALE-AGENT gate.
-ORCHESTRATOR_PROTOCOL = 17
+# v18 bump (2026-10-06, failover forensic audit): SINGLE health store for
+# preflight/migrate/models/classify (symmetric full/bare-id matching — E3/E4
+# split-brain fixed), migrate/preflight never select cooldown models without
+# --force, pool-wide quota cooldowns (E10), CONFIG-DRIFT gate on
+# model-fallback.json + opencode.jsonc (E6), stuck --gc orphan retirement
+# (E1), registry-only rows downgraded ORPHAN (not STUCK), reset-timestamp
+# cooldown parsing (E2), dashboard. Contract change -> version bump.
+ORCHESTRATOR_PROTOCOL = 18
 
 # Cooldown memory for dead models (.opencode/sessions/model-health.json).
 # A model observed dead (provider retry/unavailable > stuck threshold, or
@@ -1023,12 +1042,20 @@ def cmd_preflight(args):
     import argparse
     p = argparse.ArgumentParser(
         description="Preflight BEFORE every Task: offline worker/health "
-                    "decision, zero API calls. If the primary worker's model "
-                    "is in cooldown, the next healthy worker is chosen NOW — "
-                    "never launch-then-fail. Exit 0 = worker available, "
+                    "decision, zero API calls. Reads the SAME health store "
+                    "that classify-error/mark-dead/watchdog/migrate write "
+                    "(symmetric full/bare-id matching) — a model in cooldown "
+                    "is NEVER returned. Exit 0 = worker available, "
                     "2 = all cooling (wait, do NOT launch).")
     p.add_argument("--exclude", default="")
+    p.add_argument("--force", action="store_true",
+                   help="Human override: ignore cooldowns when choosing the "
+                        "worker (the PRIMARY_* state line still reports the "
+                        "real cooldown). Use only on an owner directive.")
     a = p.parse_args(args)
+    banner = drift_banner()
+    if banner:
+        print(banner)
     excl = [e for e in a.exclude.split(",") if e.strip()]
     workers = worker_pins()
     primary = workers[0] if workers else ("build", "?")
@@ -1038,8 +1065,16 @@ def cmd_preflight(args):
               f"{fmt_dur(prem)}): do NOT launch primary")
     else:
         print(f"PRIMARY_READY {primary[0]} ({primary[1]})")
-    role, model, wait = resolve_next_worker(excl)
+    role, model, wait = resolve_next_worker(excl, force=a.force)
     if role:
+        # Defensive invariant (E3): the printed worker must be cooldown-free
+        # unless --force was explicit. Never trust a refactor of the ranking.
+        rem = cooldown_remaining(model)
+        if rem > 0 and not a.force:
+            print(f"PREFLIGHT_WAIT internal-error: chosen {model} is in "
+                  f"cooldown (retry-in {fmt_dur(rem)}); refusing to "
+                  f"recommend it")
+            raise SystemExit(2)
         print(f"PREFLIGHT_OK subagent_type={role} model={model}")
     else:
         soon, soon_m = wait if wait else (0, "?")
@@ -1068,16 +1103,145 @@ def save_health(h):
         f.write("\n")
 
 
+def _model_bare(model):
+    """Bare model id, lowercased ('openrouter/x:free' -> 'x:free')."""
+    return (model or "").split("/")[-1].lower()
+
+
+def health_entry(model):
+    """Health entry for a model by full id OR bare id (symmetric match).
+
+    E3/E4 root cause: writers (classify-error --record-model, mark-dead) and
+    readers (preflight/migrate via worker pins) used DIFFERENT spellings of
+    the same model ('north-mini' vs 'openrouter/cohere/north-mini-code:free'),
+    so the cooldown store never matched and split-brain resulted. Both sides
+    now resolve through this one function.
+    """
+    models = load_health().get("models", {})
+    low = (model or "").lower()
+    if low in models:
+        return models[low]
+    bare = _model_bare(model)
+    if not bare:
+        return None
+    for key, e in models.items():
+        if _model_bare(key) == bare:
+            return e
+    return None
+
+
+def pool_of(model):
+    """Account pool id for a model from the chain ('' when unpooled).
+
+    Entries in .opencode/model-fallback.json may carry "pool": "<id>" when
+    several models share ONE account quota (E10: zai-coding-plan/glm-5.3-flash
+    and zai-coding-plan/glm-5.3 draw from the same coding-plan quota). A
+    quota death in a pool blocks failover INSIDE that pool.
+    """
+    low = (model or "").lower()
+    bare = _model_bare(model)
+    if not bare:
+        return ""
+    for e in load_chain():
+        pool = (e.get("pool") or "").strip()
+        if not pool:
+            continue
+        want = (e.get("want") or "").lower()
+        match = (e.get("match") or "").lower()
+        if (want and (want == low or _model_bare(want) == bare)) or \
+                (match and (match in low or match in bare)):
+            return pool
+    return ""
+
+
+def pool_members(pool):
+    """[model] of every chain entry belonging to an account pool."""
+    if not pool:
+        return []
+    return [e.get("want") or "" for e in load_chain()
+            if (e.get("pool") or "").strip() == pool and e.get("want")]
+
+
+def pool_wide_remaining(pool):
+    """Seconds until the pool-wide QUOTA cooldown lifts; 0 when none.
+
+    Only entries recorded poolWide (quota-class verdicts: the account, not
+    the model, is exhausted) block siblings. Provider timeouts stay
+    per-model.
+    """
+    if not pool:
+        return 0.0
+    rem = 0.0
+    for key, e in (load_health().get("models", {}) or {}).items():
+        if not isinstance(e, dict) or not e.get("poolWide"):
+            continue
+        epool = (e.get("pool") or "").strip() or pool_of(e.get("model") or key)
+        if epool != pool:
+            continue
+        try:
+            rem = max(rem, float(e.get("retryAfter", 0)) - time.time())
+        except (TypeError, ValueError):
+            continue
+    return max(0.0, rem)
+
+
 def cooldown_remaining(model):
-    """Seconds until a dead model may be retried; 0 = healthy/unknown."""
+    """Seconds until a dead model may be retried; 0 = healthy/unknown.
+
+    Single source of truth for EVERY reader (preflight, migrate, models,
+    resolve_next_worker): the same model-health.json that classify-error,
+    mark-dead, the watchdog and migrate WRITE. Matching is symmetric
+    (full provider/model id or bare id) and includes pool-wide quota
+    cooldowns covering this model.
+    """
+    e = health_entry(model)
+    own = 0.0
+    if isinstance(e, dict):
+        try:
+            own = max(0.0, float(e.get("retryAfter", 0)) - time.time())
+        except (TypeError, ValueError):
+            own = 0.0
+    return max(own, pool_wide_remaining(pool_of(model)))
+
+
+def record_dead(model, cooldown_sec, reason, pool_wide=False,
+                keep_longer=True):
+    """Write ONE dead-model record (single writer shape for every caller:
+    mark-dead, classify-error, migrate, watchdog). Stamps the account pool
+    when known. keep_longer=True never SHRINKS an existing retryAfter
+    (re-migrate must not cut a long provider cooldown short)."""
+    model = model or ""
+    if not model:
+        return None
+    cd = float(cooldown_sec) if cooldown_sec and cooldown_sec > 0 \
+        else DEFAULT_COOLDOWN_SEC
     h = load_health()
-    entry = h.get("models", {}).get((model or "").lower())
-    if not isinstance(entry, dict):
-        return 0
-    try:
-        return max(0.0, float(entry.get("retryAfter", 0)) - time.time())
-    except (TypeError, ValueError):
-        return 0
+    key = model.lower()
+    prev = h["models"].get(key)
+    if not isinstance(prev, dict):
+        # also match a previous record under another spelling
+        prev = health_entry(model) or None
+    retry_after = time.time() + cd
+    if keep_longer and isinstance(prev, dict):
+        try:
+            retry_after = max(retry_after, float(prev.get("retryAfter", 0)))
+        except (TypeError, ValueError):
+            pass
+    pool = pool_of(model)
+    entry = {
+        "model": model, "state": "dead",
+        "deadAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "retryAfter": retry_after,
+        "cooldownSec": cd,
+        "reason": reason or "marked dead",
+    }
+    if pool:
+        entry["pool"] = pool
+    if pool_wide:
+        entry["poolWide"] = True
+    h["models"][key] = entry
+    save_health(h)
+    return entry
 
 
 def fmt_dur(sec):
@@ -1091,19 +1255,79 @@ def fmt_dur(sec):
     return f"{s}s"
 
 
+# ---- CONFIG-DRIFT gate (2026-10-06, E6 tug-of-war) ----
+# The live worker chain lives in two TRACKED files. During the 2026-10-05/06
+# incident an actor silently rewrote them in the worktree (GLM entries wiped,
+# primary worker repointed) while committed state said otherwise; nothing
+# compared the two and preflight happily used the drifted config. Every
+# model-deciding command now carries a loud banner until the difference is
+# consciously committed or restored.
+
+DRIFT_FILES = [".opencode/model-fallback.json", "opencode.jsonc"]
+
+
+def config_drift(repo=None, files=None):
+    """[(file, kind)] where the live worktree state differs from HEAD.
+
+    kind: 'modified' (differs from HEAD, staged or unstaged) or 'untracked'
+    (exists, never committed). Fail-open: git missing / not a repo -> []
+    (the gate must never break the loop it guards).
+    """
+    import subprocess
+    root = repo or os.environ.get("SR_DRIFT_REPO") or \
+        os.path.join(BASE, "..")
+    out = []
+    for name in (files or DRIFT_FILES):
+        path = os.path.join(root, name)
+        if not os.path.exists(path):
+            continue  # an absent file is not drift
+        try:
+            r = subprocess.run(
+                ["git", "-C", root, "ls-files", "--error-unmatch", name],
+                capture_output=True, text=True, timeout=10)
+            if r.returncode != 0:
+                out.append((name, "untracked"))
+                continue
+            d = subprocess.run(
+                ["git", "-C", root, "diff", "--quiet", "HEAD", "--", name],
+                capture_output=True, text=True, timeout=10)
+            if d.returncode != 0:
+                out.append((name, "modified"))
+        except (OSError, ValueError, subprocess.SubprocessError):
+            continue
+    return out
+
+
+def drift_banner():
+    """Loud one-line banner when worker config drifted from HEAD ('' else)."""
+    d = config_drift()
+    if not d:
+        return ""
+    return ("CONFIG-DRIFT: " +
+            ", ".join(f"{n} ({k})" for n, k in d) +
+            " — живой конфиг отличается от закоммиченного; проверь чужие "
+            "правки (git diff -- <файл>) и осознанно commit или restore; "
+            "живое слово owner'а старше health-памяти")
+
+
 def cmd_health(args):
     import argparse
     p = argparse.ArgumentParser(
         description="Show model cooldown memory (dead models + retry-in).")
     p.add_argument("--format", choices=("text", "json"), default="text")
     a = p.parse_args(args)
+    banner = drift_banner()
+    if banner:
+        print(banner)
     h = load_health()
     rows = []
     for model, e in h.get("models", {}).items():
         rem = cooldown_remaining(model)
         rows.append({"model": model, "reason": (e or {}).get("reason", ""),
                      "state": "COOLDOWN" if rem > 0 else "eligible",
-                     "retryInSec": rem})
+                     "retryInSec": rem,
+                     "pool": (e or {}).get("pool", ""),
+                     "poolWide": bool((e or {}).get("poolWide"))})
     if a.format == "json":
         print(json.dumps(rows, indent=1))
     else:
@@ -1112,7 +1336,9 @@ def cmd_health(args):
         for r in rows:
             extra = f" retry-in {fmt_dur(r['retryInSec'])}" \
                 if r["retryInSec"] > 0 else ""
-            print(f"{r['state']} {r['model']}{extra} "
+            pool = f" pool={r['pool']}" + (" [POOL-WIDE]" if r["poolWide"]
+                                           else "") if r["pool"] else ""
+            print(f"{r['state']} {r['model']}{extra}{pool} "
                   f"reason={r['reason'] or '?'}")
         print(f"default-cooldown: {fmt_dur(h.get('defaultCooldownSec', DEFAULT_COOLDOWN_SEC))} "
               f"(used when the provider gave no explicit retry time)")
@@ -1122,35 +1348,64 @@ def cmd_mark_dead(args):
     import argparse
     p = argparse.ArgumentParser(
         description="Record a model as dead for --in seconds "
-                    f"(default {DEFAULT_COOLDOWN_SEC} = 3h).")
+                    f"(default {DEFAULT_COOLDOWN_SEC} = 3h). --pool-wide "
+                    "also blocks the account pool siblings (shared quota).")
     p.add_argument("model")
     p.add_argument("--in", dest="cd", type=float, default=0,
                    help="Cooldown seconds (provider retry delay when known, "
                         "else default 3h)")
     p.add_argument("--reason", default="")
+    p.add_argument("--pool-wide", action="store_true",
+                   help="The whole account pool is quota-dead, not just this "
+                        "model (E10: both GLM entries share the "
+                        "zai-coding-plan quota)")
     a = p.parse_args(args)
     cd = a.cd if a.cd and a.cd > 0 else DEFAULT_COOLDOWN_SEC
-    h = load_health()
-    h["models"][a.model.lower()] = {
-        "model": a.model, "state": "dead",
-        "deadAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "retryAfter": time.time() + cd,
-        "cooldownSec": cd, "reason": a.reason or "marked dead",
-    }
-    save_health(h)
-    print(f"marked-dead {a.model} (retry-in {fmt_dur(cd)}) reason={a.reason or '?'}")
+    entry = record_dead(a.model, cd, a.reason or "marked dead",
+                        pool_wide=a.pool_wide)
+    rem = max(0.0, entry["retryAfter"] - time.time()) if entry else cd
+    note = f" pool={entry['pool']} [POOL-WIDE]" if entry and entry.get(
+        "poolWide") else ""
+    print(f"marked-dead {a.model} (retry-in {fmt_dur(rem)}){note} "
+          f"reason={a.reason or '?'}")
 
 
 def cmd_mark_alive(args):
-    m = args[0] if args else ""
-    if not m:
-        sys.exit("usage: mark-alive <model>")
+    import argparse
+    p = argparse.ArgumentParser(
+        description="Clear cooldown(s). The owner's live word outranks "
+                    "health memory (E11): run this after an owner directive "
+                    "even while cooldowns are still running.")
+    p.add_argument("model", nargs="*")
+    p.add_argument("--pool", default="",
+                   help="Clear every entry recorded for this account pool")
+    a = p.parse_args(args)
+    if not a.model and not a.pool:
+        sys.exit("usage: mark-alive <model> [...] [--pool P]")
     h = load_health()
-    if h["models"].pop(m.lower(), None) is not None:
+    cleared = []
+    for m in a.model:
+        if h["models"].pop(m.lower(), None) is not None:
+            cleared.append(m)
+        elif health_entry(m) is not None:
+            # stored under a different spelling: resolve + remove that key
+            for key in list(h["models"]):
+                if _model_bare(key) == _model_bare(m):
+                    h["models"].pop(key)
+                    cleared.append(key)
+                    break
+    if a.pool:
+        for key in list(h["models"]):
+            e = h["models"].get(key) or {}
+            if (e.get("pool") or "") == a.pool or \
+                    pool_of(e.get("model") or key) == a.pool:
+                h["models"].pop(key)
+                cleared.append(key)
+    if cleared:
         save_health(h)
-        print(f"marked-alive {m} (cooldown cleared)")
+        print(f"marked-alive {' '.join(cleared)} (cooldown cleared)")
     else:
-        print(f"already-eligible {m} (nothing recorded)")
+        print("already-eligible (nothing recorded)")
 
 
 def worker_pins():
@@ -1198,11 +1453,14 @@ def chain_order_index():
     return idx
 
 
-def resolve_next_worker(excluded_models=()):
+def resolve_next_worker(excluded_models=(), force=False):
     """Next healthy worker (role, model): chain order minus cooldown/dead.
 
-    Returns (role, model, earliest_retry) where earliest_retry is None when a
-    worker is available, else (None, None, seconds-until-first-eligible).
+    Cooldowns come from the SAME health store every writer uses (symmetric
+    matching + pool-wide quota blocks). force=True ignores cooldowns
+    (explicit human override only). Returns (role, model, earliest_retry)
+    where earliest_retry is None when a worker is available, else
+    (None, None, seconds-until-first-eligible).
     """
     excl = {e.strip().lower() for e in excluded_models if e.strip()}
     never = load_never()
@@ -1214,7 +1472,7 @@ def resolve_next_worker(excluded_models=()):
                 or is_never(model, never):
             continue
         rem = cooldown_remaining(model)
-        if rem > 0:
+        if rem > 0 and not force:
             continue
         # Primary `build` first when eligible (no gratuitous rotation);
         # fallbacks ranked by chain order.
@@ -1355,16 +1613,65 @@ def classify_text(text):
     return "PROJECT_ERROR", "no model/session failure signal"
 
 
+# Provider-stated absolute reset times (E2: "Usage limit reached for 5 hour
+# ... reset 2026-10-06 07:06:36" arrived as a hard Task refusal; the exact
+# revival timestamp is ground truth and must become the cooldown, not the
+# lazy 3h default). Patterns: 'reset 2026-10-06 07:06:36[ UTC]',
+# 'resets at ...', 'until 2026-10-06T07:06[:36][Z]', '(UTC)' suffixes.
+RESET_TS_PATTERNS = [
+    re.compile(r"resets?\s*(?:at|to|until)?\s*"
+               r"(\d{4}-\d{2}-\d{2})[ T](\d{1,2}:\d{2})(?::(\d{2}))?"
+               r"(?:\s*\(?\s*(?:UTC|GMT)\s*\)?)?", re.I),
+    re.compile(r"(?:until|available\s+(?:again|from|after))\s*"
+               r"(\d{4}-\d{2}-\d{2})[ T](\d{1,2}:\d{2})(?::(\d{2}))?"
+               r"(?:Z|\s*\(?\s*(?:UTC|GMT)\s*\)?)?", re.I),
+]
+
+# Safety margin over the provider-stated revival time (FAILOVER DISCIPLINE:
+# provider says 15 min -> record 20 min). Flat +20 min.
+RESET_TS_MARGIN_SEC = 1200
+
+# Verdicts whose death is the ACCOUNT, not the model (pool-wide, E10).
+POOL_WIDE_VERDICTS = {"MODEL_QUOTA", "FREE_USAGE_EXHAUSTED"}
+
+
+def extract_reset_sec(text, now=None):
+    """Seconds until a provider-stated reset timestamp; None when absent.
+
+    Pure function; 7-day plausibility cap rejects garbage matches.
+    """
+    for pat in RESET_TS_PATTERNS:
+        m = pat.search(text or "")
+        if not m:
+            continue
+        date_s, time_s, sec_s = m.group(1), m.group(2), m.group(3) or "00"
+        try:
+            ts = datetime.strptime(f"{date_s} {time_s}:{sec_s}",
+                                   "%Y-%m-%d %H:%M:%S").replace(
+                                       tzinfo=timezone.utc).timestamp()
+        except ValueError:
+            continue
+        d = ts - (now if now is not None else time.time())
+        if 0 < d <= 7 * 24 * 3600:
+            return d + RESET_TS_MARGIN_SEC
+    return None
+
+
 def cmd_classify_error(args):
     import argparse
     p = argparse.ArgumentParser(
         description="Classify a Task/agent error into the failure taxonomy "
                     "(SESSION != MODEL). MODEL_* -> same-session failover; "
-                    "PROJECT_ERROR -> fix code, no rotation.")
+                    "PROJECT_ERROR -> fix code, no rotation. Writes cooldowns "
+                    "to the SAME health store every reader uses; a "
+                    "provider-stated reset timestamp (E2) becomes the exact "
+                    "cooldown (+20 min margin); quota-class verdicts on a "
+                    "pooled model also block the pool (E10).")
     p.add_argument("text", nargs="*", help="Error text (else read stdin)")
     p.add_argument("--record-model", default="",
                    help="Model to record dead on MODEL_* verdicts "
-                        "(cooldown --cooldown, default 3h)")
+                        "(cooldown from --cooldown, a reset timestamp in the "
+                        "text, or the 3h default)")
     p.add_argument("--cooldown", type=float, default=0,
                    help="Cooldown seconds for --record-model "
                         "(provider retry delay when known, else 3h)")
@@ -1374,18 +1681,19 @@ def cmd_classify_error(args):
     code, recordable, recovery = VERDICTS[verdict]
     print(f"{verdict} (matched: {matched}) recovery={recovery}")
     if a.record_model and recordable:
-        cd = a.cooldown if a.cooldown and a.cooldown > 0 else DEFAULT_COOLDOWN_SEC
-        h = load_health()
-        h["models"][a.record_model.lower()] = {
-            "model": a.record_model, "state": "dead",
-            "deadAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "retryAfter": time.time() + cd,
-            "cooldownSec": cd,
-            "reason": f"{verdict} ({matched})",
-        }
-        save_health(h)
-        print(f"marked-dead {a.record_model} "
-              f"(retry-in {fmt_dur(cd)})")
+        reset = extract_reset_sec(text)
+        cd = a.cooldown if a.cooldown and a.cooldown > 0 else \
+            (reset if reset else DEFAULT_COOLDOWN_SEC)
+        pool_wide = verdict in POOL_WIDE_VERDICTS
+        entry = record_dead(a.record_model, cd,
+                            f"{verdict} ({matched})", pool_wide=pool_wide)
+        note = f" pool={entry['pool']} [POOL-WIDE]" if entry.get(
+            "poolWide") else ""
+        src = "reset-ts+margin" if reset and not (
+            a.cooldown and a.cooldown > 0) else "explicit"
+        rem = max(0.0, entry["retryAfter"] - time.time())
+        print(f"marked-dead {a.record_model} (retry-in {fmt_dur(rem)}, "
+              f"source={src}){note}")
     raise SystemExit(code)
 
 
@@ -1560,6 +1868,9 @@ def cmd_models(args):
                         "(default: auto-excluded from next-available)")
     p.add_argument("--format", choices=("text", "json"), default="text")
     a = p.parse_args(args)
+    banner = drift_banner()
+    if banner:
+        print(banner)
     excluded = {e.strip().lower() for e in a.exclude.split(",") if e.strip()}
     never = load_never()
 
@@ -1632,7 +1943,9 @@ def cmd_models(args):
                        else "  [EXHAUSTED-skip]")
             elif c > 0 and not a.ignore_cooldown:
                 tag = f"  [COOLDOWN retry-in {fmt_dur(c)}]"
-            print(f"{m}  source={s}" + tag)
+            pool = pool_of(m)
+            ptag = f"  pool={pool}" if pool else ""
+            print(f"{m}  source={s}{ptag}" + tag)
         workers = worker_pins()
         # Runtime worker pool: rotation = subagent_type switch on the SAME
         # session, no restart, no config paste (SESSION != MODEL). The legacy
@@ -1647,6 +1960,96 @@ def cmd_models(args):
             print(f"next-worker: NONE (all workers in cooldown, "
                   f"earliest {soon_m} in {fmt_dur(soon)})")
         return
+
+
+# ---- Dashboard (2026-10-06, B5: one screen for the whole failover plane) ----
+
+def cmd_dashboard(args):
+    """One screen: watchdog liveness, model health + pools, active
+    sessions, registry orphans, CONFIG-DRIFT.     Read-only; exit 0 always
+    (an informational command must never gate the loop)."""
+    import importlib.util
+    import subprocess
+    print("=== MavLinOS orchestrator dashboard ===")
+    # 1. CONFIG-DRIFT (E6)
+    banner = drift_banner()
+    print(banner if banner else "config: no drift (worktree == HEAD)")
+    # 2. Watchdog (E9): pid / liveness / heartbeat age / aborts.
+    try:
+        wd_spec = importlib.util.spec_from_file_location(
+            "task_watchdog_dash",
+            os.path.join(BASE, "task-watchdog.py"))
+        tw = importlib.util.module_from_spec(wd_spec)
+        wd_spec.loader.exec_module(tw)
+        pid = tw.lock_holder_pid()
+        alive = pid and tw.lock_held_by_live_process()
+        recs = tw.recent_events()
+        hb_age = None
+        for rec in recs:
+            if rec.get("event") == "HEARTBEAT":
+                ts = tw._rec_ts(rec)
+                hb_age = time.time() - ts if ts else None
+                break
+        aborts_24h = 0
+        for rec in recs:
+            if rec.get("event") == "ABORTED":
+                ts = tw._rec_ts(rec)
+                if ts and time.time() - ts < 24 * 3600:
+                    aborts_24h += 1
+        if pid and alive:
+            print(f"watchdog: RUNNING pid={pid} heartbeat-age="
+                  f"{fmt_dur(hb_age) if hb_age is not None else '?'} "
+                  f"recent-aborts(24h)={aborts_24h}")
+        else:
+            print(f"watchdog: NOT RUNNING"
+                  f"{' (stale lock pid=%s)' % pid if pid else ''} — "
+                  f"run: python3 scripts/task-watchdog.py --ensure --all")
+    except Exception as e:  # noqa: BLE001 — dashboard must never crash
+        print(f"watchdog: UNKNOWN ({str(e)[:120]})")
+    # 3. Model health (single store, pools included).
+    h = load_health()
+    live_rows = []
+    for model in sorted(h.get("models", {})):
+        rem = cooldown_remaining(model)
+        e = h["models"].get(model) or {}
+        if rem > 0:
+            pool = e.get("pool", "")
+            live_rows.append(
+                f"  COOLDOWN {model} retry-in {fmt_dur(rem)}"
+                + (f" pool={pool}" + (" [POOL-WIDE]"
+                                      if e.get("poolWide") else "")
+                   if pool else "")
+                + f" reason={e.get('reason', '') or '?'}")
+    print("model-health: " + (f"{len(live_rows)} cooling"
+                              if live_rows else "all eligible"))
+    for line in live_rows:
+        print(line)
+    role, model, wait = resolve_next_worker([])
+    if role:
+        print(f"next-worker: {role} ({model})")
+    else:
+        soon, soon_m = wait if wait else (0, "?")
+        print(f"next-worker: NONE (earliest {soon_m} in {fmt_dur(soon)})")
+    # 4. Active sessions + orphans (E1) — best effort, read-only.
+    try:
+        st = api("GET", "/session/status") or {}
+        active = {sid: e for sid, e in st.items()
+                  if (e.get("type") if isinstance(e, dict) else "?") != "idle"}
+        print(f"sessions: {len(st)} tracked, {len(active)} non-idle")
+        for sid, e in list(active.items())[:8]:
+            etype = e.get("type", "?") if isinstance(e, dict) else "?"
+            d = extract_delay_sec(e) if isinstance(e, dict) else None
+            print(f"  {sid} status={etype}"
+                  + (f" delay={d:.0f}s" if d else ""))
+        reg = load_reg().get("sessions", {})
+        orphans = [sid for sid, m in reg.items()
+                   if sid not in st and (m or {}).get("state") != "retired"
+                   and (_busy_age_sec(m) or 0) > GC_MAX_AGE_SEC]
+        print(f"registry: {len(reg)} entries, {len(orphans)} orphan "
+              f"candidates (>24h, absent from status) — "
+              f"cleanup: scripts/session-reuse.py stuck --gc")
+    except SystemExit as e:
+        print(f"sessions: API unreachable ({str(e)[:100]})")
 
 
 # ---- Stuck-task watchdog + failover (2026-09-29; threshold default 600s) ----
@@ -1770,17 +2173,71 @@ def _busy_age_sec(meta):
         return None
 
 
+# ---- Orphan GC (2026-10-06, E1: ~150 never-cleaned registry entries) ----
+
+GC_MAX_AGE_SEC = 24 * 3600
+
+
+def gc_orphans(max_age_sec=GC_MAX_AGE_SEC, dry_run=False):
+    """Retire registry entries that are VERIFIED absent from the live
+    server (GET /session/{id} -> 404) and unused for > max_age_sec.
+
+    Verified-only: 'unavailable' answers NEVER retire (a flapping API must
+    not garbage-collect live sessions). Safe with two parallel
+    orchestrators: the decision is idempotent (state flip only), metadata
+    is preserved, and the save re-reads the registry so a concurrent
+    register() survives. Returns (retired_ids, unverifiable_count).
+    """
+    reg = load_reg()
+    retired, unverifiable = [], 0
+    for sid, meta in list((reg.get("sessions") or {}).items()):
+        if not isinstance(meta, dict) or meta.get("state") == "retired":
+            continue
+        age = _busy_age_sec(meta)
+        if age is None or age <= max_age_sec:
+            continue
+        estate, _obj = session_exists(sid)
+        if estate == "not-exist":
+            retired.append((sid, age))
+        elif estate == "unavailable":
+            unverifiable += 1
+    if retired and not dry_run:
+        # Re-apply on a FRESH read: a parallel register()/migrate() between
+        # our decision and the save must not be lost to last-writer-wins.
+        fresh = load_reg()
+        changed = False
+        for sid, age in retired:
+            m = (fresh.get("sessions") or {}).get(sid)
+            if isinstance(m, dict) and m.get("state") != "retired":
+                m["state"] = "retired"
+                m["gcReason"] = (f"orphan-gone (verified 404, unused "
+                                 f"{age:.0f}s)")
+                changed = True
+        if changed:
+            save_reg(fresh)
+    return retired, unverifiable
+
+
 def cmd_stuck(args):
     import argparse
     p = argparse.ArgumentParser(
         description="Stuck-task watchdog: list non-idle sessions whose "
                     "retry/unavailable delay exceeds --threshold seconds "
-                    f"(default {STUCK_THRESHOLD_SEC}). Exit 0 when clean, "
-                    "exit 2 when at least one STUCK session exists.")
+                    f"(default {STUCK_THRESHOLD_SEC}). Registry-only rows "
+                    "are reported as ORPHAN (informational) — status "
+                    "absence means IDLE on this platform, so age alone is "
+                    "not STUCK evidence (E1 noise). --gc retires registry "
+                    "entries verified absent from the live server and "
+                    "unused >24h. Exit 0 when clean, exit 2 when at least "
+                    "one STUCK (status-backed) session exists.")
     p.add_argument("--threshold", type=float, default=STUCK_THRESHOLD_SEC,
                    help="Delay in seconds above which a busy/retry session "
                         "counts as STUCK (default 600 = 10 min)")
     p.add_argument("--format", choices=("text", "json"), default="text")
+    p.add_argument("--gc", action="store_true",
+                   help="Also retire registry orphans VERIFIED absent from "
+                        "the live server (GET /session/{id} -> 404) and "
+                        "unused for >24h")
     a = p.parse_args(args)
     try:
         st = api("GET", "/session/status") or {}
@@ -1817,7 +2274,9 @@ def cmd_stuck(args):
                      "delaySec": delay, "busyAgeSec": age,
                      "objective": meta.get("objective", ""),
                      "verdict": "STUCK" if stuck else "WAIT"})
-    # Also check registry sessions that might be stuck but not in status (orphans)
+    # Registry sessions absent from status: status absence = IDLE (platform
+    # invariant), so these are NOT stuck — they are forgotten bookkeeping.
+    # Report as ORPHAN with a GC hint; they never affect the exit code.
     for sid, meta in reg.items():
         if sid in st:
             continue
@@ -1826,25 +2285,47 @@ def cmd_stuck(args):
             rows.append({"session": sid, "status": "orphan",
                          "delaySec": None, "busyAgeSec": age,
                          "objective": meta.get("objective", ""),
-                         "verdict": "STUCK"})
+                         "verdict": "ORPHAN"})
+    gc_retired, gc_unavail = [], 0
+    if a.gc:
+        try:
+            gc_retired, gc_unavail = gc_orphans()
+        except SystemExit as e:
+            print(f"gc skipped: {e}")
     stuck_rows = [r for r in rows if r["verdict"] == "STUCK"]
+    orphan_rows = [r for r in rows if r["verdict"] == "ORPHAN"]
     if a.format == "json":
         print(json.dumps({"threshold": a.threshold, "sessions": rows,
-                          "stuck": len(stuck_rows)}, indent=1))
+                          "stuck": len(stuck_rows), "orphans": len(orphan_rows),
+                          "gcRetired": [sid for sid, _ in gc_retired],
+                          "gcUnverifiable": gc_unavail}, indent=1))
     else:
         if not rows:
             print(f"OK (all sessions idle, threshold={a.threshold:g}s)")
         for r in rows:
             d = f"{r['delaySec']:.0f}s" if r["delaySec"] is not None else "?"
-            age = f"{r['busyAgeSec']:.0f}s" if r["busyAgeSec"] is not None else "?"
+            age = f"{r['busyAgeSec']:.0f}s" if r['busyAgeSec'] is not None else "?"
             print(f"{r['verdict']} {r['session']} status={r['status']} "
                   f"delay={d} busyAge={age} objective={r['objective'] or '?'}")
             if r["verdict"] == "STUCK":
                 obj = r['objective'] or '<OBJECTIVE>'
                 print(f"  -> migrate: scripts/session-reuse.py migrate "
                       f"{r['session']} --objective \"{obj}\"")
-        if stuck_rows and not rows == stuck_rows:
-            pass
+            elif r["verdict"] == "ORPHAN":
+                print("  -> not stuck (status absence = idle); cleanup: "
+                      "scripts/session-reuse.py stuck --gc")
+        if orphan_rows:
+            print(f"summary: {len(stuck_rows)} STUCK, "
+                  f"{len(orphan_rows)} ORPHAN (run 'stuck --gc' to retire "
+                  f"verified-gone entries)")
+        if gc_retired:
+            print(f"gc: retired {len(gc_retired)} verified-gone entries "
+                  f"(older than 24h): " +
+                  ", ".join(sid for sid, _ in gc_retired[:10]) +
+                  ("..." if len(gc_retired) > 10 else ""))
+        if gc_unavail:
+            print(f"gc: {gc_unavail} aged entries unverifiable (API "
+                  f"unreachable) — kept, never retired blind")
     raise SystemExit(2 if stuck_rows else 0)
 
 
@@ -1868,7 +2349,14 @@ def cmd_migrate(args):
                    help="Observed retry/unavailable delay in seconds "
                         "(used as the dead-model cooldown; default: 3h)")
     p.add_argument("--threshold", type=float, default=STUCK_THRESHOLD_SEC)
+    p.add_argument("--force", action="store_true",
+                   help="Human override: allow selecting a cooldown model "
+                        "(owner directive only; the health store still "
+                        "records the dead model)")
     a = p.parse_args(args)
+    banner = drift_banner()
+    if banner:
+        print(banner)
     reg = load_reg()
     meta = reg["sessions"].get(a.id, {})
     task = a.task or meta.get("task", "<TASK>")
@@ -1885,7 +2373,9 @@ def cmd_migrate(args):
     if old_model:
         excluded.append(old_model)
     # 1. Cooldown memory: explicit --delay wins; else a fresh watchdog
-    # abort record on this session; else 3h default.
+    # abort record on this session; else 3h default. record_dead() never
+    # SHRINKS an existing longer cooldown (re-migrate used to cut a long
+    # provider cooldown back to the 3h default).
     cd = 0
     if a.delay and a.delay > 0:
         cd = a.delay
@@ -1898,23 +2388,25 @@ def cmd_migrate(args):
     if not cd or cd <= 0:
         cd = DEFAULT_COOLDOWN_SEC
     if old_model:
-        h = load_health()
-        h["models"][old_model.lower()] = {
-            "model": old_model, "state": "dead",
-            "deadAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "retryAfter": time.time() + cd,
-            "cooldownSec": cd,
-            "reason": f"migrated from {a.id} delay>{a.threshold:g}s",
-        }
-        save_health(h)
+        record_dead(old_model, cd,
+                    f"migrated from {a.id} delay>{a.threshold:g}s")
     # 2. Runtime rotation that PRESERVES the session: the next Task reuses
     # this task_id with a different subagent_type (per-prompt model).
-    role, model, wait = resolve_next_worker(excluded)
+    # Quota-class pool: if the dead model died of ACCOUNT exhaustion, its
+    # pool siblings are blocked too (E10) — recorded, not silently skipped.
+    role, model, wait = resolve_next_worker(excluded, force=a.force)
     if not role:
         soon, soon_m = wait if wait else (0, "?")
         print(f"paused {a.id} (no healthy worker; session preserved, "
               f"retry {soon_m} in {fmt_dur(soon)})")
         print("genuine wait: do NOT spin fresh Tasks until then; report and wait.")
+        return
+    # Defensive invariant (E4): never hand out a cooldown model without
+    # an explicit --force, even if the ranking logic above is ever broken.
+    rem = cooldown_remaining(model)
+    if rem > 0 and not a.force:
+        print(f"paused {a.id} (internal-error: next worker {model} is in "
+              f"cooldown retry-in {fmt_dur(rem)}; refusing)")
         return
     reg["sessions"][a.id] = {
         "agent": role, "objective": objective, "task": task,
@@ -1952,7 +2444,8 @@ CMDS = {"register": cmd_register, "context": cmd_context, "decide": cmd_decide,
         "link-objective": cmd_link_objective,
         "stalled": cmd_stalled,
         "stuck": cmd_stuck, "migrate": cmd_migrate,
-        "models": cmd_models, "classify-error": cmd_classify_error}
+        "models": cmd_models, "classify-error": cmd_classify_error,
+        "dashboard": cmd_dashboard}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in CMDS:
