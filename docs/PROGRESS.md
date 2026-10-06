@@ -989,3 +989,17 @@ During the post-completion source audit, GPT found two user-facing semantic defe
 **Checkpoint:** implementation committed as 1e735173bc29ae839b6242becaadee5e0d9df9c6; regression contract committed as 38842aa10162d6f5e8f0911f3ad98ddaf22a4b7f.
 
 **Next:** continue auditing Finder for executable gaps rather than treating the previous checklist closure as sufficient.
+
+## 2026-10-06 — Finder Open With implementation (GPT execution, oid OS-finder-final-correction)
+
+**Owner:** GPT.
+
+Source audit found that Finder's context-menu `Open With…` was only an `xdg-open` alias, which launches the default application and therefore did not satisfy the Finder Definition of Done.
+
+Implemented a real lightweight chooser in mv-finder-columns using the existing Gio MIME/application registry: enumerate applications for the selected item's content type, present a native GTK3 chooser, and launch the selected Gio.AppInfo directly. The default-app path is no longer used for Open With.
+
+Added a regression contract requiring Gio application enumeration and selected-app launch and explicitly rejecting the old xdg-open implementation.
+
+**Checkpoint:** implementation `56cf12ab`; regression test `a16ad0f8`.
+
+Next: continue the Finder surface audit for remaining executable semantic gaps.
