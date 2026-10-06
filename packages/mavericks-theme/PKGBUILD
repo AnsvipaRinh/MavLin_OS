@@ -1,7 +1,7 @@
 # Maintainer: Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL>
 pkgname=mavericks-theme
 pkgver=1.0.0
-pkgrel=3
+pkgrel=4
 pkgdesc="OS X 10.9 Mavericks skeuomorphic theme for Xfce/GTK3 - textures, shadows, glass, leather/paper"
 arch=('any')
 url="https://github.com/AnsvipaRinh/MavLinOS"
