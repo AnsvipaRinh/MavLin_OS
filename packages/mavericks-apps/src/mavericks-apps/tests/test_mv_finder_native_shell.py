@@ -24,6 +24,12 @@ def test_finder_native_mavericks_shell_contract():
         assert token in text
     assert 'hb.set_subtitle("Finder")' in text
     assert 'hb.set_subtitle("Column View")' not in text
+    assert "self.set_decorated(True)" in text
+    assert "self.set_titlebar(" not in text
+    assert "Gtk.HeaderBar" not in text
+    assert "self.history = [self.root]" in text
+    assert "from mv_dialogs import alert" in text
+    assert "from mv_dialogs import confirm_delete" in text
 
     
 def test_finder_file_action_contract():
