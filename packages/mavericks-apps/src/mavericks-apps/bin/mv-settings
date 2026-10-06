@@ -55,7 +55,7 @@ import sys
 
 PAGES = [
     ("General", "preferences-system", None, "general"),
-    ("Appearance", "color-picker", ["xfce4-appearance-settings"], None),
+    ("Appearance", "color-picker", None, "appearance"),
     ("Desktop & Screen Saver", "preferences-desktop-wallpaper",
      ["xfce4-desktop-settings"], "desktop_saver"),
     ("Dock", "application-grid", None, "dock"),
@@ -83,7 +83,7 @@ PAGES = [
 
 # Native pane keys that must have a builder (_pane_<key>) in the GUI class.
 NATIVE_PANES = (
-    "general", "desktop_saver", "dock", "mission_control", "language",
+    "general", "appearance", "desktop_saver", "dock", "mission_control", "language",
     "datetime", "security", "energy", "trackpad", "network", "sound", "sharing", "users",
     "unavailable",
 )
@@ -498,6 +498,65 @@ def build_settings_class():
                                     " " + subtitle if subtitle else "")))
 
         # ---------------- native panes ----------------
+        def _pane_appearance(self, _row=None):
+            sw, lb = pane_shell()
+            ch = self._xfconf_channel(XSETTINGS_CHANNEL)
+            if ch is None:
+                lb.add(label_row(
+                    "Appearance unavailable", None,
+                    "The xfconf configuration service is not running. "
+                    "Start the Xfce session once, then reopen this pane."))
+                return sw
+
+            def dir_names(dirs, must_contain=None):
+                found = []
+                for d in dirs:
+                    if not os.path.isdir(d):
+                        continue
+                    for name in sorted(os.listdir(d)):
+                        if name.startswith("."):
+                            continue
+                        if must_contain and not os.path.isdir(
+                                os.path.join(d, name, must_contain)):
+                            continue
+                        if name not in found:
+                            found.append(name)
+                return found
+
+            def combo(current, values, apply_):
+                widget = Gtk.ComboBoxText()
+                for value in values:
+                    widget.append_text(value)
+                if current in values:
+                    widget.set_active(values.index(current))
+                widget.connect("changed", lambda w: apply_(
+                    values[w.get_active()] if w.get_active() >= 0 else None))
+                return widget
+
+            themes = dir_names(THEME_DIRS, "gtk-3.0")
+            icons = dir_names(ICON_THEME_DIRS)
+            lb.add(label_row(
+                "Theme",
+                combo(ch.get_string("ThemeName", "Adwaita"), themes,
+                      lambda value: value and ch.set_string("ThemeName", value)),
+                "GTK theme for windows and controls."))
+            lb.add(label_row(
+                "Icon theme",
+                combo(ch.get_string("IconThemeName", "Adwaita"), icons,
+                      lambda value: value and ch.set_string("IconThemeName", value)),
+                "Icon theme used by GTK applications."))
+            font = Gtk.FontButton(font_name=ch.get_string("FontName", "Sans 10"))
+            font.connect("font-set", lambda widget: ch.set_string(
+                "FontName", widget.get_font_name()))
+            lb.add(label_row(
+                "System font", font,
+                "Font used by the Xfce GTK settings channel."))
+            lb.add(label_row(
+                "Fallback note", None,
+                "Window-manager decorations and panel typography may require "
+                "an application restart or Xfce component reload."))
+            return sw
+
         def _pane_general(self, _row=None):
             sw, lb = pane_shell()
             ch = self._xfconf_channel(XSETTINGS_CHANNEL)
