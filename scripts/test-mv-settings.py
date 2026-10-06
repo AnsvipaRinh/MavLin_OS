@@ -177,6 +177,8 @@ HDMI-1 connected 1280x1024+1920+0 (normal left inverted right x axis y axis) 376
     displays = [r for r in m.PAGES if r[0] == "Displays"][0]
     check("route: Displays uses native pane",
           displays[2] is None and displays[3] == "displays", str(displays))
+    check("route: native pane wins over external availability",
+          m.page_action(displays, tool_available=lambda _cmd: True) == ("pane", "displays"))
     check("native pane registry: Displays is declared",
           "displays" in m.NATIVE_PANES)
     network = [r for r in m.PAGES if r[0] == "Network"][0]\n    sound = [r for r in m.PAGES if r[0] == "Sound"][0]
