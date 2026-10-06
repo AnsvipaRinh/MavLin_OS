@@ -36,6 +36,17 @@ backend = _load_backend()
 RESULT_LIMIT = 8
 
 
+def _icon_widget(item):
+    icon = item.get("icon", "application-x-executable")
+    if isinstance(icon, str) and os.path.isfile(icon):
+        image = Gtk.Image.new_from_file(icon)
+        image.set_pixel_size(34)
+        return image
+    image = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
+    image.set_pixel_size(34)
+    return image
+
+
 def _file_item(path):
     name = os.path.basename(path) or path
     return {
@@ -235,8 +246,7 @@ class SpotlightWindow(Gtk.Window):
                 row.set_selectable(True)
                 row.item = item
                 box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-                image = Gtk.Image.new_from_icon_name(item.get("icon", "application-x-executable"), Gtk.IconSize.DIALOG)
-                image.set_pixel_size(34)
+                image = _icon_widget(item)
                 box.pack_start(image, False, False, 0)
                 text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
                 name = Gtk.Label(label=item.get("name", ""), xalign=0)
@@ -263,7 +273,11 @@ class SpotlightWindow(Gtk.Window):
         self.selected = max(0, min(index, len(rows) - 1))
         self.listbox.select_row(rows[self.selected])
         rows[self.selected].grab_focus()
-        self.listbox.scroll_to(row=rows[self.selected])
+        allocation = rows[self.selected].get_allocation()
+        adjustment = self.scrolled.get_vadjustment()
+        upper = max(0.0, adjustment.get_upper() - adjustment.get_page_size())
+        target = min(max(0.0, allocation.y - 80), upper)
+        adjustment.set_value(target)
 
     def _on_row_activated(self, _listbox, row):
         self._activate(row.item)
