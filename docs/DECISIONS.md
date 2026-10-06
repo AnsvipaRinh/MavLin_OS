@@ -1693,3 +1693,12 @@ Two more findings, both from measuring the frame instead of the config.
 **NEEDS_HARDWARE_TEST updates.** Added checklist items for: Super+[/]/f key synthesis, Return-rename behaviour, MIME default double-click verification, native Space Quick Look limitation, Thunar 4.20 in-window search (Ctrl+F) validation, sidebar shortcuts pane + bookmarks rendering, status bar text.
 
 **Why not fork Thunar for column view / native Space?** Same rationale as prior decisions: ThunarX has no view provider (DECISIONS.md 1440), Space binding needs a C/Vala plugin. The companion browsers (`mv-finder-columns`, `mv-finder-search`) and the UCA Quick Look action cover the user-visible gaps. Rewriting a mature file manager backend for two keybindings contradicts reuse-first (§5) and the energy budget (§7).
+
+
+### 2026-10-06 — Native Settings and Launchpad interaction decisions
+
+**Displays:** System Settings owns a native X11 RandR pane instead of delegating the entire surface to xfce4-display-settings. This closes the core display-management interaction while keeping xrandr as the mature backend.
+
+**Bluetooth:** System Settings now uses BlueZ D-Bus directly for adapter state and basic device actions. `blueman-manager` remains available as an advanced manager rather than being the primary Settings surface. This preserves reuse-first backend architecture without presenting a stock Linux dialog as the Mavericks pane.
+
+**Launchpad folders:** App-to-app drag creates a real persisted folder because this is a core Mavericks Launchpad interaction, not a cosmetic affordance. Folder IDs are generated collision-safely; the two dragged standalone apps become the initial members and their top-level positions are removed.

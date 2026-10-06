@@ -970,3 +970,14 @@ application, menu behavior, and icon grid fidelity on 2304×1440. See
 **Finding:** the current native mv-mc-overview already provides the actual overview surface required by the roadmap: X11 window enumeration, per-window XComposite thumbnails, XDamage-driven live updates while open, Spaces strip with previews, grouped windows, keyboard selection/activation, workspace switching/add/remove, drag-to-Space, and entrance/exit choreography. rofi is only a deterministic fallback when the native surface cannot start; it is not the primary implementation.
 
 **Classification change:** Mission Control is now **IMPLEMENTED — HARDWARE VALIDATION REQUIRED**. No new runtime dependency or daemon was introduced. Remaining validation is genuinely hardware/compositor dependent: thumbnail fidelity, workspace animation, Super+Tab keyboard synthesis and 2304×1440 rendering.
+
+
+---
+
+## Session 2026-10-06 — System Settings and Launchpad continuation
+
+- Native System Settings Displays pane merged: X11 RandR enumeration and user-triggered resolution/rotation/primary actions.
+- Native System Settings Bluetooth pane merged: BlueZ D-Bus adapter power and Pair/Connect/Disconnect device actions; blueman remains optional advanced management.
+- Launchpad native DnD gap closed: dropping one standalone app onto another now creates and persists a folder containing both apps; their standalone positions are removed.
+- Control Center fake Power Mode selector removed in the preceding checkpoint; current mode is explicitly read-only.
+- Mission Control pre-hardware status was audited against the actual native implementation and classified IMPLEMENTED — HARDWARE VALIDATION REQUIRED.
