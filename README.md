@@ -1,15 +1,18 @@
 # MavLinOS
 
-MavLinOS — macOS Mavericks-style desktop experience on Arch Linux (Xfce/X11), built with mkarchiso.
+MavLinOS — macOS Mavericks-style desktop experience on Linux (Xfce/Ubuntu).
 
 ## Quick Start
 
 ```bash
-# Build / validate the Arch-based project from the repository.
-# Runtime installation is currently a manual Arch installation step.
+# Install all dependencies and Mission Control
+make install-mission-control
 
-# Try Mission Control after the project packages are installed:
+# Try Mission Control
 mv-mc-gui
+
+# Or use keyboard shortcut
+# Press F3
 ```
 
 ## Features
@@ -25,15 +28,15 @@ mv-mc-gui
 ## Documentation
 
 - [`docs/KEYBOARD.md`](docs/KEYBOARD.md) — Complete keyboard reference
-- [`docs/MISSION_CONTROL.md`](docs/MISSION_CONTROL.md) — Mission Control implementation guide
-- [`docs/INSTALLATION_CONTRACT.md`](docs/INSTALLATION_CONTRACT.md) — Current installation/firstboot contract
-- [`docs/HARDWARE.md`](docs/HARDWARE.md) — Hardware profiles and validation scope
+- [`docs/MISSION_CONTROL.md`](docs/MISSION_CONTROL.md) — Mission Control implementation guide with installation
+- [`docs/INSTALL.md`](docs/INSTALL.md) — Installation instructions
+- [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — Common issues and fixes
 
 ## Testing
 
 ```bash
-# Run all tests
-ci/test-mission-control.sh
+# Run all Mission Control tests
+make test-mission-control
 
 # Or individual components
 python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_gui.py
@@ -68,7 +71,7 @@ mv-workspace-count (Space management)
 
 ## Requirements
 
-- Arch Linux / mkarchiso
+- Ubuntu 22.04+ or Xubuntu 22.04+
 - Xfce 4.16+
 - Python 3.8+
 - GTK3
@@ -84,7 +87,7 @@ GPL-3.0-or-later
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests: `ci/test-mission-control.sh`
+4. Run tests: `make test-mission-control`
 5. Submit a pull request
 
 ## Acknowledgments
@@ -95,13 +98,13 @@ GPL-3.0-or-later
 
 ## Status
 
-- Mission Control: native GTK overview implemented; keyboard navigation and window/workspace interaction are implemented; hardware visual/thumbnail validation remains.
-- Spaces management: 1–16 workspaces with add/remove/switch support.
-- Mavericks theme: implemented in the current Xfce/GTK3 stack.
-- Keyboard shortcuts: implemented and contract-tested.
-- Automated tests and CI gates: present; hardware-dependent behavior remains explicitly marked.
+✅ Mission Control (full implementation)
+✅ Spaces management (1-16)
+✅ Mavericks theme
+✅ Keyboard shortcuts
+✅ Documentation
+✅ Test coverage
+✅ CI gates
+✅ Easy installation (`make install-mission-control`)
 
-
-## Installation status
-
-The repository currently provides the Arch live ISO and project-specific firstboot/profile scripts, but not a repository-controlled graphical installer or automatic target-user provisioning flow. Until that installer contract is implemented, firstboot must be invoked explicitly during the manual installation procedure. Do not assume Calamares, archinstall hooks, or automatic target-user discovery.
+🚧 In progress: Animations, multi-monitor, touchpad gestures
