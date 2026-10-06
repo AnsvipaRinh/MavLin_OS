@@ -161,6 +161,10 @@ def test_pure():
           and 'Gtk.MenuItem(label="Quick Look")' in source
           and 'mv-quicklook", path' in source
           and 'key in ("space", "Space")' in source)
+    check("contract: Finder history stores complete column chains",
+          "self.history = [[self.root]]" in source
+          and "self.history = self.history[:self.history_index + 1] + [new_chain]" in source
+          and "self.chain = self.history[self.history_index].copy()" in source)
     check("contract: drag-and-drop move implementation remains present",
           'selection_data.set_uris' in source
           and 'shutil.move(source_abs, destination)' in source
