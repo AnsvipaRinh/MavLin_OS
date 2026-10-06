@@ -14,7 +14,7 @@ windowframe {
         shade($window_bg_color, 0.98)
     );
     border: 1px solid shade($window_bg_color, 0.7);
-    border-radius: 4px 4px 0 0;
+    border-radius: 3px 3px 0 0;
     box-shadow: $window_shadow;
 
     /* Top resize area */
@@ -125,7 +125,7 @@ window {
 
 window.csd {
     /* Client-side decoration */
-    border-radius: 4px;
+    border-radius: 3px;
     box-shadow: $window_shadow;
 }
 
@@ -175,7 +175,7 @@ dialog .dialog-action-area button.destructive-action {
 
 messagedialog {
     background-color: $window_bg_color;
-    border-radius: 6px;
+    border-radius: 4px;
     box-shadow: $window_shadow;
 }
 
