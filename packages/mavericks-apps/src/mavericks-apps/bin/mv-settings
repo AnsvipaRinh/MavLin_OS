@@ -72,7 +72,7 @@ PAGES = [
     ("Mouse", "input-mouse", ["xfce4-mouse-settings"], None),
     ("Trackpad", "preferences-desktop-mouse", ["xfce4-mouse-settings"], "trackpad"),
     ("Sound", "preferences-desktop-sound", ["pavucontrol"], None),
-    ("Network", "computer", ["nm-connection-editor"], None),
+    ("Network", "computer", None, "network"),
     ("Bluetooth", "audio-x-generic", ["blueman-manager"], None),
     ("Sharing", "emblem-shared", None, "sharing"),
     ("Users", "dialog-password", None, "users"),
@@ -84,7 +84,7 @@ PAGES = [
 # Native pane keys that must have a builder (_pane_<key>) in the GUI class.
 NATIVE_PANES = (
     "general", "desktop_saver", "dock", "mission_control", "language",
-    "datetime", "security", "energy", "trackpad", "sharing", "users",
+    "datetime", "security", "energy", "trackpad", "network", "sharing", "users",
     "unavailable",
 )
 
@@ -761,6 +761,83 @@ def build_settings_class():
                 self._spawn_row(lb, "Mouse settings",
                                 ["xfce4-mouse-settings"])
             return sw
+
+        def _pane_network(self, _row=None):
+            sw, lb = pane_shell()
+
+            def nmcli(*args):
+                try:
+                    return subprocess.run(
+                        ["nmcli", "-t", *args],
+                        capture_output=True, text=True, timeout=3).stdout.strip()
+                except Exception:
+                    return ""
+
+            status = nmcli("-f", "WIFI,WWAN", "radio")
+            if status:
+                wifi, _, wwan = status.partition("\n")
+                lb.add(label_row(
+                    "Wi-Fi", value_label(wifi.split(":")[-1] or "unknown"),
+                    "NetworkManager radio state. Changes are made in Control Center."))
+
+            rows = []
+            raw = nmcli("-f", "NAME,TYPE,DEVICE", "connection", "show")
+            for line in raw.splitlines():
+                parts = line.split(":", 2)
+                if len(parts) != 3:
+                    continue
+                name, kind, device = parts
+                if name:
+                    rows.append((name, kind, device))
+
+            if not rows:
+                lb.add(label_row(
+                    "NetworkManager", value_label("unavailable"),
+                    "No saved connections could be read from NetworkManager."))
+            else:
+                for name, kind, device in rows:
+                    connected = device not in ("", "--", "none")
+                    button = Gtk.Button(label="Disconnect" if connected else "Connect")
+                    button.set_size_request(90, -1)
+                    if connected:
+                        button.connect(
+                            "clicked",
+                            lambda _b, n=name: self._nm_connection_down(n))
+                    else:
+                        button.connect(
+                            "clicked",
+                            lambda _b, n=name: self._nm_connection_up(n))
+                    detail = kind
+                    if device not in ("", "--", "none"):
+                        detail += " · " + device
+                    lb.add(label_row(
+                        name, button,
+                        detail + (" · active" if connected else "")))
+
+            advanced = Gtk.Button(label="Advanced Network Settings…")
+            advanced.connect("clicked", lambda _b: self.launch(
+                ["nm-connection-editor"]))
+            lb.add(label_row(
+                "Network profiles", advanced,
+                "Edit saved connections, IPv4/IPv6, DNS and proxy settings."))
+
+            return sw
+
+        def _nm_connection_up(self, name):
+            try:
+                subprocess.Popen(
+                    ["nmcli", "connection", "up", "id", name],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as e:
+                self._show_error("Network", str(e))
+
+        def _nm_connection_down(self, name):
+            try:
+                subprocess.Popen(
+                    ["nmcli", "connection", "down", "id", name],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as e:
+                self._show_error("Network", str(e))
 
         def _pane_sharing(self, _row=None):
             sw, lb = pane_shell()
