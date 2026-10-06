@@ -9,6 +9,7 @@
 @import "../gtk-3.0/windows";
 @import "../gtk-3.0/notebook";
 @import "../gtk-3.0/menus";
+@import "../gtk-3.0/panel";
 /* ============================================================
    GTK 3.20+ SPECIFIC OVERRIDES
    ============================================================ */
@@ -190,5 +191,30 @@ levelbar {
             shade($destructive_bg_color, 1.1),
             shade($destructive_bg_color, 0.9)
         );
+    }
+}
+/* ============================================================
+   VIEW TEXT LEGIBILITY (Finder lists / icon labels).
+   Without an explicit rule the 3.20 stylesheet carries no view
+   text color at all — rows inherit a light default and render
+   illegibly on the light view background (observed in Thunar).
+   ============================================================ */
+treeview,
+iconview {
+    background-color: $view_bg_color;
+    color: #2d2d2d;
+
+    row:selected {
+        background-color: $theme_selected_bg_color;
+        color: $theme_selected_fg_color;
+    }
+
+    row:hover:not(:selected) {
+        background-color: shade($view_bg_color, 1.02);
+    }
+
+    /* Mavericks does not ring the whole view in the focus color */
+    &:focus {
+        outline: none;
     }
 }
