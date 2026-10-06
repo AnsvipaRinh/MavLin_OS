@@ -1,32 +1,79 @@
-                break
-            mods.append(m.group(1))
-            unescaped = unescaped[len(m.group(0)):]
-        key = unescaped
-        if not key:
-            raise ValueError("accelerator has modifiers but no key: %r" % accel)
-        if not is_valid_key(key):
-            raise ValueError("invalid key: %r" % key)
-        return {"modifiers": normalize_modifiers(mods), "key": key}
+                     else load_overrides(path))
+    overrides.pop(action_id, None)
+    save_overrides(overrides, path)
+    return overrides
 
-    parts = [p.strip() for p in s.split("+") if p.strip()]
-    if len(parts) == 1:
-        # A lone hardware keysym (XF86AudioMute, XF86MonBrightnessUp, …) is
-        # a valid accelerator: the function row has no modifiers.
-        if _XF86_RE.match(parts[0]) and parts[0] in MEDIA_KEYS:
-            return {"modifiers": [], "key": parts[0]}
-        raise ValueError(
-            "accelerator needs at least one modifier, e.g. Super+Space")
-    mods, raw_key = parts[:-1], parts[-1]
-    canonical = normalize_modifiers(mods)
-    if _XF86_RE.match(raw_key):
-        key = raw_key
-    elif len(raw_key) == 1 and raw_key.isalnum():
-        key = raw_key.lower()
-    elif _KEY_FN_RE.match(raw_key):
-        key = "F" + _KEY_FN_RE.match(raw_key).group(1)
-    elif raw_key in NAMED_KEYS or raw_key in MEDIA_KEYS:
-        key = raw_key
-    else:
-        # Named keys are case-sensitive in X11 but users type them in any
-        # case; accept the exact-name lookup case-insensitively.
-        lowered = {k.lower():
+
+def clear_override_all(path=None):
+    """Drop every user override and restore factory state live."""
+    overrides = load_overrides(path)
+    changed = list(overrides)
+    for action_id in changed:
+        _steps, overrides = reset_action(action_id, overrides, path)
+    if not changed:
+        save_overrides({}, path)
+    return overrides
+
+
+# ---------------------------------------------------------------------------
+# Live channel access (xfconf-query).  One-shot, no daemon.
+# ---------------------------------------------------------------------------
+
+class XfconfUnavailable(RuntimeError):
+    """xfconf-query missing or the channel is not running."""
+
+
+def _run(args, timeout=5):
+    cmd = ["xfconf-query", "-c", CHANNEL] + args
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              timeout=timeout)
+    except FileNotFoundError:
+        raise XfconfUnavailable("xfconf-query not found")
+    except subprocess.TimeoutExpired:
+        raise XfconfUnavailable("xfconf-query timed out")
+    if proc.returncode != 0:
+        raise XfconfUnavailable(proc.stderr.strip() or "xfconf-query failed")
+    return proc.stdout
+
+
+def live_available():
+    try:
+        _run(["-l"], timeout=5)
+    except XfconfUnavailable:
+        return False
+    return True
+
+
+def live_raw():
+    """Live properties keyed by their RAW X property path.
+
+    Writes must use these exact strings; X treats the property name as an
+    opaque string, so the order-insensitive canonical form is only for
+    comparisons.
+    """
+    text = _run(["-l", "-v"])  # -v: without it xfconf-query prints names only
+    out = {}
+    for line in text.splitlines():
+        # `-v` output is column-padded, not "key = value": split on the first
+        # run of whitespace.  Values may themselves contain spaces.
+        parts = line.strip().split(None, 1)
+        if len(parts) != 2:
+            continue
+        path, value = parts
+        if "/default/" in path:
+            out[path.strip()] = value.strip()
+    return out
+
+
+def live_list():
+    """Live properties keyed by canonical (order-insensitive) path."""
+    return {canonical_property(p): v for p, v in live_raw().items()}
+
+
+def live_get(path):
+    try:
+        return _run(["-p", path, "-g"]).strip()
+    except XfconfUnavailable:
+        return None
+
