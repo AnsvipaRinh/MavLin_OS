@@ -197,6 +197,38 @@ def _build_entry_dialog(parent, title, label=None, initial="",
     return dlg, entry, ok
 
 
+def password_dialog(parent, title, label=None, ok_label="OK"):
+    """Mavericks-style password prompt. Returns text or None on cancel."""
+    _validate_alert_args(title, [("Cancel", Gtk.ResponseType.CANCEL),
+                                 (ok_label, Gtk.ResponseType.OK)])
+    dlg = Gtk.MessageDialog(
+        transient_for=parent, modal=True,
+        message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.NONE,
+        text=title)
+    if label:
+        dlg.format_secondary_text(label)
+    dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
+    dlg.add_button(ok_label, Gtk.ResponseType.OK)
+    dlg.set_default_response(Gtk.ResponseType.OK)
+    entry = Gtk.Entry()
+    entry.set_visibility(False)
+    entry.set_invisible_char("●")
+    entry.set_activates_default(True)
+    area = dlg.get_message_area()
+    if isinstance(area, Gtk.Box):
+        area.set_spacing(8)
+    area.pack_start(entry, False, False, 0)
+    _enlarge_icon(dlg, ALERT_ICON_SIZE)
+    dlg.get_style_context().add_class("mavericks-alert")
+    _map_escape(dlg, Gtk.ResponseType.CANCEL)
+    dlg.show_all()
+    entry.grab_focus()
+    response = dlg.run()
+    value = entry.get_text()
+    dlg.destroy()
+    return value if response == Gtk.ResponseType.OK and value else None
+
+
 def entry_dialog(parent, title, label=None, initial="", ok_label="OK",
                  allow_empty=False, validator=None, width_chars=32):
     """Mavericks-style text-input alert. validator(text) -> error string or
