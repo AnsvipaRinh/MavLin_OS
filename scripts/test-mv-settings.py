@@ -159,6 +159,11 @@ def main():
     check("route: native pane wins over everything",
           m.page_action(general) == ("pane", "general"))
     displays = [r for r in m.PAGES if r[0] == "Displays"][0]
+    appearance = next(row for row in m.PAGES if row[0] == "Appearance")
+    check("route: Appearance uses native pane",
+          appearance[2] is None and appearance[3] == "appearance", str(appearance))
+    check("native pane registry: Appearance is declared",
+          "appearance" in m.NATIVE_PANES)
     check("route: available external tool -> launch",
           m.page_action(displays) == ("launch", ["xfce4-display-settings"]))
     network = [r for r in m.PAGES if r[0] == "Network"][0]\n    sound = [r for r in m.PAGES if r[0] == "Sound"][0]
