@@ -53,6 +53,13 @@ SKEL_XFWM4 = os.path.join(
     REPO, "archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/"
           "xfce-perchannel-xml/xfwm4.xml")
 
+PACKAGED_KEYS_XML = os.path.join(
+    REPO, "packages/mavericks-apps/src/mavericks-apps/config/"
+          "xfce4-keyboard-shortcuts.xml")
+SKEL_KEYS_XML = os.path.join(
+    REPO, "archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/"
+          "xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml")
+
 SCREEN_W, SCREEN_H = 1680, 1050
 
 errors = []
@@ -301,6 +308,79 @@ def audit_config():
             fail("xfwm4 %s=%s, expected %s" % (key, value, want))
     ok("focus-follows-click model, centred title, zoom-on-double-click and "
        "compositing (for shadows) all set as Mavericks needs")
+
+
+def audit_window_bindings():
+    """The macOS window operations this layer owns must be bound exactly once.
+
+    Window Management (#25) does not own the hotkey registry — mv_hotkeys_core
+    does — so these bindings are asserted *through* the registry: the same
+    accelerator must appear exactly once across every managed action, and it
+    must be an xfwm4-branch action (xfwm4's own key handler, no resident
+    process).  A second row with the same chord would make one of them dead.
+    """
+    core_path = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/lib",
+                             "mv_hotkeys_core.py")
+    if not os.path.isfile(core_path):
+        fail("mv_hotkeys_core.py is missing — window bindings cannot be checked")
+        return
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("mv_hotkeys_core", core_path)
+    core = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(core)
+
+    wanted = {
+        "switch_window_key": "Super+grave",      # macOS Command-`
+        "fullscreen_key": "Super+Ctrl+F",        # macOS Control-Command-F
+    }
+    seen = {}
+    for row in core.ACTIONS:
+        accel = core.modifier_identity(
+            core.normalize_accelerator(row)["modifiers"])
+        seen.setdefault((accel, core.normalize_accelerator(row)["key"]),
+                        []).append(row["action"])
+    for command, expected in wanted.items():
+        rows = [r for r in core.ACTIONS if r["command"] == command]
+        if len(rows) != 1:
+            fail("%s is bound %d times in the registry, expected once"
+                 % (command, len(rows)))
+            continue
+        row = rows[0]
+        got = core.display_accelerator(row)
+        accel = core.modifier_identity(
+            core.normalize_accelerator(row)["modifiers"])
+        if got != expected:
+            fail("%s is bound to %s, expected %s" % (command, got, expected))
+            continue
+        if row["branch"] != core.BRANCH_XFWM4:
+            fail("%s must live in the xfwm4 branch (xfwm4's own key handler), "
+                 "not %s" % (command, row["branch"]))
+            continue
+        key = (accel, core.normalize_accelerator(row)["key"])
+        clashes = [a for a in seen.get(key, []) if a != row["action"]]
+        if clashes:
+            fail("%s (%s) collides with %s — one of them can never fire"
+                 % (command, got, ", ".join(clashes)))
+            continue
+        ok("%s bound once to %s (macOS equivalent), xfwm4 branch"
+           % (command, got))
+
+    # The two chords must also be present in both shipped XML copies.
+    for path in (PACKAGED_KEYS_XML, SKEL_KEYS_XML):
+        text = open(path, encoding="utf-8").read()
+        for command, expected in wanted.items():
+            needle = 'value="%s"' % command
+            if needle not in text:
+                fail("%s missing from %s" % (command, os.path.basename(path)))
+        if text.count('value="switch_window_key"') != 1 or \
+                text.count('value="fullscreen_key"') != 1:
+            fail("%s does not carry each new binding exactly once"
+                 % os.path.basename(path))
+    if open(PACKAGED_KEYS_XML, encoding="utf-8").read() == \
+            open(SKEL_KEYS_XML, encoding="utf-8").read():
+        ok("both keyboard-shortcuts mirrors carry the new window bindings")
+    else:
+        fail("packaged and skel keyboard-shortcuts XML differ")
 
 
 # ---------------------------------------------------------------------------
@@ -702,6 +782,7 @@ def main():
             break
     audit_xpm_integrity()
     audit_config()
+    audit_window_bindings()
     if not (have("xfwm4") and have("xwininfo") and have("xdotool") and have("xprop")):
         print("\n%d checks, %d failures (live half skipped)" % (checks[0], len(errors)))
         return 1 if errors else 0

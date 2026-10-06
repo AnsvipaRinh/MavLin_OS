@@ -91,6 +91,20 @@ shortcuts or the hardware function row:
 | Super+Down | Minimise Window (wm) | — | xfwm4 tile_down_key |
 | Super+Left | Tile Window Left Half | — | xfwm4 tile_left_key |
 | Super+Right | Tile Window Right Half | — | xfwm4 tile_right_key |
+| Super+` | Cycle Windows of This Application | Cmd+` | xfwm4 switch_window_key |
+| Super+Ctrl+F | Full Screen | Ctrl+Cmd+F | xfwm4 fullscreen_key |
+
+The registry spells the first one `Super+grave` (the X keysym for the backquote
+key); `Super+`` and `Super+Ctrl+F` are the two window-manager actions macOS has and
+this layer did not: Alt+Tab only cycles across applications, so a multi-window
+application (Settings, TextEdit with several documents) had no keyboard route to
+its own windows. Both run inside xfwm4's key handler, so neither adds a resident
+process.
+
+These bindings are the *window-manager* actions only. Drag-to-edge snapping and
+tile-on-drop are a different feature and are deliberately off (`snap_to_windows`,
+`snap_to_border`, `tile_on_move` in `configs/desktop/xfce/xfwm4.xml`): macOS
+never resizes a window you merely dragged next to something.
 
 ## Spaces
 

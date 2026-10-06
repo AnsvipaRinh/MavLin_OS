@@ -212,6 +212,18 @@ ACTIONS = [
       "window", skill="window", branch=BRANCH_XFWM4),
     A("tile-right", "Tile Window Right Half", ["Super"], "Right",
       "tile_right_key", "window", skill="window", branch=BRANCH_XFWM4),
+    # macOS Command-` cycles the windows of the frontmost application.  xfwm4
+    # already implements it as switch_window_key; before this it was unbound, so
+    # the closest thing to a Command-Tab-style window switch only reached across
+    # applications (Alt-Tab).  xfwm4's own key handler runs it, so it costs no
+    # resident process.
+    A("cycle-app-windows", "Cycle Windows of This Application (Command-`)",
+      ["Super"], "grave", "switch_window_key", "window", skill="window",
+      branch=BRANCH_XFWM4, rebindable=False),
+    # macOS Control-Command-F puts the focused window in its own full-screen
+    # Space.  xfwm4 exposes the same thing as fullscreen_key; unbound before.
+    A("fullscreen", "Full Screen (Control-Command-F)", ["Super", "Primary"],
+      "f", "fullscreen_key", "window", skill="window", branch=BRANCH_XFWM4),
 
     # --- Spaces (xfwm4 branch) --------------------------------------------
     A("workspace-prev", "Move to Previous Space", ["Super", "Alt"], "Left",

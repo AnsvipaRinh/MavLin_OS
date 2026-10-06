@@ -61,6 +61,8 @@
       <property name="&lt;Super&gt;2" type="string" value="workspace_2_key"/>
       <property name="&lt;Super&gt;3" type="string" value="workspace_3_key"/>
       <property name="&lt;Super&gt;4" type="string" value="workspace_4_key"/>
+      <property name="&lt;Super&gt;grave" type="string" value="switch_window_key"/>
+      <property name="&lt;Super&gt;&lt;Control&gt;f" type="string" value="fullscreen_key"/>
     </property>
   </property>
 </channel>
