@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""mv-empty-trash — Empty Trash with a Mavericks confirmation alert.
+
+Empty Trash used to be bound straight to `trash-empty`, which is immediate,
+silent and irreversible. This helper shows Finder's confirmation first:
+
+  "Are you sure you want to permanently erase the items in the Trash?"
+
+Cancel is the default action. `--yes` is the only non-interactive path and
+is deliberately not bound to a keyboard shortcut.
+
+License: GPL-2.0-or-later.
+"""
+from __future__ import print_function
+
+import argparse
+import os
+import shutil
+import subprocess
+import sys
+
+
+def trash_dir():
+    home = os.path.expanduser("~")
+    return os.path.join(home, ".local", "share", "Trash", "files")
+
+
+def count_items():
+    path = trash_dir()
+    if not os.path.isdir(path):
+        return 0
+    try:
+        return len([n for n in os.listdir(path) if not n.startswith(".")])
+    except OSError:
+        return 0
+
+
+def empty_trash():
+    """Permanently erase Trash contents. Prefer trash-empty, then direct remove."""
+    if shutil.which("trash-empty"):
+        return subprocess.call(["trash-empty"])
+    files = trash_dir()
+    info = os.path.join(os.path.expanduser("~"), ".local", "share", "Trash", "info")
+    for root in (files, info):
+        if not root or not os.path.isdir(root):
+            continue
+        for name in os.listdir(root):
+            target = os.path.join(root, name)
+            try:
+                if os.path.isdir(target) and not os.path.islink(target):
+                    shutil.rmtree(target)
+                else:
+                    os.remove(target)
+            except OSError as exc:
+                print("mv-empty-trash: %s" % exc, file=sys.stderr)
+    return 0
+
+
+def confirm_and_empty():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+
+    n = count_items()
+    if n == 0:
+        dialog = Gtk.MessageDialog(
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            text="The Trash is empty.",
+        )
+        dialog.set_title("Empty Trash")
+        dialog.run()
+        dialog.destroy()
+        return 0
+
+    if n == 1:
+        body = "Are you sure you want to permanently erase the item in the Trash?"
+    else:
+        body = (
+            "Are you sure you want to permanently erase the %d items "
+            "in the Trash?" % n
+        )
+
+    dialog = Gtk.MessageDialog(
+        message_type=Gtk.MessageType.WARNING,
+        text=body,
+    )
+    dialog.set_title("Empty Trash")
+    dialog.format_secondary_text("You can't undo this action.")
+    dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+    empty_btn = dialog.add_button("Empty Trash", Gtk.ResponseType.OK)
+    dialog.set_default_response(Gtk.ResponseType.CANCEL)
+    empty_btn.get_style_context().add_class("destructive-action")
+
+    response = dialog.run()
+    dialog.destroy()
+    if response != Gtk.ResponseType.OK:
+        return 0
+    return empty_trash()
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Empty Trash (with confirmation)")
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="skip confirmation (not bound to any hotkey)",
+    )
+    args = parser.parse_args(argv)
+    if args.yes:
+        return empty_trash()
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        print(
+            "mv-empty-trash: no display; pass --yes to empty without confirmation",
+            file=sys.stderr,
+        )
+        return 2
+    return confirm_and_empty()
+
+
+if __name__ == "__main__":
+    sys.exit(main() or 0)
