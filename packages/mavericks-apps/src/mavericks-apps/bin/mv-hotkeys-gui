@@ -136,19 +136,39 @@ def build_class():
             self.sidebar_rows = []
             self.bindings = {}
 
-            hb = Gtk.HeaderBar(title="Keyboard Shortcuts",
-                               show_close_button=True)
-            self.set_titlebar(hb)
+            # Use the real XFWM4 Mavericks titlebar. Controls that belong to
+            # the application live in an ordinary in-window toolbar instead of
+            # GTK CSD/HeaderBar chrome.
+            self.set_decorated(True)
+            toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            toolbar.get_style_context().add_class("mavericks-hotkeys-toolbar")
+
+            title = Gtk.Label(label="Keyboard Shortcuts")
+            title.set_xalign(0.0)
+            title.set_margin_start(10)
+            title.get_style_context().add_class("mavericks-toolbar-title")
+            toolbar.pack_start(title, False, False, 0)
+
             reset_all = Gtk.Button(label="All Defaults")
             reset_all.set_tooltip_text("Restore every shortcut to factory")
             reset_all.connect("clicked", self.on_reset_all)
-            hb.pack_start(reset_all)
+            toolbar.pack_start(reset_all, False, False, 0)
+
+            spacer = Gtk.Box()
+            spacer.set_hexpand(True)
+            toolbar.pack_start(spacer, True, True, 0)
+
             search = Gtk.SearchEntry(placeholder_text="Search shortcuts")
+            search.set_size_request(220, -1)
             search.connect("search-changed", self.on_search)
-            hb.pack_end(search)
+            toolbar.pack_end(search, False, False, 6)
             self.search = search
 
-            outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+            outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            outer.pack_start(toolbar, False, False, 0)
+
+            content = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+            outer.pack_start(content, True, True, 0)
             self.add(outer)
 
             # Category sidebar (mavlinos look: compact list rows, icons)
@@ -192,8 +212,8 @@ def build_class():
             sidebar_list.show_all()
             if self.sidebar_rows:
                 sidebar_list.select_row(self.sidebar_rows[0])
-            outer.pack_start(sidebar, False, False, 0)
-            outer.pack_start(self.stack, True, True, 0)
+            content.pack_start(sidebar, False, False, 0)
+            content.pack_start(self.stack, True, True, 0)
 
             self.refresh(self.skills[0]["id"] if self.skills else None)
 
