@@ -2,10 +2,10 @@
 # Button layout: close/minimize/maximize LEFT (traffic lights), title centered
 # Full button state support: active, inactive, pressed, prelight, toggled
 
-button_layout=CHM|:
+button_layout=CHM|
 title_alignment=center
 full_width_title=true
-title_font=San Francisco 11
+title_font=Lucida Grande 11
 title_text_color=#333333
 title_text_shadow_color=#ffffff
 title_shadow_active=true
@@ -38,7 +38,7 @@ title_horizontal_offset=0
 title_vertical_offset_active=2
 title_vertical_offset_inactive=2
 
-# Shadow
+# Shadow (xfwm4 compositor shadows; heavy effects stay off)
 shadow_delta_height=6
 shadow_delta_width=6
 shadow_delta_x=0

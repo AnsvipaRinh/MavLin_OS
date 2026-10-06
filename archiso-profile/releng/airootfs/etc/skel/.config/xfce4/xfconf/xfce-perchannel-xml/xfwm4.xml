@@ -6,11 +6,24 @@
 <channel name="xfwm4" version="1.0">
   <property name="general" type="empty">
     <property name="theme" type="string" value="Mavericks"/>
-    <property name="title_font" type="string" value="San Francisco 11"/>
+    <!-- Title bars must be set in the same face as every application window
+         body, or the desktop reads as two different systems. This is the
+         string xsettings.xml sets for Gtk/FontName; macOS 10.9 used Lucida
+         Grande (San Francisco only arrived in 10.11 and is proprietary, so
+         naming it here was both anachronistic and unresolvable). -->
+    <property name="title_font" type="string" value="Lucida Grande 11"/>
     <!-- Mavericks traffic lights: Close / Hide / Maximize on the left. -->
     <property name="button_layout" type="string" value="CHM|"/>
     <property name="title_alignment" type="string" value="center"/>
     <property name="double_click_action" type="string" value="maximize"/>
+    <!-- macOS has no tiling and no edge snapping: dragging a window to a screen
+         edge leaves it exactly where it was dropped. xfwm4 4.20 has both
+         features and defaults differ between builds, so they are pinned off
+         rather than inherited (measured: these are live properties on the
+         xfconf channel, see scripts/test-window-management-gui.py). -->
+    <property name="snap_to_windows" type="bool" value="false"/>
+    <property name="snap_to_border" type="bool" value="false"/>
+    <property name="tile_on_move" type="bool" value="false"/>
     <!-- Global AppMenu owns the top application menu; maximized windows must not retain a duplicate title bar. -->
     <property name="titleless_maximize" type="bool" value="true"/>
     <property name="show_dock_shadow" type="bool" value="true"/>
@@ -41,5 +54,10 @@
     <property name="raise_on_click" type="bool" value="true"/>
     <property name="raise_on_focus" type="bool" value="false"/>
     <property name="raise_with_any_button" type="bool" value="true"/>
+    <!-- macOS click-to-focus model: a newly opened window takes focus, and
+         the window switcher lists minimised windows rather than hiding them. -->
+    <property name="focus_new" type="bool" value="true"/>
+    <property name="cycle_hidden" type="bool" value="true"/>
+    <property name="cycle_minimized" type="bool" value="true"/>
   </property>
 </channel>

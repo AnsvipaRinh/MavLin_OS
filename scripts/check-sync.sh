@@ -150,6 +150,24 @@ if [[ -f scripts/test-theme-css.py ]]; then
   python3 scripts/test-theme-css.py && ok "theme-css" || bad "theme-css"
 fi
 
+echo "--- window management P0 (canonical #25): live xfwm4 ---"
+# The window chrome shipped here once claimed 67 working button pixmaps while
+# 40 of them could not be decoded by GdkPixbuf, so no close/minimise/zoom button
+# ever appeared.  Reading the config cannot catch that: this gate starts the real
+# xfwm4 on the pinned Xvfb, measures the traffic lights in the rendered title bar
+# and clicks them, and runs two differential controls (no button pixmaps /
+# snapping enabled) so the assertions cannot pass vacuously.
+if [[ -f scripts/test-window-management-gui.py ]]; then
+  WM_OUT="$(mktemp)"
+  if timeout 400 python3 scripts/test-window-management-gui.py >"$WM_OUT" 2>&1; then
+    ok "window management P0: $(grep -c '^ok - ' "$WM_OUT") live assertions"
+  else
+    bad "window management P0"
+    grep -E '^FAIL' "$WM_OUT" | sed 's/^/    | /'
+  fi
+  rm -f "$WM_OUT"
+fi
+
 echo "--- file chooser theme (canonical #21) ---"
 # Two halves, because the first one cannot catch the failure this gate exists
 # for: GTK3 ignores a selector that matches nothing, so a filechooser block
