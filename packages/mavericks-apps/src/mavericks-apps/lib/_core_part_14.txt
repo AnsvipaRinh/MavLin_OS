@@ -1,0 +1,42 @@
+cel["modifiers"]]
+    if accel["key"] in ("space",):
+        labels.append("Space")
+    elif _KEY_FN_RE.match(accel["key"]):
+        labels.append(accel["key"])
+    elif _KEY_CHAR_RE.match(accel["key"]):
+        labels.append(accel["key"].upper())
+    else:
+        labels.append(accel["key"])
+    return "+".join(labels)
+
+
+def action_accelerator(action_id, overrides=None):
+    """Effective accelerator of an action: factory, or the user override."""
+    row = ACTION_INDEX[action_id]
+    override = (overrides or {}).get(action_id)
+    if override:
+        return normalize_accelerator(override.get("accelerator", {}))
+    return {"modifiers": list(row["modifiers"]), "key": row["key"]}
+
+
+def action_command(action_id, overrides=None):
+    row = ACTION_INDEX[action_id]
+    override = (overrides or {}).get(action_id)
+    if override and override.get("command"):
+        return override["command"]
+    return row["command"]
+
+
+def effective_bindings(overrides=None):
+    """action id -> {'modifiers','key','command','branch','label',...}."""
+    out = {}
+    for row in ACTIONS:
+        aid = row["action"]
+        out[aid] = {
+            "action": aid,
+            "label": row["label"],
+            "group": row["group"],
+            "skill": row["skill"],
+            "branch": row["branch"],
+            "protected": row["protected"] or not row["rebindable"],
+            "overridden": bool((ov
