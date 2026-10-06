@@ -318,8 +318,11 @@ class ColorMeterWindow(Gtk.Window):
 
         self.apply_css()
 
-        hb = Gtk.HeaderBar(title="Digital Color Meter", show_close_button=True)
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hb.get_style_context().add_class("mavericks-mv-colormeter-toolbar")
+        title_label = Gtk.Label(label="Digital Color Meter")
+        hb.pack_start(title_label, True, True, 8)
 
         self.copy_btn = Gtk.Button.new_from_icon_name(
             "edit-copy", Gtk.IconSize.SMALL_TOOLBAR)
@@ -348,7 +351,10 @@ class ColorMeterWindow(Gtk.Window):
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         vbox.set_border_width(14)
-        self.add(vbox)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.pack_start(hb, False, False, 0)
+        root.pack_start(vbox, True, True, 0)
+        self.add(root)
 
         self.swatch_area = Gtk.DrawingArea()
         self.swatch_area.set_size_request(-1, 90)
