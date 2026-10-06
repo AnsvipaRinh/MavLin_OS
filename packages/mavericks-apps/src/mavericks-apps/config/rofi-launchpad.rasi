@@ -4,7 +4,7 @@
  * transition-duration, margin, font-weight) must not appear: rofi refuses
  * to start the mode and shows a parse-error dialog instead. */
 * {
-    font: "Helvetica Neue 11";
+    font: "Lucida Grande 11";
     text-color: #ffffff;
     background-color: rgba (30, 30, 30, 92%);
     selected-text-color: #ffffff;
@@ -99,7 +99,7 @@ element-text {
     horizontal-align: 0.5;
     vertical-align: 0.95;
     text-color: #ffffff;
-    font: "Helvetica Neue 10";
+    font: "Lucida Grande 10";
 }
 
 element-icon {
