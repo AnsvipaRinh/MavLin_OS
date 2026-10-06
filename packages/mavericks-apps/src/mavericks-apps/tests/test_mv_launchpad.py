@@ -471,6 +471,54 @@ def test_corrupt_folder_config_is_not_overwritten():
     print("PASS: test_corrupt_folder_config_is_not_overwritten")
 
 
+def test_native_drag_helpers():
+    """Native Launchpad drag helpers must reorder and move apps deterministically."""
+    source = open(SCRIPT).read()
+    assert "def reorder_launchpad_apps(apps, source_id, destination_id):" in source
+    assert "def positions_for_launchpad_apps(apps):" in source
+    assert "def move_app_to_folder(folders, app_id, folder_id):" in source
+
+    namespace = {}
+    prefix = source[:source.index("def main():")]
+    exec(prefix, namespace)
+
+    apps = [{"id": "A"}, {"id": "B"}, {"id": "C"}]
+    reordered = namespace["reorder_launchpad_apps"](apps, "B", "A")
+    assert [item["id"] for item in reordered] == ["B", "A", "C"]
+    assert namespace["reorder_launchpad_apps"](apps, "A", "missing") == apps
+    assert namespace["reorder_launchpad_apps"](apps, "A", "A") == apps
+    assert namespace["positions_for_launchpad_apps"](reordered) == {
+        "B": 0, "A": 1, "C": 2
+    }
+
+    folders = {
+        "Utilities": {"name": "Utilities", "apps": ["A", "C"]},
+        "Other": {"name": "Other", "apps": ["B"]},
+    }
+    moved = namespace["move_app_to_folder"](folders, "B", "Utilities")
+    assert moved["Utilities"]["apps"] == ["A", "C", "B"]
+    assert moved["Other"]["apps"] == []
+    assert folders["Other"]["apps"] == ["B"], "helper must not mutate input"
+
+    print("PASS: test_native_drag_helpers")
+
+
+def test_native_drag_drop_contract():
+    """GTK surface must expose native app drag source and app/folder drop targets."""
+    gui_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "bin", "mv_launchpad_gui.py"
+    )
+    source = open(gui_path).read()
+    assert "button.drag_source_set(" in source
+    assert "button.drag_dest_set(" in source
+    assert '"type" == "app"' in source
+    assert '("app", "folder")' in source
+    assert 'mv_launchpad.move_app_to_folder(' in source
+    assert 'mv_launchpad.reorder_launchpad_apps(' in source
+    assert 'mv_launchpad.save_positions(' in source
+    assert 'mv_launchpad.save_folders(' in source
+    print("PASS: test_native_drag_drop_contract")
+
 def test_full_integration_basic():
     """Test basic integration: script runs, pagination, search, no crash."""
     # Start Launchpad
@@ -515,6 +563,8 @@ if __name__ == "__main__":
         test_folder_members_are_not_duplicated_on_main_grid,
         test_position_conflicts_and_invalid_values_do_not_drop_apps,
         test_folder_config_is_normalized,
+        test_native_drag_helpers,
+        test_native_drag_drop_contract,
         test_full_integration_basic,
         test_edit_mode_entry_present,
         test_edit_mode_entry_hidden_when_searching,
