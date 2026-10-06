@@ -98,9 +98,12 @@ def build_window_class(Gtk, Gdk, GLib):
 
             self.apply_css()
 
-            hb = Gtk.HeaderBar(title="Mail", show_close_button=True)
-            self.set_titlebar(hb)
-
+            self.set_decorated(True)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hb.get_style_context().add_class("mavericks-mv-mail-toolbar")
+        title_label = Gtk.Label(label="Mail")
+        hb.pack_start(title_label, True, True, 8)
+    
             search = Gtk.SearchEntry(placeholder_text="Search mail...")
             search.set_hexpand(True)
             hb.pack_start(search)
@@ -112,7 +115,10 @@ def build_window_class(Gtk, Gdk, GLib):
             hb.pack_end(new_msg)
 
             paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-            self.add(paned)
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.pack_start(hb, False, False, 0)
+        root.pack_start(paned, True, True, 0)
+        self.add(root)
 
             sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
             sidebar.set_size_request(220, -1)
