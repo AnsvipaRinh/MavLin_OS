@@ -1,6 +1,33 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (System Information P0 — oid `OS-sysinfo-p0`, canonical #10: mv-about System Report upgraded to tabbed interface with Hardware/PCI/USB/Display/Storage/Network/Audio/Power/Software tabs; MacBook10,1 profile tab when detected; Copy Report to clipboard; X11 display info via xrandr; all collectors headless-importable; 12/12 tests pass; check-sync green)
+**Last Updated**: 2026-10-06 (Preview P0 — oid `OS-preview-p0`, canonical #7: the PDF path was silently dead on current poppler (`render_to_pixbuf` removed upstream), the annotation toolbar was four status-text stubs, and there was no zoom, rotation or export; now: Cairo render path, real markup overlay (Rect/Oval/Arrow/Sketch/Text + swatches + stroke + undo, stored in page space so zoom/rotate never distorts it), zoom/fit-width/Ctrl+scroll, per-file rotation, Export-as-PNG flatten, text viewing, honest Sign removal; new 52-check suite `scripts/test-mv-preview.py`; app suites 38→39 in check-sync)
+
+---
+
+## Session 2026-10-06 — Preview P0 (oid `OS-preview-p0`, canonical objective #7)
+
+**Zone:** `bin/mv-preview` + `desktop/mv-preview.desktop` + `scripts/test-mv-preview.py` + the Preview rows in `docs/*` + the Preview assertions in `scripts/test-global-menu.py`. Parallel agents were working xfwm4/window-management (staged WIP) and `bin/mv-about`; nothing of theirs was staged by this session.
+
+**Audit finding — the PDF path was silently dead.** The shipped code called `Poppler.Page.render_to_pixbuf()`, which current poppler-glib **no longer exposes** (`AttributeError: 'Page' object has no attribute 'render_to_pixbuf'`). Every PDF open on a current poppler fell into the generic error branch; "PDF render on panel" in APPS.md described code that could not run. Render path rewritten onto the supported API: `page.render()` onto a Cairo `ImageSurface` at the chosen scale + `Gdk.pixbuf_get_from_surface`, with a white page background painted first (PDFs have no background of their own).
+
+**Audit finding — the annotation toolbar was four stubs.** Select/Text/Shape/Sign buttons pushed status-bar text and did nothing (`tool_text` → "click to add text box (stub)"). mv-shot's post-capture "Open in Preview" hands annotation to this window, so Screenshot's honest gap was actually Preview's fake UI.
+
+**Gaps closed (all executable pre-hardware):**
+- **Real markup overlay:** Rect / Oval / Arrow / Sketch(freehand) / Text tools drawn on a `Gtk.DrawingArea` Cairo overlay; macOS-Markup-like color swatches (red/orange/yellow/green/blue/black/white); Thin/Medium/Thick stroke; per-(file,page) annotation store; Ctrl+Z undo; text markup via the shared `mv_dialogs.entry_dialog` (with a plain-dialog fallback where the module is absent).
+- **Annotations live in page space** (scale 1.0, rotation 0). Zoom, fit-width and rotation are pure view transforms — markup never detaches, distorts or drifts from content. Verified by GUI test: annotation count invariant under 90° rotation and re-render.
+- **Zoom:** +/-/0 keys, Ctrl+scroll, clamp 0.2–5.0, 6000 px render cap against pathological zoom into huge pages.
+- **Fit-width (w):** computed from the live viewport allocation.
+- **Rotation:** r (right) / Shift+R (left), per-file view state that persists across pages and files in-session; all three non-zero mappings via `pixbuf.rotate_simple`.
+- **Export as PNG…:** flattens rendered page + markup + rotation via a Cairo surface (`write_to_png`), SAVE dialog with overwrite confirmation. The **original file is never mutated** — this is a deliberate contract, not laziness.
+- **Text viewing:** .txt/.md/.log/.csv/.conf open as a read-only monospace TextView (the launch smoke feeds mv-preview a .txt — previously it landed in the "Unsupported file type" error window). Markup toolbar and export hide in text mode.
+- **Honest removal:** the Sign tool (stub) is gone from toolbar, keys and menu; signature management deferred with a DECISIONS entry.
+- **Desktop entry:** `application/postscript` dropped from MimeType (nothing in the app renders PS); pixbuf-native `image/x-icon`/`image/x-xpymap` and `text/plain` added.
+
+**Tests:** new `scripts/test-mv-preview.py`, **52 checks** (42 static contract + 10 GUI on the pinned Xvfb :97), auto-discovered by check-sync.sh — app suites 38 → **39**. The GUI half drives the real window: zoom, rotation size-swap (400×300 → 600×800), markup commit, undo, annotation survival under rotation, flatten export, text-mode switch. The global-menu contract (`scripts/test-global-menu.py`) was updated from the stub labels ("Text Annotation", "Shape Annotation", "Signature") to the real menu (Rectangle/Oval/Arrow/Sketch, Export as PNG…, Fit Width, Rotate) — the old contract was asserting the fake UI. `py_compile` clean; GUI smoke `mv-preview` stays up (text view now, not the error window).
+
+**Gate status:** all Preview-relevant gates green. One unrelated red in the full check-sync run: `dock P0 plank GUI smoke` ("the window manager did not come up") — caused by the parallel window-management agent's staged xfwm4 WIP, zero file overlap with this zone; left for that zone to resolve.
+
+**Not done (recorded honestly):** markup persists only within the session (no save back into any file format); no in-PDF annotation editing (export is raster flatten); no form filling; signature management deferred; default-MIME binding (double-click PDF/image → mv-preview) is **not set** anywhere — `mimeapps.list` belongs to the integration/firstboot zone, recorded in NEEDS_HARDWARE_TEST and DECISIONS.
 
 ---
 
@@ -269,7 +296,8 @@ never hang. GUI surfaces run on pinned Xvfb `:97` only, via
 
 **Status:** Screenshot PARTIALLY IMPLEMENTED → **IMPLEMENTED — HARDWARE
 VALIDATION REQUIRED**. Remaining gaps are recorded honestly in APPS.md:
-annotation is still a hand-off to `mv-preview` whose toolbar is a stub;
+annotation is still a hand-off to `mv-preview` (whose toolbar is now real
+markup, see the Preview P0 session below);
 screen recording is experimental and unmeasured on this CPU; Super+Shift+5
 still binds `mv-shot -i` although `--toolbar` now exists (remap deferred to
 the registry's owner). 14 hardware items added to NEEDS_HARDWARE_TEST.md —

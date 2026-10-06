@@ -388,10 +388,15 @@ host-display leakage occurred.
       idle CPU cost
 
 ## Phase 3+ — app validation (source-уровень готов в 0.8–0.15)
-- [ ] Preview: открыть PDF через mv-preview на панели 2304x1440 — multi-page nav (arrows, Home/End), thumbnail sidebar click, fullscreen (F), Open button, annotation toolbar visible
+- [ ] Preview: открыть PDF через mv-preview на панели 2304x1440 — multi-page nav (arrows, Home/End), thumbnail sidebar click, fullscreen (F), Open button, markup toolbar visible
+- [ ] Preview: PDF render path на реальном железе (Cairo `page.render()` + `Gdk.pixbuf_get_from_surface`; старый `render_to_pixbuf` API удалён из poppler — на текущем poppler-glib PDF раньше не открывался вообще)
 - [ ] Preview: открыть image (PNG/JPG/TIFF) через mv-preview — render, fullscreen, multi-file nav (Ctrl+arrows)
-- [ ] Preview: MIME associations — double-click PDF/image in Thunar opens mv-preview
-- [ ] Preview: annotation toolbar stubs show status feedback; no crashes on tool clicks
+- [ ] Preview: markup tools на тачпаде/мыши — Rect/Oval/Arrow/Sketch drag, Text click+dialog, свотчи цвета, Thin/Medium/Thick, Ctrl+Z undo; markup не смещается после zoom (±/0/Ctrl+scroll) и rotation (r/R)
+- [ ] Preview: fit-width (w) на реальной панели; zoom 0.2–5.0 без лагов на fanless Core M
+- [ ] Preview: rotation r/R — per-file, переживает смену страницы, Export-as-PNG запекает поворот
+- [ ] Preview: Export as PNG… (Ctrl+E) — SAVE dialog, overwrite confirm, PNG содержит page+markup+rotation; исходный файл не изменяется
+- [ ] Preview: текстовые файлы (.txt/.md/.log/.csv/.conf) открываются read-only monospace, markup toolbar скрыта
+- [ ] Preview: MIME default binding НЕ настроено (mimeapps.list — зона интеграции/firstboot): double-click PDF/image в Thunar сейчас открывает NOT mv-preview; после настройки дефолта — перепроверить
 - [ ] Spotlight: после первой загрузки дождаться plocate-updatedb.timer, Super+Space находит файлы
 - [ ] Quick Look: mv-quicklook на image/PDF/text/audio — multi-file nav (←/→/Space), fullscreen (F), Open button work
 - [ ] Quick Look: Super+Shift+Space в Thunar копирует выбор в буфер обмена и открывает mv-quicklook с выбранными файлами
@@ -441,7 +446,7 @@ host-display leakage occurred.
 - [ ] Super+Shift+4 captures region to clipboard
 - [ ] Super+Shift+5 captures region to file
 - [ ] Post-capture preview dialog appears with thumbnail and actions
-- [ ] "Open in Preview" launches mv-preview with annotation toolbar
+- [ ] "Open in Preview" launches mv-preview with the markup toolbar (Rect/Oval/Arrow/Sketch/Text now real, not stubs)
 - [ ] "Show in Finder" opens Thunar with file selected
 - [ ] "Move to Trash" moves file to GVfs trash
 - [ ] Preview dialog auto-closes after configurable timeout

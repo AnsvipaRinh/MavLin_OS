@@ -65,7 +65,7 @@
 | UI Surface | Current State | Evidence | Gap | Planned Action |
 |------------|---------------|----------|-----|-----------------
 | **Mavericks Dialog** | Crosshair cursor | mv-shot implemented with -i/-w/-m/-T/-c/-o | No Mavericks-style “Save to Desktop” alert | Theme alert dialog with leather backdrop |
-| **Preview Window** | Post-capture preview | mv-shot preview with Open/Show in Finder/Move to Trash | No annotation tools, no markup | Document annotation limitation |
+| **Preview Window** | Post-capture preview | mv-shot preview with Open/Show in Finder/Move to Trash; markup now real in mv-preview (Rect/Oval/Arrow/Sketch/Text + Export as PNG) | Markup only via hand-off to mv-preview, none inline in the floating thumbnail | Documented hand-off design |
 | **Timer** | -T option | mv-shot timer support | No smooth countdown animation | Refine timer UI |
 
 #### 8. Disk Utility (IMPLEMENTED — HARDWARE VALIDATION REQUIRED)

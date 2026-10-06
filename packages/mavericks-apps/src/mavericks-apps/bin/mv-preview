@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """mv-preview — Mavericks-like Preview.
-PDF/images viewer with thumbnail sidebar and annotation toolbar.
+PDF/image/text viewer with thumbnail sidebar, real markup overlay
+(rectangle/oval/arrow/sketch/text), zoom, fit-width, rotation, PNG export.
 Backend: poppler-glib (same as evince) for PDF; GdkPixbuf for images.
 No daemon, no Electron. License: GPL-2.0-or-later."""
+import math
 import os
 import subprocess
 import sys
+import cairo
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Gio
+gi.require_version("PangoCairo", "1.0")
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Gio, Pango, PangoCairo
 
 _POPPLER = None
 _POPPLER_TRIED = False
@@ -27,8 +31,35 @@ def _ensure_poppler():
         _POPPLER = None
     return _POPPLER
 
-IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".svg"}
+
+IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".tif",
+           ".svg", ".ico", ".xpm"}
 PDF_EXT = {".pdf"}
+TXT_EXT = {".txt", ".md", ".log", ".csv", ".conf"}
+
+TOOLS = [
+    ("select", "Select"),
+    ("rect", "Rect"),
+    ("oval", "Oval"),
+    ("arrow", "Arrow"),
+    ("sketch", "Sketch"),
+    ("text", "Text"),
+]
+
+SWATCHES = [
+    ("red", "#ff3b30"), ("orange", "#ff9500"), ("yellow", "#ffcc00"),
+    ("green", "#34c759"), ("blue", "#007aff"), ("black", "#1c1c1e"),
+    ("white", "#ffffff"),
+]
+
+STROKES = [("Thin", 2.0), ("Medium", 4.0), ("Thick", 8.0)]
+
+ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, RENDER_MAX_PX = 0.2, 5.0, 1.25, 6000
+BASE_FIT_W, BASE_FIT_H, BASE_FIT_CAP = 800.0, 600.0, 3.0
+
+
+def _clamp(v, lo, hi):
+    return max(lo, min(v, hi))
 
 
 class Preview(Gtk.Window):
@@ -46,12 +77,25 @@ class Preview(Gtk.Window):
         self.doc = None
         self.n_pages = 0
         self.page = 0
-        self.scale = 1.0
-        self.thumb_pixbufs = []
+        self.page_size = (1.0, 1.0)
+        self.page_pixbuf = None
+        self.render_scale_value = 1.0
+        self.zoom = 1.0
+        self.rotations = {}
+        self.annotations = {}
+        self._draft = None
+        self.tool = "select"
+        self.markup_color = (1.0, 0.231, 0.188, 1.0)
+        self.markup_width = 4.0
+        self.view_mode = None
+        self.current_path = None
+        self.current_ext = None
 
         self.apply_css()
         self.build_ui()
         self.load_file(self.paths[self.index])
+        self.set_markup_color(self.markup_color)
+        self.set_tool("select")
 
         self.connect("key-press-event", self.on_key_press)
         self.show_all()
@@ -81,15 +125,44 @@ class Preview(Gtk.Window):
         .mavericks-toolbar-btn:hover {
             background: #d4c8b8;
         }
-        .annotation-btn {
+        .markup-toolbar {
+            background: #f0ece4;
+            background-image: linear-gradient(180deg, #f0ece4 0%, #e3dccf 100%);
+            border-bottom: 1px solid #d4c8b8;
+        }
+        .markup-btn {
             border-radius: 4px;
-            padding: 6px 10px;
-            margin: 2px;
+            padding: 3px 9px;
+            margin: 1px;
+            background: #faf7f1;
+            border: 1px solid #c9bfae;
         }
-        .annotation-btn:hover {
+        .markup-btn:hover {
+            background: #e8e0d2;
+        }
+        .markup-btn.active-tool {
             background: #007aff;
-            color: white;
+            color: #ffffff;
+            border-color: #005ecb;
         }
+        .swatch {
+            border-radius: 3px;
+            min-width: 18px;
+            min-height: 18px;
+            margin: 2px;
+            padding: 0;
+            border: 1px solid rgba(0, 0, 0, 0.35);
+        }
+        .swatch.active-tool {
+            border: 2px solid #007aff;
+        }
+        .swatch-red { background: #ff3b30; }
+        .swatch-orange { background: #ff9500; }
+        .swatch-yellow { background: #ffcc00; }
+        .swatch-green { background: #34c759; }
+        .swatch-blue { background: #007aff; }
+        .swatch-black { background: #1c1c1e; }
+        .swatch-white { background: #ffffff; }
         .page-label {
             font-family: "San Francisco", monospace;
             font-size: 11pt;
@@ -100,7 +173,6 @@ class Preview(Gtk.Window):
         try:
             provider.load_from_data(css)
         except Exception:
-            # cosmetic only: a bad rule must not kill the window
             pass
         screen = Gdk.Screen.get_default()
         Gtk.StyleContext.add_provider_for_screen(
@@ -111,10 +183,9 @@ class Preview(Gtk.Window):
         hb.set_subtitle("")
         self.set_titlebar(hb)
 
-        # Left: navigation
         if len(self.paths) > 1:
             prev_b = Gtk.Button.new_from_icon_name("go-previous", Gtk.IconSize.BUTTON)
-            prev_b.set_tooltip_text("Previous file (Cmd+Left)")
+            prev_b.set_tooltip_text("Previous file (Ctrl+Left)")
             prev_b.connect("clicked", lambda *_: self.navigate_file(-1))
             prev_b.get_style_context().add_class("mavericks-toolbar-btn")
             hb.pack_start(prev_b)
@@ -124,36 +195,26 @@ class Preview(Gtk.Window):
             hb.pack_start(self.file_label)
 
             next_b = Gtk.Button.new_from_icon_name("go-next", Gtk.IconSize.BUTTON)
-            next_b.set_tooltip_text("Next file (Cmd+Right)")
+            next_b.set_tooltip_text("Next file (Ctrl+Right)")
             next_b.connect("clicked", lambda *_: self.navigate_file(1))
             next_b.get_style_context().add_class("mavericks-toolbar-btn")
             hb.pack_start(next_b)
 
-        # Right: annotation tools
-        for label, icon, cb in [
-            ("Select", "mouse", self.tool_select),
-            ("Text", "text-x-generic", self.tool_text),
-            ("Shape", "draw-freehand", self.tool_shape),
-            ("Sign", "signature", self.tool_sign),
-        ]:
-            b = Gtk.Button()
-            b.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
-            b.set_tooltip_text(label)
-            b.get_style_context().add_class("annotation-btn")
-            b.connect("clicked", cb)
-            hb.pack_end(b)
+        self.export_b = Gtk.Button(label="Export as PNG…")
+        self.export_b.set_tooltip_text("Flatten page and markup to a PNG (Ctrl+E)")
+        self.export_b.connect("clicked", self.export_png)
+        self.export_b.get_style_context().add_class("mavericks-toolbar-btn")
+        hb.pack_end(self.export_b)
 
-        # Open button
         open_b = Gtk.Button(label="Open")
+        open_b.set_tooltip_text("Open in default application (O)")
         open_b.connect("clicked", self.open_external)
         open_b.get_style_context().add_class("mavericks-toolbar-btn")
         hb.pack_end(open_b)
 
-        # Main paned: sidebar | content
         self.paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.add(self.paned)
 
-        # Sidebar: thumbnails
         self.sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.sidebar.set_size_request(180, -1)
         self.sidebar.get_style_context().add_class("preview-sidebar")
@@ -163,7 +224,7 @@ class Preview(Gtk.Window):
         lbl.get_style_context().add_class("sidebar-header")
         self.sidebar.pack_start(lbl, False, False, 0)
 
-        self.thumb_store = Gtk.ListStore(GdkPixbuf.Pixbuf, int)  # pixbuf, page_num
+        self.thumb_store = Gtk.ListStore(GdkPixbuf.Pixbuf, int)
         self.thumb_view = Gtk.TreeView(model=self.thumb_store, headers_visible=False)
         self.thumb_view.set_headers_visible(False)
         renderer = Gtk.CellRendererPixbuf()
@@ -180,13 +241,12 @@ class Preview(Gtk.Window):
         sidebar_sw.add(self.sidebar)
         self.paned.add1(sidebar_sw)
 
-        # Content area
         self.content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.content_box.get_style_context().add_class("preview-content")
 
-        # Page navigation toolbar
         self.page_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.page_toolbar.set_border_width(8)
+        self.page_toolbar.set_no_show_all(True)
         self.page_toolbar.set_visible(False)
 
         self.page_prev = Gtk.Button.new_from_icon_name("go-previous", Gtk.IconSize.BUTTON)
@@ -205,24 +265,180 @@ class Preview(Gtk.Window):
 
         self.content_box.pack_start(self.page_toolbar, False, False, 0)
 
-        # Scrolled window for page content
+        self.markup_toolbar = self.build_markup_toolbar()
+        self.markup_toolbar.set_no_show_all(True)
+        self.content_box.pack_start(self.markup_toolbar, False, False, 0)
+
         self.sw = Gtk.ScrolledWindow()
         self.sw.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.content_box.pack_start(self.sw, True, True, 0)
 
-        self.page_image = Gtk.Image()
+        self.darea = Gtk.DrawingArea()
+        self.darea.connect("draw", self.on_draw)
+        self.darea.connect("button-press-event", self.on_button_press)
+        self.darea.connect("motion-notify-event", self.on_motion)
+        self.darea.connect("button-release-event", self.on_button_release)
+        self.darea.connect("scroll-event", self.on_scroll)
+        self.darea.add_events(
+            Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK |
+            Gdk.EventMask.BUTTON1_MOTION_MASK | Gdk.EventMask.SCROLL_MASK)
+
+        self.text_view = Gtk.TextView()
+        self.text_view.set_editable(False)
+        self.text_view.set_cursor_visible(False)
+        self.text_view.set_wrap_mode(Gtk.WrapMode.WORD)
+        self.text_view.set_monospace(True)
+        self.text_view.set_border_width(12)
+
         self.viewport = Gtk.Viewport()
-        self.viewport.add(self.page_image)
         self.sw.add(self.viewport)
 
         self.paned.add2(self.content_box)
         self.paned.set_position(200)
 
-        # Status bar (text filled by load_file -> update_status, which runs
-        # right after build_ui; current_path does not exist yet here)
         self.statusbar = Gtk.Statusbar()
         self.status_ctx = self.statusbar.get_context_id("info")
         self.content_box.pack_start(self.statusbar, False, False, 0)
+
+    def build_markup_toolbar(self):
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        bar.set_border_width(4)
+        bar.get_style_context().add_class("markup-toolbar")
+
+        self.tool_buttons = {}
+        for tool, label in TOOLS:
+            b = Gtk.Button(label=label)
+            b.set_tooltip_text("Markup: %s (Alt+%d)" % (label, TOOLS.index((tool, label)) + 1))
+            b.get_style_context().add_class("markup-btn")
+            b.connect("clicked", lambda _b, t=tool: self.set_tool(t))
+            bar.pack_start(b, False, False, 0)
+            self.tool_buttons[tool] = b
+
+        bar.pack_start(Gtk.Separator.new(Gtk.Orientation.VERTICAL), False, False, 4)
+
+        self.swatch_buttons = {}
+        for name, hexcol in SWATCHES:
+            b = Gtk.Button()
+            b.set_tooltip_text("Markup color %s" % name)
+            b.get_style_context().add_class("swatch")
+            b.get_style_context().add_class("swatch-%s" % name)
+            b.connect("clicked", lambda _b, c=self._hex_to_rgba(hexcol): self.set_markup_color(c))
+            bar.pack_start(b, False, False, 0)
+            self.swatch_buttons[name] = b
+
+        bar.pack_start(Gtk.Separator.new(Gtk.Orientation.VERTICAL), False, False, 4)
+
+        self.stroke_combo = Gtk.ComboBoxText()
+        for label, _w in STROKES:
+            self.stroke_combo.append_text(label)
+        self.stroke_combo.set_active(1)
+        self.stroke_combo.set_tooltip_text("Markup stroke width")
+        self.stroke_combo.connect("changed", self.on_stroke_changed)
+        bar.pack_start(self.stroke_combo, False, False, 0)
+
+        undo_b = Gtk.Button(label="Undo")
+        undo_b.set_tooltip_text("Undo last markup (Ctrl+Z)")
+        undo_b.get_style_context().add_class("markup-btn")
+        undo_b.connect("clicked", self.undo_markup)
+        bar.pack_end(undo_b, False, False, 0)
+
+        hint = Gtk.Label(label="Markup is exported with “Export as PNG…”")
+        hint.get_style_context().add_class("dim-label")
+        bar.pack_end(hint, False, False, 8)
+        return bar
+
+    @staticmethod
+    def _hex_to_rgba(hexcol):
+        h = hexcol.lstrip("#")
+        return (int(h[0:2], 16) / 255.0, int(h[2:4], 16) / 255.0,
+                int(h[4:6], 16) / 255.0, 1.0)
+
+    def set_markup_color(self, rgba):
+        self.markup_color = rgba
+        for name, btn in self.swatch_buttons.items():
+            btn.get_style_context().remove_class("active-tool")
+        for name, hexcol in SWATCHES:
+            if self._hex_to_rgba(hexcol) == rgba:
+                self.swatch_buttons[name].get_style_context().add_class("active-tool")
+
+    def on_stroke_changed(self, combo):
+        idx = combo.get_active()
+        if 0 <= idx < len(STROKES):
+            self.markup_width = STROKES[idx][1]
+
+    def set_tool(self, tool):
+        self.tool = tool
+        for t, b in self.tool_buttons.items():
+            if t == tool:
+                b.get_style_context().add_class("active-tool")
+            else:
+                b.get_style_context().remove_class("active-tool")
+        hints = {
+            "select": "Select tool — drag on the page to draw markup",
+            "rect": "Rectangle — drag on the page",
+            "oval": "Oval — drag on the page",
+            "arrow": "Arrow — drag from tail to head",
+            "sketch": "Sketch — draw freehand",
+            "text": "Text — click on the page, type, press OK",
+        }
+        self.statusbar.push(self.status_ctx, hints.get(tool, ""))
+        cursor = "crosshair" if tool != "select" else "default"
+        try:
+            win = self.darea.get_window()
+            if win is not None:
+                win.set_cursor(Gdk.Cursor.new_from_name(
+                    self.darea.get_display(), cursor))
+        except Exception:
+            pass
+
+    # ---- geometry: annotations live in page space (scale 1.0, rotation 0) ----
+
+    @staticmethod
+    def _rot_point(x, y, w, h, rot):
+        if rot == 90:
+            return (h - y, x)
+        if rot == 180:
+            return (w - x, h - y)
+        if rot == 270:
+            return (y, w - x)
+        return (x, y)
+
+    @staticmethod
+    def _unrot_point(x, y, w, h, rot):
+        if rot == 90:
+            return (y, h - x)
+        if rot == 180:
+            return (w - x, h - y)
+        if rot == 270:
+            return (w - y, x)
+        return (x, y)
+
+    def _base_fit(self):
+        w, h = self.page_size
+        if w <= 0 or h <= 0:
+            return 1.0
+        return min(BASE_FIT_W / w, BASE_FIT_H / h, BASE_FIT_CAP)
+
+    def _render_scale(self):
+        w, h = self.page_size
+        return _clamp(self._base_fit() * self.zoom,
+                      0.01, RENDER_MAX_PX / max(w, h, 1.0))
+
+    def _display_size(self):
+        w, h = self.page_size
+        s = self._render_scale()
+        rot = self.rotations.get(self.current_path, 0)
+        if rot in (90, 270):
+            return (int(h * s), int(w * s))
+        return (int(w * s), int(h * s))
+
+    def _to_page(self, dx, dy):
+        w, h = self.page_size
+        s = self._render_scale()
+        rot = self.rotations.get(self.current_path, 0)
+        return self._unrot_point(dx / s, dy / s, w, h, rot)
+
+    # ---- loading ----
 
     def load_file(self, path):
         ext = os.path.splitext(path)[1].lower()
@@ -233,35 +449,72 @@ class Preview(Gtk.Window):
             self.load_pdf(path)
         elif ext in IMG_EXT:
             self.load_image(path)
+        elif ext in TXT_EXT:
+            self.load_text(path)
         else:
-            self.show_error(f"Unsupported file type: {ext}")
-
-        self.update_file_label()
+            self.show_error("Unsupported file type: %s" % ext)
+        if hasattr(self, "file_label"):
+            self.update_file_label()
         self.update_status()
+
+    def _show_child(self, child):
+        current = self.viewport.get_child()
+        if current is child:
+            return
+        if current is not None:
+            self.viewport.remove(current)
+        self.viewport.add(child)
+        child.show_all()
 
     def load_pdf(self, path):
         try:
             self.doc = _POPPLER.Document.new_from_file("file://" + path, None)
             self.n_pages = self.doc.get_n_pages()
             self.page = 0
+            self.view_mode = "graphic"
+            self.markup_toolbar.set_visible(True)
+            self.export_b.set_visible(True)
             self.render_thumbnails()
             self.render_page()
             self.page_toolbar.set_visible(self.n_pages > 1)
+            self._show_child(self.darea)
         except Exception as e:
-            self.show_error(f"Cannot open PDF: {e}")
+            self.show_error("Cannot open PDF: %s" % e)
 
     def load_image(self, path):
         try:
             self.doc = None
             self.n_pages = 1
             self.page = 0
-            self.thumb_store.clear()
+            self.view_mode = "graphic"
+            self.markup_toolbar.set_visible(True)
+            self.export_b.set_visible(True)
             pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 160, 160, True)
+            self.thumb_store.clear()
             self.thumb_store.append([pix, 0])
-            self.render_image_page(path)
+            self.render_image_page()
             self.page_toolbar.set_visible(False)
+            self._show_child(self.darea)
         except Exception as e:
-            self.show_error(f"Cannot load image: {e}")
+            self.show_error("Cannot load image: %s" % e)
+
+    def load_text(self, path):
+        try:
+            self.doc = None
+            self.n_pages = 1
+            self.page = 0
+            self.view_mode = "text"
+            self.thumb_store.clear()
+            self.markup_toolbar.set_visible(False)
+            self.export_b.set_visible(False)
+            self.page_toolbar.set_visible(False)
+            with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+            self.text_view.get_buffer().set_text(text)
+            self._show_child(self.text_view)
+            self.update_page_label()
+        except Exception as e:
+            self.show_error("Cannot load text: %s" % e)
 
     def render_thumbnails(self):
         self.thumb_store.clear()
@@ -271,43 +524,373 @@ class Preview(Gtk.Window):
             page = self.doc.get_page(i)
             w, h = page.get_size()
             scale = min(160 / w, 160 / h)
-            pix = page.render_to_pixbuf(int(w * scale), int(h * scale))
+            pix = self._poppler_page_pixbuf(page, w, h, scale)
             self.thumb_store.append([pix, i])
+
+    @staticmethod
+    def _poppler_page_pixbuf(page, w_pt, h_pt, scale):
+        # the old pixbuf render helper is gone from current poppler-glib;
+        # the supported path is page.render() onto a Cairo surface at the
+        # chosen scale.
+        w = max(int(w_pt * scale), 1)
+        h = max(int(h_pt * scale), 1)
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        cr = cairo.Context(surface)
+        cr.set_source_rgb(1.0, 1.0, 1.0)
+        cr.paint()
+        cr.scale(scale, scale)
+        page.render(cr)
+        cr.show_page()
+        surface.flush()
+        return Gdk.pixbuf_get_from_surface(surface, 0, 0, w, h)
 
     def render_page(self):
         if not self.doc:
             return
         page = self.doc.get_page(self.page)
         w, h = page.get_size()
-        scale = min(800 / w, 600 / h, 3.0)
-        pix = page.render_to_pixbuf(int(w * scale), int(h * scale))
-        self.page_image.set_from_pixbuf(pix)
+        self.page_size = (w, h)
+        self.render_scale_value = self._render_scale()
+        pix = self._poppler_page_pixbuf(
+            page, w, h, self.render_scale_value)
+        pix = self._apply_rotation(pix)
+        self.page_pixbuf = pix
+        self._present_pixbuf()
         self.update_page_label()
 
-    def render_image_page(self, path):
+    def render_image_page(self):
         try:
-            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 800, 600, True)
-            self.page_image.set_from_pixbuf(pix)
+            pix = GdkPixbuf.Pixbuf.new_from_file(self.current_path)
+            w, h = pix.get_width(), pix.get_height()
+            self.page_size = (float(w), float(h))
+            self.render_scale_value = self._render_scale()
+            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                self.current_path,
+                int(w * self.render_scale_value),
+                int(h * self.render_scale_value), True)
+            pix = self._apply_rotation(pix)
+            self.page_pixbuf = pix
+            self._present_pixbuf()
             self.update_page_label()
         except Exception as e:
-            self.show_error(f"Cannot render image: {e}")
+            self.show_error("Cannot render image: %s" % e)
+
+    def _apply_rotation(self, pix):
+        rot = self.rotations.get(self.current_path, 0)
+        mapping = {
+            90: GdkPixbuf.PixbufRotation.CLOCKWISE,
+            180: GdkPixbuf.PixbufRotation.UPSIDEDOWN,
+            270: GdkPixbuf.PixbufRotation.COUNTERCLOCKWISE,
+        }
+        if rot in mapping:
+            return pix.rotate_simple(mapping[rot])
+        return pix
+
+    def _present_pixbuf(self):
+        if self.page_pixbuf is None:
+            return
+        w = self.page_pixbuf.get_width()
+        h = self.page_pixbuf.get_height()
+        self.darea.set_size_request(max(w, 1), max(h, 1))
+        self.darea.queue_draw()
+
+    def _rerender(self):
+        if self.view_mode != "graphic":
+            return
+        if self.doc:
+            self.render_page()
+        else:
+            self.render_image_page()
+        self.update_status()
 
     def update_page_label(self):
         if self.n_pages > 1:
-            self.page_label.set_text(f"Page {self.page + 1} of {self.n_pages}")
+            self.page_label.set_text("Page %d of %d" % (self.page + 1, self.n_pages))
         else:
             self.page_label.set_text(os.path.basename(self.current_path))
 
     def update_file_label(self):
-        if hasattr(self, 'file_label') and len(self.paths) > 1:
-            self.file_label.set_text(f"{self.index + 1} of {len(self.paths)}: {os.path.basename(self.current_path)}")
+        if hasattr(self, "file_label") and len(self.paths) > 1:
+            self.file_label.set_text(
+                "%d of %d: %s" % (self.index + 1, len(self.paths),
+                                  os.path.basename(self.current_path)))
 
     def update_status(self):
-        name = os.path.basename(self.current_path)
-        if self.doc:
-            self.statusbar.push(self.status_ctx, f"{name} — {self.n_pages} page(s)")
+        if self.view_mode == "graphic":
+            name = os.path.basename(self.current_path)
+            pages = "%d page(s)" % self.n_pages if self.doc else name
+            rot = self.rotations.get(self.current_path, 0)
+            extra = "%d%%" % round(self.render_scale_value / self._base_fit() * 100)
+            if rot:
+                extra += ", rotated %d°" % rot
+            n_ann = len(self.annotations.get((self.current_path, self.page), []))
+            if n_ann:
+                extra += ", %d markup" % n_ann
+            self.statusbar.push(self.status_ctx, "%s — %s — %s" % (name, pages, extra))
         else:
-            self.statusbar.push(self.status_ctx, name)
+            self.statusbar.push(self.status_ctx,
+                                os.path.basename(self.current_path))
+
+    # ---- drawing ----
+
+    def on_draw(self, _widget, cr):
+        if self.page_pixbuf is None:
+            return False
+        Gdk.cairo_set_source_pixbuf(cr, self.page_pixbuf, 0, 0)
+        cr.paint()
+        cr.set_source_rgba(*self.markup_color)
+        self._draw_annotations(cr)
+        return False
+
+    def _ann_key(self):
+        return (self.current_path, self.page)
+
+    def _draw_annotations(self, cr):
+        rot = self.rotations.get(self.current_path, 0)
+        s = self.render_scale_value
+        for ann in self.annotations.get(self._ann_key(), []):
+            self._draw_ann(cr, ann, s, rot)
+        if self._draft is not None:
+            self._draw_ann(cr, self._draft, s, rot)
+
+    def _draw_ann(self, cr, ann, s, rot):
+        w, h = self.page_size
+        pts = [self._rot_point(x, y, w, h, rot) for x, y in ann["points"]]
+        pts = [(x * s, y * s) for x, y in pts]
+        cr.set_source_rgba(*ann["color"])
+        cr.set_line_width(ann["width"] * s)
+        tool = ann["tool"]
+        if tool == "sketch" and len(pts) >= 2:
+            cr.move_to(*pts[0])
+            for p in pts[1:]:
+                cr.line_to(*p)
+            cr.stroke()
+        elif tool == "text" and pts:
+            self._draw_text(cr, ann, pts[0], s, rot)
+        elif tool in ("rect", "oval") and len(pts) >= 2:
+            x0, y0 = pts[0]
+            x1, y1 = pts[1]
+            rx, ry = min(x0, x1), min(y0, y1)
+            rw, rh = abs(x1 - x0), abs(y1 - y0)
+            if rw < 1 or rh < 1:
+                return
+            if tool == "rect":
+                cr.rectangle(rx, ry, rw, rh)
+            else:
+                cr.save()
+                cr.translate(rx + rw / 2.0, ry + rh / 2.0)
+                cr.scale(rw / 2.0, rh / 2.0)
+                cr.arc(0, 0, 1, 0, 2 * math.pi)
+                cr.restore()
+            cr.stroke()
+        elif tool == "arrow" and len(pts) >= 2:
+            (x0, y0), (x1, y1) = pts[0], pts[1]
+            cr.move_to(x0, y0)
+            cr.line_to(x1, y1)
+            cr.stroke()
+            ang = math.atan2(y1 - y0, x1 - x0)
+            head = ann["width"] * s * 3.0 + 6.0
+            for da in (0.4, -0.4):
+                cr.move_to(x1, y1)
+                cr.line_to(x1 - head * math.cos(ang - da),
+                           y1 - head * math.sin(ang - da))
+            cr.stroke()
+
+    def _draw_text(self, cr, ann, anchor, s, rot):
+        layout = PangoCairo.create_layout(cr)
+        font = Pango.FontDescription()
+        font.set_family("Sans")
+        font.set_absolute_size(ann.get("size", 16.0) * s * Pango.SCALE)
+        layout.set_font_description(font)
+        layout.set_text(ann.get("text", ""), -1)
+        cr.save()
+        cr.translate(anchor[0], anchor[1])
+        cr.rotate(math.radians(rot))
+        PangoCairo.show_layout(cr, layout)
+        cr.restore()
+
+    # ---- markup events ----
+
+    def on_button_press(self, _widget, event):
+        if event.button != 1 or self.view_mode != "graphic":
+            return False
+        pt = self._to_page(event.x, event.y)
+        if self.tool == "text":
+            self._add_text_annotation(pt)
+            return True
+        if self.tool != "select":
+            self._draft = {"tool": self.tool, "points": [pt],
+                           "color": self.markup_color, "width": self.markup_width}
+            self.darea.queue_draw()
+            return True
+        return False
+
+    def on_motion(self, _widget, event):
+        if self._draft is None:
+            return False
+        pt = self._to_page(event.x, event.y)
+        if self._draft["tool"] == "sketch":
+            self._draft["points"].append(pt)
+        elif len(self._draft["points"]) >= 2:
+            self._draft["points"][1] = pt
+        else:
+            self._draft["points"].append(pt)
+        self.darea.queue_draw()
+        return True
+
+    def on_button_release(self, _widget, event):
+        if self._draft is None:
+            return False
+        draft, self._draft = self._draft, None
+        pts = draft["points"]
+        ok = False
+        if draft["tool"] == "sketch":
+            ok = len(pts) >= 2
+        elif len(pts) >= 2:
+            (x0, y0), (x1, y1) = pts[0], pts[1]
+            ok = math.hypot(x1 - x0, y1 - y0) >= 3.0
+        if ok:
+            self.annotations.setdefault(self._ann_key(), []).append(draft)
+        self.darea.queue_draw()
+        self.update_status()
+        return True
+
+    def _add_text_annotation(self, pt):
+        text = self._prompt_markup_text()
+        if text:
+            self.annotations.setdefault(self._ann_key(), []).append(
+                {"tool": "text", "points": [pt], "text": text,
+                 "color": self.markup_color, "width": 1.0, "size": 16.0})
+            self.darea.queue_draw()
+            self.update_status()
+
+    def _prompt_markup_text(self):
+        try:
+            sys.path.insert(0, "/usr/share/mavericks-apps")
+            from mv_dialogs import entry_dialog
+            return entry_dialog(self, "Add Text", "Markup text:",
+                                ok_label="Add")
+        except Exception:
+            dialog = Gtk.Dialog(title="Add Text", transient_for=self,
+                                modal=True)
+            dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                               "Add", Gtk.ResponseType.OK)
+            entry = Gtk.Entry()
+            entry.set_activates_default(True)
+            entry.set_size_request(260, -1)
+            box = dialog.get_content_area()
+            box.pack_start(Gtk.Label(label="Markup text:"), False, False, 4)
+            box.pack_start(entry, False, False, 4)
+            dialog.set_default_response(Gtk.ResponseType.OK)
+            dialog.show_all()
+            resp = dialog.run()
+            text = entry.get_text() if resp == Gtk.ResponseType.OK else None
+            dialog.destroy()
+            return text
+
+    def on_scroll(self, _widget, event):
+        if self.view_mode != "graphic":
+            return False
+        if not event.state & Gdk.ModifierType.CONTROL_MASK:
+            return False
+        direction = event.get_scroll_direction().direction
+        if direction == Gdk.ScrollDirection.UP:
+            self.zoom_in(None)
+        elif direction == Gdk.ScrollDirection.DOWN:
+            self.zoom_out(None)
+        return True
+
+    # ---- zoom / rotation ----
+
+    def _set_zoom(self, zoom):
+        self.zoom = _clamp(zoom, ZOOM_MIN, ZOOM_MAX)
+        self._rerender()
+
+    def zoom_in(self, _):
+        self._set_zoom(self.zoom * ZOOM_STEP)
+
+    def zoom_out(self, _):
+        self._set_zoom(self.zoom / ZOOM_STEP)
+
+    def zoom_actual(self, _):
+        self._set_zoom(1.0)
+
+    def fit_width(self, _):
+        if self.view_mode != "graphic":
+            return
+        w, h = self.page_size
+        rot = self.rotations.get(self.current_path, 0)
+        page_w = h if rot in (90, 270) else w
+        alloc_w = self.viewport.get_allocation().width
+        if alloc_w < 50 or page_w <= 0:
+            alloc_w = self.sw.get_allocation().width
+        if alloc_w < 50:
+            return
+        target = (alloc_w - 12) / page_w
+        self._set_zoom(target / self._base_fit())
+
+    def rotate(self, deg):
+        if self.view_mode != "graphic":
+            return
+        path = self.current_path
+        self.rotations[path] = (self.rotations.get(path, 0) + deg) % 360
+        self._rerender()
+
+    def rotate_right(self, _):
+        self.rotate(90)
+
+    def rotate_left(self, _):
+        self.rotate(-90)
+
+    # ---- markup actions ----
+
+    def undo_markup(self, _):
+        anns = self.annotations.get(self._ann_key())
+        if anns:
+            anns.pop()
+            self.darea.queue_draw()
+            self.update_status()
+
+    # ---- export ----
+
+    def export_png(self, _):
+        if self.view_mode != "graphic" or self.page_pixbuf is None:
+            return
+        pix = self.page_pixbuf
+        w, h = pix.get_width(), pix.get_height()
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, max(w, 1), max(h, 1))
+        cr = cairo.Context(surface)
+        Gdk.cairo_set_source_pixbuf(cr, pix, 0, 0)
+        cr.paint()
+        rot = self.rotations.get(self.current_path, 0)
+        s = self.render_scale_value
+        for ann in self.annotations.get(self._ann_key(), []):
+            self._draw_ann(cr, ann, s, rot)
+        base = os.path.splitext(os.path.basename(self.current_path))[0]
+        dialog = Gtk.FileChooserDialog(
+            title="Export as PNG", transient_for=self,
+            action=Gtk.FileChooserAction.SAVE)
+        dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                           "Export", Gtk.ResponseType.OK)
+        dialog.set_do_overwrite_confirmation(True)
+        dialog.set_current_name("%s.png" % base)
+        f = Gtk.FileFilter()
+        f.set_name("PNG Image")
+        f.add_mime_type("image/png")
+        f.add_pattern("*.png")
+        dialog.add_filter(f)
+        if dialog.run() != Gtk.ResponseType.OK:
+            dialog.destroy()
+            return
+        out = dialog.get_filename()
+        dialog.destroy()
+        try:
+            surface.write_to_png(out)
+            self.statusbar.push(self.status_ctx, "Exported %s" % out)
+        except Exception as e:
+            self.show_error("Cannot export PNG: %s" % e)
+
+    # ---- navigation ----
 
     def on_thumb_select(self, selection):
         model, it = selection.get_selected()
@@ -316,14 +899,20 @@ class Preview(Gtk.Window):
             if page_num != self.page:
                 self.page = page_num
                 self.render_page()
+                self.update_status()
 
     def navigate_page(self, delta):
         if self.n_pages <= 1:
             return
-        self.page = max(0, min(self.page + delta, self.n_pages - 1))
+        self._go_page(self.page + delta)
+
+    def _go_page(self, idx):
+        if idx < 0:
+            idx = self.n_pages - 1
+        self.page = max(0, min(idx, self.n_pages - 1))
         self.render_page()
-        # Select corresponding thumbnail
         self.select_thumb(self.page)
+        self.update_status()
 
     def select_thumb(self, page_num):
         for row in self.thumb_store:
@@ -340,19 +929,32 @@ class Preview(Gtk.Window):
     def on_key_press(self, _widget, event):
         key = Gdk.keyval_name(event.keyval)
         state = event.state
+        ctrl = state & Gdk.ModifierType.CONTROL_MASK
 
-        # Navigation
+        if ctrl and key in ("z", "Z"):
+            self.undo_markup(None)
+            return True
+        if ctrl and key in ("e", "E"):
+            self.export_png(None)
+            return True
+        if ctrl and key in ("plus", "equal", "KP_Add"):
+            self.zoom_in(None)
+            return True
+        if ctrl and key in ("minus", "underscore", "KP_Subtract"):
+            self.zoom_out(None)
+            return True
+
         if key in ("Escape", "q", "Q"):
             self.destroy()
             return True
         if key in ("Left", "KP_Left", "Up", "KP_Up", "p", "P"):
-            if state & Gdk.ModifierType.CONTROL_MASK:
+            if ctrl:
                 self.navigate_file(-1)
             else:
                 self.navigate_page(-1)
             return True
         if key in ("Right", "KP_Right", "Down", "KP_Down", "n", "N", "space"):
-            if state & Gdk.ModifierType.CONTROL_MASK:
+            if ctrl:
                 self.navigate_file(1)
             else:
                 self.navigate_page(1)
@@ -361,36 +963,48 @@ class Preview(Gtk.Window):
             self.page = 0
             self.render_page()
             self.select_thumb(0)
+            self.update_status()
             return True
         if key in ("End", "KP_End"):
             self.page = self.n_pages - 1
             self.render_page()
             self.select_thumb(self.page)
+            self.update_status()
             return True
 
-        # File open
         if key in ("Return", "KP_Enter", "o", "O"):
             self.open_external(None)
             return True
 
-        # Fullscreen
         if key in ("f", "F", "F11"):
             self.toggle_fullscreen()
             return True
 
-        # Annotation tools (Cmd+1-4)
-        if state & Gdk.ModifierType.MOD1_MASK:  # Alt/Command
-            if key in ("1", "KP_1"):
-                self.tool_select(None)
-                return True
-            if key in ("2", "KP_2"):
-                self.tool_text(None)
-                return True
-            if key in ("3", "KP_3"):
-                self.tool_shape(None)
-                return True
-            if key in ("4", "KP_4"):
-                self.tool_sign(None)
+        if key in ("plus", "equal", "KP_Add"):
+            self.zoom_in(None)
+            return True
+        if key in ("minus", "underscore", "KP_Subtract"):
+            self.zoom_out(None)
+            return True
+        if key in ("0", "KP_0"):
+            self.zoom_actual(None)
+            return True
+        if key in ("w", "W"):
+            self.fit_width(None)
+            return True
+        if key == "r":
+            self.rotate_right(None)
+            return True
+        if key == "R":
+            self.rotate_left(None)
+            return True
+
+        if state & Gdk.ModifierType.MOD1_MASK:
+            tool_keys = {"1": "select", "2": "rect", "3": "oval",
+                         "4": "arrow", "5": "sketch", "6": "text"}
+            tool = tool_keys.get(key)
+            if tool:
+                self.set_tool(tool)
                 return True
 
         return False
@@ -400,16 +1014,6 @@ class Preview(Gtk.Window):
             self.unfullscreen()
         else:
             self.fullscreen()
-
-    # Annotation tool stubs (UI present, functionality requires poppler annotation API)
-    def tool_select(self, _):
-        self.statusbar.push(self.status_ctx, "Select tool — click to select text/annotations")
-    def tool_text(self, _):
-        self.statusbar.push(self.status_ctx, "Text annotation — click to add text box (stub)")
-    def tool_shape(self, _):
-        self.statusbar.push(self.status_ctx, "Shape annotation — click to draw (stub)")
-    def tool_sign(self, _):
-        self.statusbar.push(self.status_ctx, "Signature — click to add signature (stub)")
 
     def open_external(self, _):
         subprocess.Popen(["xdg-open", self.current_path])
@@ -438,27 +1042,38 @@ class Preview(Gtk.Window):
         self.show_all()
 
 
-
 def build_preview_menu(app, app_name, get_window, add_action):
     def w():
         return get_window()
 
-    add_action("open", lambda: w().open_external(None) if w() else None)
-    add_action("previous-page", lambda: w().navigate_page(-1) if w() else None)
-    add_action("next-page", lambda: w().navigate_page(1) if w() else None)
-    add_action("first-page", lambda: (setattr(w(), "page", 0), w().render_page(),
-                                      w().select_thumb(0)) if w() else None)
-    add_action("last-page", lambda: (setattr(w(), "page", w().n_pages - 1),
-                                     w().render_page(),
-                                     w().select_thumb(w().page)) if w() else None)
-    add_action("previous-file", lambda: w().navigate_file(-1) if w() else None)
-    add_action("next-file", lambda: w().navigate_file(1) if w() else None)
-    add_action("fullscreen", lambda: w().toggle_fullscreen() if w() else None)
-    add_action("select-tool", lambda: w().tool_select(None) if w() else None)
-    add_action("text-tool", lambda: w().tool_text(None) if w() else None)
-    add_action("shape-tool", lambda: w().tool_shape(None) if w() else None)
-    add_action("sign-tool", lambda: w().tool_sign(None) if w() else None)
-    add_action("close", lambda: w().destroy() if w() else None)
+    def call(fn, *args):
+        win = w()
+        if win is not None:
+            getattr(win, fn)(*args)
+
+    add_action("open", lambda: call("open_external", None))
+    add_action("export-png", lambda: call("export_png", None))
+    add_action("undo-markup", lambda: call("undo_markup", None))
+    add_action("previous-page", lambda: call("navigate_page", -1))
+    add_action("next-page", lambda: call("navigate_page", 1))
+    add_action("first-page", lambda: call("_go_page", 0))
+    add_action("last-page", lambda: call("_go_page", -1))
+    add_action("previous-file", lambda: call("navigate_file", -1))
+    add_action("next-file", lambda: call("navigate_file", 1))
+    add_action("zoom-in", lambda: call("zoom_in", None))
+    add_action("zoom-out", lambda: call("zoom_out", None))
+    add_action("zoom-actual", lambda: call("zoom_actual", None))
+    add_action("fit-width", lambda: call("fit_width", None))
+    add_action("rotate-right", lambda: call("rotate_right", None))
+    add_action("rotate-left", lambda: call("rotate_left", None))
+    add_action("fullscreen", lambda: call("toggle_fullscreen"))
+    add_action("select-tool", lambda: call("set_tool", "select"))
+    add_action("rect-tool", lambda: call("set_tool", "rect"))
+    add_action("oval-tool", lambda: call("set_tool", "oval"))
+    add_action("arrow-tool", lambda: call("set_tool", "arrow"))
+    add_action("sketch-tool", lambda: call("set_tool", "sketch"))
+    add_action("text-tool", lambda: call("set_tool", "text"))
+    add_action("close", lambda: call("destroy"))
     add_action("quit", app.quit)
 
     menu = Gio.Menu()
@@ -469,33 +1084,47 @@ def build_preview_menu(app, app_name, get_window, add_action):
 
     file_menu = Gio.Menu()
     file_menu.append("Open in Default Application", "app.open")
+    file_menu.append("Export as PNG…", "app.export-png")
     file_menu.append("Close Window", "app.close")
     menu.append_submenu("File", file_menu)
 
+    edit_menu = Gio.Menu()
+    edit_menu.append("Undo Markup", "app.undo-markup")
+    menu.append_submenu("Edit", edit_menu)
+
     view_menu = Gio.Menu()
-    view_menu.append("Previous Page", "app.previous-page")
-    view_menu.append("Next Page", "app.next-page")
-    view_menu.append("First Page", "app.first-page")
-    view_menu.append("Last Page", "app.last-page")
+    view_menu.append("Zoom In", "app.zoom-in")
+    view_menu.append("Zoom Out", "app.zoom-out")
+    view_menu.append("Actual Size", "app.zoom-actual")
+    view_menu.append("Fit Width", "app.fit-width")
+    view_menu.append("Rotate Right", "app.rotate-right")
+    view_menu.append("Rotate Left", "app.rotate-left")
     view_menu.append("Fullscreen", "app.fullscreen")
     menu.append_submenu("View", view_menu)
 
     go_menu = Gio.Menu()
+    go_menu.append("Previous Page", "app.previous-page")
+    go_menu.append("Next Page", "app.next-page")
+    go_menu.append("First Page", "app.first-page")
+    go_menu.append("Last Page", "app.last-page")
     go_menu.append("Previous File", "app.previous-file")
     go_menu.append("Next File", "app.next-file")
     menu.append_submenu("Go", go_menu)
 
     tools_menu = Gio.Menu()
     tools_menu.append("Select", "app.select-tool")
-    tools_menu.append("Text Annotation", "app.text-tool")
-    tools_menu.append("Shape Annotation", "app.shape-tool")
-    tools_menu.append("Signature", "app.sign-tool")
+    tools_menu.append("Rectangle", "app.rect-tool")
+    tools_menu.append("Oval", "app.oval-tool")
+    tools_menu.append("Arrow", "app.arrow-tool")
+    tools_menu.append("Sketch", "app.sketch-tool")
+    tools_menu.append("Text", "app.text-tool")
     menu.append_submenu("Tools", tools_menu)
 
     window_menu = Gio.Menu()
     window_menu.append("Close Window", "app.close")
     menu.append_submenu("Window", window_menu)
     return menu
+
 
 def main():
     args = sys.argv[1:]
@@ -529,6 +1158,7 @@ def main():
     # HANDLES_OPEN it aborts ("This application can not open files") before
     # activate ever runs. The files are already parsed into `args` above.
     return app.run([sys.argv[0]])
+
 
 if __name__ == "__main__":
     sys.path.insert(0, "/usr/share/mavericks-apps")

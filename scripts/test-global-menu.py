@@ -150,7 +150,8 @@ def main():
     preview = PREVIEW.read_text(encoding="utf-8")
     assert "build_preview_menu" in preview
     for action in ("Previous Page", "Next Page", "Fullscreen", "Previous File", "Next File",
-                   "Text Annotation", "Shape Annotation", "Signature"):
+                   "Export as PNG…", "Rectangle", "Oval", "Arrow", "Sketch",
+                   "Fit Width", "Rotate Right", "Rotate Left"):
         assert action in preview, f"Preview menu missing {action}"
     control = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-control").read_text(encoding="utf-8")
     power_ui = Path("packages/mavericks-apps/src/mavericks-apps/bin/mv-power-ui").read_text(encoding="utf-8")
