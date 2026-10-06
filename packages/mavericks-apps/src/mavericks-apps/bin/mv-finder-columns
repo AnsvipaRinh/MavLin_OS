@@ -132,7 +132,7 @@ class ColumnsWindow(Gtk.Window):
         super().__init__(title=os.path.basename(root) or root)
         self.root = os.path.abspath(root)
         self.chain = [self.root]
-        self.history = [self.root]
+        self.history = [[self.root]]
         self.history_index = 0
         self.listboxes = []
         self.icon_size = ZOOM_DEFAULT
@@ -265,7 +265,7 @@ class ColumnsWindow(Gtk.Window):
     def _sidebar_activated(self, _listbox, row):
         if hasattr(row, "path") and os.path.isdir(row.path):
             self.chain = [os.path.abspath(row.path)]
-            self.history = self.history[:self.history_index + 1] + [self.chain[0]]
+            self.history = self.history[:self.history_index + 1] + [self.chain.copy()]
             self.history_index += 1
             self.rebuild_columns()
 
@@ -283,7 +283,7 @@ class ColumnsWindow(Gtk.Window):
     def on_back(self, _button):
         if self.history_index > 0:
             self.history_index -= 1
-            self.chain = [self.history[self.history_index]]
+            self.chain = self.history[self.history_index].copy()
             self.rebuild_columns()
 
     def on_forward(self, _button):
@@ -295,7 +295,7 @@ class ColumnsWindow(Gtk.Window):
     def on_up(self, _button):
         parent = os.path.dirname(self.chain[-1])
         if parent and parent != self.chain[-1]:
-            self.history = self.history[:self.history_index + 1] + [parent]
+            self.history = self.history[:self.history_index + 1] + [[parent]]
             self.history_index += 1
             self.chain = [parent]
             self.rebuild_columns()
@@ -729,6 +729,18 @@ class ColumnsWindow(Gtk.Window):
         entry = row.entry
         index = self.listboxes.index(listbox)
         path = os.path.join(self.chain[index], entry["name"])
+        if os.path.isdir(path):
+            # A normal Finder folder-open is a history navigation event.
+            # Keep the complete column chain so Back/Forward restores the
+            # exact visible depth rather than only the last directory.
+            new_chain = self.chain[:index + 1] + [path]
+            if new_chain == self.chain:
+                return
+            self.history = self.history[:self.history_index + 1] + [new_chain]
+            self.history_index += 1
+            self.chain = new_chain
+            self.rebuild_columns()
+            return
         self._activate_path(path)
 
     def _empty_trash(self):
