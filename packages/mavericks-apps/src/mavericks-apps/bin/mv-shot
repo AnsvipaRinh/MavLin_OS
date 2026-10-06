@@ -570,6 +570,9 @@ class CaptureThumbnail(Gtk.Window):
 
         self.show_all()
         self._place()
+        # get_size() is not trustworthy until the first allocation, so place
+        # again once the window has actually been laid out.
+        self.connect("size-allocate", lambda *_args: self._place())
 
         if timeout_sec > 0:
             GLib.timeout_add_seconds(timeout_sec, self.on_timeout)
@@ -579,7 +582,7 @@ class CaptureThumbnail(Gtk.Window):
         area = _work_area()
         if area is None:
             return
-        width, height = self.get_size()
+        width, height = _preferred_size(self)
         self.move(max(area.x, area.x + area.width - width - MARGIN),
                   max(area.y, area.y + area.height - height - MARGIN))
 
@@ -759,6 +762,7 @@ class ToolsBar(Gtk.Window):
 
         self.show_all()
         self._place()
+        self.connect("size-allocate", lambda *_args: self._place())
         if self.buttons:
             self.buttons[0].grab_focus()
 
