@@ -1558,3 +1558,14 @@ Two more findings, both from measuring the frame instead of the config.
 - **`frame_border_{top,bottom,left,right}` in themerc are dead keys.** The theme asked for 4px and xfwm4 rendered 5px, because the border is taken from the artwork: `left-active.xpm`/`right-active.xpm` are 5px wide and the corner pieces are 5×5. The measured frame is 5px on all four sides. The keys are removed rather than corrected, because leaving them invites someone to "fix" the pixmaps down to 4px and break the frame; the suite now asserts the measured border against the artwork width and fails if an inert `frame_border_*` reappears. (Same failure class as the dead panel theme, the dead plank INI and the dead chooser CSS: a key that parses, is accepted, and does nothing.)
 
 **Verification:** `scripts/test-window-management-gui.py` 37/37, including two new live checks — a zoomed window keeps a title strip, and `Alt+Tab` moves focus between two windows through xfwm4's own key handler (no resident switcher).
+
+- **`show_frame_shadow` is now stated instead of inherited.** The theme config
+  switched on dock and popup shadows but never the *window* one, so the shadow
+  everyone actually looks at was being taken from whatever the xfwm4 build
+  defaults to — the identical trap just removed for snapping. Stated `true`
+  alongside the other two, with `shadow_opacity=50`, while the compositor stays
+  the only heavyweight (blur/slide/fade/animations remain off per §4). The
+  *appearance* of the shadow is left to hardware validation: on the shared
+  Xvfb another suite's full-screen window sits behind the test window, so a
+  root-window grab cannot distinguish a 50%-opacity shadow from whatever is
+  painted underneath, and guessing would have been worse than saying so.

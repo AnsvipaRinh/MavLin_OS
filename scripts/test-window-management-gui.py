@@ -309,6 +309,18 @@ def audit_config():
         ok("titleless_maximize=false — a zoomed window keeps its title bar "
            "(macOS 10.9 zoom, not full screen)")
 
+    # Shadows come from the compositor; §4 wants them on and heavy effects off,
+    # so each shadow switch is stated rather than inherited from a build default.
+    for key, want in (("use_compositing", "true"), ("show_frame_shadow", "true"),
+                      ("show_dock_shadow", "true"), ("show_popup_shadow", "true"),
+                      ("shadow_opacity", "50"), ("vblank_mode", "off"),
+                      ("unredirect_overlays", "true")):
+        value = prop(key)
+        if value != want:
+            fail("xfwm4 %s=%s, expected %s" % (key, value, want))
+    ok("compositor shadows are switched on explicitly (frame, dock, popup) "
+       "with heavy effects off (vblank off, unredirected overlays)")
+
     for key, want in (("click_to_focus", "true"), ("focus_delay", "0"),
                       ("raise_on_click", "true"), ("raise_on_focus", "false"),
                       ("double_click_action", "maximize"),

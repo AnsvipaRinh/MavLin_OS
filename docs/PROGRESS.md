@@ -1,6 +1,6 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (Window Management P0 — oid `OS-wm-p0`, canonical #25: the Mavericks traffic lights were never drawn at all — 40 of the 67 shipped XPM assets could not be decoded by GdkPixbuf, so a focused title bar had **no close button**; button artwork is now generated, the title font matched the desktop UI font, snapping is pinned off, a zoomed window keeps its title bar (it used to have no frame at all), `frame_border_*` is dead config and removed, the two missing macOS chords are bound, and a new 37-check suite measures a real xfwm4 on the pinned Xvfb instead of reading config)
+**Last Updated**: 2026-10-06 (Window Management P0 — oid `OS-wm-p0`, canonical #25: the Mavericks traffic lights were never drawn at all — 40 of the 67 shipped XPM assets could not be decoded by GdkPixbuf, so a focused title bar had **no close button**; button artwork is now generated, the title font matched the desktop UI font, snapping is pinned off, a zoomed window keeps its title bar (it used to have no frame at all), `frame_border_*` is dead config and removed, the two missing macOS chords are bound, and a new 38-check suite measures a real xfwm4 on the pinned Xvfb instead of reading config)
 ---
 
 ## Session 2026-10-06 — Window Management P0 (oid `OS-wm-p0`, canonical objective #25)
@@ -47,6 +47,13 @@
 **Also verified live:** frame borders (5px) match the artwork and the 22px title
 strip matches `title-1-active.xpm`; `Alt+Tab` moves focus between two windows
 through xfwm4's own key handler.
+
+**Third pass:** `show_frame_shadow` was missing while the dock and popup shadows
+were switched on — the window shadow everyone actually looks at was inherited
+from the build default, the same trap just removed for snapping. Now stated
+`true` (38 checks). Its appearance stays a hardware item: the shared Xvfb has
+another suite's full-screen window behind the test window, so a root grab
+cannot separate a 50%-opacity shadow from the paint underneath.
 
 **Status:** Window Management is **IMPLEMENTED — HARDWARE VALIDATION REQUIRED**. Pre-hardware work in this zone is closed; what remains is visual/keyboard validation on the real 2304×1440 panel (`docs/NEEDS_HARDWARE_TEST.md` § Window Management).
 

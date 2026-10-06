@@ -33,6 +33,13 @@
          closed or minimised from its own title bar.  Hiding the menu bar is
          what macOS reserves for true full screen, not for zoom. -->
     <property name="titleless_maximize" type="bool" value="false"/>
+    <!-- Window shadows come from the xfwm4 compositor, which is the whole point
+         of turning it on for this desktop; everything else it offers (blur,
+         slide, fade, animations) stays off for the fanless Core M.  Shadows are
+         stated explicitly rather than inherited: `show_frame_shadow` was absent
+         and therefore taken from whatever the build defaults to, which is the
+         same dead-config trap as snapping was. -->
+    <property name="show_frame_shadow" type="bool" value="true"/>
     <property name="show_dock_shadow" type="bool" value="true"/>
     <property name="show_popup_shadow" type="bool" value="true"/>
     <property name="shadow_delta_height" type="int" value="8"/>
