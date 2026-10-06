@@ -1,27 +1,64 @@
-    A("workspace-4", "Switch to Space 4", ["Super"], "4", "workspace_4_key",
-      "workspace", skill="workspace", branch=BRANCH_XFWM4),
+    conflicts.sort(key=lambda c: (c["property"], c["actions"][0], c["actions"][1]))
+    return conflicts
 
-    # --- Hardware function row (protected: not rebindable) -----------------
-    A("volume-raise", "Volume Up", [], "XF86AudioRaiseVolume",
-      "pactl set-sink-volume @DEFAULT_SINK@ +5%", "keyboard",
-      skill="keyboard", protected=True),
-    A("volume-lower", "Volume Down", [], "XF86AudioLowerVolume",
-      "pactl set-sink-volume @DEFAULT_SINK@ -5%", "keyboard",
-      skill="keyboard", protected=True),
-    A("volume-mute", "Mute", [], "XF86AudioMute",
-      "pactl set-sink-mute @DEFAULT_SINK@ toggle", "keyboard",
-      skill="keyboard", protected=True),
-    A("media-play", "Play / Pause", [], "XF86AudioPlay",
-      "mv-music --media-key playpause", "keyboard", skill="keyboard",
-      protected=True),
-    A("media-next", "Next Track", [], "XF86AudioNext",
-      "mv-music --media-key next", "keyboard", skill="keyboard",
-      protected=True),
-    A("media-prev", "Previous Track", [], "XF86AudioPrev",
-      "mv-music --media-key prev", "keyboard", skill="keyboard",
-      protected=True),
-    A("media-stop", "Stop", [], "XF86AudioStop",
-      "mv-music --media-key stop", "keyboard", skill="keyboard",
-      protected=True),
-    A("brightness-up", "Brightness Up", [], "XF86MonBrightnessUp",
-      "mv-brightness up", "keyboard", skill="keyboar
+
+def check_overrides(overrides=None):
+    """Validate a whole override table. Returns list of error strings."""
+    errors = []
+    for aid in sorted(overrides or {}):
+        if aid not in ACTION_INDEX:
+            errors.append("unknown action: %s" % aid)
+            continue
+        if ACTION_INDEX[aid]["protected"] or not ACTION_INDEX[aid]["rebindable"]:
+            errors.append("action %s is protected and cannot be overridden" % aid)
+            continue
+        try:
+            accel = normalize_accelerator((overrides[aid] or {}).get(
+                "accelerator", {}))
+        except ValueError as exc:
+            errors.append("action %s: %s" % (aid, exc))
+            continue
+        if accel["key"] in SPECIAL_KEYS:
+            errors.append(
+                "action %s: hardware key %s is reserved" % (aid, accel["key"]))
+    for conflict in detect_conflicts(overrides=overrides):
+        errors.append(
+            "conflicting bindings for %s: %s"
+            % (" / ".join(conflict["actions"]), conflict["property"]))
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Factory XML: render + parse + drift detection
+# ---------------------------------------------------------------------------
+
+_XML_HEADER = ('<?xml version="1.0" ?>\n'
+               '<channel name="xfce4-keyboard-shortcuts" version="1.0">\n')
+
+
+def render_xml(actions=None):
+    """Generate the factory xfconf XML from the registry.
+
+    Used by `mv-hotkeys render-xml` and by the test suite to prove the
+    packaged XML is exactly what the registry describes.
+    """
+    rows = actions if actions is not None else ACTIONS
+    out = [_XML_HEADER]
+    for branch in BRANCHES:
+        out.append('  <property name="%s" type="empty">\n' % branch)
+        out.append('    <property name="default" type="empty">\n')
+        for row in rows:
+            if row["branch"] != branch:
+                continue
+            out.append(
+                '      <property name="%s" type="string" value="%s"/>\n'
+                % (xml_escape(property_accelerator(row)),
+                   xml_escape(row["command"])))
+        out.append('    </property>\n')
+        out.append('  </property>\n')
+    out.append('</channel>\n')
+    return "".join(out)
+
+
+def _xml_attr(value):
+    return (value.replace("&", "&").replace("<", "<")
