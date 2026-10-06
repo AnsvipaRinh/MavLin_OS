@@ -35,7 +35,7 @@
       <property name="mode" type="uint" value="2"/>
       <property name="digital-layout" type="int" value="3"/>
       <property name="digital-time-format" type="string" value="%a %b %-d %-I:%M %p"/>
-      <property name="digital-time-font" type="string" value="San Francisco 11"/>
+      <property name="digital-time-font" type="string" value="Lucida Grande 11"/>
       <property name="tooltip-format" type="string" value="%A, %B %-d, %Y"/>
     </property>
     <property name="plugin-6" type="string" value="power-manager-plugin"/>
