@@ -147,6 +147,21 @@ def main():
     check("PAGES: native panes are the majority surface",
           len(pane_keys) >= 10, str(len(pane_keys)))
 
+    # --- Bluetooth routing/native pane contracts ---
+    bluetooth = next(row for row in m.PAGES if row[0] == "Bluetooth")
+    check("route: Bluetooth uses native pane",
+          bluetooth[2] is None and bluetooth[3] == "bluetooth", str(bluetooth))
+    check("route: native Bluetooth wins over blueman availability",
+          m.page_action(bluetooth, tool_available=lambda _cmd: True) == ("pane", "bluetooth"))
+    source = open(m.APP_PATH, encoding="utf-8").read()
+    check("native Bluetooth backend uses BlueZ ObjectManager",
+          'org.freedesktop.DBus.ObjectManager' in source and 'GetManagedObjects' in source)
+    check("native Bluetooth has adapter power control",
+          'org.bluez.Adapter1' in source and '"Powered"' in source)
+    check("native Bluetooth has device actions",
+          'org.bluez.Device1' in source and '"Connect"' in source
+          and '"Disconnect"' in source and '"Pair"' in source)
+
     # --- pure helpers: RandR display parsing ---
     sample_xrandr = """Screen 0: minimum 320 x 200, current 3200 x 1080, maximum 8192 x 8192
 DP-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 344mm x 193mm
