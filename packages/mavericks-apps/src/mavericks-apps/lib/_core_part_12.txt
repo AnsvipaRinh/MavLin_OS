@@ -1,0 +1,36 @@
+s:
+        raise ValueError("empty accelerator")
+
+    unescaped = s.replace("<", "<").replace(">", ">")
+    if "<" in unescaped:
+        pattern = re.compile(
+            r"^<(Primary|Control|Ctrl|Alt|Option|Super|Meta|Shift)>")
+        mods = []
+        while True:
+            m = pattern.match(unescaped)
+            if not m:
+                break
+            mods.append(m.group(1))
+            unescaped = unescaped[len(m.group(0)):]
+        key = unescaped
+        if not key:
+            raise ValueError("accelerator has modifiers but no key: %r" % accel)
+        if not is_valid_key(key):
+            raise ValueError("invalid key: %r" % key)
+        return {"modifiers": normalize_modifiers(mods), "key": key}
+
+    parts = [p.strip() for p in s.split("+") if p.strip()]
+    if len(parts) == 1:
+        # A lone hardware keysym (XF86AudioMute, XF86MonBrightnessUp, …) is
+        # a valid accelerator: the function row has no modifiers.
+        if _XF86_RE.match(parts[0]) and parts[0] in MEDIA_KEYS:
+            return {"modifiers": [], "key": parts[0]}
+        raise ValueError(
+            "accelerator needs at least one modifier, e.g. Super+Space")
+    mods, raw_key = parts[:-1], parts[-1]
+    canonical = normalize_modifiers(mods)
+    if _XF86_RE.match(raw_key):
+        key = raw_key
+    elif len(raw_key) == 1 and raw_key.isalnum():
+        key = raw_key.lower()
+    elif _KE
