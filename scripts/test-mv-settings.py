@@ -188,6 +188,21 @@ def main():
           m.page_action([r for r in m.PAGES if r[0] == "Energy Saver"][0])[0]
           == "pane")
 
+    # --- native Mavericks window chrome --------------------------------
+    # System Settings must use XFWM4's real titlebar so the Mavericks window
+    # theme owns the traffic-light controls. A GTK HeaderBar would switch the
+    # application to client-side decoration and bypass that chrome.
+    check("settings uses native XFWM window decorations",
+          'self.set_decorated(True)' in src)
+    check("settings does not install a GTK HeaderBar",
+          "Gtk.HeaderBar" not in src and "self.set_titlebar(" not in src)
+    check("settings keeps a dedicated Mavericks toolbar",
+          'mavericks-settings-toolbar' in src)
+    check("settings toolbar keeps Show All navigation",
+          'Gtk.Button(label="Show All"' in src)
+    check("settings toolbar keeps integrated search",
+          'Gtk.SearchEntry(placeholder_text="Search")' in src)
+
     # --- pure pane helpers: xrandr Displays ---
     sample_xrandr = """Screen 0: minimum 8 x 8, current 2304 x 1440, maximum 32767 x 32767
 eDP-1 connected primary 2304x1440+0+0 (normal left inverted right x axis y axis) 286mm x 179mm
