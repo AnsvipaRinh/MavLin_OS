@@ -19,8 +19,9 @@
       "provider": "zai-coding-plan",
       "match": "glm-5.3-flash",
       "want": "zai-coding-plan/glm-5.3-flash",
+      "pool": "zai-coding-plan",
       "worker": "build",
-      "worker_reason": "PRIMARY WORKER since 2026-10-06 (user directive: GLM 5.3 Flash first priority). Coding plan = separate connection type: built-in provider `zai-coding-plan`, key in ~/.local/share/opencode/auth.json. Live-verified 2026-10-06: listed by `opencode models` + live completion. Pinned via the `build` agent in opencode.jsonc.",
+      "worker_reason": "PRIMARY WORKER since 2026-10-06 (user directive: GLM 5.3 Flash first priority). Coding plan = separate connection type: built-in provider `zai-coding-plan`, key in ~/.local/share/opencode/auth.json. Live-verified 2026-10-06: listed by `opencode models` + live completion. Pinned via the `build` agent in opencode.jsonc. pool=zai-coding-plan: shares ONE coding-plan quota with glm-5.3 (E10) — a quota death blocks both; preflight/migrate never fail over inside a dead pool.",
       "label": "GLM 5.3 Flash (Z.ai Coding Plan; PRIMARY from 2026-10-06, built-in zai-coding-plan connection)"
     },
     {
@@ -118,13 +119,15 @@
       "provider": "zai-coding-plan",
       "match": "glm-5.3\b",
       "want": "zai-coding-plan/glm-5.3",
+      "pool": "zai-coding-plan",
       "worker": null,
-      "worker_reason": "RESERVED for very complex tasks only (user directive 2026-10-06). Regular GLM 5.3 (non-Flash) kept in chain but LAST; not a runtime worker (worker=null) to prevent accidental use. Explicit opt-in required for complex reasoning tasks where Flash may be insufficient.",
+      "worker_reason": "RESERVED for very complex tasks only (user directive 2026-10-06). Regular GLM 5.3 (non-Flash) kept in chain but LAST; not a runtime worker (worker=null) to prevent accidental use. Explicit opt-in required for complex reasoning tasks where Flash may be insufficient. pool=zai-coding-plan: same account quota as glm-5.3-flash (E10) — even when opted in, it is skipped while the pool quota cooldown runs.",
       "label": "GLM 5.3 (Z.ai Coding Plan; RESERVED for complex tasks only, NOT a runtime worker)"
     }
   ],
   "requires": "Z.ai Coding Plan connected (built-in `zai-coding-plan`, key in ~/.local/share/opencode/auth.json) for entry 1; OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 3-4; Zen login for 2, 5-10. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry.",
   "history": [
+    "2026-10-06: POOL SCHEMA (protocol v18, failover audit E10): entries sharing ONE account quota now carry a 'pool' field. Both zai-coding-plan entries (glm-5.3-flash order 1, glm-5.3 order 11) -> pool 'zai-coding-plan' — they draw from the same coding-plan 5h quota, so a quota death blocks failover inside the pool (previously prose-only in health memory, unmodelled in rotate/preflight).",
     "2026-10-05: GLM 5.3 Coding Plan RESTORED as order 1 / primary at user directive ('кодинг план — отдельный тип настройки и подключения'). Coding plan wired as the BUILT-IN `zai-coding-plan` connection (auth.json key updated to the new plan key; no hand-rolled config provider). Worker for order 1 = build (pin in opencode.jsonc). Ling 3.1 Flash Free demoted to order 2 (build-j). Chain renumbered 1-10. primaryWorker updated to build.",
     "2026-10-04: fledge-alpha REMOVED ENTIRELY per user approval — US-only geo-blocked test model (Poland/Spain/France/China get 'not available in your country'; US VPN works). Chain entry deleted (was order 6, worker build-d), build-d worker block removed from opencode.jsonc, fledge-alpha added to never list. Chain renumbered 1-9.",
     "2026-10-04: Nemotron 3.5 Lightning demoted to end of chain (order 10) at user request after repeated instability; chain renumbered 1-10 (duplicate order 9 fixed).",
