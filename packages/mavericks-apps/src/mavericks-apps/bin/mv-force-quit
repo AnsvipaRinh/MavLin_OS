@@ -7,6 +7,12 @@ import subprocess
 import sys
 
 import gi
+
+# Shared Mavericks dialog layer.
+for _path in ("/usr/share/mavericks-apps", os.path.dirname(os.path.abspath(__file__))):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
+from mv_dialogs import alert
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
@@ -88,14 +94,11 @@ class ForceQuit(Gtk.Dialog):
         try:
             os.kill(pid, signal.SIGKILL)
         except OSError as exc:
-            error = Gtk.MessageDialog(
-                transient_for=self,
-                modal=True,
-                message_type=Gtk.MessageType.ERROR,
-                buttons=Gtk.ButtonsType.OK,
-                text="Could not force quit process %d: %s" % (pid, exc))
-            error.run()
-            error.destroy()
+            alert(
+                self,
+                "Could not force quit process %d" % pid,
+                secondary=str(exc),
+                msg_type=Gtk.MessageType.ERROR)
 
 
 def main():
