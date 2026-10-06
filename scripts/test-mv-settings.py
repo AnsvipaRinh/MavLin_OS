@@ -109,6 +109,8 @@ def main():
         print("\n%d passed, %d failed" % (ok.count, len(bad.failures)))
         return 1
 
+    src = open(os.path.join(BIN, "mv-settings"), encoding="utf-8").read()
+
     # --- PAGES table contract ---
     rows_ok = all(len(r) == 4 and isinstance(r[0], str) and isinstance(r[1], str)
                   and (r[2] is None or (isinstance(r[2], list) and r[2]
@@ -169,7 +171,8 @@ def main():
           str(displays))
     check("native pane registry: Displays is declared",
           "displays" in m.NATIVE_PANES)
-    network = [r for r in m.PAGES if r[0] == "Network"][0]\n    sound = [r for r in m.PAGES if r[0] == "Sound"][0]
+    network = [r for r in m.PAGES if r[0] == "Network"][0]
+    sound = [r for r in m.PAGES if r[0] == "Sound"][0]
     check("route: Sound uses native pane",
           sound[2] is None and sound[3] == "sound", str(sound))
     check("native pane registry: Sound is declared",
