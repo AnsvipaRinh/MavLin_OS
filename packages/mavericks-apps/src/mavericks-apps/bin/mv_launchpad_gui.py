@@ -46,7 +46,7 @@ mv_launchpad = _load_launchpad_backend()
 
 ITEMS_PER_PAGE = mv_launchpad.ITEMS_PER_PAGE
 COLUMNS = 7
-TARGET_TEXT = Gtk.TargetEntry.new("text/plain", 0, 0)
+TARGET_TEXT = Gtk.TargetEntry.new("text/plain", Gtk.TargetFlags.SAME_APP, 0)
 
 
 class LaunchpadWindow(Gtk.Window):
@@ -225,7 +225,77 @@ class LaunchpadWindow(Gtk.Window):
         button.add(box)
 
         button.connect("clicked", self._on_item_activated, item)
+
+        # Native GTK drag-and-drop. Only application items are draggable;
+        # folders are drop targets for moving an app into a folder.
+        if item.get("type") == "app":
+            button.drag_source_set(
+                Gdk.ModifierType.BUTTON1_MASK,
+                [TARGET_TEXT],
+                Gdk.DragAction.MOVE,
+            )
+            button.connect("drag-data-get", self._on_drag_data_get, item)
+        if item.get("type") in ("app", "folder"):
+            button.drag_dest_set(
+                Gtk.DestDefaults.ALL,
+                [TARGET_TEXT],
+                Gdk.DragAction.MOVE,
+            )
+            button.connect("drag-data-received", self._on_drag_data_received, item)
         return button
+
+    def _on_drag_data_get(self, _widget, _context, selection, _info, _time, item):
+        source_id = item.get("id")
+        if source_id:
+            selection.set_text(source_id, -1)
+
+    def _on_drag_data_received(
+        self, widget, context, x, y, selection, _info, time, target_item
+    ):
+        source_id = selection.get_text()
+        if not source_id or target_item.get("type") not in ("app", "folder"):
+            Gtk.drag_finish(context, False, False, time)
+            return
+
+        if target_item.get("type") == "folder":
+            updated_folders = mv_launchpad.move_app_to_folder(
+                self.folders, source_id, target_item["id"]
+            )
+            if updated_folders == self.folders:
+                Gtk.drag_finish(context, False, False, time)
+                return
+            self.folders = updated_folders
+            mv_launchpad.save_folders(self.folders)
+            self.page = 0
+            self.selected_index = 0
+            self._render()
+            Gtk.drag_finish(context, True, False, time)
+            return
+
+        # App -> app: reorder the existing standalone-app sequence and persist
+        # canonical zero-based positions. Folder membership remains separate.
+        if target_item.get("id") == source_id:
+            Gtk.drag_finish(context, False, False, time)
+            return
+
+        structure = self._structure()
+        reordered = mv_launchpad.reorder_launchpad_apps(
+            structure.get("apps", []),
+            source_id,
+            target_item.get("id"),
+        )
+        if [app.get("id") for app in reordered] == [
+            app.get("id") for app in structure.get("apps", [])
+        ]:
+            Gtk.drag_finish(context, False, False, time)
+            return
+
+        self.positions = mv_launchpad.positions_for_launchpad_apps(reordered)
+        mv_launchpad.save_positions(self.positions)
+        self.page = 0
+        self.selected_index = 0
+        self._render()
+        Gtk.drag_finish(context, True, False, time)
 
     def _on_item_activated(self, _button, item):
         kind = item.get("type")
