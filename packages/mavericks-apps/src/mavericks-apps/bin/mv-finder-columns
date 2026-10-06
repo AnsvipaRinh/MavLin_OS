@@ -342,6 +342,7 @@ class ColumnsWindow(Gtk.Window):
         listbox.set_size_request(COLUMN_WIDTH, -1)
         listbox.set_activate_on_single_click(False)
         listbox.connect("row-activated", self.on_row_activated)
+        listbox.connect("button-press-event", self.on_column_button_press)
         listbox.get_style_context().add_class("mavericks-finder-column")
         if entries:
             for entry in entries:
@@ -371,6 +372,175 @@ class ColumnsWindow(Gtk.Window):
             self.listboxes[-1].grab_focus()
         return False
 
+    # ---------- Finder file actions ----------
+
+    def _row_path(self, listbox, row):
+        if not hasattr(row, "entry"):
+            return None
+        try:
+            index = self.listboxes.index(listbox)
+        except ValueError:
+            return None
+        return os.path.join(self.chain[index], row.entry["name"])
+
+    def _show_error(self, title, message):
+        dialog = Gtk.MessageDialog(
+            transient_for=self, modal=True,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK, text=title)
+        dialog.format_secondary_text(message)
+        dialog.run()
+        dialog.destroy()
+
+    def _selected_path(self):
+        for listbox in self.listboxes:
+            row = listbox.get_selected_row()
+            if row is not None:
+                path = self._row_path(listbox, row)
+                if path:
+                    return path
+        return None
+
+    def _get_info(self, path):
+        if not path:
+            return
+        try:
+            subprocess.Popen(["mv-getinfo", path],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as e:
+            self._show_error("Get Info", str(e))
+
+    def _rename(self, path):
+        if not path or not os.path.exists(path):
+            return
+        dialog = Gtk.Dialog(title="Rename", transient_for=self,
+                            flags=Gtk.DialogFlags.MODAL)
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Rename", Gtk.ResponseType.OK)
+        area = dialog.get_content_area()
+        area.set_spacing(8)
+        area.set_margin_top(12)
+        area.set_margin_bottom(12)
+        area.set_margin_start(12)
+        area.set_margin_end(12)
+        area.pack_start(Gtk.Label(label="Name:", xalign=0), False, False, 0)
+        entry = Gtk.Entry()
+        entry.set_text(os.path.basename(path))
+        entry.select_region(0, -1)
+        area.pack_start(entry, False, False, 0)
+        dialog.show_all()
+        response = dialog.run()
+        new_name = entry.get_text().strip()
+        dialog.destroy()
+        if response != Gtk.ResponseType.OK or not new_name:
+            return
+        if os.path.basename(new_name) != new_name or new_name in (".", ".."):
+            self._show_error("Rename", "Please enter a single valid file name.")
+            return
+        target = os.path.join(os.path.dirname(path), new_name)
+        if os.path.abspath(target) == os.path.abspath(path):
+            return
+        if os.path.exists(target):
+            self._show_error("Rename", "An item with that name already exists.")
+            return
+        try:
+            os.rename(path, target)
+            self.rebuild_columns()
+        except OSError as e:
+            self._show_error("Rename", e.strerror or str(e))
+
+    def _move_to_trash(self, path):
+        if not path or not os.path.exists(path):
+            return
+        dialog = Gtk.MessageDialog(
+            transient_for=self, modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.CANCEL,
+            text="Move “%s” to the Trash?" % os.path.basename(path))
+        dialog.add_button("Move to Trash", Gtk.ResponseType.OK)
+        response = dialog.run()
+        dialog.destroy()
+        if response != Gtk.ResponseType.OK:
+            return
+        try:
+            Gio.File.new_for_path(path).trash(None)
+        except Exception as e:
+            if shutil.which("trash-put"):
+                try:
+                    subprocess.run(["trash-put", path], check=True,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except Exception as fallback_error:
+                    self._show_error("Move to Trash", str(fallback_error))
+                    return
+            else:
+                self._show_error("Move to Trash", str(e))
+                return
+        self.rebuild_columns()
+
+    def _open_with(self, path):
+        if not path:
+            return
+        try:
+            subprocess.Popen(["xdg-open", path],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as e:
+            self._show_error("Open With", str(e))
+
+    def _popup_context_menu(self, listbox, row, event):
+        path = self._row_path(listbox, row)
+        if not path:
+            return
+        row.select()
+        listbox.grab_focus()
+        menu = Gtk.Menu()
+        item = Gtk.MenuItem(label="Open")
+        item.connect("activate", lambda _i: self._activate_path(path))
+        menu.append(item)
+        item = Gtk.MenuItem(label="Get Info")
+        item.connect("activate", lambda _i: self._get_info(path))
+        menu.append(item)
+        item = Gtk.MenuItem(label="Rename")
+        item.connect("activate", lambda _i: self._rename(path))
+        menu.append(item)
+        item = Gtk.MenuItem(label="Move to Trash")
+        item.connect("activate", lambda _i: self._move_to_trash(path))
+        menu.append(item)
+        menu.append(Gtk.SeparatorMenuItem())
+        item = Gtk.MenuItem(label="Open With…")
+        item.connect("activate", lambda _i: self._open_with(path))
+        menu.append(item)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+
+    def on_column_button_press(self, listbox, event):
+        if event.button != 3:
+            return False
+        try:
+            row = listbox.get_row_at_y(int(event.y))
+        except Exception:
+            row = None
+        if row is not None:
+            self._popup_context_menu(listbox, row, event)
+            return True
+        return False
+
+    def _activate_path(self, path):
+        if os.path.isdir(path):
+            parent = os.path.dirname(path)
+            for i, directory in enumerate(self.chain):
+                if os.path.abspath(directory) == os.path.abspath(parent):
+                    self.chain = self.chain[:i + 1] + [path]
+                    self.rebuild_columns()
+                    return
+            self.chain = [path]
+            self.rebuild_columns()
+            return
+        try:
+            subprocess.Popen(["xdg-open", path],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as e:
+            self._show_error("Open", e.strerror or str(e))
+
     # ---------- interaction ----------
 
     def on_row_activated(self, listbox, row):
@@ -379,16 +549,7 @@ class ColumnsWindow(Gtk.Window):
         entry = row.entry
         index = self.listboxes.index(listbox)
         path = os.path.join(self.chain[index], entry["name"])
-        if entry["is_dir"]:
-            self.chain = self.chain[:index + 1]
-            self.chain.append(path)
-            self.rebuild_columns()
-        else:
-            try:
-                subprocess.Popen(["xdg-open", path],
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            except OSError:
-                pass
+        self._activate_path(path)
 
     def on_open_thunar(self, _button):
         target = self.chain[-1]
@@ -413,6 +574,21 @@ class ColumnsWindow(Gtk.Window):
         if key == "Escape":
             self.destroy()
             return True
+        if key == "F2":
+            path = self._selected_path()
+            if path:
+                self._rename(path)
+                return True
+        if key in ("Delete", "KP_Delete"):
+            path = self._selected_path()
+            if path:
+                self._move_to_trash(path)
+                return True
+        if ctrl and key in ("i", "I"):
+            path = self._selected_path()
+            if path:
+                self._get_info(path)
+                return True
         if not self.listboxes:
             return False
         if key == "Right":
