@@ -577,3 +577,19 @@ A2 drift gate (tests: modified/untracked/clean); A3 doctrine + protocol v18
 everywhere, `ProtocolVersionConsistency` green again. Test suite: 95 OK
 (was 71 with 3 stale-expectation failures, fixed by deriving the expected
 fallback from the chain rather than hardcoding build-b).
+
+**Dock keyboard navigation — not feasible with plank 0.11.89 (documented
+limit, not an omission).** macOS lets you focus the Dock with Ctrl+F3, walk
+items with ←/→, activate with Enter, and type-ahead to jump. plank 0.11.89
+has none of it: `libplank.so.1` contains **no** `keynav`, `activate_item` or
+`move_left` symbols (the only `move_right` hit is
+`plank_dock_item_draw_value_move_right`, the drag animation), and its sole
+key-press handler is `plank_preferences_window_real_key_press_event`, i.e. the
+*preferences dialog*. The Dock window is override-redirect and never takes
+keyboard focus, so there is nothing for a one-shot hotkey to move focus onto
+either. Closing this would mean an XGrabKey process resident for the whole
+session purely to watch Ctrl+F3 — a permanent wakeup source for a
+navigation-only feature on fanless hardware, which AGENTS.md §7 rules out.
+Left as a documented architectural limit; `scripts/test-dock-plank.py` asserts
+that this limit stays recorded in `docs/APPS.md` and `docs/DECISIONS.md` so it
+cannot quietly disappear from the docs.

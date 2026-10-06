@@ -469,6 +469,38 @@ for name, desktop in PINS.items():
               "firefox.dockitem has no firefox package in packages.x86_64")
 
 # ---------------------------------------------------------------------------
+# 9b. The Dock's architectural limits must stay recorded
+#
+# A gap that only exists in a commit message disappears on the next audit.
+# These are the two places the reader actually looks, so the gate checks them.
+# ---------------------------------------------------------------------------
+
+apps_doc = read(os.path.join(REPO, "docs/APPS.md"))
+decisions_doc = read(os.path.join(REPO, "docs/DECISIONS.md"))
+
+RECORDED_LIMITS = (
+    ("keyboard navigation of the Dock",
+     ("Ctrl+F3", "keynav"),
+     "plank 0.11.89 has no Dock keyboard navigation and adding it would "
+     "cost a resident keygrab process"),
+    ("reflection / translucent shelf not theme-reachable",
+     ("Reflection",),
+     "plank 0.11.89 has no Reflection*/BackgroundColor theme keys"),
+    ("no minimize-into-Dock",
+     ("minimis",),
+     "minimised windows do not collect at the Dock's right end"),
+    ("no second Dock fallback",
+     ("fallback",),
+     "plank is a hard dependency; a parallel Dock would violate reuse-first"),
+)
+for label, needles, why in RECORDED_LIMITS:
+    check(any(needle.lower() in apps_doc.lower() for needle in needles),
+          "docs/APPS.md must record the Dock limit: %s (%s)" % (label, why))
+    check(any(needle.lower() in decisions_doc.lower() for needle in needles),
+          "docs/DECISIONS.md must record the Dock limit: %s (%s)"
+          % (label, why))
+
+# ---------------------------------------------------------------------------
 # 10. Module hygiene
 # ---------------------------------------------------------------------------
 
