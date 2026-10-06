@@ -1,0 +1,56 @@
+# Mission Control Helpers Installation Makefile
+# Installs all MC CLI helpers to /usr/local/bin
+
+PREFIX ?= /usr/local
+BINDIR = $(PREFIX)/bin
+
+HELPERS = \
+	mv-mc-window-spaces \
+	mv-mc-thumbnail \
+	mv-mc-grid \
+	mv-mc-activate-window \
+	mv-mc-overview \
+	mv-mc-gui \
+	mv-workspace-count
+
+.PHONY: all install uninstall check
+
+all: check
+
+check:
+	@echo "Checking Mission Control helpers..."
+	@for helper in $(HELPERS); do \
+		if [ ! -f "bin/$$helper" ]; then \
+			echo "ERROR: bin/$$helper not found"; \
+			exit 1; \
+		fi; \
+	done
+	@echo "All helpers present."
+
+install: check
+	@echo "Installing Mission Control helpers to $(BINDIR)..."
+	@install -d $(DESTDIR)$(BINDIR)
+	@for helper in $(HELPERS); do \
+		echo "  Installing $$helper..."; \
+		install -m 755 "bin/$$helper" "$(DESTDIR)$(BINDIR)/$$helper"; \
+	done
+	@echo "Installation complete."
+	@echo ""
+	@echo "Mission Control helpers installed:"
+	@for helper in $(HELPERS); do \
+		echo "  - $$helper"; \
+	done
+	@echo ""
+	@echo "Usage:"
+	@echo "  mv-mc-gui              # Full GUI overlay (F3)"
+	@echo "  mv-mc-overview --list  # CLI window list"
+	@echo "  mv-workspace-count get # Current Space count"
+	@echo ""
+
+uninstall:
+	@echo "Removing Mission Control helpers from $(BINDIR)..."
+	@for helper in $(HELPERS); do \
+		echo "  Removing $$helper..."; \
+		rm -f "$(DESTDIR)$(BINDIR)/$$helper"; \
+	done
+	@echo "Uninstall complete."
