@@ -83,6 +83,16 @@ stage_prefix() {
     cp -r "$T/cursors"   "$P/icons/Mavericks-Cursors"
     cp -r "$T/plank/."   "$P/plank/themes/Mavericks/"
     cp "$T/wallpapers/mavericks-desktop.png" "$P/backgrounds/mavericks/"
+    # Launchpad runs with a demo-scoped XDG_DATA_DIRS (only MavLinOS desktop
+    # entries); link the host fallback icon themes in so generic Icon= names
+    # (text-editor, folder, …) still resolve without widening the app list.
+    # The Makefile drops mv-apple.svg into icons/hicolor/scalable — fold it
+    # into the Mavericks theme first, then replace the dir with the links.
+    mkdir -p "$P/icons/Mavericks/scalable/apps"
+    mv -f "$P/icons/hicolor/scalable/apps/"*.svg "$P/icons/Mavericks/scalable/apps/" 2>/dev/null || true
+    rm -rf "$P/icons/hicolor"
+    ln -sfn /usr/share/icons/hicolor "$P/icons/hicolor"
+    ln -sfn /usr/share/icons/Adwaita "$P/icons/Adwaita" 2>/dev/null || true
 }
 
 stage_prefix
