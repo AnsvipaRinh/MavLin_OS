@@ -172,6 +172,11 @@ def test_pure():
     check("contract: Backspace and Go Back use navigation history",
           "self.history = self.history[:self.history_index + 1] + [new_chain]" in source
           and 'add_action("back", lambda: w().on_back(None) if w() else None)' in source)
+    check("contract: Home and Forward are history-aware",
+          'add_action("forward", lambda: w().on_forward(None) if w() else None)' in source
+          and 'add_action("home", lambda: w().on_home(None) if w() else None)' in source
+          and 'go_menu.append("Forward", "app.forward")' in source
+          and "def on_home(self, _button):" in source)
     check("contract: drag-and-drop move implementation remains present",
           'selection_data.set_uris' in source
           and 'shutil.move(source_abs, destination)' in source
