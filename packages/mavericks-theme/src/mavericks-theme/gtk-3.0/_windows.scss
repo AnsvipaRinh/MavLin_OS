@@ -168,6 +168,128 @@ dialog .dialog-action-area button.destructive-action {
 }
 
 /* ============================================================
+   MESSAGE DIALOGS (ALERTS) — Mavericks layout
+   Large icon left, bold title + secondary text right,
+   generous padding, aqua default button on the right.
+   ============================================================ */
+
+messagedialog {
+    background-color: $window_bg_color;
+    border-radius: 6px;
+    box-shadow: $window_shadow;
+}
+
+messagedialog .dialog-vbox {
+    padding: 20px 20px 4px;
+}
+
+/* Message area: icon + text column */
+messagedialog .dialog-vbox > box {
+    padding: 0 0 16px;
+}
+
+messagedialog .dialog-vbox > box image {
+    margin-right: 16px;
+    margin-top: 2px;
+}
+
+/* Primary/secondary text weight is handled by GtkMessageDialog itself
+   (primary text is bold by default); only the secondary colour is themed
+   here. GTK3 CSS has no :first-of-type/:last-of-type selectors. */
+messagedialog .dialog-vbox > box label {
+    padding: 0;
+    color: $mavericks-charcoal;
+}
+
+/* Alert action area: buttons right-aligned, Mavericks spacing */
+messagedialog .dialog-action-area {
+    padding: 10px 20px 16px;
+    border-top: 1px solid $border_color;
+    background-color: $titlebar_bg_color;
+    border-radius: 0 0 6px 6px;
+}
+
+messagedialog .dialog-action-area button {
+    min-width: 90px;
+    margin: 0 0 0 10px;
+    padding: 5px 14px;
+}
+
+/* Default (aqua) button: pulsing-free solid blue, focus ring */
+messagedialog .dialog-action-area button.suggested-action {
+    @include button-gradient($accent_bg_color);
+    color: $accent_fg_color;
+    border-color: shade($accent_bg_color, 0.5);
+    font-weight: 500;
+}
+
+messagedialog .dialog-action-area button.suggested-action:focus {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.3),
+                0 0 0 2px $focus_color;
+}
+
+/* Helper-created alerts get the same treatment via .mavericks-alert */
+.mavericks-alert {
+    background-color: $window_bg_color;
+}
+
+/* ============================================================
+   SHEETS — attached modal dialogs sliding from the title bar.
+   Top edge flush under the parent title bar (square top corners),
+   rounded bottom corners, continuous chrome gradient.
+   ============================================================ */
+
+window.sheet,
+dialog.sheet {
+    background-color: $window_bg_color;
+    border-radius: 0 0 6px 6px;
+    border-top: none;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+/* Sheet title bar: visually continuous with the parent title bar */
+.sheet .sheet-titlebar {
+    background-image: linear-gradient(to bottom,
+        shade($titlebar_bg_color, 1.05),
+        shade($titlebar_bg_color, 0.95)
+    );
+    border-bottom: 1px solid shade($titlebar_bg_color, 0.7);
+    border-radius: 0;
+    padding: 5px 12px;
+    min-height: 26px;
+}
+
+.sheet .sheet-titlebar label {
+    color: $titlebar_fg_color;
+    font-weight: 500;
+    @include text-emboss();
+}
+
+.sheet .sheet-content {
+    padding: 16px 20px;
+}
+
+.sheet .dialog-action-area {
+    padding: 10px 20px 16px;
+    border-top: 1px solid $border_color;
+    background-color: $titlebar_bg_color;
+    border-radius: 0 0 6px 6px;
+}
+
+.sheet .dialog-action-area button {
+    min-width: 90px;
+    margin: 0 0 0 10px;
+    padding: 5px 14px;
+}
+
+.sheet .dialog-action-area button.suggested-action {
+    @include button-gradient($accent_bg_color);
+    color: $accent_fg_color;
+    border-color: shade($accent_bg_color, 0.5);
+    font-weight: 500;
+}
+
+/* ============================================================
    POPOVER
    ============================================================ */
 

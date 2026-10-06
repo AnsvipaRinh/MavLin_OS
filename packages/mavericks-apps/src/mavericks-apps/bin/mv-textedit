@@ -17,6 +17,11 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("GtkSource", "4")
 from gi.repository import Gtk, GtkSource, GLib, Pango, Gdk, Gio
 
+# Shared Mavericks dialog helpers (installed to share/mavericks-apps by the
+# mavericks-apps Makefile) — one visual language for alerts/discards.
+sys.path.insert(0, "/usr/share/mavericks-apps")
+from mv_dialogs import alert, confirm_discard
+
 DRAFT_DIR = os.path.expanduser("~/.local/share/mv-textedit/drafts")
 DRAFT_FILE = os.path.join(DRAFT_DIR, "autosave.json")
 AUTOSAVE_INTERVAL = 30
@@ -735,14 +740,7 @@ class TextEdit(Gtk.Window):
             self.show_error(f"Failed to save: {e}")
 
     def confirm_discard(self):
-        dialog = Gtk.MessageDialog(
-            transient_for=self, modal=True,
-            message_type=Gtk.MessageType.QUESTION,
-            buttons=Gtk.ButtonsType.YES_NO,
-            text="Save changes before closing?")
-        dialog.format_secondary_text("Your changes will be lost if you don't save them.")
-        response = dialog.run()
-        dialog.destroy()
+        response = confirm_discard(self)
         if response == Gtk.ResponseType.YES:
             self.save_document(None)
             return not self.modified
@@ -757,13 +755,7 @@ class TextEdit(Gtk.Window):
         return False
 
     def show_error(self, msg):
-        dialog = Gtk.MessageDialog(
-            transient_for=self, modal=True,
-            message_type=Gtk.MessageType.ERROR,
-            buttons=Gtk.ButtonsType.OK,
-            text=msg)
-        dialog.run()
-        dialog.destroy()
+        alert(self, msg, msg_type=Gtk.MessageType.ERROR)
 
     def autosave(self):
         if self.modified and not self.file_path:
