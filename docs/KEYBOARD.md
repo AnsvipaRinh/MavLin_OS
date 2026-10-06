@@ -67,6 +67,7 @@ shortcuts or the hardware function row:
 | Super+O | Open With | Cmd+O | mv-openwith $HOME |
 | Super+Delete | Move to Trash | Cmd+Delete | mv-trash |
 | Super+Shift+Delete | Empty Trash | — | trash-empty |
+| Super+Shift+A | AirDrop | — | mv-airdrop |
 | Super+Shift+E | Empty Trash (alternate) | — | trash-empty |
 | Super+F4 | Eject | Cmd+E | mv-eject |
 
@@ -119,7 +120,7 @@ Super+Left/Right tile the focused window; Space switching uses Super+Alt+Arrow.
 ## System
 
 | Shortcut | Action | macOS 10.9 | Backend |
-|---|---|---|---|
+|---|---|---|
 | Super+Comma | System Settings | Cmd+, | mv-settings |
 | Super+Shift+C | Control Center | — | mv-control |
 | Super+Shift+V | Notification Center | — | mv-notification-center |
