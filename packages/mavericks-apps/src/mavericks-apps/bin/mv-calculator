@@ -159,14 +159,14 @@ def build_calculator_class():
                 self.mode_combo.append_text(mode)
             self.mode_combo.set_active(0)
             self.mode_combo.connect("changed", self.on_mode_change)
-            hb.pack_start(self.mode_combo)
+            toolbar.pack_start(self.mode_combo, False, False, 0)
 
             tape_btn = Gtk.Button()
             tape_btn.set_image(Gtk.Image.new_from_icon_name("text-x-generic",
                                                             Gtk.IconSize.BUTTON))
             tape_btn.set_tooltip_text("Paper Tape")
             tape_btn.connect("clicked", self.show_tape)
-            hb.pack_end(tape_btn)
+            toolbar.pack_end(tape_btn, False, False, 0)
 
             vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
