@@ -636,6 +636,12 @@ def test_fmt_size(m):
 # -------------------------------------------------------------------- main
 
 
+    path = os.path.join(BIN, "mv-photos")
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("photos: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("photos: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
 def main():
     tmp = tempfile.mkdtemp(prefix="mv-photos-test-")
     try:
