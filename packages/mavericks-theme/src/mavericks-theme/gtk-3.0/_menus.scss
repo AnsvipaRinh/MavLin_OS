@@ -31,15 +31,15 @@ menu menuitem,
 .context-menu menuitem,
 .popup-menu menuitem {
     min-width: 40px;
-    padding: 0px;
+    padding: 3px 12px;
     border-style: solid;
     border-width: 0px;
     border-top-width: 1px;
     border-bottom-width: 1px;
     border-top-color: transparent;
     border-bottom-color: transparent;
-    font-weight: 500;
-    font-size: 16px;
+    font-weight: normal;
+    font-size: 13px;
 
     &:hover,
     &:selected {
