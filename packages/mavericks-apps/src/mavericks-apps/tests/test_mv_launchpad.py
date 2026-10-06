@@ -249,6 +249,64 @@ def test_edit_entry_launch():
         assert launched, "mv-launchpad-edit stub was never executed"
 
     print("PASS: test_edit_entry_launch")
+def test_native_launchpad_drag_drop_contract():
+    """Native Launchpad DnD must use the shared persistence backend."""
+    gui = open(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "bin", "mv_launchpad_gui.py"
+        )
+    ).read()
+    backend = open(SCRIPT).read()
+    assert 'Gtk.TargetEntry.new("text/plain", Gtk.TargetFlags.SAME_APP, 0)' in gui
+    assert 'button.drag_source_set(' in gui
+    assert 'button.drag_dest_set(' in gui
+    assert 'drag-data-get' in gui
+    assert 'drag-data-received' in gui
+    assert 'mv_launchpad.save_positions(self.positions)' in gui
+    assert 'mv_launchpad.save_folders(self.folders)' in gui
+    assert 'def reorder_launchpad_apps(' in backend
+    assert 'def positions_for_launchpad_apps(' in backend
+    assert 'def move_app_to_folder(' in backend
+    print('PASS: test_native_launchpad_drag_drop_contract')
+
+def test_native_launchpad_drag_drop_helpers():
+    """Pure DnD helpers must reorder apps and move membership deterministically."""
+    import importlib.util
+
+    source_dir = os.path.dirname(SCRIPT)
+    sys.path.insert(0, source_dir)
+    try:
+        spec = importlib.util.spec_from_file_location("mv_launchpad_backend", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(source_dir)
+
+    apps = [
+        {"id": "a.desktop", "name": "A"},
+        {"id": "b.desktop", "name": "B"},
+        {"id": "c.desktop", "name": "C"},
+    ]
+    reordered = module.reorder_launchpad_apps(apps, "a.desktop", "c.desktop")
+    assert [item["id"] for item in reordered] == ["b.desktop", "c.desktop", "a.desktop"]
+    assert [item["id"] for item in apps] == ["a.desktop", "b.desktop", "c.desktop"]
+    assert module.reorder_launchpad_apps(apps, "missing.desktop", "b.desktop") == apps
+    assert module.positions_for_launchpad_apps(reordered) == {
+        "b.desktop": 0, "c.desktop": 1, "a.desktop": 2
+    }
+
+    folders = {
+        "Utilities": {"name": "Utilities", "apps": ["a.desktop"]},
+        "Other": {"name": "Other", "apps": ["b.desktop"]},
+    }
+    moved = module.move_app_to_folder(folders, "b.desktop", "Utilities")
+    assert moved["Utilities"]["apps"] == ["a.desktop", "b.desktop"]
+    assert moved["Other"]["apps"] == []
+    assert folders["Other"]["apps"] == ["b.desktop"]
+    assert module.move_app_to_folder(folders, "b.desktop", "missing") == folders
+    print('PASS: test_native_launchpad_drag_drop_helpers')
+
 def test_native_launchpad_entrypoint():
     """The desktop entry must launch the native GTK surface, not rofi."""
     desktop = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "desktop", "mv-launchpad.desktop")).read()
@@ -446,6 +504,8 @@ if __name__ == "__main__":
         test_rofi_live_search_callback,
         test_edit_entry_launch,
         test_native_launchpad_entrypoint,
+        test_native_launchpad_drag_drop_contract,
+        test_native_launchpad_drag_drop_helpers,
         test_config_writes_are_atomic,
         test_search_hides_folder_containers,
         test_many_top_level_folders_are_paginated,
