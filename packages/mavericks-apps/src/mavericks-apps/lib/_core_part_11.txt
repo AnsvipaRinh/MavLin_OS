@@ -1,36 +1,72 @@
-g or dict and return a canonical {'modifiers','key'}.
+            problems.append("missing binding: %s = %s" % (path, want))
+        else:
+            problems.append(
+                "binding differs: %s = %r (registry says %r)" % (path, have, want))
+    return problems
 
-    Accepted string forms:
-      'Super+Shift+3'   'Super + Shift + 3'   '<Super><Shift>3'
-      '<Super><Shift>3' (as stored in the factory XML)
-    Case is normalised: letters lowercase, named keys/keysyms exact.
-    Raises ValueError with a human message on anything else.
 
-    A dict keeps its modifier ORDER (X11 property names are order-sensitive
-    as strings even though the key combination is not); only string input is
-    reordered into MODIFIER_ORDER.  Use `modifier_identity()` when two
-    combinations must be compared for equality.
-    """
-    if isinstance(accel, dict):
-        mods = []
-        for m in accel.get("modifiers") or []:
-            if str(m) not in MODIFIER_ORDER:
-                raise ValueError("unknown modifier: %r" % m)
-            mods.append(str(m))
-        key = accel.get("key")
-        if not is_valid_key(key):
-            raise ValueError("invalid key: %r" % key)
-        return {"modifiers": mods, "key": key}
+def resolve_factory_xml():
+    env = os.environ.get("MV_HOTKEYS_FACTORY_XML")
+    candidates = ([env] if env else []) + FACTORY_XML_CANDIDATES
+    for candidate in candidates:
+        path = os.path.realpath(candidate)
+        if os.path.isfile(path):
+            return path
+    return None
 
-    s = str(accel).strip()
-    if not s:
-        raise ValueError("empty accelerator")
 
-    unescaped = s.replace("<", "<").replace(">", ">")
-    if "<" in unescaped:
-        pattern = re.compile(
-            r"^<(Primary|Control|Ctrl|Alt|Option|Super|Meta|Shift)>")
-        mods = []
-        while True:
-            m = pattern.match(unescaped)
-            if not m:
+# ---------------------------------------------------------------------------
+# Overrides file (small, additive, user-owned)
+# ---------------------------------------------------------------------------
+
+def load_overrides(path=None):
+    path = path or OVERRIDES_PATH
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return {}
+    bindings = data.get("bindings") if isinstance(data, dict) else None
+    return bindings if isinstance(bindings, dict) else {}
+
+
+def save_overrides(overrides, path=None):
+    path = path or OVERRIDES_PATH
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    payload = {"version": 1, "bindings": overrides}
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+    os.replace(tmp, path)
+    return path
+
+
+def set_override(action_id, accelerator, command=None, overrides=None,
+                 path=None):
+    overrides = dict(overrides if overrides is not None
+                     else load_overrides(path))
+    row = ACTION_INDEX[action_id]
+    if row["protected"] or not row["rebindable"]:
+        raise PermissionError(
+            "action %s is protected (%s) and cannot be rebound"
+            % (action_id, row["label"]))
+    accel = normalize_accelerator(accelerator)
+    if accel["key"] in SPECIAL_KEYS:
+        raise PermissionError(
+            "hardware key %s is reserved for the function row" % accel["key"])
+    entry = {"accelerator": accel}
+    if command:
+        entry["command"] = command
+    overrides[action_id] = entry
+    errors = check_overrides(overrides)
+    if errors:
+        raise ValueError("; ".join(errors))
+    save_overrides(overrides, path)
+    return overrides
+
+
+def clear_override(action_id, overrides=None, path=None):
+    overrides = dict(overrides if overrides is not None
