@@ -1,0 +1,150 @@
+name: Agent Guard
+
+# ГОТОВ К ВКЛЮЧЕНИЮ: перенести в .github/workflows/agent-guard.yml
+#   git mv .agents/agent-guard.yml .github/workflows/agent-guard.yml
+# (коннектор Claude не может писать в .github/workflows — нет права Workflows).
+#
+# Advisory-проверка координации агентов (docs/COORDINATION.md).
+# Падает только при явной порче файла (PLACEHOLDER). Остальное — предупреждения.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: agent-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    name: Agent Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run guard
+        env:
+          EVENT: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          BT='`'
+          NL=$'\n'
+          ZERO=0000000000000000000000000000000000000000
+
+          if [ "$EVENT" = "pull_request" ]; then BASE="$PR_BASE"; HEAD="$PR_HEAD"; else BASE="$PUSH_BEFORE"; HEAD="$PUSH_AFTER"; fi
+          if [ -z "$BASE" ] || [ "$BASE" = "$ZERO" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then BASE="${HEAD}~1"; fi
+
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD" 2>/dev/null || true)
+          MSGS=$(git log --format=%B "$BASE..$HEAD" 2>/dev/null || true)
+          MSGS="${MSGS}${NL}${PR_TITLE}${NL}${PR_BODY}"
+
+          trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; s="${s%"${s##*[![:space:]]}"}"; printf '%s' "$s"; }
+
+          # 1. Аварийный сигнал: файл-пустышка PLACEHOLDER
+          BAD=""
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            [ -f "$f" ] || continue
+            size=$(wc -c < "$f")
+            if [ "$size" -le 64 ]; then
+              body=$(tr -d '[:space:]' < "$f" | tr '[:lower:]' '[:upper:]')
+              case "$body" in
+                PLACEHOLDER*) BAD="${BAD}- ${BT}${f}${BT}: файл ≤64 байт и содержит только PLACEHOLDER (обрезанная или сломанная запись)${NL}" ;;
+              esac
+            fi
+          done <<< "$CHANGED"
+
+          # 2. Обходной многочастный loader
+          PARTS=$(printf '%s\n' "$CHANGED" | grep -E '_core_part_[0-9]+' || true)
+
+          # 3. Защищённые файлы
+          PROT=""
+          if [ -f .agents/protected.txt ]; then
+            while IFS= read -r pat; do
+              pat=$(trim "$pat")
+              case "$pat" in ''|'#'*) continue ;; esac
+              while IFS= read -r f; do
+                [ -n "$f" ] || continue
+                if [[ "$f" == $pat ]]; then PROT="${PROT}- ${BT}${f}${BT} (шаблон ${BT}${pat}${BT})${NL}"; fi
+              done <<< "$CHANGED"
+            done < .agents/protected.txt
+          fi
+
+          # 4. Claims
+          NOW=$(date -u +%Y-%m-%dT%H:%MZ)
+          ACTIVE=""; EXPIRED=""; OVER=""
+          for c in .agents/claims/*.md; do
+            [ -f "$c" ] || continue
+            id=$(basename "$c" .md)
+            case "$id" in _*) continue ;; esac
+            agent=$(sed -n 's/^agent:[[:space:]]*//p' "$c" | head -1)
+            task=$(sed -n 's/^task:[[:space:]]*//p' "$c" | head -1)
+            paths=$(sed -n 's/^paths:[[:space:]]*//p' "$c" | head -1)
+            exp=$(sed -n 's/^expires:[[:space:]]*//p' "$c" | head -1)
+            exp=$(trim "$exp")
+            if [ -z "$exp" ] || [[ "$exp" < "$NOW" ]]; then
+              EXPIRED="${EXPIRED}- ${BT}${id}${BT} (${agent}), срок истёк: ${exp:-не указан} — удалить файл${NL}"
+              continue
+            fi
+            ACTIVE="${ACTIVE}- ${BT}${id}${BT} — ${agent}: ${task} (до ${exp}; пути: ${paths})${NL}"
+            referenced=0
+            if printf '%s' "$MSGS" | grep -qF "$id"; then referenced=1; fi
+            IFS=',' read -ra pats <<< "$paths"
+            for p in "${pats[@]}"; do
+              p=$(trim "$p")
+              [ -n "$p" ] || continue
+              while IFS= read -r f; do
+                [ -n "$f" ] || continue
+                if [[ "$f" == $p ]] && [ "$referenced" = 0 ]; then OVER="${OVER}- ${BT}${f}${BT} входит в claim ${BT}${id}${BT} (${agent})${NL}"; fi
+              done <<< "$CHANGED"
+            done
+          done
+
+          # 5. Отчёт
+          OUT=$(mktemp)
+          FIND=""
+          {
+            echo '<!-- agent-guard -->'
+            echo '### 🚦 Agent Guard'
+            echo
+            if [ -n "$BAD" ]; then FIND=1; echo '**❌ Аварийный сигнал**'; printf '%s\n' "$BAD"; fi
+            if [ -n "$OVER" ]; then FIND=1; echo '**⚠️ Правка внутри чужого активного claim без ссылки на него.** Добавь строку `Claim: <id>` в коммит или описание PR либо согласуй с владельцем claim:'; printf '%s\n' "$OVER"; fi
+            if [ -n "$PROT" ]; then FIND=1; echo '**ℹ️ Затронуты защищённые файлы** (нужен активный claim, docs/COORDINATION.md R4):'; printf '%s\n' "$PROT"; fi
+            if [ -n "$PARTS" ]; then FIND=1; echo '**ℹ️ Многочастный loader `_core_part_*` в изменениях.** Это обходной путь; в `main` должен лежать один цельный файл (R2):'; printf '%s\n' "$PARTS" | sed 's/^/- /'; echo; fi
+            if [ -n "$ACTIVE" ]; then echo '**Активные claims:**'; printf '%s\n' "$ACTIVE"; fi
+            if [ -n "$EXPIRED" ]; then echo '**Просроченные claims:**'; printf '%s\n' "$EXPIRED"; fi
+            if [ -z "$FIND" ] && [ -z "$ACTIVE" ] && [ -z "$EXPIRED" ]; then echo 'Замечаний нет.'; fi
+          } > "$OUT"
+
+          cat "$OUT"
+          cat "$OUT" >> "$GITHUB_STEP_SUMMARY"
+
+          # 6. Комментарий в PR (один, обновляемый); для PR из форков токен read-only — молча пропускаем
+          if [ "$EVENT" = "pull_request" ] && [ -n "$PR_NUMBER" ]; then
+            CID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate --jq '.[] | select(.body | contains("<!-- agent-guard -->")) | .id' 2>/dev/null | head -1)
+            if [ -n "$CID" ]; then
+              gh api -X PATCH "repos/$REPO/issues/comments/$CID" -F body=@"$OUT" >/dev/null 2>&1 || true
+            elif [ -n "$FIND" ]; then
+              gh api -X POST "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@"$OUT" >/dev/null 2>&1 || true
+            fi
+          fi
+
+          if [ -n "$BAD" ]; then exit 1; fi
+          exit 0
