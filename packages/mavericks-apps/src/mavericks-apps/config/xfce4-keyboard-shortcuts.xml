@@ -21,7 +21,6 @@
       <property name="&lt;Super&gt;Delete" type="string" value="mv-trash"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;Delete" type="string" value="trash-empty"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;e" type="string" value="trash-empty"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;a" type="string" value="mv-airdrop"/>
       <property name="&lt;Super&gt;F4" type="string" value="mv-eject"/>
       <property name="&lt;Super&gt;comma" type="string" value="mv-settings"/>
       <property name="&lt;Super&gt;&lt;Shift&gt;c" type="string" value="mv-control"/>
