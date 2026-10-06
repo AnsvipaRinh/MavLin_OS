@@ -32,6 +32,7 @@ mv-mc-gui
 - [`docs/QUICKSTART.md`](docs/QUICKSTART.md) — **First-time user guide** ⭐
 - [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — **Developer guide** 🛠️
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — **Community guidelines** 🤝
+- [`SECURITY.md`](SECURITY.md) — **Security policy** 🔒
 - [`CHANGELOG.md`](CHANGELOG.md) — **Project history** 📜
 - [`docs/KEYBOARD.md`](docs/KEYBOARD.md) — Complete keyboard reference
 - [`docs/MISSION_CONTROL.md`](docs/MISSION_CONTROL.md) — Mission Control implementation guide
@@ -98,6 +99,10 @@ See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for the developer guide.
 4. Run tests: `make test-mission-control`
 5. Submit a pull request
 
+## Security
+
+See [`SECURITY.md`](SECURITY.md) for reporting security vulnerabilities.
+
 ## Acknowledgments
 
 - Poppy OS X Revieve by kayover — Visual reference and inspiration
@@ -110,9 +115,10 @@ See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for the developer guide.
 ✅ Spaces management (1-16)
 ✅ Mavericks theme
 ✅ Keyboard shortcuts
-✅ Documentation (QUICKSTART, CONTRIBUTING, CODE_OF_CONDUCT, CHANGELOG, KEYBOARD, MISSION_CONTROL)
+✅ Documentation (QUICKSTART, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, CHANGELOG, KEYBOARD, MISSION_CONTROL)
 ✅ Test coverage
 ✅ CI gates
 ✅ Easy installation (`make install-mission-control`)
+✅ Security policy
 
 🚧 In progress: Animations, multi-monitor, touchpad gestures
