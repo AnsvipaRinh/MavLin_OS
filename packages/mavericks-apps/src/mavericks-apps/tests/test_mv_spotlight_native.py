@@ -42,7 +42,17 @@ def test_keyboard_and_async_contract():
     assert "threading.Thread" in source
     assert "GLib.idle_add" in source
     assert "self.search_generation" in source
+    assert "threading.Thread" in source
     print("PASS: keyboard and stale-search guards present")
+
+
+def test_hotkey_contract():
+    shortcuts = (ROOT / "config" / "xfce4-keyboard-shortcuts.xml").read_text()
+    assert 'value="/usr/bin/mv-spotlight-gui"' in shortcuts
+    assert 'value="/usr/bin/mv-launchpad-gui"' in shortcuts
+    assert "rofi -show -modi 'spotlight:" not in shortcuts
+    assert "rofi -show -modi 'launchpad:" not in shortcuts
+    print("PASS: native Spotlight/Launchpad hotkeys")
 
 
 def test_packaging_contract():
