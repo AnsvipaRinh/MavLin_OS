@@ -30,7 +30,7 @@ static void
 add_power_item (GtkWidget *menu, const gchar *label, const gchar *command,
                 const gchar *systemctl)
 {
-    GtkWidget *item = gtk_menu_item_new_with_label(label);
+    GtkWidget *item = gtk_menu_item_new_with_mnemonic(label);
     g_object_set_data_full(G_OBJECT(item), "mv-command", g_strdup(command), g_free);
     if (systemctl != NULL)
         g_object_set_data_full(G_OBJECT(item), "systemctl-command",
