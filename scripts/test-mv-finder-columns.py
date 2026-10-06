@@ -146,6 +146,21 @@ def test_pure():
     check("portable: lazy factory was removed with the redesign",
           not hasattr(m, "build_columns_classes"))
 
+    source = open(APP_PATH, encoding="utf-8").read()
+    check("contract: toolbar uses complete GTK3 pack_start/pack_end signatures",
+          "hb.pack_start(self.back_button, False, False, 0)" in source
+          and "hb.pack_start(self.forward_button, False, False, 0)" in source
+          and "hb.pack_start(up_button, False, False, 0)" in source
+          and "hb.pack_end(self.search_entry, False, False, 0)" in source
+          and "hb.pack_end(open_tb, False, False, 0)" in source)
+    check("contract: Finder exposes Empty Trash action",
+          'add_action("empty-trash"' in source
+          and 'app_menu.append("Empty Trash", "app.empty-trash")' in source)
+    check("contract: drag-and-drop move implementation remains present",
+          'selection_data.set_uris' in source
+          and 'shutil.move(source_abs, destination)' in source
+          and 'context.drag_finish(bool(moved), False, time_)' in source)
+
 
 def test_gui():
     if not HAS_DISPLAY:
