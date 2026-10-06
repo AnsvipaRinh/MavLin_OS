@@ -1,0 +1,64 @@
+ without touching the user's real one.
+OVERRIDES_PATH = os.environ.get("MV_HOTKEYS_OVERRIDES",
+                                DEFAULT_OVERRIDES_PATH)
+FACTORY_XML_CANDIDATES = [
+    "/usr/share/mavericks-apps/xfce4-keyboard-shortcuts.xml",
+]
+# Repo-relative fallback (running straight from a checkout).
+FACTORY_XML_CANDIDATES.append(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir,
+                 "config", "xfce4-keyboard-shortcuts.xml"))
+
+BRANCH_COMMANDS = "commands"
+BRANCH_XFWM4 = "xfwm4"
+BRANCHES = (BRANCH_COMMANDS, BRANCH_XFWM4)
+
+# Modifier canonical order used by xfconf: <Primary><Alt><Super><Shift>.
+# Secondary is accepted and preserved but not offered by the GUI (it needs
+# the raw keysym, which the registry deliberately does not model).
+MODIFIER_ORDER = ("Primary", "Alt", "Super", "Shift")
+MODIFIER_ALIASES = {
+    "ctrl": "Primary", "control": "Primary", "primary": "Primary",
+    "alt": "Alt", "option": "Alt", "opt": "Alt",
+    "super": "Super", "win": "Super", "windows": "Super", "meta": "Super",
+    "cmd": "Super", "command": "Super",
+    "shift": "Shift",
+}
+MODIFIER_LABELS = {
+    "Primary": "Ctrl", "Alt": "Alt", "Super": "Super", "Shift": "Shift",
+}
+ACCEL_MODIFIER_LABELS = {
+    "Primary": "Ctrl", "Alt": "Alt", "Super": "Super", "Shift": "Shift",
+}
+
+# Named keys offered by the recorder / renderer.  Keysym names are
+# case-sensitive in X11, which is why this table exists.
+NAMED_KEYS = (
+    "space", "Tab", "Return", "Escape", "Delete", "Home", "End",
+    "Up", "Down", "Left", "Right", "Prior", "Next",
+    "comma", "period", "slash", "backslash", "minus", "equal", "semicolon",
+    "apostrophe", "grave", "bracketleft", "bracketright",
+    "Insert", "Menu", "Pause",
+) + tuple("F%d" % n for n in range(1, 13))
+MEDIA_KEYS = (
+    "XF86AudioRaiseVolume", "XF86AudioLowerVolume", "XF86AudioMute",
+    "XF86AudioPlay", "XF86AudioNext", "XF86AudioPrev", "XF86AudioStop",
+    "XF86MonBrightnessUp", "XF86MonBrightnessDown",
+)
+SPECIAL_KEYS = tuple(x for x in MEDIA_KEYS)
+
+
+def A(action, label, modifiers, key, command, group, skill="system",
+      branch=BRANCH_COMMANDS, protected=False, rebindable=True):
+    """Registry row. `modifiers` is a list of canonical modifier names."""
+    return {
+        "action": action,
+        "label": label,
+        "modifiers": list(modifiers),
+        "key": key,
+        "command": command,
+        "group": group,
+        "skill": skill,
+        "branch": branch,
+        "protected": bool(protected),
+     
