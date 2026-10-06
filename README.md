@@ -4,6 +4,8 @@ MavLinOS — macOS Mavericks-style desktop experience on Linux (Xfce/Ubuntu).
 
 ## Quick Start
 
+**First time? Start here:** [`docs/QUICKSTART.md`](docs/QUICKSTART.md)
+
 ```bash
 # Install all dependencies and Mission Control
 make install-mission-control
@@ -27,8 +29,9 @@ mv-mc-gui
 
 ## Documentation
 
+- [`docs/QUICKSTART.md`](docs/QUICKSTART.md) — **First-time user guide** ⭐
 - [`docs/KEYBOARD.md`](docs/KEYBOARD.md) — Complete keyboard reference
-- [`docs/MISSION_CONTROL.md`](docs/MISSION_CONTROL.md) — Mission Control implementation guide with installation
+- [`docs/MISSION_CONTROL.md`](docs/MISSION_CONTROL.md) — Mission Control implementation guide
 - [`docs/INSTALL.md`](docs/INSTALL.md) — Installation instructions
 - [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — Common issues and fixes
 
@@ -102,7 +105,7 @@ GPL-3.0-or-later
 ✅ Spaces management (1-16)
 ✅ Mavericks theme
 ✅ Keyboard shortcuts
-✅ Documentation
+✅ Documentation (QUICKSTART, KEYBOARD, MISSION_CONTROL)
 ✅ Test coverage
 ✅ CI gates
 ✅ Easy installation (`make install-mission-control`)
