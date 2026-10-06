@@ -115,8 +115,11 @@ class TextEdit(Gtk.Window):
 
         self.apply_mavericks_css()
 
-        hb = Gtk.HeaderBar(title="TextEdit", show_close_button=True)
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hb.get_style_context().add_class("mavericks-textedit-toolbar")
+        title_label = Gtk.Label(label="TextEdit")
+        hb.pack_start(title_label, True, True, 8)
 
         self.title_label = Gtk.Label(label="Untitled")
         self.title_label.get_style_context().add_class("title")
@@ -138,7 +141,10 @@ class TextEdit(Gtk.Window):
             hb.pack_end(b)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.add(vbox)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.pack_start(hb, False, False, 0)
+        root.pack_start(vbox, True, True, 0)
+        self.add(root)
 
         self.buffer = GtkSource.Buffer()
         self.buffer.connect("changed", self.on_changed)

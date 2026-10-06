@@ -229,8 +229,11 @@ class Notes(Gtk.Window):
         self.dirty = False
         self._refresh_token = 0
 
-        hb = Gtk.HeaderBar(title="Notes", show_close_button=True)
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hb.get_style_context().add_class("mavericks-notes-toolbar")
+        title_label = Gtk.Label(label="Notes")
+        hb.pack_start(title_label, True, True, 8)
         self.search = Gtk.SearchEntry(placeholder_text="Search notes")
         self.search.connect("changed", lambda *_: self.refresh_list())
         self.search.connect("search-changed", lambda *_: self.refresh_list())
@@ -274,7 +277,10 @@ class Notes(Gtk.Window):
                                      Gtk.AccelFlags.VISIBLE)
 
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(paned)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.pack_start(hb, False, False, 0)
+        root.pack_start(paned, True, True, 0)
+        self.add(root)
 
         self.fstore = Gtk.ListStore(str, str)  # markup, kind
         ftv = Gtk.TreeView(model=self.fstore, headers_visible=False)
