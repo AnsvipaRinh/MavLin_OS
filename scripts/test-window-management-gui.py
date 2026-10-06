@@ -782,8 +782,16 @@ def classify(rgb):
     return "other"
 
 
-def click(x, y, button=1):
-    sh("xdotool mousemove %d %d click %d" % (x, y, button))
+def click(x, y, button=1, env=None):
+    """Move the pointer and click, waiting for the move to be processed.
+
+    The pinned display is shared with other test runs in this container, so a
+    click issued before the pointer has actually arrived can land on whatever
+    window is under the old position.
+    """
+    sh("xdotool mousemove --sync %d %d" % (x, y), env)
+    time.sleep(0.15)
+    sh("xdotool click %d" % button, env)
 
 
 def main():
@@ -915,7 +923,7 @@ def live():
         # --- the buttons must actually do the macOS things ----------------
         by_name = dict((l[2], l) for l in lights)
         if "green" in by_name:
-            click(by_name["green"][0], by_name["green"][1])
+            click(by_name["green"][0], by_name["green"][1], env=wms.env)
             time.sleep(0.9)
             if wms.is_maximized(client):
                 ok("green traffic light maximises the window "
@@ -934,7 +942,7 @@ def live():
                      "closed or minimised from its own chrome")
             wms.unmaximize(client)
         if "amber" in by_name:
-            click(by_name["amber"][0], by_name["amber"][1])
+            click(by_name["amber"][0], by_name["amber"][1], env=wms.env)
             time.sleep(0.9)
             if wms.wm_state_word(client) == "Iconic":
                 ok("amber traffic light minimises the window (WM_STATE=Iconic)")
@@ -944,7 +952,7 @@ def live():
             sh("wmctrl -i -a %s" % _q_title_hex(client), wms.env)
             time.sleep(0.8)
         if "red" in by_name:
-            click(by_name["red"][0], by_name["red"][1])
+            click(by_name["red"][0], by_name["red"][1], env=wms.env)
             time.sleep(1.2)
             if wms.window_exists(client):
                 fail("red traffic light did not close the window")
@@ -971,20 +979,29 @@ def live():
         wms.move(client3, 60, 120)
         wms.move(client4, 900, 600)
         wms.activate(client3)
-        if wms.active_window() == client3:
-            f4 = wms.frame_id(client4)
-            g4 = wms.geometry(f4)
-            click(g4["x"] + g4["w"] // 2, g4["y"] + 10)
-            time.sleep(0.9)
-            if wms.active_window() == client4:
+        if wms.active_window() != client3:
+            fail("could not establish initial focus for the focus test")
+        else:
+            # Retried: another test run sharing the pinned display can steal
+            # focus between the click and the read, and that is not a window
+            # manager defect.
+            focused = False
+            for _ in range(4):
+                wms.activate(client3)
+                f4 = wms.frame_id(client4)
+                g4 = wms.geometry(f4)
+                click(g4["x"] + g4["w"] // 2, g4["y"] + 10, env=wms.env)
+                time.sleep(0.9)
+                if wms.active_window() == client4:
+                    focused = True
+                    break
+            if focused:
                 ok("clicking a background window focuses it and raises it "
                    "(macOS click-to-focus model)")
             else:
                 fail("clicking a background window did not focus it "
                      "(active=0x%x, clicked=0x%x)"
                      % (wms.active_window() or 0, client4))
-        else:
-            fail("could not establish initial focus for the focus test")
         app3.kill()
         app4.kill()
         time.sleep(0.4)

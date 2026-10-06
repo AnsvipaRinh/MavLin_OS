@@ -125,7 +125,15 @@ def main():
         assert disabled in build
 
     xfwm = XFWM.read_text(encoding="utf-8")
-    assert 'name="titleless_maximize" type="bool" value="true"' in xfwm
+    # The menu bar must not be duplicated by a *second* title bar, but macOS 10.9
+    # zoom keeps the window's own title bar: measured with
+    # titleless_maximize=true a maximised window had no frame at all (frame ==
+    # client, dx=dy=0), so it had no traffic lights and could not close itself.
+    # The app menu carries the application name, which is not the window's
+    # document title, so there is no duplication either way.  Asserted here as
+    # well as in scripts/test-window-management-gui.py because this contract
+    # suite is what CI runs for the menu bar.
+    assert 'name="titleless_maximize" type="bool" value="false"' in xfwm
 
     helper = APPMENU_HELPER.read_text(encoding="utf-8")
     assert "Gtk.Application" in helper
