@@ -268,6 +268,8 @@ def test_native_launchpad_drag_drop_contract():
     assert 'def reorder_launchpad_apps(' in backend
     assert 'def positions_for_launchpad_apps(' in backend
     assert 'def move_app_to_folder(' in backend
+    assert 'def create_folder_from_apps(' in backend
+    assert 'create_folder_from_apps(' in gui
     print('PASS: test_native_launchpad_drag_drop_contract')
 
 def test_native_launchpad_drag_drop_helpers():
@@ -306,6 +308,38 @@ def test_native_launchpad_drag_drop_helpers():
     assert folders["Other"]["apps"] == ["b.desktop"]
     assert module.move_app_to_folder(folders, "b.desktop", "missing") == folders
     print('PASS: test_native_launchpad_drag_drop_helpers')
+
+def test_native_launchpad_folder_creation_helper():
+    """Dropping one app onto another must create one persistent folder."""
+    import importlib.util
+    source_dir = os.path.dirname(SCRIPT)
+    sys.path.insert(0, source_dir)
+    try:
+        spec = importlib.util.spec_from_file_location("mv_launchpad_backend_folder", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(source_dir)
+
+    folders = {
+        "Utilities": {"name": "Utilities", "apps": ["a.desktop"]},
+    }
+    created = module.create_folder_from_apps(
+        folders, ["b.desktop", "c.desktop"], folder_id="folder-1", name="Folder"
+    )
+    assert created["folder-1"] == {
+        "name": "Folder", "apps": ["b.desktop", "c.desktop"]
+    }
+    assert created["Utilities"]["apps"] == ["a.desktop"]
+    assert folders["Utilities"]["apps"] == ["a.desktop"]
+
+    merged = module.create_folder_from_apps(
+        created, ["a.desktop", "b.desktop"], folder_id="folder-2"
+    )
+    assert merged["folder-2"]["apps"] == ["a.desktop", "b.desktop"]
+    assert merged["folder-1"]["apps"] == ["c.desktop"]
+    print("PASS: test_native_launchpad_folder_creation_helper")
+
 
 def test_native_launchpad_entrypoint():
     """The desktop entry must launch the native GTK surface, not rofi."""
