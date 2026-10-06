@@ -13,11 +13,15 @@ HELPERS = \
 	mv-mc-gui \
 	mv-workspace-count
 
-.PHONY: all install uninstall check
+# Required dependencies
+DEPS_PYTHON = python3-gi gir1.2-gtk-3.0 python3-ewmh python3-xlib
+DEPS_TOOLS = imagemagick wmctrl xdotool
+
+.PHONY: all install uninstall check deps
 
 all: check
 
-check:
+check: deps
 	@echo "Checking Mission Control helpers..."
 	@for helper in $(HELPERS); do \
 		if [ ! -f "bin/$$helper" ]; then \
@@ -26,6 +30,44 @@ check:
 		fi; \
 	done
 	@echo "All helpers present."
+
+deps:
+	@echo "Checking Mission Control dependencies..."
+	@echo ""
+	@echo "Python/GTK dependencies:"
+	@for dep in $(DEPS_PYTHON); do \
+		if dpkg -l | grep -q "^ii.*$$dep"; then \
+			echo "  ✅ $$dep"; \
+		else \
+			echo "  ❌ $$dep (MISSING)"; \
+			MISSING_PYTHON="$$MISSING_PYTHON $$dep"; \
+		fi; \
+	done
+	@echo ""
+	@echo "Tool dependencies:"
+	@for dep in $(DEPS_TOOLS); do \
+		if command -v $$dep > /dev/null 2>&1 || dpkg -l | grep -q "^ii.*$$dep"; then \
+			echo "  ✅ $$dep"; \
+		else \
+			echo "  ❌ $$dep (MISSING)"; \
+			MISSING_TOOLS="$$MISSING_TOOLS $$dep"; \
+		fi; \
+	done
+	@echo ""
+	@if [ -n "$$MISSING_PYTHON$$MISSING_TOOLS" ]; then \
+		echo "⚠️  Missing dependencies detected!"; \
+		echo ""; \
+		echo "To install missing dependencies, run:"; \
+		echo "  sudo apt install$$MISSING_PYTHON$$MISSING_TOOLS"; \
+		echo ""; \
+		echo "Or install all at once:"; \
+		echo "  sudo apt install python3-gi gir1.2-gtk-3.0 python3-ewmh python3-xlib imagemagick wmctrl xdotool"; \
+		echo ""; \
+		exit 1; \
+	else \
+		echo "✅ All dependencies satisfied."; \
+	fi
+	@echo ""
 
 install: check
 	@echo "Installing Mission Control helpers to $(BINDIR)..."
@@ -41,8 +83,8 @@ install: check
 		echo "  - $$helper"; \
 	done
 	@echo ""
-	@echo "Usage:"
-	@echo "  mv-mc-gui              # Full GUI overlay (F3)"
+	@echo "Quick start:"
+	@echo "  mv-mc-gui              # Full GUI overlay (or press F3)"
 	@echo "  mv-mc-overview --list  # CLI window list"
 	@echo "  mv-workspace-count get # Current Space count"
 	@echo ""
