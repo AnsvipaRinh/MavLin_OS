@@ -452,7 +452,17 @@ def test_gui(m):
             Gtk.main_iteration_do(False)
 
 
+def _native_chrome_contract():
+    bin_name = "mv-calculator"
+    path = os.path.join(BIN, bin_name)
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("calculator: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("calculator: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
+
 def main():
+    _native_chrome_contract()
     m = load_app()
     test_pure(m)
     test_gui(m)
