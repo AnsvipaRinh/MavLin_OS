@@ -138,6 +138,27 @@ desktop = open(DESKTOP, encoding="utf-8").read()
 check("desktop entry launches the center",
       "Exec=mv-notification-center" in desktop and "X-Mavericks-Native=true" in desktop)
 
+# Visual shell contract: the Notification Center must not inherit the
+# host theme's generic light GTK panel styling. Mavericks uses a dark,
+# restrained sidebar with a dark header and subtle row separators.
+check("Mavericks CSS shell is defined", 'MAVERICKS_CSS = """' in src)
+check("Notification Center gets its Mavericks style class",
+      'add_class("mavericks-notification-center")' in src)
+check("application CSS provider is installed",
+      "Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION" in src)
+check("dark Mavericks header is explicit", "background-color: #2b2e33" in src)
+check("dark Notification Center body is explicit",
+      "background-color: rgba(31,34,38,0.97)" in src)
+check("notification rows have subtle separators",
+      "border-bottom: 1px solid #45484c" in src)
+check("stock destructive button styling is not used",
+      'add_class("destructive-action")' not in src)
+check("notification content has explicit visual classes",
+      all(token in src for token in (
+          'add_class("mav-summary")', 'add_class("mav-time")',
+          'add_class("mav-body")', 'add_class("mav-dismiss")',
+          'add_class("mav-section-header")')))
+
 # ------------------------------------------------------------------- GUI ----
 
 DISPLAY = mv_gui_iso.gui_display()
