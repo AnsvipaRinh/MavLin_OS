@@ -4,6 +4,12 @@
 Pure-logic section:
 - list_entries: folders first, case-insensitive name order, hidden handling,
   stat sizes, unreadable dir raises OSError
+- zoom ladder clamps
+
+Module API (since 1eecbb9 the GUI classes are module-level — the module
+imports gi eagerly and the lazy build_columns_classes() factory is gone):
+- ColumnRow / ColumnsWindow are importable classes
+- build_finder_menu app-menu builder exists
 
 GUI smoke (real GTK, needs display):
 - window construction builds one column with the right rows
@@ -60,10 +66,20 @@ def load_app():
     return module
 
 
+_APP = None
+
+
+def app():
+    """Load once per process (pytest imports the file; main() drives it too)."""
+    global _APP
+    if _APP is None:
+        _APP = load_app()
+    return _APP
+
+
 def get_window_class(m):
-    """Resolve ColumnsWindow via the lazy factory (needs gi; caller guards)."""
-    _ColumnRow, ColumnsWindow = m.build_columns_classes()
-    return ColumnsWindow
+    """Resolve ColumnsWindow — module-level since 1eecbb9 (needs gi)."""
+    return m.ColumnsWindow
 
 
 def make_tree(base):
@@ -79,7 +95,8 @@ def make_tree(base):
     return root
 
 
-def test_pure(m):
+def test_pure():
+    m = app()
     with tempfile.TemporaryDirectory() as base:
         root = make_tree(base)
         entries = m.list_entries(root)
@@ -120,35 +137,21 @@ def test_pure(m):
     check("zoom: clamp at top", m.zoom_step(48, +1) == 48)
     check("zoom: clamp at bottom", m.zoom_step(16, -1) == 16)
 
-    # --- headless portability contract ---
-    check("portable: module imports without gi at top level", True)
-    check("portable: build_columns_classes exists",
-          callable(getattr(m, "build_columns_classes", None)))
-    try:
-        import gi  # noqa: F401
-        has_gi = True
-    except ImportError:
-        has_gi = False
-    if not has_gi:
-        try:
-            m.build_columns_classes()
-            bad("portable: factory raises cleanly without gi")
-        except Exception:
-            ok("portable: factory raises cleanly without gi")
-        check("portable: icon_for works without gi",
-              m.icon_for("folder", True) == "folder")
-        check("portable: icon_for text fallback without gi",
-              m.icon_for("x.txt", False) == "text-x-generic")
-        check("portable: load_icon_pixbuf returns None without gi",
-              m.load_icon_pixbuf("folder", 16) is None)
-    else:
-        print("skip - no-gi branch checks (gi present)")
+    # --- module API contract (1eecbb9: eager gi, module-level classes) ---
+    check("portable: GUI classes are module-level",
+          isinstance(getattr(m, "ColumnRow", None), type) and
+          isinstance(getattr(m, "ColumnsWindow", None), type))
+    check("portable: app-menu builder exists",
+          callable(getattr(m, "build_finder_menu", None)))
+    check("portable: lazy factory was removed with the redesign",
+          not hasattr(m, "build_columns_classes"))
 
 
-def test_gui(m):
+def test_gui():
     if not HAS_DISPLAY:
         print("skip - GUI smoke (no display)")
         return
+    m = app()
     import gi
     gi.require_version("Gtk", "3.0")
     gi.require_version("Gdk", "3.0")
@@ -222,9 +225,16 @@ def test_gui(m):
 
 
 def main():
-    m = load_app()
-    test_pure(m)
-    test_gui(m)
+    try:
+        app()
+    except ImportError as exc:
+        # Since 1eecbb9 the module imports gi at top level; without gi there
+        # is nothing testable at all (even the pure helpers need the import
+        # to succeed first).
+        print("FAIL - module import requires gi: %s" % exc)
+        return 1
+    test_pure()
+    test_gui()
     print("\n%d passed, %d failed" % (ok.count, len(bad.failures)))
     return 1 if bad.failures else 0
 

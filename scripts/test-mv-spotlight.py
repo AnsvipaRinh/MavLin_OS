@@ -148,9 +148,14 @@ def test_rofi_preview_integration():
     theme_text = theme.read_text(encoding="utf-8")
     shortcut_text = shortcuts.read_text(encoding="utf-8")
 
-    assert "children: [ inputbar, listview-split ];" in theme_text
-    assert "children: [ listview, icon-current-entry ];" in theme_text
-    assert "icon-current-entry" in theme_text
+    # Since 1eecbb9 the mainbox hosts the plain listview; the former
+    # listview-split/icon-current-entry widgets were web-CSS inventions that
+    # do not exist in rofi and aborted the mode with a parse-error dialog.
+    # Guard against both regressions: wrong children AND reintroduced
+    # non-existent widget blocks (the header comment may still mention them).
+    assert "children: [ inputbar, listview ];" in theme_text
+    assert "listview-split {" not in theme_text
+    assert "icon-current-entry {" not in theme_text
     assert "-preview-script" not in shortcut_text
     assert "-show-preview" not in shortcut_text
     assert "rofi -show -modi 'spotlight:/usr/bin/mv-spotlight'" in shortcut_text

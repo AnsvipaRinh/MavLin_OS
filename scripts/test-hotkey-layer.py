@@ -3,8 +3,11 @@
 
 Covers the pure core (registry, accelerator normalisation, conflict
 detection, protection, override merge, XML render/parse/drift) plus the CLI
-contract, and exercises the live xfconf rebind path against a THROWAWAY
-channel-scoped state that is fully restored afterwards.
+contract.  The rebind path (apply/reset against an xfconf channel) runs
+HERMETICALLY by default: a fake JSON-backed `xfconf-query` stands in for the
+channel, so the suite needs no Xfce session and never mutates a real user's
+keybindings.  The real channel is exercised only with MV_HOTKEYS_LIVE_TEST=1
+(channel restored byte-for-byte afterwards).
 
 Design note: no gi import anywhere — the GUI's pure helpers are imported with
 `gi` blocked so the suite proves the no-GTK portability rule.
@@ -74,6 +77,9 @@ def load_module(mod_name, filename):
 def run_cli(args, env=None):
     environ = dict(os.environ)
     environ["PYTHONPATH"] = os.path.join(APPS, "lib")
+    # Hermetic by default: the CLI's live-channel writes go to the fake
+    # xfconf-query, never to a real session channel (see section 11).
+    environ["PATH"] = FAKE_BIN + os.pathsep + environ.get("PATH", "")
     if env:
         environ.update(env)
     proc = subprocess.run([sys.executable, os.path.join(BIN, "mv-hotkeys")]
@@ -141,6 +147,110 @@ raises("protected action cannot be rebound", PermissionError,
        core.set_override, "terminal", "Super+T", None, {}, tmp_override)
 raises("hardware key is reserved", PermissionError,
        core.set_override, "spotlight", "XF86AudioMute", None, {}, tmp_override)
+
+# ---------------------------------------------------------------------------
+# Hermetic xfconf channel (default path).
+#
+# CI has no Xfce session, so every live-channel access below runs against a
+# fake `xfconf-query` executable backed by a JSON state file instead of the
+# real channel.  The same apply/reset code paths (apply_action, _stale_paths,
+# live_set/live_remove) are exercised as on a real host; only the process
+# behind the name changes.  The REAL channel is touched exclusively under
+# MV_HOTKEYS_LIVE_TEST=1 (section 11).
+# ---------------------------------------------------------------------------
+FAKE_BIN = os.path.join(tmpdir, "fake-bin")
+os.makedirs(FAKE_BIN, exist_ok=True)
+FAKE_QUERY = os.path.join(FAKE_BIN, "xfconf-query")
+
+with open(FAKE_QUERY, "w", encoding="utf-8") as fh:
+    fh.write("""#!/usr/bin/env python3
+\"\"\"Hermetic xfconf-query replacement for the test suite (state: JSON file
+next to this script).  Supports exactly the invocation shapes mv_hotkeys_core
+uses: -c CH -l [-v], -p PATH -g, -p PATH -s VALUE [-n] -t string, -p PATH -r.
+\"\"\"
+import json
+import os
+import sys
+
+STATE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "xfconf-state.json")
+
+args = sys.argv[1:]
+opts = {}
+listing = values = get = remove = False
+i = 0
+while i < len(args):
+    a = args[i]
+    if a in ("-c", "-p", "-s", "-t"):
+        opts[a] = args[i + 1]
+        i += 2
+    elif a == "-l":
+        listing = True
+        i += 1
+    elif a == "-v":
+        values = True
+        i += 1
+    elif a == "-g":
+        get = True
+        i += 1
+    elif a == "-n":
+        i += 1
+    elif a == "-r":
+        remove = True
+        i += 1
+    else:
+        sys.stderr.write("fake xfconf-query: unknown arg %r\\n" % a)
+        sys.exit(1)
+
+try:
+    with open(STATE, encoding="utf-8") as fh:
+        state = json.load(fh)
+except FileNotFoundError:
+    state = {}
+
+if listing and "-p" not in opts:
+    for path in sorted(state):
+        print("%s %s" % (path, state[path]) if values else path)
+    sys.exit(0)
+
+path = opts.get("-p")
+if path is None:
+    sys.stderr.write("fake xfconf-query: no -p and no -l\\n")
+    sys.exit(1)
+if remove:
+    state.pop(path, None)
+    with open(STATE, "w", encoding="utf-8") as fh:
+        json.dump(state, fh)
+    sys.exit(0)
+if get:
+    if path not in state:
+        sys.stderr.write("fake xfconf-query: property %s is not set\\n" % path)
+        sys.exit(1)
+    print(state[path])
+    sys.exit(0)
+if "-s" in opts:
+    state[path] = opts["-s"]
+    with open(STATE, "w", encoding="utf-8") as fh:
+        json.dump(state, fh)
+    sys.exit(0)
+sys.stderr.write("fake xfconf-query: unsupported query mode\\n")
+sys.exit(1)
+""")
+os.chmod(FAKE_QUERY, 0o755)
+
+
+def seed_fake_channel():
+    """Factory-seed the fake channel exactly as the registry renders it."""
+    state = {}
+    for row in core.ACTIONS:
+        accel = {"modifiers": list(row["modifiers"]), "key": row["key"]}
+        state[core.property_path(row["branch"], accel)] = row["command"]
+    with open(os.path.join(FAKE_BIN, "xfconf-state.json"), "w",
+              encoding="utf-8") as fh:
+        json.dump(state, fh)
+
+
+seed_fake_channel()
 
 # ---------------------------------------------------------------------------
 # 3. Accelerator normalisation
@@ -356,68 +466,95 @@ check("cli render-xml prints parseable XML",
       proc.returncode == 0 and not core.parse_xml_bindings(proc.stdout) is None)
 
 # ---------------------------------------------------------------------------
-# 11. Live xfconf rebind path (restores the channel afterwards)
+# 11. Rebind path (default: hermetic fake channel; opt-in: live xfconf)
 # ---------------------------------------------------------------------------
-# The rebind test mutates a REAL xfconf channel, so it is opt-in: other agents
-# share this host's session and a suite that silently rewrites the user's
-# keybindings is not acceptable.  Run with MV_HOTKEYS_LIVE_TEST=1 to include it;
-# the channel is restored byte-for-byte in a finally block either way.
+# DEFAULT: the rebind sequence (set -> apply -> verify -> reset) runs against
+# the JSON-backed fake channel, so CI needs no session bus and dev hosts
+# never have their real keybindings touched.  MV_HOTKEYS_LIVE_TEST=1 switches
+# the SAME assertions to a REAL xfconf channel; the channel is restored
+# byte-for-byte in a finally block either way.
 live_opt_in = os.environ.get("MV_HOTKEYS_LIVE_TEST") == "1"
 have_xfconf = subprocess.run(["which", "xfconf-query"],
                              capture_output=True).returncode == 0
-if not live_opt_in:
-    print("skip - live xfconf rebind test (set MV_HOTKEYS_LIVE_TEST=1 to run)")
-elif not have_xfconf:
+
+if live_opt_in and not have_xfconf:
     print("skip - xfconf-query not installed")
-else:
+    live_opt_in = False
+
+
+def _rebind_sequence_checks(live_before):
+    """Rebind quicklook to a free accelerator, then restore factory.
+
+    Runs identically against the fake channel (default) and the real one
+    (opt-in); caller supplies the pre-state for the dirty-check.
+    """
+    tmp_override3 = os.path.join(tmpdir, "live-overrides.json")
+    # Super+Shift+U is free in the registry (checked above), so the
+    # rebind exercises a genuinely new accelerator.
+    core.set_override("quicklook", "Super+Shift+u", None, {}, tmp_override3)
+    overrides3 = core.load_overrides(tmp_override3)
+    steps = core.apply_action("quicklook", overrides3)
+    check("apply reports its steps", bool(steps), str(steps))
+    live_now = core.live_list()
+    check("channel carries the new binding",
+          live_now.get(core.property_path_identity(
+              "commands", {"modifiers": ["Super", "Shift"],
+                           "key": "u"})) == "mv-quicklook-thunar",
+          repr(live_now.get(core.property_path_identity(
+              "commands", {"modifiers": ["Super", "Shift"],
+                           "key": "u"}))))
+    check("old quicklook binding was cleaned up",
+          core.property_path_identity(
+              "commands", {"modifiers": ["Super", "Shift"],
+                           "key": "space"}) not in live_now)
+    steps, _ = core.reset_action("quicklook", overrides3, tmp_override3)
+    check("reset restores the factory binding",
+          core.live_list().get(core.property_path_identity(
+              "commands", {"modifiers": ["Super", "Shift"],
+                           "key": "space"})) == "mv-quicklook-thunar",
+          str(steps))
+
+
+if live_opt_in:
     proc = subprocess.run(["xfconf-query", "-c", core.CHANNEL, "-l"],
                           capture_output=True, text=True)
     if proc.returncode != 0:
-        print("skip - no live xfconf channel on this host")
-    else:
+        print("skip - no live xfconf channel on this host "
+              "(hermetic rebind ran instead)")
+        live_opt_in = False
+if live_opt_in:
+    live_before = core.live_raw()
+    try:
+        _rebind_sequence_checks(live_before)
+    finally:
+        # Restore the real channel byte-for-byte.
+        live_now = core.live_raw()
+        for path in set(live_now) - set(live_before):
+            core.live_remove(path)
+        for path, value in live_before.items():
+            if live_now.get(path) != value:
+                core.live_set(path, value)
+        restored = core.live_raw()
+        check("live channel restored",
+              all(restored.get(p) == v for p, v in live_before.items()) and
+              not (set(restored) - set(live_before)),
+              "channel was left dirty")
+else:
+    # Hermetic default: route core.live_* at the fake channel via PATH.
+    print("hermetic - rebind sequence against the fake xfconf channel "
+          "(set MV_HOTKEYS_LIVE_TEST=1 for the real channel)")
+    old_path = os.environ.get("PATH", "")
+    os.environ["PATH"] = FAKE_BIN + os.pathsep + old_path
+    try:
         live_before = core.live_raw()
-        tmp_override3 = os.path.join(tmpdir, "live-overrides.json")
-        env3 = {"MV_HOTKEYS_OVERRIDES": tmp_override3}
-        try:
-            # Super+Shift+U is free in the registry (checked above), so the
-            # live rebind exercises a genuinely new accelerator.
-            core.set_override("quicklook", "Super+Shift+u", None, {},
-                              tmp_override3)
-            overrides3 = core.load_overrides(tmp_override3)
-            steps = core.apply_action("quicklook", overrides3)
-            check("live apply reports its steps", bool(steps), str(steps))
-            live_now = core.live_list()
-            check("live channel carries the new binding",
-                  live_now.get(core.property_path_identity(
-                      "commands", {"modifiers": ["Super", "Shift"],
-                                   "key": "u"})) == "mv-quicklook-thunar",
-                  repr(live_now.get(core.property_path_identity(
-                      "commands", {"modifiers": ["Super", "Shift"],
-                                   "key": "u"}))))
-            check("old quicklook binding was cleaned up",
-                  core.property_path_identity(
-                      "commands", {"modifiers": ["Super", "Shift"],
-                                   "key": "space"}) not in live_now)
-            steps, _ = core.reset_action("quicklook", overrides3,
-                                         tmp_override3)
-            check("live reset restores the factory binding",
-                  core.live_list().get(core.property_path_identity(
-                      "commands", {"modifiers": ["Super", "Shift"],
-                                   "key": "space"})) == "mv-quicklook-thunar",
-                  str(steps))
-        finally:
-            # Restore the channel byte-for-byte.
-            live_now = core.live_raw()
-            for path in set(live_now) - set(live_before):
-                core.live_remove(path)
-            for path, value in live_before.items():
-                if live_now.get(path) != value:
-                    core.live_set(path, value)
-            restored = core.live_raw()
-            check("live channel restored",
-                  all(restored.get(p) == v for p, v in live_before.items()) and
-                  not (set(restored) - set(live_before)),
-                  "channel was left dirty")
+        _rebind_sequence_checks(live_before)
+        restored = core.live_raw()
+        check("hermetic channel left at factory state",
+              all(restored.get(p) == v for p, v in live_before.items()) and
+              not (set(restored) - set(live_before)),
+              "fake channel was left dirty")
+    finally:
+        os.environ["PATH"] = old_path
 
 # ---------------------------------------------------------------------------
 # 12. GUI pure helpers import with gi blocked
