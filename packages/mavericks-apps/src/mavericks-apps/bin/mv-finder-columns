@@ -200,6 +200,7 @@ class ColumnsWindow(Gtk.Window):
         content.pack2(self.overlay, True, False)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        vbox.pack_start(hb, False, False, 0)
         vbox.pack_start(content, True, True, 0)
         vbox.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
         vbox.pack_start(status, False, False, 0)
