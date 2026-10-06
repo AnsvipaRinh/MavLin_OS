@@ -817,3 +817,46 @@ documented. LKML thread open (Sep 2026).
       (no GLib timer, no background threads)
 - [ ] Window geometry persistence: Activity Monitor window size/position
       restores correctly on relaunch in a real session
+
+## Screenshot — hardware validation (OS-shot-p0, 2026-10-06)
+
+- [ ] `Super+Shift+3/4/5` on the real keyboard: confirm xfce4-keyboard-shortcuts
+      actually delivers them (xfwm4 + Xfce session, not bare Xvfb) and that the
+      full-screen / region+clipboard / region bindings behave as on macOS.
+      Pre-hardware these were only verified as registry + XML entries.
+- [ ] Retina (2304×1440) capture fidelity: full-screen grab resolution, correct
+      pixel dimensions in the saved PNG, and whether xfce4-screenshooter honours
+      the HiDPI scale factor or returns a scaled-down buffer.
+- [ ] Capture flash and countdown legibility on the real panel: a full-screen
+      white flash at 2304×1440 on this display — visible, not a hard flicker.
+- [ ] Thumbnail placement on the real screen: bottom-right anchor inside the
+      panel work area, i.e. it must not collide with the xfce4-panel or the
+      plank Dock, and must not be covered by either.
+- [ ] Always-on-top behaviour under a real window manager: confirm the thumbnail
+      and the tools bar keep EWMH `_NET_WM_STATE_ABOVE` above xfwm4 windows and
+      are not dropped by the WM.
+- [ ] Region drag-select on the built-in trackpad: applespi input is expected to
+      be unavailable/best-effort (see HARDWARE.md), so region capture must be
+      exercised with the external USB-C mouse AND, if applespi ever works, the
+      Force Touch trackpad — a region drag is the one screenshot interaction that
+      cannot be done from the keyboard.
+- [ ] Timed capture accuracy end-to-end: with `-T 10`, confirm the shot lands
+      ~10 s after the keypress including the drag time, i.e. the timer starts
+      before region selection completes (macOS semantics).
+- [ ] Clipboard round-trip (`-c`): confirm the image actually reaches the
+      CLIPBOARD selection and pastes into an external app (Firefox / mousepad)
+      under a real session; Xvfb has no clipboard owner.
+- [ ] `Show in Finder` → `thunar --select` reveals the file in the real session
+      and the selection highlight lands on it.
+- [ ] `Move to Trash` → `trash-put` on a real capture: verify it lands in
+      `~/.local/share/Trash` and that Thunar's Empty Trash / Put Back work on it.
+- [ ] `Open in Preview` handoff: `mv-preview` must start and display the capture;
+      the annotation toolbar is still a stub, so the edit path is NOT yet
+      hardware-validated as a whole.
+- [ ] Screen recording energy cost: `ffmpeg x11grab` with libx264 ultrafast on
+      the fanless m3-7Y32 — measure CPU%, clock and battery discharge for a
+      60 s recording. Recording stays EXPERIMENT and must not become a default
+      until this is measured (DECISIONS.md §7 power baseline is frozen).
+- [ ] Multi-monitor: window capture (-w) with an external USB-C/DP display
+      attached — confirm the correct window is picked and the grab is not
+      offset by the second monitor's coordinate origin.

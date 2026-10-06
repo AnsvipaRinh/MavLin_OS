@@ -1,6 +1,67 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (GitHub sweep #2 — PR #89/#112 merged, issue #85 truly fixed, repo-wide red CI reported)
+**Last Updated**: 2026-10-06 (Screenshot P0 — oid `OS-shot-p0`, canonical #8: status PARTIALLY IMPLEMENTED → IMPLEMENTED — HARDWARE VALIDATION REQUIRED)
+
+---
+
+## Session 2026-10-06 — Screenshot P0 (oid `OS-shot-p0`, canonical objective #8)
+
+**Zone:** `bin/mv-shot` + `desktop/mv-screenshot.desktop` +
+`scripts/test-mv-shot.py` + Screenshot rows in `docs/*`. The shared hotkey
+registry was left untouched on purpose (another agent owns it this session).
+
+**Audit finding:** the APPS.md row claimed a "post-capture preview dialog"
+and macOS flag subset. The flags existed, but the *behaviour* did not match
+macOS: screenshots were filed in `~/Pictures/Screenshots` as
+`shot-YYYYMMDD-HHMMSS.png`, there was no capture flash, no on-screen timer,
+the tools surface was a CLI with no UI, and the most-used shortcut
+(Super+Shift+4 → `-i -c`) produced **no visual feedback at all**.
+
+**Closed this session (all executable pre-hardware):**
+- Save default is now `~/Desktop/'Screen Shot YYYY-MM-DD at HH.MM.SS.png'`
+  with the macOS `… 2.png` collision suffix.
+- Timed captures are named *after* the timer, not before it (was filing a
+  `-T 10` shot under the keypress time).
+- Capture flash; on-screen countdown for `-T`; screenshot tools bar
+  (`--toolbar`: Screen/Area/Window + Timer, arrows move, Enter captures,
+  Escape cancels) which is also what the menu launcher now opens.
+- Post-capture thumbnail reworked from a centred modal dialog into a
+  borderless always-on-top float anchored bottom-right with auto-fade;
+  clipboard-only captures show it too.
+- Robustness: a malformed `config.ini` used to kill the process with a
+  `ValueError` traceback; error paths used to block forever on a modal
+  dialog when triggered from a hotkey with no TTY; unknown options were
+  silently ignored; recording hardcoded `:0.0`.
+
+**Bugs found by exercising the code, not by reading it:**
+- The `-T` countdown was fired by `GLib.timeout_add_seconds`, which may fire
+  up to a second early — a "1 second" timer returned after **0.77 s**, so
+  every timed capture was short. Now driven from a `time.monotonic()`
+  deadline polled at 100 ms.
+- `get_preferred_size()` returns `Requisition` on this build and ints on
+  others, breaking the centring arithmetic (`TypeError`).
+- `Gtk.Window.set_opacity` deprecation warnings on every capture; and
+  `connect_once` is not exposed by this PyGObject build.
+- In this session another agent's worktree rewind reverted the mv-shot
+  changes; recovered from a local copy and committed immediately. Untracked
+  new files (the test suite) survived; tracked edits did not.
+
+**Tests:** `scripts/test-mv-shot.py` — 63 real behavioural checks (not text
+greps): naming, config tolerance, CLI, recording display, EWMH
+`_NET_WM_STATE_ABOVE`, tools-bar and thumbnail keyboard contracts, and
+end-to-end captures through the real backend. An AST invariant keeps every
+`MainLoop().run()` paired with a safety timeout so a hotkey invocation can
+never hang. GUI surfaces run on pinned Xvfb `:97` only, via
+`scripts/gui-isolation.sh` (host-display guard: 0 attempts).
+
+**Status:** Screenshot PARTIALLY IMPLEMENTED → **IMPLEMENTED — HARDWARE
+VALIDATION REQUIRED**. Remaining gaps are recorded honestly in APPS.md:
+annotation is still a hand-off to `mv-preview` whose toolbar is a stub;
+screen recording is experimental and unmeasured on this CPU; Super+Shift+5
+still binds `mv-shot -i` although `--toolbar` now exists (remap deferred to
+the registry's owner). 14 hardware items added to NEEDS_HARDWARE_TEST.md —
+the notable one: region drag-select cannot be exercised from the keyboard, so
+it needs the external USB-C mouse given the known applespi risk.
 
 ---
 
