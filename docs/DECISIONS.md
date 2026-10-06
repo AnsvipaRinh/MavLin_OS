@@ -1434,3 +1434,34 @@ honest fallbacks for missing xfconf/schema/tool). check-sync.sh green
 remaining: per-surface pane icons (theme set lacks a dock/lightbulb
 metaphor), visual pass on real 2304×1440, real-session xfconf/UPower
 values, blueman install decision on hardware.
+
+---
+
+## 2026-10-06 — Context Menus P0 (canonical #22): three executable gaps closed, uca.xml reordered to Finder flow
+
+**Context.** Thunar custom actions (uca.xml) had 14 actions but was missing 3 Finder-equivalent core actions per §13.6/§10.1: Move to Trash (hotkey existed, no menu entry), Copy Path (no helper, no entry), Go to Path... / Paste Path (no helper, no entry).
+
+**Decisions:**
+
+1. **Move to Trash** -- added as a proper context menu action wired to existing `mv-trash` binary (which already handles both path-argument and no-argument fallback via xdotool Delete key). Icon: `user-trash` (freedesktop standard trash-can). Placed after Rename, before Copy Path, matching Finder's "Move to Trash" position. Hotkey `Super+Delete` already registered in `mv_hotkeys_core.py`.
+
+2. **Copy Path** -- new helper `mv-copy-path` (Python/Gtk clipboard). Copies absolute path(s) of selection, newline-joined for multi-select. This matches Finder's Cmd+Option+C "Copy as Pathname". No hotkey added (Finder has none for this in context menu; Cmd+Option+C is a global shortcut). Icon: `edit-copy`. Available on all file types.
+
+3. **Go to Path...** (formerly "Paste Path") -- new helper `mv-paste-path`. Reads a path from clipboard, validates existence, opens directory in Thunar or selects file. This matches Finder's Cmd+Shift+G "Go to Folder". Directory-only action (only appears when right-clicking a folder or background). Icon: `document-open-recent`. No hotkey (global Cmd+Shift+G is handled by Thunar's built-in location entry).
+
+4. **uca.xml reordering** -- actions reordered to match Finder context menu flow:
+   Quick Look -> Put Back -> New Folder -> Get Info -> Open With -> Rename -> Move to Trash -> Copy Path -> Go to Path... -> Compress -> Open in Terminal -> Eject -> AirDrop -> ytplayer -> Search in This Folder -> Browse as Columns -> Empty Trash.
+   This ordering groups file operations (New Folder, Get Info, Open With, Rename, Move to Trash, Copy Path, Go to Path), then archive/utility (Compress, Terminal, Eject), then sharing/media (AirDrop, ytplayer), then navigation (Search, Columns), then destructive (Empty Trash).
+
+5. **Icon strategy** -- all icons use standard freedesktop names (preview, edit-undo, document-new, dialog-information, document-open, edit-rename, user-trash, edit-copy, document-open-recent, package-x-generic, utilities-terminal, media-eject, airdrop, mpv, edit-find, format-justify-fill, user-trash-full). These resolve via the Mavericks->hicolor->Adwaita icon theme inheritance chain. No custom icon assets needed; zero runtime cost.
+
+6. **Test coverage** -- created `scripts/test-thunar-uca.py` with 15 contract checks: XML validity, mirror sync, required actions present, Finder-equivalent core complete, action fields, icon names, binary targets exist, new helpers executable, hotkey registry consistency, no duplicate unique-ids, command syntax. All pass headless under `scripts/gui-isolation.sh`.
+
+**Non-obvious rationale recorded:**
+- "Paste Path" renamed to "Go to Path..." because pasting a path string into a file manager context menu is not a standard Finder pattern -- Finder uses Cmd+Shift+G for "Go to Folder". The helper reads clipboard and navigates, which is the functional equivalent.
+- Copy Path has no global hotkey in the registry because Finder's Cmd+Option+C is not a context-menu accelerator; it's a global shortcut that works when Finder is focused. Thunar has no equivalent global shortcut layer for this. Could be added later if requested.
+- Put Back (trash restore) remains as a supplementary action -- not in the 9 Finder-equivalent core set but useful for Trash folder context.
+- Empty Trash stays at the bottom as a destructive action, separated from file operations, matching Finder's placement.
+
+**Verification:** mirrors byte-identical, XML valid, py_compile clean, test-thunar-uca.py 15/15 pass, hotkey registry consistent.
+

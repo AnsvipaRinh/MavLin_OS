@@ -249,6 +249,18 @@ procedures or active code reference them:
 - [ ] Dialogs: dialog-action-area button styling visible
 - [ ] Context menus: frosted-glass menu look
 
+## Context Menus — hardware validation (phase contextmenus-p0)
+- [ ] Thunar right-click context menu renders with Mavericks theme (frosted-glass background, rounded corners, separator styling) on 2304×1440
+- [ ] All 17 uca.xml actions appear in correct order in context menu (Quick Look → Put Back → New Folder → Get Info → Open With → Rename → Move to Trash → Copy Path → Go to Path… → Compress → Open in Terminal → Eject → AirDrop → ytplayer → Search → Columns → Empty Trash)
+- [ ] Icons resolve via Mavericks→Adwaita inheritance for all actions (preview, edit-undo, document-new, dialog-information, document-open, edit-rename, user-trash, edit-copy, document-open-recent, package-x-generic, utilities-terminal, media-eject, airdrop, mpv, edit-find, format-justify-fill, user-trash-full)
+- [ ] Move to Trash (mv-trash) moves selection to GVfs trash; trash-cli restore works via Put Back
+- [ ] Copy Path copies absolute path(s) to clipboard; newline-joined for multi-select; pasteable in terminal/editor
+- [ ] Go to Path… reads path from clipboard, opens directory or selects file in Thunar
+- [ ] Quick Look (mv-quicklook-thunar) via Super+Shift+Space copies Thunar selection to clipboard and opens preview
+- [ ] Keyboard accelerators in context menu (if any) do not conflict with xfwm4/global shortcuts on real session
+- [ ] Submenu behavior (if nested menus added later) works with trackpad/mouse on real hardware
+- [ ] Energy: context menu population is instant (no measurable delay) on fanless Core M
+
 ### Icon Theme — hardware validation (2304×1440)
 - [ ] All 28 core Mavericks app icons render correctly at 2304×1440 (HiDPI 2x scaling)
 - [ ] Finder icon (smiling face) appears correctly in Dock/panel/Thunar

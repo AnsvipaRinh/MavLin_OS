@@ -39,31 +39,6 @@
     <directories/>
   </action>
   <action>
-    <icon>package-x-generic</icon>
-    <name>Compress</name>
-    <submenu></submenu>
-    <unique-id>mv-compress</unique-id>
-    <command>xarchiver -a "%d/%n.zip" %F</command>
-    <description>Compress selection to zip</description>
-    <patterns>*</patterns>
-    <directories/>
-    <audio-files/>
-    <image-files/>
-    <other-files/>
-    <text-files/>
-    <video-files/>
-  </action>
-  <action>
-    <icon>utilities-terminal</icon>
-    <name>Open in Terminal</name>
-    <submenu></submenu>
-    <unique-id>mv-terminal</unique-id>
-    <command>exo-open --working-directory "%f" --launch TerminalEmulator</command>
-    <description>Open this folder in Terminal</description>
-    <patterns>*</patterns>
-    <directories/>
-  </action>
-  <action>
     <icon>dialog-information</icon>
     <name>Get Info</name>
     <submenu></submenu>
@@ -109,6 +84,73 @@
     <other-files/>
     <text-files/>
     <video-files/>
+  </action>
+  <action>
+    <icon>user-trash</icon>
+    <name>Move to Trash</name>
+    <submenu></submenu>
+    <unique-id>mv-trash</unique-id>
+    <command>mv-trash %F</command>
+    <description>Move selected items to Trash (Cmd+Delete)</description>
+    <patterns>*</patterns>
+    <startup-notify/>
+    <directories/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+  <action>
+    <icon>edit-copy</icon>
+    <name>Copy Path</name>
+    <submenu></submenu>
+    <unique-id>mv-copy-path</unique-id>
+    <command>mv-copy-path %F</command>
+    <description>Copy file/folder path(s) to clipboard</description>
+    <patterns>*</patterns>
+    <startup-notify/>
+    <directories/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+  <action>
+    <icon>document-open-recent</icon>
+    <name>Go to Path…</name>
+    <submenu></submenu>
+    <unique-id>mv-paste-path</unique-id>
+    <command>mv-paste-path</command>
+    <description>Open a path from clipboard (Finder Cmd+Shift+G)</description>
+    <patterns>*</patterns>
+    <directories/>
+  </action>
+  <action>
+    <icon>package-x-generic</icon>
+    <name>Compress</name>
+    <submenu></submenu>
+    <unique-id>mv-compress</unique-id>
+    <command>xarchiver -a "%d/%n.zip" %F</command>
+    <description>Compress selection to zip</description>
+    <patterns>*</patterns>
+    <directories/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+  <action>
+    <icon>utilities-terminal</icon>
+    <name>Open in Terminal</name>
+    <submenu></submenu>
+    <unique-id>mv-terminal</unique-id>
+    <command>exo-open --working-directory "%f" --launch TerminalEmulator</command>
+    <description>Open this folder in Terminal</description>
+    <patterns>*</patterns>
+    <directories/>
   </action>
   <action>
     <icon>media-eject</icon>

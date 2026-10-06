@@ -1,6 +1,48 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (Disk Utility P0 — oid `OS-diskutil-p0`, canonical #11: status IMPLEMENTED — HARDWARE VALIDATION REQUIRED retained; 3 shipped-code defects closed, erase + hot-plug + error classification + NVMe telemetry added)
+**Last Updated**: 2026-10-06 (Global Dialogs P0 — oid `OS-dialogs-p0`, canonical #20: shared mv_dialogs system audited + executable gaps closed — entry_dialog type, Enter/default/focus keyboard contract, parentless-sheet attach bug, error-state validation; new suite test-mv-dialogs.py 58 checks green)
+
+---
+
+## Session 2026-10-06 — Global Dialogs P0 (oid `OS-dialogs-p0`, canonical objective #20)
+
+**Zone:** `bin/mv_dialogs.py` + `scripts/test-mv-dialogs.py` + Global Dialogs rows in `docs/*`. Consumer apps NOT rewritten (per-app migration is separate work); wiring of existing consumers (mv-textedit, mv-diskutil) verified against the new contracts.
+
+**Audit finding:** the shared module had alert/confirm_discard/confirm_delete/SheetDialog with theme classes (`.mavericks-alert`, `.sheet`), but: (1) no text-input dialog type although consumers need rename/name-prompt dialogs (mv-rename builds its own unthemed Gtk.Dialog); (2) `alert()` without explicit `default=` set NO default button → Enter dead and focus nowhere (violates the Mavericks keyboard contract); (3) SheetDialog: Enter dead without explicit default, no focus policy, slide animation degenerate (height=0 before first allocation → no visible slide), parentless sheet wrongly marked attached (`set_attached_to(None)` clears attachment without raising) and positioned at 0,0, WM close (delete-event) killed the sheet without a cancel response; (4) no error-state contract (empty message/buttons silently rendered broken dialogs).
+
+**Gaps closed (all executable pre-hardware):**
+- **`entry_dialog()`** — Mavericks text-input alert: message + entry + optional validator hook (`validator(text) -> error string`), inline hint label, OK disabled while input empty/whitespace (`allow_empty=True` opt-out) or invalid, Enter accepts via entry `activates_default`, Escape/Cancel → returns `None`, OK → returns stripped text. Built on MessageDialog so it inherits `.mavericks-alert` + action-area theming.
+- **Keyboard contract unified across all variants** — Escape → cancel-like response everywhere; Enter → default response with Mavericks rightmost-button fallback (`alert()` and `SheetDialog` when caller passes no default; explicit overrides preserved — confirm_delete keeps Cancel default); focus → first text entry (input surfaces) else default button; SheetDialog buttons `set_can_default` + `Gtk.Window.set_default` wiring so a focused entry's Enter activates the default button.
+- **SheetDialog fixes** — slide now starts from the first real size allocation (animation actually visible, starts above the parent title bar with easing); parentless sheets center on screen and skip the slide; delete-event (WM close) → CANCEL like Escape.
+- **Error-state contract** — empty/None message or empty button list raises `ValueError` instead of rendering a broken dialog (documented, tested headless).
+- Internal `_build_alert`/`_build_entry_dialog` split for testability (public API unchanged; mv-textedit/mv-diskutil signatures verified stable).
+
+**Tests:** new suite `scripts/test-mv-dialogs.py` (auto-discovered by check-sync.sh) — 58 checks: headless contracts (py_compile, surface + signatures stable for consumers, ValueError error-states, keyboard-contract source markers) + GUI smoke on the pinned Xvfb :97 (default fallback, destructive/aqua classes, Escape responses, 3-button discard order, entry empty/validator states, entry_dialog lifecycle incl. default-activation return, sheet defaults/focus policy/close/parentless). Consumers green: test-mv-textedit.py 12/12, test-mv-diskutil.py 250/250.
+
+**Gate status:** app suites 38 passed / 1 skipped / 0 failed (new suite included); mirrors OK. NOTE: full check-sync.sh currently also reports FAILs from PARALLEL zones (test-filechooser-theme.py isolation bootstrap + theme CSS `-gtk-icon-size`) — not caused by and not touched by this session (tracked by their zones).
+
+**Status:** Global Dialogs (shared system) = **PARTIALLY IMPLEMENTED** honestly: the mv_dialogs layer itself is feature-complete for alert/confirm/sheet/entry with unified contracts and tests; the remaining executable gap is per-app consumer migration (~19 mv-* apps still build stock `Gtk.MessageDialog` inline; sheet has no in-repo consumer yet) — separate objectives, not a mv_dialogs deficiency. Hardware-dependent items added to `docs/NEEDS_HARDWARE_TEST.md`.
+
+---
+
+## Session 2026-10-06 — Context Menus P0 (oid `OS-contextmenus-p0`, canonical objective #22)
+
+**Zone:** `config/thunar-uca.xml` + `bin/mv-copy-path` + `bin/mv-paste-path` + `scripts/test-thunar-uca.py` + Context Menus rows in `docs/*`.
+
+**Audit finding:** uca.xml had 14 actions but was missing 3 Finder-equivalent core actions per §13.6/§10.1: **Move to Trash** (hotkey Super+Delete existed in registry but no context menu entry), **Copy Path** (no helper, no menu entry), **Go to Path… / Paste Path** (no helper, no menu entry). "Put Back" (trash restore) existed but is supplementary.
+
+**Gaps closed (all executable pre-hardware):**
+- **Move to Trash** — added to uca.xml, wired to existing `mv-trash` binary, icon `user-trash`, patterns all file types, startup-notify. Hotkey `Super+Delete` already in `mv_hotkeys_core.py` registry.
+- **Copy Path** — new `mv-copy-path` helper (Python/Gtk clipboard), copies absolute path(s) of selection newline-joined to clipboard. Added to uca.xml with icon `edit-copy`, all file types.
+- **Go to Path…** — new `mv-paste-path` helper, reads path from clipboard, validates existence, opens directory in Thunar or selects file. Added to uca.xml as directory-only action with icon `document-open-recent`.
+- Reordered uca.xml to match Finder context menu flow: Quick Look → Put Back → New Folder → Get Info → Open With → Rename → **Move to Trash** → **Copy Path** → **Go to Path…** → Compress → Open in Terminal → Eject → AirDrop → ytplayer → Search → Columns → Empty Trash.
+- Both mirrors (package config + airootfs skel) byte-identical; XML valid; 15-contract test suite `scripts/test-thunar-uca.py` passes; hotkey registry consistency verified.
+
+**Tests:** `scripts/test-thunar-uca.py` — 15 checks: XML validity, mirror sync, required actions present, Finder-equivalent core complete, action fields, icon names, binary targets exist, new helpers executable, hotkey registry consistency, no duplicate unique-ids, command syntax. All green under `scripts/gui-isolation.sh`.
+
+**Gate status:** mirrors OK, XML OK, py_compile OK, test-thunar-uca.py 15/15 pass.
+
+**Status:** Context Menus = **IMPLEMENTED — HARDWARE VALIDATION REQUIRED**. Pre-hardware executable gaps closed. Hardware-dependent items (menu visual fidelity on 2304×1440, icon rendering, submenu behavior with real WM) added to `docs/NEEDS_HARDWARE_TEST.md`.
 
 ---
 

@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""mv-paste-path — Paste path from clipboard and open/select it (Finder Cmd+Shift+G analogue).
+Usage: mv-paste-path
+Reads a path from clipboard, validates it, and opens in Thunar or selects the file."""
+import os
+import sys
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib
+
+
+def main():
+    clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+    text = clipboard.wait_for_text()
+
+    if not text or not text.strip():
+        print("mv-paste-path: clipboard empty or not text", file=sys.stderr)
+        return 1
+
+    # Take the first line, strip whitespace
+    path = text.strip().splitlines()[0].strip()
+    path = os.path.expanduser(path)
+
+    if not os.path.exists(path):
+        print(f"mv-paste-path: path does not exist: {path}", file=sys.stderr)
+        return 1
+
+    # If it's a directory, open it in Thunar; if it's a file, select it
+    if os.path.isdir(path):
+        os.execlp("thunar", "thunar", path)
+    else:
+        dirname = os.path.dirname(path)
+        basename = os.path.basename(path)
+        os.execlp("thunar", "thunar", "--select", basename, dirname)
+
+    return 1  # Should not reach here
+
+
+if __name__ == "__main__":
+    sys.exit(main())

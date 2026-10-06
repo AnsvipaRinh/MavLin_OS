@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""mv-copy-path — Copy file/folder path(s) to clipboard (Finder Cmd+Option+C analogue).
+Usage: mv-copy-path <path> [path...]
+Joins multiple paths with newline. Pure Gtk clipboard, no daemon."""
+import os
+import sys
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mv-copy-path <path> [path...]", file=sys.stderr)
+        return 1
+
+    paths = [os.path.abspath(p) for p in sys.argv[1:] if p and os.path.exists(p)]
+    if not paths:
+        print("mv-copy-path: no valid paths", file=sys.stderr)
+        return 1
+
+    clipboard_text = "\n".join(paths)
+    clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+    clipboard.set_text(clipboard_text, -1)
+    clipboard.store()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
