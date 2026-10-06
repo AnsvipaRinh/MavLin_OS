@@ -360,7 +360,17 @@ def test_gui_smoke(m):
             pass
 
 
+def _native_chrome_contract():
+    bin_name = "mv-activity"
+    path = os.path.join(BIN, bin_name)
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("activity: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("activity: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
+
 def main():
+    _native_chrome_contract()
     m = load_app()
     test_proc_readers(m)
     test_cpu_percent_calculation(m)
