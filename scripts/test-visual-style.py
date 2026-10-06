@@ -24,12 +24,19 @@ def check(name, condition):
 def main():
     failures = 0
     colors = read("packages/mavericks-theme/src/mavericks-theme/gtk-3.0/_colors.scss")
+    gtk = read("packages/mavericks-theme/src/mavericks-theme/gtk-3.0/gtk.scss")
     variables = read("packages/mavericks-theme/src/mavericks-theme/gtk-3.0/_variables.scss")
     dock = read("packages/mavericks-theme/src/mavericks-theme/plank/dock.theme")
     launchpad = read("packages/mavericks-apps/src/mavericks-apps/bin/mv_launchpad_gui.py")
     settings = read("packages/mavericks-apps/src/mavericks-apps/bin/mv-settings")
     pkgb = read("packages/mavericks-theme/PKGBUILD")
 
+    failures += check("legacy Poppy override block is absent",
+                        "POPPY OS X REVIEVE VISUAL PARITY" not in gtk)
+    failures += check("legacy saturated menu selection is absent",
+                        "#618cf0" not in gtk and "#1c65ed" not in gtk)
+    failures += check("legacy pulsing default button is absent",
+                        "mavericks-poppy-pulse" not in gtk)
     failures += check("selection uses muted Mavericks blue",
                         "$theme_selected_bg_color: #6f8fbd;" in colors)
     failures += check("accent is not saturated iOS blue",
