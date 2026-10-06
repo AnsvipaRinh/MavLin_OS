@@ -10,6 +10,7 @@ def test_batch2_consumers_use_shared_dialogs():
     for name in CONSUMERS:
         source = (BIN / name).read_text(encoding="utf-8")
         assert "from mv_dialogs import alert" in source
+        assert '/usr/share/mavericks-apps' in source
         assert "Gtk.MessageDialog" not in source
 
 
