@@ -802,18 +802,15 @@ def build_settings_class():
             lb.add(label_row("Mute", mute))
 
             sinks = []
-            raw_sinks = pactl(
-                "-f", "index,name,description", "list", "sinks")
+            raw_sinks = pactl("list", "short", "sinks")
             current = pactl("get-default-sink")
             for line in raw_sinks.splitlines():
-                parts = line.split("\t", 2)
-                if len(parts) != 3:
+                parts = line.split("\t")
+                if len(parts) < 2:
                     continue
-                index, name, description = parts
-                name = name.strip()
-                description = description.strip() or name
+                name = parts[1].strip()
                 if name:
-                    sinks.append((name, description))
+                    sinks.append((name, name))
 
             if sinks:
                 combo = Gtk.ComboBoxText()
