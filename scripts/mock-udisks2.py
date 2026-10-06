@@ -8,6 +8,7 @@ Read-only: no real disks involved.
 Usage: mock-udisks2.py <bus-address>
 Prints READY once the name is owned, serves until terminated.
 License: GPL-2.0-or-later."""
+import os
 import sys
 import gi
 gi.require_version("Gio", "2.0")
@@ -15,6 +16,7 @@ gi.require_version("GLib", "2.0")
 from gi.repository import Gio, GLib
 
 UDISKS_BUS = "org.freedesktop.UDisks2"
+BLOCKS_PATH = "/org/freedesktop/UDisks2/block_devices"
 MOCK_CALLS = []
 
 PROPS_IFACE = """
@@ -100,6 +102,9 @@ FS_IFACE = """
     <method name="Unmount">
       <arg type="a{sv}" direction="in"/>
     </method>
+    <method name="Format">
+      <arg type="a{sv}" direction="in"/>
+    </method>
   </interface>
 """
 
@@ -144,8 +149,21 @@ SDA = "/org/freedesktop/UDisks2/block_devices/sda"
 SDA1 = "/org/freedesktop/UDisks2/block_devices/sda1"
 SDB = "/org/freedesktop/UDisks2/block_devices/sdb"
 SDB1 = "/org/freedesktop/UDisks2/block_devices/sdb1"
+SDC = "/org/freedesktop/UDisks2/block_devices/sdc"
+SDD = "/org/freedesktop/UDisks2/block_devices/sdd"
+SDD1 = "/org/freedesktop/UDisks2/block_devices/sdd1"
 NVME0N1 = "/org/freedesktop/UDisks2/block_devices/nvme0n1"
 NVME0N1P1 = "/org/freedesktop/UDisks2/block_devices/nvme0n1p1"
+
+# /dev/sdc: a filesystem written straight onto a whole disk with no
+# partition table at all (supertypes: /dev/sdX), so it has NO
+# Partition.Table link and used to vanish from the sidebar.  Its UDisks2
+# path is derived from the device basename like the real daemon does.
+def block_path(device):
+    return BLOCKS_PATH + "/" + os.path.basename(device)
+
+
+SCD_PATH = block_path("/dev/sdc")
 
 MOCK_CALLS = []
 
@@ -172,6 +190,19 @@ def ay(v):
 
 def as_(v):
     return GLib.Variant("as", v)
+
+
+def _opts(params):
+    """Decode an a{sv} options dict from a method call.
+
+    A method with a single a{sv} input unpacks straight to the dict. GLib
+    already unwraps nested Variants of simple types, so values are either
+    plain Python values or Variants depending on the type.
+    """
+    unpacked = params.unpack()
+    raw = unpacked[0] if isinstance(unpacked, tuple) else unpacked
+    return {k: (v.unpack() if hasattr(v, "unpack") else v)
+            for k, v in raw.items()}
 
 
 def build_mock_objects():
@@ -293,6 +324,72 @@ def build_mock_objects():
             ("org.freedesktop.UDisks2.Filesystem", "Unmount"):
                 lambda p, inv: (MOCK_CALLS.append(("unmount", SDB1)),
                                 inv.return_value(None))[1],
+            # A method taking a single a{sv} argument unpacks to the dict
+            # itself, NOT a one-tuple (unlike Mount, whose a{sv} is followed
+            # by the out arg s).  Unpacking [0] here would raise and leave
+            # the invocation unanswered -> client timeout.
+            ("org.freedesktop.UDisks2.Filesystem", "Format"):
+                lambda p, inv: (MOCK_CALLS.append(
+                    ("format", SDB1, _opts(p))), inv.return_value(None))[1],
+        }),
+        # /dev/sdd: a partition table plus a partition that is busy, so the
+        # unmount error path (the case a user hits with an open file) is
+        # reachable in tests.
+        (SDD, {
+            "org.freedesktop.UDisks2.Block": {
+                "IdType": s(""), "IdLabel": s(""), "IdUUID": s(""),
+                "Device": ay("/dev/sdd"), "Size": t(80000000000),
+                "HintPartitionable": b(True),
+            },
+            "org.freedesktop.UDisks2.PartitionTable": {
+                "Type": s("gpt"), "Partitions": as_([SDD1]),
+            },
+        }, {}),
+        (SDD1, {
+            "org.freedesktop.UDisks2.Block": {
+                "IdType": s("btrfs"), "IdLabel": s("BACKUP"),
+                "IdUUID": s("DDDD-1111"), "Device": ay("/dev/sdd1"),
+                "Size": t(40000000000), "HintPartitionable": b(False),
+            },
+            "org.freedesktop.UDisks2.Partition": {
+                "Number": t(1), "Type": s("0fc63daf-8483-4772-8e79-3d69d8477de4"),
+                "Offset": t(1048576), "Size": t(40000000000),
+                "Name": s("Backup"), "Table": s(USB),
+            },
+            "org.freedesktop.UDisks2.Filesystem": {
+                "MountPoints": as_([]),
+            },
+        }, {
+            ("org.freedesktop.UDisks2.Filesystem", "Mount"):
+                lambda p, inv: inv.return_value(
+                    GLib.Variant("(s)", ("/run/media/mavericks/BACKUP",))),
+            ("org.freedesktop.UDisks2.Filesystem", "Unmount"):
+                lambda p, inv: inv.return_dbus_error(
+                    "org.freedesktop.UDisks2.Error.Busy",
+                    "Target device is busy"),
+        }),
+        # Whole-disk filesystem on /dev/sdc: no PartitionTable, no
+        # Partition, unmounted, erasable.  UDisks2 gives no block->drive
+        # link for it, so the old enumeration dropped it from the sidebar
+        # entirely; it must now surface in the OTHER VOLUMES group.
+        (SCD_PATH, {
+            "org.freedesktop.UDisks2.Block": {
+                "IdType": s("ext4"), "IdLabel": s("SCRATCH"),
+                "IdUUID": s("CCCC-2222"), "Device": ay("/dev/sdc"),
+                "Size": t(64000000000), "HintPartitionable": b(False),
+            },
+            "org.freedesktop.UDisks2.Filesystem": {
+                "MountPoints": as_([]),
+            },
+        }, {
+            ("org.freedesktop.UDisks2.Filesystem", "Mount"):
+                lambda p, inv: inv.return_value(
+                    GLib.Variant("(s)", ("/run/media/mavericks/SCRATCH",))),
+            ("org.freedesktop.UDisks2.Filesystem", "Unmount"):
+                lambda p, inv: inv.return_value(None),
+            ("org.freedesktop.UDisks2.Filesystem", "Format"):
+                lambda p, inv: (MOCK_CALLS.append(
+                    ("format", SCD_PATH, _opts(p))), inv.return_value(None))[1],
         }),
         (NVME0N1, {
             "org.freedesktop.UDisks2.Block": {
@@ -352,8 +449,8 @@ def main():
                                    Gio.BusNameOwnerFlags.NONE, None, None)
 
     def make_method_call(path, props, methods):
-        def on_method_call(connection, sender, obj_path, iface, method,
-                           parameters, invocation):
+        def dispatch(connection, sender, obj_path, iface, method,
+                     parameters, invocation):
             if iface == "org.freedesktop.DBus.Properties":
                 if method == "GetAll":
                     name = parameters.get_child_value(0).get_string()
@@ -376,8 +473,18 @@ def main():
                 invocation.return_dbus_error(
                     "org.freedesktop.DBus.Error.UnknownMethod", method)
                 return True
-            handler(parameters, invocation)
+            try:
+                handler(parameters, invocation)
+            except Exception as exc:
+                # A raising handler must still answer: an unanswered
+                # invocation blocks the client until its call timeout.
+                invocation.return_dbus_error(
+                    "org.freedesktop.DBus.Failed", "mock handler: %s" % exc)
             return True
+
+        def on_method_call(*args):
+            return dispatch(*args)
+
         return on_method_call
 
     for path, props, methods in build_mock_objects():

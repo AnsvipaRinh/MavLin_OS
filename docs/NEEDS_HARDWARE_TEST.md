@@ -431,14 +431,32 @@ host-display leakage occurred.
 - [ ] Visual validation: preview dialog renders correctly on 2304×1440 panel
 
 ## Disk Utility — hardware validation
+(pre-HW coverage: 250 headless tests against a mock UDisks2 service + real-widgets
+GUI smoke on pinned Xvfb :97; listed below is ONLY what needs the machine)
+
 - [ ] mv-diskutil launches from .desktop / app menu and shows the internal Apple SSD in the sidebar (Internal group)
-- [ ] S3X NVMe section appears for the Apple SSD and populates with real NVMe SMART/telemetry (graceful "Available on hardware" state is expected to be replaced by real data)
+- [ ] Apple S3X appears as ConnectionBus=nvme → S3X NVMe section shown, reading REAL `/sys/class/nvme/nvme0` (model `APPLE SSD SM0256*`, firmware_rev, serial, state=live, critical_warning=0) and hwmon `temp1_input`; compare against `nvme smart-log /proc/partitions`
+- [ ] S3X critical-warning bit: no NVMe health warnings reported on a healthy drive; verify a failing bit would render red (cannot be induced safely on the target SSD)
 - [ ] Capacity bar shows real used/free values (statvfs) for the mounted root volume
-- [ ] First Aid shows real S.M.A.R.T. status (Verified) and temperature for the internal SSD
-- [ ] Unmount/eject of a USB stick works via the UI; error dialog appears on failure (e.g. busy device)
+- [ ] First Aid shows real S.M.A.R.T. status (Verified) + temperature + power-on time for the internal SSD; smartctl cross-check
+- [ ] Mount of the boot volume from the UI works (UDisks2 polkit: allowed for an active local session)
+- [ ] Unmount confirmation dialog appears for the real root volume; cancel must change NOTHING
+- [ ] Eject of a USB stick works via the UI; confirmation dialog names the disk and any mounted volume count
+- [ ] Busy-device error: open a file on a USB stick, unmount → "The Disk Is Busy" alert (NOT raw GDBus text); close file, retry succeeds
+- [ ] Polkit denial path: cancel the auth prompt during unmount → "Authorization Cancelled", volume untouched
+- [ ] Erase gate on real media: a mounted stick shows the "Erasing is unavailable: the volume is mounted" note and NO Erase button; an unmounted stick offers Erase; the typed-name confirmation is required; wrong name erases nothing
+- [ ] Erase actually works on throwaway media only (NEVER the internal S3X): exfat/exFAT-cross-platform check from another machine; verify the polkit prompt appears once
+- [ ] Hot-plug: insert a USB stick → appears in the External group via the D-Bus signal with no manual refresh; remove it → row disappears
+- [ ] Multi-mount-point volume (e.g. bind mounts) renders its full comma-joined mount list without crashing
+- [ ] Whole-disk ("superfloppy") stick appears under OTHER VOLUMES, not silently missing
 - [ ] UDisks2 not-available empty state is NOT shown on a normal boot (service present)
-- [ ] Visual validation: sidebar/detail/First Aid render correctly on 2304×1440 panel
+- [ ] Right-click context menu on sidebar rows: Mount/Unmount/Erase…/First Aid, and Eject on the drive row
+- [ ] Ctrl+R refresh, Delete=eject/unmount, Escape=deselect (window must NOT quit) on the real keyboard
+- [ ] Show in Finder opens Thunar at the mount point
+- [ ] GNOME Disks fallback button launches gnome-disks from the no-UDisks2 empty state
+- [ ] Visual validation: sidebar/detail/First Aid/Erase sheet render correctly on 2304×1440 panel; sidebar row contrast + ellipsize at 250px
 - [ ] Format/partition fallback note: launching gnome-disks from terminal works for destructive ops
+- [ ] Energy: idle CPU ~0 between interactions (confirm the ObjectManager signal does not wake the app); app memory after 10 min idle
 
 ## Power UI — hardware validation
 - [ ] Ctrl+Alt+Escape opens the chooser; Ctrl+Alt+Delete opens the Log Out dialog

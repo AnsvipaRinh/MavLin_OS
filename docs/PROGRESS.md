@@ -1,6 +1,6 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (Screenshot P0 — oid `OS-shot-p0`, canonical #8: status PARTIALLY IMPLEMENTED → IMPLEMENTED — HARDWARE VALIDATION REQUIRED)
+**Last Updated**: 2026-10-06 (Disk Utility P0 — oid `OS-diskutil-p0`, canonical #11: status IMPLEMENTED — HARDWARE VALIDATION REQUIRED retained; 3 shipped-code defects closed, erase + hot-plug + error classification + NVMe telemetry added)
 
 ---
 
@@ -44,6 +44,70 @@ in NEEDS_HARDWARE_TEST § System Settings.
 **Tests:** scripts/test-mv-settings.py rewritten (59 headless) +
 scripts/test-mv-settings-gui.py new (32, pinned Xvfb :97); check-sync.sh
 green: 37 app suites, launch smoke 34/34.
+
+---
+
+## Session 2026-10-06 — Disk Utility P0 (oid `OS-diskutil-p0`, canonical objective #11)
+
+**Zone:** `bin/mv-diskutil` + its UDisks2 layer + `scripts/test-mv-diskutil.py`
++ `scripts/mock-udisks2.py` + Disk Utility rows in `docs/*`.
+
+**Audit finding — three defects in shipped code, invisible to the old
+suite.** The previous 70 tests were all pure-parser unit tests; no test ever
+built a widget. So:
+
+1. **The detail pane had never worked.** `rebuild_detail()` called
+   `self.detail.pack_drive(item)` where `self.detail` is a `Gtk.Box` — every
+   sidebar selection raised `AttributeError`. Only the empty states were
+   reachable in practice.
+2. **The sidebar crashed on real mount points.** `MountPoints` unpacks out
+   of `GetManagedObjects` as a list of byte-value lists; the old code
+   stringified it into `'[47, 0]'` and died with `Must be string, not list`.
+   Reproduced by enumerating the **host's real UDisks2**, not the mock.
+3. **Escape quit the entire application** instead of clearing the selection
+   (the opposite of the macOS contract).
+
+**Closed this session (all executable pre-hardware):**
+- Confirmation dialogs (shared `mv_dialogs` Mavericks alerts) before
+  unmount and eject, naming the disk and its mounted-volume count.
+- 9-way D-Bus error classification (busy, permission, not-authorized,
+  already-mounted, not-mounted, gone, unresponsive, mounted-by-other-user,
+  not-permitted) → distinct alerts with actionable text; raw GDBus strings
+  never reach the user.
+- **Erase volume** (exfat/ext4/btrfs/vfat): conservative gate refusing
+  mounted / `/proc/mounts`-mounted / virtual / filesystem-less devices,
+  then a double confirmation with a typed volume name, re-validated at the
+  moment of the destructive call.
+- **Apple S3X NVMe telemetry from sysfs** (model, firmware, serial, state,
+  critical-warning bit, hwmon temperature + critical temperature), with both
+  kernel hwmon layouts supported. Replaces a permanent
+  "available on hardware" placeholder on the Drive page.
+- **OTHER VOLUMES sidebar group** so whole-disk ("superfloppy") filesystems
+  — previously mounted yet entirely invisible — are reachable, with **no**
+  device-name guessing about their parent disk (recorded in DECISIONS).
+- Event-driven hot-plug refresh via the `ObjectManager.InterfacesAdded`
+  signal (no polling timer, no daemon), unsubscribed on destroy.
+- Right-click context menu, per-row mount-state/eject indicators,
+  Show in Finder, GNOME Disks fallback from the no-UDisks2 state, About,
+  colour-coded S.M.A.R.T./NVMe health, smart power-on duration,
+  First Aid explains what it does and does not do.
+- Keyboard: Ctrl+R refresh, Delete = eject/unmount, Escape = deselect.
+
+**Verification:** 70 → **250** headless tests, including a 25-assertion
+GUI smoke against real widgets on the pinned Xvfb `:97`; mock UDisks2
+gained a whole-disk filesystem, a busy volume, a non-ejectable drive and a
+`Format` implementation; `py_compile` clean; `smoke-launch.sh mv-diskutil`
+stays up; `scripts/check-sync.sh` green except one pre-existing
+`test-mv-textedit.py` lingering-pid flake in another agent's zone (passes in
+isolation).
+
+**Docs:** APPS.md Disk Utility row rewritten honestly (including the three
+defects it previously hid), 26 hardware-validation items in
+NEEDS_HARDWARE_TEST.md, 8 decisions in DECISIONS.md.
+
+**Status:** IMPLEMENTED — HARDWARE VALIDATION REQUIRED (unchanged).
+Known limitation: First Aid displays drive/volume information only; it
+does not run fsck.
 
 ---
 

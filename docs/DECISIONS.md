@@ -1254,6 +1254,108 @@ Paste actions.
 - `docs/APPS.md`, `docs/PROGRESS.md`, `docs/DECISIONS.md`,
   `docs/NEEDS_HARDWARE_TEST.md`
 
+---
+
+## Phase 0.66 — Disk Utility P0 audit (oid `OS-diskutil-p0`, canonical #11)
+
+**Audit found three shipped defects the previous 70-test suite could not see.**
+All three were in code the suite imported but never executed, because every
+test was a pure-parser unit test and there was no GUI smoke at all:
+
+1. `rebuild_detail()` dispatched to `self.detail.pack_drive(item)` /
+   `self.detail.pack_block(item)`, but `self.detail` is a `Gtk.Box`.
+   Selecting **any** sidebar row raised
+   `AttributeError: 'Box' object has no attribute 'pack_drive'`.
+   The app therefore only ever rendered its empty states — the detail pane
+   had never worked. Root cause: `pack_drive`/`pack_block` are methods of
+   the window, and the dispatch was one level too deep.
+2. `MountPoints` (an `as` property) arrives as a **list of byte-value
+   lists** when unpacked out of `GetManagedObjects`'s
+   `a{oa{sa{sv}}}` on this PyGObject. The old `list(v)` + `str(v)` path
+   turned each entry into the literal string `'[47, 0]'`, which then
+   crashed sidebar construction with
+   `TypeError: Must be string, not list`. Found by running
+   `enumerate_devices()` against the **host's real UDisks2**, not by a
+   test — mocks had been handing back clean `strv`.
+3. `Escape` called `Gtk.main_quit()`, so Escape tore down the whole
+   application instead of deselecting — opposite of the macOS contract.
+
+**Lesson recorded for the whole project (AGENTS.md §13.3/§13.9):** a
+"pure-logic extraction + parser unit tests" pattern proves the *parsers*.
+It says nothing about whether the widgets are wired. Every app in the
+canonical inventory with a factory needs a real-widget GUI smoke that
+clicks through its own states; the mock must reproduce the shapes the real
+daemon produces, including its ugly ones.
+
+**Decisions:**
+
+1. **Confirmation dialogs for unmount/eject; a double gate for erase.**
+   macOS asks before both. Unmount/eject get one Mavericks alert (Cancel
+   left, action right, `mv_dialogs.alert`); the confirmation names the disk
+   and, for eject, the number of volumes that will be unmounted first.
+   Erase (new, the only irreversible action) gets **two** gates: the
+   `can_erase()` check plus a dialog that requires typing the volume name
+   verbatim, re-validated against `/proc/mounts` immediately before the
+   destructive call.
+2. **`can_erase()` is deliberately conservative.** It refuses a volume that
+   UDisks2 says is mounted, one that `/proc/mounts` says is mounted (the
+   property can lag a mount another tool just made), virtual devices
+   (`loop`/`ram`/`zram`/`sr`/`fd`/`dm-`), anything that is not a `/dev/`
+   node, and anything with no detected filesystem. `PROTECTED_MOUNTS`
+   (`/`, `/boot`, `/home`, …) is the belt-and-braces layer. "Safe" here
+   means "refuses when uncertain".
+3. **Offered filesystems: exfat, ext4, btrfs, vfat.** No ntfs (needs a
+   second privileged helper that is not a guaranteed dependency), default
+   exfat for removable media (cross-platform target readability) and ext4
+   for internal volumes. Partitioning and partition-table edits stay with
+   GNOME Disks — reproducing those in a frontend is a re-implementation of
+   a partitioning engine, not a Mavericks-surface task.
+4. **Nine-way D-Bus error classification, raw text never user-facing.**
+   `classify_action_error()` maps Busy / NotAuthorized / AccessDenied /
+   AlreadyMounted / NotMounted / NoSuchDevice / NoReply /
+   MountedByAnotherUser / OptionNotPermitted onto distinct alerts with
+   actionable secondary text, collapsing the two permission spellings onto
+   one message. This is the concrete form of §9's "no stock Linux UI /
+   no raw backend strings" for a storage app.
+5. **NVMe telemetry read from sysfs.** UDisks2 exposes **no** SMART
+   properties for NVMe (Drive.Ata is ATA-only), which is exactly the Apple
+   S3X case — the Drive page was a permanent "available on hardware"
+   placeholder. `/sys/class/nvme/nvme*/{model,firmware_rev,serial,state,
+   critical_warning}` plus hwmon `temp1_input`/`temp1_crit` give real
+   identity + health from one-shot file reads (no daemon, no polling),
+   testable pre-hardware against a fake sysfs tree, on both the `hwmon/`
+   and `device/hwmon/` kernel layouts.
+6. **Whole-disk filesystems: an explicit OTHER VOLUMES group, and NO
+   device-name guessing.** A superfloppy stick has no
+   `Partition.Table` link and UDisks2 exposes no block→drive link, so the
+   old code dropped those volumes entirely — they were mounted and
+   completely invisible. We surface them under their own group and
+   deliberately do **not** infer a parent disk from the device name: a
+   disk cannot both carry a partition table and a whole-disk filesystem,
+   so a partition sibling proves nothing, and guessing could attribute an
+   erase action to the wrong disk. Attribute the volume to nobody; show it.
+7. **Hot-plug refresh is a D-Bus signal, not a timer.** Subscribing to
+   `ObjectManager.InterfacesAdded` gives USB insert/remove and
+   automount-driven changes within milliseconds with **zero** periodic
+   wakeups — the §7 energy rule. Signal subscription is unsubscribed on
+   window destroy.
+8. **The window factory takes injectable `devices`/`error`/`conn`.** The
+   GUI smoke then exercises the real widgets with no system bus present,
+   which is what let defects 1 and 2 be caught at all in CI.
+
+**Tests:** 70 → 250. New coverage: erase gate, `/proc/mounts` parsing
+(octal escapes, parent-device matching), error classification (9 cases +
+collapse + no raw-text leakage), formatters, whole-disk grouping, NVMe
+sysfs telemetry against a temp tree, `_error_parts()` GDBus-prefix
+splitting, mount-entry decoding in all three shapes, mock-UDisks2 busy /
+not-ejectable / Format paths, plus a 25-assertion GUI smoke on pinned
+Xvfb `:97`.
+
+**Known limitation (honest):** First Aid still only *displays* drive and
+volume information. It does not run fsck. Running fsck needs a privileged
+helper on an unmounted volume; the frontend does not shell out to one, and
+the dialog says so rather than implying a repair happened.
+
 ## 2026-10-06 — System Settings P0: embedded-pane shell, honest backends (oid OS-settings-p0, canonical #3)
 
 **Context.** The old mv-settings was a launcher grid that spawned stock
