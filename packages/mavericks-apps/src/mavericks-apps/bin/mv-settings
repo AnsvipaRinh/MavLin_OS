@@ -73,7 +73,7 @@ PAGES = [
     ("Trackpad", "preferences-desktop-mouse", ["xfce4-mouse-settings"], "trackpad"),
     ("Sound", "preferences-desktop-sound", None, "sound"),
     ("Network", "computer", None, "network"),
-    ("Bluetooth", "audio-x-generic", ["blueman-manager"], None),
+    ("Bluetooth", "bluetooth", None, "bluetooth"),
     ("Sharing", "emblem-shared", None, "sharing"),
     ("Users", "dialog-password", None, "users"),
     ("Startup Items", "system-file-manager", ["xfce4-session-settings"], None),
@@ -84,7 +84,7 @@ PAGES = [
 # Native pane keys that must have a builder (_pane_<key>) in the GUI class.
 NATIVE_PANES = (
     "general", "desktop_saver", "dock", "mission_control", "language",
-    "datetime", "security", "energy", "trackpad", "network", "sound", "displays", "sharing", "users",
+    "datetime", "security", "energy", "trackpad", "network", "sound", "displays", "bluetooth", "sharing", "users",
     "unavailable",
 )
 
@@ -609,6 +609,118 @@ def build_settings_class():
                 "FontName", f.get_font_name()))
             lb.add(label_row("System font", font))
             return sw
+
+        def _pane_bluetooth(self, _row=None):
+            sw, lb = pane_shell()
+            objects = self._bluez_objects()
+            if objects is None:
+                lb.add(label_row(
+                    "Bluetooth unavailable", None,
+                    "BlueZ is not running or no system D-Bus connection is available. "
+                    "No fake device controls are shown."))
+                self._spawn_row(lb, "Full Bluetooth manager", ["blueman-manager"])
+                return sw
+
+            adapter_paths = []
+            devices = []
+            for path, interfaces in objects.items():
+                adapter = interfaces.get("org.bluez.Adapter1")
+                if adapter is not None:
+                    adapter_paths.append((path, adapter))
+                device = interfaces.get("org.bluez.Device1")
+                if device is not None:
+                    devices.append((path, device))
+
+            if not adapter_paths:
+                lb.add(label_row("No Bluetooth adapter", None,
+                                 "BlueZ is available, but no local adapter is present."))
+                self._spawn_row(lb, "Full Bluetooth manager", ["blueman-manager"])
+                return sw
+
+            adapter_path, adapter = adapter_paths[0]
+            powered = bool(adapter.get("Powered", False))
+            power = Gtk.Switch(active=powered)
+            power.connect("notify::active", lambda s, _p, path=adapter_path:
+                          self._bluez_set_power(path, s.get_active()))
+            lb.add(label_row("Bluetooth", power,
+                             "Turn the local Bluetooth adapter on or off."))
+
+            if not devices:
+                lb.add(label_row("No paired or discovered devices", None,
+                                 "Use the full Bluetooth manager to scan for nearby devices."))
+            else:
+                for path, props in sorted(
+                        devices, key=lambda item: str(item[1].get("Name", "")).lower()):
+                    name = str(props.get("Name") or props.get("Alias") or "Bluetooth device")
+                    connected = bool(props.get("Connected", False))
+                    paired = bool(props.get("Paired", False))
+                    state = "Connected" if connected else ("Paired" if paired else "Available")
+                    action = Gtk.Button(label="Disconnect" if connected
+                                        else ("Connect" if paired else "Pair"))
+                    if connected:
+                        action.connect("clicked", lambda _b, p=path: self._bluez_device_action(p, "Disconnect"))
+                    elif paired:
+                        action.connect("clicked", lambda _b, p=path: self._bluez_device_action(p, "Connect"))
+                    else:
+                        action.connect("clicked", lambda _b, p=path: self._bluez_device_action(p, "Pair"))
+                    lb.add(label_row(name, action, state))
+
+            self._spawn_row(lb, "Advanced Bluetooth settings",
+                            ["blueman-manager"],
+                            "Optional full manager for discovery and device-specific configuration.")
+            return sw
+
+        def _bluez_objects(self):
+            try:
+                import gi
+                gi.require_version("Gio", "2.0")
+                from gi.repository import Gio
+                bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+                msg = Gio.DBusMessage.new_method_call(
+                    "org.bluez", "/", "org.freedesktop.DBus.ObjectManager",
+                    "GetManagedObjects")
+                reply = bus.send_message_with_reply_sync(msg, 0, 1000, None)
+                return reply.get_body() if reply else None
+            except Exception:
+                return None
+
+        def _bluez_set_power(self, adapter_path, powered):
+            try:
+                import gi
+                gi.require_version("Gio", "2.0")
+                from gi.repository import Gio, GLib
+                bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+                msg = Gio.DBusMessage.new_method_call(
+                    "org.bluez", adapter_path, "org.freedesktop.DBus.Properties",
+                    "Set")
+                msg.set_body(GLib.Variant("(ssv)", (
+                    "org.bluez.Adapter1", "Powered",
+                    GLib.Variant("b", powered))))
+                bus.send_message_with_reply_sync(msg, 0, 3000, None)
+            except Exception:
+                pass
+
+        def _bluez_device_action(self, device_path, action):
+            if action not in ("Connect", "Disconnect", "Pair"):
+                return
+            try:
+                import gi
+                gi.require_version("Gio", "2.0")
+                from gi.repository import Gio
+                bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+                msg = Gio.DBusMessage.new_method_call(
+                    "org.bluez", device_path, "org.bluez.Device1", action)
+                bus.send_message_with_reply_sync(msg, 0, 10000, None)
+                self.show_pane("bluetooth", title="Bluetooth")
+            except Exception as exc:
+                try:
+                    from mv_dialogs import alert
+                except ImportError:
+                    sys.path.insert(0, "/usr/share/mavericks-apps")
+                    from mv_dialogs import alert
+                alert(self, "Bluetooth action failed", secondary=str(exc),
+                      msg_type=Gtk.MessageType.ERROR,
+                      buttons=[("OK", Gtk.ResponseType.OK)])
 
         def _pane_displays(self, _row=None):
             sw, lb = pane_shell()
