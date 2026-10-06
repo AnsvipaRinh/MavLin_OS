@@ -39,6 +39,14 @@ else:
         ET.parse(menu_path)
     except ET.ParseError as e:
         errors.append("menu.xml invalid XML: %s" % e)
+    else:
+        menu_text = open(menu_path, encoding="utf-8").read()
+        if "<item name=\"Show Desktop\">" not in menu_text:
+            errors.append("menu.xml missing Show Desktop item")
+        if "<command>wmctrl -k on</command>" not in menu_text:
+            errors.append("Show Desktop must use wmctrl -k on")
+        if "xfce4-popup-applicationsmenu -p" in menu_text:
+            errors.append("Show Desktop must not launch the applications menu")
 
 # Check xfce4-desktop.xml has icon grid settings
 desktop_path = os.path.join(REPO, "configs/desktop/xfce/xfce4-desktop.xml")

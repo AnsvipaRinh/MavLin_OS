@@ -63,7 +63,7 @@
   <separator/>
   <item name="Show Desktop">
     <action name="Run">
-      <command>xfce4-popup-applicationsmenu -p</command>
+      <command>wmctrl -k on</command>
     </action>
   </item>
 </menu>
