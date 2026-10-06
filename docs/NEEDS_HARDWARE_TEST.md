@@ -934,3 +934,41 @@ documented. LKML thread open (Sep 2026).
 - [ ] Keyboard flows on the real keyboard: Esc-from-pane-back,
       search-typing latency, Enter activation of grid items (FlowBox
       keynav) under xfwm4 focus handling.
+
+## File Chooser (canonical #21 — theme layer, oid `OS-filechooser-p0`)
+
+Pre-hardware status: every rule in
+`packages/mavericks-theme/src/mavericks-theme/gtk-3.0/_filechooser.scss` is
+verified live on a real `GtkFileChooserDialog` on the pinned Xvfb :97, and
+`scripts/test-filechooser-theme.py` (37 checks) asserts the rendered result.
+The items below are what only the MacBook10,1 can settle.
+
+- [ ] Chooser appearance on the real 2304×1440 panel at the shipping scale:
+      the 22px path bar and column-header strip, the 8px-inset blue sidebar
+      pill and the white selection bar must stay crisp with no 1px seam
+      between the paper sidebar and the white list.
+- [ ] Focus ring under real xfwm4: the list must not gain a blue focus ring
+      when the chooser is opened by keyboard (the container has no window
+      manager, so the ring behaviour there is only partially representative).
+- [ ] Sidebar with real hardware: the Apple S3X internal volume, any USB-C
+      attached storage and the network sidebar must all appear with the
+      Mavericks pill/label treatment, and hot-plugging a device must not
+      leave a stale pill.
+- [ ] Trash row: with GVfs trash active the sidebar must show a Trash entry
+      whose label uses the non-white rule (a white Trash label on paper is
+      the exact shipped readability bug, and Trash is where it would hurt
+      most).
+- [ ] The chooser's search box: no `filechooser`-scoped selector was proven
+      to reach the lazily built search popover, so it currently inherits the
+      global flat `entry` styling. Pop the search on hardware and confirm it
+      reads as Mavericks, or fall back to styling `entry.search` globally
+      (Global Dialogs surface, needs its owner's sign-off).
+- [ ] LIST/ICON view toggle: icon view is unstyled and unverified. Open the
+      chooser, switch to icon view, and record whether the Mavericks icons
+      and labels hold up; if not, the icon-view node names need the same
+      injection treatment the list got.
+- [ ] Save flow on real storage: Save As must show the name entry, the
+      create-folder button and the overwrite-confirmation alert in the same
+      visual language (the alert comes from the shared mv_dialogs layer).
+- [ ] Slow mount points (S3X cold mount, USB-C hub): the chooser must not
+      show a blank or half-painted sidebar while GIO populates it.

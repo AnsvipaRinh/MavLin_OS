@@ -1,6 +1,45 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (Global Dialogs P0 — oid `OS-dialogs-p0`, canonical #20: shared mv_dialogs system audited + executable gaps closed — entry_dialog type, Enter/default/focus keyboard contract, parentless-sheet attach bug, error-state validation; new suite test-mv-dialogs.py 58 checks green)
+**Last Updated**: 2026-10-06 (File Chooser P0 — oid `OS-filechooser-p0`, canonical #21: the shipped `filechooser` theme block was six invented class names and rendered as stock Adwaita; new `gtk-3.0/_filechooser.scss` with only empirically-live selectors, unreadable white sidebar labels fixed, Mavericks selection/path bar/header strip, new 37-check gate wired into check-sync.sh)
+
+---
+
+## Session 2026-10-06 — File Chooser P0 (oid `OS-filechooser-p0`, canonical objective #21)
+
+**Zone:** GTK theme sources for the file chooser only (`packages/mavericks-theme/src/mavericks-theme/gtk-3.0/_filechooser.scss`, the dead block removed from `_widgets.scss`, the `@import` lines in both `gtk.scss` entry points) + `scripts/test-filechooser-theme.py` + `scripts/check-sync.sh` wiring + File Chooser rows in `docs/*`. The generated `gtk.css` at the package root was NOT touched (build artifact, untracked). Other agents were working `bin/mv_dialogs.py` and the Thunar `uca.xml` in the same tree; nothing of theirs was staged.
+
+**Audit finding — the shipped chooser styling was entirely inert.** `_widgets.scss` carried a ~120-line `filechooser { … }` block written against class names GTK3 never emits: `.file-list`, `.file-name`, `.file-size`, `.file-date`, `.button-box`, `.column-header`. GTK3 ignores a selector that matches nothing **without a warning**, so the block compiled, passed `scripts/test-theme-css.py`, and did nothing at all: the open/save panel stayed stock Adwaita. Rendered proof of what that cost (pinned Xvfb :97, real `GtkFileChooserDialog`):
+
+- **white sidebar labels on the #f5f5f0 Mavericks paper sidebar — unreadable.** Every `places.sidebar` row resolved `color: #ffffff`; the theme had no explicit sidebar label colour, so GTK's own selected-row colour was inherited by every row. Caught by walking the dialog and reading each label's resolved colour, not by eyeballing.
+- a 2px blue focus ring hugging the entire file list;
+- Adwaita's pale rounded selection instead of a filled Mavericks pill;
+- column headers as tall rounded metallic blobs.
+
+The block was not merely wrong, it was **unverifiable**: a CSS linter sees valid CSS. That is the whole reason this session's second deliverable exists.
+
+**How the live selector set was derived (not guessed).** A real `GtkFileChooserDialog` was walked in four shapes (OPEN / SAVE / SELECT_FOLDER, with and without a header bar) and every widget's style classes and node names were recorded. Each candidate selector was then proved live or dead by injecting a sentinel value at `STYLE_PROVIDER_PRIORITY_APPLICATION` and checking which widget actually moved, cross-checked with pixel injection on the rendered window. Results worth keeping:
+
+- GTK 3.20 **node** names — `places.sidebar`, `pathbar box`, `filechooser list view`, `column-header`, `column-header button`, `header button` — match **nothing** on the GTK 3.24.52 this system ships. The rules are written against the style **classes** that do match (`.sidebar`, `.sidebar-row`, `.sidebar-label`, `.sidebar-icon`, `.sidebar-revealer`, `.path-bar`, `.dialog-action-area`, `.view`, `.dim-label`, `.search`).
+- `GtkTreeViewHeader` is created by `GtkTreeView`'s C code and is **not a widget child**, so `.view header button` cannot match. The column-header buttons are, and `filechooser .view button` is what styles them (verified: the strip paints #fdfdfd→#ececec from y=6 to y=22).
+- **A `GtkTreeView` on this GTK never paints a `row` node's own background.** `treeview row { background-color }`, `treeview row:selected { background-image }` and `filechooser .view row { background-color }` all paint nothing; `treeview:selected` paints the selected row and nothing else. The filled Mavericks selection bar therefore comes from `filechooser .view:selected`, and every inert row-level rule was deleted.
+- `icon-size` (GTK3) and `-gtk-icon-size` (GTK4) are both rejected by the CSS parser on this target. The first attempt used `-gtk-icon-size` and `scripts/test-theme-css.py` failed immediately — the gate did its job.
+
+**Gaps closed (all executable pre-hardware):**
+- New `_filechooser.scss` partial, imported by both `gtk-3.0/gtk.scss` and `gtk-3.20/gtk.scss`, holding every filechooser rule; the dead block removed from `_widgets.scss` with a pointer comment so it is not re-added.
+- Sidebar: explicit non-white label colour (the readability bug), 22px rows, 8px inset so the blue selection is a **pill** and not a full-width bar, hairline group edges, accent-coloured action rows ("Other Locations", "New bookmark"), 16px-icon spacing.
+- Path bar: 22px brushed-metal strip, transparent crumb buttons with the current crumb as a filled blue pill, flat scroll/view toggles. The crumb selectors need the extra `.view` in them (`filechooser .view .path-bar > button`) because the path-bar **box** carries the `.view` class and the header rule ties on specificity — without it every crumb painted as a grey box.
+- File list: white list, filled blue selection bar with white text via `.view:selected`, flat 22px grey column-header strip with a hairline, no blue ring across the list.
+- Action area: **documented, not touched.** GtkDialog's action area and its buttons sit outside the `filechooser` CSS node (`filechooser .dialog-action-area button` moves no pixel), so they already inherit a Mavericks metal strip from the global `dialog .dialog-action-area` rule. Shrinking the 42px Cancel/Open buttons to sheet proportions needs one global rule that belongs to Global Dialogs (#20), not this objective.
+- `gtk-3.20/gtk.scss`'s empty `filechooser { /* 3.20+ native file chooser */ }` placeholder replaced with a note pointing at the partial and at the dead node names.
+
+**Tests:** new suite `scripts/test-filechooser-theme.py`, **37 checks**, wired into `scripts/check-sync.sh` ("OK: file chooser theme: 37 assertions"). Two halves, deliberately:
+- *static* — the partial exists, both `gtk.scss` files import it, `_widgets.scss` carries no `filechooser` block, the live selector vocabulary is present, the dead vocabulary is absent, and the GTK-invalid properties stay out. Runs without a display (`--static`).
+- *GUI* — a real dialog is rendered on the pinned Xvfb :97 with `gtk-theme-name=Adwaita` plus **the repo's own freshly compiled CSS at APPLICATION priority**. That combination matters: with the installed theme left in place, a broken working tree still rendered correct pixels and the gate passed (measured). The half then asserts pixels, not CSS: sidebar labels legible (non-white), sidebar paper, blue selection bar on the selected row, grey header strip distinct from the white list, blue current crumb (44px run found), no blue bar along the list's top edge, and SAVE / SELECT_FOLDER / header-bar shapes all building and rendering.
+- Each assertion was verified to **fail** when its rule is removed from the source (dead selector present, missing live selector, white sidebar labels, missing selection bar) — a gate that cannot fail is worse than no gate.
+
+**Gate status:** `scripts/test-theme-css.py` 9/9, `scripts/test-filechooser-theme.py` 37/37, `scripts/test-gui-isolation-coverage.py` green, `scripts/check-sync.sh` green including the new gate.
+
+**Status:** File Chooser (canonical #21) = **PARTIALLY IMPLEMENTED — HARDWARE VALIDATION REQUIRED**, honestly: the chooser is now genuinely Mavericks-styled where GTK lets a theme reach, and the failure mode that let it silently look finished is now gated. Remaining executable work is recorded per-item in the `docs/APPS.md` row (sidebar headings impossible at theme level, 18px vs 20px rows not CSS-reachable, icon view unverified, per-app Places/button-label configuration not done); hardware-dependent items are in `docs/NEEDS_HARDWARE_TEST.md` § File Chooser.
 
 ---
 
