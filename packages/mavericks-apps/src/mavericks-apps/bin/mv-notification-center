@@ -10,6 +10,30 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk
 
+MAVERICKS_CSS = """
+.mavericks-notification-center,
+.mavericks-notification-center viewport,
+.mavericks-notification-center scrolledwindow { background-color: rgba(31,34,38,0.97); color: #f2f2f2; }
+.mavericks-notification-center headerbar { min-height: 48px; padding: 0 12px; background-image: none; background-color: #2b2e33; color: #fff; border: none; box-shadow: none; }
+.mavericks-notification-center headerbar .title { font-weight: normal; font-size: 15px; }
+.mavericks-notification-center headerbar .subtitle { color: #bfc2c6; font-size: 11px; }
+.mavericks-notification-center headerbar button { color: #e7e7e7; background-image: none; background-color: transparent; border: none; box-shadow: none; border-radius: 3px; }
+.mavericks-notification-center headerbar button:hover { background-color: rgba(255,255,255,0.10); }
+.mavericks-notification-center .mav-section-header { background-color: #36393e; color: #f0f0f0; border-bottom: 1px solid #4a4d51; }
+.mavericks-notification-center .mav-section-header label { color: #f0f0f0; }
+.mavericks-notification-center list, .mavericks-notification-center list row { background-color: transparent; color: #eee; }
+.mavericks-notification-center list row { border-bottom: 1px solid #45484c; padding: 0; }
+.mavericks-notification-center list row:hover, .mavericks-notification-center list row:selected { background-color: rgba(255,255,255,0.08); }
+.mavericks-notification-center .mav-summary { color: #fff; }
+.mavericks-notification-center .mav-body, .mavericks-notification-center .mav-time { color: #b9bcc0; }
+.mavericks-notification-center .mav-dismiss, .mavericks-notification-center .mav-clear { color: #c7c9cc; background-image: none; background-color: transparent; border: none; box-shadow: none; }
+.mavericks-notification-center .mav-dismiss:hover, .mavericks-notification-center .mav-clear:hover { color: #fff; background-color: rgba(255,255,255,0.10); }
+.mavericks-notification-center .mav-empty-title { color: #eee; }
+.mavericks-notification-center .mav-empty-subtitle { color: #aeb1b5; }
+.mavericks-notification-center scrollbar slider { background-color: #666a70; border-radius: 4px; }
+"""
+
+
 STORE_FILE = os.path.expanduser("~/.local/share/mavericks/notifications.json")
 LOCK_FILE = os.path.expanduser("~/.local/share/mavericks/notifications.lock")
 
@@ -103,6 +127,10 @@ def _draw_urgency_dot(area, cr, rgba):
 class NotificationCenter(Gtk.Window):
     def __init__(self):
         super().__init__(title="Notification Center", type=Gtk.WindowType.TOPLEVEL)
+        self.get_style_context().add_class("mavericks-notification-center")
+        css = Gtk.CssProvider()
+        css.load_from_data(MAVERICKS_CSS.encode("utf-8"))
+        Gtk.StyleContext.add_provider_for_screen(self.get_screen(), css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.set_default_size(420, 600)
         self.set_decorated(False)
         self.set_keep_above(True)
@@ -128,7 +156,7 @@ class NotificationCenter(Gtk.Window):
         # Clear all button
         clear_btn = Gtk.Button(label="Clear All")
         clear_btn.connect("clicked", self.on_clear_all)
-        clear_btn.get_style_context().add_class("destructive-action")
+        clear_btn.get_style_context().add_class("mav-clear")
         hb.pack_end(clear_btn)
 
         # Main scrolled window
@@ -201,11 +229,11 @@ class NotificationCenter(Gtk.Window):
         box.pack_start(icon, False, False, 0)
 
         label = Gtk.Label(label="No Notifications")
-        label.get_style_context().add_class("title")
+        label.get_style_context().add_class("mav-empty-title")
         box.pack_start(label, False, False, 0)
 
         sub = Gtk.Label(label="Notifications will appear here")
-        sub.get_style_context().add_class("dim-label")
+        sub.get_style_context().add_class("mav-empty-subtitle")
         box.pack_start(sub, False, False, 0)
 
         self.main_box.pack_start(box, True, True, 0)
@@ -219,7 +247,8 @@ class NotificationCenter(Gtk.Window):
 
         # Section header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        header.set_border_width(12)
+        header.set_border_width(10)
+        header.get_style_context().add_class("mav-section-header")
         header.set_size_request(-1, 40)
 
         label = Gtk.Label()
@@ -295,12 +324,13 @@ class NotificationCenter(Gtk.Window):
         summary = Gtk.Label()
         summary_text = item.get("summary", "")
         summary.set_markup(f"<b>{GLib.markup_escape_text(summary_text)}</b>")
+        summary.get_style_context().add_class("mav-summary")
         summary.set_xalign(0)
         summary.set_ellipsize(3)
         summary_box.pack_start(summary, True, True, 0)
 
         time_lbl = Gtk.Label(label=format_time(item.get("timestamp", 0)))
-        time_lbl.get_style_context().add_class("dim-label")
+        time_lbl.get_style_context().add_class("mav-time")
         time_lbl.set_xalign(1)
         time_lbl.set_valign(Gtk.Align.CENTER)
         summary_box.pack_end(time_lbl, False, False, 0)
@@ -314,7 +344,7 @@ class NotificationCenter(Gtk.Window):
             body.set_xalign(0)
             body.set_line_wrap(True)
             body.set_max_width_chars(50)
-            body.get_style_context().add_class("dim-label")
+            body.get_style_context().add_class("mav-body")
             content.pack_start(body, False, False, 0)
 
         box.pack_start(content, True, True, 0)
@@ -327,7 +357,7 @@ class NotificationCenter(Gtk.Window):
         dismiss.set_focus_on_click(False)
         dismiss.set_valign(Gtk.Align.START)
         dismiss.add(Gtk.Image.new_from_icon_name("window-close-symbolic", Gtk.IconSize.MENU))
-        dismiss.get_style_context().add_class("dismiss-notification")
+        dismiss.get_style_context().add_class("mav-dismiss")
         dismiss.set_tooltip_text("Dismiss this notification")
         dismiss.connect("clicked", self.on_dismiss_clicked, item)
         box.pack_end(dismiss, False, False, 0)
