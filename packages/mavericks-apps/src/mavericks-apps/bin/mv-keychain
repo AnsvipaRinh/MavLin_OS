@@ -350,35 +350,52 @@ def build_keychain_class():
 
                 self.apply_css()
 
-                hb = Gtk.HeaderBar(title="Keychain Access", show_close_button=True)
-                self.set_titlebar(hb)
+                # Use real XFWM4 window chrome. GTK HeaderBar/CSD makes this
+                # application look like a modern Linux client rather than
+                # Mavericks. Actions remain in an ordinary in-window toolbar.
+                toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                toolbar.get_style_context().add_class("mav-toolbar")
+
+                title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+                title = Gtk.Label(label="Keychain Access")
+                title.get_style_context().add_class("mav-toolbar-title")
+                subtitle = Gtk.Label(label="Passwords and secure items")
+                subtitle.get_style_context().add_class("mav-toolbar-subtitle")
+                title_box.pack_start(title, False, False, 0)
+                title_box.pack_start(subtitle, False, False, 0)
+                toolbar.pack_start(title_box, False, False, 8)
 
                 self.new_btn = Gtk.Button.new_from_icon_name(
                     "list-add", Gtk.IconSize.SMALL_TOOLBAR)
                 self.new_btn.set_tooltip_text("New Password Item (Ctrl+N)")
                 self.new_btn.connect("clicked", self.on_new_item)
-                hb.pack_start(self.new_btn)
+                toolbar.pack_start(self.new_btn, False, False, 0)
 
                 self.gen_btn = Gtk.Button.new_from_icon_name(
                     "dialog-password", Gtk.IconSize.SMALL_TOOLBAR)
                 self.gen_btn.set_tooltip_text("Password Generator (Ctrl+G)")
                 self.gen_btn.connect("clicked", self.on_generator)
-                hb.pack_start(self.gen_btn)
+                toolbar.pack_start(self.gen_btn, False, False, 0)
 
                 self.lock_btn = Gtk.Button.new_from_icon_name(
                     "changes-prevent-symbolic", Gtk.IconSize.SMALL_TOOLBAR)
                 self.lock_btn.set_tooltip_text("Lock this keychain (Ctrl+L)")
                 self.lock_btn.connect("clicked", self.on_lock)
-                hb.pack_start(self.lock_btn)
+                toolbar.pack_start(self.lock_btn, False, False, 0)
+
+                spacer = Gtk.Box()
+                spacer.set_hexpand(True)
+                toolbar.pack_start(spacer, True, True, 0)
 
                 self.search = Gtk.SearchEntry(placeholder_text="Search items...")
-                self.search.set_hexpand(True)
+                self.search.set_size_request(220, -1)
                 self.search.connect("changed", self.on_search_changed)
-                hb.pack_end(self.search)
+                toolbar.pack_end(self.search, False, False, 6)
+
+                self.root_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                self.root_box.pack_start(toolbar, False, False, 0)
 
                 paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-                self.root_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-
                 self.sidebar_store = Gtk.ListStore(str, str, str)
                 self.sidebar = Gtk.TreeView(model=self.sidebar_store)
                 self.sidebar.set_headers_visible(False)
