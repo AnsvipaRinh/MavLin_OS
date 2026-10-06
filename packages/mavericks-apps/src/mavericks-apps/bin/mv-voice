@@ -405,12 +405,18 @@ def build_voice_classes():
 
             self.apply_mavericks_css()
 
-            hb = Gtk.HeaderBar(title="Voice Memos", show_close_button=True)
-            self.set_titlebar(hb)
+            self.set_decorated(True)
+            hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            hb.get_style_context().add_class("mavericks-mv-voice-toolbar")
+            title_label = Gtk.Label(label="Voice Memos")
+            hb.pack_start(title_label, True, True, 8)
 
             vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
             vbox.set_border_width(16)
-            self.add(vbox)
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            root.pack_start(hb, False, False, 0)
+            root.pack_start(vbox, True, True, 0)
+            self.add(root)
 
             self.cassette = CassetteWidget()
             vbox.pack_start(self.cassette, False, False, 0)
