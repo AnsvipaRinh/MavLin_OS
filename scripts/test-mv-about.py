@@ -146,6 +146,15 @@ def main():
     finally:
         sys.meta_path.remove(sys.meta_path[0])
 
+
+    # --- native Mavericks window chrome contract ---
+    with open(os.path.join(BIN, "mv-about"), "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("About This Mac uses native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("About This Mac does not use Gtk.HeaderBar", "Gtk.HeaderBar" not in source and "self.set_titlebar(" not in source)
+    check("About This Mac keeps System Report in an internal toolbar", "mavericks-about-toolbar" in source and "toolbar.pack_end(rep" in source)
+    check("About This Mac uses the shared Mavericks dialog", "from mv_dialogs import alert" in source and "Gtk.MessageDialog" not in source)
+
     # --- optional GUI smoke when display AND gi are available ---
     if HAS_DISPLAY:
         try:
