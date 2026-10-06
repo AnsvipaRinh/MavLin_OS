@@ -137,12 +137,35 @@ class ColumnsWindow(Gtk.Window):
         self.set_default_size(760, 480)
         self.set_position(Gtk.WindowPosition.CENTER)
 
+        self._install_finder_css()
+
         hb = Gtk.HeaderBar(title=self.get_title(), show_close_button=True)
-        hb.set_subtitle("Column View")
+        hb.set_subtitle("Finder")
         self.set_titlebar(hb)
 
+        self.back_button = Gtk.Button(label="‹")
+        self.back_button.set_tooltip_text("Back")
+        self.back_button.connect("clicked", self.on_back)
+        hb.pack_start(self.back_button)
+
+        self.forward_button = Gtk.Button(label="›")
+        self.forward_button.set_tooltip_text("Forward")
+        self.forward_button.connect("clicked", self.on_forward)
+        hb.pack_start(self.forward_button)
+
+        up_button = Gtk.Button(label="↑")
+        up_button.set_tooltip_text("Enclosing Folder")
+        up_button.connect("clicked", self.on_up)
+        hb.pack_start(up_button)
+
+        self.search_entry = Gtk.SearchEntry()
+        self.search_entry.set_placeholder_text("Search")
+        self.search_entry.set_width_chars(18)
+        self.search_entry.connect("activate", self.on_search)
+        hb.pack_end(self.search_entry)
+
         open_tb = Gtk.Button(label="Open in Thunar")
-        open_tb.set_tooltip_text("Manage these files in Thunar")
+        open_tb.set_tooltip_text("Open current location in Thunar")
         open_tb.connect("clicked", self.on_open_thunar)
         hb.pack_end(open_tb)
 
@@ -168,8 +191,14 @@ class ColumnsWindow(Gtk.Window):
         self.overlay.add_overlay(self.error_label)
         self.overlay.set_overlay_pass_through(self.error_label, True)
 
+        content = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        content.set_position(175)
+        self.sidebar = self._build_sidebar()
+        content.pack1(self.sidebar, False, False)
+        content.pack2(self.overlay, True, False)
+
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        vbox.pack_start(self.overlay, True, True, 0)
+        vbox.pack_start(content, True, True, 0)
         vbox.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
         vbox.pack_start(status, False, False, 0)
         self.add(vbox)
@@ -179,6 +208,90 @@ class ColumnsWindow(Gtk.Window):
 
         self.show_all()
         self.rebuild_columns()
+
+    def _install_finder_css(self):
+        provider = Gtk.CssProvider()
+        provider.load_from_data(b"""
+        .mavericks-finder-sidebar { background: #f2f2f2; border-right: 1px solid #c8c8c8; }
+        .mavericks-finder-section { color: #777; font-size: 10px; font-weight: bold; padding: 8px 8px 3px; }
+        .mavericks-finder-row { padding: 3px 7px; border-radius: 3px; }
+        .mavericks-finder-row:selected { background: #6f8fbd; color: white; }
+        .mavericks-finder-toolbar { background: #e2e2e2; }
+        .mavericks-finder-column { background: #fff; }
+        .mavericks-finder-column row { padding: 2px 5px; border-radius: 2px; }
+        .mavericks-finder-column row:selected { background: #6f8fbd; color: white; }
+        """)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def _build_sidebar(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        box.get_style_context().add_class("mavericks-finder-sidebar")
+        listbox = Gtk.ListBox()
+        listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        listbox.connect("row-activated", self._sidebar_activated)
+        self.sidebar_list = listbox
+        for title, entries in (
+                ("FAVORITES", [
+                    ("Home", os.path.expanduser("~")),
+                    ("Desktop", os.path.expanduser("~/Desktop")),
+                    ("Documents", os.path.expanduser("~/Documents")),
+                    ("Downloads", os.path.expanduser("~/Downloads")),
+                    ("Pictures", os.path.expanduser("~/Pictures")),
+                ]),
+                ("DEVICES", [("File System", "/")])):
+            label = Gtk.Label(label=title, xalign=0)
+            label.get_style_context().add_class("mavericks-finder-section")
+            box.pack_start(label, False, False, 0)
+            for name, path in entries:
+                if not os.path.isdir(path):
+                    continue
+                row = Gtk.ListBoxRow()
+                row.path = path
+                row.add(Gtk.Label(label="  " + name, xalign=0))
+                row.get_style_context().add_class("mavericks-finder-row")
+                listbox.add(row)
+        box.pack_start(listbox, True, True, 0)
+        return box
+
+    def _sidebar_activated(self, _listbox, row):
+        if hasattr(row, "path") and os.path.isdir(row.path):
+            self.chain = [os.path.abspath(row.path)]
+            self.history = self.history[:self.history_index + 1] + [self.chain[0]]
+            self.history_index += 1
+            self.rebuild_columns()
+
+    def on_search(self, _entry):
+        query = self.search_entry.get_text().strip()
+        if not query:
+            return
+        target = self.chain[-1]
+        try:
+            subprocess.Popen(["mv-finder-search", target, query],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            pass
+
+    def on_back(self, _button):
+        if self.history_index > 0:
+            self.history_index -= 1
+            self.chain = [self.history[self.history_index]]
+            self.rebuild_columns()
+
+    def on_forward(self, _button):
+        if self.history_index + 1 < len(self.history):
+            self.history_index += 1
+            self.chain = [self.history[self.history_index]]
+            self.rebuild_columns()
+
+    def on_up(self, _button):
+        parent = os.path.dirname(self.chain[-1])
+        if parent and parent != self.chain[-1]:
+            self.history = self.history[:self.history_index + 1] + [parent]
+            self.history_index += 1
+            self.chain = [parent]
+            self.rebuild_columns()
 
     # ---------- column construction ----------
 
@@ -229,7 +342,7 @@ class ColumnsWindow(Gtk.Window):
         listbox.set_size_request(COLUMN_WIDTH, -1)
         listbox.set_activate_on_single_click(False)
         listbox.connect("row-activated", self.on_row_activated)
-        listbox.get_style_context().add_class("background")
+        listbox.get_style_context().add_class("mavericks-finder-column")
         if entries:
             for entry in entries:
                 listbox.add(ColumnRow(entry, self.icon_size))
