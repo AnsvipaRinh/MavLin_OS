@@ -428,7 +428,17 @@ def test_gui(m):
             app4.destroy()
 
 
+def _native_chrome_contract():
+    bin_name = "mv-dictionary"
+    path = os.path.join(BIN, bin_name)
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("dictionary: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("dictionary: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
+
 def main():
+    _native_chrome_contract()
     m = load_app()
     test_pure(m)
     test_gui(m)
