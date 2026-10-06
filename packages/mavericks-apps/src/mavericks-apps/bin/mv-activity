@@ -84,8 +84,9 @@ class Activity(Gtk.Window):
         self.set_position(Gtk.WindowPosition.CENTER)
 
         # Header bar with search and actions
-        hb = Gtk.HeaderBar(title="Activity Monitor", show_close_button=True)
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        toolbar.get_style_context().add_class("mavericks-activity-toolbar")
 
         self.search = Gtk.SearchEntry(placeholder_text="Filter processes")
         self.search.connect("search-changed", lambda e: self.refresh())
@@ -116,7 +117,10 @@ class Activity(Gtk.Window):
 
         # Main layout
         v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        self.add(v)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.pack_start(toolbar, False, False, 0)
+        root.pack_start(v, True, True, 0)
+        self.add(root)
 
         # Notebook tabs
         self.tabs = Gtk.Notebook()
