@@ -674,7 +674,14 @@ def build_settings_class():
             return sw
 
         def _display_error(self, title, detail):
-            self._show_error(title, detail)
+            try:
+                from mv_dialogs import alert
+            except ImportError:
+                sys.path.insert(0, "/usr/share/mavericks-apps")
+                from mv_dialogs import alert
+            alert(self, title, secondary=detail.strip() or "xrandr reported an unknown error.",
+                  msg_type=Gtk.MessageType.ERROR,
+                  buttons=[("OK", Gtk.ResponseType.OK)])
 
         def _set_primary_display(self, output):
             good, detail = xrandr_command(["--output", output, "--primary"])
