@@ -18,6 +18,10 @@ gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo
 
+# Shared Mavericks dialog helpers
+sys.path.insert(0, "/usr/share/mavericks-apps")
+from mv_dialogs import alert, confirm_delete
+
 FONT_EXTS = (".ttf", ".otf", ".ttc", ".pfb", ".pfa")
 WATERFALL_SIZES = (11, 14, 18, 24, 36, 48)
 WATERFALL_SAMPLE = "The quick brown fox jumps over the lazy dog — 0123456789"
@@ -627,26 +631,14 @@ class FontBookWindow(Gtk.Window):
             self.show_error("Only user fonts can be removed.")
             return
         family = font["family"]
-        dlg = Gtk.MessageDialog(
-            parent=self, flags=Gtk.DialogFlags.MODAL,
-            type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.NONE,
-            message_format="Remove “%s”?" % family)
-        dlg.format_secondary_text(
-            "The font file will be deleted from %s." % user_fonts_dir())
-        dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dlg.add_button("Remove", Gtk.ResponseType.OK)
-        ok_btn = dlg.get_widget_for_response(Gtk.ResponseType.OK)
-        if ok_btn is not None:
-            ok_btn.get_style_context().add_class("destructive-action")
-        response = dlg.run()
-        dlg.destroy()
-        if response != Gtk.ResponseType.OK:
-            return
-        _, err = remove_font(font)
-        if err:
-            self.show_error(err)
-        else:
-            self.load_fonts()
+        if confirm_delete(self, 'Remove "%s"?' % family,
+                          "The font file will be deleted from %s." % user_fonts_dir(),
+                          delete_label="Remove"):
+            _, err = remove_font(font)
+            if err:
+                self.show_error(err)
+            else:
+                self.load_fonts()
 
     def on_open_viewer(self, button):
         font = self.selected_font

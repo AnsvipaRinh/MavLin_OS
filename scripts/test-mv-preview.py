@@ -24,6 +24,9 @@ DESKTOP = os.path.join(
 SHOT = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-shot")
 
+# Shared Mavericks dialog helpers path (for module import during GUI test)
+sys.path.insert(0, os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/bin"))
+
 # GUI smoke must never reach the ambient host display (WSLg: DISPLAY=:0 and
 # wayland-0 both forward to the Windows desktop).  gui_display() pins the
 # dedicated Xvfb :97 — or returns None when headless — and arms the

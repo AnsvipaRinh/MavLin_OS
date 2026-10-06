@@ -22,6 +22,12 @@ except (ImportError, ValueError):
     Gdk = None
     HAS_GTK = False
 
+# Shared Mavericks dialog helpers
+if HAS_GTK:
+    import sys
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mv_dialogs import confirm_delete
+
 try:
     gi.require_version("Secret", "1")
     from gi.repository import Secret
@@ -802,16 +808,9 @@ def build_keychain_class():
                 if item is None:
                     return
                 label = item.get("label") or "(untitled)"
-                dlg = Gtk.MessageDialog(
-                    parent=self, flags=Gtk.DialogFlags.MODAL,
-                    type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.NONE,
-                    message_format="Delete “%s”?" % label)
-                dlg.format_secondary_text("This cannot be undone.")
-                dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
-                dlg.add_button("Delete", Gtk.ResponseType.OK)
-                response = dlg.run()
-                dlg.destroy()
-                if response == Gtk.ResponseType.OK:
+                if confirm_delete(self, 'Delete "%s"?' % label,
+                                  "This cannot be undone.",
+                                  delete_label="Delete"):
                     if delete_item(item):
                         self.refresh_items()
                     else:

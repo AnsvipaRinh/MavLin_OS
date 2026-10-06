@@ -86,6 +86,9 @@ def check(name, cond, detail=""):
         bad(name, detail)
 
 
+# Shared Mavericks dialog helpers path (for module import during GUI test)
+sys.path.insert(0, os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/bin"))
+
 def load_app():
     loader = importlib.machinery.SourceFileLoader("mv_console", APP_PATH)
     spec = importlib.util.spec_from_loader("mv_console", loader)

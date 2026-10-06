@@ -46,6 +46,8 @@ try:
 except (ImportError, ValueError):
     Secret = None
 
+# Shared Mavericks dialog helpers (imported lazily inside build_timemachine_class)
+
 RESTIC = "restic"
 BTRFS = "btrfs"
 CONFIG_DIR = os.path.expanduser("~/.config/mv-timemachine")
@@ -340,6 +342,11 @@ def build_timemachine_class():
     except (ImportError, ValueError):
         return None
 
+    # Shared Mavericks dialog helpers
+    import sys
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mv_dialogs import alert, confirm_delete, entry_dialog
+
     class TimeMachineWindow(Gtk.Window):
         def __init__(self):
             super().__init__(title="Time Machine")
@@ -565,25 +572,11 @@ def build_timemachine_class():
             self.set_status("Backup destination ready: %s" % path)
 
         def ask_passphrase(self):
-            dialog = Gtk.MessageDialog(
-                parent=self, modal=True, message_type=Gtk.MessageType.QUESTION,
-                buttons=Gtk.ButtonsType.OK_CANCEL,
-                text="Choose a backup passphrase")
-            dialog.format_secondary_text(
-                "This encrypts every snapshot. It is stored in the login "
-                "keychain when available, and never written to disk in "
-                "plaintext.")
-            box = dialog.get_content_area()
-            entry = Gtk.Entry()
-            entry.set_visibility(False)
-            entry.set_invisible_char("●")
-            box.pack_end(entry, False, False, 6)
-            box.show_all()
-            pw = None
-            if dialog.run() == Gtk.ResponseType.OK:
-                pw = entry.get_text()
-            dialog.destroy()
-            return pw or None
+            return entry_dialog(self, "Choose a backup passphrase",
+                                "This encrypts every snapshot. It is stored in the login "
+                                "keychain when available, and never written to disk in "
+                                "plaintext.",
+                                ok_label="Set Passphrase", allow_empty=False)
 
         def on_change_target(self, _btn):
             clear_target()
@@ -722,21 +715,14 @@ def build_timemachine_class():
                 return
             dest = dialog.get_filename()
             dialog.destroy()
-            confirm = Gtk.MessageDialog(
-                parent=self, modal=True, message_type=Gtk.MessageType.WARNING,
-                buttons=Gtk.ButtonsType.OK_CANCEL, text="Restore snapshot?")
-            confirm.format_secondary_text(
-                "Files from the selected snapshot will be copied into:\n%s\n"
-                "Existing files are not overwritten unless they differ."
-                % dest)
-            if confirm.run() != Gtk.ResponseType.OK:
-                confirm.destroy()
-                return
-            confirm.destroy()
-            pw = load_passphrase()
-            if not pw:
-                self.set_status("Passphrase unavailable — unlock the keychain.")
-                return
+            if confirm_delete(self, "Restore snapshot?",
+                              "Files from the selected snapshot will be copied into:\n%s\n"
+                              "Existing files are not overwritten unless they differ."
+                              % dest, delete_label="Restore"):
+                pw = load_passphrase()
+                if not pw:
+                    self.set_status("Passphrase unavailable — unlock the keychain.")
+                    return
             self.set_status("Restoring…")
             try:
                 proc = subprocess.run(
@@ -762,26 +748,18 @@ def build_timemachine_class():
             path = getattr(rows[0], "snapshot_path", None)
             if not path:
                 return
-            confirm = Gtk.MessageDialog(
-                parent=self, modal=True, message_type=Gtk.MessageType.WARNING,
-                buttons=Gtk.ButtonsType.OK_CANCEL,
-                text="Restore local snapshot (destructive)?")
-            confirm.format_secondary_text(
-                "This replaces the current @ and @home subvolumes with:\n%s\n"
-                "A safety snapshot of the current state is taken first. "
-                "This cannot be undone." % path)
-            if confirm.run() != Gtk.ResponseType.OK:
-                confirm.destroy()
-                return
-            confirm.destroy()
-            self.set_status("Local snapshot restore requires the recovery "
-                            "environment — use `btrfs subvolume snapshot` from "
-                            "a live session for now.")
-            self.show_banner(
-                Gtk.MessageType.INFO,
-                "Destructive btrfs restore is intentionally not performed from "
-                "a running system. Boot the recovery environment and restore "
-                "from there.")
+            if confirm_delete(self, "Restore local snapshot (destructive)?",
+                              "This replaces the current @ and @home subvolumes with:\n%s\n"
+                              "A safety snapshot of the current state is taken first. "
+                              "This cannot be undone." % path, delete_label="Restore"):
+                self.set_status("Local snapshot restore requires the recovery "
+                                "environment — use `btrfs subvolume snapshot` from "
+                                "a live session for now.")
+                self.show_banner(
+                    Gtk.MessageType.INFO,
+                    "Destructive btrfs restore is intentionally not performed from "
+                    "a running system. Boot the recovery environment and restore "
+                    "from there.")
 
         def on_key_press(self, _widget, event):
             key = Gdk.keyval_name(event.keyval)

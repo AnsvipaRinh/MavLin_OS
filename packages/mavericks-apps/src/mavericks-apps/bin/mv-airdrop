@@ -32,6 +32,10 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Gio", "2.0")
 from gi.repository import Gtk, Gio, Gdk, GLib
 
+# Shared Mavericks dialog helpers
+sys.path.insert(0, "/usr/share/mavericks-apps")
+from mv_dialogs import alert
+
 MULTICAST_GROUP = "224.0.0.167"
 LOCALSEND_PORT = 53317
 DISCOVERY_TIMEOUT = 2.5
@@ -460,13 +464,10 @@ class AirDropWindow(Gtk.Window):
         else:
             self.set_status("Send to %s failed (exit %d)%s"
                            % (target["alias"], rc,
-                              ": " + err.splitlines()[-1] if err else ""))
-            dlg = Gtk.MessageDialog(
-                parent=self, modal=True, message_type=Gtk.MessageType.ERROR,
-                buttons=Gtk.ButtonsType.OK, text="Send failed")
-            dlg.format_secondary_text(err or "localsend-cli exited with %d" % rc)
-            dlg.run()
-            dlg.destroy()
+                             ": " + err.splitlines()[-1] if err else ""))
+            alert(self, "Send failed",
+                  secondary=err or "localsend-cli exited with %d" % rc,
+                  msg_type=Gtk.MessageType.ERROR)
         self.refresh_sensitivity()
         return False
 

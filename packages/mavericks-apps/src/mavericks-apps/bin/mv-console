@@ -14,6 +14,10 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Pango, Gdk
 
+# Shared Mavericks dialog helpers
+sys.path.insert(0, "/usr/share/mavericks-apps")
+from mv_dialogs import alert
+
 SOURCES = [
     ("All Messages", "view-filter", "all"),
     ("Current Boot", "go-last", "boot"),
@@ -739,13 +743,8 @@ class Console(Gtk.Window):
                     with open(path, "w") as f:
                         f.write(self.export_text())
                 except OSError as e:
-                    err = Gtk.MessageDialog(
-                        parent=self, flags=Gtk.DialogFlags.MODAL,
-                        type=Gtk.MessageType.ERROR,
-                        buttons=Gtk.ButtonsType.OK,
-                        message_format="Could not export:\n%s" % e)
-                    err.run()
-                    err.destroy()
+                    alert(self, "Could not export:\n%s" % e,
+                          msg_type=Gtk.MessageType.ERROR)
         finally:
             dlg.destroy()
 

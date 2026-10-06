@@ -67,6 +67,9 @@ def check(name, cond, detail=""):
         bad(name, detail)
 
 
+# Shared Mavericks dialog helpers path (for module import during test)
+sys.path.insert(0, os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/bin"))
+
 def load_app(argv=("mv-timemachine",)):
     # GUI mode (default argv) exposes the lazily built TimeMachineWindow class
     # for the display-gated smoke tests; timer argv keeps it headless.

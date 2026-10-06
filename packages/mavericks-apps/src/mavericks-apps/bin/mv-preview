@@ -14,6 +14,10 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Gio, Pango, PangoCairo
 
+# Shared Mavericks dialog helpers
+sys.path.insert(0, "/usr/share/mavericks-apps")
+from mv_dialogs import alert, entry_dialog
+
 _POPPLER = None
 _POPPLER_TRIED = False
 
@@ -765,28 +769,8 @@ class Preview(Gtk.Window):
             self.update_status()
 
     def _prompt_markup_text(self):
-        try:
-            sys.path.insert(0, "/usr/share/mavericks-apps")
-            from mv_dialogs import entry_dialog
-            return entry_dialog(self, "Add Text", "Markup text:",
-                                ok_label="Add")
-        except Exception:
-            dialog = Gtk.Dialog(title="Add Text", transient_for=self,
-                                modal=True)
-            dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                               "Add", Gtk.ResponseType.OK)
-            entry = Gtk.Entry()
-            entry.set_activates_default(True)
-            entry.set_size_request(260, -1)
-            box = dialog.get_content_area()
-            box.pack_start(Gtk.Label(label="Markup text:"), False, False, 4)
-            box.pack_start(entry, False, False, 4)
-            dialog.set_default_response(Gtk.ResponseType.OK)
-            dialog.show_all()
-            resp = dialog.run()
-            text = entry.get_text() if resp == Gtk.ResponseType.OK else None
-            dialog.destroy()
-            return text
+        return entry_dialog(self, "Add Text", "Markup text:",
+                            ok_label="Add")
 
     def on_scroll(self, _widget, event):
         if self.view_mode != "graphic":
@@ -1020,26 +1004,7 @@ class Preview(Gtk.Window):
         self.destroy()
 
     def show_error(self, msg):
-        for child in self.get_children():
-            self.remove(child)
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        box.set_border_width(32)
-        box.set_halign(Gtk.Align.CENTER)
-        box.set_valign(Gtk.Align.CENTER)
-
-        icon = Gtk.Image.new_from_icon_name("dialog-error", Gtk.IconSize.DIALOG)
-        box.pack_start(icon, False, False, 0)
-
-        lbl = Gtk.Label(label=msg, use_markup=True)
-        lbl.set_selectable(True)
-        box.pack_start(lbl, False, False, 0)
-
-        btn = Gtk.Button(label="Close")
-        btn.connect("clicked", lambda *_: self.destroy())
-        box.pack_start(btn, False, False, 0)
-
-        self.add(box)
-        self.show_all()
+        alert(self, msg, msg_type=Gtk.MessageType.ERROR)
 
 
 def build_preview_menu(app, app_name, get_window, add_action):
