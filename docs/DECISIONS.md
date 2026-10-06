@@ -871,3 +871,54 @@ failures (airdrop/mail/keychain/desktop-cache/finder-search, packaging
 SyntaxError) are green again. The two pre-existing HEAD inconsistencies are
 recorded here for the next zone to fix; this recovery commit intentionally
 touches only this file.
+
+---
+
+## 2026-10-06 — Second GitHub sweep: PR #89 + PR #112 ACCEPT, and a repo-wide red-CI finding
+
+**Context.** oid `OS-gh-sweep2`, baseline `d0956c1`. 76 new commits, 19 new PRs,
+16 new issues, 13 merges — all inbound work owner-authored. Zone was GitHub
+inbound + docs only; a parallel agent held the code zones and had pushed the
+visual-demo track (`f09dd2f`…`e8afdd8`) mid-sweep, so the sweep re-based itself
+onto `e8afdd8` before merging.
+
+**Decisions:**
+
+1. **PR #89 ACCEPT, merged `d9cc7a9` (`--no-ff`).** It is the re-scoped, minimal
+   form of the `333e862` change this repo's previous sweep deferred. Merging
+   instead of re-implementing was chosen because (a) it is owner-authored and
+   (b) re-implementing a one-file refactor in a docs-only zone would have been
+   out of zone. Accepted only after *local* verification (3/3, 5/5, 19/19 suites,
+   identical `check-sync.sh` failure set before/after) — remote checks were of no
+   use because CI is red repo-wide (§3).
+2. **PR #112 ACCEPT, merged `d75b723` (`--no-ff`)** — owner directive, and the
+   justification is upstream, not intuition: `zram-generator(8)` states the
+   generator "generate[s] `systemd.swap(5)` … units into `TARGET_DIR` and connect
+   them to `swap.target`", with `dev-zramN.swap` depending on
+   `systemd-zram-setup@zramN.service`. Manual enablement is therefore redundant,
+   and the removed `multi-user.target.wants` symlink pointed at a path the
+   generator only ever materialises transiently in `/run/systemd/generator` — a
+   dangling link. **Frozen power baseline (AGENTS.md §7, zram ram/2 zstd) is
+   unaffected** because the size/algorithm policy lives in
+   `zram-generator.conf.d/99-mavericks.conf`, untouched. This was checked
+   explicitly because AGENTS.md forbids silently changing the baseline.
+3. **Repo-wide red CI is reported, not fixed, and split into "stale test" vs
+   "real defect".** 72/80 runs red on `main`; 3 defects at tip:
+   `test-hotkey-layer.py` (2 checks need a live xfconf channel that the runner
+   lacks → hermeticity defect), `test-mv-finder-columns.py` (`build_columns_classes`
+   removed by `1eecbb9`), `test-mv-spotlight.py::test_rofi_preview_integration`
+   (theme moved off `listview-split` deliberately in `1eecbb9`). None are in this
+   zone. `test-global-menu.py` was already fixed by `f09dd2f`.
+4. **Merge/push surface.** Both merges and the docs commit were made on `main`
+   in the shared worktree only after confirming (a) the merge-touched paths were
+   clean locally and (b) the parallel track's commits were already pushed, so the
+   branch stayed linear and no divergence had to be handed to the other agent.
+
+**Verification:** `scripts/check-profile-sync.sh` OK; `scripts/check-sync.sh`
+failure set identical pre/post merge for each PR; MC suites 3/3 · 5/5 · 19/19;
+secrets grep over both PR diffs clean; `ls-remote` SHA proven after push.
+
+**Follow-ups filed (not in this zone):** docs claiming zram unit "enabled"
+(`HARDWARE.md:42`, `BOOT_AUDIT.md:247`, `COMPLETENESS_C2.md:295`) are stale after
+#107+#112; `scripts/demo/run-demo.sh:40` comment still blames scrot in
+`mv-mc-thumbnail`; duplicate timezone commits `b00ad0b` + `7c7cd5a`.

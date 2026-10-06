@@ -1,6 +1,6 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (visual demo — real screenshots + 8 product fixes)
+**Last Updated**: 2026-10-06 (GitHub sweep #2 — PR #89/#112 merged, issue #85 truly fixed, repo-wide red CI reported)
 
 ---
 
@@ -353,3 +353,40 @@ hardware-dependent remainder (banner look, Super+Shift+V, ✕ placement,
 translucency on the real panel) plus the documented absence of live
 auto-refresh while the panel stays open. See `docs/APPS.md` row,
 `docs/DECISIONS.md` (7 recorded choices), `docs/NEEDS_HARDWARE_TEST.md`.
+
+---
+
+## Session 2026-10-06 — Second GitHub sweep of the day (oid OS-gh-sweep2)
+
+**Zone:** GitHub inbound + docs only (parallel agent owned code zones and was
+recovering the worktree; its visual-demo track `f09dd2f`…`e8afdd8` landed and
+pushed mid-sweep, so this session re-based onto `e8afdd8`).
+
+**Merged this session (`--no-ff`):**
+- `d9cc7a9` **PR #89** — `mv-mc-thumbnail` now uses the packaged shared XComposite
+  backend instead of ImageMagick/`scrot`/`convert`. This is the real fix for issue
+  **#85**, whose fix had existed only inside unmerged PR #83 (`333e862`) and was
+  confirmed absent from `main` this sweep (`git branch -r --contains 333e8620` →
+  `pr/83` only). Live path: `mv-mc-gui` spawns it once per window.
+- `d75b723` **PR #112** — drop the ISO-side manual `systemd-zram-setup@zram0`
+  enablement symlink (dangling pointer; `zram-generator(8)` owns activation via
+  `swap.target`). Power baseline untouched.
+
+**Verified before merging** (pristine clone, not the damaged worktree): MC suites
+3/3 · 5/5 · 19/19; `check-profile-sync.sh` OK; `check-sync.sh` failure set
+byte-identical before/after each merge; secrets grep clean.
+
+**NEW GAP — CI is 100 % red on `main` (72/80 runs), 3 defects at `e8afdd8`:**
+1. `test-hotkey-layer.py` fails only in the runner (`xfconf-query not found`) —
+   hermeticity defect, needs owner decision (install it vs skip-if-absent).
+2. `test-mv-finder-columns.py` expects `build_columns_classes`, removed by `1eecbb9`.
+3. `test-mv-spotlight.py::test_rofi_preview_integration` expects the
+   `listview-split` rofi layout that `1eecbb9` removed on purpose.
+All three are in the code zones → handed to the next zone, not fixed here.
+`test-global-menu.py` is green again (`f09dd2f`).
+
+**Also recorded:** 6 owner-closed superseded PRs (#82, #83, #88, #105, #113, #116);
+issue #85's substance re-verified for 13 owner issues; 4 stale-doc/stale-comment
+follow-ups created by the merged PRs (zram "enabled" claims, demo scrot comment,
+duplicate timezone commits `b00ad0b`/`7c7cd5a`).
+Full detail: `docs/EXTERNAL_AUDIT.md` §"2026-10-06 — Second sweep of the day".

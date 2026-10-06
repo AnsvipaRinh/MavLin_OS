@@ -563,3 +563,145 @@ above, not on remote green checks. Runner restoration should trigger a full
 re-run; the queued f7602c4/0291e83 push runs will validate main retroactively.
 
 (End of sweep 2026-10-05, oid OS-gh-sweep)
+
+---
+
+## 2026-10-06 — Second sweep of the day (oid OS-gh-sweep2)
+
+**Baseline:** `d0956c1` (first sweep 2026-10-05: PR #86 ACCEPT/merged `d9ebb8b`,
+PR #83 ADAPT-left-open, issues #79/#80/#81/#85 triaged).
+**Zone:** GitHub inbound + docs ONLY (a parallel agent recovered the worktree in
+code zones). Static review only; no foreign code was executed.
+
+### 0. Worktree damage recovery (zone prerequisite)
+
+`docs/EXTERNAL_AUDIT.md` was found REVERTED in the worktree by the parallel
+`git stash` damage incident (−199 lines, the whole 2026-10-05 owner-PR triage
+section). Restored with `git restore docs/EXTERNAL_AUDIT.md` from HEAD before
+appending this section. `docs/PROGRESS.md` and `docs/DECISIONS.md` were intact.
+
+### 1. Inventory (all counts measured, not estimated)
+
+| Class | Count | Notes |
+|---|---|---|
+| Commits on `main` since `d0956c1` | **76** | 40 `Mavericks Linux Agent`, 36 `AnsvipaRinh` |
+| PRs created since baseline | **19** | #89, #103–#121 |
+| PRs merged since baseline | **13** | #103,104,106,107,108,109,114,115,117,118,119,120,121 |
+| PRs closed-unmerged since baseline | **6** | #105, #113, #116 (+#82/#88 earlier), see table |
+| PRs open at sweep start | **2** | #89, #112 |
+| Issues created since baseline | **16** | #87, #90–#102, #110, #111 |
+| Issues still open | **1** | #1 (owner architecture plan, by design) |
+| Releases | **0** | no tags/releases on the remote at all |
+| Remote branches | **105** | 13 new since baseline; all are PR heads |
+| CI runs failing | **72 / 80** | 100 % red on `main` since `e3af5a8` — see §5 |
+
+### 2. PR verdicts — new inbound items
+
+| PR | Author | Claimed | Actual (verified) | Verdict |
+|---|---|---|---|---|
+| **#89** `e9ddff0` | owner | rewrite `mv-mc-thumbnail` onto the shared XComposite backend | **TRUE and in-scope.** Diff is 1 file, +33/−85; uses `mission_control_thumbnail.capture_window(win_id, max_size=(w,w))`, whose `scale = min(max_w/w, max_h/h)` keeps the thumbnail aspect ratio identical to the old `width x width*h/w` resize, so **no fidelity regression**. LIBDIR `/usr/share/mavericks-apps` matches the Makefile install target. Bonus: `int(wid, 0)` now accepts `0x…` window ids. No new deps (`python-xlib`, `libxcomposite`, `libxdamage`, `libxfixes` already in `depends`), no secrets, no network, in-repo GPL2. | **ACCEPT — merged `d9cc7a9`** |
+| **#112** `6607cde` | owner | drop the ISO-side manual `systemd-zram-setup@zram0.service` enablement | **TRUE and non-duplicated.** Merged PR #107 (`91fda8c`) removed the *firstboot* `systemctl enable` but left this symlink. Upstream `zram-generator(8)` verified this sweep: the generator emits `dev-zramN.swap`, wires it into `swap.target`, and the setup service is pulled in as a dependency ⇒ manual enablement is unnecessary. The removed symlink pointed at `/usr/lib/systemd/system/systemd-zram-setup@zram0.service`, which the generator materialises transiently in `/run/systemd/generator` — i.e. it was a **dangling pointer**, so removing it cannot regress zram. | **ACCEPT — merged `d75b723`** |
+
+**Pre-merge validation actually executed** (clean `git clone` of `origin/main`
+in `/tmp`, never in the damaged shared worktree):
+
+- both merges are conflict-free onto `e8afdd8` (ort strategy, no manual hints)
+- #89: `test_mission_control_thumbnail_helper` 3/3 · `test_mission_control_packaging`
+  5/5 · `test_mission_control_thumbnail` 19/19 · `py_compile` OK
+- #112: `scripts/check-profile-sync.sh` OK
+- `scripts/check-sync.sh` failure set is **byte-identical before and after** each
+  merge (`global menu contract` → now fixed by `f09dd2f`; `test-mv-finder-columns`;
+  `test-mv-spotlight`) ⇒ **neither merge introduces a regression**
+- secrets grep over both diffs: no `ghp_`/`github_pat_`/private-key material
+
+### 3. Issue #85 — CONFIRMED OPEN GAP, now closed by this sweep
+
+Last sweep flagged #85 as "fixed only inside unmerged PR #83". Re-verified:
+
+- commit `333e862` is reachable **only** from `origin/fix/mission-control-packaging-v2`
+  (= PR #83) — `git branch -r --contains 333e8620` → `pr/83` only, **not on main**
+- main's `bin/mv-mc-thumbnail` shelled out to `import` (ImageMagick), `scrot`,
+  `convert`, `xdotool getwindowgeometry`, plus a `/tmp/mc_thumb_<wid>.png` temp
+  file — while `PKGBUILD` `depends` declared none of imagemagick/scrot
+- the fix had been re-scoped as PR #89 and PR #83 was closed **superseded**
+  (unmerged) at 2026-10-05T21:05:31Z with no comment on #89 at that time
+- the path is LIVE: `mv-mc-gui` calls `run_helper("mv-mc-thumbnail", …)` once per
+  window, so every Mission Control launch shelled into undeclared binaries
+- **#85 is now genuinely fixed on `main` by merge `d9cc7a9`.** The issue can be
+  closed.
+
+### 4. Closed-unmerged PRs — all owner-closed, all superseded (no action)
+
+| PR | Superseded by | Evidence on main |
+|---|---|---|
+| #82, #83 | #89 (this sweep) + `0291e83` | MC packaging already installed by `0291e83` |
+| #88 | `a6113d4` | Calendar EDS helper installed |
+| #105 | `7c7cd5a` + `b00ad0b` | timezone preservation landed **twice** (duplicate commits — history noise, see §6) |
+| #113 | `a7cdf9b` (#114) | hotkey skills taxonomy fixed |
+| #116 | PKGBUILD `optdepends` | `gthumb` + `exiftool` already declared |
+
+Duplicate-commit finding: `b00ad0b` and `7c7cd5a` are byte-identical messages
+("fix: preserve installer timezone during firstboot") applied twice to the two
+firstboot twins. Harmless, but the second is redundant history.
+
+### 5. NEW FINDING — CI has been 100 % RED on `main` for 30+ commits
+
+This is the most important inbound fact of the sweep and it was **not** a
+regression from any PR in the window: 72 of the last 80 runs are `failure`, last
+green `main` run was `f8b335d` (2026-10-05T21:54Z); every `main` push since
+`e3af5a8` is red, including the 13 owner PR merges and the parallel track's
+visual-demo commits. The earlier "runner stall" is over — runs complete in ~3 min
+now — so this is genuine red, not infrastructure.
+
+Exactly **three** defects remain at tip `e8afdd8` (each reproduced locally on a
+pristine checkout):
+
+1. `scripts/test-hotkey-layer.py` — 2 checks fail **only in the runner**:
+   `override saved; live channel unavailable (xfconf-query not found)`
+   (`cli set stores the override`, `cli set reports the new accelerator`).
+   Locally: `82 checks passed`. This is a **test hermeticity defect** (the suite
+   silently depends on a live xfconf channel that the CI image does not provide),
+   not a product defect. Owner decision needed: install `xfconf-query` in the
+   runner, or make the live-channel assertions skip when it is absent.
+2. `scripts/test-mv-finder-columns.py` — `AttributeError: module
+   'mv_finder_columns' has no attribute 'build_columns_classes'`.
+   `1eecbb9` ("visual-demo blockers") removed that API; the test still requires it.
+   Already recorded in `DECISIONS.md` by the recovery commit — needs a decision
+   on which side is authoritative (product API vs test).
+3. `scripts/test-mv-spotlight.py::test_rofi_preview_integration` — asserts
+   `children: [ inputbar, listview-split ];` but `1eecbb9` deliberately replaced
+   that layout with `listview` + a native `preview` element because rofi aborted
+   on `listview-split`/`icon-current-entry`. The **test is stale, the theme is
+   intentional**; also recorded in `DECISIONS.md`.
+
+`test-global-menu.py` is **fixed** on main (`f09dd2f`, dropped a stray space in
+`XFCE_PANEL_PLUGIN_REGISTER (construct)`; the product was always valid C, the
+contract assertion was byte-exact) — confirmed green locally and in run
+`37402214672` no longer appears in the failure list.
+
+None of 1–3 is in this sweep's zone: all three live in `scripts/` + product code.
+
+### 6. Documentation drift created by the merged owner PRs (follow-ups, not fixed here)
+
+- `docs/HARDWARE.md:42` still claims "systemd-zram-setup@zram0.service enabled",
+  `docs/BOOT_AUDIT.md:247` claims firstboot "enables" it, `docs/COMPLETENESS_C2.md:295`
+  lists the unit as enabled. After #107 + #112 nobody enables it any more — the
+  generator owns it. These rows are now wrong.
+- `scripts/demo/run-demo.sh:40` comment still says "mv-mc-thumbnail -> scrot";
+  after `d9cc7a9` there is no scrot in that path (the PATH pin is still needed for
+  other helpers, the comment is not).
+- `docs/EXTERNAL_AUDIT.md` §3-row for #85 above is superseded by this section.
+
+### 7. Owner-directive audit (#84–#111 — merged)
+
+Spot-checked that each issue's substance actually landed, not just that the PR
+merged: #84 protocol version (`AGENTS.md:1259` v18) ✓ · #87 helper modules
+(`Makefile:53 mv_dialogs.py`) ✓ · #90 `thunar-uca-ytplayer.xml` install
+(`Makefile:64`) ✓ · #91 Time Machine timer (`firstboot:199` loop over
+`mv-reminders/mv-calendar/mv-timemachine-check.timer`) ✓ · #92 `libpulse` in
+`depends` ✓ · #98 firstboot/profile-selector twin pair enforced
+(`check-profile-sync.sh:95-100`) ✓ · #99 `docs/INSTALLATION_CONTRACT.md` ✓ ·
+#2 Poppy prior-art audit (`docs/POPPY_AUDIT.md`, `PRIOR_ART_POPPY_OS_X_REVIEVE_AUDIT.md`) ✓.
+One duplicate observed: issue #93's timezone fix landed as two commits (§4).
+
+(End of sweep 2026-10-06, oid OS-gh-sweep2)
