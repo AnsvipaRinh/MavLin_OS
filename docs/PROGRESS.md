@@ -974,3 +974,18 @@ application, menu behavior, and icon grid fidelity on 2304×1440. See
 - Real Apple S3X NVMe search latency
 
 **Status:** **IMPLEMENTED — HARDWARE VALIDATION REQUIRED** (pre-hardware complete).
+
+## 2026-10-06 — Finder P0 semantic correction (GPT execution, oid OS-finder-final-correction)
+
+**Owner:** GPT — active implementation pass on the canonical Finder objective.
+
+During the post-completion source audit, GPT found two user-facing semantic defects in the native mv-finder-columns companion that the previous Finder checklist did not cover:
+
+- **Move to Trash:** the companion's Finder action displayed a confirmation sheet, contradicting the repository's own Finder contract and macOS semantics. Normal Finder Delete / Command+Delete is reversible and does not confirm; confirmation belongs to Empty Trash. The implementation now performs the trash operation directly, while retaining an explicit opt-in confirm=True hook for future callers.
+- **Escape:** the companion previously destroyed the Finder window. Escape is a cancel/navigation key and must not quit Finder. The window now remains open and transient GTK controls retain responsibility for their own cancellation.
+
+**Regression coverage:** test_mv_finder_native_shell.py now locks both contracts: the normal trash path is non-confirming and the key handler contains no window-destroy path for Escape.
+
+**Checkpoint:** implementation committed as 1e735173bc29ae839b6242becaadee5e0d9df9c6; regression contract committed as 38842aa10162d6f5e8f0911f3ad98ddaf22a4b7f.
+
+**Next:** continue auditing Finder for executable gaps rather than treating the previous checklist closure as sufficient.
