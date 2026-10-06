@@ -72,9 +72,14 @@ EOF
     cp -r cursors-poppy/* "${pkgdir}/usr/share/icons/Poppy-Cursors/" 2>/dev/null || true
     # Poppy-Cursors index.theme is included in source
 
-    # Xfce panel theme (menu bar style)
-    install -dm755 "${pkgdir}/usr/share/xfce4/panel/themes/Mavericks"
-    cp -r xfce-panel/* "${pkgdir}/usr/share/xfce4/panel/themes/Mavericks/" 2>/dev/null || true
+    # NOTE: there is NO xfce4-panel CSS theme to install.  xfce4-panel 4.20
+    # has no panel.css loader — `strings` over /usr/sbin/xfce4-panel and
+    # /usr/lib/libxfce4panel-2.0.so.4 finds no "panel/themes" or "panel.css"
+    # reference — so /usr/share/xfce4/panel/themes/Mavericks/ was an empty
+    # directory and the Mavericks menu-bar look never applied.  The panel is
+    # an ordinary GTK3 toplevel, so the menu-bar styling lives in the GTK
+    # theme: gtk-3.0/_panel.scss (compiled into gtk-3.0/gtk.css and
+    # gtk-3.20/gtk.css).  See docs/DECISIONS.md D3.
 
     # Thunar custom actions / sidebar icons
     install -dm755 "${pkgdir}/usr/share/thunar/mavericks"

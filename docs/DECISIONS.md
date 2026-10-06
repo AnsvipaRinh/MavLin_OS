@@ -611,3 +611,207 @@ cannot quietly disappear from the docs.
 - `scripts/check-sync.sh` passes all syntax/compile/XML/desktop/PKGBUILD/theme-css/dock P0 checks (app suite failures are pre-existing, unrelated to the syntax fix)
 
 **Follow-up:** Both changes committed and pushed per PUBLISH RULE.
+
+
+---
+
+## 2026-10-06 — Menu Bar P0 audit: three dead configs, one wrong screen edge, and the container's plugin-lifetime wall
+
+**Context.** Menu Bar (canonical #17) + Application Menu (#19) had been reported
+as "functional panel + Mavericks CSS theme + appmenu plugin + Mavericks clock".
+The audit (own zone only: panel config + `lib/mavericks_appmenu.py` +
+`panel/mv-apple.c` + menu-bar styling) found every one of those claims to be
+config-that-nothing-reads — the same failure class the Dock audit just found in
+plank. Every claim below was re-measured or read out of the shipped
+xfce4-panel 4.20.8 sources before being called dead.
+
+### D1 — `position="p=8"` put the menu bar at the BOTTOM of the screen
+
+`p=%d` is not an edge name, it is the numeric `PanelSnapPosition`
+(`panel/panel-window.c`, `enum _SnapPosition`, read by
+`xfce_panel_window_set_property(PROP_POSITION)` via `sscanf(val, "p=%d;x=%d;y=%d")`):
+
+```
+0 NONE | 1 E | 2 NE | 3 EC | 4 SE | 5 W | 6 NW | 7 WC | 8 SW | 9 NC | 10 SC | 11 N | 12 S
+```
+
+`p=8` is **SW (bottom-left)**. With `length=100` the panel spans the full width,
+so the whole menu bar was docked to the **bottom edge**. GUI smoke on the pinned
+Xvfb :97 measured the panel window at `1680x25+0+1025` on a 1050px-tall screen —
+bottom — while every document said "top panel". Changed to `p=11`
+(`SNAP_POSITION_N`, top edge, unambiguous for a full-width bar); the same smoke
+now measures `1680x25+0+0`. `scripts/test-panel-config.py` and
+`scripts/test-menu-bar-p0.py` both pin `p=11` structurally, and the GUI smoke
+asserts the window geometry, so this cannot regress silently again.
+
+Why it went unnoticed: `test-panel-config.py` asserted only that the string
+`name="size" type="uint" value="24"` existed — it never parsed the geometry and
+never looked at a screen. A config assertion is not a rendering assertion.
+
+### D2 — `digital-format` is not a live xfconf property (xfce4-panel ≥ 4.20)
+
+The live digital-clock properties are `digital-layout`, `digital-time-format`,
+`digital-date-format`, `digital-time-font`, `digital-date-font`
+(`plugins/clock/clock-digital.c` class_init + `plugins/clock/clock.c` GObject
+property table). `digital-format` appears exactly once in the whole plugin:
+
+```c
+/* xfce_clock_digital_migrate_format() — plugins/clock/clock-digital.c:405 */
+prop = g_strdup_printf ("%s/%s", prop_base, "digital-format");
+```
+
+i.e. it survives only as the key of a one-shot backward-compat migration, and
+that migration is connected in `xfce_clock_digital_new()` to
+`g_signal_connect (digital, "hierarchy-changed", …)`. `hierarchy-changed` is a
+signal of `XtPanelPlugin`; `XfceClockDigital` is a `GtkBox`, so the lookup cannot
+resolve on the child and the handler never runs. The key we shipped was dead, and
+the bar fell back to `%Y-%m-%d %H:%M`.
+
+Even if it had fired it would have produced `digital-layout = TIME` with the old
+format verbatim — not the Mavericks "date then time". So the fix is not "restore
+the migration", it is "use the real properties": `digital-layout=3` (TIME only —
+the DATE_TIME layouts stack the two labels in a **vertical** box
+(`gtk_box_new(GTK_ORIENTATION_VERTICAL, 0)`), which clips in a 24px bar) and
+`digital-time-format="%a %b %-d %-I:%M %p"`.
+
+`%-d` / `%-I` were verified against GLib's `g_date_time_format` (not assumed):
+`%-d` → `6`, `%e` → `6` **wrapped in U+2007 FIGURE SPACE**, `%-I` → `3`,
+`%l` → U+2009 THIN SPACE. The gate now renders a fixed datetime and asserts
+`"Tue Oct 6 3:45 PM"`, so a future switch to `%e`/`%l` fails the build instead
+of shipping an invisible glyph.
+
+Also pinned: `digital-time-font`. `clock-digital.c:84` is
+`#define DEFAULT_FONT "Sans Regular 8"` — the clock ignores the GTK theme font,
+so without this key the menu bar shows 8pt Sans in the middle of Lucida Grande.
+It is kept in sync with `xsettings.xml` `FontName`; `scripts/test-panel-clock.py`
+asserts it is set and differs from the xfce default (a literal cross-file equality
+check would fight any future font change, so the invariant is stated instead).
+
+### D3 — xfce4-panel 4.20 has no panel.css theme support; the menu-bar theme was fiction
+
+`packages/mavericks-theme` installed `xfce-panel/panel.css` into
+`/usr/share/xfce4/panel/themes/Mavericks/`, and in the installed package **that
+directory is empty**. Reason: nothing reads it. `strings` over
+`/usr/sbin/xfce4-panel` and `/usr/lib/libxfce4panel-2.0.so.4` finds no
+`panel/themes` and no `panel.css`; the only panel paths in the binaries are
+`/xfce4/panel/plugins` and `/usr/lib/xfce4/panel/wrapper`. The panel window is an
+ordinary GTK3 toplevel styled from `GtkSettings`, i.e. from the GTK theme named by
+`xsettings.xml` (`ThemeName=Mavericks`).
+
+Decision: delete the dead `xfce-panel/panel.css` and its PKGBUILD stanza, and put
+the menu-bar rules in the GTK theme (`gtk-3.0/_panel.scss`, imported by both
+`gtk.scss` files, so `gtk-3.0/gtk.css` and `gtk-3.20/gtk.css` both carry it and
+`scripts/test-theme-css.py` keeps validating it as GTK3 CSS). Node names were read
+out of the sources, not guessed:
+
+* `.panel-1` — `panel_window_constructed()` does
+  `g_strdup_printf ("%s-%d", "panel", window->id)` + `gtk_style_context_add_class`,
+  so the panel window carries `panel-1`. (A first attempt used `.xfce4-panel`
+  here, which is wrong: that is not the panel window's class.)
+* `.xfce4-panel` — `wrapper/wrapper-plug-x11.c` adds `"panel"` **and**
+  `"xfce4-panel"` to the *plug* window. Each panel item lives in its own socketed
+  toplevel, so item widgets are **not** descendants of the panel window in the
+  widget tree; `.panel-1 button` alone would never match an item.
+* `#clock-button` — the clock plugin's button name (`plugins/clock/clock.c`).
+
+A one-line bar on the Dock audit applies here too: "static CSS is not applied
+CSS". `scripts/test-theme-css.py` proves the rules *parse*, which is necessary
+and not sufficient; the visual check stays a hardware item.
+
+### D4 — `configver`: ship the config version the panel expects
+
+Without `<property name="configver" type="int" value="2"/>` the panel runs
+`xfce4-panel-migrate` on **every first boot** — "Panel config needs migration..."
+plus `xfconf-WARNING: Type guint does not match type GPtrArray of property
+/panels` — and rewrites the user's own skel file. The value is the one
+`xfce4-panel-migrate` writes on 4.20.8 (observed, not guessed).
+`scripts/test-panel-menubar-gui.sh` uses the *absence* of those two log lines as
+its deterministic pass/fail signal: it is the only externally observable
+difference between a config the panel understands and one it has to rewrite,
+which makes it the regression gate for the whole dead-config class.
+
+### D5 — Apple menu: route power actions through `mv-power-ui`, keep mnemonics
+
+`Sleep`/`Restart…`/`Shut Down…` called `systemctl suspend|reboot|poweroff`
+directly. That bypassed the Mavericks alert, the 60 s countdown, the battery
+footer, the logind `Can*` gating and polkit — i.e. the menu was four items that
+looked macOS and behaved like a shell script. They now exec
+`mv-power-ui sleep|restart|shutdown|logout`, which already implements all of it;
+`systemctl` remains only as a fallback when `mv-power-ui` is not on `PATH`
+(`g_find_program_in_path`), so a partial install can never produce a dead menu
+item. `Log Out` moved to `mv-power-ui logout` for the same reason, keeping
+`xfce4-session-logout` as the fallback.
+
+Menu titles and items carry mnemonics (`gtk_label_new_with_mnemonic`) and the two
+items macOS shows shortcuts for render macOS key glyphs in a right-aligned
+column — `⌥⌘⎋` (U+2325 U+2318 U+238B) for Force Quit, `⇧⌃⌘Q` for Lock Screen.
+Written as `\uXXXX` escapes so the source stays ASCII and the test can decode
+and assert the exact code points. `xfce_panel_plugin_set_small()` is **kept**:
+`PLUGIN_FLAG_CONSTRUCTED` is set in `xfce_panel_plugin_constructor()`, i.e. before
+the plugin's `construct()` runs, so the guard does not trip (checked in the
+source after an initial wrong assumption).
+
+### D6 — No generic Edit menu in the exported global menu (deliberate omission)
+
+GtkWindow publishes `win.cut-clipboard` / `win.copy-clipboard` /
+`win.paste-clipboard`, and `GtkEditable` (GTK ≥ 3.24) publishes undo/redo — but
+they are **window-scoped**. When the menu model is exported to an external panel
+(vala-panel-appmenu via the appmenu registrar) the window context is gone, so
+those entries would render inert. Shipping them would be exactly the
+"wrapper-first / fake integration" failure AGENTS.md §13.7 forbids. The apps that
+actually edit text ship their own Edit menu through their `build_<app>_menu`
+callback (mv-textedit: Undo/Redo/Cut/Copy/Paste; mv-notes / mv-reminders: Find),
+which is real clipboard editing. Recorded in the module docstring so the omission
+is not re-"fixed" later.
+
+### D7 — Documented architectural limits (recorded, not faked)
+
+* **No window buttons.** macOS shows a window list right of the app menus.
+  Xfce 4.20's appmenu plugin renders one app's menus; the only widget that lists
+  windows in the panel is the separate `windowmenu` plugin, which is not in our
+  layout (it is a second, competing global-menu surface). Mission Control
+  (`Super+Tab`) carries window switching.
+* **No Ctrl+F2 menu-bar focus.** macOS moves keyboard focus into the menu bar with
+  Ctrl+F2 and then walks menus with ←/→. Neither `xfce4-panel` nor
+  vala-panel-appmenu 25.04 exposes a keynav action, and the panel window does not
+  take keyboard focus. The workaround would be a process resident for the whole
+  session purely to hold `XGrabKey` — rejected by AGENTS.md §7 on a fanless Core M,
+  and it is the identical wall recorded for the Dock's Ctrl+F3. Menus *are*
+  keyboard navigable once open (arrows / Enter / Escape / mnemonics).
+* **vala-panel-appmenu is not installed in the build container**, so the global
+  menu cannot be smoke-tested here. It is a hard ISO/pacman dependency
+  (`packages/vala-panel-appmenu/PKGBUILD`, `packages.x86_64`) and its presence is
+  gated by `scripts/test-global-menu.py`.
+
+### D8 — The container cannot validate panel-plugin lifetime (proven by control)
+
+`xfce4-panel-Message: Plugin mv-apple-1 has been automatically restarted after
+crash` looked exactly like a crash in our own plugin. Bisected with per-statement
+`g_printerr` traces inside `construct()` (installed into
+`/usr/lib/xfce4/panel/plugins/`, then reverted): `construct()` completes and the
+wrapper is reaped ~0.3 s later, with no signal and no diagnostics. Control
+experiments:
+
+1. a **four-line** stock plugin (`gtk_button_new()` added to the plugin) —
+   identical restart;
+2. the **stock `actions` plugin** in the same panel config — identical restart.
+
+So it is xfce4-panel 4.20's out-of-process `wrapper-2.0` being reaped on a bare
+Xvfb with no session, not an mv-apple defect. `scripts/test-panel-menubar-gui.sh`
+therefore asserts what *is* observable — panel maps, top-edge geometry, no xfconf
+migration, mv-apple wrapper **spawned** (proving the module is discovered and
+`construct()` runs), zero host-display leakage — and states in its header that
+Apple-menu opening, rendered clock text and appmenu rendering are hardware items.
+Keep the control experiment in mind before "fixing" that message.
+
+### D9 — Parallel-worktree discipline used in this session
+
+Two files this change needed were *already dirty in the worktree* because another
+incident reverted ~131 tracked files to older revisions. Rather than clobber or
+commit another zone's damage, shared files were edited **through the index**:
+`packages/mavericks-theme/PKGBUILD` and `.github/workflows/ci.yml` were rebuilt
+from `HEAD` plus only this zone's hunk and staged with `git update-index
+--cacheinfo`. The other zones' reverted worktree state stays exactly as found and
+is not swept into this commit. Zone-local dirty files (`xfce4-panel.xml` ×2,
+`scripts/test-global-menu.py`) were restored from `HEAD` first — nothing is lost,
+since the newer state is committed.

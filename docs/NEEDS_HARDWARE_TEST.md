@@ -214,7 +214,7 @@ procedures or active code reference them:
 ## Phase 3 — Visual layer
 
 ### Desktop Chrome visual validation (2304×1440)
-- [ ] Menu bar: panel.css translucent/gradient look on real panel
+- [ ] Menu bar: menu-bar gradient + translucent look from `_panel.scss` (`.panel-1` window + `.xfce4-panel` plug windows) on the real panel
 - [ ] Dock: plank Mavericks theme (zoom, reflection, indicators) on real panel
 - [ ] xfwm4: traffic-light buttons (close/minimize/maximize LEFT) visible and functional
 - [ ] **Window chrome fidelity — SSD (xfwm4) windows:**
@@ -286,6 +286,47 @@ procedures or active code reference them:
 ## Phase 5 — Iteration
 - [ ] Collect user feedback: dmesg, journalctl -b, photos of boot/DE
 - [ ] Document all regressions and fixes needed
+---
+
+## Menu Bar + Application Menu — hardware validation (phase menubar-p0, 2026-10-06)
+
+Everything below is a *rendering / interaction* item that the build container
+structurally cannot decide (see `docs/DECISIONS.md` D1–D9). The container smoke
+(`scripts/test-panel-menubar-gui.sh`) proves only: the panel maps, it sits on the
+**top** edge (`1680x25+0+0`), the config is accepted verbatim (no xfconf
+migration), the `mv-apple` module is discovered and `construct()`ed, and zero
+host-display leakage occurred.
+
+### Menu bar geometry and typography
+- [ ] Panel is on the **top** edge on the real 2304×1440 panel (`p=11`), not the bottom
+- [ ] 24px bar: menu-bar text legible at 100% and at any HiDPI scale factor
+- [ ] Clock renders **"Tue Oct 6 3:45 PM"** on one line, in Lucida Grande 11 (not 8pt Sans)
+- [ ] Clock does not wrap/truncate at 24px across a full month of date strings (e.g. "Tue Sep 30", long month names)
+- [ ] Clock tooltip shows the full date (`Tuesday, October 6, 2026`)
+- [ ] Menu-bar gradient from `_panel.scss` reads as one continuous bar; plug windows are transparent (no seams between items)
+- [ ] Systray / power-manager items sit right-aligned and read as part of the same bar
+
+### Apple menu (`mv-apple`)
+- [ ] Opens on click; no tear-off arrow; mnemonics underlined (macOS underlines the first letter)
+- [ ] Items in Mavericks order with the four separators in the right places
+- [ ] Accelerator glyphs render and are not tofu boxes: `⌥⌘⎋` Force Quit, `⇧⌃⌘Q` Lock Screen (needs a font covering U+2325/U+2318/U+238B — check the fallback on the real system)
+- [ ] Keyboard: arrows + first-letter mnemonics + Enter + Escape all work; Escape closes without launching
+- [ ] **Sleep / Restart… / Shut Down… / Log Out…** open the `mv-power-ui` Mavericks alert (60 s countdown, battery footer, Cancel/Escape abort) — *not* an instant `systemctl` action
+- [ ] Restart/Shut Down respect polkit auth if prompted
+- [ ] `About This Mac`, `System Preferences…`, `Recent Items`, `Force Quit…`, `Lock Screen` all launch
+
+### Application menu (vala-panel-appmenu)
+- [ ] With `vala-panel-appmenu` + `appmenu-gtk-module` installed, a native app (e.g. `mv-settings`) exports its menus: **bold app name first** (macOS app menu), then File / Window / Help
+- [ ] Menus are populated from the running app and update when focus moves between apps
+- [ ] Non-GTK apps (Firefox) do **not** appear — record the resulting incoherence honestly
+- [ ] `Window ▸ Minimize / Zoom / Close Window` act on the app's window from the menu bar
+- [ ] Menu-bar item font matches Lucida Grande 11 and the item highlight matches the `.xfce4-panel button:hover` rule
+
+### Known-unreachable on Xfce 4.20 (do NOT treat as a bug to fix)
+- [ ] macOS **window buttons** right of the app menus — not expressible with the appmenu plugin
+- [ ] **Ctrl+F2** menu-bar keyboard focus — not expressible without a session-resident `XGrabKey` daemon (see D7)
+
+
 ## E-MC — Mission Control overview (skippy-xd, on HW only)
 - [ ] Install: `yay -S skippy-xd-git` (AUR VCS; pulls giflib, libjpeg-turbo, libxcomposite, libxdamage, libxext, libxft, libxinerama + meson/cmake/git)
 - [ ] Baseline check first: Super+Tab = rofi script mode (mv-mission-control) works in live session

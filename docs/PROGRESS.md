@@ -93,6 +93,90 @@ fallback (plank is a hard dependency). Details + evidence in
 gradient shelf, indicator dots, auto-hide reveal) — items added to
 `docs/NEEDS_HARDWARE_TEST.md`.
 
+### ✅ Menu Bar + Application Menu (canonical #17 + #19) — P0 audit: three dead/mis configs fixed
+
+**Status**: 🟡 PARTIALLY IMPLEMENTED — HARDWARE VALIDATION REQUIRED
+(configuration and code are now real; macOS-only affordances that Xfce 4.20
+cannot express are documented as unreachable rather than faked)
+
+**What the audit found** — `docs/APPS.md` claimed "functional panel + Mavericks
+CSS theme + appmenu plugin + Mavericks clock", and all three claims were
+**false in the same way**: the config existed but nothing read it.
+
+| Claim | Measured reality (evidence) |
+|---|---|
+| "24px, **top**, menu bar" | **false** — `position="p=8"` is `PanelSnapPosition` **SW = bottom-left** (`panel/panel-window.c` `enum _SnapPosition`). GUI smoke on Xvfb :97 measured the panel window at `1680x25+0+1025` on a 1050px screen — the **bottom** edge. Fixed to `p=11` (`SNAP_POSITION_N`) → `1680x25+0+0`. |
+| "Mavericks clock format" | **false** — the key was `digital-format`, which is **not a live xfconf property** in xfce4-panel ≥ 4.20. `plugins/clock/clock-digital.c:405` only reads it inside `xfce_clock_digital_migrate_format()`, a one-shot backward-compat path wired to a `hierarchy-changed` signal `XfceClockDigital` does not have (the handler lives on `XtPanelPlugin`, an ancestor of the widget, so `g_signal_connect` on the child can never resolve it) → the migration never fires and the bar kept the plugin defaults `%Y-%m-%d %H:%M`. |
+| "Mavericks menu-bar typography" | **false** — even a correct format would have been ignored: `clock-digital.c:84` `#define DEFAULT_FONT "Sans Regular 8"`, so the clock ignored the theme font entirely. |
+| "panel.css theme (translucent, gradient)" | **false** — xfce4-panel 4.20 has **no panel.css loader**: `strings` over `/usr/sbin/xfce4-panel` and `/usr/lib/libxfce4panel-2.0.so.4` finds no `panel/themes` or `panel.css`. The PKGBUILD copied `xfce-panel/*` into `/usr/share/xfce4/panel/themes/Mavericks/`, and in the installed package **that directory is empty**. The whole menu-bar theme was fiction. |
+| "no per-boot config rewrite" | **false** — the shipped XML had no `configver`, so every first boot ran `xfce4-panel-migrate` ("Panel config needs migration..." + `xfconf-WARNING: Type guint does not match type GPtrArray of property /panels`) and rewrote the user's own skel file. |
+| Apple menu | real, but `Sleep`/`Restart…`/`Shut Down…` called **raw `systemctl`**, skipping the Mavericks alert, the 60 s countdown, the battery footer, logind `Can*` gating and polkit entirely. |
+
+**Delivered**
+- `xfce4-panel.xml` (both mirrors): `p=11` top edge, `configver=2`, and the
+  **live** clock properties — `digital-layout=3` (single-line TIME; the
+  two-line DATE_TIME layouts get clipped in a 24px bar), `digital-time-format`
+  `%a %b %-d %-I:%M %p` → **"Tue Oct 6 3:45 PM"**, `digital-time-font` pinned,
+  `tooltip-format` full date. `digital-format` deleted with a comment
+  explaining why it is dead.
+- Menu-bar styling moved into the **GTK theme** where it is actually read:
+  new `gtk-3.0/_panel.scss` (imported by both `gtk.scss`), node names verified
+  against the 4.20.8 sources — `.panel-1` (panel window, `panel_window_constructed`
+  adds `panel-%d`), `.xfce4-panel` (**per-plugin plug windows**,
+  `wrapper-plug-x11.c` adds `panel` + `xfce4-panel`, so item widgets are not
+  descendants of the panel window and need their own selectors), `#clock-button`.
+  Dead `xfce-panel/panel.css` and its PKGBUILD stanza removed.
+- `mv-apple.c`: Mavericks item order pinned by test, mnemonics on every title
+  plus macOS accelerator glyphs (`⌥⌘⎋` Force Quit, `⇧⌃⌘Q` Lock Screen) in a
+  right-aligned column, and Sleep/Restart/Shut Down/Log Out now go through
+  `mv-power-ui` (Mavericks alert + countdown + battery + logind gating + polkit)
+  with `systemctl` kept only as a missing-helper fallback so no item is ever
+  dead.
+- `lib/mavericks_appmenu.py`: `add_action` is now **idempotent** (an app's
+  `build_<app>_menu` may re-declare `quit`/`about`; previously Gio warned and
+  kept the first registration, silently discarding the app's intent) and the
+  default menu gained a real **Window** menu (Minimize / **Zoom** / Close).
+- Suites: `scripts/test-menu-bar-p0.py` (**62 checks**), rewritten
+  `scripts/test-panel-clock.py` (now pins the live property names + proves GLib
+  really renders the format: `%-d`/`%-I`, and that `%e`/`%l` would leak
+  U+2007/U+2009), extended `scripts/test-panel-config.py` (structural XML +
+  `configver` + top-edge), new `scripts/test-panel-menubar-gui.sh` (GUI smoke on
+  pinned Xvfb :97). All wired into CI.
+
+**Container limitation proven, not hand-waved**: the GUI smoke cannot validate
+plugin lifetime. `mv-apple-1 has been automatically restarted after crash`
+reproduces with a **four-line stock plugin** and with the stock `actions`
+plugin, so it is xfce4-panel 4.20's out-of-process `wrapper-2.0` being reaped on
+a bare Xvfb with no session — an environment limit, not an mv-apple defect
+(bisected with per-statement traces in `construct()` first). Apple-menu opening,
+rendered clock text and the appmenu plugin are hardware items.
+
+**Honest limits**: no **window buttons** in the menu bar (macOS shows a window
+list; Xfce 4.20's appmenu plugin cannot render one — Mission Control carries
+window switching); **no Ctrl+F2 menu-bar focus** (neither xfce4-panel nor
+vala-panel-appmenu exposes a keynav action and the panel never takes keyboard
+focus; closing it would need a session-resident XGrabKey daemon, the same
+architectural wall as the Dock's Ctrl+F3); **no generic Edit menu** in the
+exported global menu (GtkWindow clipboard actions are window-scoped and lose
+their context when the model is exported, so they would render inert — the
+text-editing apps ship their own Edit menus instead). Details + evidence in
+`docs/DECISIONS.md`.
+
+**Incident observed (not caused by this session, other zones untouched)**: at
+~01:45 today ~131 tracked files across many zones were reverted in the shared
+worktree to older revisions (`mv-mail` matched the pre-`4ad599a` blob,
+`scripts/test-global-menu.py` matched the pre-calculator-fix blob,
+`mavericks-theme/PKGBUILD` lost `pkgrel=3` + the Dock launchers stanza,
+`configs/desktop/xfce/xsettings.xml` lost the `Lucida Grande 11` font fix, and
+17 `bin/mv-*` scripts lost the executable bit). Everything is still in git, so
+this session restored **only its own zone's** files (`xfce4-panel.xml` ×2,
+`scripts/test-global-menu.py`) from HEAD and applied two shared-file edits
+(`mavericks-theme/PKGBUILD`, `.github/workflows/ci.yml`) **through the index**
+so the other zones' reverted worktree state was left untouched and is not
+swept into this commit. The affected zones must re-verify their files.
+
+---
+
 ---
 
 ## Active Work Streams
