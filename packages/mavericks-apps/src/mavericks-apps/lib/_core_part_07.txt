@@ -1,11 +1,4 @@
-Command-Option-Escape)",
-      ["Super", "Alt"], "Escape", "mv-force-quit",
-      "application", skill="application"),
-    A("hide-app", "Hide Application", ["Super"], "h", "mv-hide-app",
-      "application", skill="application"),
-
-    # --- Windows (xfwm4 branch) -------------------------------------------
-    A("minimize-window", "Minimise Window (Command-M)", ["Super"], "m",
+inimise Window (Command-M)", ["Super"], "m",
       "mv-minimize-window", "window", skill="window"),
     A("close-window", "Close Window (Command-W)", ["Super"], "w",
       "mv-close-window", "window", skill="window"),
@@ -21,4 +14,9 @@ Command-Option-Escape)",
       "tile_down_key", "window", skill="window", branch=BRANCH_XFWM4),
     A("tile-left", "Tile Window Left Half", ["Super"], "Left", "tile_left_key",
       "window", skill="window", branch=BRANCH_XFWM4),
-    A("tile-right", "Tile Window Right Half", ["Super"], "Right"
+    A("tile-right", "Tile Window Right Half", ["Super"], "Right",
+      "tile_right_key", "window", skill="window", branch=BRANCH_XFWM4),
+    # macOS Command-` cycles the windows of the frontmost application.  xfwm4
+    # already implements it as switch_window_key; before this it was unbound, so
+    # the closest thing to a Command-Tab-style window switch only reached across
+    # applications (Al
