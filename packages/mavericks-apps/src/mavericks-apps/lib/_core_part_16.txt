@@ -1,0 +1,37 @@
+d in sorted(overrides or {}):
+        if aid not in ACTION_INDEX:
+            errors.append("unknown action: %s" % aid)
+            continue
+        if ACTION_INDEX[aid]["protected"] or not ACTION_INDEX[aid]["rebindable"]:
+            errors.append("action %s is protected and cannot be overridden" % aid)
+            continue
+        try:
+            accel = normalize_accelerator((overrides[aid] or {}).get(
+                "accelerator", {}))
+        except ValueError as exc:
+            errors.append("action %s: %s" % (aid, exc))
+            continue
+        if accel["key"] in SPECIAL_KEYS:
+            errors.append(
+                "action %s: hardware key %s is reserved" % (aid, accel["key"]))
+    for conflict in detect_conflicts(overrides=overrides):
+        errors.append(
+            "conflicting bindings for %s: %s"
+            % (" / ".join(conflict["actions"]), conflict["property"]))
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Factory XML: render + parse + drift detection
+# ---------------------------------------------------------------------------
+
+_XML_HEADER = ('<?xml version="1.0" ?>
+'
+               '<channel name="xfce4-keyboard-shortcuts" version="1.0">
+')
+
+
+def render_xml(actions=None):
+    """Generate the factory xfconf XML from the registry.
+
+    Used by `mv-hotkeys render-xml` and by the test suite to p
