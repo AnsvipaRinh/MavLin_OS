@@ -3,9 +3,17 @@
 Uses Gtk.Application/GMenu so the Xfce AppMenu plugin can export the
 application's menu to the Mavericks-style top panel.
 """
+import os
+import sys
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gio, Gtk
+
+for _path in ("/usr/share/mavericks-apps", os.path.dirname(os.path.abspath(__file__))):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
+from mv_dialogs import alert
 
 
 def install_application_menu(app, app_name, get_window, menu_builder=None):
@@ -88,13 +96,10 @@ def run_application(app_id, app_name, window_factory, argv=None, menu_builder=No
 def _show_about(window, app_name):
     if window is None:
         return
-    dialog = Gtk.MessageDialog(
-        transient_for=window,
-        flags=Gtk.DialogFlags.MODAL,
-        message_type=Gtk.MessageType.INFO,
-        buttons=Gtk.ButtonsType.CLOSE,
-        text="About %s" % app_name,
+    alert(
+        window,
+        "About %s" % app_name,
+        secondary="MavLinOS native application",
+        msg_type=Gtk.MessageType.INFO,
+        buttons=[("Close", Gtk.ResponseType.CLOSE)],
     )
-    dialog.format_secondary_text("MavLinOS native application")
-    dialog.run()
-    dialog.destroy()
