@@ -167,9 +167,10 @@ if _GUI:
             else:
                 self.set_default_size(800, 520)
             self.apply_mavericks_css()
+            self.set_decorated(True)
 
-            hb = Gtk.HeaderBar(title="Reminders", show_close_button=True)
-            self.set_titlebar(hb)
+            hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+            hb.get_style_context().add_class("mavericks-app-toolbar")
             for label, cb in [("+ List", self.add_list), ("+ Task", self.add_task)]:
                 b = Gtk.Button(label=label)
                 b.get_style_context().add_class("mavericks-toolbar-btn")
@@ -182,7 +183,10 @@ if _GUI:
             hb.pack_start(self.search)
 
             paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-            self.add(paned)
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            root.pack_start(hb, False, False, 0)
+            root.pack_start(paned, True, True, 0)
+            self.add(root)
 
             # === LIST SIDEBAR (Leather texture) ===
             self.lstore = Gtk.ListStore(str, bool)  # name, is_selected
