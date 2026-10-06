@@ -343,6 +343,17 @@ def main():
     test_passphrase(m)
     test_check_due(m)
     test_gui(m)
+    # Native Mavericks window chrome: no GTK CSD/HeaderBar.
+    source = open(APP_PATH, encoding="utf-8").read()
+    check("source: native XFWM4 decoration",
+          "self.set_decorated(True)" in source)
+    check("source: no GTK HeaderBar",
+          "Gtk.HeaderBar" not in source and "self.set_titlebar(" not in source)
+    check("source: dedicated in-window toolbar",
+          "mavericks-timemachine-toolbar" in source)
+    check("source: toolbar title",
+          'Gtk.Label(label="Time Machine")' in source)
+
     # P1-C2: timer one-shot must not import Gtk (lazy-import fix).
     # Secret (libsecret) IS imported in timer mode for passphrase lookup.
     code = (
