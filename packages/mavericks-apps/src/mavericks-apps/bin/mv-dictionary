@@ -395,8 +395,9 @@ class DictionaryWindow(Gtk.Window):
         self._scrolled = {}
         self._budget_warned = False
 
-        hb = Gtk.HeaderBar(title="Dictionary", show_close_button=True)
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        toolbar.get_style_context().add_class("mavericks-dictionary-toolbar")
 
         self.search_entry = Gtk.SearchEntry()
         self.search_entry.set_placeholder_text("Search Dictionary...")
@@ -489,7 +490,10 @@ class DictionaryWindow(Gtk.Window):
         sidebar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         sidebar.pack_start(self.history_revealer, False, False, 0)
         sidebar.pack_start(vbox, True, True, 0)
-        self.add(sidebar)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.pack_start(toolbar, False, False, 0)
+        root.pack_start(sidebar, True, True, 0)
+        self.add(root)
 
         self.connect("key-press-event", self.on_key_press)
         self.refresh_history()
