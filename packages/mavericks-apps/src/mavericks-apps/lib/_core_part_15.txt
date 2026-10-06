@@ -1,39 +1,67 @@
-errides or {}).get(aid)),
-            "modifiers": action_accelerator(aid, overrides)["modifiers"],
-            "key": action_accelerator(aid, overrides)["key"],
-            "command": action_command(aid, overrides),
-        }
-    return out
+                  if p not in stale]
+        for stale_path in stale:
+            live_remove(stale_path)
+            steps.append("removed %s" % stale_path)
+        target = property_path(row["branch"], row)
+        live_after = {canonical_property(p): v for p, v in live_list().items()}
+        if live_after.get(canonical_property(target)) != row["command"]:
+            live_set(target, row["command"])
+            steps.append("set %s = %s" % (target, row["command"]))
+    except XfconfUnavailable as exc:
+        steps.append("xfconf unavailable (%s); factory XML left unchanged"
+                     % exc)
+    return steps, overrides
 
 
-def detect_conflicts(bindings=None, overrides=None):
-    """Pure conflict scan. Returns a sorted list of conflict dicts.
+def apply_all(overrides=None, path=None, force=False):
+    overrides = overrides if overrides is not None else load_overrides(path)
+    steps = []
+    for row in ACTIONS:
+        steps.append("%s: %s" % (row["action"],
+                                 "; ".join(apply_action(
+                                     row["action"], overrides, path, force))))
+    return steps
 
-    A conflict is two actions resolving to the same property path (same
-    modifiers + key in the same channel branch).  `branch` is part of the
-    identity because /commands/default and /xfwm4/default are independent
-    namespaces.
+
+def verify(overrides=None, live=None):
+    """Compare the live channel (or a supplied map) with the registry.
+
+    Returns a list of problems; empty means the layer is consistent.
     """
-    binds = bindings if bindings is not None else effective_bindings(overrides)
-    seen = {}
-    conflicts = []
-    for aid in sorted(binds):
+    if live is None:
+        live = live_list()
+    binds = effective_bindings(overrides)
+    expected = {
+        property_path_identity(
+            b["branch"], {"modifiers": b["modifiers"], "key": b["key"]}):
+        b["command"]
+        for b in binds.values()
+    }
+    return compare_bindings(expected, live)
+
+
+def export_table(overrides=None):
+    overrides = overrides if overrides is not None else load_overrides()
+    binds = effective_bindings(overrides)
+    rows = []
+    for aid in action_ids():
         b = binds[aid]
-        path = property_path_identity(
-            b["branch"], {"modifiers": b["modifiers"], "key": b["key"]})
-        if path in seen:
-            conflicts.append({
-                "property": path,
-                "actions": [seen[path], aid],
-                "commands": [binds[seen[path]]["command"], b["command"]],
-            })
-        else:
-            seen[path] = aid
-    conflicts.sort(key=lambda c: (c["property"], c["actions"][0], c["actions"][1]))
-    return conflicts
+        rows.append({
+            "action": aid,
+            "label": b["label"],
+            "group": b["group"],
+            "skill": b["skill"],
+            "accelerator": display_accelerator(
+                {"modifiers": b["modifiers"], "key": b["key"]}),
+            "property": property_path_identity(
+                b["branch"], {"modifiers": b["modifiers"], "key": b["key"]}),
+            "command": b["command"],
+            "protected": b["protected"],
+            "overridden": b["overridden"],
+        })
+    return rows
 
 
-def check_overrides(overrides=None):
-    """Validate a whole override table. Returns list of error strings."""
-    errors = []
-    for ai
+def import_table(rows, overrides=None, path=None):
+    """Apply an export table. Rebindable rows are written as overrides."""
+    overrides = dict(overrides if overrides is not None
