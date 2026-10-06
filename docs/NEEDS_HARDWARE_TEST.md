@@ -999,3 +999,68 @@ The items below are what only the MacBook10,1 can settle.
       visual language (the alert comes from the shared mv_dialogs layer).
 - [ ] Slow mount points (S3X cold mount, USB-C hub): the chooser must not
       show a blank or half-painted sidebar while GIO populates it.
+
+## Window Management (canonical #25 — xfwm4 behaviour + chrome, oid `OS-wm-p0`, 2026-10-06)
+
+Everything below is either a *visual* property of the window frame or a
+**keyboard grab** this container cannot synthesise. The behaviour itself is not
+in question: `scripts/test-window-management-gui.py` starts the real xfwm4 4.20
+on the pinned Xvfb, locates the three traffic lights in the rendered title bar
+(red x6, amber x24, green x42, 12×12, all left of centre) and clicks each one
+(red closes, amber iconifies, green maximises), verifies double-click zoom,
+click-to-focus/raise, and that a drag to the screen edge does not resize.
+
+- [ ] **Title-bar typography on the real 2304×1440 panel.** The title strip
+      measured 22px on Xvfb (a 420×260 client inside a 430×287 frame, 5px
+      border) and the button discs 12×12 with 18px pitch. On the Retina panel
+      with the shipped `DPI=192`, confirm the title bar, the button size and
+      the centred title still read as macOS 10.9 and are not clipped.
+- [ ] **The resolved title font.** `title_font` is now `Lucida Grande 11`, the
+      same string as `xsettings.xml`'s `Gtk/FontName`, so the title bar and the
+      application body are set in one face. The ISO still ships **no Lucida
+      Grande TTF**, so what actually renders is a fontconfig fallback — and in
+      this container every candidate (Lucida Grande, San Francisco, Menlo)
+      resolves to the same generic sans, which is exactly why the previous
+      "San Francisco 11" mismatch could not be seen locally. Confirm on the
+      panel that the title bar matches the application chrome, and record the
+      resolved family (`fc-match "Lucida Grande 11"`).
+- [ ] **Traffic-light colours as rendered.** The generated discs use the real
+      10.9 values (close `#ff5f57`, minimise `#febc2e`, zoom `#28c840`) with a
+      vertical gradient; inactive windows use a pale grey disc with a grey
+      glyph. Check the pressed and hover states are visible on the panel, and
+      that the disc is not lost against the title-bar background at that
+      contrast.
+- [ ] **Shadows.** `use_compositing=true` with `shadow_opacity=50`,
+      `shadow_delta_height/width=8`, `shadow_delta_y=4`, and `vblank_mode=off`
+      + `unredirect_overlays=true` (the frozen low-power choice, PROVISIONAL).
+      On the real panel confirm shadows are visible and that `vblank_mode=off`
+      produces no tearing while dragging — this is the one compositor setting
+      that trades correctness for power and it has never been seen on hardware.
+- [ ] **Super-modified key grabs.** `Super+grave` (`switch_window_key`) and
+      `Super+Ctrl+F` (`fullscreen_key`) are wired in the xfwm4 branch of the
+      keyboard-shortcuts channel, but a Super-modified chord could not be
+      synthesised on this Xvfb (Alt+Tab cycles windows correctly there; Super
+      chords never reach the grab). Both bindings, and the four
+      `Super+Arrow` → `tile_up/down/left/right_key` bindings whose effect is
+      still unverified, need a real keyboard session.
+- [ ] **Full screen per application.** xfwm4's `fullscreen_key` is not macOS's
+      separate full-screen Space: there is no Spaces UI on it, and a window put
+      full screen keeps the workspace arrangement rather than moving to its own
+      space. Verify what every shipped `mv-*` application does with
+      `Super+Ctrl+F` and with the green light, since GTK clients advertise
+      `_NET_WM_ACTION_FULLSCREEN` but the resulting geometry differs from
+      macOS's.
+- [ ] **New-window placement.** `placement_mode=center` means every new window
+      opens dead centre; macOS cascades from the previous position. Confirm the
+      repeated-open experience on the panel and decide whether a cascade is
+      worth an `mv-*` helper, since `placement_mode` offers only
+      center/mouse/monitor.
+- [ ] **Maximised windows and the menu bar.** `titleless_maximize=true` removes
+      the title bar of a maximised window on the assumption that the global
+      application menu carries the window's identity. Check on the panel that a
+      maximised window is still identifiable (menu-bar app name, Mission
+      Control thumbnail) with no title bar of its own.
+- [ ] **Double-click on the title bar** is hard-wired to zoom. macOS makes this
+      a preference (Always / Minimise / Zoom); xfwm4 exposes it only in its own
+      settings dialog, so confirm the choice is at least discoverable on the
+      live session or decide to document it as a fixed behaviour.

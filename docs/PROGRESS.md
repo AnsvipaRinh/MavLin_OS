@@ -1,6 +1,36 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (Preview P0 — oid `OS-preview-p0`, canonical #7: the PDF path was silently dead on current poppler (`render_to_pixbuf` removed upstream), the annotation toolbar was four status-text stubs, and there was no zoom, rotation or export; now: Cairo render path, real markup overlay (Rect/Oval/Arrow/Sketch/Text + swatches + stroke + undo, stored in page space so zoom/rotate never distorts it), zoom/fit-width/Ctrl+scroll, per-file rotation, Export-as-PNG flatten, text viewing, honest Sign removal; new 52-check suite `scripts/test-mv-preview.py`; app suites 38→39 in check-sync)
+**Last Updated**: 2026-10-06 (Window Management P0 — oid `OS-wm-p0`, canonical #25: the Mavericks traffic lights were never drawn at all — 40 of the 67 shipped XPM assets could not be decoded by GdkPixbuf, so a focused title bar had **no close button**; button artwork is now generated, the title font matched the desktop UI font, snapping is pinned off, the two missing macOS chords are bound, and a new 31-check suite measures a real xfwm4 on the pinned Xvfb instead of reading config)
+---
+
+## Session 2026-10-06 — Window Management P0 (oid `OS-wm-p0`, canonical objective #25)
+
+**Zone:** `configs/desktop/xfce/xfwm4.xml` + its skel mirror, `packages/mavericks-theme/src/mavericks-theme/xfwm4/`, `tools/gen-xfwm-buttons.py`, `scripts/test-window-management-gui.py`, the Window Management row in `docs/APPS.md`, and the two new window chords registered through the shared hotkey layer (`mv_hotkeys_core.py` + `config/xfce4-keyboard-shortcuts.xml` + skel + `docs/KEYBOARD.md`). Parallel agents own `bin/mv-preview` and `bin/mv-about`; nothing of theirs was staged.
+
+**Audit finding — the traffic lights were fiction.** The Window Management row claimed "67 XPM assets covering all button states … traffic-light XPMs with Mavericks gradients + symbols". Reading the config proves nothing, so the real xfwm4 4.20 was started on the pinned Xvfb and the result read out of the framebuffer. **40 of the 67 pixmaps were rejected by GdkPixbuf — the only decoder xfwm4 uses.** They declared `chars_per_pixel = 2` while writing single-character colour keys, a third of them had pixel rows of the wrong length, and the C identifier in the array declaration was not an identifier. A focused window therefore rendered **with no close button at all**, and the two lights that did appear came from a different, mis-named file. `strace` on the real WM also showed xfwm4 opening `hide-*` and never `minimize-*`, making 7 shipped pixmaps dead.
+
+**Audit finding — dead and inconsistent config around it.**
+- `title_font` was `"San Francisco 11"` while the rest of the desktop is Lucida Grande. San Francisco is proprietary, arrived in macOS 10.11 (Mavericks used Lucida Grande), and is not shipped — so every title bar fell back to a different face from every application window. The 2026-10-05 "use Mavericks-era Lucida Grande UI font" commit had fixed only `xsettings.xml`.
+- `themerc` carried `button_layout=CHM|:` — the `:` is not a character xfwm4 parses, and it contradicted `xfwm4.xml`'s `CHM|`.
+- Snapping was left to whatever the xfwm4 build defaults to, while macOS has no tiling at all. With snapping on, a graded drag to the screen edge resized a 360×220 window to 830×1023 — measured, not assumed.
+- The measurement environment itself was lying: a private D-Bus started from the ambient shell makes **activated services inherit the daemon's environment**, so `xfconfd` was reading the developer's real `~/.config` — 5 of the 39 declared settings were coming from another machine's configuration. Every live check now runs against a bus launched with the private environment, and the suite asserts all 39 declared values are the ones the settings daemon holds.
+
+**Gaps closed (all executable pre-hardware):**
+- `tools/gen-xfwm-buttons.py` generates all 36 button pixmaps deterministically from the standard library. Three shape requirements are GdkPixbuf's, each found by bisecting loader behaviour: no space colour keys (both `legacy-xpm` and `glycin` choke), `};` glued to the last array element on the same line, and **at most 8 palette entries** — the current XPM loader rejects a 9th. Drift between generator and assets is a gate failure, because a hand-edited pixmap is exactly how the buttons were lost.
+- 7 dead pixmaps deleted; 60 assets remain, all decoding through GdkPixbuf.
+- `xfwm4.xml`: Lucida Grande title font, `snap_to_windows`/`snap_to_border`/`tile_on_move` explicitly false, and macOS focus behaviour pinned (`focus_new`, `cycle_hidden`, `cycle_minimized`).
+- Keyboard: `Super+grave` → `switch_window_key` (macOS Command-`) and `Super+Ctrl+F` → `fullscreen_key`, registered through `mv_hotkeys_core` so Settings > Keyboard lists them; no existing chord reused.
+
+**What is now measured, not configured** — `scripts/test-window-management-gui.py` (31 checks, wired into `check-sync.sh`, host display guarded): traffic lights located in the *rendered* title bar in pixels (red x6, amber x24, green x42, 12×12, all left of centre) and each one clicked — red closes, amber iconifies, green maximises; double-click zooms; clicking a background window focuses and raises it; a graded drag to the screen edge does not resize the window. Two differential controls keep it from being a green tautology: with the button pixmaps deleted the detector must find 0 lights, and with snapping enabled the same drag must resize the window.
+
+**Honest remaining gaps (documented, not hidden):**
+- The four `Super+Arrow` bindings map to xfwm4 `tile_up/down/left/right_key` and their exact effect could not be measured here: synthesising Super-modified key grabs does not work on this Xvfb (Alt+Tab does, Super chords do not), so their labels in `mv_hotkeys_core` remain unverified and go to hardware validation.
+- xfwm4's full screen is not macOS's separate full-screen Space (there is no Spaces UI on it).
+- New windows open centred; macOS cascades them from the previous position, and `placement_mode` only offers center/mouse/monitor.
+- Option-click-the-green-button (zoom instead of full screen) and the "Double-click a window's title bar to: Always/Minimise/Zoom" preference do not exist in xfwm4.
+- The theme's `title_font` is the only place a window font is configured; the ISO still ships no Lucida Grande TTF, so the *resolved* title face needs hardware confirmation.
+
+**Status:** Window Management is **IMPLEMENTED — HARDWARE VALIDATION REQUIRED**. Pre-hardware work in this zone is closed; what remains is visual/keyboard validation on the real 2304×1440 panel (`docs/NEEDS_HARDWARE_TEST.md` § Window Management).
 
 ---
 
