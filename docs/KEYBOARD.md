@@ -44,8 +44,8 @@ shortcuts or the hardware function row:
 
 | Shortcut | Action | macOS 10.9 | Backend |
 |---|---|---|---|
-| Super+Space | Spotlight Search | Cmd+Space | rofi + mv-spotlight |
-| Super+L | Launchpad | Cmd+L | rofi + mv-launchpad |
+| Super+Space | Spotlight Search | Cmd+Space | mv-spotlight-gui |
+| Super+L | Launchpad | Cmd+L | mv-launchpad-gui |
 | Super+Shift+L | Launchpad Edit Mode | — | mv-launchpad-edit |
 | Super+Tab | Mission Control | Ctrl+Up | mv-mission-control --native |
 | Super+F3 | Mission Control (window overview) | F3 | mv-mc-gui |
