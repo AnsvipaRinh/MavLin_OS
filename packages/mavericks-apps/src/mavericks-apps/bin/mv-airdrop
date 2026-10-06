@@ -199,12 +199,14 @@ class AirDropWindow(Gtk.Window):
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.add(root)
 
-        hb = Gtk.HeaderBar(title="AirDrop", show_close_button=True)
-        hb.set_subtitle("Nearby devices")
-        self.attr_label = Gtk.Label(label="Powered by LocalSend")
+        self.set_decorated(True)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hb.get_style_context().add_class("mavericks-mv-airdrop-toolbar")
+        title_label = Gtk.Label(label="AirDrop")
+        hb.pack_start(title_label, True, True, 8)
+self.attr_label = Gtk.Label(label="Powered by LocalSend")
         self.attr_label.get_style_context().add_class("mv-attribution")
         hb.pack_end(self.attr_label)
-        self.set_titlebar(hb)
 
         self.banner = Gtk.InfoBar()
         self.banner.set_no_show_all(True)
