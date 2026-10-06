@@ -122,8 +122,8 @@ def filter_pages(query):
 # ---------------------------------------------------------------------------
 # Pure helpers backing the native panes (headless-testable).
 # ---------------------------------------------------------------------------
-_XRANDR_OUTPUT_RE = re.compile(r"^(\\S+) (connected|disconnected)(?: primary)?(?: (\\d+x\\d+)\\+(-?\\d+)\\+(-?\\d+))?.*$")
-_XRANDR_MODE_RE = re.compile(r"^\\s+(\\d+x\\d+)(?:\\s+(.+?))?\\s*$")
+_XRANDR_OUTPUT_RE = re.compile(r"^(\S+) (connected|disconnected)(?: primary)?(?: (\d+x\d+)\+(-?\d+)\+(-?\d+))?.*$")
+_XRANDR_MODE_RE = re.compile(r"^\s+(\d+x\d+)(?:\s+(.+?))?\s*$")
 
 def parse_xrandr_outputs(text):
     """Parse stable xrandr output/mode/rate data for the Displays pane."""
@@ -152,7 +152,7 @@ def parse_xrandr_outputs(text):
         mode_name, rate_blob = match.groups()
         rates = []
         for token in (rate_blob or "").split():
-            if not re.fullmatch(r"\\d+(?:\\.\\d+)?[+*]*i?", token):
+            if not re.fullmatch(r"\d+(?:\.\d+)?[+*]*i?", token):
                 continue
             rate = token.rstrip("i+*")
             if rate and rate not in rates:
@@ -161,7 +161,7 @@ def parse_xrandr_outputs(text):
         current["rates_by_mode"][mode_name] = rates
         if "*" in (rate_blob or ""):
             current["current_mode"] = mode_name
-            current["current_rate"] = next((r for r in rates if r in rate_blob and "*" in rate_blob), rates[0] if rates else None)
+            current["current_rate"] = next((r for token, r in ((t, t.rstrip("i+*")) for t in (rate_blob or "").split()) if "*" in token), rates[0] if rates else None)
     return outputs
 
 
