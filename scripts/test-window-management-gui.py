@@ -298,6 +298,17 @@ def audit_config():
         else:
             ok("%s=false (Mavericks does not snap or tile)" % key)
 
+    # A maximised window must keep its title bar: macOS 10.9 reserves "hide the
+    # title bar" for true full screen, and a zoomed window whose traffic lights
+    # are gone can no longer be closed or minimised from its own chrome.
+    if prop("titleless_maximize") != "false":
+        fail("titleless_maximize=%s — a zoomed window would lose its title "
+             "bar and therefore its close/minimise buttons, which macOS 10.9 "
+             "keeps" % prop("titleless_maximize"))
+    else:
+        ok("titleless_maximize=false — a zoomed window keeps its title bar "
+           "(macOS 10.9 zoom, not full screen)")
+
     for key, want in (("click_to_focus", "true"), ("focus_delay", "0"),
                       ("raise_on_click", "true"), ("raise_on_focus", "false"),
                       ("double_click_action", "maximize"),
@@ -840,6 +851,36 @@ def live():
            % (fg["w"], fg["h"], cg["w"], cg["h"], border_x, title_h))
         if border_x <= 0:
             fail("frame has no left border: title bar would touch the window edge")
+        rc = open(os.path.join(THEME_SRC, "themerc"), encoding="utf-8").read()
+        right_border = fg["w"] - cg["w"] - border_x
+        # The border width comes from the artwork, not from themerc: measured,
+        # a themerc asking for 4px still rendered 5px.
+        art = xpm_entries(os.path.join(THEME_SRC, "left-active.xpm"))
+        art_w = art[0] if art else None
+        if art_w == border_x == right_border:
+            ok("frame borders are %dpx, matching the theme artwork "
+               "(left-active.xpm is %dpx wide)" % (border_x, art_w))
+        else:
+            fail("frame borders are %d/%dpx but the artwork is %s px wide"
+                 % (border_x, right_border, art_w))
+        inert = re.findall(r"^frame_border_\w+=", rc, re.M)
+        if inert:
+            fail("themerc declares %s again — those keys are inert on xfwm4 "
+                 "4.20 and will contradict the artwork" % ", ".join(inert))
+        else:
+            ok("themerc carries no inert frame_border_* keys")
+        title_px = None
+        for f in sorted(os.listdir(THEME_SRC)):
+            if re.match(r"^title-1-active\.xpm$", f):
+                parsed = xpm_entries(os.path.join(THEME_SRC, f))
+                if parsed:
+                    title_px = parsed[1]
+        if title_px and title_h != title_px:
+            fail("title strip measured %dpx but title-1-active.xpm is %dpx "
+                 "tall — the theme is not being used for the title bar"
+                 % (title_h, title_px))
+        elif title_px:
+            ok("title strip height matches the theme artwork (%dpx)" % title_px)
 
         if not wms.activate(client):
             fail("could not make the test window the focused window on the "
@@ -881,6 +922,16 @@ def live():
                    "(_NET_WM_STATE_MAXIMIZED_HORZ+VERT) — macOS zoom/fullscreen")
             else:
                 fail("green traffic light did not maximise the window")
+            max_frame = wms.geometry(wms.frame_id(client))
+            max_client = wms.geometry(client)
+            strip = max_client["y"] - max_frame["y"]
+            if strip > 0:
+                ok("a zoomed window keeps a %dpx title strip, so its traffic "
+                   "lights stay reachable (macOS 10.9 zoom, not full screen)"
+                   % strip)
+            else:
+                fail("a zoomed window has no title bar at all — it cannot be "
+                     "closed or minimised from its own chrome")
             wms.unmaximize(client)
         if "amber" in by_name:
             click(by_name["amber"][0], by_name["amber"][1])
@@ -936,6 +987,28 @@ def live():
             fail("could not establish initial focus for the focus test")
         app3.kill()
         app4.kill()
+        time.sleep(0.4)
+
+        # --- window switching through the window manager's own key handler --
+        sw_a, sw_a_client = wms.spawn_window("WMTEST SWITCH A", size=(300, 180))
+        sw_b, sw_b_client = wms.spawn_window("WMTEST SWITCH B", size=(300, 180))
+        wms.move(sw_a_client, 80, 140)
+        wms.move(sw_b_client, 950, 620)
+        wms.activate(sw_a_client)
+        if wms.active_window() == sw_a_client:
+            sh("xdotool key --clearmodifiers alt+Tab", wms.env)
+            time.sleep(1.0)
+            if wms.active_window() == sw_b_client:
+                ok("Alt+Tab switches the focused window (xfwm4's own key "
+                   "handler, no resident switcher process)")
+            else:
+                fail("Alt+Tab did not move focus to the other window "
+                     "(active=0x%x, expected 0x%x)"
+                     % (wms.active_window() or 0, sw_b_client))
+        else:
+            fail("could not establish initial focus for the window-switch test")
+        sw_a.kill()
+        sw_b.kill()
         time.sleep(0.4)
 
         # --- snapping must be OFF, and the test must be able to see it ----

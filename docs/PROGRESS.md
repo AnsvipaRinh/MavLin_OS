@@ -1,6 +1,6 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (Window Management P0 — oid `OS-wm-p0`, canonical #25: the Mavericks traffic lights were never drawn at all — 40 of the 67 shipped XPM assets could not be decoded by GdkPixbuf, so a focused title bar had **no close button**; button artwork is now generated, the title font matched the desktop UI font, snapping is pinned off, the two missing macOS chords are bound, and a new 31-check suite measures a real xfwm4 on the pinned Xvfb instead of reading config)
+**Last Updated**: 2026-10-06 (Window Management P0 — oid `OS-wm-p0`, canonical #25: the Mavericks traffic lights were never drawn at all — 40 of the 67 shipped XPM assets could not be decoded by GdkPixbuf, so a focused title bar had **no close button**; button artwork is now generated, the title font matched the desktop UI font, snapping is pinned off, a zoomed window keeps its title bar (it used to have no frame at all), `frame_border_*` is dead config and removed, the two missing macOS chords are bound, and a new 37-check suite measures a real xfwm4 on the pinned Xvfb instead of reading config)
 ---
 
 ## Session 2026-10-06 — Window Management P0 (oid `OS-wm-p0`, canonical objective #25)
@@ -21,7 +21,7 @@
 - `xfwm4.xml`: Lucida Grande title font, `snap_to_windows`/`snap_to_border`/`tile_on_move` explicitly false, and macOS focus behaviour pinned (`focus_new`, `cycle_hidden`, `cycle_minimized`).
 - Keyboard: `Super+grave` → `switch_window_key` (macOS Command-`) and `Super+Ctrl+F` → `fullscreen_key`, registered through `mv_hotkeys_core` so Settings > Keyboard lists them; no existing chord reused.
 
-**What is now measured, not configured** — `scripts/test-window-management-gui.py` (31 checks, wired into `check-sync.sh`, host display guarded): traffic lights located in the *rendered* title bar in pixels (red x6, amber x24, green x42, 12×12, all left of centre) and each one clicked — red closes, amber iconifies, green maximises; double-click zooms; clicking a background window focuses and raises it; a graded drag to the screen edge does not resize the window. Two differential controls keep it from being a green tautology: with the button pixmaps deleted the detector must find 0 lights, and with snapping enabled the same drag must resize the window.
+**What is now measured, not configured** — `scripts/test-window-management-gui.py` (37 checks, wired into `check-sync.sh`, host display guarded): traffic lights located in the *rendered* title bar in pixels (red x6, amber x24, green x42, 12×12, all left of centre) and each one clicked — red closes, amber iconifies, green maximises; double-click zooms; clicking a background window focuses and raises it; a graded drag to the screen edge does not resize the window. Two differential controls keep it from being a green tautology: with the button pixmaps deleted the detector must find 0 lights, and with snapping enabled the same drag must resize the window.
 
 **Honest remaining gaps (documented, not hidden):**
 - The four `Super+Arrow` bindings map to xfwm4 `tile_up/down/left/right_key` and their exact effect could not be measured here: synthesising Super-modified key grabs does not work on this Xvfb (Alt+Tab does, Super chords do not), so their labels in `mv_hotkeys_core` remain unverified and go to hardware validation.
@@ -29,6 +29,24 @@
 - New windows open centred; macOS cascades them from the previous position, and `placement_mode` only offers center/mouse/monitor.
 - Option-click-the-green-button (zoom instead of full screen) and the "Double-click a window's title bar to: Always/Minimise/Zoom" preference do not exist in xfwm4.
 - The theme's `title_font` is the only place a window font is configured; the ISO still ships no Lucida Grande TTF, so the *resolved* title face needs hardware confirmation.
+
+**Second pass (same session), two more findings from the same method:**
+- `titleless_maximize=true` was wrong for Mavericks. Measured on a zoomed
+  window: `frame == client` with `dx=dy=0` — no frame at all, so a zoomed window
+  had no title bar and **no traffic lights**, i.e. it could not close or
+  minimise itself. macOS 10.9's zoom keeps the title bar; only full screen drops
+  it. The premise in the old comment was also wrong (the global app menu shows
+  the *application* name, not the window's document title, so nothing is
+  duplicated). Now `false`; the suite asserts a zoomed window keeps a title strip.
+- `frame_border_{top,bottom,left,right}` in themerc are **inert**: the theme asked
+  for 4px and xfwm4 rendered 5px, because the border comes from the artwork
+  (`left-active.xpm` is 5px wide). Removed rather than "corrected", so nobody
+  later shrinks the pixmaps to match a key that does nothing — same dead-key
+  class as the panel theme, the plank INI and the chooser CSS.
+
+**Also verified live:** frame borders (5px) match the artwork and the 22px title
+strip matches `title-1-active.xpm`; `Alt+Tab` moves focus between two windows
+through xfwm4's own key handler.
 
 **Status:** Window Management is **IMPLEMENTED — HARDWARE VALIDATION REQUIRED**. Pre-hardware work in this zone is closed; what remains is visual/keyboard validation on the real 2304×1440 panel (`docs/NEEDS_HARDWARE_TEST.md` § Window Management).
 

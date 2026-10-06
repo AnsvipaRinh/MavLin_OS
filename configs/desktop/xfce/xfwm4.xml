@@ -24,8 +24,15 @@
     <property name="snap_to_windows" type="bool" value="false"/>
     <property name="snap_to_border" type="bool" value="false"/>
     <property name="tile_on_move" type="bool" value="false"/>
-    <!-- Global AppMenu owns the top application menu; maximized windows must not retain a duplicate title bar. -->
-    <property name="titleless_maximize" type="bool" value="true"/>
+    <!-- Zoom (the green light, or double-click on the title bar) must behave
+         like macOS 10.9: the window fills the screen but KEEPS its title bar,
+         because that bar carries the document name and the three traffic
+         lights.  Measured: with titleless_maximize=true a maximised window is
+         reparented into a frame with no border and no title strip at all
+         (frame == client geometry, dx=dy=0), so a zoomed window could not be
+         closed or minimised from its own title bar.  Hiding the menu bar is
+         what macOS reserves for true full screen, not for zoom. -->
+    <property name="titleless_maximize" type="bool" value="false"/>
     <property name="show_dock_shadow" type="bool" value="true"/>
     <property name="show_popup_shadow" type="bool" value="true"/>
     <property name="shadow_delta_height" type="int" value="8"/>

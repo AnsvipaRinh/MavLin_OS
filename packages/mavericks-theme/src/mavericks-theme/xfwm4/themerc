@@ -27,11 +27,14 @@ button_spacing=4
 maximized_offset=0
 show_app_icon=false
 
-# Frame dimensions
-frame_border_top=4
-frame_border_bottom=4
-frame_border_left=4
-frame_border_right=4
+# Frame dimensions are NOT set here.
+#
+# frame_border_{top,bottom,left,right} in a themerc are dead keys on xfwm4
+# 4.20: with them set to 4 the rendered border is still 5px, because the border
+# is taken from the artwork (left/right edges and the corner pieces are 5px
+# wide).  Keeping the keys invited someone to "fix" the pixmaps to match them;
+# they are removed instead, and scripts/test-window-management-gui.py asserts
+# the measured border against the artwork width.
 
 # Title offsets
 title_horizontal_offset=0

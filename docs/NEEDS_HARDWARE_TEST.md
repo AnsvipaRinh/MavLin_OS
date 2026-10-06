@@ -1055,12 +1055,18 @@ click-to-focus/raise, and that a drag to the screen edge does not resize.
       repeated-open experience on the panel and decide whether a cascade is
       worth an `mv-*` helper, since `placement_mode` offers only
       center/mouse/monitor.
-- [ ] **Maximised windows and the menu bar.** `titleless_maximize=true` removes
-      the title bar of a maximised window on the assumption that the global
-      application menu carries the window's identity. Check on the panel that a
-      maximised window is still identifiable (menu-bar app name, Mission
-      Control thumbnail) with no title bar of its own.
+- [ ] **Maximised windows and the panel.** A zoomed window now keeps its title
+      bar (macOS 10.9 zoom semantics). Check on the 2304×1440 panel that a
+      zoomed window still clears the panel and does not push under it, and that
+      the retained title bar does not read as a duplicated menu next to the
+      global app menu.
 - [ ] **Double-click on the title bar** is hard-wired to zoom. macOS makes this
       a preference (Always / Minimise / Zoom); xfwm4 exposes it only in its own
       settings dialog, so confirm the choice is at least discoverable on the
       live session or decide to document it as a fixed behaviour.
+- [ ] **Zoomed windows on the real panel.** With `titleless_maximize=false` a
+      zoomed window keeps its title strip (18px measured on Xvfb, where no
+      panel is running) so its traffic lights stay reachable, as on macOS 10.9.
+      Confirm on the 2304×1440 panel that a zoomed window still clears the
+      panel, keeps the menu bar visible, and that the retained title bar does
+      not read as a duplicated menu given the global app menu above it.
