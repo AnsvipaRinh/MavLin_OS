@@ -1693,3 +1693,13 @@ Two more findings, both from measuring the frame instead of the config.
 **NEEDS_HARDWARE_TEST updates.** Added checklist items for: Super+[/]/f key synthesis, Return-rename behaviour, MIME default double-click verification, native Space Quick Look limitation, Thunar 4.20 in-window search (Ctrl+F) validation, sidebar shortcuts pane + bookmarks rendering, status bar text.
 
 **Why not fork Thunar for column view / native Space?** Same rationale as prior decisions: ThunarX has no view provider (DECISIONS.md 1440), Space binding needs a C/Vala plugin. The companion browsers (`mv-finder-columns`, `mv-finder-search`) and the UCA Quick Look action cover the user-visible gaps. Rewriting a mature file manager backend for two keybindings contradicts reuse-first (§5) and the energy budget (§7).
+
+### Finder semantic correction — 2026-10-06 (GPT execution)
+
+Post-implementation audit found that the native mv-finder-columns companion had drifted from the Finder interaction contract in two places.
+
+1. **Delete is non-confirming.** Finder Delete / Command+Delete moves an item to Trash and remains reversible. A confirmation sheet is reserved for the destructive Empty Trash operation. Therefore the companion's normal `_move_to_trash()` path must call GIO/trash-cli directly. An explicit `confirm=True` parameter remains available only for a future caller that intentionally requires confirmation.
+
+2. **Escape never quits Finder.** Escape cancels transient interaction or returns focus/navigation; it must not destroy the Finder window. The previous `self.destroy()` path was therefore removed from the key handler.
+
+The correction is covered by `test_mv_finder_native_shell.py` source contracts so these semantics cannot silently regress. This is a semantic correction to the existing Finder implementation, not a new architectural dependency.
