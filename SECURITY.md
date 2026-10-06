@@ -22,7 +22,7 @@
 
 - **Build**: No secrets. `mkarchiso` needs root (single sudo call, documented)
 - **Lab agent**: SSH forced-command, ed25519 machine key, narrow sudoers (only `efibootmgr -n/-o`, `systemctl` for A/B slots)
-- **Runtime**: No setuid binaries. `polkit` rules only for `mv-power-ui` (logind Can* gating)
+- **Runtime**: No setuid binaries. **No `polkit` rules are shipped by this project** — no `.pkla`/`.rules` file exists anywhere in the repo. Every privileged action (logind Sleep/Restart/Shut Down, UDisks2 unmount/eject) is authorized by the *stock systemd* `org.freedesktop.login1` actions, so the policy is upstream and auditable, not ours. `polkit` + `polkit-gnome` are now ISO dependencies so an authentication agent exists to answer those prompts; `udisks2` for the eject backend. `mv-power-ui` calls `CanSuspend`/`CanReboot`/`CanPowerOff` to gate its buttons, and `mv-eject` reports a denial as "policy does not allow ejecting this volume" rather than leaking raw GDBus text. No `pkexec`, no setuid, no sudoers entry; the privilege model is unchanged.
 - **CI/CD**: Not configured. If added: no secrets in repo, OIDC + short-lived tokens only
 
 ## Hardened Defaults (ISO)

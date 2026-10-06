@@ -1,9 +1,21 @@
 [Desktop Entry]
 Type=Application
 Name=Archive Utility
-Comment=Archive Manager (Mavericks)
-Exec=xarchiver %U
+GenericName=Archive Manager
+Comment=Create and expand archives (Mavericks Archive Utility)
+# Was a bare alias: Exec=xarchiver %U with no MimeType at all, and
+# mimeapps.list carried no archive associations — so double-clicking a
+# .zip did not land here, and there was no expansion path from the Finder
+# context menu either (thunar-uca.xml only had "Compress"). MimeType is
+# what makes this show up as the handler / in Open With.
+Exec=mv-archive-utility %U
 Icon=package-x-generic
+Terminal=false
 Categories=Utility;Archiving;
 StartupNotify=true
+MimeType=application/zip;application/x-zip-compressed;application/java-archive;application/vnd.android.package-archive;application/epub+zip;application/x-gtar;application/x-tar;application/x-bzip;application/x-bzip2;application/x-compressed-tar;application/x-xz;application/x-lzma;application/x-lzop;application/x-zstd;application/x-lzh-compressed;application/x-rar;application/vnd.rar;application/gzip;application/x-gzip;application/x-7z-compressed;application/x-archive;application/x-cpio;application/x-cbr;application/x-cbz;application/x-iso9660-image;application/x-ace;application/x-arj;application/x-lha;application/x-rpm;
+# no-argument launch), dressed by the shared GTK theme — reuse-first, and
+# no second archiver daemon on a fanless Core M. Maverick-compatible
+# expansion lives in mv-archive-utility, not in xarchiver's dialogs.
 X-Mavericks-Alias-For=xarchiver
+X-Mavericks-Native-Expansion=mv-archive-utility

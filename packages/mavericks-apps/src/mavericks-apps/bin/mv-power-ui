@@ -19,6 +19,7 @@ countdown aborts without executing anything.
 
 License: GPL-2.0-or-later."""
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -61,6 +62,7 @@ ACTIONS = {
                    "unable to use it until you wake it up.",
         "can_method": "CanSuspend",
         "method": "Suspend",
+        "icon": "media-playback-pause",
     },
     "restart": {
         "label": "Restart",
@@ -69,6 +71,7 @@ ACTIONS = {
                    "to use it until it starts up again.",
         "can_method": "CanReboot",
         "method": "Reboot",
+        "icon": "view-refresh",
     },
     "shutdown": {
         "label": "Shut Down",
@@ -77,6 +80,7 @@ ACTIONS = {
                    "to use it until you turn it back on.",
         "can_method": "CanPowerOff",
         "method": "PowerOff",
+        "icon": "system-shutdown",
     },
     "logout": {
         "label": "Log Out",
@@ -85,8 +89,15 @@ ACTIONS = {
                    "log out now?",
         "can_method": None,
         "method": None,
+        "icon": "system-log-out",
     },
 }
+
+# "Reopen windows when logging back in" is a session option, so it belongs
+# to the two actions that end a session the same way. It used to be offered
+# for Restart only, which is the less obvious of the two — macOS shows it
+# on the Log Out dialog in particular.
+REOPEN_WINDOWS_ACTIONS = ("restart", "logout")
 
 SYSTEMCTL_FALLBACK = {
     "sleep": ["systemctl", "suspend"],
@@ -183,9 +194,15 @@ def query_capabilities(timeout=2.0):
 
     Returns dict {action: 'yes'|'no'|'challenge'} for sleep/restart/shutdown,
     or None when logind is unavailable (caller falls back to systemctl).
+
+    Never raises. A host without PyGObject used to take down --status with
+    a raw _NoGi traceback, because the gi import sat outside the try.
     """
     caps = {}
-    _Gtk, _Gdk, _Gio, GLib = _gi()
+    try:
+        _Gtk, _Gdk, _Gio, GLib = _gi()
+    except _NoGi:
+        return None
     for action in ("sleep", "restart", "shutdown"):
         res = _system_bus_call(LOGIND_BUS, LOGIND_PATH, LOGIND_MGR_IFACE,
                                ACTIONS[action]["can_method"], None,
@@ -326,8 +343,18 @@ def action_state(action, caps):
 
 
 def status_report():
-    caps = query_capabilities()
+    """Human-readable capability summary for --status and diagnostics."""
     lines = []
+    try:
+        _gi()
+    except _NoGi as exc:
+        # A diagnostic mode that dies with a traceback is useless exactly
+        # when it matters most — on a machine that is missing python-gi.
+        lines.append("PyGObject: MISSING (%s)" % exc)
+        lines.append("logind: unreachable without python-gi "
+                     "(systemctl fallback still works)")
+        return "\n".join(lines)
+    caps = query_capabilities()
     if caps is None:
         lines.append("logind: unavailable (systemctl fallback)")
     else:
@@ -337,8 +364,31 @@ def status_report():
     lines.append("logout backend: %s"
                  % ("xfce4-session-logout" if shutil.which("xfce4-session-logout")
                     else "xfce4-session-logout NOT FOUND"))
+    lines.append("polkit agent: %s"
+                 % polkit_agent_state())
     lines.append(format_battery_line(query_battery()))
     return "\n".join(lines)
+
+
+def polkit_agent_state():
+    """Report whether a privileged action could actually be authorized.
+
+    logind's CanPowerOff/CanReboot/CanSuspend answer "challenge" for an
+    active local session, and the D-Bus call then needs
+    org.freedesktop.login1.power-off authorization. With no polkit agent
+    registered in the session nothing can grant it, and the power button
+    silently fails. This used to be invisible: the row claimed "polkit
+    interactive auth" while the ISO shipped neither polkit nor an agent.
+    Measured here: the agent binary existing is necessary but not
+    sufficient — what matters is a process registered as an Authority
+    agent, which only a running session can be.
+    """
+    if not shutil.which("pkttyagent") and not os.path.exists(
+            "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"):
+        return "no polkit agent installed — privileged actions will fail"
+    if os.environ.get("DBUS_SESSION_BUS_ADDRESS"):
+        return "polkit agent installed (running state needs a live session)"
+    return "polkit agent installed (no session bus — state unknown)"
 
 
 def build_powerui_class():
@@ -395,7 +445,11 @@ def build_powerui_class():
                 child.destroy()
 
         def _add_icon(self):
-            icon = Gtk.Image.new_from_icon_name("system-shutdown", Gtk.IconSize.DIALOG)
+            # The chooser showed system-shutdown for all four actions, so
+            # Sleep and Log Out announced themselves as Shut Down. Each
+            # action now carries its own icon.
+            name = ACTIONS[self.action]["icon"] if self.action else "system-shutdown"
+            icon = Gtk.Image.new_from_icon_name(name, Gtk.IconSize.DIALOG)
             icon.get_style_context().add_class("mv-icon")
             icon.set_alignment(0.5, 0.5)
             self._body.pack_start(icon, False, False, 0)
@@ -437,7 +491,7 @@ def build_powerui_class():
                 row.pack_start(cancel, True, True, 0)
                 self._body.pack_start(row, False, False, 0)
                 btn.grab_focus()
-                if self.action == "restart":
+                if self.action in REOPEN_WINDOWS_ACTIONS:
                     self._add_reopen_checkbox()
             else:
                 row = Gtk.Box(spacing=8)
@@ -564,9 +618,14 @@ def main():
     sys.path.insert(0, "/usr/share/mavericks-apps")
     from mavericks_appmenu import run_application
     window_factory = lambda: PowerUI(preset=args.action)
+    # Gtk.Application treats its argv as files to open. Forwarding sys.argv
+    # meant the action word ('logout') was read as a filename: logind's
+    # preset dialogs never appeared and the app only printed
+    # "This application can not open files." Ctrl+Alt+Delete and the Apple
+    # menu's Log Out both run 'mv-power-ui logout', so both were dead.
+    # The action is already consumed by argparse — hand over an empty list.
     return run_application(
-        "com.mavlinos.PowerUI", "Power UI", window_factory,
-        sys.argv)
+        "com.mavlinos.PowerUI", "Power UI", window_factory, [])
 
 if __name__ == "__main__":
     sys.exit(main())

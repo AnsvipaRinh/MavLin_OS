@@ -66,8 +66,8 @@ shortcuts or the hardware function row:
 | Super+I | Get Info | Cmd+I | mv-getinfo $HOME |
 | Super+O | Open With | Cmd+O | mv-openwith $HOME |
 | Super+Delete | Move to Trash | Cmd+Delete | mv-trash |
-| Super+Shift+Delete | Empty Trash | — | trash-empty |
-| Super+Shift+E | Empty Trash (alternate) | — | trash-empty |
+| Super+Shift+Delete | Empty Trash (asks first) | — | mv-empty-trash |
+| Super+Shift+E | Empty Trash (alternate, asks first) | — | mv-empty-trash |
 | Super+F4 | Eject | Cmd+E | mv-eject |
 
 ## Application switching

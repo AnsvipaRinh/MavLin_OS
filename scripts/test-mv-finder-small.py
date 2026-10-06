@@ -109,23 +109,51 @@ class FakeMount:
 
 
 def test_eject():
-    # find_mount is pure duck-typing over mount objects — no gi needed.
+    # mv-eject's resolution layer is pure Python over /proc/self/mountinfo,
+    # so it needs no gi and no mount objects at all.
+    #
+    # Updated 2026-10-06 (oid OS-power-trash-archive): the old test drove
+    # find_mount(mounts, arg), a duck-typed walk over Gio mount objects.
+    # That function was removed because the code that called it was dead —
+    # Gio.UnixMountMonitor.get().get_mounts() no longer exists in
+    # PyGObject, so every run of mv-eject died with an AttributeError. The
+    # replacement is resolve_target(mounts, arg) over parsed mountinfo text,
+    # which is what this now checks (the full suite lives in
+    # scripts/test-mv-eject.py).
+    import re
     src = open(os.path.join(BIN, "mv-eject")).read()
+    # Cut at the CLI entry point, newline-anchored so a mention of
+    # "def main" inside a docstring cannot truncate the module.
+    head = src.split("\ndef main")[0]
+    # Strip only *column-0* gi imports. A bare substring replace ate the
+    # "import gi" out of the middle of an indented try-block and left the
+    # source syntactically broken; module-level ones are the only ones
+    # executed at import time (mv-eject loads gi lazily inside _gi()).
+    head = re.sub(r"(?m)^import gi\s*$", "", head)
     ns = {"os": os}
-    exec(compile(src.split("def main")[0].replace(
-        "import gi\n", ""), "mv-eject-head", "exec"), ns)
-    find_mount = ns["find_mount"]
+    exec(compile(head, "mv-eject-head", "exec"), ns)
+    resolve_target = ns["resolve_target"]
+    parse_mountinfo = ns["parse_mountinfo"]
+
+    sample = (
+        "31 1 259:1 / / rw,relatime - ext4 /dev/nvme0n1p2 rw\n"
+        "40 25 0:44 / /run/media/user/USB rw,relatime - vfat /dev/sdb1 rw\n"
+    )
+    mounts = parse_mountinfo(sample)
 
     with tempfile.TemporaryDirectory() as td:
-        devfile = os.path.join(td, "sdb1")  # real file -> exists-guard passes
-        open(devfile, "w").close()
-        mnt = FakeMount(path="/run/media/user/USB", devfile=devfile)
-        mounts = [mnt]
-        check("eject: found by mount path", find_mount(mounts, "/run/media/user/USB") is mnt)
-        check("eject: found by device file", find_mount(mounts, devfile) is mnt)
-        check("eject: unknown path -> None", find_mount(mounts, "/nope") is None)
-        check("eject: nonexistent device-file arg -> None (exists-guard)",
-              find_mount(mounts, os.path.join(td, "nonexistent-zz")) is None)
+        check("eject: found by mount path",
+              resolve_target(mounts, "/run/media/user/USB") is not None)
+        found = resolve_target(mounts, "/run/media/user/USB")
+        check("eject: reports the right device",
+              found is not None and found.source == "/dev/sdb1")
+        check("eject: found by device file",
+              resolve_target(mounts, "/dev/sdb1") is not None)
+        check("eject: found from a directory inside the mount",
+              resolve_target(mounts, "/run/media/user/USB/sub") is not None)
+        check("eject: unknown path -> None", resolve_target(mounts, "/nope") is None)
+        check("eject: nonexistent device-file arg -> None",
+              resolve_target(mounts, os.path.join(td, "nonexistent-zz")) is None)
 
 
 # ---------- mv-mail ----------

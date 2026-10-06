@@ -23,8 +23,8 @@
     <name>Put Back</name>
     <submenu></submenu>
     <unique-id>mv-putback</unique-id>
-    <command>xfce4-terminal --hold -e trash-restore</command>
-    <description>Restore trashed item (trash-cli, interactive picker)</description>
+    <command>mv-trash-putback "%f"</command>
+    <description>Restore this item to the folder it came from (Finder Put Back)</description>
     <patterns>*</patterns>
     <other-files/>
   </action>
@@ -132,15 +132,36 @@
     <name>Compress</name>
     <submenu></submenu>
     <unique-id>mv-compress</unique-id>
-    <command>xarchiver -a "%d/%n.zip" %F</command>
-    <description>Compress selection to zip</description>
+    <command>mv-archive-utility --new "%d/%n.zip" %F</command>
+    <description>Compress selection to a Finder-style .zip</description>
     <patterns>*</patterns>
+    <startup-notify/>
     <directories/>
     <audio-files/>
     <image-files/>
     <other-files/>
     <text-files/>
     <video-files/>
+  </action>
+  <action>
+    <icon>archive-insert</icon>
+    <name>Extract Here</name>
+    <submenu></submenu>
+    <unique-id>mv-extract-here</unique-id>
+    <command>mv-archive-utility --here --no-open "%f"</command>
+    <description>Expand this archive in place (Finder Extract Here)</description>
+    <patterns>*.zip;*.ZIP;*.jar;*.epub;*.tar;*.TAR;*.tar.gz;*.tgz;*.tar.bz2;*.tbz;*.tbz2;*.tar.xz;*.txz;*.tar.zst;*.tzst;*.tar.lz;*.tlz;*.tar.lzma;*.7z;*.rar;*.cab;*.cpio;*.lzh;*.lha;*.arj;*.ar</patterns>
+    <startup-notify/>
+  </action>
+  <action>
+    <icon>archive-insert</icon>
+    <name>Expand</name>
+    <submenu></submenu>
+    <unique-id>mv-expand-archive</unique-id>
+    <command>mv-archive-utility "%f"</command>
+    <description>Expand into a new folder named after the archive, then open it</description>
+    <patterns>*.zip;*.ZIP;*.jar;*.epub;*.tar;*.TAR;*.tar.gz;*.tgz;*.tar.bz2;*.tbz;*.tbz2;*.tar.xz;*.txz;*.tar.zst;*.tzst;*.tar.lz;*.tlz;*.tar.lzma;*.7z;*.rar;*.cab;*.cpio;*.lzh;*.lha;*.arj;*.ar</patterns>
+    <startup-notify/>
   </action>
   <action>
     <icon>utilities-terminal</icon>
@@ -212,11 +233,11 @@
   </action>
   <action>
     <icon>user-trash-full</icon>
-    <name>Empty Trash</name>
+    <name>Empty Trash…</name>
     <submenu></submenu>
     <unique-id>mv-empty-trash</unique-id>
-    <command>trash-empty</command>
-    <description>Permanently delete all items in Trash</description>
+    <command>mv-empty-trash</command>
+    <description>Permanently erase the items in the Trash (asks first)</description>
     <patterns>*</patterns>
     <directories/>
   </action>

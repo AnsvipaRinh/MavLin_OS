@@ -45,6 +45,7 @@ install: all
 	         bin/mv-keychain bin/mv-fontbook bin/mv-colormeter bin/mv-stickies bin/mv-notify-send bin/mv-notification-center bin/mv-diskutil bin/mv-airdrop bin/mv-timemachine bin/mv-ytplayer \
 	         bin/mv-finder-search bin/mv-finder-columns bin/mv-brightness \
 	         bin/mv-quit-app bin/mv-minimize-window bin/mv-hide-app bin/mv-close-window bin/mv-trash \
+	         bin/mv-empty-trash bin/mv-trash-putback bin/mv-archive-utility \
 	         bin/mv-force-quit bin/mv-recent-items bin/mv-hotkeys bin/mv-hotkeys-gui bin/mv-change-wallpaper bin/mv-desktop-cleanup bin/mv-desktop-sort bin/mv-desktop-paste; do \
 		install -Dm755 "$$f" "$(DESTDIR)$(PREFIX)/bin/$$(basename $$f)"; \
 	done
@@ -75,6 +76,18 @@ install: all
 	        "$(DESTDIR)/etc/skel/.config/autostart/plank.desktop"; \
 	else \
 	    echo "WARN: configs/desktop/plank/plank.desktop not found - Dock autostart skipped"; \
+	fi
+	# PolicyKit auth agent.  Without a registered agent, logind's power
+	# actions and UDisks2 eject cannot be authorized at all, and
+	# polkit-gnome installs no autostart entry of its own, so an Xfce
+	# session must supply one.  Source of truth:
+	# configs/desktop/polkit/polkit-gnome-authentication-agent-1.desktop
+	# (mirrored into airootfs, gated by scripts/check-sync.sh).
+	@if [ -f ../../../../configs/desktop/polkit/polkit-gnome-authentication-agent-1.desktop ]; then \
+	    install -Dm644 ../../../../configs/desktop/polkit/polkit-gnome-authentication-agent-1.desktop \
+	        "$(DESTDIR)/etc/skel/.config/autostart/polkit-gnome-authentication-agent-1.desktop"; \
+	else \
+	    echo "WARN: polkit autostart source not found - privileged actions stay unanswerable"; \
 	fi
 	install -d "$(DESTDIR)$(PREFIX)/lib/xfce4/panel/plugins"
 	install -Dm755 libmv-apple.so "$(DESTDIR)$(PREFIX)/lib/xfce4/panel/plugins/libmv-apple.so"

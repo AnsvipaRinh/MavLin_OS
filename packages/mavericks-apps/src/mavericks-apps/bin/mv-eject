@@ -1,81 +1,539 @@
 #!/usr/bin/env python3
 """mv-eject — Finder-like eject/unmount for removable devices.
-Handles: USB drives, SD cards, mounted volumes (GIO UnixMount).
 
-Bug fixed 2026-10-05: the old code called the ASYNC unmount_with_operation()
-with a no-op callback and returned immediately; with no main loop running,
-the process exited before GIO ever started the unmount — nothing happened.
-Now uses the sync API (this is a short-lived CLI by design), reports real
-errors, and falls back to a polite umount(8) for non-GIO mount points.
+Usage:
+  mv-eject <mount-point-or-device> [...]   unmount, then eject the media
+  mv-eject --status [target]              print what WOULD happen, exit 0
+  mv-eject --dry-run <target>             same, without touching anything
+
+Backend: /proc/self/mountinfo (kernel truth, zero deps) for resolution,
+then the first backend that applies:
+  1. UDisks2 over D-Bus (org.freedesktop.UDisks2.Filesystem.Unmount +
+     org.freedesktop.UDisks2.Drive.Eject) — polkit-aware, does the real
+     hardware power-off of the USB bridge / card reader. Same mature
+     backend mv-diskutil already uses.
+  2. umount(8) / umount -l via argv — works when udisksd is absent or the
+     filesystem has no UDisks2 object (loop, bind, exotic fs).
+
+On-demand, no daemon, no polling: one mountinfo read, one D-Bus call.
 License: GPL-2.0-or-later.
+
+2026-10-06 (oid OS-power-trash-archive) — rewritten after audit. The
+previous implementation was dead code on this platform and its own
+docstring described a fix that was not in the file:
+
+  * it called `Gio.UnixMountMonitor.get().get_mounts()`. That method does
+    not exist any more. Measured on PyGObject 3.56.3 / GLib 2.88 (the
+    build container): `hasattr(monitor, "get_mounts")` is False, and so
+    are `get_mount_list` and `get_mount_for_path` — the introspection for
+    the whole monitor class was dropped when it was superseded by
+    GioUnix.MountMonitor. Every single run died on line 46 with
+    "'MountMonitor' object has no attribute 'get_mounts'" and exited 1,
+    so `Super+F4` (mv-eject) and the Finder "Eject" context action were
+    dead surfaces, not "sometimes busy".
+  * the docstring claimed the async-unmount bug "was fixed by using the
+    sync API" while the code below it still called the async
+    `unmount_with_operation()` with a None callback and no main loop —
+    which is precisely the "nothing happened" bug it claimed to remove.
+  * the fallback called `os.system("umount %r 2>/dev/null || umount -l %r")`.
+    %r is a Python repr, not a shell word: a path containing a space or a
+    quote was mangled, and the string went through /bin/sh.
+
+The live non-deprecated replacement for mount enumeration is
+`Gio.unix_mounts_get()` / `Gio.unix_mount_entry_for()`, but those return
+`GUnixMountEntry` (label/icon heuristics) rather than an unmountable
+`Gio.Mount`, so they cannot drive an unmount. /proc/self/mountinfo is
+therefore the resolution layer: authoritative, dependency-free, and not
+subject to GObject-introspection churn. Pure helpers below import with no
+gi at all so they can be tested headlessly.
 """
+import argparse
 import os
+import re
+import shutil
+import subprocess
 import sys
 
+MOUNTINFO = "/proc/self/mountinfo"
 
-def find_mount(mounts, arg):
-    """Find a Gio.Mount matching arg by mount path or device file."""
-    abspath = os.path.abspath(arg)
-    for mount in mounts:
-        root = mount.get_root()
-        if root and root.get_path() == abspath:
-            return mount
-    if os.path.exists(arg):
-        for mount in mounts:
-            try:
-                device = mount.get_device()
-            except Exception:
-                device = None
-            if device and device.get_device_file() == arg:
-                return mount
+UDISKS_BUS = "org.freedesktop.UDisks2"
+UDISKS_ROOT = "/org/freedesktop/UDisks2"
+UDISKS_MGR_IFACE = "org.freedesktop.DBus.ObjectManager"
+UDISKS_BLOCK_IFACE = "org.freedesktop.UDisks2.Block"
+UDISKS_DRIVE_IFACE = "org.freedesktop.UDisks2.Drive"
+UDISKS_FS_IFACE = "org.freedesktop.UDisks2.Filesystem"
+
+# Never unmount these, whatever the caller asks for. Finder cannot eject
+# the startup volume either; refusing by path is the cheap guard.
+PROTECTED_PREFIXES = ("/", "/boot", "/efi", "/home", "/root", "/var",
+                      "/usr", "/opt", "/srv", "/run/systemd",
+                      "/proc", "/sys", "/dev", "/etc")
+
+# Pseudo filesystems have no udisks2 object and must never be unmounted.
+PSEUDO_FSTYPES = frozenset((
+    "autofs", "bpf", "cgroup", "cgroup2", "configfs", "debugfs", "devpts",
+    "efivarfs", "fuse.gvfsd-fuse", "fusectl", "hugetlbfs", "mqueue",
+    "overlay", "pipefs", "proc", "pstore", "securityfs", "sysfs",
+    "tracefs", "ramfs", "squashfs", "iso9660",
+))
+
+# Bytes that /proc/*/mountinfo encodes as octal escapes.
+_MOUNTINFO_ESCAPES = {"\\040": " ", "\\011": "\t", "\\012": "\n",
+                      "\\134": "\\"}
+
+
+def unescape_mountinfo(value):
+    """Decode the octal escapes the kernel writes into mountinfo fields."""
+    out = value
+    for esc, ch in _MOUNTINFO_ESCAPES.items():
+        out = out.replace(esc, ch)
+    return out
+
+
+class MountEntry:
+    """One parsed /proc/self/mountinfo line."""
+
+    __slots__ = ("mount_id", "parent_id", "major_minor", "root",
+                 "mount_point", "options", "fs_type", "source",
+                 "super_options")
+
+    def __init__(self, mount_id, parent_id, major_minor, root, mount_point,
+                 options, fs_type, source, super_options):
+        self.mount_id = mount_id
+        self.parent_id = parent_id
+        self.major_minor = major_minor
+        self.root = root
+        self.mount_point = mount_point
+        self.options = options
+        self.fs_type = fs_type
+        self.source = source
+        self.super_options = super_options
+
+    @property
+    def is_pseudo(self):
+        return self.fs_type in PSEUDO_FSTYPES
+
+    @property
+    def is_protected(self):
+        mp = self.mount_point
+        return any(mp == p or mp.startswith(p + "/")
+                   for p in PROTECTED_PREFIXES)
+
+    def describe(self):
+        return "%s on %s type %s" % (self.source, self.mount_point,
+                                     self.fs_type)
+
+    def __repr__(self):
+        return "<MountEntry %s>" % self.describe()
+
+
+def parse_mountinfo(text):
+    """Parse mountinfo text into MountEntry objects. Malformed lines are
+    skipped rather than fatal — a truncated read must not break eject."""
+    entries = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        left, sep, right = line.partition(" - ")
+        if not sep:
+            continue
+        lf = left.split()
+        rf = right.split()
+        if len(lf) < 6 or len(rf) < 2:
+            continue
+        try:
+            entries.append(MountEntry(
+                int(lf[0]), int(lf[1]), lf[2],
+                unescape_mountinfo(lf[3]), unescape_mountinfo(lf[4]),
+                lf[5].split(","), rf[0], unescape_mountinfo(rf[1]),
+                rf[2].split(",") if len(rf) > 2 else []))
+        except ValueError:
+            continue
+    return entries
+
+
+def read_mountinfo(path=MOUNTINFO):
+    """Read mountinfo from disk. Returns [] when unavailable."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return parse_mountinfo(fh.read())
+    except OSError:
+        return []
+
+
+def normalize_path(path):
+    """Absolute, symlink-free-ish path used for prefix matching."""
+    return os.path.normpath(os.path.abspath(os.path.expanduser(path)))
+
+
+def resolve_target(entries, target):
+    """Resolve a user argument to a MountEntry, or None.
+
+    Accepts a mount point, any path inside a mounted filesystem, or a
+    device file. Longest mount point wins, so /mnt/usb/inner resolves to
+    /mnt/usb and not to /.
+    """
+    target = os.path.expanduser(target)
+    abspath = normalize_path(target)
+
+    best = None
+    best_len = -1
+    for e in entries:
+        mp = e.mount_point
+        # "/" matches only itself. Allowing it as a prefix made every
+        # unmatched path resolve to the root filesystem, so ejecting a
+        # typo'd or already-deleted path produced a polite "system mount
+        # will not be ejected" instead of an honest "no mount found".
+        inside = abspath == mp if mp == "/" else (
+            abspath == mp or abspath.startswith(mp.rstrip("/") + "/"))
+        if inside and len(mp) > best_len:
+            best, best_len = e, len(mp)
+    if best is not None:
+        return best
+
+    dev = os.path.realpath(target)
+    for e in entries:
+        if e.source and os.path.realpath(e.source) == dev:
+            return e
     return None
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: mv-eject <mount-point-or-device>", file=sys.stderr)
+def eject_plan(mount, has_udisks_fs=False, drive_ejectable=False):
+    """Ordered execution plan for an eject.
+
+    Returns (steps, reason_if_refused). steps is a list of
+    (backend, payload) where backend is 'udisks-unmount', 'udisks-eject'
+    or 'umount'. An empty steps list with a non-empty reason means the
+    mount is refused on purpose.
+    """
+    if mount.is_pseudo:
+        return [], "%s is a %s mount and cannot be ejected" % (
+            mount.mount_point, mount.fs_type)
+    if mount.is_protected:
+        return [], "%s is a system mount and will not be ejected" % (
+            mount.mount_point)
+
+    steps = []
+    if has_udisks_fs:
+        steps.append(("udisks-unmount", mount))
+        if drive_ejectable:
+            steps.append(("udisks-eject", mount))
+        return steps, None
+    steps.append(("umount", mount))
+    if drive_ejectable:
+        steps.append(("udisks-eject", mount))
+    return steps, None
+
+
+# --------------------------------------------------------------------------
+# UDisks2 backend
+# --------------------------------------------------------------------------
+
+def _gi():
+    try:
+        import gi
+    except ImportError as exc:
+        raise RuntimeError(
+            "mv-eject: PyGObject is required for the UDisks2 backend; "
+            "the umount(8) fallback works without it") from exc
+    gi.require_version("Gio", "2.0")
+    gi.require_version("GLib", "2.0")
+    from gi.repository import Gio, GLib
+    return Gio, GLib
+
+
+def _unwrap(value):
+    """Peel GLib.Variant wrappers (recursively — aay wraps twice)."""
+    while hasattr(value, "unpack"):
+        value = value.unpack()
+    return value
+
+
+def _as_text(value):
+    """UDisks2 returns byte strings as a{sv} -> 'ay' (array of ints), not as
+    's'. Normalise str / bytes / [int] / [[int]] to str. The byte arrays
+    are NUL-terminated (measured: MountPoints arrives as
+    [[47, 109, ..., 111, 0]] for '/mnt/wslg/distro'), so the terminator
+    has to go or every path comparison misses."""
+    value = _unwrap(value)
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value.rstrip("\x00") or None
+    if isinstance(value, (bytes, bytearray)):
+        return _strip_nul(bytes(value).decode("utf-8", "replace"))
+    if isinstance(value, (list, tuple)):
+        # (ay) inside (aay): a single-element wrapper around the byte list
+        if len(value) == 1 and isinstance(value[0], (list, tuple)):
+            return _as_text(value[0])
+        try:
+            return _strip_nul(bytes(bytearray(int(b) for b in value)).decode(
+                "utf-8", "replace"))
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _strip_nul(text):
+    text = text.rstrip("\x00")
+    return text or None
+
+
+def _as_text_list(value):
+    """Normalise an 'aay' property (Filesystem.MountPoints) to [str]."""
+    value = _unwrap(value)
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes, bytearray)):
+        text = _as_text(value)
+        return [text] if text else []
+    if isinstance(value, (list, tuple)):
+        out = []
+        for item in value:
+            text = _as_text(item)
+            if text:
+                out.append(text)
+        return out
+    return []
+
+
+class UDisks:
+    """Minimal read-only UDisks2 index plus the two write calls mv-eject
+    needs. One-shot: indexes on construction, drops the connection."""
+
+    def __init__(self, conn=None):
+        Gio, GLib = _gi()
+        self._Gio, self._GLib = Gio, GLib
+        self.conn = conn or Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        self._objects = None
+
+    def _call(self, path, iface, method, params=None, reply=None,
+              timeout_ms=15000):
+        return self.conn.call_sync(
+            UDISKS_BUS, path, iface, method, params, reply,
+            self._Gio.DBusCallFlags.NONE, timeout_ms, None)
+
+    def objects(self):
+        """GetManagedObjects -> {path: {iface: {prop: variant}}}."""
+        if self._objects is None:
+            GLib = self._GLib
+            res = self._call(UDISKS_ROOT, UDISKS_MGR_IFACE, "GetManagedObjects",
+                             reply=GLib.VariantType("(a{oa{sa{sv}}})"))
+            self._objects = res.unpack()[0] if res else {}
+        return self._objects
+
+    def block_for_device(self, device):
+        dev = os.path.realpath(device)
+        for path, ifaces in self.objects().items():
+            blk = ifaces.get(UDISKS_BLOCK_IFACE)
+            if not blk:
+                continue
+            if os.path.realpath(_as_text(blk.get("Device")) or "") == dev:
+                return path
+        return None
+
+    def fs_for_mount_point(self, mount_point):
+        for path, ifaces in self.objects().items():
+            fs = ifaces.get(UDISKS_FS_IFACE)
+            if not fs:
+                continue
+            for mp in _as_text_list(fs.get("MountPoints")):
+                if os.path.normpath(mp) == os.path.normpath(mount_point):
+                    return path
+        return None
+
+    def drive_for_block(self, block_path):
+        blk = self.objects().get(block_path, {}).get(UDISKS_BLOCK_IFACE, {})
+        drive = _as_text(blk.get("Drive"))
+        return None if not drive or drive == "/" else drive
+
+    def drive_is_ejectable(self, drive_path):
+        drive = self.objects().get(drive_path, {}).get(UDISKS_DRIVE_IFACE, {})
+        for key in ("Ejectable", "Removable"):
+            val = drive.get(key)
+            if val is not None and bool(val.unpack() if hasattr(val, "unpack")
+                                        else val):
+                return True
+        return False
+
+    def _options(self):
+        """Both Unmount and Eject take an 'a{sv}' options argument; passing
+        no argument at all is rejected as InvalidArgs (measured)."""
+        return self._GLib.Variant("(a{sv})", ({},))
+
+    def unmount(self, fs_path):
+        self._call(fs_path, UDISKS_FS_IFACE, "Unmount", self._options())
+
+    def eject(self, drive_path):
+        self._call(drive_path, UDISKS_DRIVE_IFACE, "Eject", self._options())
+
+
+def classify_error(exc):
+    """Turn a GError/subprocess failure into a human sentence. Never leak
+    raw GDBus text into the UI.
+
+    D-Bus spells the refusal 'NotAuthorized' with no space, and GVfs spells
+    it 'AccessDenied' — matching on 'not authorized' alone missed both and
+    leaked 'GDBus.Error:org.freedesktop.DBus.Error.NotAuthorized: Rejected
+    send message' straight into the message the user reads.
+    """
+    text = str(exc)
+    low = text.lower()
+    if "device or resource busy" in low or "busy" in low:
+        return "the volume is in use — close any open files and try again"
+    if "notauthorized" in low or "not authorized" in low \
+            or "accessdenied" in low or "access denied" in low:
+        return "policy does not allow ejecting this volume"
+    if "not mounted" in low or "no such" in low:
+        return "the volume is no longer mounted"
+    if "not ejected" in low:
+        return "the device refused to eject"
+    first = text.splitlines()[0].strip() if text.strip() else "unknown error"
+    return first
+
+
+# --------------------------------------------------------------------------
+# umount(8) backend
+# --------------------------------------------------------------------------
+
+def umount_args(mount_point, lazy=False):
+    """argv for umount(8). Never a shell string."""
+    return ["umount", "-l", mount_point] if lazy else ["umount", mount_point]
+
+
+def run_umount(mount_point, lazy=False):
+    """Unmount via umount(8). Returns (ok, message)."""
+    if not shutil.which("umount"):
+        return False, "umount(8) is not installed"
+    try:
+        proc = subprocess.run(umount_args(mount_point, lazy),
+                              capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return False, str(exc)
+    if proc.returncode == 0:
+        return True, "unmounted %s" % mount_point
+    detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+    return False, detail[-1] if detail else "umount failed (rc=%d)" % proc.returncode
+
+
+def is_mounted(entries, mount_point):
+    return any(e.mount_point == os.path.normpath(mount_point) for e in entries)
+
+
+def status_lines(targets):
+    """Diagnostics text for --status."""
+    entries = read_mountinfo()
+    lines = ["mountinfo: %d entries from %s%s"
+             % (len(entries), MOUNTINFO,
+                "" if entries else "  (UNREADABLE — nothing can resolve)")]
+    ud = None
+    try:
+        ud = UDisks()
+        lines.append("udisks2: reachable, %d managed objects"
+                     % len(ud.objects()))
+    except Exception as exc:
+        lines.append("udisks2: unavailable (%s)" % classify_error(exc))
+        lines.append("umount(8): %s" % (shutil.which("umount") or "NOT FOUND"))
+    for t in targets:
+        m = resolve_target(entries, t)
+        if m is None:
+            lines.append("%s: no mount found" % t)
+            continue
+        fs_path = None
+        drive = None
+        ejectable = False
+        if ud is not None:
+            try:
+                fs_path = ud.fs_for_mount_point(m.mount_point)
+                if m.source.startswith("/dev/"):
+                    blk = ud.block_for_device(m.source)
+                    drive = ud.drive_for_block(blk) if blk else None
+                    ejectable = bool(drive) and ud.drive_is_ejectable(drive)
+            except Exception:
+                fs_path = drive = None
+        steps, reason = eject_plan(m, bool(fs_path), ejectable)
+        lines.append("%s: %s" % (t, m.describe()))
+        lines.append("    udisks2 filesystem: %s" % (fs_path or "none"))
+        lines.append("    ejectable drive:  %s" % (drive or "none"))
+        lines.append("    plan: %s"
+                     % (", ".join(s[0] for s in steps) if steps
+                        else "REFUSED — %s" % reason))
+    return lines
+
+
+def eject_one(target, dry_run=False):
+    """Eject a single target. Returns (rc, message). rc: 0 ok, 1 failed."""
+    entries = read_mountinfo()
+    mount = resolve_target(entries, target)
+    if mount is None:
+        return 1, "No mount found for: %s" % target
+
+    ud = None
+    fs_path = drive = None
+    ejectable = False
+    try:
+        ud = UDisks()
+        fs_path = ud.fs_for_mount_point(mount.mount_point)
+        if mount.source.startswith("/dev/"):
+            blk = ud.block_for_device(mount.source)
+            drive = ud.drive_for_block(blk) if blk else None
+            ejectable = bool(drive) and ud.drive_is_ejectable(drive)
+    except Exception:
+        ud = None  # no udisksd, no D-Bus, or introspection trimmed
+
+    steps, reason = eject_plan(mount, bool(fs_path), ejectable)
+    if not steps:
+        return 1, reason
+
+    if dry_run:
+        return 0, "would %s" % ", then ".join(s[0] for s in steps)
+
+    done = []
+    for backend, payload in steps:
+        try:
+            if backend == "udisks-unmount":
+                ud.unmount(fs_path)
+            elif backend == "udisks-eject":
+                ud.eject(drive)
+            else:
+                ok, msg = run_umount(mount.mount_point)
+                if not ok:
+                    return 1, "Eject failed: %s" % msg
+        except Exception as exc:
+            return 1, "Eject failed: %s" % classify_error(exc)
+        done.append(backend)
+
+    if is_mounted(read_mountinfo(), mount.mount_point):
+        return 1, "Eject failed: %s is still mounted" % mount.mount_point
+    verb = "Ejected" if "udisks-eject" in done else "Unmounted"
+    return 0, "%s: %s" % (verb, mount.mount_point)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Finder-like eject/unmount for removable devices")
+    parser.add_argument("targets", nargs="*",
+                        help="mount points, paths inside them, or device files")
+    parser.add_argument("--status", action="store_true",
+                        help="print the resolution/plan and exit")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="resolve and plan, but change nothing")
+    args = parser.parse_args(argv)
+
+    if args.status:
+        print("\n".join(status_lines(args.targets)))
+        return 0
+    if not args.targets:
+        parser.print_usage(sys.stderr)
+        print("mv-eject: need at least one mount point or device", file=sys.stderr)
         return 1
 
-    import gi
-    gi.require_version("Gio", "2.0")
-    from gi.repository import Gio
-
     rc = 0
-    for arg in sys.argv[1:]:
-        try:
-            mounts = Gio.UnixMountMonitor.get().get_mounts()
-            mount = find_mount(mounts, arg)
-
-            if mount is None:
-                # Not a GIO-tracked mount: try a plain umount for directories
-                # under /media//run/media (Finder-style fallback).
-                abspath = os.path.abspath(arg)
-                if os.path.isdir(abspath) and (
-                        abspath.startswith("/media/")
-                        or abspath.startswith("/run/media/")):
-                    ret = os.system("umount %r 2>/dev/null || umount -l %r"
-                                    % (abspath, abspath))
-                    if ret == 0:
-                        print("Ejected: %s" % arg)
-                        continue
-                print("No mount found for: %s" % arg, file=sys.stderr)
-                rc = 1
-                continue
-
-            if not mount.can_unmount():
-                print("Cannot eject (busy): %s" % arg, file=sys.stderr)
-                rc = 1
-                continue
-
-            op = Gio.MountOperation()
-            mount.unmount_with_operation(
-                Gio.MountUnmountFlags.FORCE, op, None)
-            print("Ejected: %s" % arg)
-
-        except Exception as e:
-            print("Error ejecting %s: %s" % (arg, e), file=sys.stderr)
-            rc = 1
-
+    for target in args.targets:
+        r, message = eject_one(target, dry_run=args.dry_run)
+        print(message, file=sys.stdout if r == 0 else sys.stderr)
+        rc = rc or r
     return rc
 
 

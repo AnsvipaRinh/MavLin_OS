@@ -157,10 +157,15 @@ ACTIONS = [
       "finder", skill="finder"),
     A("move-to-trash", "Move to Trash", ["Super"], "Delete", "mv-trash",
       "finder", skill="finder"),
-    A("empty-trash", "Empty Trash", ["Super", "Shift"], "Delete", "trash-empty",
-      "finder", skill="finder"),
+    # Empty Trash used to run `trash-empty` directly, which is immediate,
+    # silent and irreversible — so one stray chord permanently erased the
+    # Trash. mv-empty-trash shows Finder's confirmation first (Cancel is the
+    # default action); --yes is the only non-interactive path and it is
+    # deliberately not bound to a key.
+    A("empty-trash", "Empty Trash", ["Super", "Shift"], "Delete",
+      "mv-empty-trash", "finder", skill="finder"),
     A("empty-trash-alt", "Empty Trash (alternate)", ["Super", "Shift"], "e",
-      "trash-empty", "finder", skill="finder"),
+      "mv-empty-trash", "finder", skill="finder"),
     A("eject", "Eject", ["Super"], "F4", "mv-eject", "finder", skill="finder"),
 
     # --- System ------------------------------------------------------------

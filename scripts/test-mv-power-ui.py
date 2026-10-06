@@ -162,6 +162,64 @@ def test_pure(mv):
     check("action_state logout always available",
           mv.action_state("logout", {"sleep": "no"}) == "available")
 
+    # ---------- per-action icons ----------
+    # The chooser used to draw system-shutdown for all four actions, so
+    # Sleep and Log Out announced themselves as Shut Down.
+    icons = {k: v.get("icon") for k, v in mv.ACTIONS.items()}
+    check("icons: shutdown uses system-shutdown",
+          icons["shutdown"] == "system-shutdown", repr(icons))
+    check("icons: logout uses system-log-out",
+          icons["logout"] == "system-log-out", repr(icons))
+    check("icons: sleep does not reuse the shutdown icon",
+          icons["sleep"] not in (None, "system-shutdown"), repr(icons))
+    check("icons: restart does not reuse the shutdown icon",
+          icons["restart"] not in (None, "system-shutdown"), repr(icons))
+    check("icons: all four icons are distinct",
+          len(set(icons.values())) == 4, repr(icons))
+
+    # ---------- reopen-windows checkbox scope ----------
+    # macOS offers "Reopen windows when logging back in" on Log Out as well
+    # as Restart; the checkbox used to be Restart-only.
+    check("reopen checkbox offered on logout",
+          "logout" in mv.REOPEN_WINDOWS_ACTIONS,
+          repr(mv.REOPEN_WINDOWS_ACTIONS))
+    check("reopen checkbox offered on restart",
+          "restart" in mv.REOPEN_WINDOWS_ACTIONS,
+          repr(mv.REOPEN_WINDOWS_ACTIONS))
+    check("reopen checkbox not offered on shutdown",
+          "shutdown" not in mv.REOPEN_WINDOWS_ACTIONS)
+    check("reopen checkbox not offered on sleep",
+          "sleep" not in mv.REOPEN_WINDOWS_ACTIONS)
+
+    # ---------- no-gi resilience ----------
+    # --status used to die with a raw _NoGi traceback, which is exactly the
+    # diagnostic you want on a machine missing python-gi.
+    saved_gi = mv._gi
+    mv._gi = lambda: (_ for _ in ()).throw(mv._NoGi("no python-gi here"))
+    try:
+        check("no-gi: query_capabilities degrades to the systemctl fallback",
+              mv.query_capabilities() is None)
+        report = mv.status_report()
+        check("no-gi: status_report does not raise", isinstance(report, str))
+        check("no-gi: status_report says PyGObject is missing",
+              "PyGObject: MISSING" in report, report)
+        check("no-gi: status_report still names the fallback",
+              "systemctl fallback" in report, report)
+    finally:
+        mv._gi = saved_gi
+
+    # ---------- polkit agent visibility ----------
+    # logind answers CanPowerOff=challenge for an active local session, and
+    # the D-Bus call then needs org.freedesktop.login1.power-off
+    # authorization. The ISO shipped no polkit and no agent at all, so the
+    # power button was unauthenticated and unfixable; --status now says so.
+    state = mv.polkit_agent_state()
+    check("polkit: status line is always populated",
+          isinstance(state, str) and state.strip() != "", repr(state))
+    src = open(APP_PATH, encoding="utf-8").read()
+    check("polkit: status_report reports the agent",
+          "polkit_agent_state()" in src)
+
     # ---------- resolve_action: logind present ----------
     caps_yes = {"sleep": "yes", "restart": "yes", "shutdown": "yes"}
     kind, payload = mv.resolve_action("sleep", caps_yes)
@@ -317,6 +375,48 @@ def test_live_bus(mv, addr):
         mock.terminate()
         mock.wait(timeout=5)
 
+
+def test_argv_contract(mv):
+    """Gtk.Application reads its argv as files to open.
+
+    main() used to forward sys.argv, so the preset action word became a
+    filename: the dialog never appeared and the app only logged 'This
+    application can not open files.' That killed Ctrl+Alt+Delete and the
+    Apple menu's Log Out, both of which run 'mv-power-ui <action>'.
+    """
+    import ast
+    src = open(APP_PATH, encoding="utf-8").read()
+    tree = ast.parse(src)
+    calls = [n for n in ast.walk(tree)
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+             and n.func.id == "run_application"]
+    check("argv: run_application is called exactly once", len(calls) == 1,
+          "found %d call(s)" % len(calls))
+    if len(calls) == 1:
+        argv_arg = calls[0].args[-1]
+        # The fix is an explicit empty list: the preset action is already
+        # consumed by argparse, so there is nothing for Gtk.Application to
+        # treat as a file to open.
+        check("argv: the argv handed to Gtk.Application is an explicit empty list",
+              isinstance(argv_arg, ast.List) and not argv_arg.elts,
+              ast.dump(argv_arg)[:120])
+    # Look at code, not prose: the module comment explains the bug and
+    # necessarily mentions sys.argv.
+    sys_argv_in_code = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr == "argv" \
+                and isinstance(node.value, ast.Name) \
+                and node.value.id == "sys":
+            sys_argv_in_code = True
+    check("argv: sys.argv is never passed on to Gtk.Application",
+          not sys_argv_in_code)
+    # Runtime probing of the preset dialogs belongs to the GUI smoke, not
+    # here: with a display present these calls open a real modal and block
+    # for as long as the timeout allows (measured 30 s in check-sync).
+    # The static gate above is what keeps the headless suite fast and
+    # deterministic.
+
+
 def main():
     mv = load_app()
     check("portable: module imports without gi at top level", True)
@@ -337,6 +437,7 @@ def main():
         print("skip - no-gi branch checks (gi present)")
 
     test_pure(mv)
+    test_argv_contract(mv)
 
     addr, _bus_proc = ensure_bus()
     if addr is None:

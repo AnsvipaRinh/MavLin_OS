@@ -80,6 +80,14 @@ def test_finder_equivalent_core_present():
     print(f"ok - all {len(FINDER_EQUIVALENT_CORE)} Finder-equivalent core actions present")
 
 
+# Actions that deliberately show only for particular file types. macOS
+# offers Expand on archives and nowhere else, so the two archive actions
+# carry explicit glob lists instead of "*". Everything else still has to be
+# "*" — a bare "<patterns/>" or a missing element is a silent "never shows".
+PATTERN_RESTRICTED = {"mv-extract-here", "mv-expand-archive"}
+ARCHIVE_GLOBS = (".zip", ".tar.gz", ".7z", ".rar")
+
+
 def test_action_fields():
     tree = ET.parse(UCA_XML)
     root = tree.getroot()
@@ -93,8 +101,25 @@ def test_action_fields():
         assert name is not None and name.text, f"Action {uid.text} missing name"
         assert cmd is not None and cmd.text, f"Action {uid.text} missing command"
         assert icon is not None, f"Action {uid.text} missing icon"
-        assert patterns is not None and patterns.text == "*", f"Action {uid.text} missing patterns=*"
-    print("ok - all actions have required fields (unique-id, name, command, icon, patterns=*)")
+        assert patterns is not None, f"Action {uid.text} missing patterns"
+        assert patterns.text and patterns.text.strip(), (
+            f"Action {uid.text} has empty patterns (would never show)")
+        if uid.text in PATTERN_RESTRICTED:
+            globs = [g for g in patterns.text.split(";") if g]
+            assert all(g.startswith("*") and "." in g for g in globs), (
+                f"Action {uid.text} patterns are not glob suffixes: "
+                f"{patterns.text}")
+            for suffix in ARCHIVE_GLOBS:
+                assert any(g.lower().endswith(suffix) for g in globs), (
+                    f"Action {uid.text} does not cover {suffix}")
+        else:
+            assert patterns.text == "*", (
+                f"Action {uid.text} should be patterns=* but is "
+                f"{patterns.text!r}")
+    print("ok - all actions have required fields (unique-id, name, command, "
+          "icon, patterns)")
+    print("ok - pattern-restricted actions limited to: "
+          + ", ".join(sorted(PATTERN_RESTRICTED)))
 
 
 def test_action_icons_resolve():
