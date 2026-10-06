@@ -1,6 +1,61 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-04 21:45 CEST
+**Last Updated**: 2026-10-06 (visual demo — real screenshots + 8 product fixes)
+
+---
+
+## Session 2026-10-06 — Visual demonstration mission (real screenshots)
+
+**Trigger:** owner mission — produce 3–5 real screenshots of the current UI
+for a prospective contributor, without ever touching the WSLg host desktop.
+
+**Delivered:** `artifacts/demo/` — 5 PNGs (desktop, Finder, System Settings,
+Mission Control, Launchpad) captured from the REAL session stack
+(xfwm4 + xfce4-panel/mv-apple + plank + mv-* apps, Mavericks theme) on an
+isolated Xvfb `:98`, plus `artifacts/demo/README.md` (methodology, fixes,
+honest limitations). Harness: `scripts/demo/` (run-demo.sh,
+make-demo-home.sh, demo-capture.py) — stages from `git archive HEAD`,
+reuses `scripts/gui-isolation.sh` (host display forbidden, fail-loud
+guard), arranges windows by PID, captures via GDK.
+
+**Product bugs found & fixed on main (demo-exposed):**
+mv-apple.desktop group ([Desktop Entry]→[Xfce Panel], plugin could never
+load on panel ≥4.19) · plank dock.theme web-CSS (silently ignored → Default
+dock; rewritten valid plank format) · all three rofi themes web-CSS/invalid
+property (rofi aborted the modes with parse dialogs; converted to valid
+rasi) · mv-textedit/mv-finder-columns positional-argv GApplication abort
+(HANDLES_OPEN class, f643a2d pattern) · mv-textedit GtkSourceView-4 API
+(begin_notifiable_actions) + re-applied the f643a2d ruler guard lost in a
+concurrent rewrite · mv-mc-gui None-child crash on failed thumbnail capture
++ one-thumbnail-per-row FlowBox · theme view-text legibility in BOTH
+gtk-3.0 and gtk-3.20 layers (GTK 3.24 loads 3.20; Finder rows/labels were
+light-on-light) + whole-view focus ring suppressed · restored the
+concurrently-truncated 979-line Poppy gtk.scss (my re-apply had raced
+c763ace) · committed the never-tracked `_panel.scss` partial (3.20 build
+was broken from an archive/fresh clone) · `XFCE_PANEL_PLUGIN_REGISTER
+(construct)` stray space failing test-global-menu.
+
+**Follow-ups recorded (not done here — active area of another session):**
+- skel hotkeys still use rofi-1.7 syntax `rofi -show -modi …`; rofi 2.0
+  rejects it ("Mode -modi is not found") → migrate to
+  `rofi -modes 'x:/usr/bin/…' -show x` (one-liner per binding; the skel +
+  `scripts/test-mv-spotlight.py`/`test-mv-mission-control.py` assertions
+  must move together).
+- mv-spotlight as a rofi script mode cannot render the empty-query initial
+  list (exits with a usage message) — Spotlight needs a no-query contract.
+- xfdesktop 4.20.2 ignored every /backdrop xfconf property layout tried
+  under Xvfb → demo uses `feh`; verify wallpaper behavior on real hardware
+  (added to NEEDS_HARDWARE_TEST).
+- Launchpad icon resolution inside a demo-scoped XDG_DATA_DIRS (icons did
+  not resolve; grid renders text-only in the container).
+- Concurrent-session regressions found & reported: f643a2d ruler guard and
+  `build_columns_classes` factory were lost from mv-finder-columns (suite
+  red at HEAD; belongs to the in-flight MC/rewrite workstream).
+
+**Gates:** theme CSS 9/9 · apple-menu packaging · global-menu contract
+(re-fixed) · dock launchers · Launchpad id+migration · finder-search ·
+TextEdit · F3 binding — green. Pre-existing reds documented in the demo
+README (finder-columns factory, MC native-expose live-WM test).
 
 ---
 

@@ -775,3 +775,19 @@ documented. LKML thread open (Sep 2026).
 - [ ] Verify firstboot script works on installed system (applies baseline, enables services)
 - [ ] Verify fstrim.timer and plocate-updatedb.timer are enabled after firstboot
 - [ ] Verify snapshot hooks work on installed btrfs system
+
+## Visual demo follow-ups (2026-10-06, from scripts/demo)
+
+- [ ] xfdesktop wallpaper: xfdesktop 4.20.2 ignored every /backdrop xfconf
+      property layout tried under Xvfb (monitor0 / monitorVNStr /
+      monitor<connector> / single-workspace-mode); the demo harness falls
+      back to `feh --bg-fill`. On real hardware verify that the skel's
+      xfce4-desktop.xml backdrop properties (monitor0 paths) actually apply
+      with the panel's real connector name; if not, the product needs a
+      backdrop-path migration to the live connector name.
+- [ ] Traffic-light side consistency: headerbar apps follow the
+      Gtk/DecorationLayout xsetting (demo override set it to
+      `close,minimize,maximize:` = left); confirm the skel xsettings.xml
+      gains the same DecorationLayout so all windows match xfwm4's CHM|.
+- [ ] Launchpad icon resolution on the real session (full icon theme set);
+      in the demo container the rofi grid rendered text-only.
