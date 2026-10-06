@@ -150,8 +150,9 @@ def build_calculator_class():
                 self.tape_buffer.insert(self.tape_buffer.get_end_iter(),
                                         entry + "\n")
 
-            hb = Gtk.HeaderBar(title="Calculator", show_close_button=True)
-            self.set_titlebar(hb)
+            self.set_decorated(True)
+            toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            toolbar.get_style_context().add_class("mavericks-calculator-toolbar")
 
             self.mode_combo = Gtk.ComboBoxText()
             for mode in ["Basic", "Scientific", "Programmer"]:
@@ -168,7 +169,10 @@ def build_calculator_class():
             hb.pack_end(tape_btn)
 
             vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            self.add(vbox)
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+            root.pack_start(toolbar, False, False, 0)
+            root.pack_start(vbox, True, True, 0)
+            self.add(root)
 
             disp_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
             disp_row.set_margin_top(16)
