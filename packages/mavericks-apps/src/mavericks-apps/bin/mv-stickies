@@ -234,13 +234,11 @@ def build_stickynote_class():
             self.apply_css()
             self.get_style_context().add_class("sticky-note")
 
-            self.self.set_decorated(True)
-hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-hb.get_style_context().add_class("mavericks-mv-stickies-toolbar")
-title_label = Gtk.Label(label="mv-stickies")
-hb.pack_start(title_label, True, True, 8)
-            self.hb.set_show_close_button(True)
-            self.set_titlebar(self.hb)
+            self.set_decorated(True)
+            self.hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            title_label = Gtk.Label(label="Sticky Note")
+            self.hb.pack_start(title_label, True, True, 8)
+            self.hb.get_style_context().add_class("mavericks-stickies-toolbar")
 
             rgba = Gdk.RGBA()
             rgba.parse(self.color)
