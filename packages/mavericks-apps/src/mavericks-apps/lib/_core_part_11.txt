@@ -1,0 +1,40 @@
+MODIFIER_ORDER if m in out]
+
+
+def is_valid_key(key):
+    if not isinstance(key, str) or not key:
+        return False
+    if _KEY_CHAR_RE.match(key) or _KEY_FN_RE.match(key):
+        return True
+    if key in NAMED_KEYS or key in MEDIA_KEYS:
+        return True
+    return False
+
+
+def normalize_accelerator(accel):
+    """Accept a string or dict and return a canonical {'modifiers','key'}.
+
+    Accepted string forms:
+      'Super+Shift+3'   'Super + Shift + 3'   '<Super><Shift>3'
+      '<Super><Shift>3' (as stored in the factory XML)
+    Case is normalised: letters lowercase, named keys/keysyms exact.
+    Raises ValueError with a human message on anything else.
+
+    A dict keeps its modifier ORDER (X11 property names are order-sensitive
+    as strings even though the key combination is not); only string input is
+    reordered into MODIFIER_ORDER.  Use `modifier_identity()` when two
+    combinations must be compared for equality.
+    """
+    if isinstance(accel, dict):
+        mods = []
+        for m in accel.get("modifiers") or []:
+            if str(m) not in MODIFIER_ORDER:
+                raise ValueError("unknown modifier: %r" % m)
+            mods.append(str(m))
+        key = accel.get("key")
+        if not is_valid_key(key):
+            raise ValueError("invalid key: %r" % key)
+        return {"modifiers": mods, "key": key}
+
+    s = str(accel).strip()
+    if not 
