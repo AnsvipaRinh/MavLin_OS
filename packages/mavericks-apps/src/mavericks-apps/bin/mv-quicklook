@@ -231,9 +231,12 @@ class PreviewWindow(Gtk.Window):
         if len(self.paths) > 1:
             title += "  (%d of %d)" % (self.index + 1, len(self.paths))
 
-        hb = Gtk.HeaderBar(title=title, show_close_button=True)
-        hb.set_subtitle("")
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        hb.get_style_context().add_class("mavericks-quicklook-toolbar")
+        title_label = Gtk.Label(label=title)
+        title_label.get_style_context().add_class("mavericks-quicklook-title")
+        hb.pack_start(title_label, True, True, 0)
 
         # Open button
         open_b = Gtk.Button(label="Open")
