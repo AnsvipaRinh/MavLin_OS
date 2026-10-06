@@ -340,6 +340,39 @@ def build_settings_class():
     gi.require_version("Gdk", "3.0")
     from gi.repository import Gtk, Gdk
 
+    MAVERICKS_SETTINGS_CSS = """
+    .mavericks-settings-toolbar {
+        background-image: linear-gradient(to bottom, #f7f7f7, #dedede);
+        border-bottom: 1px solid #b7b7b7;
+        padding: 4px 8px;
+    }
+    .mavericks-settings-toolbar button {
+        min-height: 24px;
+        min-width: 72px;
+        padding: 2px 10px;
+    }
+    .mavericks-settings-toolbar entry {
+        min-height: 22px;
+        border-radius: 11px;
+    }
+    .mavericks-preferences-item {
+        background-image: none;
+        background-color: transparent;
+        border: none;
+        box-shadow: none;
+        min-height: 92px;
+        padding: 8px;
+    }
+    .mavericks-preferences-item:hover {
+        background-color: rgba(0,0,0,0.06);
+        border-radius: 6px;
+    }
+    """
+    css = Gtk.CssProvider()
+    css.load_from_data(MAVERICKS_SETTINGS_CSS.encode("utf-8"))
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(), css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
     def value_label(text):
         """Read-only value text for an info row."""
         return Gtk.Label(label=text, halign=Gtk.Align.END, wrap=True,
@@ -380,25 +413,32 @@ def build_settings_class():
             super().__init__(title="System Settings")
             self.set_default_size(800, 560)
             self.set_icon_name("preferences-system")
-            self.hb = Gtk.HeaderBar(title="System Settings",
-                                    show_close_button=True)
-            self.hb.set_has_subtitle(False)
-            self.hb.get_style_context().add_class("mavericks-settings-toolbar")
-            self.set_titlebar(self.hb)
+            self.set_decorated(True)
+
+            # Keep the real XFWM4 titlebar so the Mavericks window-manager
+            # theme supplies the native red/yellow/green controls. GTK
+            # HeaderBar would switch this application to client-side chrome
+            # and visually bypass the tuned Mavericks XFWM theme.
+            root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            self.add(root)
+
+            toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            toolbar.get_style_context().add_class("mavericks-settings-toolbar")
+            toolbar.set_border_width(4)
 
             self.back = Gtk.Button(label="Show All", visible=False)
             self.back.connect("clicked", lambda _b: self.show_grid())
-            self.hb.pack_start(self.back)
+            toolbar.pack_start(self.back, False, False, 0)
 
             self.search = Gtk.SearchEntry(placeholder_text="Search")
             self.search.set_width_chars(22)
             self.search.set_hexpand(False)
-            self.search.get_style_context().add_class("mavericks-settings-search")
             self.search.connect("search-changed", self.on_search)
-            self.hb.pack_end(self.search)
+            toolbar.pack_end(self.search, False, False, 0)
+            root.pack_start(toolbar, False, False, 0)
 
             self.stack = Gtk.Stack()
-            self.add(self.stack)
+            root.pack_start(self.stack, True, True, 0)
 
             # --- Show All grid ---
             self.flow = Gtk.FlowBox(homogeneous=True, min_children_per_line=5, max_children_per_line=5,
