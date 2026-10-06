@@ -41,6 +41,11 @@ def test_finder_file_action_contract():
     assert '"Rename"' in text
     assert '"Open With…"' in text
     assert 'Gio.File.new_for_path(path).trash(None)' in text
-    assert 'key == "F2"' in text
+    assert 'def _move_to_trash(self, path, confirm=False):' in text
+    assert 'response = confirm_delete(' in text
+    assert 'if confirm:' in text
+    assert 'if key == "F2"' in text
     assert '"Delete", "KP_Delete"' in text
     assert 'ctrl and key in ("i", "I")' in text
+    assert 'if key == "Escape":' in text
+    assert 'self.destroy()' not in text[text.index('    def on_key_press'):text.index('    def focus_column_index')]
