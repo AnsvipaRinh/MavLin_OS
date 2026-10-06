@@ -933,7 +933,6 @@ class PhotosWindow(Gtk.Window):
         hb.get_style_context().add_class("mavericks-mv-photos-toolbar")
         title_label = Gtk.Label(label="Photos")
         hb.pack_start(title_label, True, True, 8)
-self.set_titlebar(hb)
 
         self.search_entry = Gtk.SearchEntry(placeholder_text="Search photos...")
         self.search_entry.set_hexpand(True)
