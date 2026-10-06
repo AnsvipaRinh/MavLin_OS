@@ -1,23 +1,68 @@
-t-Tab).  xfwm4's own key handler runs it, so it costs no
-    # resident process.
-    A("cycle-app-windows", "Cycle Windows of This Application (Command-`)",
-      ["Super"], "grave", "switch_window_key", "window", skill="window",
-      branch=BRANCH_XFWM4, rebindable=False),
-    # macOS Control-Command-F puts the focused window in its own full-screen
-    # Space.  xfwm4 exposes the same thing as fullscreen_key; unbound before.
-    A("fullscreen", "Full Screen (Control-Command-F)", ["Super", "Primary"],
-      "f", "fullscreen_key", "window", skill="window", branch=BRANCH_XFWM4),
+        labels.append(accel["key"])
+    elif _KEY_CHAR_RE.match(accel["key"]):
+        labels.append(accel["key"].upper())
+    else:
+        labels.append(accel["key"])
+    return "+".join(labels)
 
-    # --- Spaces (xfwm4 branch) --------------------------------------------
-    A("workspace-prev", "Move to Previous Space", ["Super", "Alt"], "Left",
-      "left_workspace_key", "workspace", skill="workspace",
-      branch=BRANCH_XFWM4),
-    A("workspace-next", "Move to Next Space", ["Super", "Alt"], "Right",
-      "right_workspace_key", "workspace", skill="workspace",
-      branch=BRANCH_XFWM4),
-    A("workspace-1", "Switch to Space 1", ["Super"], "1", "workspace_1_key",
-      "workspace", skill="workspace", branch=BRANCH_XFWM4),
-    A("workspace-2", "Switch to Space 2", ["Super"], "2", "workspace_2_key",
-      "workspace", skill="workspace", branch=BRANCH_XFWM4),
-    A("workspace-3", "Switch to Space 3", ["Super"], "3", "workspace_3_key",
-      "workspace", skill="workspace", branch=BRANCH_XFWM4),
+
+def action_accelerator(action_id, overrides=None):
+    """Effective accelerator of an action: factory, or the user override."""
+    row = ACTION_INDEX[action_id]
+    override = (overrides or {}).get(action_id)
+    if override:
+        return normalize_accelerator(override.get("accelerator", {}))
+    return {"modifiers": list(row["modifiers"]), "key": row["key"]}
+
+
+def action_command(action_id, overrides=None):
+    row = ACTION_INDEX[action_id]
+    override = (overrides or {}).get(action_id)
+    if override and override.get("command"):
+        return override["command"]
+    return row["command"]
+
+
+def effective_bindings(overrides=None):
+    """action id -> {'modifiers','key','command','branch','label',...}."""
+    out = {}
+    for row in ACTIONS:
+        aid = row["action"]
+        out[aid] = {
+            "action": aid,
+            "label": row["label"],
+            "group": row["group"],
+            "skill": row["skill"],
+            "branch": row["branch"],
+            "protected": row["protected"] or not row["rebindable"],
+            "overridden": bool((overrides or {}).get(aid)),
+            "modifiers": action_accelerator(aid, overrides)["modifiers"],
+            "key": action_accelerator(aid, overrides)["key"],
+            "command": action_command(aid, overrides),
+        }
+    return out
+
+
+def detect_conflicts(bindings=None, overrides=None):
+    """Pure conflict scan. Returns a sorted list of conflict dicts.
+
+    A conflict is two actions resolving to the same property path (same
+    modifiers + key in the same channel branch).  `branch` is part of the
+    identity because /commands/default and /xfwm4/default are independent
+    namespaces.
+    """
+    binds = bindings if bindings is not None else effective_bindings(overrides)
+    seen = {}
+    conflicts = []
+    for aid in sorted(binds):
+        b = binds[aid]
+        path = property_path_identity(
+            b["branch"], {"modifiers": b["modifiers"], "key": b["key"]})
+        if path in seen:
+            conflicts.append({
+                "property": path,
+                "actions": [seen[path], aid],
+                "commands": [binds[seen[path]]["command"], b["command"]],
+            })
+        else:
+            seen[path] = aid
