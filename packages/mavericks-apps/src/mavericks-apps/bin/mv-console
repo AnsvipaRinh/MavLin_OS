@@ -312,8 +312,9 @@ class Console(Gtk.Window):
                 screen, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def build_ui(self):
-        hb = Gtk.HeaderBar(title="Console", show_close_button=True)
-        self.set_titlebar(hb)
+        self.set_decorated(True)
+        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        toolbar.get_style_context().add_class("mavericks-console-toolbar")
 
         self.search = Gtk.SearchEntry(placeholder_text="Filter logs...")
         self.search.set_width_chars(24)
@@ -362,7 +363,10 @@ class Console(Gtk.Window):
 
         # Main horizontal paned: sidebar | content
         main_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self.add(main_paned)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        root.pack_start(toolbar, False, False, 0)
+        root.pack_start(main_paned, True, True, 0)
+        self.add(root)
 
         self.sidebar_store = Gtk.ListStore(str, str, int)
         self.sidebar_tree = Gtk.TreeView(model=self.sidebar_store,
