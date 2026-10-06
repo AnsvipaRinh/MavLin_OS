@@ -147,6 +147,22 @@ def main():
     check("PAGES: native panes are the majority surface",
           len(pane_keys) >= 10, str(len(pane_keys)))
 
+    # --- pure helpers: RandR display parsing ---
+    sample_xrandr = """Screen 0: minimum 320 x 200, current 3200 x 1080, maximum 8192 x 8192
+DP-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 344mm x 193mm
+   1920x1080 60.00*+ 59.94
+   1280x720 60.00
+HDMI-1 connected 1280x1024+1920+0 (normal left inverted right x axis y axis) 376mm x 301mm
+   1280x1024 60.02*+
+"""
+    displays_parsed = m.parse_xrandr(sample_xrandr)
+    check("randr: connected outputs parsed", len(displays_parsed) == 2)
+    check("randr: primary flag parsed", displays_parsed[0]["primary"] is True)
+    check("randr: current mode parsed", displays_parsed[0]["current"] == "1920x1080")
+    check("randr: position parsed", displays_parsed[1]["position"] == (1920, 0))
+    check("randr: advertised modes parsed", [x["mode"] for x in displays_parsed[0]["modes"]] == ["1920x1080", "1280x720"])
+    check("randr: current rate marker parsed", displays_parsed[0]["modes"][0]["current"] is True)
+
     # --- page_is_available ---
     check("available: None cmd -> False", m.page_is_available(None) is False)
     check("available: real tool -> True", m.page_is_available(["sh"]) is True)
@@ -159,8 +175,12 @@ def main():
     check("route: native pane wins over everything",
           m.page_action(general) == ("pane", "general"))
     displays = [r for r in m.PAGES if r[0] == "Displays"][0]
-    check("route: available external tool -> launch",
-          m.page_action(displays) == ("launch", ["xfce4-display-settings"]))
+    check("route: Displays uses native pane",
+          displays[2] is None and displays[3] == "displays", str(displays))
+    check("route: native pane wins over external availability",
+          m.page_action(displays, tool_available=lambda _cmd: True) == ("pane", "displays"))
+    check("native pane registry: Displays is declared",
+          "displays" in m.NATIVE_PANES)
     network = [r for r in m.PAGES if r[0] == "Network"][0]\n    sound = [r for r in m.PAGES if r[0] == "Sound"][0]
     check("route: Sound uses native pane",
           sound[2] is None and sound[3] == "sound", str(sound))
