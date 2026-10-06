@@ -485,13 +485,86 @@ class ColumnsWindow(Gtk.Window):
         self.rebuild_columns()
 
     def _open_with(self, path):
-        if not path:
+        """Present the installed applications that can open PATH.
+
+        xdg-open is intentionally not used here: it resolves the default
+        application and therefore cannot implement Finder's Open With…
+        interaction. Gio provides the desktop/MIME registry we already use
+        for the project's file associations, so the chooser stays native,
+        lightweight, and consistent with the rest of this GTK3 frontend.
+        """
+        if not path or not os.path.exists(path):
             return
         try:
-            subprocess.Popen(["xdg-open", path],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError as e:
-            self._show_error("Open With", str(e))
+            content_type, uncertain = Gio.content_type_guess(path, None, 0)
+            apps = Gio.AppInfo.get_all_for_type(content_type) if content_type else []
+            # Keep the chooser deterministic and remove duplicate desktop IDs.
+            unique = {}
+            for app in apps:
+                try:
+                    app_id = app.get_id() or app.get_name()
+                    if app_id and app_id not in unique:
+                        unique[app_id] = app
+                except Exception:
+                    continue
+            apps = sorted(unique.values(),
+                          key=lambda app: (app.get_display_name() or app.get_name() or "").lower())
+        except Exception as e:
+            self._show_error("Open With", "Could not enumerate applications: %s" % e)
+            return
+
+        if not apps:
+            self._show_error(
+                "Open With",
+                "No installed application can open this item.")
+            return
+
+        dialog = Gtk.Dialog(title="Open With", transient_for=self,
+                            flags=Gtk.DialogFlags.MODAL)
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Open", Gtk.ResponseType.OK)
+        area = dialog.get_content_area()
+        area.set_spacing(8)
+        area.set_margin_top(12)
+        area.set_margin_bottom(12)
+        area.set_margin_start(12)
+        area.set_margin_end(12)
+        area.pack_start(
+            Gtk.Label(label="Choose an application to open this item:",
+                      xalign=0),
+            False, False, 0)
+
+        store = Gtk.ListStore(object, str)
+        for app in apps:
+            name = app.get_display_name() or app.get_name() or "Application"
+            store.append([app, name])
+
+        tree = Gtk.TreeView(model=store)
+        tree.set_headers_visible(False)
+        tree.set_vexpand(True)
+        tree.set_size_request(360, min(320, max(120, 34 * len(apps))))
+        renderer = Gtk.CellRendererText()
+        column = Gtk.TreeViewColumn("Application", renderer, text=1)
+        tree.append_column(column)
+        selection = tree.get_selection()
+        selection.select_path(Gtk.TreePath.new_first())
+        area.pack_start(tree, True, True, 0)
+
+        dialog.show_all()
+        response = dialog.run()
+        model, iterator = selection.get_selected()
+        selected = model.get_value(iterator, 0) if iterator is not None else None
+        dialog.destroy()
+
+        if response != Gtk.ResponseType.OK or selected is None:
+            return
+        try:
+            selected.launch([Gio.File.new_for_path(path)], None)
+        except Exception as e:
+            self._show_error(
+                "Open With",
+                "Could not open “%s”: %s" % (
+                    selected.get_display_name() or "the selected application", e))
 
     def _popup_context_menu(self, listbox, row, event):
         path = self._row_path(listbox, row)
