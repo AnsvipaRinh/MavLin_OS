@@ -963,10 +963,13 @@ The items below are what only the MacBook10,1 can settle.
       global flat `entry` styling. Pop the search on hardware and confirm it
       reads as Mavericks, or fall back to styling `entry.search` globally
       (Global Dialogs surface, needs its owner's sign-off).
-- [ ] LIST/ICON view toggle: icon view is unstyled and unverified. Open the
-      chooser, switch to icon view, and record whether the Mavericks icons
-      and labels hold up; if not, the icon-view node names need the same
-      injection treatment the list got.
+- [ ] View modes: this container's GTK builds a chooser with a single
+      GtkTreeView and exposes no reachable icon view (no GtkIconView in any of
+      the four dialog shapes; the path-bar toggle button and an image filter
+      both leave the list view). Confirm on the live ISO whether the shipping
+      GTK offers an icon view at all. If it does, it is unstyled and its node
+      names need the same injection treatment the list got — do not assume the
+      list's selectors carry over.
 - [ ] Save flow on real storage: Save As must show the name entry, the
       create-folder button and the overwrite-confirmation alert in the same
       visual language (the alert comes from the shared mv_dialogs layer).
