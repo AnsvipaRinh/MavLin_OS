@@ -733,7 +733,8 @@ def build_settings_class():
                                   st.set_int(k, int(s.get_value())))
                     lb.add(label_row(text, scale))
                 elif kind == "bool":
-                    toggle = Gtk.Switch(active=st.get_boolean(key))
+                    toggle = Gtk.CheckButton()
+                    toggle.set_active(st.get_boolean(key))
                     toggle.connect("notify::active", lambda s, _p, k=key:
                                    st.set_boolean(k, s.get_active()))
                     lb.add(label_row(text, toggle))
@@ -775,8 +776,8 @@ def build_settings_class():
             lb.add(label_row("Spaces", count,
                              "Number of workspaces Mission Control shows "
                              "(1\u201316, as on Mavericks)."))
-            wrap = Gtk.Switch(
-                active=ch.get_bool("general/wrap_workspaces", False))
+            wrap = Gtk.CheckButton()
+            wrap.set_active(ch.get_bool("general/wrap_workspaces", False))
             wrap.connect("notify::active", lambda s, _p: ch.set_bool(
                 "general/wrap_workspaces", s.get_active()))
             lb.add(label_row("Wrap around when switching Spaces", wrap,
@@ -838,7 +839,8 @@ def build_settings_class():
                     "xfce4-screensaver is not installed on this build, so "
                     "there is no lock backend to configure."))
             else:
-                lock = Gtk.Switch(active=st.get_boolean("lock-enabled"))
+                lock = Gtk.CheckButton()
+                lock.set_active(st.get_boolean("lock-enabled"))
                 lock.connect("notify::active", lambda s, _p:
                              st.set_boolean("lock-enabled", s.get_active()))
                 lb.add(label_row("Require a password after sleep or "
@@ -939,7 +941,8 @@ def build_settings_class():
                 "PulseAudio/PipeWire compatibility layer (pactl)."))
 
             mute_raw = pactl("get-sink-mute", "@DEFAULT_SINK@")
-            mute = Gtk.Switch(active="yes" in mute_raw.lower())
+            mute = Gtk.CheckButton()
+            mute.set_active("yes" in mute_raw.lower())
             mute.connect(
                 "notify::active",
                 lambda widget, _param: self._pactl_set_mute(
