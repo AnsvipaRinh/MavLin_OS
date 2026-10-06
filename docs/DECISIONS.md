@@ -413,3 +413,81 @@ live auto-refresh while open — history is read on open and after each clear
 action; banners are the live surface. Changing that would need either polling
 (a wakeup cost §7 discourages) or a libnotify signal hook, which
 xfce4-notifyd does not expose.
+
+---
+
+## 2026-10-06 — Dock (canonical #18): plank reads GSettings, not `dock1/settings`
+
+**Decision.** The Dock's preference authority is
+`packages/mavericks-apps/src/mavericks-apps/lib/plank_config.py`, shipped as
+`/usr/bin/mv-dock-config` and seeded by the Dock session autostart entry
+(`configs/desktop/plank/plank.desktop`, `Exec=mv-dock-config --apply --launch`).
+The legacy INI `~/.config/plank/dock1/settings` stays in the tree as a
+human-readable declaration only, cross-checked against the authority.
+
+**Why (measured, not assumed).** plank 0.11.89 does not read that INI. With
+only it present, plank reports `theme='Default'` and `zoom-enabled=false` —
+so the Mavericks `dock.theme`, the zoom and the auto-hide never reached the
+Dock, while `docs/APPS.md` claimed "theme + settings + autostart
+implemented". Writing the same values through GSettings does work: the same
+run gives a 304 px dock at `icon-size=48` and a 604 px dock at
+`icon-size=96`.
+
+**Three further defects the audit exposed.**
+1. `packages/mavericks-theme/mavericks-theme.install` wrote a **third** copy of
+   the INI with `Position=0` / `Alignment=0` — plank's enum means TOP, so a
+   pacman install asked for the Dock on the wrong edge. Removed; the seeder
+   owns the runtime state now.
+2. A plain pacman install shipped the Dock pins but **no autostart entry**
+   (it only existed in the ISO's `airootfs`), i.e. no Dock at all outside the
+   live image. `mavericks-apps` now installs it into `/etc/skel`.
+3. `auto-pinning` defaults to **TRUE** in plank, so every launched application
+   was silently added to the Dock. macOS never does that → forced `false`.
+
+**Why a seeder script and not `/etc/dconf/db/local.d`.** The declarative
+system-db route needs `/etc/dconf/profile/user`, which risks a pacman file
+conflict in the ISO build and cannot be validated offline. The seeder is
+idempotent, one-shot (~20 ms, no daemon, no polling — §7), needs no session
+bus of its own, and skips any key already present in the user's dconf
+database, so changing the theme in plank's own preferences dialog survives the
+next login. `mv-dock-config --keyfile` still emits the equivalent
+`local.d` keyfile for anyone who prefers the declarative layer.
+
+**Two bugs the GUI smoke caught that no static check would have.**
+* `dconf dump` prints section headers **relative to the dumped root**
+  (`[docks/dock1]`, not `[net/launchpad/plank/docks/dock1]`). Comparing the
+  raw header made the seeder see "nothing customised" and overwrite user
+  settings on every login.
+* `dconf dump` needs the path to look like a directory — `…/plank` without the
+  trailing slash fails, and the same overwrite followed.
+Both are now pinned by `scripts/test-dock-plank.py`.
+
+**Where the macOS look is and is not reachable (plank 0.11.89).** Verified
+against `strings /usr/lib/libplank.so.1`, which is what plank actually looks
+up: the theme vocabulary has **no `ReflectionHeight`, `ReflectionOpacity`,
+`ReflectionFade`, `BackgroundColor`, `BackgroundPadding`, `IndicatorColor`,
+`IndicatorShape`, `ItemColor`, `ItemHoverColor`, `UrgentColor`, `BorderSize`**
+keys. The macOS reflection, the translucent shelf behind the icons and the
+blue running-indicator dots therefore **cannot** come from a plank theme — the
+old `dock.theme` set all of them and plank dropped the lot without a warning
+(commit 1eecbb9 had already fixed the format; the vocabulary gap remains).
+What plank *can* render — and what the Mavericks Dock now uses — is the
+metallic `FillStartColor`/`FillEndColor` gradient, `OuterStrokeColor` +
+`InnerStrokeColor` hairline, `TopRoundness`, `ZoomPercent`, the paddings and
+`IconShadowSize=0` (Mavericks icons carry no drop shadow).
+`scripts/test-dock-plank.py` asserts every theme key exists in the binary and
+every colour is `r;;g;;b;;a`, so this cannot silently regress again.
+
+**Cross-zone note.** `desktop/mv-mission-control.desktop` was added because a
+Dock pin needs a desktop id that actually resolves (plank silently drops pins
+whose target is missing — observed). It only *references*
+`mv-mission-control --native`; no `mv-mc-*` / `mission_control_*` file was
+touched.
+
+**Deliberately not done.**
+* *Minimised windows in the Dock's right section* — no plank equivalent; doing
+  it properly needs a window-tracking daemon, which §7 forbids on this
+  hardware. Recorded as a known gap instead of a polling hack.
+* *A fallback Dock when plank is missing* — plank is a hard dependency of both
+  `packages.x86_64` and `mavericks-theme`; a second Dock implementation would
+  violate reuse-first and add an always-on cost for a case that cannot occur.

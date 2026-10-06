@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+"""mv-dock-config — seed and verify the MavLinOS Dock (Plank) preferences.
+
+Thin wrapper around /usr/share/mavericks-apps/plank_config.py.  Installed
+into /usr/bin and used by the Dock session autostart entry, which needs the
+preferences to be in place *before* plank starts (plank caches its
+preferences at startup and does not follow later gsettings changes).
+
+Usage:
+    mv-dock-config --apply            # seed what the user has not customised
+    mv-dock-config --apply --launch   # seed, then exec plank (autostart path)
+    mv-dock-config --verify           # report anything that does not match
+    mv-dock-config --print            # the authoritative preference table
+    mv-dock-config --keyfile          # dconf local.d equivalent
+    mv-dock-config --check-legacy     # drift against the legacy INI
+"""
+
+import os
+import sys
+
+_INSTALLED = "/usr/share/mavericks-apps"
+_SOURCE_LIB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
+
+
+def _import():
+    for candidate in (_INSTALLED, _SOURCE_LIB):
+        if os.path.isfile(os.path.join(candidate, "plank_config.py")):
+            if candidate not in sys.path:
+                sys.path.insert(0, candidate)
+            import plank_config
+            return plank_config
+    sys.stderr.write("mv-dock-config: plank_config.py not found (installed in "
+                     "%s or next to the wrapper)\n" % _INSTALLED)
+    raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    sys.exit(_import().main(sys.argv[1:]))

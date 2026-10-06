@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Mission Control
+GenericName=Window Overview
+Comment=See all windows and Spaces at once
+Exec=mv-mission-control --native
+Icon=display
+Terminal=false
+Categories=System;X-WindowManager;
+StartupNotify=false
+X-Mavericks-Native=true

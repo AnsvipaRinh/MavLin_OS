@@ -1,5 +1,20 @@
 # NEEDS_HARDWARE_TEST — Items requiring real MacBook10,1 hardware
 
+## Dock (plank) visual + behavioural validation (phase dock-p0)
+Behaviour is proven pre-hardware (real plank on Xvfb :97 — theme/zoom/icon-size
+reach it, 8 pins, bottom-edge geometry, user customisation preserved), but the
+*look* and the *feel* need the real 2304×1440 panel and the trackpad:
+- [ ] Zoom feel: 150% magnification depth reads like macOS at 2x scaling (not too shallow, not overshooting the screen edge with 8 pins)
+- [ ] Metallic shelf: FillStart/FillEnd gradient + hairline outer/inner stroke + TopRoundness=4 looks like a Mavericks Dock, not a Linux panel
+- [ ] Running-indicator dots under pinned icons are legible; un-pinned running apps appear without being auto-pinned (auto-pinning=false)
+- [ ] Intelligent auto-hide: reveal on approach, hide when a maximised window covers the edge, no jitter at the screen edge
+- [ ] Tooltips (app names) render in the Mavericks font/skin
+- [ ] Trash docklet: icon present, count/label behaviour, click opens Thunar at Trash, right-click offers Empty Trash
+- [ ] Mission Control pin launches the window overview (`mv-mission-control --native`) and the icon matches the window-overview look
+- [ ] Force Touch trackpad: two-finger swipe up over the Dock does not fight auto-hide; click-through on the revealed Dock edge
+- [ ] External USB-C input only until applespi lands: click/hover/scroll behaviour of the Dock with an external mouse
+- [ ] Energy: measure the always-on cost of the Dock on battery (plank idle CPU + the one-shot `mv-dock-config` seeding per login) before adding anything else to the baseline
+
 ## Finder search / column browser — hardware validation (phase finder-p0)
 - [ ] Visual: mv-finder-search results window (HeaderBar + search field, Name/Kind/Size/Where columns, folders-first ordering) under the Mavericks GTK theme at 2304×1440
 - [ ] Visual: mv-finder-columns multi-pane column browser proportions at 2304×1440 (240px columns readable at 2x scaling)

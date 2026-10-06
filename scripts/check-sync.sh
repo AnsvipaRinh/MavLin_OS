@@ -66,6 +66,7 @@ PAIRS=(
   "configs/desktop/xfce/xfce4-desktop.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml"
   "configs/desktop/lightdm/lightdm-gtk-greeter.conf:archiso-profile/releng/airootfs/etc/lightdm/lightdm-gtk-greeter.conf"
   "configs/desktop/plank/dock1-settings:archiso-profile/releng/airootfs/etc/skel/.config/plank/dock1/settings"
+  "configs/desktop/plank/plank.desktop:archiso-profile/releng/airootfs/etc/skel/.config/autostart/plank.desktop"
   "packages/mavericks-apps/src/mavericks-apps/config/thunar-uca.xml:archiso-profile/releng/airootfs/etc/skel/.config/Thunar/uca.xml"
   "packages/mavericks-apps/src/mavericks-apps/config/xfce4-keyboard-shortcuts.xml:archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml"
   "configs/desktop/skippy-xd/skippy-xd.rc:archiso-profile/releng/airootfs/etc/skel/.config/skippy-xd/skippy-xd.rc"
@@ -146,6 +147,25 @@ fi
 echo "--- theme css gate ---"
 if [[ -f scripts/test-theme-css.py ]]; then
   python3 scripts/test-theme-css.py && ok "theme-css" || bad "theme-css"
+fi
+
+echo "--- dock P0: plank reads GSettings, not dock1/settings ---"
+# plank 0.11 ignores ~/.config/plank/dock1/settings entirely, so the static
+# contract is asserted against the installed gschema and the measured
+# behaviour (theme/zoom/icon-size/pins/geometry) by the GUI smoke.
+if [[ -f scripts/test-dock-plank.py ]]; then
+  DOCK_OUT="$(mktemp)"
+  if timeout 120 python3 scripts/test-dock-plank.py >"$DOCK_OUT" 2>&1; then
+    ok "dock P0 gsettings contract: $(grep -c '^ok - ' "$DOCK_OUT") assertions"
+  else
+    bad "dock P0 gsettings contract"
+    tail -n 25 "$DOCK_OUT" | sed 's/^/    | /'
+  fi
+  rm -f "$DOCK_OUT"
+fi
+if [[ -f scripts/test-dock-plank-gui.py ]]; then
+  timeout 400 python3 scripts/test-dock-plank-gui.py && ok "dock P0 plank GUI smoke" \
+      || bad "dock P0 plank GUI smoke"
 fi
 
 echo "--- firefox chrome ---"

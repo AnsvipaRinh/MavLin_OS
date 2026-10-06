@@ -36,6 +36,63 @@
 
 ---
 
+## Recent Achievements (2026-10-06)
+
+### ✅ Dock (canonical #18) — P0 audit: three shipped-but-dead defects fixed
+
+**Status**: 🟡 PARTIALLY IMPLEMENTED (behaviour now real; macOS-only Dock
+affordances documented as unreachable in plank 0.11.89)
+
+**What the audit found** — `docs/APPS.md` claimed "theme + settings + autostart
+implemented", but the Dock on a real session was a stock plank:
+
+| Claim | Measured reality |
+|---|---|
+| `dock1/settings` configures plank | **false** — plank 0.11.89 reads GSettings; with only the INI it reports `theme='Default' zoom-enabled=false` |
+| Mavericks `dock.theme` applied | **false** — dead config (wrong group layout, `rgba()` colours, inline `#` comments, keys plank 0.11 lacks) |
+| zoom / reflection / indicators | **false** — `zoom-enabled=false` |
+| 7 Dock pins | true |
+| Dock present after a plain pacman install | **false** — autostart existed only in the ISO's airootfs |
+| `mavericks-theme.install` Dock setup | wrote a **third**, divergent INI with `Position=0` = TOP edge |
+
+**Delivered**
+- `lib/plank_config.py` → `/usr/bin/mv-dock-config`: the Dock's single
+  preference authority (19 GSettings preferences with per-key rationale),
+  `--apply/--force/--verify/--print/--keyfile/--check-legacy`. Seeds only keys
+  the user has not customised, one-shot, no daemon, no polling.
+- Dock session autostart now seeds preferences **before** plank starts and is
+  installed into `/etc/skel` by `mavericks-apps` (source of truth
+  `configs/desktop/plank/plank.desktop`, mirrored to airootfs, gated).
+- `auto-pinning=false` — macOS never auto-pins running applications (plank
+  defaults to true).
+- **Mission Control added to the Dock** (Mavericks-accurate): new
+  `mv-mission-control.desktop` + `mission-control.dockitem`; 8 pins total
+  (Finder, Launchpad, Mission Control, Firefox, Mail, System Settings,
+  Terminal, Trash).
+- Removed the third dead INI from `mavericks-theme.install`; the remaining
+  legacy INI carries a header warning that plank does not read it.
+- `scripts/test-dock-plank.py` (244 assertions) + `scripts/test-dock-plank-gui.py`
+  (real plank on pinned Xvfb :97, private D-Bus) + extended
+  `scripts/test-dock-launchers.py`; wired into `scripts/check-sync.sh` and CI.
+
+**Two real bugs the GUI smoke caught** (static checks could not):
+`dconf dump` prints section headers relative to the dumped root, and it needs
+the trailing slash on the path — either mistake made `--apply` overwrite user
+customisation on every login. Both pinned by tests.
+
+**Honest limits**: plank 0.11.89 has no reflection / translucent-shelf /
+indicator-colour theme keys (verified via `strings libplank.so.1`), so macOS
+reflection and blue indicator dots are not reachable; Trash cannot right-align;
+minimised windows do not collect at the Dock's right end; no second-dock
+fallback (plank is a hard dependency). Details + evidence in
+`docs/DECISIONS.md`.
+
+**Next**: Dock visual validation on the real 2304×1440 panel (zoom depth,
+gradient shelf, indicator dots, auto-hide reveal) — items added to
+`docs/NEEDS_HARDWARE_TEST.md`.
+
+---
+
 ## Active Work Streams
 
 ### Issue #1: Architecture Execution Plan

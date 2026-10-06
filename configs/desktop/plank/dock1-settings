@@ -1,3 +1,22 @@
+# ---------------------------------------------------------------------------
+# LEGACY Plank INI — DO NOT EDIT AS AN AUTHORITY.
+#
+# Plank 0.11.x does not read this file. Its preferences live in GSettings,
+# schema net.launchpad.plank.dock.settings at path
+# /net/launchpad/plank/docks/dock1/. Verified on plank 0.11.89: with only
+# this file present plank reports theme='Default' and zoom-enabled=false,
+# i.e. the Mavericks dock.theme and the zoom were silently dropped.
+#
+# The authority for the MavLinOS Dock is plank_config.py, exposed as
+# `mv-dock-config` (/usr/bin) — see
+# packages/mavericks-apps/src/mavericks-apps/lib/plank_config.py.
+#
+# This file is kept as the human-readable declaration (other tooling reads
+# it) and is cross-checked against the authority by
+# `mv-dock-config --check-legacy` and scripts/test-dock-plank.py. Keys here
+# that the GSettings schema has no counterpart for are marked in that
+# module's LEGACY_DROPPED table rather than silently ignored.
+# ---------------------------------------------------------------------------
 [PlankDockPreferences]
 Theme=Mavericks
 ZoomEnabled=true

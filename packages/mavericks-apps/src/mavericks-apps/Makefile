@@ -25,6 +25,11 @@ clean:
 
 install: all
 	install -Dm755 mv-hud "$(DESTDIR)$(PREFIX)/bin/mv-hud"
+	# Dock (Plank) preference authority.  plank 0.11 keeps its preferences
+	# in GSettings, not in ~/.config/plank/dock1/settings, so without this
+	# the Mavericks dock.theme and the zoom never reach plank.
+	install -Dm755 lib/plank_config.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/plank_config.py"
+	install -Dm755 bin/mv-dock-config "$(DESTDIR)$(PREFIX)/bin/mv-dock-config"
 	install -Dm755 lib/mission_control.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mission_control.py"
 	install -Dm755 lib/mv_hotkeys_core.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mv_hotkeys_core.py"
 	install -Dm644 config/hotkeys/skills.json "$(DESTDIR)$(PREFIX)/share/mavericks-apps/hotkeys/skills.json"
@@ -61,6 +66,16 @@ install: all
 	install -m644 config/mv-ytplayer-bookmarklet.html "$(DESTDIR)$(PREFIX)/share/mavericks-apps/"
 	install -m644 lib/mavericks_appmenu.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mavericks_appmenu.py"
 	install -Dm644 ../../../../configs/mv-ytplayer/codec-policy.conf "$(DESTDIR)/etc/mv-ytplayer/codec-policy.conf"
+	# Dock session autostart.  The ISO gets this from the airootfs skel; a
+	# plain pacman install would otherwise ship the pins without anything
+	# starting the Dock.  Source of truth: configs/desktop/plank/plank.desktop
+	# (mirrored into airootfs, gated by scripts/check-sync.sh).
+	@if [ -f ../../../../configs/desktop/plank/plank.desktop ]; then \
+	    install -Dm644 ../../../../configs/desktop/plank/plank.desktop \
+	        "$(DESTDIR)/etc/skel/.config/autostart/plank.desktop"; \
+	else \
+	    echo "WARN: configs/desktop/plank/plank.desktop not found - Dock autostart skipped"; \
+	fi
 	install -d "$(DESTDIR)$(PREFIX)/lib/xfce4/panel/plugins"
 	install -Dm755 libmv-apple.so "$(DESTDIR)$(PREFIX)/lib/xfce4/panel/plugins/libmv-apple.so"
 	install -d "$(DESTDIR)$(PREFIX)/share/xfce4/panel/plugins"

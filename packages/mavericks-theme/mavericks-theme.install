@@ -24,25 +24,23 @@ gtk-xft-hintstyle=hintslight
 gtk-xft-rgba=rgb
 EOF
 
-    # Set default plank theme
-    mkdir -p /etc/skel/.config/plank/dock1
-    cat > /etc/skel/.config/plank/dock1/settings <<'EOF'
-[PlankDockPreferences]
-Theme=Mavericks
-ZoomEnabled=true
-ZoomPercent=150
-IconSize=48
-HideMode=0
-ShowDockItem=false
-PressureReveal=false
-PressureRevealTime=0.5
-Alignment=0
-Position=0
-Offset=0
-Monitor=-1
-IconZoom=true
-UrgentHueShift=0.5
-EOF
+    # Dock preferences are NOT configured here.
+    #
+    # This hook used to write a second copy of ~/.config/plank/dock1/settings
+    # with values that disagreed with the mirrored skel copy (it pinned
+    # Position=0 / Alignment=0, i.e. the TOP edge of the screen).  Neither
+    # copy had any effect: plank 0.11 keeps its preferences in GSettings
+    # (net.launchpad.plank.dock.settings, path /net/launchpad/plank/docks/dock1),
+    # so the Mavericks dock.theme and the zoom were silently dropped.
+    #
+    # The authority is now mv-dock-config (/usr/bin, from mavericks-apps),
+    # which the Dock session autostart entry runs before plank starts.  It
+    # seeds only the keys the user has not customised, so changing the theme
+    # in plank's own preferences dialog still sticks.
+    #
+    # Verifying what plank will actually use:
+    #   mv-dock-config --verify
+    #   mv-dock-config --print
 }
 
 post_upgrade() {

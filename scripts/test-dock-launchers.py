@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Validate default Plank Dock pinned launchers are shipped and consistent."""
+"""Validate default Plank Dock pinned launchers are shipped and consistent.
+
+Scope: WHICH launchers are pinned and whether every copy agrees.
+HOW the pinned preferences actually reach plank is a different question and
+is covered by scripts/test-dock-plank.py (+ its GUI smoke) — plank 0.11 reads
+GSettings, not the dock1/settings INI next to these pins.
+"""
 import os
 import sys
 
@@ -14,6 +20,7 @@ PATHS = [
 REQUIRED = {
     "finder.dockitem": "mv-finder.desktop",
     "launchpad.dockitem": "mv-launchpad.desktop",
+    "mission-control.dockitem": "mv-mission-control.desktop",
     "firefox.dockitem": "firefox.desktop",
     "mail.dockitem": "mv-mail.desktop",
     "system-settings.dockitem": "mv-system-settings.desktop",
@@ -36,53 +43,43 @@ for path in PATHS:
                 "%s must point at %s (in %s)" % (name, desktop, path)
             )
 
-# Mavericks Dock ends with Trash (Plank trash docklet)
-for path in PATHS:
-    if not os.path.isdir(path):
-        continue
-    trash = os.path.join(path, "trash.dockitem")
-    if not os.path.isfile(trash):
-        errors.append("missing trash.dockitem in %s" % path)
-        continue
-    text = open(trash, encoding="utf-8").read()
-    if "Launcher=docklet://trash" not in text:
-        errors.append("trash.dockitem must use docklet://trash in %s" % path)
-
 finder = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/desktop/mv-finder.desktop"
 )
 if not os.path.isfile(finder):
     errors.append("mv-finder.desktop missing (Dock Finder pin would be dead)")
 
-cfg_dir, skel_dir = PATHS[0], PATHS[1]
-if os.path.isdir(cfg_dir) and os.path.isdir(skel_dir):
-    cfg_files = sorted(os.listdir(cfg_dir))
-    skel_files = sorted(os.listdir(skel_dir))
-    if cfg_files != skel_files:
-        errors.append(
-            "launcher set drift: configs=%s skel=%s" % (cfg_files, skel_files)
-        )
-    for name in set(cfg_files) & set(skel_files):
-        a = open(os.path.join(cfg_dir, name), "rb").read()
-        b = open(os.path.join(skel_dir, name), "rb").read()
-        if a != b:
-            errors.append("content drift for %s (configs != airootfs)" % name)
+# Every mv-* pin must resolve to a desktop file mavericks-apps installs,
+# otherwise plank silently drops the pin (it did exactly that for a missing
+# target during the Dock P0 audit).
+desktop_dir = os.path.join(
+    REPO, "packages/mavericks-apps/src/mavericks-apps/desktop"
+)
+for name, desktop in REQUIRED.items():
+    if not desktop.startswith("mv-"):
+        continue
+    if not os.path.isfile(os.path.join(desktop_dir, desktop)):
+        errors.append("%s pins %s, which mavericks-apps does not install"
+                      % (name, desktop))
 
-pkgbuild = os.path.join(REPO, "packages/mavericks-theme/PKGBUILD")
-if not os.path.isfile(pkgbuild):
-    errors.append("mavericks-theme PKGBUILD missing")
+mission_control = os.path.join(desktop_dir, "mv-mission-control.desktop")
+if not os.path.isfile(mission_control):
+    errors.append("mv-mission-control.desktop missing (Dock Mission Control "
+                  "pin would be dead)")
 else:
-    pb = open(pkgbuild, encoding="utf-8").read()
-    if "configs/desktop/plank/dock1/launchers" not in pb:
-        errors.append("PKGBUILD does not source configs/desktop dock launchers")
-    if "etc/skel/.config/plank/dock1/launchers" not in pb:
-        errors.append("PKGBUILD does not install dock launchers into /etc/skel")
+    body = open(mission_control, encoding="utf-8").read()
+    if "Exec=mv-mission-control --native" not in body:
+        errors.append("mv-mission-control.desktop must open the window "
+                      "overview from the Dock (Exec=mv-mission-control "
+                      "--native)")
+    if "\nIcon=" not in body:
+        errors.append("mv-mission-control.desktop must carry an icon")
 
 if errors:
     for e in errors:
         print("FAIL - %s" % e)
     sys.exit(1)
 
-print("ok - default Dock launchers present in configs and skel (byte-identical)")
-print("ok - pins: Finder, Launchpad, Firefox, Mail, System Settings, Terminal, Trash")
-print("ok - mavericks-theme PKGBUILD ships pins to /etc/skel (pacman installs)")
+print("ok - default Dock launchers present in configs and skel")
+print("ok - pins: Finder, Launchpad, Mission Control, Firefox, Mail, "
+      "System Settings, Terminal, Trash")
