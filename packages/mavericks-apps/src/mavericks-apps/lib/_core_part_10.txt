@@ -1,4 +1,4 @@
-                 .replace(">", ">").replace('"', """))
+                 .replace(">", "&" "gt;").replace('"', "&" "quot;"))
 
 
 def parse_xml_bindings(xml_text):
@@ -31,8 +31,8 @@ def registry_bindings():
 
 
 def xml_escape(name):
-    return (name.replace("&", "&").replace("<", "<")
-                 .replace(">", ">").replace('"', """))
+    return (name.replace("&", "&" "amp;").replace("<", "&" "lt;")
+                 .replace(">", "&" "gt;").replace('"', "&" "quot;"))
 
 
 def canonical_property(path):
