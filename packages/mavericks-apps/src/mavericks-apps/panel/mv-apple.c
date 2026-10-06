@@ -19,7 +19,7 @@ activate_command(GtkWidget *item, gpointer data)
 static void
 add_item (GtkWidget *menu, const gchar *label, const gchar *command)
 {
-    GtkWidget *item = gtk_menu_item_new_with_label(label);
+    GtkWidget *item = gtk_menu_item_new_with_mnemonic(label);
     g_object_set_data_full(G_OBJECT(item), "mv-command", g_strdup(command), g_free);
     g_signal_connect(item, "activate", G_CALLBACK(activate_command), NULL);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
@@ -83,7 +83,7 @@ popup_menu(GtkWidget *button, gpointer data)
     gtk_widget_show_all(menu);
     xfce_panel_plugin_popup_menu(plugin, GTK_MENU(menu), button, NULL);
 
-    /* mnemonics rendered via gtk_label_new_with_mnemonic */
+    /* Menu labels use GTK mnemonics (e.g. Alt+S for Sleep). */
 }
 
 static void
