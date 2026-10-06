@@ -28,6 +28,14 @@ _bin_dir = os.path.dirname(os.path.abspath(__file__))
 if HAS_GTK and _bin_dir not in sys.path:
     sys.path.insert(0, _bin_dir)
 if HAS_GTK:
+    try:
+    try:
+    from mv_dialogs import alert, confirm_delete
+except ImportError:
+    sys.path.insert(0, "/usr/share/mavericks-apps")
+    from mv_dialogs import alert, confirm_delete, confirm_delete
+except ImportError:
+    sys.path.insert(0, "/usr/share/mavericks-apps")
     from mv_dialogs import alert, confirm_delete
 
 try:
