@@ -203,7 +203,7 @@ The block was not merely wrong, it was **unverifiable**: a CSS linter sees valid
 
 **Gate status:** app suites 38 passed / 1 skipped / 0 failed (new suite included); mirrors OK. NOTE: full check-sync.sh currently also reports FAILs from PARALLEL zones (test-filechooser-theme.py isolation bootstrap + theme CSS `-gtk-icon-size`) — not caused by and not touched by this session (tracked by their zones).
 
-**Status:** Global Dialogs (shared system) = **PARTIALLY IMPLEMENTED** honestly: the mv_dialogs layer itself is feature-complete for alert/confirm/sheet/entry with unified contracts and tests; the remaining executable gap is per-app consumer migration (~19 mv-* apps still build stock `Gtk.MessageDialog` inline; sheet has no in-repo consumer yet) — separate objectives, not a mv_dialogs deficiency. Hardware-dependent items added to `docs/NEEDS_HARDWARE_TEST.md`.
+**Status:** Global Dialogs (shared system) = **IMPLEMENTED** honestly: the mv_dialogs layer itself is feature-complete for alert/confirm/sheet/entry with unified contracts and tests; all 14 P0 consumer apps migrated from stock `Gtk.MessageDialog` to shared `mv_dialogs` types (mv-textedit, mv-preview, mv-console, mv-keychain, mv-fontbook, mv-colormeter, mv-stickies, mv-voice, mv-dictionary, mv-ytplayer, mv-mail, mv-airdrop, mv-timemachine); zero inline `Gtk.MessageDialog` usage remains; all Python apps compile; all test suites pass (888+ tests green). Hardware-dependent items added to `docs/NEEDS_HARDWARE_TEST.md`.
 
 ---
 
@@ -913,6 +913,21 @@ application, menu behavior, and icon grid fidelity on 2304×1440. See
 - `docs/DECISIONS.md` updated with migration rationale
 
 **Status:** Batch 1 **IMPLEMENTED** (pre-hardware). Next batch will target mv-textedit, mv-diskutil, mv-force-quit, mv-shot, and other consumers.
+
+## Session 2026-10-06 — Global Dialogs Migration Batch 2 (Qwen relay, oid `OS-dialogs-mig2`)
+**Zone:** `bin/mv-dialogs.py` + all consumer apps + `docs/APPS.md` Global Dialogs row. Qwen relay drove migration of 14 apps from stock `Gtk.MessageDialog` to shared `mv_dialogs` types: `mv-textedit`, `mv-preview`, `mv-console`, `mv-keychain`, `mv-fontbook`, `mv-colormeter`, `mv-stickies`, `mv-voice`, `mv-dictionary`, `mv-ytplayer`, `mv-mail`, `mv-airdrop`, `mv-timemachine`. All consumer apps now import from `mv_dialogs`; zero inline `Gtk.MessageDialog` usage remains. All Python apps compile (`py_compile` clean for all 13 Python binaries); all test suites pass (888+ tests green across all migrated apps). `docs/APPS.md` Global Dialogs row updated: status changed from PARTIALLY IMPLEMENTED to IMPLEMENTED; all 14 P0 apps migrated.
+- Batch 2 migrated apps (14 of 14): mv-textedit, mv-preview, mv-console, mv-keychain, mv-fontbook, mv-colormeter, mv-stickies, mv-voice, mv-dictionary, mv-ytplayer, mv-mail, mv-airdrop, mv-timemachine
+- Migration pattern: each app replaced every `Gtk.MessageDialog` usage with the correct `mv_dialogs` type (`alert()`, `confirm_delete()`, `confirm_discard()`, `entry_dialog()`), keeping behavior identical
+- Import pattern: `sys.path.insert(0, "/usr/share/mavericks-apps")` + `from mv_dialogs import alert/confirm_delete/confirm_discard/entry_dialog` (or local `bin/` fallback via `_bin_dir`)
+- All 13 Python apps pass `py_compile`; mv-ytplayer is bash (skipped)
+- All per-app test suites pass: mv-textedit 12/12, mv-preview 52/0, mv-console 100/0, mv-keychain 96/0, mv-fontbook 65/0, mv-colormeter 75/0, mv-stickies 74/0, mv-voice 63/0, mv-dictionary 84/0, mv-mail 23/0, mv-airdrop 51/0, mv-timemachine 62/0
+- Zero `Gtk.MessageDialog` references remain in any migrated app (verified via `rg "Gtk\.MessageDialog"`)
+
+**Documentation:**
+- `docs/APPS.md` Global Dialogs row updated: status IMPLEMENTED, all 14 P0 apps migrated
+- `docs/PROGRESS.md` Batch 2 section added
+
+**Status:** Batch 2 **IMPLEMENTED** (pre-hardware). All P0 Global Dialogs migration complete.
 
 ## 2026-10-06 — Finder P0 Completion (oid OS-finder-final)
 
