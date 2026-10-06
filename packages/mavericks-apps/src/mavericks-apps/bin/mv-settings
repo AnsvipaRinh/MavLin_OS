@@ -337,15 +337,20 @@ def build_settings_class():
             self.set_icon_name("preferences-system")
             self.hb = Gtk.HeaderBar(title="System Settings",
                                     show_close_button=True)
+            self.hb.set_has_subtitle(False)
+            self.hb.get_style_context().add_class("mavericks-settings-toolbar")
             self.set_titlebar(self.hb)
 
             self.back = Gtk.Button(label="Show All", visible=False)
             self.back.connect("clicked", lambda _b: self.show_grid())
             self.hb.pack_start(self.back)
 
-            self.search = Gtk.SearchEntry(placeholder_text="Search settings")
+            self.search = Gtk.SearchEntry(placeholder_text="Search")
+            self.search.set_width_chars(22)
+            self.search.set_hexpand(False)
+            self.search.get_style_context().add_class("mavericks-settings-search")
             self.search.connect("search-changed", self.on_search)
-            self.hb.pack_start(self.search)
+            self.hb.pack_end(self.search)
 
             self.stack = Gtk.Stack()
             self.add(self.stack)
