@@ -32,6 +32,14 @@ install: all
 	install -Dm755 bin/mv-dock-config "$(DESTDIR)$(PREFIX)/bin/mv-dock-config"
 	install -Dm755 lib/mission_control.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mission_control.py"
 	install -Dm755 lib/mv_hotkeys_core.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mv_hotkeys_core.py"
+	# Multi-part emergency loader: parts must sit next to the loader or
+	# `import mv_hotkeys_core` raises ImportError after pacman -S.
+	# Claim: Grok — package the continuous _core_part_00..17 siblings.
+	@for p in lib/_core_part_*.txt; do \
+		if [ -f "$$p" ]; then \
+			install -Dm644 "$$p" "$(DESTDIR)$(PREFIX)/share/mavericks-apps/$$(basename $$p)"; \
+		fi; \
+	done
 	install -Dm644 config/hotkeys/skills.json "$(DESTDIR)$(PREFIX)/share/mavericks-apps/hotkeys/skills.json"
 	install -Dm755 lib/mission_control_thumbnail.py "$(DESTDIR)$(PREFIX)/share/mavericks-apps/mission_control_thumbnail.py"
 	for f in bin/mv-settings bin/mv-about bin/mv-activity bin/mv-console \
