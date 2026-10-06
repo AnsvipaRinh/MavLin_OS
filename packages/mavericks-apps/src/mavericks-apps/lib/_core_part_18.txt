@@ -1,0 +1,45 @@
+ue = prop.get("value")
+            if name is None:
+                continue
+            bindings[canonical_property(
+                "/%s/default/%s" % (branch, name))] = value
+    return bindings
+
+
+def registry_bindings():
+    """Registry -> {canonical property path: command, ...}."""
+    return {
+        property_path_identity(row["branch"], row): row["command"]
+        for row in ACTIONS
+    }
+
+
+def xml_escape(name):
+    return (name.replace("&", "&").replace("<", "<")
+                 .replace(">", ">").replace('"', """))
+
+
+def canonical_property(path):
+    """Order-insensitive canonical form of an Xfce property path.
+
+    Xfce writes modifiers in the order <Primary><Alt><Super><Shift>, but any
+    order parses to the same key combination.  Comparing canonically keeps
+    verify/drift detection from flagging a pure ordering difference as a
+    missing binding.
+    """
+    parts = path.split("/")
+    if len(parts) < 4:
+        return path
+    try:
+        accel = normalize_accelerator(parts[-1])
+    except ValueError:
+        return path
+    return "/".join(parts[:-1] + [property_path_identity(parts[-2], accel)
+                                  .split("/")[-1]])
+
+
+def compare_bindings(expected, actual):
+    """Diff two property->command maps. Returns a list of problem strings.
+
+    Both sides are canonicalised first, so a modifier-order difference is not
+    
