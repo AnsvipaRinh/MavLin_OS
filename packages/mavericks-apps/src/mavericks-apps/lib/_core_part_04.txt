@@ -1,41 +1,24 @@
-cation", skill="application"),
+pad", ["Super"], "l",
+      "/usr/bin/mv-launchpad-gui",
+      "core", skill="launchpad"),
+    A("launchpad-edit", "Launchpad Edit Mode", ["Super", "Shift"], "l",
+      "/usr/bin/mv-launchpad-edit", "core", skill="launchpad"),
+    A("mission-control", "Mission Control", ["Super"], "Tab",
+      "mv-mission-control --native", "core", skill="mission-control"),
+    A("mission-control-gui", "Mission Control (Window Overview)", ["Super"], "F3",
+      "mv-mc-gui", "core", skill="mission-control"),
+    A("quicklook", "Quick Look (Finder Selection)", ["Super", "Shift"], "space",
+      "mv-quicklook-thunar", "core", skill="quick-look"),
+    A("screenshot-full", "Screenshot: Full Screen", ["Super", "Shift"], "3",
+      "mv-shot -m", "core", skill="screenshot"),
+    A("screenshot-area", "Screenshot: Selection", ["Super", "Shift"], "4",
+      "mv-shot -i -c", "core", skill="screenshot"),
+    A("screenshot-interactive", "Screenshot: Interactive Tools", ["Super", "Shift"], "5",
+      "mv-shot -i", "core", skill="screenshot"),
 
-    # --- Windows (xfwm4 branch) -------------------------------------------
-    A("minimize-window", "Minimise Window (Command-M)", ["Super"], "m",
-      "mv-minimize-window", "window", skill="window"),
-    A("close-window", "Close Window (Command-W)", ["Super"], "w",
-      "mv-close-window", "window", skill="window"),
-    A("cycle-windows", "Cycle Windows (Alt-Tab)", ["Alt"], "Tab",
-      "cycle_windows_key", "window", skill="application",
-      branch=BRANCH_XFWM4, rebindable=False),
-    A("cycle-windows-reverse", "Cycle Windows Backwards (Alt-Shift-Tab)",
-      ["Alt", "Shift"], "Tab", "cycle_reverse_windows_key", "window",
-      skill="application", branch=BRANCH_XFWM4, rebindable=False),
-    A("tile-up", "Maximise Window", ["Super"], "Up", "tile_up_key",
-      "window", skill="window", branch=BRANCH_XFWM4),
-    A("tile-down", "Minimise Window (window manager)", ["Super"], "Down",
-      "tile_down_key", "window", skill="window", branch=BRANCH_XFWM4),
-    A("tile-left", "Tile Window Left Half", ["Super"], "Left", "tile_left_key",
-      "window", skill="window", branch=BRANCH_XFWM4),
-    A("tile-right", "Tile Window Right Half", ["Super"], "Right",
-      "tile_right_key", "window", skill="window", branch=BRANCH_XFWM4),
-    # macOS Command-` cycles the windows of the frontmost application.  xfwm4
-    # already implements it as switch_window_key; before this it was unbound, so
-    # the closest thing to a Command-Tab-style window switch only reached across
-    # applications (Alt-Tab).  xfwm4's own key handler runs it, so it costs no
-    # resident process.
-    A("cycle-app-windows", "Cycle Windows of This Application (Command-`)",
-      ["Super"], "grave", "switch_window_key", "window", skill="window",
-      branch=BRANCH_XFWM4, rebindable=False),
-    # macOS Control-Command-F puts the focused window in its own full-screen
-    # Space.  xfwm4 exposes the same thing as fullscreen_key; unbound before.
-    A("fullscreen", "Full Screen (Control-Command-F)", ["Super", "Primary"],
-      "f", "fullscreen_key", "window", skill="window", branch=BRANCH_XFWM4),
-
-    # --- Spaces (xfwm4 branch) --------------------------------------------
-    A("workspace-prev", "Move to Previous Space", ["Super", "Alt"], "Left",
-      "left_workspace_key", "workspace", skill="workspace",
-      branch=BRANCH_XFWM4),
-    A("workspace-next", "Move to Next Space", ["Super", "Alt"], "Right",
-      "right_workspace_key", "workspace", skill="workspace",
-   
+    # --- Finder ------------------------------------------------------------
+    A("finder", "Finder", ["Super"], "e", "mv-finder-columns",
+      "finder", skill="finder"),
+    A("finder-columns", "Finder (Browse as Columns)", ["Super", "Shift"], "f",
+      "mv-finder-columns", "finder", skill="finder"),
+    A("new-folder-desktop", "New Folder on Desktop", ["Primary", 
