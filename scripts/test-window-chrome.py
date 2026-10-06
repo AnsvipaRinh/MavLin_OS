@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Validate Mavericks window chrome: left traffic lights + centered title."""
+"""Validate Mavericks window chrome: left traffic lights + centred title.
+
+Cheap static half only. The behaviour that matters — that the traffic lights
+exist at all, in the right order, and that each one closes / minimises /
+maximises a real window — is measured by
+``scripts/test-window-management-gui.py``, which starts the real xfwm4 on the
+pinned Xvfb. That distinction is not cosmetic: this file passed for a long time
+while 40 of the theme's button pixmaps were undecodable and a focused title bar
+had no close button, because asserting the *text* ``button_layout=CHM|`` says
+nothing about the artwork.
+"""
 import os
 import sys
 
@@ -18,7 +28,11 @@ REQUIRED = [
     'name="title_alignment" type="string" value="center"',
     'name="double_click_action" type="string" value="maximize"',
     'name="theme" type="string" value="Mavericks"',
-    'name="titleless_maximize" type="bool" value="true"',
+    # false, not true: macOS 10.9 zoom fills the screen and KEEPS the title bar.
+    # With titleless_maximize=true the measured maximised window had no frame at
+    # all (frame == client, dx=dy=0) — no title bar, so no traffic lights, so it
+    # could not be closed from its own chrome.
+    'name="titleless_maximize" type="bool" value="false"',
 ]
 
 errors = []
@@ -44,5 +58,5 @@ if errors:
 print("ok - button_layout CHM| (close/hide/max left)")
 print("ok - title_alignment center")
 print("ok - double_click_action maximize")
-print("ok - Mavericks theme + titleless maximize")
+print("ok - Mavericks theme; zoom keeps the title bar (titleless_maximize=false)")
 print("ok - xfwm4 mirrors identical")
