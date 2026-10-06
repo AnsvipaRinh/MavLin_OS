@@ -1,6 +1,36 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (Window Management P0 — oid `OS-wm-p0`, canonical #25: the Mavericks traffic lights were never drawn at all — 40 of the 67 shipped XPM assets could not be decoded by GdkPixbuf, so a focused title bar had **no close button**; button artwork is now generated, the title font matched the desktop UI font, snapping is pinned off, a zoomed window keeps its title bar (it used to have no frame at all), `frame_border_*` is dead config and removed, the two missing macOS chords are bound, and a new 39-check suite measures a real xfwm4 on the pinned Xvfb instead of reading config)
+**Last Updated**: 2026-10-06 (Power/Shutdown + Trash + Archive Utility — oid `OS-power-trash-archive`, canonical #14/#15/#16: three surfaces that all read IMPLEMENTED and all shipped broken — `mv-power-ui <action>` mapped no window at all because its argv was read as a file to open (killing Ctrl+Alt+Delete and the Apple menu's Log Out), the ISO had no polkit and no authentication agent so no privileged action could ever be authorized (proven: `CanPowerOff: challenge`, and the same UDisks2 call denied as user / succeeds as root), `mv-eject` was dead code on a removed GIO API, Empty Trash was `trash-empty` with no confirmation from three entry points, Put Back opened a stock terminal that cannot complete, and Archive Utility had no extraction path and no MIME wiring at all; 396 new behavioural assertions)
+---
+
+## Session 2026-10-06 — Power/Shutdown + Trash + Archive Utility (oid `OS-power-trash-archive`, canonical #14/#15/#16)
+
+**Zone:** `bin/mv-eject`, `bin/mv-trash` (verified only), `bin/mv-empty-trash` (new), `bin/mv-trash-putback` (new), `bin/mv-archive-utility` (new), `bin/mv-power-ui`, `lib/mv_hotkeys_core.py` (the two Empty Trash chords only), `desktop/mv-archive-utility.desktop`, `config/thunar-uca.xml` + skel mirror, `config/xfce4-keyboard-shortcuts.xml` + skel mirror, `configs/desktop/polkit/` (new) + skel autostart mirror, `archiso-profile/releng/packages.x86_64` (4 added), `Makefile`, `scripts/check-sync.sh` (one mirror pair), the three new suites + extensions to four existing ones, and the three APPS.md rows. Parallel agents own Finder/mimeapps and the dialogs migration; two shared-harness fixes were unavoidable and are recorded in DECISIONS §14.
+
+**Headline: all three surfaces read `IMPLEMENTED`, and all three were broken in ways their gates could not see, because the gates checked that binaries, XML and key bindings *exist* rather than what they *do*.** 396 new assertions now check observable outcomes.
+
+**Power / Shutdown — a dead hotkey, a missing authorization agent, and a lying docstring.**
+- `mv-power-ui <action>` mapped **no window at all**. `run_application()` was handed `sys.argv`, so `Gtk.Application` read the action word as a file to open and logged *This application can not open files.* Both affected entry points matter: `Ctrl+Alt+Delete` and the Apple menu's **Log Out**. Measured on the pinned Xvfb :97 before/after: nothing vs `492x288+594+381`.
+- The **ISO shipped no polkit and no polkit agent**, so no privileged action could be authorized. Not inferred — proven: live `--status` reports `CanPowerOff: challenge`, and on a loop-mounted vfat volume the identical UDisks2 `Unmount a{sv} {}` call returns *not authorized* as the user and succeeds as root. `polkit`, `polkit-gnome` and `udisks2` are now dependencies; `polkit-gnome` ships **no** autostart file, so a skel entry was required to make it start under Xfce at all.
+- `mv-eject` was **dead code**: `Gio.UnixMountMonitor.get().get_mounts()` does not exist in PyGObject 3.56/GLib 2.88 (nor do `get_mount_list`/`get_mount_for_path`, and `Gio.VolumeMonitor` keeps only `do_*` virtuals), so `Super+F4` and the Finder Eject action always exited 1. Its own docstring also claimed a 2026-10-05 "sync API" fix while the code below it still called the async `unmount_with_operation()` with no main loop — the exact bug it said it had removed — and shelled out with `os.system("umount %r …")`, i.e. a Python `repr` pasted into `/bin/sh`. Rewritten on `/proc/self/mountinfo` (kernel truth, immune to GObject-introspection churn) → UDisks2 unmount + real `Drive.Eject`, falling back to `umount(8)` via argv. Resolution, plan and the refusing of `/`, `/boot` and pseudo filesystems are all pure Python and tested against synthetic mountinfo; two UDisks2 quirks had to be handled to make it work at all — `Unmount`/`Eject` reject a missing argument (InvalidArgs) and their byte-array properties are **NUL-terminated**, so every mount-point comparison silently missed until the terminator was stripped.
+- Smaller: four distinct icons for the four actions (the chooser drew `system-shutdown` for all of them, so Sleep and Log Out announced themselves as Shut Down); the reopen-windows checkbox now appears on **Log Out** as well as Restart, verified by geometry (sleep 231px, restart 256px, logout 288px — the checkbox adds height on exactly the two session-ending dialogs); `--status` no longer dies with a raw `_NoGi` traceback without python-gi, and now reports whether a privileged action could be authorized.
+
+**Trash — an irreversible action behind two hotkeys and a menu item, with no confirmation.**
+- Empty Trash was `trash-empty` straight from **three** entry points: immediate, silent, irreversible. Finder always asks. New `mv-empty-trash` shows the Mavericks destructive confirm with **Cancel as the default**, so a stray Return or Escape cannot erase.
+- Put Back **never worked**: `xfce4-terminal --hold -e trash-restore` opened a stock terminal from a file-manager menu and asked the user to type a number — and `trash-restore <path>` is still interactive (`What file to restore [0..0]:`), while `%f` inside the Trash folder is a `trash://` URI it cannot consume. New `mv-trash-putback` reads the freedesktop trash spec directly, restoring to the exact original path, recreating deleted parents and never overwriting (`copy`, `copy 2`, …).
+- Three hangs in a destructive command, all found by measuring rather than reading: `--yes`/`--no` were parsed and then **not forwarded** to the confirm call (faulthandler pinned it inside `gtk_dialog_run`); `trash-empty` inherited stdin and could block on a pty nobody would answer; `notify-send` blocked ~5.0 s with no daemon, so the hotkey looked frozen (now capped at 2 s). With no usable display the command now **refuses and explains** rather than prompting on stdin — a failed dialog must never read as consent.
+
+**Archive Utility — a renamed File Roller with no expansion path anywhere.**
+- There was **no way to extract an archive** from the Finder context menu (`Compress` existed, its opposite did not), and `mv-archive-utility.desktop` carried **no `MimeType`** while `mimeapps.list` had no archive association — so double-clicking a `.zip` did not open Archive Utility either. Added **Extract Here** and **Expand** (archive globs only) and the MIME list; Compress now uses our own one-shot instead of xarchiver's Linux dialog.
+- Backend is **bsdtar(1) from libarchive**, already an xarchiver dependency (now explicit in the ISO). xarchiver is **kept as the browsing editor** — reuse-first (§5), no second archiver daemon (§7) — with `X-Mavericks-Native-Expansion` recording which half is now ours.
+- Two bugs that would have shipped: the expansion folder kept `.zip`, so the computed destination collided with the archive file and **every plain .zip failed with "demo.zip already exists"**; and `-s` is bsdtar's *pattern* option, not strip-components, so passing it bare made bsdtar consume the next argument. `Gtk.ResponseType.RETRY` does not exist either, so the failure alert had silently degraded to stderr and Try Again never appeared. Failures now also remove the folder they created.
+
+**Tests:** `scripts/test-mv-eject.py` (67), `scripts/test-mv-trash-surface.py` (84), `scripts/test-mv-archive-utility.py` (81) — all new, all wired into `check-sync.sh` by its existing `test-mv-*.py` discovery; `test-mv-power-ui.py` 44 → 67; `test-empty-trash-keys.py` and `test-trash-eject-keys.py` now reject a rebound raw `trash-empty`; `test-hotkey-layer.py` extended by the registry change. Source-shape assertions run against an **AST walk that excludes docstrings**, because two of these files document the dead APIs they replaced. GUI smoke on the pinned Xvfb :97 (`GDK_BACKEND=x11` — without it GTK silently picks **Wayland** and the windows go to the host, which is exactly what `gui-isolation.sh` exists to prevent): Empty Trash's alert maps and Escape cancels, the Archive Utility failure alert maps and Escape cancels, the power chooser and all four presets map. Note the pinned display is shared with other suites — a foreign Chromium window was present during this session and window-targeted `xdotool key --window` was used rather than focus-based input.
+
+**Honest remaining gaps** (also in `docs/NEEDS_HARDWARE_TEST.md`): ejecting still depends on the USB bridge honouring a power-off, which only hardware shows; suspend/resume on Apple S3X, real battery telemetry and HiDPI dialog rendering are unchanged hardware items; `MiscConfirmMoveToTrash=TRUE` in `thunarrc` makes Thunar's *native* Delete key confirm a move to Trash although macOS confirms only Empty Trash — documented in the Trash row, not edited, because the file belongs to the Finder owner; `--new` writes .zip only and Archive Utility's "New Archive…" format chooser does not exist; the browsing window is xarchiver furniture dressed by the shared theme rather than re-skinned; the `.desktop` MimeType and the tool's own list are now gated for equality because they drifted once.
+
+**Not a blocker, reported for the record:** `scripts/test-mv-finder-config.py` (another agent's untracked in-flight file) fails `check-sync.sh`'s GUI-isolation coverage gate because it does not bootstrap `mv_gui_iso`. It is outside this zone and was left untouched; every suite in this zone passes the gate.
+
 ---
 
 ## Session 2026-10-06 — Window Management P0 (oid `OS-wm-p0`, canonical objective #25)
@@ -883,3 +913,49 @@ application, menu behavior, and icon grid fidelity on 2304×1440. See
 - `docs/DECISIONS.md` updated with migration rationale
 
 **Status:** Batch 1 **IMPLEMENTED** (pre-hardware). Next batch will target mv-textedit, mv-diskutil, mv-force-quit, mv-shot, and other consumers.
+
+## 2026-10-06 — Finder P0 Completion (oid OS-finder-final)
+
+**Objective.** Close all executable pre-hardware gaps for the Finder surface (canonical #1) per the §13.6 checklist.
+
+**Changes.**
+- **Dead config replaced:** `thunarrc` (INI, never read by Thunar 4.20 xfconf) → `configs/desktop/xfce/thunar.xml` (xfconf perchannel XML, mirrored to skel). Every property name validated against `strings /usr/bin/thunar`. 18 properties seeded for Finder coherence (shortcuts pane, 64px icons, status bar, interleaved folders, trash without confirmation, recursive search LOCAL, volume management).
+- **accels.scm created:** `configs/desktop/thunar/accels.scm` + skel mirror with 4 Finder Cmd-like bindings: Super+[ back, Super+] forward, Super+F search, Return rename. Super+Arrows banned (global registry owns them for tiling).
+- **MIME defaults added:** `mimeapps.list` now maps 9 image types + PDF → `mv-preview`, 5 text types → `mv-textedit`, directories → `mv-finder`. Verified via live `Gio.AppInfo.get_default_for_type()` in synthetic XDG tree.
+- **Desktop MimeType coverage:** `mv-finder.desktop` (inode/directory), `mv-textedit.desktop` (text/plain, markdown, JSON, shellscript, log).
+- **thunar-volman added:** `packages.x86_64` for removable media automount (event-driven, zero idle cost).
+- **thunarrc removed:** Both configs + skel mirrors deleted; dead-config ban enforced in test.
+
+**Tests.**
+- `scripts/test-mv-finder-config.py` — 11 headless contract checks (xfconf properties, accels paths, MIME resolution, desktop coverage, packages). Auto-discovered by `check-sync.sh`.
+- `scripts/test-thunar-finder-gui.py` — live AT-SPI assertions on pinned Xvfb :97: channel values live, shortcuts pane + bookmarks present, status bar, toolbar buttons, search toggle, navigation history, list view row activation. Super-modified chords and Return-rename opportunistic (skipped when focus unavailable on shared display).
+
+**Documentation updated.**
+- `docs/APPS.md` Finder row: thunar.xml, accels.scm, mimeapps.list, thunar-volman reflected; thunarrc references removed.
+- `docs/DECISIONS.md` — full decision record for thunarrc→xfconf, accels.scm, Return=rename, MIME defaults, thunar-volman.
+- `docs/NEEDS_HARDWARE_TEST.md` — updated Finder sections: keyboard shortcuts, MIME defaults, view/zoom fidelity, search (Thunar 4.20 native Ctrl+F closes in-toolbar search delta).
+
+**§13.6 checklist status.** All items implemented pre-hardware:
+- sidebar (Places/Devices/favourites via shortcuts pane + .gtk-bookmarks) ✓
+- navigation history (back/forward via toolbar + Go menu) ✓
+- toolbar (Back/Forward/Open Parent) ✓
+- view modes (icon/list/compact; 64px/150% default; Ctrl+1/2/3 switch) ✓
+- search (Thunar 4.20 native Ctrl+F + Super+F accel + UCA mv-finder-search) ✓
+- Get Info / Open With / Rename / Move to Trash / Empty Trash / Eject / Quick Look (uca.xml + mv-* helpers) ✓
+- keyboard navigation (accels.scm + global registry) ✓
+- drag-and-drop (Thunar native) ✓
+- MIME associations (mimeapps.list + desktop MimeType) ✓
+- removable media (thunar-volman + misc-volume-management) ✓
+- bookmarks (.gtk-bookmarks seeded from skel template) ✓
+- status bar (item count + free space) ✓
+- hidden files (off by default, Ctrl+H toggles) ✓
+
+**Remaining hardware validation items (NEEDS_HARDWARE_TEST).**
+- Super+[/]/f key synthesis on real keyboard
+- Return-rename behaviour (focus + key interaction)
+- MIME default double-click (images/PDF→mv-preview, text→mv-textedit)
+- Native Space Quick Look limitation (ThunarX plugin required)
+- 2304×1440 visual validation of shortcuts pane, status bar, icons
+- Real Apple S3X NVMe search latency
+
+**Status:** **IMPLEMENTED — HARDWARE VALIDATION REQUIRED** (pre-hardware complete).

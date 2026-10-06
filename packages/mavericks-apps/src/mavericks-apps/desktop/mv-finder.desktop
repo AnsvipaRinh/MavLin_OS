@@ -6,4 +6,5 @@ Exec=mv-finder-columns %U
 Icon=folder
 Categories=System;FileTools;
 StartupNotify=true
+MimeType=inode/directory;inode/mount-point;
 X-Mavericks-Alias-For=thunar

@@ -43,6 +43,7 @@ intel-gpu-tools
 intel-ucode
 iw
 less
+libarchive
 libnotify
 libsecret
 lightdm
@@ -69,6 +70,8 @@ pavucontrol
 pipewire
 pipewire-alsa
 pipewire-pulse
+polkit
+polkit-gnome
 plank
 plocate
 powertop
@@ -83,9 +86,11 @@ systemd-resolvconf
 testdisk
 thunar
 thunar-archive-plugin
+thunar-volman
 tlp
 trash-cli
 turbostat
+udisks2
 upower
 usbutils
 webkit2gtk-4.1

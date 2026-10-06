@@ -1605,3 +1605,91 @@ Two more findings, both from measuring the frame instead of the config.
 **Verification:** All 5 app test suites pass (41+74+32+64+141), `py_compile` clean, `scripts/check-sync.sh` Python compile gate green, GUI smoke of `mv-notes` on pinned Xvfb :97 — imports OK, host-display guard 0 attempts.
 
 **Documentation:** `docs/APPS.md` Global Dialogs row updated (batch 1 of N complete), `docs/PROGRESS.md` session recorded.
+
+---
+
+## 2026-10-06 — Power/Shutdown, Trash, Archive Utility (oid `OS-power-trash-archive`)
+
+**Context:** three small canonical surfaces (#14 Power/Shutdown, #15 Trash, #16 Archive Utility) audited against the shipped code rather than the docs. All three had rows reading `IMPLEMENTED`, and all three had executable defects the previous gates could not see, because the gates checked for the *presence* of binaries, XML and key bindings rather than for behaviour.
+
+### Power / Shutdown (#14)
+
+1. **Every preset dialog was dead.** `main()` passed `sys.argv` to `run_application()`, and `Gtk.Application` reads its argv as *files to open*. `mv-power-ui logout` logged `This application can not open files.` and mapped no window. Both entry points that matter are affected: `Ctrl+Alt+Delete` and the Apple menu's **Log Out** (mv-apple routes through `mv-power-ui <action>`). Measured on the pinned Xvfb :97: no window before, `492x288+594+381` after. Fix: pass an explicit `[]` — the action is already consumed by argparse.
+2. **The ISO had no polkit and no polkit agent at all.** `packages.x86_64` contained neither `polkit` nor `udisks2`, so `org.freedesktop.login1.power-off` could never be authorized and no UDisks2 object existed to eject through. Proven end-to-end rather than inferred: live `--status` reports `CanPowerOff: challenge` (logind *requires* authorization), and on a loop-mounted vfat volume the identical `Filesystem.Unmount a{sv} {}` call returns *not authorized* as the user while succeeding as root. Added `polkit`, `polkit-gnome`, `udisks2` to the ISO. `polkit-gnome` ships **no** autostart file (Arch file list: only the agent binary and an `applications/` launcher), so under Xfce it never starts by itself — a skel autostart entry was required, not optional. **Decision:** an authentication agent rather than weakening the privilege model. No `.pkla`, no `pkexec`, no setuid, no sudoers; `SECURITY.md`'s claim that "polkit rules only for mv-power-ui" was fiction and is corrected (the project ships no polkit rules at all — only the stock systemd ones).
+3. **Per-action icons.** The chooser drew `system-shutdown` for all four actions, so Sleep and Log Out announced themselves as Shut Down. Now `media-playback-pause` / `view-refresh` / `system-shutdown` / `system-log-out`.
+4. **Reopen-windows checkbox scope.** It was offered for Restart only, although it is a *session* option and macOS shows it on **Log Out** in particular — the more surprising of the two. Now both, verified by geometry: sleep 231px, restart 256px, logout 288px, i.e. the checkbox adds height on exactly the two session-ending dialogs and not on Shut Down.
+5. `--status` no longer dies with a raw `_NoGi` traceback when PyGObject is absent (the gi import sat outside the `try` in `query_capabilities`) and now reports whether a polkit agent could grant a privileged action.
+
+### Trash (#15)
+
+6. **Empty Trash had no confirmation anywhere.** It was `trash-empty` wired straight from three entry points (Super+Shift+Delete, Super+Shift+E, the Finder context action): immediate, silent and irreversible. Finder always asks. New `mv-empty-trash` shows `mv_dialogs.confirm_delete` with **Cancel as the default action**, so an extra Return or a stray Escape cannot erase.
+7. **Put Back never worked.** It was `xfce4-terminal --hold -e trash-restore` — a stock terminal opened from a file-manager menu that then asks the user to type a number. Measured: `trash-restore <path>` is *still* interactive (prints `0 <date> <path>` then `What file to restore [0..0]:`), and `%f` inside the Trash folder is a `trash://` URI it cannot consume. New `mv-trash-putback` reads the freedesktop spec directly (`info/<n>.trashinfo` → `Path=`), which is exact, silent and non-interactive, recreates missing parents, and never silently overwrites (`copy`, `copy 2`, …).
+8. **A destructive command must never block on stdin or on a dialog it cannot show.** Three separate hangs were found and closed: `--yes`/`--no` were parsed and then *not forwarded* to the confirm call (faulthandler pinned it in `gtk_dialog_run`); `trash-empty` inherited stdin and could block on a pty nobody would answer; `notify-send` blocked ~5.0 s with no notification daemon, so a hotkey looked frozen. **Decision:** with no usable display the command **refuses** and explains, rather than prompting on stdin — a failed dialog must never be read as consent. `--yes` is the only non-interactive erase path and is deliberately not bound to a key. Display usability is asked of GDK (`Gdk.Display.get_default()` with `require_version("Gdk","3.0")` — without the version pin Gdk4 is loaded and the check is always False, which it was, and it refused even on a working display).
+
+### Archive Utility (#16)
+
+9. **There was no extraction path at all.** `thunar-uca.xml` had a **Compress** action and nothing for the other direction, and `mv-archive-utility.desktop` carried **no `MimeType`** while `mimeapps.list` had no archive association — so double-clicking a `.zip` did not land on Archive Utility either. Added **Extract Here** and **Expand** (archive globs only; macOS shows them nowhere else) and the `MimeType` list. `Compress` now goes through `mv-archive-utility --new` instead of opening xarchiver's Linux dialog.
+10. **Backend = bsdtar(1) from libarchive**, already a hard dependency of xarchiver, so no new package was pulled in for extraction (it is now an explicit ISO dependency for honesty). **Decision: keep xarchiver as the browsing editor** (`--editor`, and the no-argument launch) rather than re-skinning a mature archiver — reuse-first (§5), and no second archiver daemon on a fanless Core M (§7). The `X-Mavericks-Alias-For=xarchiver` key is kept *and* answered with `X-Mavericks-Native-Expansion`, because only the expansion half is now ours.
+11. **macOS naming semantics, and two bugs found while implementing them.** The expansion folder strips the *whole* extension chain (`demo.tar.gz` → `demo`, `demo.zip` → `demo`). The first implementation kept `.zip`, so the computed destination collided with the archive file itself and **every plain .zip failed with "demo.zip already exists"**. And `-s` is bsdtar's *pattern* option, not a strip-components flag: passing it bare makes bsdtar read the next argument as the pattern, which broke both the extract and compress paths ("Invalid replacement string"). `Gtk.ResponseType.RETRY` does not exist (AttributeError), so the failure alert silently degraded to stderr and the Try Again button never appeared; it is `ACCEPT`.
+12. **Failure handling**: a failed expansion removes the folder it created, so a corrupt archive never leaves a half-extracted directory; the alert offers **Try Again / Cancel** and earns exactly one retry before stopping.
+
+### Cross-cutting
+
+13. **Gate design — measure behaviour, not presence.** All three surfaces passed their old gates while being dead. The new suites (396 assertions: `test-mv-eject` 67, `test-mv-trash-surface` 84, `test-mv-archive-utility` 81, plus 23 added to `test-mv-power-ui`) assert observable outcomes: a resolved mount, an item restored to its exact original path, an alert that cancels on Escape, a folder actually on disk after an expansion. Source-shape assertions are made against an **AST walk that excludes docstrings**, because both `mv-eject` and `mv-archive-utility` document the dead APIs they replaced and a plain text search reports live code that is not there.
+14. **Two shared-harness bugs had to be fixed in files outside this zone** (recorded for transparency): `scripts/test-mv-finder-small.py::test_eject` drove the removed `find_mount(mounts, arg)` duck-typed API and stripped `import gi` with a bare substring replace that ate the statement out of an indented `try:` block — it now uses the mountinfo API and a column-0 anchored regex. `scripts/test-thunar-uca.py` hard-required `patterns=*` on every action, which forbids the pattern-restricted archive actions macOS actually needs; it now requires non-empty patterns, `patterns=*` for everything else, and validates the restricted set explicitly.
+
+### Not changed, deliberately
+
+- `MiscConfirmMoveToTrash=TRUE` in `thunarrc` makes Thunar's native Delete key confirm a move to Trash, which macOS does not (it only confirms Empty Trash). The `mv-trash` path does not confirm, so this is the Thunar-native path only, and the file belongs to the Finder owner — documented in the Trash row instead of edited.
+- `mv-trash` itself was left alone apart from verification: it already does the right thing (`trash-put` with a `gio trash` fallback).
+- `mv-apple.c` and `panel/` were only *verified* (Apple menu → `mv-power-ui` → `systemctl` only as a missing-helper fallback); the Menu Bar row is not this zone.
+
+### Finder Integration P0 (oid OS-finder-final) — 2026-10-06
+
+**Context.** The Finder surface (canonical #1) had three categories of executable pre-hardware gaps per the §13.6 checklist:
+
+1. **Dead configuration** — `thunarrc` (INI) was shipped as source of truth but Thunar 4.20 (xfconf mandatory) never reads it. Measured 2026-10-06 on the pinned Xvfb :97: fresh profile with repo thunarrc present got `last-icon-view-zoom-level=THUNAR_ZOOM_LEVEL_100_PERCENT` and only `/last-view` + zoom in the channel; identical to a config-less run. Same class as the plank INI and xfwm4 `frame_border_*` dead-key bugs already corrected in this repo.
+2. **Missing MIME defaults** — `mimeapps.list` only mapped directories → `mv-finder.desktop`. Double-click on images/PDF/text opened stock Linux defaults (xdg-open fallthrough), not the Mavericks apps (`mv-preview`, `mv-textedit`). Preview agent identified this as "MIME default SET NOWHERE" — integration zone hand-off.
+3. **Keyboard gaps** — Finder Cmd+[/] (back/forward), Cmd+F (search), Return (rename) had no Thunar-local bindings. Super-modified chords cannot be synthesised on the shared Xvfb (known limitation, documented in Window Management row).
+
+**Decisions.**
+
+1. **thunarrc → xfconf perchannel XML (thunar.xml).** Replaced `configs/desktop/thunar/thunarrc` + skel mirror with `configs/desktop/xfce/thunar.xml` → `archiso-profile/releng/airootfs/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml`. Every property name validated against `strings /usr/bin/thunar` (real load-bearing keys only — the INI also invented `ShowToolbar`, `ShortcutsPaneVisibility`, `TreePaneWidth` etc. that exist in no Thunar). Values chosen for Finder coherence:
+   - `last-side-pane=ThunarShortcutsPane` (Finder Favorites/Devices sidebar, not filesystem tree)
+   - `last-icon-view-zoom-level=THUNAR_ZOOM_LEVEL_150_PERCENT` (64px icons = Finder default)
+   - `last-statusbar-visible=true` (Finder item count + free space)
+   - `misc-folders-first=false` (Finder interleaves folders with files by name)
+   - `misc-confirm-move-to-trash=false` (Finder Cmd+Delete trashes without confirmation; reversible via Put Back)
+   - `misc-recursive-search=THUNAR_RECURSIVE_SEARCH_LOCAL` (Thunar 4.20 native in-window search — closes the "in-toolbar search field" architectural delta)
+   - `misc-volume-management=true` (removable media automount via thunar-volman)
+
+2. **accels.scm for Finder Cmd-like shortcuts.** Created `configs/desktop/thunar/accels.scm` + skel mirror with four bindings:
+   - `<Actions>/ThunarStandardView/back` → `<Super>bracketleft` (Cmd+[)
+   - `<Actions>/ThunarStandardView/forward` → `<Super>bracketright` (Cmd+])
+   - `<Actions>/ThunarWindow/search` → `<Super>f` (Cmd+F)
+   - `<Actions>/ThunarStandardView/rename` → `Return` (Finder: Return renames, never opens)
+   Deliberately NOT bound: Super+Up/Down/Left/Right (global registry owns them for window tiling; a menu accel cannot win the WM grab). Super-modified synthesis is impossible on the shared Xvfb — structural validation in `test-mv-finder-config.py`, key behaviour in NEEDS_HARDWARE_TEST.
+
+3. **Return=rename binding** — Finder semantics: Return never opens (Cmd+O / double-click open). Thunar default is F2=rename, Enter=open. The accels.scm override makes Return trigger the `rename` action. Risk: could interfere with Return in location entry / search entry / dialog buttons. GTK entries consume Return first (widget-level binding), so entry fields are protected. Dialog default buttons also consume Return. Only the file view selection gets the rename behaviour. If real hardware reveals a conflict, it is a one-line revert in accels.scm. Structural validity checked headless; key behaviour is NEEDS_HARDWARE_TEST.
+
+4. **MIME defaults in mimeapps.list.** Added 18 defaults:
+   - 9 image types + PDF → `mv-preview.desktop`
+   - 5 text types (plain, markdown, JSON, shellscript, log) → `mv-textedit.desktop`
+   - directories → `mv-finder.desktop`
+   Verified via live `Gio.AppInfo.get_default_for_type()` in a synthetic XDG tree built from the repo's own .desktop files.
+
+5. **Desktop MimeType coverage.** Added `MimeType=inode/directory;inode/mount-point;` to `mv-finder.desktop` and `MimeType=text/plain;text/markdown;application/json;application/x-shellscript;text/x-log;` to `mv-textedit.desktop` so the defaults are also discoverable in "Open With" lists.
+
+6. **thunar-volman package.** Added to `packages.x86_64` after `thunar-archive-plugin` — enables removable media automount via `misc-volume-management=true` (event-driven, no daemon, zero idle cost when no media).
+
+7. **thunarrc removed.** Both `configs/desktop/thunar/thunarrc` and the skel mirror deleted. `scripts/check-sync.sh` pairs updated. Dead config ban enforced by `test-mv-finder-config.py` (scans repo for any thunarrc).
+
+**Tests.**
+- `scripts/test-mv-finder-config.py` — 11 headless contract checks (xfconf properties, accels paths, MIME resolution, desktop coverage, packages). Runs under `check-sync.sh` auto-discovery.
+- `scripts/test-thunar-finder-gui.py` — live AT-SPI assertions on pinned Xvfb :97: channel values live, shortcuts pane + bookmarks present, status bar, toolbar buttons, search toggle, navigation history (Go→Open Parent → Back → Forward), list view row activation. Super-modified chords and Return-rename are opportunistic (skipped loudly when focus unavailable on shared display); structural validation covers the bindings, key behaviour is NEEDS_HARDWARE_TEST.
+
+**Cross-zone boundary respected.** uca.xml (canonical #22) was NOT touched — already finalised in commit 0ce15f5. mv-power-ui / mv-trash / xarchiver area and dialogs migration are other agents' zones.
+
+**NEEDS_HARDWARE_TEST updates.** Added checklist items for: Super+[/]/f key synthesis, Return-rename behaviour, MIME default double-click verification, native Space Quick Look limitation, Thunar 4.20 in-window search (Ctrl+F) validation, sidebar shortcuts pane + bookmarks rendering, status bar text.
+
+**Why not fork Thunar for column view / native Space?** Same rationale as prior decisions: ThunarX has no view provider (DECISIONS.md 1440), Space binding needs a C/Vala plugin. The companion browsers (`mv-finder-columns`, `mv-finder-search`) and the UCA Quick Look action cover the user-visible gaps. Rewriting a mature file manager backend for two keybindings contradicts reuse-first (§5) and the energy budget (§7).

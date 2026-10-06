@@ -6,4 +6,5 @@ Exec=mv-textedit %U
 Icon=text-editor
 Categories=Utility;TextEditor;
 StartupNotify=true
+MimeType=text/plain;text/markdown;application/json;application/x-shellscript;text/x-log;
 X-Mavericks-Native=true

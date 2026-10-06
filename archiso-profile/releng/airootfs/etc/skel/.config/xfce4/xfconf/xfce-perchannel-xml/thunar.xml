@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- thunar.xml — Finder-like defaults for the xfconf "thunar" channel.
+     SOURCE OF TRUTH, mirrored to airootfs skel (gated by scripts/check-sync.sh).
+
+     Why a perchannel XML and not ~/.config/Thunar/thunarrc: Thunar 4.20
+     (Arch build) uses xfconf as a hard settings backend and NEVER reads the
+     legacy INI.  Measured 2026-10-06 on the pinned Xvfb :97 — with the repo
+     thunarrc present a fresh profile still got last-icon-view-zoom-level=
+     THUNAR_ZOOM_LEVEL_100_PERCENT and only /last-view + zoom in the channel;
+     identical to a config-less run (docs/DECISIONS.md).  The same experiment
+     with this file seeded under
+     ~/.config/xfce4/xfconf/xfce-perchannel-xml/thunar.xml carried every
+     listed property into the live channel.  Every property name below was
+     taken from `strings /usr/bin/thunar` (real, load-bearing keys only —
+     the old INI also invented ShowToolbar/ShortcutsPaneVisibility/TreePane*
+     keys that exist in no Thunar).
+
+     Finder (Mac OS X 10.9) mapping, property by property:
+       icon view default, 64 px icons      = Finder default icon size
+       shortcuts side pane                 = Finder Favorites/Devices sidebar
+                                            (NOT the filesystem tree)
+       status bar visible                  = Finder item count / free space
+       hidden files off                    = Finder default, Ctrl+H toggles
+       folders interleaved, case-insensitive sort = Finder name sort
+       double-click open (single-click off)= Finder open behavior
+       SIMPLE dates                        = Finder "Today, HH:MM"
+       expandable folders                  = Finder list-view disclosure arrows
+       horizontal wheel navigates          = Finder two-finger swipe back/forward
+       trash without confirmation          = Finder Cmd+Delete (reversible, Put Back exists)
+       recursive search LOCAL              = Finder in-window search, never stalls on network
+       volume management on                = removable media automount via thunar-volman
+-->
+<channel name="thunar" version="1.0">
+  <!-- view + zoom -->
+  <property name="last-view" type="string" value="ThunarIconView"/>
+  <property name="last-icon-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_150_PERCENT"/>
+  <property name="last-details-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_100_PERCENT"/>
+  <property name="last-compact-view-zoom-level" type="string" value="THUNAR_ZOOM_LEVEL_100_PERCENT"/>
+  <!-- sidebar + bars -->
+  <property name="last-side-pane" type="string" value="ThunarShortcutsPane"/>
+  <property name="last-statusbar-visible" type="bool" value="true"/>
+  <property name="last-show-hidden" type="bool" value="false"/>
+  <!-- sorting: Finder interleaves folders with files, by name, ascending, case-insensitive -->
+  <property name="last-sort-column" type="string" value="THUNAR_COLUMN_NAME"/>
+  <property name="last-sort-order" type="string" value="GTK_SORT_ASCENDING"/>
+  <property name="misc-folders-first" type="bool" value="false"/>
+  <property name="misc-case-sensitive" type="bool" value="false"/>
+  <property name="misc-date-style" type="string" value="THUNAR_DATE_STYLE_SIMPLE"/>
+  <!-- open behavior -->
+  <property name="misc-single-click" type="bool" value="false"/>
+  <property name="misc-expandable-folders" type="bool" value="true"/>
+  <property name="misc-horizontal-wheel-navigates" type="bool" value="true"/>
+  <!-- trash: Finder moves to Trash without a confirmation dialog;
+       the action stays reversible through Put Back -->
+  <property name="misc-confirm-move-to-trash" type="bool" value="false"/>
+  <!-- search + removable media -->
+  <property name="misc-recursive-search" type="string" value="THUNAR_RECURSIVE_SEARCH_LOCAL"/>
+  <property name="misc-volume-management" type="bool" value="true"/>
+</channel>

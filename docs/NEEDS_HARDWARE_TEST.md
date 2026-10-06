@@ -23,12 +23,30 @@ reach it, 8 pins, bottom-edge geometry, user customisation preserved), but the
 - [ ] Recursive search latency over the real $HOME tree on Apple S3X NVMe (walk backend) and plocate fast-path with real index
 - [ ] UCA icons resolve (edit-find, format-justify-fill via Mavericks→Adwaita inheritance)
 - [ ] Esc semantics in the search window do not collide with xfwm4 keybindings on real session
+- [ ] Thunar 4.20 native in-window search (Ctrl+F) verified functional — closes the "in-toolbar search field" architectural delta
 
 ## Finder view/zoom fidelity — hardware validation (phase finder-p0 close-out)
-- [ ] 64px icon default (THUNAR_ZOOM_LEVEL_150_PERCENT) at 2x scaling on 2304×1440 — confirm Mavericks-like proportions; revisit if oversized for the 1152×720 logical space
+- [ ] 64px icon default (THUNAR_ZOOM_LEVEL_150_PERCENT via xfconf thunar.xml) at 2x scaling on 2304×1440 — confirm Mavericks-like proportions; revisit if oversized for the 1152×720 logical space
 - [ ] Ctrl+=/-/0 zoom feel in Thunar (icon/list/compact views) and in mv-finder-search / mv-finder-columns (16/22/32/48 ladder)
 - [ ] Ctrl+1/2/3 view switching does not collide with anything on real session
 - [ ] Per-directory zoom memory works over real GVfs metadata on S3X (folder opened at custom zoom stays zoomed)
+- [ ] Sidebar shows Places/Devices sections + .gtk-bookmarks favourites (Documents, Pictures, Downloads) — Finder shortcuts pane, not tree
+- [ ] Status bar shows item count + free space at bottom
+- [ ] Hidden files off by default; Ctrl+H toggles
+
+## Finder keyboard shortcuts — hardware validation (phase finder-p0)
+- [ ] Super+[ / Super+] back/forward in Thunar (accels.scm bindings)
+- [ ] Super+F opens in-window search (accels.scm binding)
+- [ ] Return on selection enters rename mode (Finder semantics), NOT open — accels.scm Return→rename
+- [ ] Native Space Quick Look limitation: Thunar has no Space binding for custom actions; current workaround Super+Shift+Space (uca.xml) works, native Space would need ThunarX plugin
+- [ ] Ctrl+O / double-click open; F2 rename fallback
+
+## Finder MIME defaults — hardware validation (phase finder-p0)
+- [ ] Double-click image (PNG/JPEG/GIF/BMP/WebP/TIFF/SVG/ICO/XPM) opens in mv-preview
+- [ ] Double-click PDF opens in mv-preview
+- [ ] Double-click text (plain/markdown/JSON/shellscript/log) opens in mv-textedit
+- [ ] Double-click folder opens in Thunar (mv-finder)
+- [ ] "Open With" context menu shows mv-preview for images/PDF, mv-textedit for text, Thunar for folders
 
 ## Browser chrome visual checklist (phase 0.70, pixel validation on HW)
 All states below are covered-by-CSS (gate-validated, see docs/SAFARI_SPEC.md §17)
@@ -484,16 +502,49 @@ GUI smoke on pinned Xvfb :97; listed below is ONLY what needs the machine)
 - [ ] Energy: idle CPU ~0 between interactions (confirm the ObjectManager signal does not wake the app); app memory after 10 min idle
 
 ## Power UI — hardware validation
-- [ ] Ctrl+Alt+Escape opens the chooser; Ctrl+Alt+Delete opens the Log Out dialog
+- [ ] Ctrl+Alt+Escape opens the chooser; Ctrl+Alt+Delete opens the Log Out dialog — **both presets must actually map a window**; `mv-power-ui <action>` used to hand its argv to `Gtk.Application` and print "This application can not open files" instead of showing anything, so a window that fails to appear here is a regression, not a quirk
 - [ ] Sleep: system suspends and resumes cleanly (S3) on MacBook10,1; Wi-Fi/audio survive resume
 - [ ] Restart: 60 s countdown auto-executes; Cancel aborts; reopen-windows checkbox restores session
 - [ ] Shut Down: powers off completely; next boot starts firmware/UEFI normally
 - [ ] Log out: xfce4-session-logout terminates the session back to the login screen
+- [ ] **Reopen-windows checkbox appears on BOTH the Restart and the Log Out dialog** (macOS shows it on both) and on neither Shut Down nor Sleep
+- [ ] **Chooser shows four distinct icons** (Sleep pause / Restart refresh / Shut Down shutdown / Log Out log-out). A shut-down icon on the Sleep row means the regression is back.
 - [ ] Battery footer shows real percentage/state from UPower (Charging/Discharging)
-- [ ] polkit interactive auth (if required) renders correctly during power actions
+- [ ] polkit interactive auth renders correctly during power actions. **The ISO previously shipped no `polkit` and no agent**, so these prompts were unanswerable and every privileged action could only fail. Now `polkit` + `polkit-gnome` are dependencies and a skel autostart registers the agent (polkit-gnome ships no autostart file of its own, so without our entry it never starts under Xfce). Confirm one real prompt per action, and one Cancel.
+- [ ] **Polkit denial path**: authenticate as a non-admin user, cancel the prompt during Shut Down → the dialog reports the failure and the machine stays up; nothing raw from GDBus appears on screen
+- [ ] `mv-power-ui --status` lists a reachable agent; `CanPowerOff: challenge` is expected for an active local session (it means authorization *is* required — that is correct, not a fault)
 - [ ] Hardware power button (top-right) behavior is coherent with the dialog (logind HandlePowerKey)
 - [ ] Visual validation: undecorated Mavericks alert renders correctly on 2304×1440 panel (shadow, rounded corners, aqua default button)
 - [ ] Countdown label updates each second; Escape/Cancel aborts without executing
+
+## Eject (mv-eject) — hardware validation
+- [ ] Insert a real USB stick: `Super+F4` and the Finder "Eject" context action both resolve it and prompt for authorization. **Before 2026-10-06 `mv-eject` was dead code** — it called `Gio.UnixMountMonitor.get().get_mounts()`, which does not exist in PyGObject (3.56.3 / GLib 2.88), so every run exited 1. A resolution failure here means the GIO API crept back in; `/proc/self/mountinfo` is the intended layer.
+- [ ] `udisksctl status` shows the drive; eject goes through `Drive.Eject` (removable LED goes out) — not merely an unmount
+- [ ] Busy volume: open a file from the stick, eject → clear "the volume is in use — close any open files and try again", no raw D-Bus text
+- [ ] Policy-denied eject → "policy does not allow ejecting this volume"
+- [ ] Double-descent case: an SD card reader with a card and then a card removed — eject must not claim success when the mount is still present (the post-check exists for this)
+- [ ] Path with spaces / a quote in the name still ejects (the old fallback pasted a Python `repr` into `/bin/sh`)
+- [ ] Apple S3X internal NVMe is **never** offered for eject; `/`, `/boot`, `/home` and pseudo filesystems are refused with the reason shown
+
+## Trash — hardware validation
+- [ ] Empty Trash from the three entry points (Super+Shift+Delete, Super+Shift+E, Finder "Empty Trash…") shows "Are you sure you want to permanently erase the items in the Trash? / You can't undo this action." with the item count and size; **Cancel is the default** — pressing Return alone must not erase
+- [ ] Escape and the window close button both abort with the Trash intact
+- [ ] After confirming, the item count/size line and the completion notification look right; `mv-empty-trash --status` agrees with what Finder shows
+- [ ] Put Back from the Trash folder restores to the **exact original path**, including a parent folder that was deleted in the meantime, and never overwrites: a second item with the same name lands as "name copy" / "name copy 2"
+- [ ] Put Back works on a volume whose trash root is on a different filesystem (cross-device move)
+- [ ] Empty Trash with an empty Trash reports "The Trash is already empty" and does nothing
+- [ ] Desktop Trash icon (`show-trash=true`) and the Dock `docklet://trash` pin agree with the real Trash contents, including the full/empty icon change
+- [ ] Known divergence, recorded not fixed: Thunar's own Delete key still confirms a move to Trash because `thunarrc` has `MiscConfirmMoveToTrash=TRUE`; macOS confirms only Empty Trash. `mv-trash` (context menu, Super+Delete) does not confirm. Owned by the Finder zone.
+
+## Archive Utility — hardware validation
+- [ ] Double-clicking `.zip`, `.tar.gz`, `.7z`, `.rar`, `.cbz` opens Archive Utility (this needed the new `MimeType=` line; before it the desktop file advertised no type at all and `mimeapps.list` had no archive association)
+- [ ] Double-click **expands**: `demo.tar.gz` produces a folder `demo` holding the payload, and Finder opens it; a second expansion of the same archive produces `demo 2`
+- [ ] "Extract Here" merges into the containing folder; "Expand" and "Extract Here" appear only for archives in the context menu
+- [ ] A corrupt/truncated archive shows "The archive couldn't be expanded because …" with Try Again / Cancel, and **leaves no half-extracted folder behind**
+- [ ] Archive Utility's own window (xarchiver, themed) opens the archive for browsing; the window furniture reads as Mavericks and does not leak as an obviously-Linux archiver
+- [ ] Compress on a multi-file selection produces one `<first-item>.zip` in the same folder and opens nothing unexpected
+- [ ] Large archive (>1 GB) expansion: progress is honest and memory/CPU cost stays within the §7 budget
+- [ ] Formats needing a second toolchain (`.rar` write, split archives) fail with a clear reason rather than a truncated output
 
 ## Notes — hardware validation
 - [ ] Visual validation: leather folder sidebar, lined paper editor, paper notes list render correctly on 2304×1440 panel (CSS gradients, margins)

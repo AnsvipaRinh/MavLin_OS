@@ -2,6 +2,21 @@
 inode/directory=mv-finder.desktop
 inode/mount-point=mv-finder.desktop
 x-directory/normal=mv-finder.desktop
+application/pdf=mv-preview.desktop
+image/png=mv-preview.desktop
+image/jpeg=mv-preview.desktop
+image/gif=mv-preview.desktop
+image/bmp=mv-preview.desktop
+image/webp=mv-preview.desktop
+image/tiff=mv-preview.desktop
+image/svg+xml=mv-preview.desktop
+image/x-icon=mv-preview.desktop
+image/x-xpixmap=mv-preview.desktop
+text/plain=mv-textedit.desktop
+text/markdown=mv-textedit.desktop
+application/json=mv-textedit.desktop
+application/x-shellscript=mv-textedit.desktop
+text/x-log=mv-textedit.desktop
 
 [Added Associations]
 inode/directory=mv-finder.desktop;
