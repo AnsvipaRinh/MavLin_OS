@@ -449,17 +449,26 @@ class ColumnsWindow(Gtk.Window):
         except OSError as e:
             self._show_error("Rename", e.strerror or str(e))
 
-    def _move_to_trash(self, path):
+    def _move_to_trash(self, path, confirm=False):
+        """Move an item to Trash using Finder's non-destructive delete semantics.
+
+        Finder's Delete/Command+Delete moves the selection to Trash without a
+        confirmation sheet. The destructive confirmation belongs to Empty
+        Trash, not to this operation. Keep an explicit confirm hook for any
+        future caller that genuinely needs it, but the normal Finder action
+        must remain silent.
+        """
         if not path or not os.path.exists(path):
             return
-        from mv_dialogs import confirm_delete
-        response = confirm_delete(
-            self,
-            "Move “%s” to the Trash?" % os.path.basename(path),
-            "The item will be moved to the Trash.",
-            delete_label="Move to Trash")
-        if response != Gtk.ResponseType.OK:
-            return
+        if confirm:
+            from mv_dialogs import confirm_delete
+            response = confirm_delete(
+                self,
+                "Move “%s” to the Trash?" % os.path.basename(path),
+                "The item will be moved to the Trash.",
+                delete_label="Move to Trash")
+            if response != Gtk.ResponseType.OK:
+                return
         try:
             Gio.File.new_for_path(path).trash(None)
         except Exception as e:
@@ -570,8 +579,10 @@ class ColumnsWindow(Gtk.Window):
             self.set_icon_size(ZOOM_DEFAULT)
             return True
         if key == "Escape":
-            self.destroy()
-            return True
+            # Escape is a cancel/navigation key in Finder, not Quit.  Keep
+            # the Finder window alive; transient controls handle their own
+            # cancellation through GTK focus/event handling.
+            return False
         if key == "F2":
             path = self._selected_path()
             if path:
