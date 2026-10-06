@@ -490,7 +490,7 @@ class ColumnsWindow(Gtk.Window):
         path = self._row_path(listbox, row)
         if not path:
             return
-        row.select()
+        listbox.select_row(row)
         listbox.grab_focus()
         menu = Gtk.Menu()
         item = Gtk.MenuItem(label="Open")
