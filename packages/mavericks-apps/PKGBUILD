@@ -1,7 +1,7 @@
 # Maintainer: Ansvipa_Rinh <GITHUB_NOREPLY_EMAIL>
 pkgname=mavericks-apps
 pkgver=0.1.0
-pkgrel=13
+pkgrel=14
 pkgdesc="Mavericks-like system apps for Xfce (settings, activity, console, control, notes, HUD)"
 arch=('x86_64')
 url="https://github.com/AnsvipaRinh/MavLinOS"
@@ -12,7 +12,11 @@ depends=('gtk3' 'xfce4-genmon-plugin' 'python-gobject' 'python-cairo' 'gtksource
           'gnome-disk-utility' 'xfce4-notifyd' 'libnotify' 'xdotool'
           'libsecret' 'libpulse' 'fontconfig' 'restic' 'python-xlib' 'libxcomposite'
           'libxdamage' 'libxfixes'
-          'wmctrl' 'xorg-xprop' 'xfconf')
+          'wmctrl' 'xorg-xprop' 'xfconf'
+          # Dock (Plank) backend + the GSettings service its preferences live
+          # in. mv-dock-config seeds net.launchpad.plank.dock.settings through
+          # dconf, and the Dock autostart entry needs mv-dock-config on PATH.
+          'plank' 'dconf')
 optdepends=('poppler-glib: PDF preview in Quick Look'
             'ffmpeg: media metadata in Quick Look, screen recording'
             'ffmpegthumbnailer: video thumbnails'

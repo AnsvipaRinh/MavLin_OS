@@ -440,6 +440,19 @@ if all(os.path.isdir(d) for d in LAUNCHER_DIRS):
         b = open(os.path.join(LAUNCHER_DIRS[1], name), "rb").read()
         check(a == b, "dock pin content drift for %s" % name)
 
+# The Trash pin is a docklet, not a launcher: if plank ships no trash docklet
+# the pin is a dead item (plank logs the failure and moves on).
+DOCKLET_DIRS = ("/usr/lib/plank/docklets", "/usr/lib/x86_64-linux-gnu/plank/docklets")
+docklet_dir = next((d for d in DOCKLET_DIRS if os.path.isdir(d)), None)
+if docklet_dir is None:
+    if os.path.isdir("/usr/lib/plank") or PLANK_LIB:
+        print("SKIP dock-plank: no plank docklets directory found — the "
+              "trash.dockitem pin cannot be verified here")
+else:
+    check(os.path.isfile(os.path.join(docklet_dir, "libdocklet-trash.so")),
+          "plank ships no trash docklet in %s, so the pinned docklet://trash "
+          "item is dead" % docklet_dir)
+
 # Every pin must have a live target, or plank silently drops it.
 packages_list = read(os.path.join(REPO,
                                   "archiso-profile/releng/packages.x86_64"))

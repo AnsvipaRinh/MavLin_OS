@@ -7,6 +7,10 @@ bluez-utils
 btrfs-progs
 cryptsetup
 restic
+# dconf: the GSettings service plank's Dock preferences live in —
+# mv-dock-config seeds net.launchpad.plank.dock.settings through it
+# (was previously only present transitively, via gvfs)
+dconf
 ddrescue
 dhcpcd
 diffutils
