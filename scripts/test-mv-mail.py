@@ -177,6 +177,12 @@ def run_contract_tests(mv):
     check("contract: menu builder exported", "def build_mail_menu" in src)
 
 
+    path = os.path.join(BIN, "mv-mail")
+    with open(path, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    check("mail: native XFWM4 decoration", "self.set_decorated(True)" in source)
+    check("mail: no Gtk.HeaderBar/CSD", "Gtk.HeaderBar" not in source and "set_titlebar(" not in source)
+
 def main():
     mv = load_app()
     run_backend_tests(mv)
