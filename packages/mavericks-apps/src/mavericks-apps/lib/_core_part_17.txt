@@ -1,46 +1,9 @@
-rove the
-    packaged XML is exactly what the registry describes.
-    """
-    rows = actions if actions is not None else ACTIONS
-    out = [_XML_HEADER]
-    for branch in BRANCHES:
-        out.append('  <property name="%s" type="empty">
-' % branch)
-        out.append('    <property name="default" type="empty">
-')
-        for row in rows:
-            if row["branch"] != branch:
-                continue
-            out.append(
-                '      <property name="%s" type="string" value="%s"/>
-'
-                % (xml_escape(property_accelerator(row)),
-                   xml_escape(row["command"])))
-        out.append('    </property>
-')
-        out.append('  </property>
-')
-    out.append('</channel>
-')
-    return "".join(out)
-
-
-def _xml_attr(value):
-    return (value.replace("&", "&").replace("<", "<")
-                 .replace(">", ">").replace('"', """))
-
-
-def parse_xml_bindings(xml_text):
-    """XML text -> {'/commands/default/<accel>': command, ...}."""
-    root = ET.fromstring(xml_text)
-    bindings = {}
-    for branch in BRANCHES:
-        container = root.find("property[@name='%s']" % branch)
-        if container is None:
-            continue
-        default = container.find("property[@name='default']")
-        if default is None:
-            continue
-        for prop in default.findall("property"):
-            name = prop.get("name")
-            val
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return fallback
+    skills = data.get("skills")
+    if not isinstance(skills, list) or not skills:
+        return fallback
+    known = {row["skill"] for row in ACTIONS}
+    return [s for s in skills if s.get("id") in known] or fallback
