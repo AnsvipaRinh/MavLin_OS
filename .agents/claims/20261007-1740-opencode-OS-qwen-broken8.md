@@ -1,0 +1,4 @@
+agent: opencode:OS-qwen-broken8
+task: fix undefined-hb toolbar bug + pack_start/pack_end arity in 8 broken apps (mv-airdrop, mv-colormeter, mv-notes, mv-photos, mv-preview, mv-reminders, mv-mail, mv-diskutil)
+paths: packages/mavericks-apps/src/mavericks-apps/bin/mv-airdrop, packages/mavericks-apps/src/mavericks-apps/bin/mv-colormeter, packages/mavericks-apps/src/mavericks-apps/bin/mv-notes, packages/mavericks-apps/src/mavericks-apps/bin/mv-photos, packages/mavericks-apps/src/mavericks-apps/bin/mv-preview, packages/mavericks-apps/src/mavericks-apps/bin/mv-reminders, packages/mavericks-apps/src/mavericks-apps/bin/mv-mail, packages/mavericks-apps/src/mavericks-apps/bin/mv-diskutil, packages/mavericks-apps/tests/test_mv_*, scripts/test-mv-*, docs/APPS.md, docs/PROGRESS.md
+expires: 2026-10-07T22:40Z
