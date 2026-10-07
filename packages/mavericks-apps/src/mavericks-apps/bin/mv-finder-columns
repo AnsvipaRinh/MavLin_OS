@@ -1165,7 +1165,7 @@ def build_finder_menu(app, app_name, get_window, add_action):
     add_action("open-thunar", lambda: w().on_open_thunar(None) if w() else None)
     add_action("open-with", lambda: w()._open_with(w()._selected_path()) if w() and w()._selected_path() else None)
     add_action("compress", lambda: w()._archive_compress(w()._selected_path()) if w() and w()._selected_path() else None)
-    add_action("extract-here", lambda: w()._archive_extract_here(w()._selected_path()) if w() and w()._selected_path() else None)
+    add_action("extract-here", lambda: w()._archive_extract_here(w()._selected_path()) if w() and w()._selected_path() and _is_archive_path(w()._selected_path()) else None)
     add_action("copy", lambda: w()._copy_selected() if w() else None)
     add_action("new-folder", lambda: w()._new_folder() if w() else None)
     add_action("paste", lambda: w()._paste() if w() else None)
