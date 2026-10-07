@@ -368,6 +368,28 @@ class ColumnsWindow(Gtk.Window):
             self.chain = self.history[self.history_index].copy()
             self.rebuild_columns()
 
+    def on_go_to_folder(self, _action=None):
+        """Navigate to an absolute/tilde-expanded folder entered by the user."""
+        from mv_dialogs import entry_dialog
+        target = entry_dialog(
+            self,
+            "Go to Folder",
+            label="Enter a folder path:",
+            initial=self.chain[-1],
+            ok_label="Go",
+            validator=lambda value: None if os.path.isdir(
+                os.path.abspath(os.path.expanduser(value))) else "Folder not found.",
+        )
+        if not target:
+            return
+        target = os.path.abspath(os.path.expanduser(target))
+        if target == self.chain[-1]:
+            return
+        self.history = self.history[:self.history_index + 1] + [[target]]
+        self.history_index += 1
+        self.chain = [target]
+        self.rebuild_columns()
+
     def on_home(self, _button):
         home = os.path.expanduser("~")
         if self.chain == [home]:
@@ -1062,6 +1084,9 @@ def build_finder_menu(app, app_name, get_window, add_action):
     go_menu.append("Back", "app.back")
     go_menu.append("Forward", "app.forward")
     go_menu.append("Home", "app.home")
+    go_menu.append("Go to Folder…", "app.go-to-folder")
+    add_action("go-to-folder", lambda: get_window().on_go_to_folder() if get_window() else None)
+    app.set_accels_for_action("app.go-to-folder", ["<Super><Shift>g"])
     menu.append_submenu("Go", go_menu)
 
     window_menu = Gio.Menu()
