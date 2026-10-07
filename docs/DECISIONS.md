@@ -1728,3 +1728,12 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Decision:** Reuse `mv-newfolder <directory>` rather than duplicate folder-creation logic. Expose it through the File menu, `Super+Shift+N`, and right-click whitespace in a Finder column. After successful creation, rebuild the visible column and select the new folder.
 
 **Validation:** Deterministic source regression coverage locks the helper invocation, action, accelerator, and context-menu entry. No new dependency or resident process is introduced.
+
+
+### Finder action accelerators are GApplication actions — 2026-10-07
+
+**Context:** The Finder companion had working methods for common actions, but several documented Command-style shortcuts were not actually registered at the application-action layer. This made the shortcuts dependent on incidental widget key handling and left some documented shortcuts absent entirely.
+
+**Decision:** Register the core Finder shortcuts directly on the existing Gio.Application action map and route them to the existing implementations: Back/Forward, Copy/Paste, Get Info, Rename, Move to Trash, Empty Trash, Search focus, and New Folder. Keep filesystem semantics in the existing methods rather than duplicating them in accelerator callbacks.
+
+**Validation:** Deterministic source regression coverage requires the action registrations and their exact accelerators. No resident process or external dependency is added.
