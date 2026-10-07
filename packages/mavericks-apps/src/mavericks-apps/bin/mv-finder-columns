@@ -738,25 +738,26 @@ def _is_archive_path(path):
     return any(lower.endswith(suffix) for suffix in ARCHIVE_SUFFIXES)
 
 
-def _archive_destination(self, path):
-        """Choose a Finder-style adjacent .zip without overwriting an existing archive."""
-        base = os.path.basename(os.path.abspath(path))
-        candidate = os.path.join(os.path.dirname(os.path.abspath(path)), base + ".zip")
-        if not os.path.exists(candidate):
-            return candidate
-        stem = base + " "
-        n = 2
-        while os.path.exists(os.path.join(
-                os.path.dirname(os.path.abspath(path)), "%s%d.zip" % (stem, n))):
-            n += 1
-        return os.path.join(
-            os.path.dirname(os.path.abspath(path)), "%s%d.zip" % (stem, n))
+def _archive_destination(path):
+    """Choose a Finder-style adjacent .zip without overwriting an existing archive."""
+    base = os.path.basename(os.path.abspath(path))
+    candidate = os.path.join(os.path.dirname(os.path.abspath(path)), base + ".zip")
+    if not os.path.exists(candidate):
+        return candidate
+    stem = base + " "
+    n = 2
+    while os.path.exists(os.path.join(
+            os.path.dirname(os.path.abspath(path)), "%s%d.zip" % (stem, n))):
+        n += 1
+    return os.path.join(
+        os.path.dirname(os.path.abspath(path)), "%s%d.zip" % (stem, n))
+
 
     def _archive_compress(self, path):
         """Compress the selected item through the shared Archive Utility backend."""
         if not path or not os.path.exists(path):
             return
-        destination = self._archive_destination(path)
+        destination = _archive_destination(path)
         try:
             subprocess.run(
                 ["mv-archive-utility", "--new", destination, path],
