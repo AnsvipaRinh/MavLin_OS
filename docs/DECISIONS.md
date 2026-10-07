@@ -1755,3 +1755,10 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Decision:** Register the documented shortcuts as GApplication actions in `mv-finder-columns`, routing to the existing Open With, Get Info, and Thunar implementations. Keep Super+O and Super+Shift+O as aliases because both are documented surfaces for the current selection.
 
 **Validation:** Deterministic source regression coverage requires the action and accelerator registrations.
+### Finder root-level Up navigation — 2026-10-07
+
+**Context:** the column Finder's Up handler assumed the navigation chain always contained a preceding column. When the chain contained only the current root, `self.chain[:-1]` was empty and the subsequent `new_chain[-1] = parent` raised `IndexError` instead of navigating upward.
+
+**Decision:** when the chain has one column, Up creates `[parent]`; deeper chains keep the existing collapse-to-parent behavior. Both paths continue through the same history mechanism.
+
+**Validation:** regression coverage requires the single-column branch and its parent-chain construction. The defect was pre-hardware and therefore fixed rather than deferred to hardware validation.
