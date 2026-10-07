@@ -1786,3 +1786,12 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Decision:** use the full GTK3 packing signature for all Quick Look toolbar controls, preserving the existing layout while making the helper executable under GTK3.
 
 **Validation:** Quick Look regression coverage now pins the corrected Open-button packing call; the remaining toolbar calls use the same GTK3 signature.
+
+
+### Finder column archive actions reuse Archive Utility — 2026-10-07
+
+**Context:** the canonical Finder surface already defines Compress and Extract Here through the Mavericks Archive Utility backend, but the native column companion exposed neither action directly. That left the same Finder selection behaving differently depending on whether the user entered through the UCA/Thunar surface or the column companion.
+
+**Decision:** expose Compress and Extract Here in the native column Finder and route both through `mv-archive-utility`. Compression creates an adjacent `.zip` with Finder-style collision naming instead of overwriting an existing archive; extraction uses the utility's `--here --no-open` path. No archive implementation is duplicated in Finder.
+
+**Validation:** deterministic source regression coverage requires both utility invocations and their menu/action registrations. Runtime archive operations remain single-shot subprocesses with no daemon or indexer.
