@@ -2,41 +2,41 @@
 <channel name="xfce4-keyboard-shortcuts" version="1.0">
   <property name="commands" type="empty">
     <property name="default" type="empty">
-      <property name="&lt;Super&gt;space" type="string" value="/usr/bin/mv-spotlight-gui"/>
-      <property name="&lt;Super&gt;l" type="string" value="/usr/bin/mv-launchpad-gui"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;l" type="string" value="/usr/bin/mv-launchpad-edit"/>
-      <property name="&lt;Super&gt;Tab" type="string" value="mv-mission-control --native"/>
-      <property name="&lt;Super&gt;F3" type="string" value="mv-mc-gui"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;space" type="string" value="mv-quicklook-thunar"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;3" type="string" value="mv-shot -m"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;4" type="string" value="mv-shot -i -c"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;5" type="string" value="mv-shot -i"/>
-      <property name="&lt;Super&gt;e" type="string" value="mv-finder-columns"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;f" type="string" value="mv-finder-columns"/>
-      <property name="&lt;Primary&gt;&lt;Alt&gt;n" type="string" value="mv-newfolder $HOME/Desktop"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;n" type="string" value="mv-newfolder $HOME"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;r" type="string" value="mv-rename"/>
-      <property name="&lt;Super&gt;i" type="string" value="mv-getinfo $HOME"/>
-      <property name="&lt;Super&gt;o" type="string" value="mv-openwith $HOME"/>
-      <property name="&lt;Super&gt;Delete" type="string" value="mv-trash"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;Delete" type="string" value="mv-empty-trash"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;e" type="string" value="mv-empty-trash"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;a" type="string" value="mv-airdrop"/>
-      <property name="&lt;Super&gt;F4" type="string" value="mv-eject"/>
-      <property name="&lt;Super&gt;comma" type="string" value="mv-settings"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;c" type="string" value="mv-control"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;v" type="string" value="mv-notification-center"/>
-      <property name="&lt;Primary&gt;&lt;Alt&gt;c" type="string" value="mv-calendar"/>
-      <property name="&lt;Primary&gt;&lt;Alt&gt;t" type="string" value="xfce4-terminal"/>
-      <property name="&lt;Primary&gt;&lt;Alt&gt;l" type="string" value="xfce4-screensaver-command --lock"/>
-      <property name="&lt;Primary&gt;&lt;Alt&gt;Escape" type="string" value="mv-power-ui"/>
-      <property name="&lt;Primary&gt;&lt;Alt&gt;Delete" type="string" value="mv-power-ui logout"/>
-      <property name="&lt;Super&gt;q" type="string" value="mv-quit-app"/>
-      <property name="&lt;Super&gt;&lt;Shift&gt;q" type="string" value="mv-force-quit"/>
-      <property name="&lt;Super&gt;&lt;Alt&gt;Escape" type="string" value="mv-force-quit"/>
-      <property name="&lt;Super&gt;h" type="string" value="mv-hide-app"/>
-      <property name="&lt;Super&gt;m" type="string" value="mv-minimize-window"/>
-      <property name="&lt;Super&gt;w" type="string" value="mv-close-window"/>
+      <property name="<Super>space" type="string" value="/usr/bin/mv-spotlight-gui"/>
+      <property name="<Super>l" type="string" value="/usr/bin/mv-launchpad-gui"/>
+      <property name="<Super><Shift>l" type="string" value="/usr/bin/mv-launchpad-edit"/>
+      <property name="<Super>Tab" type="string" value="mv-mission-control --native"/>
+      <property name="<Super>F3" type="string" value="mv-mc-gui"/>
+      <property name="<Super><Shift>space" type="string" value="mv-quicklook-thunar"/>
+      <property name="<Super><Shift>3" type="string" value="mv-shot -m"/>
+      <property name="<Super><Shift>4" type="string" value="mv-shot -i -c"/>
+      <property name="<Super><Shift>5" type="string" value="mv-shot --toolbar"/>
+      <property name="<Super>e" type="string" value="mv-finder-columns"/>
+      <property name="<Super><Shift>f" type="string" value="mv-finder-columns"/>
+      <property name="<Primary><Alt>n" type="string" value="mv-newfolder $HOME/Desktop"/>
+      <property name="<Super><Shift>n" type="string" value="mv-newfolder $HOME"/>
+      <property name="<Super><Shift>r" type="string" value="mv-rename"/>
+      <property name="<Super>i" type="string" value="mv-getinfo $HOME"/>
+      <property name="<Super>o" type="string" value="mv-openwith $HOME"/>
+      <property name="<Super>Delete" type="string" value="mv-trash"/>
+      <property name="<Super><Shift>Delete" type="string" value="mv-empty-trash"/>
+      <property name="<Super><Shift>e" type="string" value="mv-empty-trash"/>
+      <property name="<Super><Shift>a" type="string" value="mv-airdrop"/>
+      <property name="<Super>F4" type="string" value="mv-eject"/>
+      <property name="<Super>comma" type="string" value="mv-settings"/>
+      <property name="<Super><Shift>c" type="string" value="mv-control"/>
+      <property name="<Super><Shift>v" type="string" value="mv-notification-center"/>
+      <property name="<Primary><Alt>c" type="string" value="mv-calendar"/>
+      <property name="<Primary><Alt>t" type="string" value="xfce4-terminal"/>
+      <property name="<Primary><Alt>l" type="string" value="xfce4-screensaver-command --lock"/>
+      <property name="<Primary><Alt>Escape" type="string" value="mv-power-ui"/>
+      <property name="<Primary><Alt>Delete" type="string" value="mv-power-ui logout"/>
+      <property name="<Super>q" type="string" value="mv-quit-app"/>
+      <property name="<Super><Shift>q" type="string" value="mv-force-quit"/>
+      <property name="<Super><Alt>Escape" type="string" value="mv-force-quit"/>
+      <property name="<Super>h" type="string" value="mv-hide-app"/>
+      <property name="<Super>m" type="string" value="mv-minimize-window"/>
+      <property name="<Super>w" type="string" value="mv-close-window"/>
       <property name="XF86AudioRaiseVolume" type="string" value="pactl set-sink-volume @DEFAULT_SINK@ +5%"/>
       <property name="XF86AudioLowerVolume" type="string" value="pactl set-sink-volume @DEFAULT_SINK@ -5%"/>
       <property name="XF86AudioMute" type="string" value="pactl set-sink-mute @DEFAULT_SINK@ toggle"/>
@@ -50,20 +50,20 @@
   </property>
   <property name="xfwm4" type="empty">
     <property name="default" type="empty">
-      <property name="&lt;Alt&gt;Tab" type="string" value="cycle_windows_key"/>
-      <property name="&lt;Alt&gt;&lt;Shift&gt;Tab" type="string" value="cycle_reverse_windows_key"/>
-      <property name="&lt;Super&gt;Up" type="string" value="tile_up_key"/>
-      <property name="&lt;Super&gt;Down" type="string" value="tile_down_key"/>
-      <property name="&lt;Super&gt;Left" type="string" value="tile_left_key"/>
-      <property name="&lt;Super&gt;Right" type="string" value="tile_right_key"/>
-      <property name="&lt;Super&gt;grave" type="string" value="switch_window_key"/>
-      <property name="&lt;Super&gt;&lt;Primary&gt;f" type="string" value="fullscreen_key"/>
-      <property name="&lt;Super&gt;&lt;Alt&gt;Left" type="string" value="left_workspace_key"/>
-      <property name="&lt;Super&gt;&lt;Alt&gt;Right" type="string" value="right_workspace_key"/>
-      <property name="&lt;Super&gt;1" type="string" value="workspace_1_key"/>
-      <property name="&lt;Super&gt;2" type="string" value="workspace_2_key"/>
-      <property name="&lt;Super&gt;3" type="string" value="workspace_3_key"/>
-      <property name="&lt;Super&gt;4" type="string" value="workspace_4_key"/>
+      <property name="<Alt>Tab" type="string" value="cycle_windows_key"/>
+      <property name="<Alt><Shift>Tab" type="string" value="cycle_reverse_windows_key"/>
+      <property name="<Super>Up" type="string" value="tile_up_key"/>
+      <property name="<Super>Down" type="string" value="tile_down_key"/>
+      <property name="<Super>Left" type="string" value="tile_left_key"/>
+      <property name="<Super>Right" type="string" value="tile_right_key"/>
+      <property name="<Super>grave" type="string" value="switch_window_key"/>
+      <property name="<Super><Primary>f" type="string" value="fullscreen_key"/>
+      <property name="<Super><Alt>Left" type="string" value="left_workspace_key"/>
+      <property name="<Super><Alt>Right" type="string" value="right_workspace_key"/>
+      <property name="<Super>1" type="string" value="workspace_1_key"/>
+      <property name="<Super>2" type="string" value="workspace_2_key"/>
+      <property name="<Super>3" type="string" value="workspace_3_key"/>
+      <property name="<Super>4" type="string" value="workspace_4_key"/>
     </property>
   </property>
 </channel>
