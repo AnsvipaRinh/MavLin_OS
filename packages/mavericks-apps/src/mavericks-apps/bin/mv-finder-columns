@@ -329,8 +329,8 @@ class ColumnsWindow(Gtk.Window):
         try:
             subprocess.Popen(["mv-finder-search", target, query],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError:
-            pass
+        except OSError as e:
+            self._show_error("Search", e.strerror or str(e))
 
     def on_back(self, _button):
         if self.history_index > 0:
