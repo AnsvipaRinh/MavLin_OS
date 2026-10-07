@@ -52,7 +52,7 @@ shortcuts or the hardware function row:
 | Super+Shift+Space | Quick Look (Finder selection) | Space | mv-quicklook-thunar |
 | Super+Shift+3 | Screenshot: full screen | Cmd+Shift+3 | mv-shot -m |
 | Super+Shift+4 | Screenshot: selection | Cmd+Shift+4 | mv-shot -i -c |
-| Super+Shift+5 | Screenshot: interactive tools | Cmd+Shift+5 | mv-shot -i |
+| Super+Shift+5 | Screenshot: interactive tools | Cmd+Shift+5 | mv-shot --toolbar |
 
 ## Finder
 
