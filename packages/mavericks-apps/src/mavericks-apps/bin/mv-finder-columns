@@ -828,7 +828,12 @@ class ColumnsWindow(Gtk.Window):
                     self.chain = new_chain
                     self.rebuild_columns()
                     return
-            self.chain = [path]
+            target = os.path.abspath(path)
+            if target == self.chain[-1]:
+                return
+            self.history = self.history[:self.history_index + 1] + [[target]]
+            self.history_index += 1
+            self.chain = [target]
             self.rebuild_columns()
             return
         try:
