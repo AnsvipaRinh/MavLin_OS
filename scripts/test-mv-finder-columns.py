@@ -212,6 +212,9 @@ def test_pure():
           "last = self.listboxes[-1]" in source
           and "last.get_selected_row() is None" in source
           and "last.select_row(first)" in source)
+    check("contract: Finder search reports launch failures",
+          'subprocess.Popen(["mv-finder-search", target, query]' in source
+          and 'self._show_error("Search", e.strerror or str(e))' in source)
     check("contract: drag-and-drop move implementation remains present",
           'selection_data.set_uris' in source
           and 'shutil.move(source_abs, destination)' in source
