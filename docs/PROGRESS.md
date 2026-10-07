@@ -1110,3 +1110,10 @@ The previous archive-helper checkpoint still left a real indentation defect in t
 The repository test already contains a py_compile gate for this executable; local runtime execution was attempted but this environment cannot resolve github.com, so no local test result is claimed.
 
 Claim: 20261007-1100-gpt-finder-execution.
+
+
+### Finder execution — 2026-10-07 — dangling symlink actions
+
+Found a Finder correctness gap for broken symbolic links: list_entries() still displays a dangling symlink, but action guards using os.path.exists() treated it as absent. Rename, Get Info, Move to Trash and Quick Look now use os.path.lexists() so a visible dangling symlink remains actionable without dereferencing it. Added a deterministic source contract.
+
+Claim: 20261007-1100-gpt-finder-execution.
