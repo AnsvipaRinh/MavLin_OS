@@ -182,6 +182,15 @@ def test_pure(m):
         check("save cap keeps latest",
               m.load_tape(path)[-1] == "e249")
 
+        blocker = os.path.join(tmp, "blocker")
+        with open(blocker, "w") as f:
+            f.write("x")
+        try:
+            m.save_tape(["x"], os.path.join(blocker, "sub", "t.json"))
+            check("save_tape OSError tolerated", True)
+        except OSError as e:
+            check("save_tape OSError tolerated", False, str(e))
+
     with open(APP_PATH) as f:
         src = f.read()
     check("no eval in source", "eval(" not in src)

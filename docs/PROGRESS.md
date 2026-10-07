@@ -1,7 +1,45 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-07 (undefined-hb toolbar fix: mv-activity/mv-textedit/mv-fontbook/mv-music/mv-quicklook — oid `20261007-1334-opencode-undefined-hb-toolbar-fix`: fixed undefined `hb` variable in mv-activity (container renamed to `toolbar`) + explicit pack_start/pack_end arity in all 5 apps; all py_compile OK; GUI smoke on pinned Xvfb :97 OK; test_mv_quicklook.py 3/3 passed; check-sync.sh: failure set identical to origin/main (no new failures))
+**Last Updated**: 2026-10-07 (P1 DoD audit + pre-hardware gaps: mv-stickies/mv-calculator/mv-dictionary — oid `OS-qwen-p1scd`: fixed stickies pack-arity ×3 + get_title, calculator show_tape native-toolbar rework + OSError guards, dictionary orphan-toolbar GC destroy bug (dead bookmark/history handlers + 8 packed criticals) + StackSwitcher now packed + OSError guards; suites 75/145/88 = 308 checks, 0 failed; GUI smoke on pinned Xvfb :97, host-display guard 0 attempts; check-sync.sh: 34 FAIL vs origin/main baseline 38 FAIL — 0 new, 4 fixed; RESUME-FIRST rule appended to DECISIONS.md)
 ---
+
+## Session 2026-10-07 — P1 DoD audit: Stickies / Calculator / Dictionary (oid `OS-qwen-p1scd`)
+
+**Zone:** `packages/mavericks-apps/src/mavericks-apps/bin/mv-stickies`, `.../mv-calculator`, `.../mv-dictionary`, `scripts/test-mv-{stickies,calculator,dictionary}.py`, `docs/APPS.md`, `docs/PROGRESS.md`, `docs/DECISIONS.md`. Qwen relay driver: `scripts/qwen-integration/qwen-web-worker.py` (auth: OK, `authenticated: true`). Work in designated worktree `mavlinos-wt/OS-qwen-p1scd` (branch `work/OS-qwen-p1scd`, base `b8dc5442`).
+
+**Objective:** P1 DoD audit + implement feasible pre-hardware gaps for the three apps (§13.3 universal DoD), verify, document, merge `--no-ff`, push.
+
+**Qwen split (research vs implementation):** Qwen produced the mv-calculator show_tape/Head­erBar diff and an audit confirming the stickies pack-arity bugs; Qwen's sandbox was a shallow clone that lost diff context (`files: []`), so all remaining fixes were applied by the driver directly. Send path (`send --json --repo AnsvipaRinh/MavLinOS --timeout 900`) verified working, designated chat reused.
+
+**mv-stickies** (baseline: app suite FAIL + launch-smoke traceback):
+- `pack_end(print_btn/collapse_btn, False, False, 0)` and `pack_start(entry, True, True, 0)` — explicit PyGObject arity (3 sites)
+- print title: `self.hb.get_title()` → `self.get_title()` (HeaderBar.get_title() returned None) + 2 test call sites
+- OSError-guarded `save_store` (failed write logged, never raised from signal handlers)
+- configure-event store writes debounced 400 ms (`_flush_geometry`), source cancelled on destroy — a drag no longer rewrites the JSON per frame (SSD-care, §7)
+- **75 passed, 0 failed** + GUI smoke :97
+
+**mv-calculator** (baseline: app suite FAIL):
+- `show_tape` reworked: removed `Gtk.HeaderBar`/`set_titlebar`, native `set_decorated(True)` + plain bottom toolbar (Clear) — satisfies the no-client-side-chrome source contract
+- OSError-guarded `save_tape`
+- **145 passed, 0 failed** + GUI smoke :97
+
+**mv-dictionary** (baseline: launch-smoke traceback — undefined `hb` at 3 pack sites, same bug class the e911ae9c sweep fixed in 5 other apps; after that fix the suite stood at 83/3 + 8× `gtk_box_pack` critical):
+- Root cause: line-466 `toolbar = Gtk.Box(...)` rebound the local name → first box GC'd → GTK destroyed its children → bookmark/history/speak handlers disconnected (proven with minimal repro: `DESTROY fired` on parent drop) → bookmark/history checks failed; second toolbar was packed into both vbox AND root → criticals
+- Fix: single toolbar packed once (margins), vbox = banner + stack only
+- `StackSwitcher` (Dictionary/Thesaurus/Wikipedia/Apple tab strip) was created but **never packed** — source tabs mouse-unreachable; now packed into the toolbar before the search entry
+- OSError-guarded `save_history`/`save_bookmarks`
+- **88 passed, 0 failed**, 0 `gtk_box_pack` criticals + GUI smoke :97
+
+**Audit honesty notes:** mv-calculator and mv-dictionary expose no dialog surfaces (zero `Gtk.MessageDialog`, zero mv_dialogs usage — nothing to migrate); Global Dialogs row re-verified and annotated. Stickies keeps `alert()`/`confirm_delete()` usage.
+
+**Verification:** py_compile ×3 OK; suites 75/145/88 = **308 checks, 0 failed**; GUI smoke on pinned Xvfb :97 via `scripts/gui-isolation.sh`, `mv_gui_report` = 0 host-display attempts; `scripts/check-sync.sh` failure set = **34 FAIL vs origin/main baseline 38 FAIL** (0 new failures; the 4 fixed = stickies/calculator suites + stickies/dictionary launch smokes).
+
+**Docs:** APPS.md rows updated (Stickies → IMPLEMENTED — HARDWARE VALIDATION REQUIRED; Calculator/Dictionary notes + test counts; Global Dialogs re-verification note); DECISIONS.md: RESUME-FIRST rule (oid marker, substring live-discovery, task_id-less ⇒ FIND never NEW).
+
+**Out-of-zone findings (diagnosed read-only, NOT fixed — outside claim `OS-qwen-p1scd` paths; for the owners of those apps):** the pack-arity/undefined-`hb` sweep (e911ae9c) covered 5 apps but 8 more remain broken at origin/main and keep failing `check-sync.sh` launch smokes:
+- `mv-airdrop:209` `pack_end` arity TypeError; `mv-colormeter:329` `pack_start` arity TypeError; `mv-notes:241` `pack_start` arity TypeError; `mv-photos:780` `pack_start` arity TypeError; `mv-preview:100` `pack_end` arity TypeError; `mv-reminders:192` `pack_end` arity TypeError; `mv-mail:107` `pack_start` arity TypeError
+- `mv-diskutil:976-977` `NameError: name 'hb' is not defined` (two sites, `hb` never created)
+All 8 reproduce deterministically in `check-sync.sh` launch smoke; the same 1-line fix pattern as e911ae9c applies (`explicit pack arity` / rebind `hb`→existing container). `mv-settings` self.hb references are a false positive of the grep (annotation-assigned, smoke OK).
 
 ## Session 2026-10-07 — Undefined-hb toolbar fix (oid `20261007-1334-opencode-undefined-hb-toolbar-fix`)
 

@@ -172,16 +172,19 @@ def load_store(path=None, on_warn=None):
 
 def save_store(path=None, data=None):
     path = path or STORE
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    if os.path.exists(path):
-        try:
-            os.replace(path, _backup_path(path))
-        except OSError:
-            pass
-    tmp = path + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(data, f, indent=2)
-    os.replace(tmp, path)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if os.path.exists(path):
+            try:
+                os.replace(path, _backup_path(path))
+            except OSError:
+                pass
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, path)
+    except OSError as e:
+        sys.stderr.write("mv-stickies: save failed (%s)\n" % e)
 
 
 def paginate(text, lines_per_page):
@@ -212,6 +215,7 @@ def build_stickynote_class():
         def __init__(self, app, data=None):
             super().__init__(type=Gtk.WindowType.TOPLEVEL)
             self.app = app
+            self._geom_save_id = 0
             if data:
                 self.note_id = data["id"]
                 self.x, self.y = data.get("x", 100), data.get("y", 100)
@@ -256,12 +260,12 @@ def build_stickynote_class():
             print_btn.set_tooltip_text("Print (Ctrl+P)")
             print_btn.get_style_context().add_class("mavericks-toolbar-btn")
             print_btn.connect("clicked", self.print_note)
-            self.hb.pack_end(print_btn)
+            self.hb.pack_end(print_btn, False, False, 0)
 
             self.collapse_btn = Gtk.Button(label="–")
             self.collapse_btn.get_style_context().add_class("mavericks-toolbar-btn")
             self.collapse_btn.connect("clicked", self.toggle_collapse)
-            self.hb.pack_end(self.collapse_btn)
+            self.hb.pack_end(self.collapse_btn, False, False, 0)
 
             self.buf = Gtk.TextBuffer()
             tv = Gtk.TextView(buffer=self.buf)
@@ -358,6 +362,18 @@ def build_stickynote_class():
             self.x, self.y = self.get_position()
             if not self.collapsed:
                 self.width, self.height = self.get_size()
+            # A drag emits one configure event per frame; debounce the store
+            # write so moving a note does not rewrite the JSON per pixel
+            # (SSD-care: same rationale as the frozen baseline's deferred
+            # write policies).
+            if self._geom_save_id:
+                GLib.source_remove(self._geom_save_id)
+                self._geom_save_id = 0
+            self._geom_save_id = GLib.timeout_add(400, self._flush_geometry)
+            return False
+
+        def _flush_geometry(self):
+            self._geom_save_id = 0
             self.save()
             return False
 
@@ -390,7 +406,7 @@ def build_stickynote_class():
                                     cairo.FONT_WEIGHT_NORMAL)
                 cr.set_font_size(14)
                 cr.move_to(48, 56)
-                cr.show_text(self.hb.get_title())
+                cr.show_text(self.get_title())
                 cr.set_font_size(12)
                 y = 84
                 for ln in pages[pageno]:
@@ -435,6 +451,11 @@ def build_stickynote_class():
             self.app.update_sticky(data)
 
         def on_destroy(self, _w):
+            # Geometry writes are debounced; cancel the pending source so it
+            # cannot fire after the note was removed from the store.
+            if self._geom_save_id:
+                GLib.source_remove(self._geom_save_id)
+                self._geom_save_id = 0
             self.app.remove_sticky(self.note_id)
 
 
@@ -458,7 +479,7 @@ def build_searchwindow_class():
             self.entry = Gtk.SearchEntry(placeholder_text="Search all notes")
             self.entry.connect("changed", self.on_search)
             self.entry.connect("key-press-event", self.on_entry_key)
-            hb.pack_start(self.entry)
+            hb.pack_start(self.entry, True, True, 0)
 
             self.store = Gtk.ListStore(str, str)
             tv = Gtk.TreeView(model=self.store, headers_visible=False)

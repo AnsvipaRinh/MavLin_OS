@@ -124,6 +124,24 @@ def test_pure(m):
                 f.write("corrupt{")
             check("bookmarks corrupt empty", m.load_bookmarks() == [])
 
+        blocker = os.path.join(tmp, "blocker")
+        with open(blocker, "w") as f:
+            f.write("x")
+        with mock.patch.object(m, "HISTORY_FILE",
+                               os.path.join(blocker, "sub", "h.json")):
+            try:
+                m.save_history(["a"])
+                check("save_history OSError tolerated", True)
+            except OSError as e:
+                check("save_history OSError tolerated", False, str(e))
+        with mock.patch.object(m, "BOOKMARKS_FILE",
+                               os.path.join(blocker, "sub", "b.json")):
+            try:
+                m.save_bookmarks(["a"])
+                check("save_bookmarks OSError tolerated", True)
+            except OSError as e:
+                check("save_bookmarks OSError tolerated", False, str(e))
+
     with mock.patch.object(m.shutil, "which", return_value=None):
         check("dictd absent returns None", m.query_dictd("apple") is None)
     check("wordlist non-alpha false", m.word_in_wordlist("foo123") is False)
@@ -207,9 +225,11 @@ def test_gui(m):
             check("speak button sensitive", app.speak_btn.get_sensitive())
 
             app.bookmark_btn.set_active(True)
+            Gtk.main_iteration_do(False)
             check("bookmark added", app.bookmarks == ["finder"])
             check("bookmark persisted", m.load_bookmarks() == ["finder"])
             app.bookmark_btn.set_active(False)
+            Gtk.main_iteration_do(False)
             check("bookmark removed", app.bookmarks == [])
 
             app.hist_btn.set_active(True)
@@ -430,7 +450,7 @@ def test_gui(m):
 
 def _native_chrome_contract():
     bin_name = "mv-dictionary"
-    path = os.path.join(BIN, bin_name)
+    path = APP_PATH
     with open(path, "r", encoding="utf-8") as fh:
         source = fh.read()
     check("dictionary: native XFWM4 decoration", "self.set_decorated(True)" in source)
