@@ -1762,3 +1762,11 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Decision:** when the chain has one column, Up creates `[parent]`; deeper chains keep the existing collapse-to-parent behavior. Both paths continue through the same history mechanism.
 
 **Validation:** regression coverage requires the single-column branch and its parent-chain construction. The defect was pre-hardware and therefore fixed rather than deferred to hardware validation.
+
+### Finder Search drops stale plocate results — 2026-10-07
+
+**Context:** plocate is an optional fast-path and its index can contain paths that no longer exist. The parser previously trusted every in-root indexed path, so Finder Search could display a dead result that could not be opened.
+
+**Decision:** validate indexed paths with `os.path.lexists()` before creating a result row. Keep the existing walk fallback for a broken plocate invocation; this additional check handles the normal stale-index case without a second full filesystem scan.
+
+**Validation:** deterministic search regression coverage injects a nonexistent indexed path and requires it to be absent from the parsed result set.
