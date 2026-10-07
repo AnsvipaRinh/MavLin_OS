@@ -791,7 +791,8 @@ class ColumnsWindow(Gtk.Window):
         self.rebuild_columns()
 
     def _get_info(self, path):
-        if not path:
+        # lexists() keeps dangling symlinks actionable; exists() hides them.
+        if not path or not os.path.lexists(path):
             return
         try:
             subprocess.Popen(["mv-getinfo", path],
@@ -800,7 +801,8 @@ class ColumnsWindow(Gtk.Window):
             self._show_error("Get Info", e.strerror or str(e))
 
     def _rename(self, path):
-        if not path or not os.path.exists(path):
+        # Finder must be able to rename a dangling symlink without following it.
+        if not path or not os.path.lexists(path):
             return
         from mv_dialogs import entry_dialog
 
@@ -838,7 +840,8 @@ class ColumnsWindow(Gtk.Window):
         future caller that genuinely needs it, but the normal Finder action
         must remain silent.
         """
-        if not path or not os.path.exists(path):
+        # Deleting a dangling symlink is still a valid Finder operation.
+        if not path or not os.path.lexists(path):
             return
         if confirm:
             from mv_dialogs import confirm_delete
@@ -866,7 +869,7 @@ class ColumnsWindow(Gtk.Window):
 
     def _quick_look(self, path):
         """Open the selected item in the lightweight Mavericks Quick Look surface."""
-        if not path or not os.path.exists(path):
+        if not path or not os.path.lexists(path):
             return
         try:
             subprocess.Popen(["mv-quicklook", path],
