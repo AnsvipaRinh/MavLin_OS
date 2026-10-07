@@ -18,16 +18,20 @@ start with cwd=repo (see AGENTS.md 14.6).
 ```
 Orchestrator
   → scripts/qwen-integration/qwen-web-worker.py <mode> --json
-    → INVISIBLE headless Chromium (persistent profile /tmp/chromium-qwen-profile)
+    → INVISIBLE headless Chromium (persistent profile ~/.config/mavlinos/qwen-chromium-profile)
       → coder.qwen.ai (authenticated session)
         → POST /coder/api/v2/task/completions  (SSE, network-level capture)
         → GET  /coder/api/v2/task/{chat_id}    (authoritative completion+artifacts)
   ← JSON: {ok, completed, chat_id, response, files, commit_id, model}
 ```
 
-- No visible browser window during normal operation (headless Chromium;
-  the desktop is unaffected).
-- One-time visible `auth` mode establishes the persistent profile.
+- NO visible browser window, ever (enforced invariant since
+  2026-10-07: `headless=new` on every launch, host DISPLAY /
+  WAYLAND_DISPLAY scrubbed from the browser environment, pinned
+  Xvfb virtual framebuffer as the only display fallback; any path
+  that would open a visible window fails loudly instead). The
+  `auth` mode is DISABLED — the persistent profile is established
+  and migrated automatically and restored from the auth snapshot.
 - Responses are extracted at the NETWORK level (SSE stream + REST task
   object). No DOM scraping.
 - IMPORTANT: Qwen Code executes in Qwen's OWN cloud sandbox. `files`
@@ -44,8 +48,10 @@ python3 scripts/qwen-integration/qwen-web-worker.py check --json
 → {"mode":"check","authenticated":true,"state":"authenticated"}
 → {"mode":"check","authenticated":false,"state":"needs_auth"}
 ```
-Run `check` before delegating work. On `needs_auth` → notify the user
-to run the one-time visible `auth` mode (see below). Do NOT loop retries.
+Run `check` before delegating work. On `needs_auth` → the login
+is lost AND unrecoverable from the snapshot: REPORT that to the
+repository owner (the worker never opens a visible browser and
+cannot log in itself). Do NOT loop retries.
 
 ### send — objective → answer
 ```
@@ -100,7 +106,9 @@ Options:
 
 Failure states:
 - `ok:false, completed:false` + stderr "needs_auth" → session lost AND
-  snapshot restore failed/absent → user must re-run `auth` once.
+  snapshot restore failed/absent → REPORT the login loss to the
+  repository owner (auth mode is disabled; the worker never opens a
+  visible browser and never attempts a login).
 - stderr "Profile is already in use" → another browser holds the
   profile; close it, retry once. Never start a second browser anyway
   (the worker refuses by design — concurrent browsers corrupt the
@@ -137,32 +145,41 @@ are).
 
 Root cause fixed on 2026-10-05: concurrent Chromium instances on one
 profile + hard process kills corrupted localStorage and destroyed a
-valid session. Protections now in place:
-1. SingletonLock liveness check — the worker refuses to share a profile
+valid session. Root cause fixed on 2026-10-07: the profile lived
+under /tmp (tmpfs), so every reboot wiped the login — it now lives
+on persistent storage. Protections now in place:
+1. Persistent profile at `~/.config/mavlinos/qwen-chromium-profile`;
+   a volatile (/tmp) profile is migrated automatically (by COPY —
+   the source is never deleted) with metadata repointed at the
+   persistent copy.
+2. SingletonLock liveness check — the worker refuses to share a profile
    with a running browser.
-2. Clean browser close in every code path (Chromium flushes storage
+3. Clean browser close in every code path (Chromium flushes storage
    only on orderly shutdown).
-3. Auth snapshot at `~/.config/mavlinos/qwen-auth-backup` after every
+4. Auth snapshot at `~/.config/mavlinos/qwen-auth-backup` after every
    verified session; automatic restore when the live profile loses its
-   token (no user re-login needed for recoverable cases).
+   token or when the profile directory itself is missing (no user
+   re-login needed for recoverable cases).
 
-## One-time auth bootstrap (visible browser, user-driven)
+## Login loss reporting (visible auth mode DISABLED)
 
-```
-python3 scripts/qwen-integration/qwen-web-worker.py auth --timeout 540
-```
-Opens a VISIBLE Chromium window. The user logs into coder.qwen.ai
-(Google login works: automation flags are stripped; if Google shows
-"browser may not be secure", log into google.com first in the same tab,
-then return to coder.qwen.ai and click Continue with Google). The
-worker detects the session token, closes the browser cleanly, and
-snapshots the auth storage. After this, all operation is invisible.
+The `auth` mode is permanently disabled (2026-10-07): this worker
+NEVER opens a visible browser window — `auth` fails loudly with
+exit code 2 instead. The login is established on persistent storage
+and survives reboots; if it is ever lost, the worker restores the
+auth snapshot automatically, and if that fails too, the loss must
+be REPORTED to the repository owner. Do not attempt an interactive
+login from this worker.
 
 ## Tests
 
-- Offline (no auth needed): `python3 scripts/qwen-integration/test_qwen_web_worker.py`
-  — 9 tests on REAL captured stream samples (parser, completion
-  semantics, artifact collection, same-chat followup).
+- Offline (no auth needed): `python3 -m pytest scripts/qwen-integration/test_qwen_web_worker.py -v`
+  — 15 tests: REAL captured stream samples (parser, completion
+  semantics, artifact collection, same-chat followup) + invisibility
+  and persistence invariants (launch choke point rejects visible
+  launches, host display scrubbed from the browser environment,
+  volatile-path detection, profile migration copies-never-deletes,
+  auth mode fails loudly without a browser).
 - Live acceptance (needs authenticated profile):
   `python3 scripts/qwen-integration/test_qwen_live.py` — tests A–D
   (headless startup, deterministic request, same-conversation followup,
