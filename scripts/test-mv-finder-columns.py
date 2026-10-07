@@ -189,6 +189,9 @@ def test_pure():
           and 'add_action("paste"' in source
           and 'edit_menu.append("Copy", "app.copy")' in source
           and 'edit_menu.append("Paste", "app.paste")' in source)
+    check("contract: Finder Paste rejects recursive folder copies",
+          'if os.path.isdir(source_abs) and os.path.commonpath(' in source
+          and 'Cannot copy a folder into itself.' in source)
     check("contract: Finder sidebar exposes mounted devices and Eject",
           "Gio.VolumeMonitor.get()" in source
           and "volume_monitor.get_mounts()" in source
