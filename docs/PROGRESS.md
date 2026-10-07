@@ -1037,3 +1037,11 @@ Completed the context-menu clipboard surface in the native column Finder: select
 ## 2026-10-07 — Finder Command Open With / Thunar accelerators
 
 Closed the remaining native column-Finder command-surface mismatch for the documented Open With and Finder/Thunar shortcuts. The companion now exposes Open With as an application action and registers Super+O / Super+Shift+O; Super+E opens the current location in Thunar. Super+I and Super+Shift+I both target Get Info. Existing implementations are reused.
+
+### Finder execution — 2026-10-07 — root-level Up navigation
+
+The P0 execution pass found a concrete navigation crash: pressing Up while Finder had only one column produced an empty chain and then indexed `new_chain[-1]`, raising `IndexError`.
+
+Fixed `on_up()` to navigate `[parent]` for a single-column chain while retaining the existing history-aware collapse for deeper chains. Added a deterministic regression contract.
+
+Claim: `20261007-1100-gpt-finder-execution`.
