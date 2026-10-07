@@ -171,6 +171,7 @@ class ColumnsWindow(Gtk.Window):
         self.listboxes = []
         self.icon_size = ZOOM_DEFAULT
         self._clipboard_mode = None
+        self._mount_signal_ids = []
 
         self.set_default_size(760, 480)
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -245,7 +246,7 @@ class ColumnsWindow(Gtk.Window):
         vbox.pack_start(status, False, False, 0)
         self.add(vbox)
 
-        self.connect("destroy", Gtk.main_quit)
+        self.connect("destroy", self._on_destroy)
         self.connect("key-press-event", self.on_key_press)
 
         self.show_all()
@@ -297,14 +298,29 @@ class ColumnsWindow(Gtk.Window):
         try:
             volume_monitor = Gio.VolumeMonitor.get()
             self.volume_monitor = volume_monitor
-            volume_monitor.connect("mount-added", self._mount_changed)
-            volume_monitor.connect("mount-removed", self._mount_changed)
-            volume_monitor.connect("mount-changed", self._mount_changed)
+            self._mount_signal_ids = [
+                volume_monitor.connect("mount-added", self._mount_changed),
+                volume_monitor.connect("mount-removed", self._mount_changed),
+                volume_monitor.connect("mount-changed", self._mount_changed),
+            ]
             self._append_mounted_devices()
         except Exception:
             self.volume_monitor = None
         box.pack_start(listbox, True, True, 0)
         return box
+
+    def _on_destroy(self, _window):
+        """Disconnect VolumeMonitor callbacks before the GTK window exits."""
+        monitor = getattr(self, "volume_monitor", None)
+        if monitor is not None:
+            for signal_id in getattr(self, "_mount_signal_ids", []):
+                try:
+                    monitor.disconnect(signal_id)
+                except (TypeError, ValueError):
+                    pass
+        self._mount_signal_ids = []
+        Gtk.main_quit()
+
 
     def _append_mounted_devices(self):
         if not getattr(self, "sidebar_list", None) or not getattr(self, "volume_monitor", None):
