@@ -200,7 +200,9 @@ def test_pure():
           and '"mount-removed"' in source
           and '"mount-changed"' in source
           and "def _append_mounted_devices(self):" in source
-          and "GLib.idle_add(self._append_mounted_devices)" in source)
+          and "def _refresh_mount_state(self):" in source
+          and "GLib.idle_add(self._refresh_mount_state)" in source
+          and "not os.path.isdir(self.chain[-1])" in source)
     check("contract: Finder sidebar navigation records history",
           "target = [os.path.abspath(row.path)]" in source
           and "self.history = self.history[:self.history_index + 1] + [target]" in source
