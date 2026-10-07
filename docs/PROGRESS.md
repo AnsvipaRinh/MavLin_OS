@@ -1027,3 +1027,8 @@ Added the missing New Folder execution path to the native column Finder. The Fil
 ## 2026-10-07 — Finder Command-style accelerators
 
 Closed a concrete interaction gap in the native column Finder: core documented Finder accelerators were not registered on the GApplication action map. Added action-backed accelerators for Back/Forward, Copy/Paste, Get Info, Rename, Move to Trash, Empty Trash, Search focus, and New Folder. The actions reuse the existing Finder implementations; no parallel key-handler implementation or daemon was introduced. Regression coverage locks the accelerator/action contract.
+
+
+## 2026-10-07 — Finder context clipboard actions
+
+Completed the context-menu clipboard surface in the native column Finder: selected-item context menus now expose Copy, while whitespace context menus expose Paste alongside New Folder. Both actions reuse the existing GTK clipboard implementation. A deterministic source contract locks both surfaces.
