@@ -1032,3 +1032,8 @@ Closed a concrete interaction gap in the native column Finder: core documented F
 ## 2026-10-07 — Finder context clipboard actions
 
 Completed the context-menu clipboard surface in the native column Finder: selected-item context menus now expose Copy, while whitespace context menus expose Paste alongside New Folder. Both actions reuse the existing GTK clipboard implementation. A deterministic source contract locks both surfaces.
+
+
+## 2026-10-07 — Finder Command Open With / Thunar accelerators
+
+Closed the remaining native column-Finder command-surface mismatch for the documented Open With and Finder/Thunar shortcuts. The companion now exposes Open With as an application action and registers Super+O / Super+Shift+O; Super+E opens the current location in Thunar. Super+I and Super+Shift+I both target Get Info. Existing implementations are reused.
