@@ -1703,3 +1703,11 @@ Post-implementation audit found that the native mv-finder-columns companion had 
 2. **Escape never quits Finder.** Escape cancels transient interaction or returns focus/navigation; it must not destroy the Finder window. The previous `self.destroy()` path was therefore removed from the key handler.
 
 The correction is covered by `test_mv_finder_native_shell.py` source contracts so these semantics cannot silently regress. This is a semantic correction to the existing Finder implementation, not a new architectural dependency.
+
+### RESUME-RULE — 2026-10-07
+
+**Rule**: Continuation Task prompts are a single English word `resume` (or `continue`). Never resend the task description, never add context, never use Russian with subagents. All Task prompts are English-only; the session already holds full context.
+
+**Why**: Long resume prompts confuse workers, waste context window, and introduce unnecessary token overhead. The session state is already complete — only the single-word trigger is needed to resume. This rule prevents workers from wasting tokens on verbose re-contextualization and ensures parallel discipline across orchestration sessions.
+
+**Source**: Owner directive 2026-10-05/06; enforced via `scripts/session-reuse.py` discipline and AGENTS.md §14.5.2.

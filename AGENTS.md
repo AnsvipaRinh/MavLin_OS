@@ -1265,7 +1265,13 @@ python3 scripts/task-watchdog.py --ensure --all    # self-maintaining daemon (no
 # server endpoint auto-discovery: env OPENCODE_* -> live `opencode serve` ps -> 4096 (no manual port lookup, ever)
 ```
 
-### 14.6 Agent visibility (why global symlinks exist)
+### 14.5.2 RESUME-RULE (parallel discipline)
+
+Continuation Task prompts are a single English word `resume` (or `continue`). Never resend the task description, never add context, never use Russian with subagents. All Task prompts are English-only; the session already holds full context.
+
+**Why**: Long resume prompts confuse workers, waste context window, and introduce unnecessary token overhead. The session state is already complete — only the single-word trigger is needed to resume.
+
+### 14.6 Agent visibility (why global symlinks exists)
 
 OpenCode 1.18.x resolves project agents (`.opencode/agents/`) from the
 **server working directory**, not per session directory (proven: server
