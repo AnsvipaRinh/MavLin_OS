@@ -198,6 +198,18 @@ def test_pure():
     check("contract: Finder Open With accepts row activation",
           'tree.connect("row-activated",' in source
           and 'dialog.response(Gtk.ResponseType.OK)' in source)
+    check("contract: Finder application accelerators cover core Finder actions",
+          'add_action("get-info",' in source
+          and 'add_action("rename",' in source
+          and 'add_action("move-to-trash",' in source
+          and 'app.set_accels_for_action("app.back", ["<Super>bracketleft"])' in source
+          and 'app.set_accels_for_action("app.forward", ["<Super>bracketright"])' in source
+          and 'app.set_accels_for_action("app.copy", ["<Super>c"])' in source
+          and 'app.set_accels_for_action("app.paste", ["<Super>v"])' in source
+          and 'app.set_accels_for_action("app.get-info", ["<Super>i"])' in source
+          and 'app.set_accels_for_action("app.move-to-trash", ["<Super>Delete"])' in source
+          and 'app.set_accels_for_action("app.empty-trash", ["<Super><Shift>Delete"])' in source
+          and 'app.set_accels_for_action("app.focus-search", ["<Super>f"])' in source)
     check("contract: Finder New Folder uses existing helper",
           'def _new_folder(self):' in source
           and '["mv-newfolder", target_dir]' in source
