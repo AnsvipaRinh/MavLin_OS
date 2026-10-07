@@ -195,6 +195,9 @@ def test_pure():
           and "mount.can_eject()" in source
           and "mount.eject_with_operation(" in source
           and 'Gtk.MenuItem(label="Eject")' in source)
+    check("contract: Finder Open With accepts row activation",
+          'tree.connect("row-activated",' in source
+          and 'dialog.response(Gtk.ResponseType.OK)' in source)
     check("contract: Finder Go to Folder navigation",
           "def on_go_to_folder(self, _action=None):" in source
           and 'entry_dialog(' in source
