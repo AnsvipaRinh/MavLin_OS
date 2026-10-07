@@ -198,6 +198,11 @@ def test_pure():
     check("contract: Finder Open With accepts row activation",
           'tree.connect("row-activated",' in source
           and 'dialog.response(Gtk.ResponseType.OK)' in source)
+    check("contract: Finder context menus expose clipboard actions",
+          'Gtk.MenuItem(label="Copy")' in source
+          and 'lambda _i: self._copy_selected()' in source
+          and 'Gtk.MenuItem(label="Paste")' in source
+          and 'lambda _i: self._paste()' in source)
     check("contract: Finder application accelerators cover core Finder actions",
           'add_action("get-info",' in source
           and 'add_action("rename",' in source
