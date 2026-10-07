@@ -244,13 +244,13 @@ def build_stickynote_class():
             self.color_btn.set_rgba(rgba)
             self.color_btn.set_tooltip_text("Note color")
             self.color_btn.connect("color-set", self.on_color_change)
-            self.hb.pack_start(self.color_btn)
+            self.hb.pack_start(self.color_btn, False, False, 0)
 
             new_btn = Gtk.Button(label="+")
             new_btn.set_tooltip_text("New note (Ctrl+N)")
             new_btn.get_style_context().add_class("mavericks-toolbar-btn")
             new_btn.connect("clicked", lambda _: app.create_sticky())
-            self.hb.pack_end(new_btn)
+            self.hb.pack_end(new_btn, False, False, 0)
 
             print_btn = Gtk.Button(label="Print")
             print_btn.set_tooltip_text("Print (Ctrl+P)")
