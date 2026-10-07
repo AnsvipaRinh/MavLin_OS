@@ -195,6 +195,12 @@ def test_pure():
           and "mount.can_eject()" in source
           and "mount.eject_with_operation(" in source
           and 'Gtk.MenuItem(label="Eject")' in source)
+    check("contract: Finder device sidebar tracks mount changes",
+          '"mount-added"' in source
+          and '"mount-removed"' in source
+          and '"mount-changed"' in source
+          and "def _append_mounted_devices(self):" in source
+          and "GLib.idle_add(self._append_mounted_devices)" in source)
     check("contract: Finder sidebar navigation records history",
           "target = [os.path.abspath(row.path)]" in source
           and "self.history = self.history[:self.history_index + 1] + [target]" in source
