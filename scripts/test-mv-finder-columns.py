@@ -199,6 +199,10 @@ def test_pure():
           "target = [os.path.abspath(row.path)]" in source
           and "self.history = self.history[:self.history_index + 1] + [target]" in source
           and "self.chain = target" in source)
+    check("contract: direct folder activation never bypasses history",
+          "self.history = self.history[:self.history_index + 1] + [[target]]" in source
+          and "self.chain = [target]" in source
+          and "def _activate_path(self, path):" in source)
     check("contract: drag-and-drop move implementation remains present",
           'selection_data.set_uris' in source
           and 'shutil.move(source_abs, destination)' in source
