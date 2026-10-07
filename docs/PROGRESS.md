@@ -1083,3 +1083,12 @@ The native column Finder previously offered **Extract Here** for every regular f
 The companion now gates the action through an archive-suffix contract aligned with mv-archive-utility, so ordinary files do not expose an operation that cannot apply. Regression coverage exercises supported .zip / .tar.gz suffixes and rejects .txt.
 
 Claim: `20261007-1100-gpt-finder-execution`.
+
+
+### Finder execution — 2026-10-07 — recursive Paste guard
+
+The native column Finder's Paste path allowed a directory to be copied into a descendant of itself. That can turn a normal Paste into recursive self-copying through shutil.copytree().
+
+Fixed the Paste path to reject recursive directory targets before copying, with the same containment rule already used by Finder drag-and-drop. Added a deterministic source regression contract.
+
+Claim: 20261007-1100-gpt-finder-execution.
