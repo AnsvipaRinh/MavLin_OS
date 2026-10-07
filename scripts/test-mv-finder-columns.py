@@ -258,6 +258,10 @@ def test_pure():
           "self.history = self.history[:self.history_index + 1] + [[target]]" in source
           and "self.chain = [target]" in source
           and "def _activate_path(self, path):" in source)
+    check("contract: Finder Up handles a single-column root chain",
+          "if len(self.chain) == 1:" in source
+          and "new_chain = [parent]" in source
+          and "new_chain[-1] = parent" in source)
     check("contract: Finder Left/Right keyboard focus keeps selection actionable",
           'if key == "Right":' in source
           and 'if key == "Left":' in source
