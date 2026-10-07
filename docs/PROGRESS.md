@@ -1045,3 +1045,11 @@ The P0 execution pass found a concrete navigation crash: pressing Up while Finde
 Fixed `on_up()` to navigate `[parent]` for a single-column chain while retaining the existing history-aware collapse for deeper chains. Added a deterministic regression contract.
 
 Claim: `20261007-1100-gpt-finder-execution`.
+
+### Finder execution — 2026-10-07 — stale Search results
+
+The Search audit found a correctness gap in the plocate fast-path: stale index entries were surfaced even after the underlying file had disappeared.
+
+Fixed the parser to discard nonexistent indexed paths before creating Finder result rows, with a deterministic regression case. This preserves the fast-path and avoids an additional recursive scan just to validate every result.
+
+Claim: `20261007-1100-gpt-finder-execution`.
