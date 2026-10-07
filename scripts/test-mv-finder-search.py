@@ -349,6 +349,10 @@ def test_portable(m):
         has_gi = True
     except ImportError:
         has_gi = False
+    source = open(APP_PATH, encoding="utf-8").read()
+    check("contract: search result launch failures use shared Mavericks alerts",
+          "from mv_dialogs import alert" in source
+          and 'alert(\n                    self,\n                    "Open Search Result"' in source)
     check("portable: build_search_window_class exists",
           callable(getattr(m, "build_search_window_class", None)))
     if not has_gi:
