@@ -91,29 +91,29 @@ class Activity(Gtk.Window):
         self.search = Gtk.SearchEntry(placeholder_text="Filter processes")
         self.search.connect("search-changed", lambda e: self.refresh())
         self.search.set_hexpand(True)
-        hb.pack_start(self.search)
+        toolbar.pack_start(self.search, True, True, 0)
 
         # Action buttons (Mavericks-style: Inspect, Quit, Force Quit, Renice)
         self.btn_inspect = Gtk.Button(label="Inspect")
         self.btn_inspect.connect("clicked", self.on_inspect)
         self.btn_inspect.set_sensitive(False)
-        hb.pack_end(self.btn_inspect)
+        toolbar.pack_end(self.btn_inspect, False, False, 0)
 
         self.btn_renice = Gtk.Button(label="Renice")
         self.btn_renice.connect("clicked", self.on_renice)
         self.btn_renice.set_sensitive(False)
-        hb.pack_end(self.btn_renice)
+        toolbar.pack_end(self.btn_renice, False, False, 0)
 
         self.btn_forcequit = Gtk.Button(label="Force Quit")
         self.btn_forcequit.connect("clicked", self.on_force_quit)
         self.btn_forcequit.get_style_context().add_class("destructive-action")
         self.btn_forcequit.set_sensitive(False)
-        hb.pack_end(self.btn_forcequit)
+        toolbar.pack_end(self.btn_forcequit, False, False, 0)
 
         self.btn_quit = Gtk.Button(label="Quit")
         self.btn_quit.connect("clicked", self.on_quit)
         self.btn_quit.set_sensitive(False)
-        hb.pack_end(self.btn_quit)
+        toolbar.pack_end(self.btn_quit, False, False, 0)
 
         # Main layout
         v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)

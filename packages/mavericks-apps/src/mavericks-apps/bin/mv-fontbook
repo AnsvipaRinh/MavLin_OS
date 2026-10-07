@@ -229,25 +229,25 @@ class FontBookWindow(Gtk.Window):
             "list-add", Gtk.IconSize.SMALL_TOOLBAR)
         self.install_btn.set_tooltip_text("Install Font… (Ctrl+I)")
         self.install_btn.connect("clicked", self.on_install)
-        hb.pack_start(self.install_btn)
+        hb.pack_start(self.install_btn, False, False, 0)
 
         self.remove_btn = Gtk.Button.new_from_icon_name(
             "list-remove", Gtk.IconSize.SMALL_TOOLBAR)
         self.remove_btn.set_tooltip_text("Remove Selected Font (Delete)")
         self.remove_btn.set_sensitive(False)
         self.remove_btn.connect("clicked", self.on_remove)
-        hb.pack_start(self.remove_btn)
+        hb.pack_start(self.remove_btn, False, False, 0)
 
         self.viewer_btn = Gtk.Button.new_from_icon_name(
             "font-x-generic", Gtk.IconSize.SMALL_TOOLBAR)
         self.viewer_btn.set_tooltip_text("Open in Font Viewer (Ctrl+O)")
         self.viewer_btn.connect("clicked", self.on_open_viewer)
-        hb.pack_start(self.viewer_btn)
+        hb.pack_start(self.viewer_btn, False, False, 0)
 
         self.search = Gtk.SearchEntry(placeholder_text="Search fonts…")
         self.search.set_hexpand(True)
         self.search.connect("changed", self.on_search_changed)
-        hb.pack_end(self.search)
+        hb.pack_end(self.search, True, True, 0)
 
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.root_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
