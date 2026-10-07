@@ -1053,3 +1053,11 @@ The Search audit found a correctness gap in the plocate fast-path: stale index e
 Fixed the parser to discard nonexistent indexed paths before creating Finder result rows, with a deterministic regression case. This preserves the fast-path and avoids an additional recursive scan just to validate every result.
 
 Claim: `20261007-1100-gpt-finder-execution`.
+
+### Finder execution — 2026-10-07 — Search error dialog integration
+
+Search result launch failures were using a raw GTK dialog instead of the shared Mavericks dialog system.
+
+The failure path now uses the shared mv_dialogs.alert() surface, while successful launch behavior remains unchanged. A deterministic source contract was added.
+
+Claim: 20261007-1100-gpt-finder-execution.
