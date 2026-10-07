@@ -1061,3 +1061,11 @@ Search result launch failures were using a raw GTK dialog instead of the shared 
 The failure path now uses the shared mv_dialogs.alert() surface, while successful launch behavior remains unchanged. A deterministic source contract was added.
 
 Claim: 20261007-1100-gpt-finder-execution.
+
+### Finder execution — 2026-10-07 — Quick Look GTK3 launch crash
+
+CI launch smoke exposed a Finder-relevant runtime defect in `mv-quicklook`: GTK3 rejected the two-argument `pack_end/pack_start` calls used by the Quick Look toolbar.
+
+Fixed all affected toolbar packing calls to the full GTK3 signature and updated the Quick Look regression contract. This restores the backend used by Finder's Quick Look action.
+
+Claim: `20261007-1100-gpt-finder-execution`.
