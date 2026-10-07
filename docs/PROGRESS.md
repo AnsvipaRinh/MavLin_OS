@@ -1074,3 +1074,12 @@ Claim: `20261007-1100-gpt-finder-execution`.
 ## 2026-10-07 — Finder native archive actions
 
 The native column Finder was missing direct access to the canonical Archive Utility operations even though the project already defined Compress and Extract Here elsewhere. Added both actions to the companion and routed them through the existing `mv-archive-utility` backend. Compression chooses an adjacent `.zip` without overwriting an existing archive; extraction uses `--here --no-open` and refreshes the Finder columns afterward. No archive backend was duplicated.
+
+
+### Finder execution — 2026-10-07 — archive action applicability
+
+The native column Finder previously offered **Extract Here** for every regular file, even though the shared Archive Utility defines extraction only for supported archive suffixes.
+
+The companion now gates the action through an archive-suffix contract aligned with mv-archive-utility, so ordinary files do not expose an operation that cannot apply. Regression coverage exercises supported .zip / .tar.gz suffixes and rejects .txt.
+
+Claim: `20261007-1100-gpt-finder-execution`.
