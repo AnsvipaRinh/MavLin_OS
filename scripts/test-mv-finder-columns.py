@@ -192,6 +192,11 @@ def test_pure():
           and 'add_action("paste"' in source
           and 'edit_menu.append("Copy", "app.copy")' in source
           and 'edit_menu.append("Paste", "app.paste")' in source)
+    check("contract: Finder preserves symlink copy semantics",
+          "os.path.lexists(source)" in source
+          and "not os.path.islink(source_abs)" in source
+          and "shutil.copy2(source, destination, follow_symlinks=False)" in source
+          and "os.path.lexists(destination)" in source)
     check("contract: Finder Paste rejects recursive folder copies",
           'if os.path.isdir(source_abs) and os.path.commonpath(' in source
           and 'Cannot copy a folder into itself.' in source)
