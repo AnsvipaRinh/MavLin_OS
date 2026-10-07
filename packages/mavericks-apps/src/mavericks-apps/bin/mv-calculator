@@ -120,11 +120,14 @@ def load_tape(path=None):
 
 def save_tape(tape, path=None):
     path = path or STORE
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(tape[-200:], f, indent=2)
-    os.replace(tmp, path)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(tape[-200:], f, indent=2)
+        os.replace(tmp, path)
+    except OSError as e:
+        sys.stderr.write("mv-calculator: tape save failed (%s)\n" % e)
 
 
 def build_calculator_class():
@@ -601,18 +604,30 @@ def build_calculator_class():
             self.tape_window = Gtk.Window(title="Paper Tape", transient_for=self)
             self.tape_window.set_default_size(240, 400)
             self.tape_window.set_type_hint(Gdk.WindowTypeHint.UTILITY)
-            hb = Gtk.HeaderBar(title="Paper Tape", show_close_button=True)
+            # Native XFWM4 chrome (project contract: no client-side
+            # decorations in mv-* apps). The Clear action lives in a plain
+            # toolbar box at the bottom of the tape window.
+            self.tape_window.set_decorated(True)
+            outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
             clear_btn = Gtk.Button(label="Clear")
+            clear_btn.set_tooltip_text("Clear the paper tape")
             clear_btn.connect("clicked", self.clear_tape)
-            hb.pack_start(clear_btn)
-            self.tape_window.set_titlebar(hb)
+            btn_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            btn_row.get_style_context().add_class("mavericks-app-toolbar")
+            btn_row.set_margin_start(6)
+            btn_row.set_margin_end(6)
+            btn_row.set_margin_top(6)
+            btn_row.set_margin_bottom(6)
+            btn_row.pack_start(clear_btn, False, False, 0)
             sw = Gtk.ScrolledWindow()
             view = Gtk.TextView(buffer=self.tape_buffer)
             view.set_editable(False)
             view.set_monospace(True)
             view.get_style_context().add_class("mavericks-calc-tape")
             sw.add(view)
-            self.tape_window.add(sw)
+            outer.pack_start(sw, True, True, 0)
+            outer.pack_start(btn_row, False, False, 0)
+            self.tape_window.add(outer)
             self.tape_window.connect("destroy",
                                      lambda _: setattr(self, "tape_window", None))
             self.tape_window.show_all()

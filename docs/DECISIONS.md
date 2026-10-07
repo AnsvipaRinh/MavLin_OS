@@ -1770,3 +1770,45 @@ markdown only and is fully covered by the zone suite above.
 **Verification:** `grep -rn -i "glm\|zai-coding"` on live paths returns zero matches (excluding the quarantine history line itself). `opencode.jsonc` validates as JSONC. `model-fallback.json` validates as JSON.
 
 **Restoration:** Copy `.bak` files from `lab/glm-quarantine/` back to original paths.
+
+## 2026-10-07: Sub-agent RESUME-FIRST rule (task lifecycle hardening)
+
+**Context:** The Task result channel is NOT session state. Orchestrator
+sessions have repeatedly observed "empty"/cancelled results while the live
+sub-agent session held 45k–100k tokens of real reasoning; re-issuing a fresh
+Task in that situation re-does work and burns tokens (see AGENTS.md §0.1.1
+and §14.5.1 for the original incident data). This session's own driver flow
+(qwen relay, oid `OS-qwen-p1scd`) adds the operational rule that closes the
+remaining loopholes.
+
+**Rule (binding for every fresh Task launch):**
+
+1. **Explicit oid marker in Task prompts.** Every prompt that starts a
+   worker session must carry its objective id in an unambiguous textual
+   marker (e.g. `oid OS-<name>` prefix). Never launch a Task whose prompt
+   does not let a reader recover the objective from the prompt alone.
+
+2. **Substring live-discovery BEFORE any fresh launch.** Before creating a
+   session, run live discovery over the session registry
+   (`scripts/session-reuse.py status` / `find-objective`) and match the
+   objective by SUBSTRING, not only by the stored oid field. An orphaned
+   session — one whose oid was never registered because the Task ended
+   abnormally — still matches its objective text and must be found this way.
+
+3. **task_id-less result ⇒ FIND, never NEW.** If a Task outcome arrives
+   without a `task_id`, that is an "id unknown" condition, not an "empty
+   session" condition: locate the live session by objective substring and
+   resume it with the single-word `resume` prompt (§14.5.2). Creating a new
+   session while a live same-objective session exists is FORBIDDEN.
+
+**Why:** fresh sessions are only justified by objective change, verified
+emptiness (status shows no assistant messages), verified 404, or context
+exhaustion — none of which is inferable from result text alone. Discovery
+gaps (no oid recorded) and transport gaps (no task_id returned) are exactly
+the two cases where the cheap wrong answer is "start over"; this rule makes
+"start over" the protocol exception instead of the default.
+
+**Verified during this session:** worktree
+`mavlinos-wt/OS-qwen-p1scd` / branch `work/OS-qwen-p1scd` (single-flight,
+one zone, no stash, no dot-revert) kept the relay objective continuously
+resumable for the whole P1 audit pass.

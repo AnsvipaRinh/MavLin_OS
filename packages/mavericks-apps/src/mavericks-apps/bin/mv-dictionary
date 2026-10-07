@@ -176,9 +176,12 @@ def load_history():
 
 
 def save_history(history):
-    ensure_cache()
-    with open(HISTORY_FILE, "w") as f:
-        json.dump(history[-HISTORY_LIMIT:], f)
+    try:
+        ensure_cache()
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(history[-HISTORY_LIMIT:], f)
+    except OSError as e:
+        sys.stderr.write("mv-dictionary: history save failed (%s)\n" % e)
 
 
 def load_bookmarks():
@@ -186,9 +189,12 @@ def load_bookmarks():
 
 
 def save_bookmarks(bookmarks):
-    ensure_cache()
-    with open(BOOKMARKS_FILE, "w") as f:
-        json.dump(bookmarks, f)
+    try:
+        ensure_cache()
+        with open(BOOKMARKS_FILE, "w") as f:
+            json.dump(bookmarks, f)
+    except OSError as e:
+        sys.stderr.write("mv-dictionary: bookmarks save failed (%s)\n" % e)
 
 
 def word_of_the_day():
@@ -396,8 +402,17 @@ class DictionaryWindow(Gtk.Window):
         self._budget_warned = False
 
         self.set_decorated(True)
+        # Single toolbar for the whole window. It must stay referenced by the
+        # widget tree for its lifetime: an earlier version created a second
+        # box under the same local name, which GC'd the first one and with it
+        # the bookmark/history/speak buttons (children are destroyed with an
+        # orphaned container, disconnecting their handlers).
         toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         toolbar.get_style_context().add_class("mavericks-dictionary-toolbar")
+        toolbar.set_margin_start(12)
+        toolbar.set_margin_end(12)
+        toolbar.set_margin_top(6)
+        toolbar.set_margin_bottom(6)
 
         self.search_entry = Gtk.SearchEntry()
         self.search_entry.set_placeholder_text("Search Dictionary...")
@@ -426,6 +441,10 @@ class DictionaryWindow(Gtk.Window):
                                   self._on_visible_child)
         self.stack_switcher = Gtk.StackSwitcher()
         self.stack_switcher.set_stack(self.source_stack)
+        # Source tabs (Dictionary/Thesaurus/Wikipedia/Apple) must be reachable
+        # with the mouse; the switcher was previously created but never packed.
+        toolbar.pack_start(self.stack_switcher, False, False, 0)
+        toolbar.pack_start(self.search_entry, True, True, 0)
 
         self.bookmark_btn = Gtk.ToggleButton()
         self.bookmark_btn.set_image(Gtk.Image.new_from_icon_name(
@@ -433,14 +452,14 @@ class DictionaryWindow(Gtk.Window):
         self.bookmark_btn.set_tooltip_text("Bookmark this word (Ctrl+B)")
         self.bookmark_btn.set_sensitive(False)
         self.bookmark_btn.connect("toggled", self.on_bookmark)
-        hb.pack_end(self.bookmark_btn)
+        toolbar.pack_end(self.bookmark_btn, False, False, 0)
 
         self.hist_btn = Gtk.ToggleButton()
         self.hist_btn.set_image(Gtk.Image.new_from_icon_name(
             "view-history", Gtk.IconSize.BUTTON))
         self.hist_btn.set_tooltip_text("Show History (Ctrl+H)")
         self.hist_btn.connect("toggled", self.on_history_toggle)
-        hb.pack_end(self.hist_btn)
+        toolbar.pack_end(self.hist_btn, False, False, 0)
 
         self.speak_btn = Gtk.Button()
         self.speak_btn.set_image(Gtk.Image.new_from_icon_name(
@@ -449,7 +468,7 @@ class DictionaryWindow(Gtk.Window):
         self.speak_btn.set_sensitive(False)
         self.speak_btn.connect("clicked", self.on_speak)
         if shutil.which("espeak-ng") or shutil.which("espeak"):
-            hb.pack_end(self.speak_btn)
+            toolbar.pack_end(self.speak_btn, False, False, 0)
 
         self.wod_banner = Gtk.InfoBar()
         self.wod_banner.set_message_type(Gtk.MessageType.INFO)
@@ -463,16 +482,8 @@ class DictionaryWindow(Gtk.Window):
         self.wod_banner.add_button("Close", Gtk.ResponseType.CLOSE)
         self.wod_banner.connect("response", self.on_wod_close)
 
-        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        toolbar.set_margin_start(12)
-        toolbar.set_margin_end(12)
-        toolbar.set_margin_top(6)
-        toolbar.set_margin_bottom(6)
-        toolbar.pack_start(self.search_entry, True, True, 0)
-
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.vbox = vbox
-        vbox.pack_start(toolbar, False, False, 0)
         vbox.pack_start(self.wod_banner, False, False, 0)
         vbox.pack_start(self.source_stack, True, True, 0)
 

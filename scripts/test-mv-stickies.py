@@ -123,6 +123,16 @@ def test_pure(m):
         m.save_store(path=path, data=data)
         check("save writes backup", os.path.exists(path + ".bak"))
 
+        blocker = os.path.join(tmp, "blocker")
+        with open(blocker, "w") as f:
+            f.write("x")
+        try:
+            m.save_store(path=os.path.join(blocker, "sub", "s.json"),
+                         data={"stickies": []})
+            check("save OSError tolerated", True)
+        except OSError as e:
+            check("save OSError tolerated", False, str(e))
+
         os.remove(path + ".bak")
         with open(path, "w") as f:
             f.write("{not json")
@@ -217,8 +227,8 @@ def test_gui(m):
             data = read_store(m, store_path)
             check("text persists", data["stickies"][0]["text"] == "hello world",
                   data["stickies"][0]["text"])
-            check("title updates", note.hb.get_title() == "hello world",
-                  note.hb.get_title())
+            check("title updates", note.get_title() == "hello world",
+                  note.get_title())
 
             rgba = Gdk.RGBA()
             rgba.parse("#ff0000")
@@ -309,8 +319,8 @@ def test_gui(m):
             check("restore geometry", (r.x, r.y) == (55, 66),
                   str((r.x, r.y)))
             check("restore collapsed", r.collapsed is True)
-            check("restore title", r.hb.get_title() == "restored note",
-                  r.hb.get_title())
+            check("restore title", r.get_title() == "restored note",
+                  r.get_title())
 
 
 def test_portable(m):
