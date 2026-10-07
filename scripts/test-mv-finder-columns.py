@@ -212,6 +212,10 @@ def test_pure():
           "last = self.listboxes[-1]" in source
           and "last.get_selected_row() is None" in source
           and "last.select_row(first)" in source)
+    check("contract: Finder actions prefer the focused column",
+          "index = self.focus_column_index()" in source
+          and "for listbox in reversed(self.listboxes):" in source
+          and "Older columns may retain GTK selection" in source)
     check("contract: Finder search reports launch failures",
           'subprocess.Popen(["mv-finder-search", target, query]' in source
           and 'self._show_error("Search", e.strerror or str(e))' in source)
