@@ -216,6 +216,10 @@ def test_pure():
           'Finder-native file actions' in source
           and 'Open in Thunar' in source)
 
+    check("contract: Finder CLI usage documents native actions",
+          'with native Finder actions' in source
+          and 'Open in Thunar remains available' in source)
+
     check("contract: Finder context menus expose clipboard actions",
           'Gtk.MenuItem(label="Copy")' in source
           and 'lambda _i: self._copy_selected()' in source
