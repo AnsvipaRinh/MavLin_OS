@@ -4,17 +4,28 @@ Qwen Web Worker - Playwright-based automation for coder.qwen.ai
 
 Machine-readable interface for OpenCode registrar integration.
 
+INVARIANT (enforced since 2026-10-07): this worker NEVER opens a
+visible browser window. Every Chromium launch is headless (new
+headless mode), the host DISPLAY/WAYLAND_DISPLAY are scrubbed from
+the browser environment, and the only display fallback is a pinned
+Xvfb virtual framebuffer (renders to memory only). Any code path
+that would produce a visible window fails loudly instead. The
+interactive 'auth' mode is therefore DISABLED: the authenticated
+profile lives on persistent storage and is auto-restored from the
+auth snapshot, so a visible login is never needed (and never run).
+
 Modes:
-  auth        - Authentication bootstrap mode (visible browser, wait for user login)
-  start       - Start/resume worker (headless, uses preserved authenticated profile)
+  start       - Start/resume worker (headless, persistent authenticated profile)
   status      - Get worker state
+  check       - Verify auth state (headless)
   send        - Send a prompt
   wait        - Wait for completion
   stop        - Stop worker
+  auth        - DISABLED: fails loudly, never opens a browser
 
 Usage:
-    qwen-web-worker.py auth                    # Auth bootstrap mode (visible, one-time)
     qwen-web-worker.py start                    # Start/resume worker (headless)
+    qwen-web-worker.py check --json             # Auth gate (machine-readable)
     qwen-web-worker.py send --prompt "text"   # Send a prompt
 """
 
@@ -26,12 +37,23 @@ import sys
 import time
 import argparse
 import signal
+import tempfile
 from playwright.async_api import async_playwright
 
 
 _META_DIR = os.path.expanduser("~/.config/mavlinos")
 _META_FILE = os.path.join(_META_DIR, "qwen-worker-state.json")
 _AUTH_BACKUP_DIR = os.path.join(_META_DIR, "qwen-auth-backup")
+# Persistent Chromium profile. MUST NOT live under /tmp (or any
+# tmpfs): a volatile profile wipes the coder.qwen.ai login on every
+# reboot — the root cause of the repeated logins (defect 2).
+_DEFAULT_PROFILE_DIR = os.path.join(_META_DIR, "qwen-chromium-profile")
+# Roots whose contents do not survive a reboot (tmpfs / volatile).
+_VOLATILE_ROOTS = ("/tmp", "/dev/shm")
+# Pinned Xvfb display range (last-resort fallback; virtual framebuffer
+# only — nothing ever appears on the host desktop).
+_XVFB_DISPLAY_MIN = 99
+_XVFB_DISPLAY_MAX = 109
 # Auth-critical profile subpaths (relative to the profile root) that get
 # snapshotted after a successful login and restored if the live profile
 # ever loses the session.
@@ -58,6 +80,135 @@ def _save_metadata(metadata):
     _ensure_meta_dir()
     with open(_META_FILE, "w") as f:
         json.dump(metadata, f, indent=2)
+
+
+def _is_volatile_profile_path(path):
+    """True when the profile path lives on volatile storage (tmpfs)
+    whose contents are wiped on reboot — such a profile silently
+    loses the coder.qwen.ai login."""
+    if not path:
+        return True
+    try:
+        real = os.path.realpath(os.path.abspath(path))
+        roots = [os.path.realpath(r) for r in _VOLATILE_ROOTS]
+        roots.append(os.path.realpath(tempfile.gettempdir()))
+    except Exception:
+        return True
+    for root in roots:
+        if real == root or real.startswith(root + os.sep):
+            return True
+    return False
+
+
+def _migrate_volatile_profile(volatile_path):
+    """Move a volatile (/tmp) profile to the persistent default
+    location by COPYING it (the source is NEVER deleted) and
+    repointing the metadata at the persistent copy. Returns the
+    persistent profile path."""
+    import shutil
+
+    persistent = _DEFAULT_PROFILE_DIR
+    if os.path.isdir(volatile_path):
+        if os.path.isdir(persistent):
+            print(
+                "[QwenWorker] Persistent profile already exists at {dst}; "
+                "keeping it (volatile copy at {src} left untouched).".format(
+                    dst=persistent, src=volatile_path),
+                file=sys.stderr,
+            )
+        else:
+            try:
+                _ensure_meta_dir()
+                shutil.copytree(volatile_path, persistent)
+                print(
+                    "[QwenWorker] Migrated volatile profile {src} -> {dst} "
+                    "(copied, never deleted; the /tmp copy is wiped on "
+                    "reboot anyway).".format(src=volatile_path, dst=persistent),
+                    file=sys.stderr,
+                )
+            except Exception as e:
+                print(
+                    "[QwenWorker] WARNING: profile migration failed: {e} "
+                    "(the login will not survive a reboot until this is "
+                    "fixed; attempting a fresh persistent profile with "
+                    "auth-snapshot restore).".format(e=e),
+                    file=sys.stderr,
+                )
+    metadata = _load_metadata()
+    metadata["profile_path"] = persistent
+    _save_metadata(metadata)
+    return persistent
+
+
+def _browser_env():
+    """Browser-process environment with the host's display servers
+    REMOVED. Headless Chromium needs no display at all; scrubbing
+    DISPLAY/WAYLAND_DISPLAY guarantees no host-display leak — even a
+    hypothetical headed launch could not reach the user's desktop."""
+    env = dict(os.environ)
+    for var in ("DISPLAY", "WAYLAND_DISPLAY"):
+        env.pop(var, None)
+    return env
+
+
+class VisibleBrowserForbidden(RuntimeError):
+    """Raised when any code path would open a visible Chromium window."""
+
+
+def _launch_kwargs(headless=True):
+    """Single choke point for EVERY Chromium launch in this worker.
+    Enforces the invisibility invariant: headless ALWAYS (new headless
+    mode), host display scrubbed from the browser environment. Raises
+    VisibleBrowserForbidden loudly instead of ever opening a visible
+    window."""
+    if headless is not True:
+        raise VisibleBrowserForbidden(
+            "refusing to launch Chromium with headless={0!r}: this "
+            "worker NEVER opens a visible browser window".format(headless))
+    return {
+        "headless": True,
+        "args": [
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--headless=new",
+        ],
+        "env": _browser_env(),
+        "viewport": {"width": 1920, "height": 1080},
+    }
+
+
+def _start_pinned_xvfb():
+    """LAST-RESORT display fallback: start a pinned Xvfb virtual
+    framebuffer (renders to memory only — nothing can appear on the
+    host desktop) and return (display, process). Used only if a
+    headless launch fails for lack of an X socket. The caller MUST
+    terminate the returned process (see QwenWorker._disconnect).
+    Raises loudly when no pinned display is available — never falls
+    back to the host display."""
+    import subprocess
+
+    for n in range(_XVFB_DISPLAY_MIN, _XVFB_DISPLAY_MAX + 1):
+        display = ":{0}".format(n)
+        socket_path = "/tmp/.X11-unix/X{0}".format(n)
+        if os.path.exists(socket_path):
+            continue
+        proc = subprocess.Popen(
+            ["Xvfb", display, "-nolisten", "tcp",
+             "-screen", "0", "1920x1080x24"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        for _ in range(50):
+            if os.path.exists(socket_path):
+                return display, proc
+            if proc.poll() is not None:
+                break
+            time.sleep(0.1)
+        proc.terminate()
+    raise RuntimeError(
+        "headless Chromium launch failed and no pinned Xvfb display "
+        "({0}-{1}) is available; refusing to fall back to a visible "
+        "window on the host display".format(
+            _XVFB_DISPLAY_MIN, _XVFB_DISPLAY_MAX))
 
 
 def _snapshot_auth_storage(profile_path):
@@ -168,218 +319,15 @@ class QwenWorkerState:
     DISCONNECTED = "disconnected"
 
 
-class QwenAuthWorker:
-    """
-    Authentication bootstrap mode.
-    Visible Chromium: user manually logs into Google/Qwen.
-    Persistent authenticated profile is established and saved.
-    Subsequent worker starts use this profile in headless mode.
-    """
-
-    def __init__(self, profile_path="/tmp/chromium-qwen-profile", timeout=300):
-        # Ensure we have a valid profile path
-        if profile_path is None:
-            profile_path = "/tmp/chromium-qwen-profile"
-        self.profile_path = profile_path
-        self.timeout = timeout
-        self.base_url = "https://coder.qwen.ai"
-        self.token_detected = False
-        self.auth_time = None
-        self._stop_requested = False
-        self.page = None
-        self.browser = None
-        self.context = None
-        self.playwright = None
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
-
-    def _signal_handler(self, signum, frame):
-        self._stop_requested = True
-
-    async def _detect_token(self):
-        try:
-            if self.page:
-                token = await self.page.evaluate(
-                    "( () => localStorage.getItem('token') )"
-                )
-                if token:
-                    self.token_detected = True
-                    self.auth_time = time.time()
-                    return True
-        except Exception:
-            pass
-        return False
-
-    async def run(self):
-        self._stop_requested = False
-        self.token_detected = False
-        self.auth_time = None
-        metadata = _load_metadata()
-        saved_profile = metadata.get("profile_path", self.profile_path)
-        # Use explicit default if no profile in metadata
-        if not saved_profile:
-            saved_profile = self.profile_path or "/tmp/chromium-qwen-profile"
-
-        # Refuse to share the profile with another live Chromium instance:
-        # concurrent instances on one user-data-dir corrupt localStorage
-        # (that is exactly how a valid session was lost on 2026-10-05).
-        if _profile_in_use(self.profile_path):
-            print(
-                "[QwenAuth] Profile is already in use by a running browser. "
-                "Close it first (this sharing corrupts the saved session).",
-                file=sys.stderr,
-            )
-            return
-
-        self.playwright = await async_playwright().start()
-
-        # Launch persistent context with saved profile; headless=False for auth bootstrap.
-        # Anti-automation-detection: Google blocks sign-in ("This browser or
-        # app may not be secure") when it sees --enable-automation or the
-        # AutomationControlled blink feature, both of which Playwright adds
-        # by default. Strip the flag and disable the feature.
-        args = [
-            "--no-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-blink-features=AutomationControlled",
-        ]
-        self.context = await self.playwright.chromium.launch_persistent_context(
-            self.profile_path,
-            headless=False,
-            args=args,
-            ignore_default_args=["--enable-automation"],
-            viewport={"width": 1920, "height": 1080},
-        )
-        self.browser = self.context.browser
-        self.page = await self.context.new_page()
-        await self.page.goto(self.base_url)
-        await self.page.wait_for_load_state("networkidle")
-        await self.page.wait_for_timeout(1000)
-
-        print(
-            "[QwenAuth] Browser opened visibly. Log into coder.qwen.ai in this window.",
-            file=sys.stderr,
-        )
-        print(
-            "[QwenAuth] IF GOOGLE SAYS 'browser may not be secure': in the SAME tab open "
-            "google.com and log in there FIRST, then return to coder.qwen.ai and click "
-            "'Continue with Google' — the OAuth consent passes without the sign-in wall.",
-            file=sys.stderr,
-        )
-        print(
-            "[QwenAuth] A non-Google method (QR code / email) on the Qwen page also works.",
-            file=sys.stderr,
-        )
-        print(
-            "[QwenAuth] WAIT until the page fully loads after login (you'll see dashboard/chat), "
-            "and stay in the SAME tab.",
-            file=sys.stderr,
-        )
-
-        start_time = time.time()
-        while not self._stop_requested and (time.time() - start_time) < self.timeout:
-            if await self._detect_token():
-                self._stop_requested = True
-                self.auth_time = time.time()
-                if self.page and self.page.context:
-                    try:
-                        chat_id = await self.page.evaluate(
-                            "( () => { const s = window.uc?.getState?.()?.chatId || window.store?.getState?.()?.chatId || null; return s; } )"
-                        )
-                        _save_metadata({"chat_id": chat_id, "profile_path": self.profile_path})
-                        print(
-                            "[QwenAuth] Authentication detected! Session metadata saved.",
-                            file=sys.stderr,
-                        )
-                        print(
-                            "[QwenAuth] Profile path: {self.profile_path}".format(
-                                self_profile_path=self.profile_path
-                            ),
-                            file=sys.stderr,
-                        )
-                        print(
-                            "[QwenAuth] You may now close this message and run:",
-                            file=sys.stderr,
-                        )
-                        print(
-                            "[QwenAuth]   python3 scripts/qwen-integration/qwen-web-worker.py start",
-                            file=sys.stderr,
-                        )
-                        print(
-                            "[QwenAuth]   or run prompts with: python3 scripts/qwen-integration/qwen-web-worker.py send --prompt 'your prompt'",
-                            file=sys.stderr,
-                        )
-                    except Exception:
-                        print(
-                            "[QwenAuth] Authentication detected! Could not extract chat_id.",
-                            file=sys.stderr,
-                        )
-                        _save_metadata({"chat_id": None, "profile_path": self.profile_path})
-                    break
-            await asyncio.sleep(3)
-
-        if not self._stop_requested:
-            print(
-                "[QwenAuth] Timeout waiting for authentication ({max_sec}s).".format(
-                    max_sec=self.timeout
-                ),
-                file=sys.stderr,
-            )
-
-        # CLEAN CLOSE is critical: Chromium flushes localStorage/leveldb only
-        # on an orderly shutdown. Hard kills lose recently written state —
-        # a valid session was lost exactly this way. Never keep the auth
-        # browser open: a leftover visible browser + a headless worker on the
-        # same profile corrupt each other.
-        print(
-            "[QwenAuth] Closing browser cleanly to persist the session...",
-            file=sys.stderr,
-        )
-        for closer in (self._close_context, self._stop_playwright):
-            try:
-                await closer()
-            except Exception:
-                pass
-
-        if self.token_detected:
-            backup_ok = _snapshot_auth_storage(self.profile_path)
-            if backup_ok:
-                print(
-                    "[QwenAuth] Auth storage snapshot saved to {dir} "
-                    "(auto-restore available if the live profile ever loses the session).".format(
-                        dir=_AUTH_BACKUP_DIR
-                    ),
-                    file=sys.stderr,
-                )
-            else:
-                print(
-                    "[QwenAuth] WARNING: auth storage snapshot failed; "
-                    "session persists only in the live profile.",
-                    file=sys.stderr,
-                )
-        print(
-            "[QwenAuth] Auth bootstrap complete. The persistent profile at: {profile_path} "
-            "is ready for subsequent INVISIBLE (headless) worker starts.".format(
-                profile_path=self.profile_path
-            ),
-            file=sys.stderr,
-        )
-
-    async def _close_context(self):
-        if self.context:
-            await self.context.close()
-
-    async def _stop_playwright(self):
-        if self.playwright:
-            await self.playwright.stop()
-
 
 class QwenWorker:
     """
     Headless worker mode.
-    Uses the authenticated persistent profile established during auth bootstrap.
-    Operates invisibly - no Chromium window appears on the Windows desktop.
-    Extracts responses via network-level SSE/event-stream interception.
+    Uses the authenticated profile on PERSISTENT storage
+    (~/.config/mavlinos/qwen-chromium-profile; a volatile /tmp
+    profile is migrated away automatically). Operates invisibly -
+    no Chromium window ever appears on the desktop. Extracts
+    responses via network-level SSE/event-stream interception.
     """
 
     def __init__(self, profile_path=None, timeout=300):
@@ -398,6 +346,7 @@ class QwenWorker:
         self._completed = False
         self._feedback = {}
         self._repo = None
+        self._xvfb_proc = None
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
@@ -407,18 +356,37 @@ class QwenWorker:
     async def _connect(self):
         """
         Connect to the authenticated persistent profile.
-        headless=True for normal operation - no visible Chromium window.
-        If the live profile lost its token, auto-restore from the auth
-        snapshot (taken at last successful login) before giving up.
+        headless=True for normal operation - no visible Chromium
+        window. The profile path is resolved to PERSISTENT
+        storage: a volatile (/tmp) profile is migrated (copied,
+        never deleted) to the persistent default, because a /tmp
+        profile wipes the login on every reboot. If the profile
+        or its token is missing, the auth snapshot (taken at the
+        last successful login) is restored BEFORE giving up.
         """
         metadata = _load_metadata()
-        profile = metadata.get("profile_path", self.profile_path)
-        if not profile or not os.path.exists(profile):
-            print(
-                "[QwenWorker] No authenticated profile found in metadata.",
-                file=sys.stderr,
-            )
-            return False
+        # Explicit --profile wins; otherwise the metadata value;
+        # the persistent default is the final fallback.
+        profile = (self.profile_path
+                   or metadata.get("profile_path")
+                   or _DEFAULT_PROFILE_DIR)
+        if _is_volatile_profile_path(profile):
+            profile = _migrate_volatile_profile(profile)
+
+        if not os.path.isdir(profile):
+            # First use of the persistent profile (or it was
+            # wiped): rebuild the auth-critical storage from the
+            # last known-good snapshot BEFORE the first launch.
+            # Restore only fills in missing auth state; nothing
+            # is ever deleted.
+            os.makedirs(profile, exist_ok=True)
+            if _restore_auth_storage(profile):
+                print(
+                    "[QwenWorker] Fresh persistent profile: restored "
+                    "auth storage from the snapshot at {dir}.".format(
+                        dir=_AUTH_BACKUP_DIR),
+                    file=sys.stderr,
+                )
 
         # Never share the profile with another live Chromium instance:
         # concurrent instances corrupt localStorage (root cause of the
@@ -470,8 +438,11 @@ class QwenWorker:
         await self._disconnect()
         if not _restore_auth_storage(profile):
             print(
-                "[QwenWorker] No auth snapshot available (needs_auth). "
-                "Run the visible one-time 'auth' mode to login again.",
+                "[QwenWorker] Live profile lost the auth token and no "
+                "auth snapshot is available (needs_auth). The login "
+                "loss must be REPORTED to the repository owner — this "
+                "worker never opens a visible browser and cannot "
+                "perform a login itself.",
                 file=sys.stderr,
             )
             return False
@@ -481,8 +452,10 @@ class QwenWorker:
         self.authenticated = await self._has_token()
         if not self.authenticated:
             print(
-                "[QwenWorker] Snapshot token rejected/expired (needs_auth). "
-                "Run the visible one-time 'auth' mode to login again.",
+                "[QwenWorker] Snapshot token rejected/expired "
+                "(needs_auth). The login loss must be REPORTED to "
+                "the repository owner — this worker never opens a "
+                "visible browser and cannot perform a login itself.",
                 file=sys.stderr,
             )
             await self._disconnect()
@@ -491,21 +464,43 @@ class QwenWorker:
         return True
 
     async def _launch(self, profile):
-        """Launch headless Chromium on the profile and arm the SSE listener."""
+        """Launch headless Chromium on the profile and arm the SSE
+        listener. Invisibility is enforced by _launch_kwargs (the
+        only launch choke point): headless=new always, host display
+        scrubbed from the browser environment. If the headless
+        launch fails for lack of an X socket, retry under a PINNED
+        Xvfb virtual display (memory-only framebuffer) — never the
+        host display, never a visible window. Any remaining failure
+        is fatal and loud."""
         try:
             self.playwright = await async_playwright().start()
-            args = ["--no-sandbox", "--disable-dev-shm-usage"]
-            self.context = await self.playwright.chromium.launch_persistent_context(
-                profile,
-                headless=True,
-                args=args,
-                viewport={"width": 1920, "height": 1080},
-            )
+            kwargs = _launch_kwargs(headless=True)
+            try:
+                self.context = await self.playwright.chromium.launch_persistent_context(
+                    profile, **kwargs
+                )
+            except Exception:
+                # Last-resort: pinned Xvfb (virtual framebuffer,
+                # renders to memory only). DISPLAY is set ONLY to
+                # the pinned virtual display — the host display was
+                # already scrubbed by _launch_kwargs and is never
+                # restored.
+                display, proc = _start_pinned_xvfb()
+                self._xvfb_proc = proc
+                xvfb_kwargs = dict(kwargs)
+                xvfb_env = dict(kwargs["env"])
+                xvfb_env["DISPLAY"] = display
+                xvfb_kwargs["env"] = xvfb_env
+                self.context = await self.playwright.chromium.launch_persistent_context(
+                    profile, **xvfb_kwargs
+                )
             self.browser = self.context.browser
             self.page = await self.context.new_page()
         except Exception as e:
             print(
-                "[QwenWorker] Browser launch failed: {e}".format(e=e), file=sys.stderr
+                "[QwenWorker] Headless browser launch failed (no "
+                "visible window was or will be opened): {e}".format(e=e),
+                file=sys.stderr,
             )
             return False
 
@@ -554,6 +549,13 @@ class QwenWorker:
                 await step()
             except Exception:
                 pass
+        # Retire the pinned Xvfb if the last-resort fallback started one.
+        if self._xvfb_proc is not None:
+            try:
+                self._xvfb_proc.terminate()
+            except Exception:
+                pass
+            self._xvfb_proc = None
         self.page = None
         self.context = None
         self.browser = None
@@ -1150,14 +1152,25 @@ def main():
     args = parser.parse_args()
 
     if args.mode == "auth":
-        auth_worker = QwenAuthWorker(profile_path=args.profile, timeout=args.timeout)
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(auth_worker.run())
-        finally:
-            loop.close()
-        return
+        # DISABLED (2026-10-07): this worker must NEVER open a
+        # visible browser window. Fail loudly instead. The
+        # authenticated profile is persistent and auto-restored
+        # from the auth snapshot, so an interactive login is
+        # never needed; if the session is truly lost, the loss
+        # is REPORTED — a login is never attempted here.
+        print(
+            "[QwenWorker] FATAL: 'auth' mode is permanently disabled. "
+            "This worker NEVER opens a visible browser window "
+            "(headless=new is enforced on every launch; the host "
+            "display is scrubbed from the browser environment). The "
+            "persistent profile is {profile} and the auth snapshot "
+            "is {backup}. If the coder.qwen.ai session is truly "
+            "lost, REPORT that to the repository owner — do not "
+            "attempt an interactive login from this worker.".format(
+                profile=_DEFAULT_PROFILE_DIR, backup=_AUTH_BACKUP_DIR),
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     if args.mode == "status":
         metadata = _load_metadata()

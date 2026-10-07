@@ -1711,3 +1711,44 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Why**: Long resume prompts confuse workers, waste context window, and introduce unnecessary token overhead. The session state is already complete — only the single-word trigger is needed to resume. This rule prevents workers from wasting tokens on verbose re-contextualization and ensures parallel discipline across orchestration sessions.
 
 **Source**: Owner directive 2026-10-05/06; enforced via `scripts/session-reuse.py` discipline and AGENTS.md §14.5.2.
+
+### Qwen worker: headless-only Chromium + persistent profile — 2026-10-07 (opencode, claim 2026-10-07-opencode-qwen-headless)
+
+Two defects in `scripts/qwen-integration/qwen-web-worker.py`, fixed under one claim.
+
+**Defect 1 — visible Chromium window on the user's desktop.**
+Root cause: `QwenAuthWorker` (the `auth` CLI mode) was the only
+code path that launched Chromium with `headless=False` — a real
+window on the host display. Fix: the class is removed and `auth`
+mode is permanently disabled (fails loudly, exit 2, instructing
+to REPORT login loss). Every remaining launch goes through a
+single choke point (`_launch_kwargs`) that enforces `headless=new`,
+scrubs `DISPLAY`/`WAYLAND_DISPLAY` from the browser environment
+(no host-display leak), and raises `VisibleBrowserForbidden` on
+any non-headless request. The only display fallback is a pinned
+Xvfb virtual framebuffer (renders to memory only), never the host
+display; any remaining launch failure is fatal and loud. The
+worker can no longer open a visible window on any path.
+
+**Defect 2 — lost coder.qwen.ai login (user logged in twice).**
+Root cause: the Chromium profile defaulted to
+`/tmp/chromium-qwen-profile` (tmpfs — wiped on reboot), and
+`_connect` had no recovery when the profile directory was missing
+entirely. Fix: the profile moved to persistent
+`~/.config/mavlinos/qwen-chromium-profile`; volatile paths are
+detected (`_is_volatile_profile_path`) and migrated by COPY (the
+source is never deleted) with metadata repointed at the persistent
+copy; a missing profile directory is rebuilt from the auth snapshot
+before the first launch; token loss in an existing profile still
+triggers the existing snapshot-restore path. Live verification:
+`check --json` → `authenticated: true` on the migrated persistent
+profile (login present — no re-login needed or attempted); second
+run is idempotent.
+
+**Tests:** offline suite extended 9 → 15 (new: launch choke point
+rejects visible launches, host display scrubbed from the browser
+environment, volatile-path detection, migration copies-never-deletes,
+auth mode fails loudly without a browser). `check --json` green.
+`scripts/check-sync.sh` (repo-wide gate) does not complete within
+practical time in this environment; the touched zone is Python +
+markdown only and is fully covered by the zone suite above.

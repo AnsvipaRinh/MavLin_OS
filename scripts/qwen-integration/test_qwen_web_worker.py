@@ -182,6 +182,77 @@ def test_artifacts_collected_from_answer_phase():
     assert w._feedback.get("model") == "qwen3-coder-plus"
 
 
+# --- Invisibility + persistence invariants (defect fixes 2026-10-07) ---
+
+def test_launch_kwargs_rejects_visible_headless():
+    # any non-headless request must fail loudly, never open a window
+    try:
+        mod._launch_kwargs(headless=False)
+    except mod.VisibleBrowserForbidden:
+        pass
+    else:
+        raise AssertionError("headless=False must raise VisibleBrowserForbidden")
+
+
+def test_launch_kwargs_always_headless_new_and_display_scrubbed():
+    kw = mod._launch_kwargs(headless=True)
+    assert kw["headless"] is True
+    assert "--headless=new" in kw["args"]
+    # no host DISPLAY leak: the browser env must carry no display servers
+    assert "DISPLAY" not in kw["env"]
+    assert "WAYLAND_DISPLAY" not in kw["env"]
+
+
+def test_default_profile_is_persistent():
+    assert not mod._is_volatile_profile_path(mod._DEFAULT_PROFILE_DIR)
+    assert mod._DEFAULT_PROFILE_DIR.startswith(
+        os.path.expanduser("~/.config/mavlinos"))
+
+
+def test_volatile_profile_path_detection():
+    assert mod._is_volatile_profile_path("/tmp/chromium-qwen-profile")
+    assert mod._is_volatile_profile_path("/dev/shm/chromium")
+    assert mod._is_volatile_profile_path(None)
+    assert not mod._is_volatile_profile_path(
+        os.path.expanduser("~/.config/mavlinos/qwen-chromium-profile"))
+    assert not mod._is_volatile_profile_path(
+        os.path.expanduser("~/some/other/persistent/path"))
+
+
+def test_migrate_volatile_profile_copies_and_repoints(tmp_path, monkeypatch):
+    src = tmp_path / "volatile-profile"
+    src.mkdir()
+    (src / "Default").mkdir()
+    (src / "Default" / "Cookies").write_bytes(b"session")
+    persistent = tmp_path / "persistent-profile"
+    monkeypatch.setattr(mod, "_DEFAULT_PROFILE_DIR", str(persistent))
+    monkeypatch.setattr(mod, "_META_DIR", str(tmp_path))
+    monkeypatch.setattr(mod, "_META_FILE", str(tmp_path / "state.json"))
+    (tmp_path / "state.json").write_text(
+        json.dumps({"profile_path": str(src)}))
+    result = mod._migrate_volatile_profile(str(src))
+    assert result == str(persistent)
+    assert (persistent / "Default" / "Cookies").read_bytes() == b"session"
+    # the volatile source is NEVER deleted
+    assert (src / "Default" / "Cookies").exists()
+    # metadata is repointed at the persistent copy
+    assert json.loads(
+        (tmp_path / "state.json").read_text())["profile_path"] == str(persistent)
+
+
+def test_auth_mode_fails_loudly_without_browser():
+    # the CLI 'auth' mode must exit non-zero with a loud message and
+    # must never import-launch a visible browser
+    import subprocess
+    p = subprocess.run(
+        [sys.executable, os.path.join(_HERE, "qwen-web-worker.py"), "auth"],
+        capture_output=True, text=True, timeout=120)
+    assert p.returncode != 0
+    combined = (p.stdout + p.stderr).lower()
+    assert "visible" in combined
+    assert "disabled" in combined
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

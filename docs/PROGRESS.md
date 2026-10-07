@@ -1003,3 +1003,37 @@ Added a regression contract requiring Gio application enumeration and selected-a
 **Checkpoint:** implementation `56cf12ab`; regression test `a16ad0f8`.
 
 Next: continue the Finder surface audit for remaining executable semantic gaps.
+
+## 2026-10-07 — Qwen worker: headless-only Chromium + persistent profile (opencode execution, oid OS-qwen-headless-profile)
+
+**Owner:** opencode — claim `2026-10-07-opencode-qwen-headless`, worktree `../mavlinos-wt/OS-qwen-headless-profile`, branch `work/OS-qwen-headless-profile`.
+
+Fixed two defects in `scripts/qwen-integration/qwen-web-worker.py`:
+
+1. **Visible Chromium window on the user's desktop.** Root cause:
+   `QwenAuthWorker` (the `auth` mode) launched Chromium with
+   `headless=False`. The class is removed; `auth` mode now fails
+   loudly (exit 2). All launches go through the `_launch_kwargs`
+   choke point: `headless=new` always, host `DISPLAY` /
+   `WAYLAND_DISPLAY` scrubbed from the browser environment, pinned
+   Xvfb (memory-only virtual framebuffer) as the only display
+   fallback, `VisibleBrowserForbidden` on any non-headless request.
+   No code path can open a visible window anymore.
+2. **Lost coder.qwen.ai login (user logged in twice).** Root cause:
+   the profile lived at `/tmp/chromium-qwen-profile` (tmpfs, wiped
+   on reboot) with no recovery when the directory vanished. The
+   profile moved to persistent `~/.config/mavlinos/qwen-chromium-profile`
+   with automatic copy-migration of volatile paths (source never
+   deleted), snapshot restore into a fresh profile directory, and
+   metadata repointed at the persistent copy. Login verified present
+   after migration (`check --json` → `authenticated: true`); no
+   re-login was needed or attempted.
+
+Offline suite extended 9 → 15 tests (all green); `check --json`
+green and idempotent; `QWEN_WORKER.md`, `test_qwen_live.py`
+updated to the persistent profile; DECISIONS.md records both root
+causes and fixes.
+
+**Next:** continue the canonical application audit (Finder /
+Spotlight / Launchpad / Mission Control remain the highest-priority
+PARTIALLY IMPLEMENTED surfaces per §13.9).

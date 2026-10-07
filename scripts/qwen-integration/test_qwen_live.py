@@ -27,7 +27,7 @@ async def main():
     results = []
 
     # Test A: authenticated headless startup
-    worker = QwenWorker(profile_path="/tmp/chromium-qwen-profile", timeout=240)
+    worker = QwenWorker(profile_path=mod._DEFAULT_PROFILE_DIR, timeout=240)
     print("=== Test A: authenticated headless startup ===")
     connected = await worker.run(mode="start")
     results.append(report("A: headless connect with preserved profile", bool(connected)))
