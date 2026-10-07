@@ -1737,3 +1737,12 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Decision:** Register the core Finder shortcuts directly on the existing Gio.Application action map and route them to the existing implementations: Back/Forward, Copy/Paste, Get Info, Rename, Move to Trash, Empty Trash, Search focus, and New Folder. Keep filesystem semantics in the existing methods rather than duplicating them in accelerator callbacks.
 
 **Validation:** Deterministic source regression coverage requires the action registrations and their exact accelerators. No resident process or external dependency is added.
+
+
+### Finder context menus reuse the existing clipboard implementation — 2026-10-07
+
+**Context:** Copy/Paste already worked from the application actions and keyboard path, but the native Finder context menus did not expose those existing operations.
+
+**Decision:** Add Copy to selected-item context menus and Paste to whitespace context menus, routing directly to the existing `_copy_selected()` / `_paste()` methods. Do not create a second clipboard implementation.
+
+**Validation:** Deterministic source regression coverage requires both menu entries and their existing handlers.
