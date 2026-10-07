@@ -24,7 +24,7 @@ _bin_dir = os.path.dirname(os.path.abspath(__file__))
 if _GUI and _bin_dir not in sys.path:
     sys.path.insert(0, _bin_dir)
 if _GUI:
-    from mv_dialogs import alert, confirm_delete
+    from mv_dialogs import alert, confirm_delete, entry_dialog
 
 STORE = os.path.expanduser("~/.local/share/mv-reminders/tasks.json")
 PRIORITIES = ["", "Low", "Medium", "High"]
@@ -60,6 +60,20 @@ def matches(task, query):
     if not query:
         return True
     return query.lower() in task.get("title", "").lower()
+
+
+def is_valid_due(value):
+    value = (value or "").strip()
+    if not value:
+        return True
+    import re
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+        return False
+    try:
+        time.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        return False
+    return True
 
 
 def _backup_path(path):
@@ -249,13 +263,16 @@ if _GUI:
             self.task_sw = Gtk.ScrolledWindow()
             self.task_sw.get_style_context().add_class("reminders-task-sidebar")
             self.task_sw.add(ttv)
-            right.pack_start(self.task_sw, True, True, 0)
-            paned.add2(right)
             self.ttv = ttv
 
             self.empty_label = Gtk.Label(label="")
             self.empty_label.get_style_context().add_class("reminders-empty")
             self.empty_label.set_no_show_all(True)
+            task_ov = Gtk.Overlay()
+            task_ov.add(self.task_sw)
+            task_ov.add_overlay(self.empty_label)
+            right.pack_start(task_ov, True, True, 0)
+            paned.add2(right)
 
             self.cur = "Reminders"
             self.query = ""
@@ -447,10 +464,8 @@ if _GUI:
                     due_state(t) == "overdue"
                 ])
             if tasks:
-                self.task_sw.show()
                 self.empty_label.hide()
             else:
-                self.task_sw.hide()
                 if self.data["lists"].get(self.cur):
                     self.empty_label.set_text("No tasks match your search")
                 else:
@@ -485,28 +500,31 @@ if _GUI:
                     task = t
             if task is None:
                 return
+            title = entry_dialog(self, "Edit Task", label="Title",
+                                 initial=task["title"], ok_label="OK")
+            if title is None:
+                return
+            due = entry_dialog(self, "Due Date",
+                               label="YYYY-MM-DD (optional)",
+                               initial=task.get("due", ""),
+                               allow_empty=True,
+                               validator=lambda v: None if is_valid_due(v)
+                               else "Invalid date. Use YYYY-MM-DD.")
+            if due is None:
+                return
             d = Gtk.Dialog(title="Edit Task", transient_for=self, modal=True)
             d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
                           "OK", Gtk.ResponseType.OK)
-            grid = Gtk.Grid(column_spacing=8, row_spacing=8, margin=12)
-            title_e = Gtk.Entry()
-            due_e = Gtk.Entry(placeholder_text="Due YYYY-MM-DD (optional)")
             prio = Gtk.ComboBoxText()
             for p in PRIORITIES:
                 prio.append_text(p)
-            title_e.set_text(task["title"])
-            due_e.set_text(task.get("due", ""))
             pr = task.get("prio", "")
             prio.set_active(PRIORITIES.index(pr) if pr in PRIORITIES else 0)
-            for i, (lab, w) in enumerate([("Title", title_e), ("Due", due_e),
-                                          ("Priority", prio)]):
-                grid.attach(Gtk.Label(label=lab, xalign=0), 0, i, 1, 1)
-                grid.attach(w, 1, i, 1, 1)
-            d.get_content_area().pack_start(grid, True, True, 0)
+            d.get_content_area().pack_start(prio, True, True, 8)
             d.show_all()
             if d.run() == Gtk.ResponseType.OK:
-                task["title"] = title_e.get_text().strip() or task["title"]
-                task["due"] = due_e.get_text().strip()
+                task["title"] = title
+                task["due"] = due
                 task["prio"] = prio.get_active_text() or ""
                 save_store(STORE, self.data)
                 self.refresh()
@@ -516,20 +534,14 @@ if _GUI:
             n = 1
             while "List %d" % n in self.data["lists"]:
                 n += 1
-            d = Gtk.Dialog(title="New List", transient_for=self, modal=True)
-            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "OK", Gtk.ResponseType.OK)
-            e = Gtk.Entry()
-            e.set_text("List %d" % n)
-            d.get_content_area().pack_start(e, True, True, 8)
-            d.show_all()
-            if d.run() == Gtk.ResponseType.OK:
-                name = e.get_text().strip() or ("List %d" % n)
-                self.data["lists"].setdefault(name, [])
-                self.cur = name
-                save_store(STORE, self.data)
-                self.refresh()
-            d.destroy()
+            name = entry_dialog(self, "New List", label="List name",
+                                initial="List %d" % n)
+            if name is None:
+                return
+            self.data["lists"].setdefault(name, [])
+            self.cur = name
+            save_store(STORE, self.data)
+            self.refresh()
 
         def add_task(self, _b):
             t = make_task()
@@ -562,21 +574,14 @@ if _GUI:
                 self.refresh()
 
         def rename_list(self, _it):
-            d = Gtk.Dialog(title="Rename List", transient_for=self, modal=True)
-            d.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                          "OK", Gtk.ResponseType.OK)
-            e = Gtk.Entry()
-            e.set_text(self.cur)
-            d.get_content_area().pack_start(e, True, True, 8)
-            d.show_all()
-            if d.run() == Gtk.ResponseType.OK:
-                name = e.get_text().strip()
-                if name and name != self.cur and name not in self.data["lists"]:
-                    self.data["lists"][name] = self.data["lists"].pop(self.cur)
-                    self.cur = name
-                    save_store(STORE, self.data)
-                    self.refresh()
-            d.destroy()
+            name = entry_dialog(self, "Rename List", label="List name",
+                                initial=self.cur)
+            if name is None or name == self.cur or name in self.data["lists"]:
+                return
+            self.data["lists"][name] = self.data["lists"].pop(self.cur)
+            self.cur = name
+            save_store(STORE, self.data)
+            self.refresh()
 
         def delete_list(self, _it):
             if len(self.data["lists"]) <= 1:
@@ -612,7 +617,7 @@ if _GUI:
                 item.connect("activate", cb)
                 menu.append(item)
             menu.show_all()
-            menu.popup(None, None, None, None, 0, ev.time)
+            menu.popup_at_pointer(ev)
             return True
 
         def on_list_button(self, tv, ev):
@@ -629,7 +634,7 @@ if _GUI:
                 item.connect("activate", cb)
                 menu.append(item)
             menu.show_all()
-            menu.popup(None, None, None, None, 0, ev.time)
+            menu.popup_at_pointer(ev)
             return True
 
         def ctx_edit(self, _it):
@@ -743,11 +748,9 @@ def main():
     sys.path.insert(0, "/usr/share/mavericks-apps")
     from mavericks_appmenu import run_application
     sys.exit(run_application(
-        "com.mavlinos.reminders", "Reminders", Reminders, sys.argv, build_reminders_menu))
-
-if __name__ == "__main__":
-    sys.path.insert(0, "/usr/share/mavericks-apps")
-    from mavericks_appmenu import run_application
-    sys.exit(run_application(
         "com.mavlinos.reminders", "Reminders", Reminders, sys.argv,
         build_reminders_menu))
+
+
+if __name__ == "__main__":
+    main()
