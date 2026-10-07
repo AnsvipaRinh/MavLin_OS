@@ -28,7 +28,7 @@ ACTIONS = [
     A("screenshot-area", "Screenshot: Selection", ["Super", "Shift"], "4",
       "mv-shot -i -c", "core", skill="screenshot"),
     A("screenshot-interactive", "Screenshot: Interactive Tools", ["Super", "Shift"], "5",
-      "mv-shot -i", "core", skill="screenshot"),
+      "mv-shot --toolbar", "core", skill="screenshot"),
 
     # --- Finder ------------------------------------------------------------
     A("finder", "Finder", ["Super"], "e", "mv-finder-columns",
