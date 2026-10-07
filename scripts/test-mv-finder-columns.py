@@ -234,7 +234,8 @@ def test_pure():
           'def _is_archive_path(path):' in source
           and 'ARCHIVE_SUFFIXES = (' in source
           and '".zip"' in source
-          and 'if os.path.isfile(path) and _is_archive_path(path):' in source)
+          and 'if os.path.isfile(path) and _is_archive_path(path):' in source
+          and 'and _is_archive_path(w()._selected_path())' in source)
 
     check("archive: Extract Here recognizes supported suffixes",
           m._is_archive_path("/tmp/demo.zip")
