@@ -195,6 +195,11 @@ def test_pure():
     check("contract: Finder Paste rejects recursive folder copies",
           'if os.path.isdir(source_abs) and os.path.commonpath(' in source
           and 'Cannot copy a folder into itself.' in source)
+    check("contract: Finder keeps dangling symlinks actionable",
+          'os.path.lexists(path)' in source
+          and 'def _rename(self, path):' in source
+          and 'def _get_info(self, path):' in source
+          and 'def _move_to_trash(self, path, confirm=False):' in source)
     check("contract: Finder sidebar exposes mounted devices and Eject",
           "Gio.VolumeMonitor.get()" in source
           and "volume_monitor.get_mounts()" in source
