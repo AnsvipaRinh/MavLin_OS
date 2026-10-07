@@ -198,6 +198,12 @@ def test_pure():
     check("contract: Finder Open With accepts row activation",
           'tree.connect("row-activated",' in source
           and 'dialog.response(Gtk.ResponseType.OK)' in source)
+    check("contract: Finder New Folder uses existing helper",
+          'def _new_folder(self):' in source
+          and '["mv-newfolder", target_dir]' in source
+          and 'app.new-folder' in source
+          and 'app.set_accels_for_action("app.new-folder", ["<Super><Shift>n"])' in source
+          and 'label="New Folder"' in source)
     check("contract: Finder Go to Folder navigation",
           "def on_go_to_folder(self, _action=None):" in source
           and 'entry_dialog(' in source
