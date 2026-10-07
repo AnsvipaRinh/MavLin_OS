@@ -928,12 +928,22 @@ class ColumnsWindow(Gtk.Window):
         if key == "Right":
             index = self.focus_column_index()
             if index is not None and index + 1 < len(self.listboxes):
-                self.listboxes[index + 1].grab_focus()
+                target = self.listboxes[index + 1]
+                target.grab_focus()
+                if target.get_selected_row() is None:
+                    first = target.get_row_at_index(0)
+                    if first is not None and hasattr(first, "entry"):
+                        target.select_row(first)
             return True
         if key == "Left":
             index = self.focus_column_index()
             if index is not None and index > 0:
-                self.listboxes[index - 1].grab_focus()
+                target = self.listboxes[index - 1]
+                target.grab_focus()
+                if target.get_selected_row() is None:
+                    first = target.get_row_at_index(0)
+                    if first is not None and hasattr(first, "entry"):
+                        target.select_row(first)
             return True
         if key == "BackSpace":
             if self.history_index > 0:
