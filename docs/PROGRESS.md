@@ -3,6 +3,17 @@
 **Last Updated**: 2026-10-06 (Power/Shutdown + Trash + Archive Utility — oid `OS-power-trash-archive`, canonical #14/#15/#16: three surfaces that all read IMPLEMENTED and all shipped broken — `mv-power-ui <action>` mapped no window at all because its argv was read as a file to open (killing Ctrl+Alt+Delete and the Apple menu's Log Out), the ISO had no polkit and no authentication agent so no privileged action could ever be authorized (proven: `CanPowerOff: challenge`, and the same UDisks2 call denied as user / succeeds as root), `mv-eject` was dead code on a removed GIO API, Empty Trash was `trash-empty` with no confirmation from three entry points, Put Back opened a stock terminal that cannot complete, and Archive Utility had no extraction path and no MIME wiring at all; 396 new behavioural assertions)
 ---
 
+## Session 2026-10-07 — Finder P0 execution pass (issue #187, GPT claim `20261007-1100-gpt-finder-execution`)
+
+**Zone:** `mv-finder-columns` and its canonical regression contract.
+
+- Continued the executable Finder pass under isolated branch `wip/gpt-finder-execution` and PR #188.
+- Finder's mounted-device sidebar now listens to GIO `mount-added`, `mount-removed`, and `mount-changed` signals and rebuilds only the device rows on the GTK main loop; no polling or shell-based mount handling was introduced.
+- Existing native GIO Eject behavior is preserved.
+- Added deterministic source regression coverage for the three volume-monitor events and the refresh helper.
+- Current GitHub CI run #856 has Finder-adjacent unit steps before the unrelated existing Panel clock contract failure; Secret Scan and Profile Sync passed, while Static Analysis was still running at the last check. No green CI claim is made.
+- Hardware validation remains required for actual removable-media insertion/ejection and 2304×1440 visual fidelity; those are not used to defer executable software work.
+
 ## Session 2026-10-06 — Power/Shutdown + Trash + Archive Utility (oid `OS-power-trash-archive`, canonical #14/#15/#16)
 
 **Zone:** `bin/mv-eject`, `bin/mv-trash` (verified only), `bin/mv-empty-trash` (new), `bin/mv-trash-putback` (new), `bin/mv-archive-utility` (new), `bin/mv-power-ui`, `lib/mv_hotkeys_core.py` (the two Empty Trash chords only), `desktop/mv-archive-utility.desktop`, `config/thunar-uca.xml` + skel mirror, `config/xfce4-keyboard-shortcuts.xml` + skel mirror, `configs/desktop/polkit/` (new) + skel autostart mirror, `archiso-profile/releng/packages.x86_64` (4 added), `Makefile`, `scripts/check-sync.sh` (one mirror pair), the three new suites + extensions to four existing ones, and the three APPS.md rows. Parallel agents own Finder/mimeapps and the dialogs migration; two shared-harness fixes were unavoidable and are recorded in DECISIONS §14.
