@@ -152,7 +152,7 @@ def main():
         source = fh.read()
     check("About This Mac uses native XFWM4 decoration", "self.set_decorated(True)" in source)
     check("About This Mac does not use Gtk.HeaderBar", "Gtk.HeaderBar" not in source and "self.set_titlebar(" not in source)
-    check("System Report uses native XFWM4 decoration", '"win.set_decorated(True)" in source')
+    check("System Report uses native XFWM4 decoration", "win.set_decorated(True)" in source)
     check("System Report has in-window toolbar", '"System Report"' in source and '"mavericks-about-toolbar"' in source)
     check("About This Mac keeps System Report in an internal toolbar", "mavericks-about-toolbar" in source and "toolbar.pack_end(rep" in source)
     check("About This Mac uses the shared Mavericks dialog", "from mv_dialogs import alert" in source and "Gtk.MessageDialog" not in source)
