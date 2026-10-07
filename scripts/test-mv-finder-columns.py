@@ -206,6 +206,12 @@ def test_pure():
           and 'app.open-with' in source
           and '[\"<Super>o\", \"<Super><Shift>o\"]' in source
           and '[\"<Super>e\"]' in source)
+    check("contract: Finder rename uses shared Mavericks entry dialog",
+          'from mv_dialogs import entry_dialog' in source
+          and 'new_name = entry_dialog(' in source
+          and 'validator=validate_name' in source
+          and 'self._show_error("Rename"' in source)
+
     check("contract: Finder context menus expose clipboard actions",
           'Gtk.MenuItem(label="Copy")' in source
           and 'lambda _i: self._copy_selected()' in source
