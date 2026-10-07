@@ -212,6 +212,10 @@ def test_pure():
           and 'validator=validate_name' in source
           and 'self._show_error("Rename"' in source)
 
+    check("contract: Finder column scope documents native file actions",
+          'Finder-native file actions' in source
+          and 'Open in Thunar' in source)
+
     check("contract: Finder context menus expose clipboard actions",
           'Gtk.MenuItem(label="Copy")' in source
           and 'lambda _i: self._copy_selected()' in source
