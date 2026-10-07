@@ -738,7 +738,7 @@ class ColumnsWindow(Gtk.Window):
             ok_label="Rename",
             validator=validate_name,
         )
-        if new_name is None or os.path.abspath(new_name) == os.path.abspath(os.path.basename(path)):
+        if new_name is None or new_name == os.path.basename(path):
             return
         target = os.path.join(os.path.dirname(path), new_name)
         try:
