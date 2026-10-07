@@ -195,6 +195,14 @@ def test_pure():
           and "mount.can_eject()" in source
           and "mount.eject_with_operation(" in source
           and 'Gtk.MenuItem(label="Eject")' in source)
+    check("contract: Finder Go to Folder navigation",
+          "def on_go_to_folder(self, _action=None):" in source
+          and 'entry_dialog(' in source
+          and 'label="Enter a folder path:"' in source
+          and 'validator=lambda value: None if os.path.isdir(' in source
+          and '"Go to Folder…" in source
+          and 'app.go-to-folder' in source
+          and '<Super><Shift>g' in source)
     check("contract: Finder status reports free space",
           "os.statvfs(self.chain[-1])" in source
           and "free_bytes = stat.f_bavail * stat.f_frsize" in source
