@@ -236,6 +236,10 @@ def test_pure():
           and '".zip"' in source
           and 'if os.path.isfile(path) and _is_archive_path(path):' in source)
 
+    check("archive: Extract Here recognizes supported suffixes",
+          m._is_archive_path("/tmp/demo.zip")
+          and m._is_archive_path("/tmp/demo.tar.gz")
+          and not m._is_archive_path("/tmp/demo.txt"))
     check("contract: Finder reuses Archive Utility for compression/extraction",
           'def _archive_compress(self, path):' in source
           and '[\"mv-archive-utility\", \"--new\", destination, path]' in source
