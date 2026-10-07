@@ -260,8 +260,56 @@ class ColumnsWindow(Gtk.Window):
                 row.add(Gtk.Label(label="  " + name, xalign=0))
                 row.get_style_context().add_class("mavericks-finder-row")
                 listbox.add(row)
+        try:
+            volume_monitor = Gio.VolumeMonitor.get()
+            self.volume_monitor = volume_monitor
+            for mount in volume_monitor.get_mounts():
+                root = mount.get_root()
+                path = root.get_path() if root is not None else None
+                if not path or os.path.abspath(path) == "/":
+                    continue
+                row = Gtk.ListBoxRow()
+                row.path = path
+                row.mount = mount
+                row.add(Gtk.Label(label="  " + (mount.get_name() or path), xalign=0))
+                row.get_style_context().add_class("mavericks-finder-row")
+                row.connect("button-press-event", self._sidebar_button_press)
+                listbox.add(row)
+        except Exception:
+            self.volume_monitor = None
         box.pack_start(listbox, True, True, 0)
         return box
+
+    def _sidebar_button_press(self, row, event):
+        if event.button != 3 or not hasattr(row, "mount"):
+            return False
+        if not row.mount.can_eject():
+            return False
+        menu = Gtk.Menu()
+        item = Gtk.MenuItem(label="Eject")
+        item.connect("activate", lambda _item: self._eject_mount(row.mount))
+        menu.append(item)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+        return True
+
+    def _eject_mount(self, mount):
+        if not mount or not mount.can_eject():
+            return
+        try:
+            mount.eject_with_operation(
+                Gio.MountUnmountFlags.NONE, None, None,
+                self._eject_finished, None)
+        except Exception as e:
+            self._show_error("Eject", str(e))
+
+    def _eject_finished(self, mount, result, _user_data):
+        try:
+            mount.eject_with_operation_finish(result)
+        except Exception as e:
+            self._show_error("Eject", str(e))
+        else:
+            self.rebuild_columns()
 
     def _sidebar_activated(self, _listbox, row):
         if hasattr(row, "path") and os.path.isdir(row.path):
