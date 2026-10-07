@@ -163,6 +163,10 @@ def parse_plocate_output(text, root, query, max_results=DEFAULT_MAX_RESULTS):
         name = os.path.basename(real)
         if not name or not visible_entry(name, include_hidden):
             continue
+        # plocate indexes can be stale. Never surface a path that no longer
+        # exists; otherwise Finder presents a result that cannot be opened.
+        if not os.path.lexists(real):
+            continue
         # hidden intermediate components (e.g. ~/.cache/...) respect the
         # same visibility rule as the walk backend
         rel = real[len(root_prefix):-len(name)] if real != root_real else ""
