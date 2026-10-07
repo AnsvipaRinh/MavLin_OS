@@ -627,6 +627,32 @@ class ColumnsWindow(Gtk.Window):
                     return path
         return None
 
+    def _new_folder(self):
+        """Create a Finder-style New Folder in the current directory."""
+        target_dir = self.chain[-1]
+        try:
+            result = subprocess.run(
+                ["mv-newfolder", target_dir],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except (OSError, subprocess.CalledProcessError) as e:
+            message = getattr(e, "stderr", None) or getattr(e, "strerror", None) or str(e)
+            self._show_error("New Folder", message.strip() or "Could not create folder.")
+            return
+        created = result.stdout.strip()
+        self.rebuild_columns()
+        # Keep the new folder actionable after refresh when it is visible in
+        # the current column.  This mirrors Finder's immediate post-create focus.
+        for listbox in self.listboxes[-1:]:
+            for row in listbox.get_children():
+                if getattr(row, "entry", {}).get("name") == os.path.basename(created):
+                    listbox.select_row(row)
+                    listbox.grab_focus()
+                    return
+
     def _copy_selected(self):
         path = self._selected_path()
         if not path:
@@ -892,7 +918,13 @@ class ColumnsWindow(Gtk.Window):
         if row is not None:
             self._popup_context_menu(listbox, row, event)
             return True
-        return False
+        menu = Gtk.Menu()
+        item = Gtk.MenuItem(label="New Folder")
+        item.connect("activate", lambda _i: self._new_folder())
+        menu.append(item)
+        menu.show_all()
+        menu.popup_at_pointer(event)
+        return True
 
     def _activate_path(self, path):
         if os.path.isdir(path):
@@ -1049,6 +1081,7 @@ def build_finder_menu(app, app_name, get_window, add_action):
     add_action("home", lambda: w().on_home(None) if w() else None)
     add_action("open-thunar", lambda: w().on_open_thunar(None) if w() else None)
     add_action("copy", lambda: w()._copy_selected() if w() else None)
+    add_action("new-folder", lambda: w()._new_folder() if w() else None)
     add_action("paste", lambda: w()._paste() if w() else None)
     add_action("empty-trash", lambda: w()._empty_trash() if w() else None)
     add_action("zoom-in", lambda: w().set_icon_size(zoom_step(w().icon_size, 1))
@@ -1072,6 +1105,7 @@ def build_finder_menu(app, app_name, get_window, add_action):
     menu.append_submenu("Edit", edit_menu)
 
     file_menu = Gio.Menu()
+    file_menu.append("New Folder", "app.new-folder")
     file_menu.append("Open in Thunar…", "app.open-thunar")
     file_menu.append("Close Window", "app.close")
     menu.append_submenu("File", file_menu)
@@ -1089,6 +1123,7 @@ def build_finder_menu(app, app_name, get_window, add_action):
     go_menu.append("Go to Folder…", "app.go-to-folder")
     add_action("go-to-folder", lambda: get_window().on_go_to_folder() if get_window() else None)
     app.set_accels_for_action("app.go-to-folder", ["<Super><Shift>g"])
+    app.set_accels_for_action("app.new-folder", ["<Super><Shift>n"])
     menu.append_submenu("Go", go_menu)
 
     window_menu = Gio.Menu()
