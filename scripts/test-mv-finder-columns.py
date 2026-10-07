@@ -208,6 +208,10 @@ def test_pure():
           and 'if key == "Left":' in source
           and 'if target.get_selected_row() is None:' in source
           and 'target.select_row(first)' in source)
+    check("contract: Finder rebuild restores an actionable selection",
+          "last = self.listboxes[-1]" in source
+          and "last.get_selected_row() is None" in source
+          and "last.select_row(first)" in source)
     check("contract: drag-and-drop move implementation remains present",
           'selection_data.set_uris' in source
           and 'shutil.move(source_abs, destination)' in source
