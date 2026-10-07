@@ -1124,3 +1124,10 @@ Claim: 20261007-1100-gpt-finder-execution.
 Finder's live mounted-device sidebar subscribed to Gio.VolumeMonitor signals but did not disconnect them when the window was destroyed. The companion now stores the three signal IDs and disconnects them in its destroy handler before Gtk.main_quit(), preventing stale callbacks and retaining the existing event-driven/no-polling design. Added a deterministic source contract.
 
 Claim: 20261007-1100-gpt-finder-execution.
+
+
+### Finder execution — 2026-10-07 — mount refresh idle lifecycle
+
+Hardened the event-driven mounted-device refresh: repeated GIO mount signals now coalesce into one pending GLib idle callback, and the pending callback is explicitly removed when Finder is destroyed. This prevents a queued refresh from touching a closing window while preserving zero-polling behavior. Added a deterministic source contract.
+
+Claim: 20261007-1100-gpt-finder-execution.
