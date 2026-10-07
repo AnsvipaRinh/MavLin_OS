@@ -421,8 +421,23 @@ class ColumnsWindow(Gtk.Window):
             self.error_label.set_text("")
             count = len(last_entries)
             name = os.path.basename(self.chain[-1]) or self.chain[-1]
+            try:
+                stat = os.statvfs(self.chain[-1])
+                free_bytes = stat.f_bavail * stat.f_frsize
+                units = ("B", "KB", "MB", "GB", "TB")
+                free_value = float(free_bytes)
+                unit = units[0]
+                for candidate in units[1:]:
+                    if free_value < 1024:
+                        break
+                    free_value /= 1024
+                    unit = candidate
+                free_text = "%.1f %s" % (free_value, unit)
+            except OSError:
+                free_text = "free space unavailable"
             self.status_label.set_text(
-                "%d item%s in “%s”" % (count, "" if count == 1 else "s", name))
+                "%d item%s in “%s” • %s free" %
+                (count, "" if count == 1 else "s", name, free_text))
 
         self.columns_box.show_all()
         self.error_label.set_visible(last_entries is None)
