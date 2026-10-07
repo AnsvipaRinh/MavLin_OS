@@ -1131,3 +1131,17 @@ Claim: 20261007-1100-gpt-finder-execution.
 Hardened the event-driven mounted-device refresh: repeated GIO mount signals now coalesce into one pending GLib idle callback, and the pending callback is explicitly removed when Finder is destroyed. This prevents a queued refresh from touching a closing window while preserving zero-polling behavior. Added a deterministic source contract.
 
 Claim: 20261007-1100-gpt-finder-execution.
+
+
+### Finder execution — 2026-10-07 — symlink copy semantics
+
+The continued Finder audit found a concrete filesystem-object correctness gap: Copy/Paste and Drag&Drop used `os.path.exists()`, which rejects dangling symlinks, and treated symlink-to-directory paths as real directories. That could make a visible link non-actionable or route it through recursive-directory copy logic.
+
+Fixed the native Finder paths to:
+- use `os.path.lexists()` for source/destination existence checks;
+- distinguish real directories from symlinks before applying recursive-copy guards;
+- copy non-directory objects with `shutil.copy2(..., follow_symlinks=False)` so symlinks are copied as links rather than dereferenced targets.
+
+Added a deterministic source regression contract covering the symlink-preserving path.
+
+Claim: `20261007-1100-gpt-finder-execution`.
