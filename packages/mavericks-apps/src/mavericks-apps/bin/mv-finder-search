@@ -560,12 +560,14 @@ def build_search_window_class():
                 subprocess.Popen(opener, stdout=subprocess.DEVNULL,
                                  stderr=subprocess.DEVNULL)
             except OSError as e:
-                dialog = Gtk.MessageDialog(
-                    transient_for=self, message_type=Gtk.MessageType.ERROR,
-                    buttons=Gtk.ButtonsType.OK, text="Could not open %s" % row[1])
-                dialog.format_secondary_text(str(e))
-                dialog.run()
-                dialog.destroy()
+                from mv_dialogs import alert
+                alert(
+                    self,
+                    "Open Search Result",
+                    secondary="Could not open “%s”: %s" % (row[1], e.strerror or str(e)),
+                    msg_type=Gtk.MessageType.ERROR,
+                    buttons=[("OK", Gtk.ResponseType.OK)],
+                )
 
     return FinderSearchWindow
 
