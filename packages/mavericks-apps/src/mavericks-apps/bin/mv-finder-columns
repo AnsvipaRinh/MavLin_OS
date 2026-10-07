@@ -708,7 +708,7 @@ class ColumnsWindow(Gtk.Window):
             subprocess.Popen(["mv-getinfo", path],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except OSError as e:
-            self._show_error("Get Info", str(e))
+            self._show_error("Get Info", e.strerror or str(e))
 
     def _rename(self, path):
         if not path or not os.path.exists(path):
