@@ -44,6 +44,8 @@ from playwright.async_api import async_playwright
 _META_DIR = os.path.expanduser("~/.config/mavlinos")
 _META_FILE = os.path.join(_META_DIR, "qwen-worker-state.json")
 _AUTH_BACKUP_DIR = os.path.join(_META_DIR, "qwen-auth-backup")
+# Single designated chat: all sends go to this chat; all others are deleted.
+_DESIGNATED_CHAT_KEY = "designated_chat_id"
 # Persistent Chromium profile. MUST NOT live under /tmp (or any
 # tmpfs): a volatile profile wipes the coder.qwen.ai login on every
 # reboot — the root cause of the repeated logins (defect 2).
@@ -984,6 +986,149 @@ class QwenWorker:
             )
             return False
 
+    async def list_chats(self):
+        """
+        List all chats from the sidebar. Returns a list of dicts with
+        'chat_id' and 'title' keys. Scrapes the sidebar DOM for
+        div.task-item-container elements with id="{title}_{chat_id}".
+        """
+        if not self.page:
+            return []
+        try:
+            chats = await self.page.evaluate(
+                """() => {
+                    const seen = new Set();
+                    const result = [];
+                    for (const el of document.querySelectorAll('.task-item-container')) {
+                        const id = el.id || '';
+                        const m = id.match(/_([a-f0-9-]{36})$/);
+                        if (!m) continue;
+                        const chatId = m[1];
+                        if (seen.has(chatId)) continue;
+                        seen.add(chatId);
+                        const title = (el.querySelector('.task-item-name-text') || {}).innerText || '';
+                        result.push({chat_id: chatId, title: title.trim().slice(0, 80)});
+                    }
+                    return result;
+                }"""
+            )
+            return chats or []
+        except Exception as e:
+            print("[QwenWorker] Failed to list chats: {e}".format(e=e), file=sys.stderr)
+            return []
+
+    async def delete_chat(self, chat_id):
+        """
+        Delete a chat by its ID. Finds the div.task-item-container with
+        id="{title}_{chat_id}", hovers to reveal the "more" dropdown,
+        clicks it, then selects "Delete" from the dropdown menu.
+        Returns True on success.
+        """
+        if not self.page or not chat_id:
+            return False
+        try:
+            locator = self.page.locator(
+                '.task-item-container[id$="_{cid}"]'.format(cid=chat_id)
+            )
+            if await locator.count() == 0:
+                return False
+            # Hover to reveal the "more" dropdown button
+            await locator.first.hover()
+            await self.page.wait_for_timeout(500)
+            # Click the "more" dropdown trigger
+            more_btn = locator.first.locator(
+                '.task-item-more-icon, .qwen-chat-v2-dropdown-menu-trigger, '
+                '[class*="operation-drop-down"] span[role="img"]'
+            )
+            if await more_btn.count() == 0:
+                return False
+            await more_btn.first.click()
+            await self.page.wait_for_timeout(500)
+            # Click "Delete" from the dropdown menu
+            delete_item = self.page.locator(
+                '[role="menuitem"]:has-text("Delete"), '
+                '[role="menuitem"]:has-text("delete"), '
+                'li:has-text("Delete"), '
+                '.qwen-chat-v2-dropdown-menu-item:has-text("Delete")'
+            )
+            if await delete_item.count() > 0:
+                await delete_item.first.click()
+                await self.page.wait_for_timeout(1000)
+                # Confirm deletion if a dialog appears
+                confirm = self.page.locator(
+                    'button:has-text("Delete"), button:has-text("Confirm"), '
+                    'button:has-text("Yes"), button:has-text("OK")'
+                )
+                if await confirm.count() > 0:
+                    await confirm.first.click()
+                    await self.page.wait_for_timeout(500)
+                print("[QwenWorker] Deleted chat: {id}".format(id=chat_id), file=sys.stderr)
+                return True
+            return False
+        except Exception as e:
+            print("[QwenWorker] Failed to delete chat {id}: {e}".format(id=chat_id, e=e), file=sys.stderr)
+            return False
+
+    async def ensure_designated_chat(self):
+        """
+        Ensure exactly one designated chat exists. If a designated chat
+        is already stored in metadata, navigate to it and delete all others.
+        If no designated chat exists, use the most recent one (or create one)
+        and store it as designated. Returns the designated chat_id or None.
+        """
+        metadata = _load_metadata()
+        designated = metadata.get(_DESIGNATED_CHAT_KEY)
+
+        chats = await self.list_chats()
+        if not chats:
+            # No chats exist — start a new one and wait for the sidebar to update
+            await self.start_new_task()
+            # Navigate to base URL to force sidebar refresh
+            await self.page.goto(self.base_url)
+            await self.page.wait_for_load_state("networkidle")
+            for _ in range(5):
+                await self.page.wait_for_timeout(2000)
+                chats = await self.list_chats()
+                if chats:
+                    break
+            if not chats:
+                print("[QwenWorker] No chats available after starting new task.", file=sys.stderr)
+                return None
+            # Use the first (most recent) chat
+            designated = chats[0]["chat_id"]
+            metadata[_DESIGNATED_CHAT_KEY] = designated
+            _save_metadata(metadata)
+            print("[QwenWorker] Designated new chat: {id}".format(id=designated), file=sys.stderr)
+            return designated
+
+        # Check if designated chat still exists
+        chat_ids = [c["chat_id"] for c in chats]
+        if designated and designated not in chat_ids:
+            # Designated chat was deleted externally — pick the first one
+            designated = chats[0]["chat_id"]
+            metadata[_DESIGNATED_CHAT_KEY] = designated
+            _save_metadata(metadata)
+            print("[QwenWorker] Designated chat was gone; re-designated: {id}".format(id=designated), file=sys.stderr)
+        elif not designated and chats:
+            # No designated chat yet — pick the first one
+            designated = chats[0]["chat_id"]
+            metadata[_DESIGNATED_CHAT_KEY] = designated
+            _save_metadata(metadata)
+            print("[QwenWorker] Auto-designated first chat: {id}".format(id=designated), file=sys.stderr)
+
+        # Delete all non-designated chats
+        for chat in chats:
+            if chat["chat_id"] != designated:
+                await self.delete_chat(chat["chat_id"])
+
+        # Navigate to the designated chat
+        if not await self.set_conversation(designated):
+            print("[QwenWorker] Failed to navigate to designated chat: {id}".format(id=designated), file=sys.stderr)
+            return None
+
+        print("[QwenWorker] Using designated chat: {id}".format(id=designated), file=sys.stderr)
+        return designated
+
     async def send_prompt(self, prompt):
         """
         Send a prompt to Qwen web UI and capture the SSE response stream.
@@ -1099,12 +1244,19 @@ class QwenWorker:
                 )
                 return False
             if chat_id:
+                # Explicit --chat: designate it and use it
+                metadata = _load_metadata()
+                metadata[_DESIGNATED_CHAT_KEY] = chat_id
+                _save_metadata(metadata)
                 if not await self.set_conversation(chat_id):
                     return False
             else:
-                # fresh conversation for this objective (deterministic; the
-                # SPA otherwise may append to the restored previous chat)
-                await self.start_new_task()
+                # Always use the single designated chat (owner directive:
+                # never create new chats, delete old ones, all requests
+                # sequential in one chat)
+                designated = await self.ensure_designated_chat()
+                if not designated:
+                    return False
             if repo:
                 # The .repo-selector lives on the home screen. If the app
                 # restored a previous conversation (/c/{id}), its toolbar has
@@ -1142,13 +1294,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Qwen Web Worker - Playwright-based automation for coder.qwen.ai"
     )
-    parser.add_argument("mode", choices=["start", "auth", "status", "check", "send", "wait", "stop"], help="Worker mode")
+    parser.add_argument("mode", choices=["start", "auth", "status", "check", "send", "wait", "stop", "list-chats", "designate-chat"], help="Worker mode")
     parser.add_argument("--profile", default=None, help="Persistent Chromium profile path (defaults to metadata)")
     parser.add_argument("--prompt", default=None, help="Prompt text to send (for send mode)")
-    parser.add_argument("--chat", default=None, help="Conversation/chat id to continue (send mode); omit to start a new conversation")
+    parser.add_argument("--chat", default=None, help="Conversation/chat id to continue (send mode); omit to use the designated chat")
     parser.add_argument("--repo", default=None, help="Repository to select for the task (send mode), e.g. AnsvipaRinh/MavLinOS or MavLinOS; omit for a blank workspace")
     parser.add_argument("--timeout", type=int, default=300, help="Maximum wait time in seconds (default: 300 = 5 min)")
-    parser.add_argument("--json", action="store_true", help="Machine-readable output for send/check/status")
+    parser.add_argument("--json", action="store_true", help="Machine-readable output for send/check/status/list-chats/designate-chat")
     args = parser.parse_args()
 
     if args.mode == "auth":
@@ -1275,6 +1427,52 @@ def main():
                 )
             else:
                 print("[QwenWorker] Waiting timed out or no response received.", file=sys.stderr)
+        elif args.mode == "list-chats":
+            connect_result = loop.run_until_complete(worker.run(mode="start"))
+            if not connect_result:
+                if args.json:
+                    print(json.dumps({"mode": "list-chats", "ok": False, "state": "needs_auth"}))
+                else:
+                    print("[QwenWorker] Failed to connect (needs_auth).", file=sys.stderr)
+                return
+            chats = loop.run_until_complete(worker.list_chats())
+            if args.json:
+                print(json.dumps({"mode": "list-chats", "ok": True, "chats": chats, "count": len(chats)}))
+            else:
+                for c in chats:
+                    print("[QwenWorker] Chat: {id} — {title}".format(id=c["chat_id"], title=c["title"]))
+        elif args.mode == "designate-chat":
+            connect_result = loop.run_until_complete(worker.run(mode="start"))
+            if not connect_result:
+                if args.json:
+                    print(json.dumps({"mode": "designate-chat", "ok": False, "state": "needs_auth"}))
+                else:
+                    print("[QwenWorker] Failed to connect (needs_auth).", file=sys.stderr)
+                return
+            if args.chat:
+                # Explicit designation
+                metadata = _load_metadata()
+                metadata[_DESIGNATED_CHAT_KEY] = args.chat
+                _save_metadata(metadata)
+                chats = loop.run_until_complete(worker.list_chats())
+                for c in chats:
+                    if c["chat_id"] != args.chat:
+                        loop.run_until_complete(worker.delete_chat(c["chat_id"]))
+                loop.run_until_complete(worker.set_conversation(args.chat))
+                if args.json:
+                    print(json.dumps({"mode": "designate-chat", "ok": True, "chat_id": args.chat}))
+                else:
+                    print("[QwenWorker] Designated chat: {id}".format(id=args.chat))
+            else:
+                # Auto-designate: use ensure_designated_chat
+                designated = loop.run_until_complete(worker.ensure_designated_chat())
+                if args.json:
+                    print(json.dumps({"mode": "designate-chat", "ok": bool(designated), "chat_id": designated}))
+                else:
+                    if designated:
+                        print("[QwenWorker] Designated chat: {id}".format(id=designated))
+                    else:
+                        print("[QwenWorker] Failed to designate a chat.", file=sys.stderr)
         elif args.mode == "stop":
             loop.run_until_complete(worker.run(mode="stop"))
     finally:

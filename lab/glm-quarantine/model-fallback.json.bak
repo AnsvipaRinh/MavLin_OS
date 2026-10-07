@@ -1,6 +1,6 @@
 {
   "$schema": "mavericks model-fallback-chain v1",
-  "note": "User-defined ordered fallback chain. Primary = next healthy chain entry via live resolution. Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts. SESSION != MODEL (2026-09-29 v3/v4 protocol): failover switches the worker (subagent_type) on the SAME session, never a replacement session. Since 2026-10-03 (protocol v17) the registrar rotates automatically on watchdog abort / abort-cooldown / decide-cooldown. Only entries with a 'worker' are runtime-reachable; entries with worker=null are intentionally NOT workers (reason given).",
+  "note": "User-defined ordered fallback chain (2026-10-03: GLM 5.3 REMOVED entirely per user directive — cooldown memory unreliable, config-only. Primary = next healthy chain entry via live resolution. Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts. SESSION != MODEL (2026-09-29 v3/v4 protocol): failover switches the worker (subagent_type) on the SAME session, never a replacement session. Since 2026-10-03 (protocol v17) the registrar rotates automatically on watchdog abort / abort-cooldown / decide-cooldown. Only entries with a 'worker' are runtime-reachable; entries with worker=null are intentionally NOT workers (reason given).",
   "primaryWorker": "build-j",
   "execution": "chain-only",
   "never": [
@@ -11,7 +11,7 @@
     "muse-spark",
     "fledge-alpha"
   ],
-  "never_reason": "User 2026-09-26: Muse Spark is NOT an allowed worker (Task sub-agent). The resolver always excludes these substrings, even with --all. Picker visibility: Muse Spark MUST remain available in /models for ORCHESTRATOR selection (user explicitly uses it). No provider.blacklist — that would hide it from the picker. Execution safety comes ONLY from the build pin + small_model (agents cannot switch models at runtime). User 2026-10-04: fledge-alpha added to never list — US-only geo-blocked test model (Poland/Spain/France/China get 'not available in your country'), removed per user approval.",
+  "never_reason": "User 2026-09-26: Muse Spark is NOT an allowed worker (Task sub-agent). The resolver always excludes these substrings, even with --all. Picker visibility: Muse Spark MUST remain available in /models for ORCHESTRATOR selection (user explicitly uses it). No provider.blacklist — that would hide it from the picker. Execution safety comes ONLY from the build pin + small_model (agents cannot switch models at runtime). User 2026-10-04: GLM removed from everywhere entirely (no chain entries, no worker pins, no never entries) — cooldown memory unreliable, config-only removal. User 2026-10-04: fledge-alpha added to never list — US-only geo-blocked test model (Poland/Spain/France/China get 'not available in your country'), removed per user approval.",
   "chain": [
     {
       "order": 1,
@@ -20,8 +20,8 @@
       "match": "ling-3.1-flash",
       "want": "opencode/ling-3.1-flash-free",
       "worker": "build-j",
-      "worker_reason": "PRIMARY WORKER since 2026-10-04. Proven worker, kept runtime-reachable via the build-j pin. Live-verified 2026-10-03: HTTP 200, tool_call:true, 1M context.",
-      "label": "Ling 3.1 Flash Free (OpenCode Zen; PRIMARY from 2026-10-04)"
+      "worker_reason": "PRIMARY WORKER since 2026-10-04 (GLM 5.3 removed per user directive — cooldown memory unreliable, config-only removal). Former primary 2026-10-03 morning, demoted when GLM 5.3 became primary. Proven worker, kept runtime-reachable via the build-j pin. Live-verified 2026-10-03: HTTP 200, tool_call:true, 1M context.",
+      "label": "Ling 3.1 Flash Free (OpenCode Zen / Z.ai; PRIMARY from 2026-10-04, GLM removed)"
     },
     {
       "order": 2,
@@ -105,10 +105,10 @@
   ],
   "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 2-3; Zen login for 1, 4-9. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry.",
   "history": [
-    "2026-10-07: GLM ETERNAL QUARANTINE per owner directive — all GLM references purged from live config (note, never_reason, worker_reason, history). Backups in lab/glm-quarantine/. Chain unchanged (1-9).",
     "2026-10-04: fledge-alpha REMOVED ENTIRELY per user approval — US-only geo-blocked test model (Poland/Spain/France/China get 'not available in your country'; US VPN works). Chain entry deleted (was order 6, worker build-d), build-d worker block removed from opencode.jsonc, fledge-alpha added to never list. Chain renumbered 1-9.",
     "2026-10-04: Nemotron 3.5 Lightning demoted to end of chain (order 10) at user request after repeated instability; chain renumbered 1-10 (duplicate order 9 fixed).",
-    "2026-10-04: Ling 3.1 Flash Free promoted to primary (order 1, worker build-j). primaryWorker updated to build-j.",
-    "2026-10-03: Ling 3.1 Flash Free made primary; chain restructured."
+    "2026-10-04: GLM 5.3 REMOVED ENTIRELY per user directive — cooldown memory unreliable, config-only removal. Ling 3.1 Flash Free promoted to primary (order 1, worker build-j). GLM 5.3/4.5-flash added to never list. primaryWorker updated to build-j.",
+    "2026-10-03 (afternoon): GLM 5.3 Coding Plan becomes order 1 / primary (user: '4.5 больше нет, юзаешь себя же и как агента — кодинг план 5.3, первым приоритетом'). Ling demoted to order 2 with new build-j pin. glm-4.5-flash removed from all pins (not in the Coding Plan model set).",
+    "2026-10-03 (morning): Ling 3.1 Flash Free was made primary; zai/glm-4.5-flash pins appeared in opencode.jsonc the same morning (ordinary Z.AI endpoint) — superseded the same day by the Coding Plan switch."
   ]
 }

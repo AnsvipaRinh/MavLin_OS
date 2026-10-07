@@ -1,0 +1,78 @@
+{
+  "$schema": "model-health v1",
+  "defaultCooldownSec": 10800,
+  "models": {
+    "opencode/nemotron-3.5-lightning-free": {
+      "model": "opencode/nemotron-3.5-lightning-free",
+      "state": "dead",
+      "deadAt": "2026-10-03T19:10:17+00:00",
+      "retryAfter": 1791055221.1676834,
+      "cooldownSec": 603.672,
+      "reason": "watchdog abort ses_efcfa525fffe1qpgWxwW39EWFK: MODEL_TIMEOUT delay=604s"
+    },
+    "zai-coding-plan/glm-5.3": {
+      "model": "zai-coding-plan/glm-5.3",
+      "state": "dead",
+      "deadAt": "2026-10-07T09:07:33+00:00",
+      "retryAfter": 1791450453.97393,
+      "cooldownSec": 86400.0,
+      "reason": "GLM family conservation per owner directive until further notice"
+    },
+    "opencode/ling-3.1-flash-free": {
+      "model": "opencode/ling-3.1-flash-free",
+      "state": "dead",
+      "deadAt": "2026-10-07T10:25:09+00:00",
+      "retryAfter": 1791379509.7016313,
+      "cooldownSec": 10800.0,
+      "reason": "migrated from ses_eea3a0258ffeg8quMxoJc5UQ9C delay>600s"
+    },
+    "openrouter/cohere/north-mini-code:free": {
+      "model": "openrouter/cohere/north-mini-code:free",
+      "state": "dead",
+      "deadAt": "2026-10-07T10:52:42+00:00",
+      "retryAfter": 1791381162.6006296,
+      "cooldownSec": 10800.0,
+      "reason": "migrated from ses_eea02bd4fffeqOPq8fs0T0E35H delay>600s"
+    },
+    "opencode/longcat-2.5-preview-free": {
+      "model": "opencode/longcat-2.5-preview-free",
+      "state": "dead",
+      "deadAt": "2026-10-04T21:24:46+00:00",
+      "retryAfter": 1791149701.7695923,
+      "cooldownSec": 615.184,
+      "reason": "watchdog abort ses_ef73b4bf2ffe8ljSiQRSLYxbDb: MODEL_TIMEOUT delay=615s"
+    },
+    "opencode/fledge-alpha-free": {
+      "model": "opencode/fledge-alpha-free",
+      "state": "dead",
+      "deadAt": "2026-10-06T18:14:16+00:00",
+      "retryAfter": 1793902456.0488334,
+      "cooldownSec": 2592000.0,
+      "reason": "Not available in Poland - removed per owner directive"
+    },
+    "opencode/nemotron-3-ultra-free": {
+      "model": "opencode/nemotron-3-ultra-free",
+      "state": "dead",
+      "deadAt": "2026-10-07T09:07:33+00:00",
+      "retryAfter": 1791371253.969536,
+      "cooldownSec": 7200.0,
+      "reason": "user-observed timeout, cancelled tasks"
+    },
+    "opencode/space-bunny-free": {
+      "model": "opencode/space-bunny-free",
+      "state": "dead",
+      "deadAt": "2026-10-07T09:07:33+00:00",
+      "retryAfter": 1791371253.9405231,
+      "cooldownSec": 7200.0,
+      "reason": "user-observed timeout on Qwen relay P1 batches"
+    },
+    "zai-coding-plan/glm-5.3-flash": {
+      "model": "zai-coding-plan/glm-5.3-flash",
+      "state": "dead",
+      "deadAt": "2026-10-07T09:07:33+00:00",
+      "retryAfter": 1791450453.9728222,
+      "cooldownSec": 86400.0,
+      "reason": "GLM family conservation per owner directive until further notice"
+    }
+  }
+}

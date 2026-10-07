@@ -1134,7 +1134,8 @@ def pool_of(model):
     """Account pool id for a model from the chain ('' when unpooled).
 
     Entries in .opencode/model-fallback.json may carry "pool": "<id>" when
-    several models share ONE account quota. A
+    several models share ONE account quota (E10: zai-coding-plan/glm-5.3-flash
+    and zai-coding-plan/glm-5.3 draw from the same coding-plan quota). A
     quota death in a pool blocks failover INSIDE that pool.
     """
     low = (model or "").lower()
@@ -1256,7 +1257,7 @@ def fmt_dur(sec):
 
 # ---- CONFIG-DRIFT gate (2026-10-06, E6 tug-of-war) ----
 # The live worker chain lives in two TRACKED files. During the 2026-10-05/06
-# incident an actor silently rewrote them in the worktree (entries wiped,
+# incident an actor silently rewrote them in the worktree (GLM entries wiped,
 # primary worker repointed) while committed state said otherwise; nothing
 # compared the two and preflight happily used the drifted config. Every
 # model-deciding command now carries a loud banner until the difference is
@@ -1356,7 +1357,8 @@ def cmd_mark_dead(args):
     p.add_argument("--reason", default="")
     p.add_argument("--pool-wide", action="store_true",
                    help="The whole account pool is quota-dead, not just this "
-                        "model (E10: multiple entries share the same quota)")
+                        "model (E10: both GLM entries share the "
+                        "zai-coding-plan quota)")
     a = p.parse_args(args)
     cd = a.cd if a.cd and a.cd > 0 else DEFAULT_COOLDOWN_SEC
     entry = record_dead(a.model, cd, a.reason or "marked dead",
