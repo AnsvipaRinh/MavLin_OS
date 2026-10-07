@@ -1719,3 +1719,12 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Decision:** Keep the existing GIO/GTK implementation and connect `Gio.VolumeMonitor` to `mount-added`, `mount-removed`, and `mount-changed`. Rebuild only mounted-device rows through `GLib.idle_add` so GTK mutations occur on the main loop. Do not add filesystem polling, shell `mount`/`umount`, or a daemon.
 
 **Validation:** Deterministic source regression coverage asserts all three signals, the device refresh helper, and the GTK idle scheduling path. Physical insertion/ejection remains a hardware-validation item.
+
+
+### Finder New Folder uses the existing helper — 2026-10-07
+
+**Context:** The canonical Finder surface already shipped `mv-newfolder`, but the native column Finder had no executable New Folder action of its own. This left the companion's direct filesystem surface behind the documented Finder contract.
+
+**Decision:** Reuse `mv-newfolder <directory>` rather than duplicate folder-creation logic. Expose it through the File menu, `Super+Shift+N`, and right-click whitespace in a Finder column. After successful creation, rebuild the visible column and select the new folder.
+
+**Validation:** Deterministic source regression coverage locks the helper invocation, action, accelerator, and context-menu entry. No new dependency or resident process is introduced.
