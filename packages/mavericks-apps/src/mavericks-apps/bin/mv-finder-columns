@@ -313,9 +313,12 @@ class ColumnsWindow(Gtk.Window):
 
     def _sidebar_activated(self, _listbox, row):
         if hasattr(row, "path") and os.path.isdir(row.path):
-            self.chain = [os.path.abspath(row.path)]
-            self.history = self.history[:self.history_index + 1] + [self.chain.copy()]
+            target = [os.path.abspath(row.path)]
+            if target == self.chain:
+                return
+            self.history = self.history[:self.history_index + 1] + [target]
             self.history_index += 1
+            self.chain = target
             self.rebuild_columns()
 
     def on_search(self, _entry):
