@@ -195,6 +195,11 @@ def test_pure():
           and "mount.can_eject()" in source
           and "mount.eject_with_operation(" in source
           and 'Gtk.MenuItem(label="Eject")' in source)
+    check("contract: Finder status reports free space",
+          "os.statvfs(self.chain[-1])" in source
+          and "free_bytes = stat.f_bavail * stat.f_frsize" in source
+          and "free space unavailable" in source
+          and "free" in source)
     check("contract: Finder device sidebar tracks mount changes",
           '"mount-added"' in source
           and '"mount-removed"' in source
