@@ -1014,3 +1014,6 @@ Added a regression contract requiring Gio application enumeration and selected-a
 **Checkpoint:** implementation `56cf12ab`; regression test `a16ad0f8`.
 
 Next: continue the Finder surface audit for remaining executable semantic gaps.
+## 2026-10-07 — Finder Go to Folder execution
+
+Added Finder's missing direct-location navigation surface to the native column browser: a Mavericks-style Go to Folder dialog using the shared validated text-entry dialog, history-aware navigation, and a `Super+Shift+G` application accelerator. Invalid/non-directory paths are rejected inline rather than producing a broken column state. A deterministic source regression contract covers the action, menu entry, accelerator, validation, and history path.
