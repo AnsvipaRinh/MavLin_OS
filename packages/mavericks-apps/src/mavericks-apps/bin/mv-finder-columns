@@ -547,7 +547,18 @@ class ColumnsWindow(Gtk.Window):
               buttons=[("OK", Gtk.ResponseType.OK)])
 
     def _selected_path(self):
-        for listbox in self.listboxes:
+        # Finder actions operate on the column that currently owns keyboard focus.
+        # Older columns may retain GTK selection while focus moves right, so do
+        # not let a stale selection shadow the actionable row.
+        index = self.focus_column_index()
+        if index is not None:
+            listbox = self.listboxes[index]
+            row = listbox.get_selected_row()
+            if row is not None:
+                path = self._row_path(listbox, row)
+                if path:
+                    return path
+        for listbox in reversed(self.listboxes):
             row = listbox.get_selected_row()
             if row is not None:
                 path = self._row_path(listbox, row)
