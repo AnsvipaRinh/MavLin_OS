@@ -709,7 +709,14 @@ class ColumnsWindow(Gtk.Window):
         if pasted:
             self.rebuild_columns()
 
-    def _archive_destination(self, path):
+    def _is_archive_path(path):
+    """Return whether PATH has an archive suffix supported by Archive Utility."""
+    from mv_archive_utility import ARCHIVE_SUFFIXES
+    lower = os.path.basename(path).lower()
+    return any(lower.endswith(suffix.lower()) for suffix in ARCHIVE_SUFFIXES)
+
+
+def _archive_destination(self, path):
         """Choose a Finder-style adjacent .zip without overwriting an existing archive."""
         base = os.path.basename(os.path.abspath(path))
         candidate = os.path.join(os.path.dirname(os.path.abspath(path)), base + ".zip")
@@ -962,7 +969,7 @@ class ColumnsWindow(Gtk.Window):
         item = Gtk.MenuItem(label="Compress")
         item.connect("activate", lambda _i: self._archive_compress(path))
         menu.append(item)
-        if os.path.isfile(path):
+        if os.path.isfile(path) and _is_archive_path(path):
             item = Gtk.MenuItem(label="Extract Here")
             item.connect("activate", lambda _i: self._archive_extract_here(path))
             menu.append(item)
