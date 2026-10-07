@@ -263,22 +263,37 @@ class ColumnsWindow(Gtk.Window):
         try:
             volume_monitor = Gio.VolumeMonitor.get()
             self.volume_monitor = volume_monitor
-            for mount in volume_monitor.get_mounts():
-                root = mount.get_root()
-                path = root.get_path() if root is not None else None
-                if not path or os.path.abspath(path) == "/":
-                    continue
-                row = Gtk.ListBoxRow()
-                row.path = path
-                row.mount = mount
-                row.add(Gtk.Label(label="  " + (mount.get_name() or path), xalign=0))
-                row.get_style_context().add_class("mavericks-finder-row")
-                row.connect("button-press-event", self._sidebar_button_press)
-                listbox.add(row)
+            volume_monitor.connect("mount-added", self._mount_changed)
+            volume_monitor.connect("mount-removed", self._mount_changed)
+            volume_monitor.connect("mount-changed", self._mount_changed)
+            self._append_mounted_devices()
         except Exception:
             self.volume_monitor = None
         box.pack_start(listbox, True, True, 0)
         return box
+
+    def _append_mounted_devices(self):
+        if not getattr(self, "sidebar_list", None) or not getattr(self, "volume_monitor", None):
+            return
+        for row in list(self.sidebar_list.get_children()):
+            if hasattr(row, "mount"):
+                self.sidebar_list.remove(row)
+        for mount in self.volume_monitor.get_mounts():
+            root = mount.get_root()
+            path = root.get_path() if root is not None else None
+            if not path or os.path.abspath(path) == "/":
+                continue
+            row = Gtk.ListBoxRow()
+            row.path = path
+            row.mount = mount
+            row.add(Gtk.Label(label="  " + (mount.get_name() or path), xalign=0))
+            row.get_style_context().add_class("mavericks-finder-row")
+            row.connect("button-press-event", self._sidebar_button_press)
+            self.sidebar_list.add(row)
+        self.sidebar_list.show_all()
+
+    def _mount_changed(self, *_args):
+        GLib.idle_add(self._append_mounted_devices)
 
     def _sidebar_button_press(self, row, event):
         if event.button != 3 or not hasattr(row, "mount"):
