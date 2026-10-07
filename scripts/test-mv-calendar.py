@@ -36,8 +36,8 @@ import mv_gui_iso
 
 mv_gui_iso.arm_guard()
 
-APP_PATH = os.path.join(
-    REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-calendar")
+BIN = os.path.join(REPO, "packages/mavericks-apps/src/mavericks-apps/bin")
+APP_PATH = os.path.join(BIN, "mv-calendar")
 
 FAILURES = []
 PASSED = 0

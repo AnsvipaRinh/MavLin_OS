@@ -33,7 +33,7 @@ _bin_dir = os.path.dirname(os.path.abspath(__file__))
 if _GUI and _bin_dir not in sys.path:
     sys.path.insert(0, _bin_dir)
 if _GUI:
-    from mv_dialogs import alert, confirm_delete
+    from mv_dialogs import alert, confirm_delete, entry_dialog
 
 # Import EDS sync bridge (always available for headless --sync)
 try:
@@ -545,7 +545,7 @@ if _GUI:
 
             self.search = Gtk.SearchEntry(placeholder_text="Search")
             self.search.connect("changed", self.on_search)
-            hb.pack_start(self.search)
+            toolbar.pack_start(self.search, False, False, 0)
 
             nav = Gtk.Box(spacing=4)
             for label, icon, cb in [("Today", None, self.go_today),
@@ -560,7 +560,7 @@ if _GUI:
                 b.get_style_context().add_class("mavericks-toolbar-btn")
                 b.connect("clicked", cb)
                 nav.pack_start(b, False, False, 0)
-            hb.pack_end(nav)
+            toolbar.pack_end(nav, False, False, 0)
 
             self.view_btns = {}
             vbox = Gtk.Box(spacing=0)
@@ -571,7 +571,7 @@ if _GUI:
                 b.connect("toggled", self.on_view_toggle, v.lower())
                 vbox.pack_start(b, False, False, 0)
                 self.view_btns[v.lower()] = b
-            hb.pack_end(vbox)
+            toolbar.pack_end(vbox, False, False, 0)
 
             for label, icon, cb in [
                     ("New Event", "list-add", self.new_event),
@@ -584,7 +584,7 @@ if _GUI:
                 b.set_tooltip_text(label)
                 b.get_style_context().add_class("mavericks-toolbar-btn")
                 b.connect("clicked", cb)
-                hb.pack_end(b)
+                toolbar.pack_end(b, False, False, 0)
 
             self.title_label = Gtk.Label()
             self.title_label.set_margin_end(12)
@@ -1513,12 +1513,11 @@ if _GUI:
                         break
                 self.update_calendar_combo()
                 ev_cal = ev.get("calendar", "")
-                for i in range(self.cal_combo.get_active() + 1):
+                model = self.cal_combo.get_model()
+                for i in range(model.iter_n_children(None) if model else 0):
+                    self.cal_combo.set_active(i)
                     if self.cal_combo.get_active_text() == ev_cal:
                         break
-                else:
-                    for i in range(self.cal_combo.get_model().iter_n_children(None) if self.cal_combo.get_model() else 0):
-                        pass
                 self.all_day.set_active(bool(ev.get("all_day")))
                 self.repeat_combo.set_active(
                     REPEAT_MODES.index(ev.get("repeat", "none")))
@@ -1684,21 +1683,13 @@ if _GUI:
             }
 
         def add_account(self, _):
-            dialog = Gtk.Dialog(title="New Account", transient_for=self,
-                                modal=True)
-            dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                              "Add", Gtk.ResponseType.OK)
-            grid = Gtk.Grid(column_spacing=12, row_spacing=12, margin=16)
-            dialog.get_content_area().add(grid)
-            grid.attach(Gtk.Label(label="Name:", xalign=0), 0, 0, 1, 1)
-            name_entry = Gtk.Entry(placeholder_text="Account name")
-            grid.attach(name_entry, 1, 0, 1, 1)
-            if dialog.run() == Gtk.ResponseType.OK:
-                name = name_entry.get_text().strip()
-                if name and name not in self.accounts:
-                    self.accounts[name] = {"calendars": {}}
-                    self.refresh_list()
-            dialog.destroy()
+            def _dup(text):
+                return "Account already exists." if text in self.accounts else None
+            name = entry_dialog(self, "New Account", label="Account name",
+                                validator=_dup)
+            if name:
+                self.accounts[name] = {"calendars": {}}
+                self.refresh_list()
 
         def add_calendar(self, _):
             # Need to know which account to add to
@@ -1709,6 +1700,7 @@ if _GUI:
                                 modal=True)
             dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
                               "Add", Gtk.ResponseType.OK)
+            add_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
             grid = Gtk.Grid(column_spacing=12, row_spacing=12, margin=16)
             dialog.get_content_area().add(grid)
             grid.attach(Gtk.Label(label="Account:", xalign=0), 0, 0, 1, 1)
@@ -1727,6 +1719,25 @@ if _GUI:
             grid.attach(Gtk.Label(label="Color:", xalign=0), 0, 2, 1, 1)
             color_btn = Gtk.ColorButton()
             grid.attach(color_btn, 1, 2, 1, 1)
+            hint = Gtk.Label(label="", xalign=0)
+            grid.attach(hint, 1, 3, 1, 1)
+
+            def refresh_add_sensitive(_w=None):
+                acc = acc_combo.get_active_text()
+                name = name_entry.get_text().strip()
+                if not name:
+                    hint.set_text("")
+                    add_btn.set_sensitive(False)
+                    return
+                if acc and name in self.accounts.get(acc, {}).get("calendars", {}):
+                    hint.set_text("Calendar already exists in this account.")
+                    add_btn.set_sensitive(False)
+                else:
+                    hint.set_text("")
+                    add_btn.set_sensitive(True)
+            name_entry.connect("changed", refresh_add_sensitive)
+            acc_combo.connect("changed", refresh_add_sensitive)
+            refresh_add_sensitive()
             if dialog.run() == Gtk.ResponseType.OK:
                 acc = acc_combo.get_active_text()
                 name = name_entry.get_text().strip()
@@ -1767,6 +1778,7 @@ if _GUI:
                                 modal=True)
             dialog.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
                               "Save", Gtk.ResponseType.OK)
+            save_btn = dialog.get_widget_for_response(Gtk.ResponseType.OK)
             grid = Gtk.Grid(column_spacing=12, row_spacing=12, margin=16)
             dialog.get_content_area().add(grid)
             grid.attach(Gtk.Label(label="Name:", xalign=0), 0, 0, 1, 1)
@@ -1779,6 +1791,23 @@ if _GUI:
             if rgba.parse(cal_data["color"]):
                 color_btn.set_rgba(rgba)
             grid.attach(color_btn, 1, 1, 1, 1)
+            hint = Gtk.Label(label="", xalign=0)
+            grid.attach(hint, 1, 2, 1, 1)
+
+            def refresh_save_sensitive(_e=None):
+                new_name = name_entry.get_text().strip()
+                if not new_name:
+                    hint.set_text("")
+                    save_btn.set_sensitive(False)
+                elif (new_name != cal_name
+                      and new_name in self.accounts[acc_name]["calendars"]):
+                    hint.set_text("Calendar already exists in this account.")
+                    save_btn.set_sensitive(False)
+                else:
+                    hint.set_text("")
+                    save_btn.set_sensitive(True)
+            name_entry.connect("changed", refresh_save_sensitive)
+            refresh_save_sensitive()
             if dialog.run() == Gtk.ResponseType.OK:
                 new_name = name_entry.get_text().strip()
                 if new_name:

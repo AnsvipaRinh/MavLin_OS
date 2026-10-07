@@ -1061,3 +1061,38 @@ causes and fixes.
 **Next:** continue the canonical application audit (Finder /
 Spotlight / Launchpad / Mission Control remain the highest-priority
 PARTIALLY IMPLEMENTED surfaces per §13.9).
+## 2026-10-07 — P1 DoD audit: mv-calendar, mv-console, mv-keychain (Qwen relay)
+
+Qwen relay via `scripts/qwen-integration/qwen-web-worker.py` (single
+designated chat, objective verbatim, per-file diffs). Qwen auth:
+`authenticated: true`. Qwen delivered the audit + usable diffs for
+4 of 6 files; its file-5 sandbox output was corrupted (line-number
+prefixes embedded in content) and file 6 was never delivered —
+self-implemented files 5-6 plus the missing arity/`__main__`-guard
+completions. Split: Qwen = audit + diffs 1-4 (mv-console hb→toolbar,
+BIN in test-mv-console/test-mv-calendar, keychain contract-test wiring);
+own = pack_start/pack_end arity (PyGObject here requires explicit
+expand/fill/padding), test-mv-keychain `__main__` guard (suite was
+inert at origin/main), bin/mv-keychain cert_grid leak + Add-button
+contract + empty-attributes alert, bin/mv-calendar hb×3 + EventDialog
+calendar-restore dead-code fix + add_account entry_dialog migration +
+add_calendar/edit_item OK-disable/inline-hint.
+
+Results: mv-console was unlaunchable (undefined `hb`, 5 sites) — now
+launches, 102/0 checks; mv-calendar unlaunchable (undefined `hb`, 4
+sites) + edit could save to wrong calendar (dead for/else) — fixed,
+66/0; mv-keychain suite was inert (no `__main__` guard, orphaned
+contract test) + cert_grid widget leak + silent no-op new-item —
+fixed, 100/0. GUI smoke: all three apps construct and stay alive on
+pinned Xvfb :97 via `scripts/gui-isolation.sh`, 0 host-display guard
+violations. `check-sync.sh`: failure set identical to pristine
+`origin/main` except (a) mv-console launch-smoke now passes (was
+failing on main), (b) two worktree artifacts from untracked files in
+the main worktree (polkit desktop, thunarrc). No new failures from
+this change; main remains red for pre-existing reasons (same `hb`
+bug in mv-activity/mv-textedit/mv-fontbook/mv-music etc., quicklook
+syntax error, dock/wm/filechooser GUI gates, gui-isolation coverage).
+
+**Next:** continue the canonical application audit (Finder /
+Spotlight / Launchpad / Mission Control remain the highest-priority
+PARTIALLY IMPLEMENTED surfaces per §13.9).
