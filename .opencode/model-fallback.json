@@ -1,7 +1,7 @@
 {
   "$schema": "mavericks model-fallback-chain v1",
-  "note": "User-defined ordered fallback chain (2026-10-05: GLM 5.3 Coding Plan RESTORED as order 1 / primary per user directive; coding plan = separate connection type — built-in provider `zai-coding-plan`, key in ~/.local/share/opencode/auth.json, NOT the hand-rolled z-ai-coding-plan config provider. Primary = next healthy chain entry via live resolution. Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts. SESSION != MODEL (2026-09-29 v3/v4 protocol): failover switches the worker (subagent_type) on the SAME session, never a replacement session. Since 2026-10-03 (protocol v17) the registrar rotates automatically on watchdog abort / abort-cooldown / decide-cooldown. Only entries with a 'worker' are runtime-reachable; entries with worker=null are intentionally NOT workers (reason given).",
-  "primaryWorker": "build",
+  "note": "User-defined ordered fallback chain (2026-10-03: GLM 5.3 REMOVED entirely per user directive — cooldown memory unreliable, config-only. Primary = next healthy chain entry via live resolution. Order matters: first = primary. Entries use substring 'match' so live resolution (scripts/session-reuse.py models) finds the real provider model id even if upstream renames it. EXECUTION IS CHAIN-ONLY: models outside this chain (see 'never') must never run as Task workers. Edit the order HERE — never hardcode model names in scripts or prompts. SESSION != MODEL (2026-09-29 v3/v4 protocol): failover switches the worker (subagent_type) on the SAME session, never a replacement session. Since 2026-10-03 (protocol v17) the registrar rotates automatically on watchdog abort / abort-cooldown / decide-cooldown. Only entries with a 'worker' are runtime-reachable; entries with worker=null are intentionally NOT workers (reason given).",
+  "primaryWorker": "build-j",
   "execution": "chain-only",
   "never": [
     "muse-spark-1.3-contributor-free",
@@ -16,26 +16,15 @@
     {
       "order": 1,
       "role": "primary-worker",
-      "provider": "zai-coding-plan",
-      "match": "glm-5.3-flash",
-      "want": "zai-coding-plan/glm-5.3-flash",
-      "pool": "zai-coding-plan",
-      "worker": "build",
-      "worker_reason": "PRIMARY WORKER since 2026-10-06 (user directive: GLM 5.3 Flash first priority). Coding plan = separate connection type: built-in provider `zai-coding-plan`, key in ~/.local/share/opencode/auth.json. Live-verified 2026-10-06: listed by `opencode models` + live completion. Pinned via the `build` agent in opencode.jsonc. pool=zai-coding-plan: shares ONE coding-plan quota with glm-5.3 (E10) — a quota death blocks both; preflight/migrate never fail over inside a dead pool.",
-      "label": "GLM 5.3 Flash (Z.ai Coding Plan; PRIMARY from 2026-10-06, built-in zai-coding-plan connection)"
-    },
-    {
-      "order": 2,
-      "role": "fallback",
       "provider": "opencode",
       "match": "ling-3.1-flash",
       "want": "opencode/ling-3.1-flash-free",
       "worker": "build-j",
-      "worker_reason": "Primary 2026-10-04..2026-10-05, demoted back to fallback when GLM 5.3 Coding Plan was restored as primary. Proven worker, kept runtime-reachable via the build-j pin. Live-verified 2026-10-03: HTTP 200, tool_call:true, 1M context.",
-      "label": "Ling 3.1 Flash Free (OpenCode Zen / Z.ai; fallback since 2026-10-05, GLM 5.3 restored)"
+      "worker_reason": "PRIMARY WORKER since 2026-10-04 (GLM 5.3 removed per user directive — cooldown memory unreliable, config-only removal). Former primary 2026-10-03 morning, demoted when GLM 5.3 became primary. Proven worker, kept runtime-reachable via the build-j pin. Live-verified 2026-10-03: HTTP 200, tool_call:true, 1M context.",
+      "label": "Ling 3.1 Flash Free (OpenCode Zen / Z.ai; PRIMARY from 2026-10-04, GLM removed)"
     },
     {
-      "order": 3,
+      "order": 2,
       "role": "fallback",
       "provider": "openrouter",
       "match": "cohere/north-mini-code",
@@ -44,7 +33,7 @@
       "label": "North Mini Code (OpenRouter, free; Cohere agentic coding, 256K context)"
     },
     {
-      "order": 4,
+      "order": 3,
       "role": "fallback",
       "provider": "openrouter",
       "match": "openrouter/free",
@@ -54,7 +43,7 @@
       "label": "Free Model Router (OpenRouter; random free model with tool-calling filter)"
     },
     {
-      "order": 5,
+      "order": 4,
       "role": "sub-agent",
       "provider": "opencode",
       "match": "longcat",
@@ -63,7 +52,7 @@
       "label": "LongCat 2.5 Preview Free (Zen; VERIFIED 2026-09-26 via models.dev: served by OpenCode Zen AND OpenCode Go as 'longcat-2.5-preview-free', $0, 1M context; confirm locally via `opencode models`)"
     },
     {
-      "order": 6,
+      "order": 5,
       "role": "fallback",
       "provider": "opencode",
       "match": "nemotron-3-ultra",
@@ -74,7 +63,7 @@
     },
     
     {
-      "order": 7,
+      "order": 6,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "ling-3.0-flash-fin",
@@ -84,7 +73,7 @@
       "label": "Ling 3.0 Flash Fin Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 8,
+      "order": 7,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "mimo-v2.6-flash",
@@ -94,7 +83,7 @@
       "label": "MiMo V2.6 Flash Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 9,
+      "order": 8,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "space-bunny",
@@ -104,7 +93,7 @@
       "label": "Space Bunny Free (Zen; EXPERIMENTAL, metadata-verified 2026-10-02)"
     },
     {
-      "order": 10,
+      "order": 9,
       "role": "fallback-experimental",
       "provider": "opencode",
       "match": "nemotron-3.5-lightning",
@@ -112,23 +101,10 @@
       "worker": "build-h",
       "worker_reason": "DEMOTED to end of list 2026-10-04 at user request. Mid-output-stop instability observed again; kept runtime-reachable via the build-h pin as last resort only.",
       "label": "Nemotron 3.5 Lightning Free (Zen; demoted to end of list 2026-10-04)"
-    },
-    {
-      "order": 11,
-      "role": "fallback-reserved-complex",
-      "provider": "zai-coding-plan",
-      "match": "glm-5.3\b",
-      "want": "zai-coding-plan/glm-5.3",
-      "pool": "zai-coding-plan",
-      "worker": null,
-      "worker_reason": "RESERVED for very complex tasks only (user directive 2026-10-06). Regular GLM 5.3 (non-Flash) kept in chain but LAST; not a runtime worker (worker=null) to prevent accidental use. Explicit opt-in required for complex reasoning tasks where Flash may be insufficient. pool=zai-coding-plan: same account quota as glm-5.3-flash (E10) — even when opted in, it is skipped while the pool quota cooldown runs.",
-      "label": "GLM 5.3 (Z.ai Coding Plan; RESERVED for complex tasks only, NOT a runtime worker)"
     }
   ],
-  "requires": "Z.ai Coding Plan connected (built-in `zai-coding-plan`, key in ~/.local/share/opencode/auth.json) for entry 1; OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 3-4; Zen login for 2, 5-10. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry.",
+  "requires": "OpenRouter provider connected (/connect or OPENROUTER_API_KEY) for entries 2-3; Zen login for 1, 4-9. Entries whose provider is not connected are skipped by live resolution, the loop continues with the next entry.",
   "history": [
-    "2026-10-06: POOL SCHEMA (protocol v18, failover audit E10): entries sharing ONE account quota now carry a 'pool' field. Both zai-coding-plan entries (glm-5.3-flash order 1, glm-5.3 order 11) -> pool 'zai-coding-plan' — they draw from the same coding-plan 5h quota, so a quota death blocks failover inside the pool (previously prose-only in health memory, unmodelled in rotate/preflight).",
-    "2026-10-05: GLM 5.3 Coding Plan RESTORED as order 1 / primary at user directive ('кодинг план — отдельный тип настройки и подключения'). Coding plan wired as the BUILT-IN `zai-coding-plan` connection (auth.json key updated to the new plan key; no hand-rolled config provider). Worker for order 1 = build (pin in opencode.jsonc). Ling 3.1 Flash Free demoted to order 2 (build-j). Chain renumbered 1-10. primaryWorker updated to build.",
     "2026-10-04: fledge-alpha REMOVED ENTIRELY per user approval — US-only geo-blocked test model (Poland/Spain/France/China get 'not available in your country'; US VPN works). Chain entry deleted (was order 6, worker build-d), build-d worker block removed from opencode.jsonc, fledge-alpha added to never list. Chain renumbered 1-9.",
     "2026-10-04: Nemotron 3.5 Lightning demoted to end of chain (order 10) at user request after repeated instability; chain renumbered 1-10 (duplicate order 9 fixed).",
     "2026-10-04: GLM 5.3 REMOVED ENTIRELY per user directive — cooldown memory unreliable, config-only removal. Ling 3.1 Flash Free promoted to primary (order 1, worker build-j). GLM 5.3/4.5-flash added to never list. primaryWorker updated to build-j.",
