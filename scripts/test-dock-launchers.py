@@ -5,6 +5,10 @@ Scope: WHICH launchers are pinned and whether every copy agrees.
 HOW the pinned preferences actually reach plank is a different question and
 is covered by scripts/test-dock-plank.py (+ its GUI smoke) — plank 0.11 reads
 GSettings, not the dock1/settings INI next to these pins.
+
+Claim: Grok — trash.dockitem (docklet://trash) was printed as present but
+never asserted; a missing Trash pin is exactly the Mavericks Dock gap listed
+in NEEDS_HARDWARE_TEST.
 """
 import os
 import sys
@@ -26,6 +30,9 @@ REQUIRED = {
     "system-settings.dockitem": "mv-system-settings.desktop",
     "terminal.dockitem": "xfce4-terminal.desktop",
 }
+# Trash is a plank docklet, not a .desktop pin.
+TRASH_ITEM = "trash.dockitem"
+TRASH_LAUNCHER = "Launcher=docklet://trash"
 
 errors = []
 for path in PATHS:
@@ -41,6 +48,15 @@ for path in PATHS:
         if "Launcher=file:///usr/share/applications/%s" % desktop not in text:
             errors.append(
                 "%s must point at %s (in %s)" % (name, desktop, path)
+            )
+    trash_path = os.path.join(path, TRASH_ITEM)
+    if not os.path.isfile(trash_path):
+        errors.append("missing %s in %s" % (TRASH_ITEM, path))
+    else:
+        trash_text = open(trash_path, encoding="utf-8").read()
+        if TRASH_LAUNCHER not in trash_text:
+            errors.append(
+                "%s must contain %s (in %s)" % (TRASH_ITEM, TRASH_LAUNCHER, path)
             )
 
 finder = os.path.join(
@@ -82,4 +98,5 @@ if errors:
 
 print("ok - default Dock launchers present in configs and skel")
 print("ok - pins: Finder, Launchpad, Mission Control, Firefox, Mail, "
-      "System Settings, Terminal, Trash")
+      "System Settings, Terminal")
+print("ok - Trash docklet (docklet://trash) present in configs and skel")
