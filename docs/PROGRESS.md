@@ -1092,3 +1092,12 @@ The native column Finder's Paste path allowed a directory to be copied into a de
 Fixed the Paste path to reject recursive directory targets before copying, with the same containment rule already used by Finder drag-and-drop. Added a deterministic source regression contract.
 
 Claim: 20261007-1100-gpt-finder-execution.
+
+
+### Finder execution — 2026-10-07 — archive helper syntax regression
+
+The continued audit exposed a regression introduced during the archive applicability work: the archive destination helper had been emitted with an invalid top-level/class indentation boundary, making mv-finder-columns syntactically invalid.
+
+Fixed the helper as a top-level function and restored the Finder method boundary. The Finder regression suite now runs py_compile on the companion before importing it, so future syntax regressions fail deterministically.
+
+Claim: 20261007-1100-gpt-finder-execution.
