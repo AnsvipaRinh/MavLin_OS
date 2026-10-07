@@ -720,7 +720,12 @@ class ColumnsWindow(Gtk.Window):
             parent = os.path.dirname(path)
             for i, directory in enumerate(self.chain):
                 if os.path.abspath(directory) == os.path.abspath(parent):
-                    self.chain = self.chain[:i + 1] + [path]
+                    new_chain = self.chain[:i + 1] + [path]
+                    if new_chain == self.chain:
+                        return
+                    self.history = self.history[:self.history_index + 1] + [new_chain]
+                    self.history_index += 1
+                    self.chain = new_chain
                     self.rebuild_columns()
                     return
             self.chain = [path]
@@ -820,13 +825,7 @@ class ColumnsWindow(Gtk.Window):
                 self.listboxes[index - 1].grab_focus()
             return True
         if key == "BackSpace":
-            if len(self.chain) > 1:
-                new_chain = self.chain[:-1]
-                self.history = self.history[:self.history_index + 1] + [new_chain]
-                self.history_index += 1
-                self.chain = new_chain
-                self.rebuild_columns()
-            elif self.history_index > 0:
+            if self.history_index > 0:
                 self.on_back(None)
             return True
         return False
