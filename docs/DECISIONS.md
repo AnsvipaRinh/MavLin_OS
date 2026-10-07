@@ -1778,3 +1778,11 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Decision:** Route Search result launch errors through mv_dialogs.alert(), preserving the existing error message while inheriting the common button order, Escape behavior, icon sizing and visual styling.
 
 **Validation:** The Search regression contract requires the shared alert import and Open Search Result error route.
+
+### Quick Look GTK3 runtime packing — 2026-10-07
+
+**Context:** CI launch smoke showed `mv-quicklook` crashing at startup because GTK3 `Gtk.Box.pack_end()` / `pack_start()` were called with only the child argument. Finder's Quick Look action therefore had a concrete runtime failure on the CI-supported GTK3 stack.
+
+**Decision:** use the full GTK3 packing signature for all Quick Look toolbar controls, preserving the existing layout while making the helper executable under GTK3.
+
+**Validation:** Quick Look regression coverage now pins the corrected Open-button packing call; the remaining toolbar calls use the same GTK3 signature.
