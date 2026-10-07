@@ -1770,3 +1770,11 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Decision:** validate indexed paths with `os.path.lexists()` before creating a result row. Keep the existing walk fallback for a broken plocate invocation; this additional check handles the normal stale-index case without a second full filesystem scan.
 
 **Validation:** deterministic search regression coverage injects a nonexistent indexed path and requires it to be absent from the parsed result set.
+
+### Finder Search uses the shared Mavericks error surface — 2026-10-07
+
+**Context:** Search result launch failures used a raw GTK MessageDialog, bypassing the shared Mavericks dialog contract used by the rest of the desktop.
+
+**Decision:** Route Search result launch errors through mv_dialogs.alert(), preserving the existing error message while inheriting the common button order, Escape behavior, icon sizing and visual styling.
+
+**Validation:** The Search regression contract requires the shared alert import and Open Search Result error route.
