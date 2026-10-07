@@ -320,27 +320,27 @@ class Console(Gtk.Window):
         self.search.set_width_chars(24)
         self.search.connect("search-changed", self.on_search_changed)
         self.search.connect("activate", lambda *_a: self.render())
-        hb.pack_start(self.search)
+        toolbar.pack_start(self.search, False, False, 0)
 
         self.source_combo = Gtk.ComboBoxText()
         for name, _icon, _key in SOURCES:
             self.source_combo.append_text(name)
         self.source_combo.set_active(0)
         self.source_combo.connect("changed", self.on_source_combo_changed)
-        hb.pack_start(self.source_combo)
+        toolbar.pack_start(self.source_combo, False, False, 0)
 
         self.level = Gtk.ComboBoxText()
         for _key, name in LEVELS:
             self.level.append_text(name)
         self.level.set_active(0)
         self.level.connect("changed", lambda *_a: self.reload())
-        hb.pack_start(self.level)
+        toolbar.pack_start(self.level, False, False, 0)
 
         self.follow = Gtk.ToggleButton(label="Live")
         self.follow.set_active(True)
         self.follow.get_style_context().add_class("mavericks-toolbar-btn")
         self.follow.connect("toggled", self.on_follow_toggled)
-        hb.pack_end(self.follow)
+        toolbar.pack_end(self.follow, False, False, 0)
 
         menu = Gtk.Menu()
         export_item = Gtk.MenuItem(label="Export...")
@@ -359,7 +359,7 @@ class Console(Gtk.Window):
         self.menu_btn.set_image(Gtk.Image.new_from_icon_name(
             "open-menu-symbolic", Gtk.IconSize.BUTTON))
         self.menu_btn.get_style_context().add_class("mavericks-toolbar-btn")
-        hb.pack_end(self.menu_btn)
+        toolbar.pack_end(self.menu_btn, False, False, 0)
 
         # Main horizontal paned: sidebar | content
         main_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)

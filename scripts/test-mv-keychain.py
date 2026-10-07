@@ -640,6 +640,7 @@ def test_gui_smoke(m, td):
 def main():
     m = load_app()
     test_pure(m)
+    test_native_window_chrome_contract()
     td = tempfile.mkdtemp(prefix="mv-keychain-test-")
     test_gui_smoke(m, td)
     print("---")
@@ -659,3 +660,7 @@ def test_native_window_chrome_contract():
     check("keychain uses Mavericks toolbar", 'mav-toolbar' in source)
     check("keychain keeps real window chrome", 'self.set_titlebar' not in source)
     check("keychain toolbar has search", 'Search items...' in source)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
