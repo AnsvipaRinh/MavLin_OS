@@ -1711,3 +1711,11 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Why**: Long resume prompts confuse workers, waste context window, and introduce unnecessary token overhead. The session state is already complete — only the single-word trigger is needed to resume. This rule prevents workers from wasting tokens on verbose re-contextualization and ensures parallel discipline across orchestration sessions.
 
 **Source**: Owner directive 2026-10-05/06; enforced via `scripts/session-reuse.py` discipline and AGENTS.md §14.5.2.
+
+## 2026-10-07 — Finder mounted-device sidebar is event-driven
+
+**Context:** Finder's column browser already enumerated mounted volumes and exposed native GIO Eject, but the sidebar was a snapshot taken only when the window was built. A USB/removable volume appearing or disappearing while Finder remained open could therefore leave the DEVICES section stale.
+
+**Decision:** Keep the existing GIO/GTK implementation and connect `Gio.VolumeMonitor` to `mount-added`, `mount-removed`, and `mount-changed`. Rebuild only mounted-device rows through `GLib.idle_add` so GTK mutations occur on the main loop. Do not add filesystem polling, shell `mount`/`umount`, or a daemon.
+
+**Validation:** Deterministic source regression coverage asserts all three signals, the device refresh helper, and the GTK idle scheduling path. Physical insertion/ejection remains a hardware-validation item.
