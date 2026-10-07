@@ -206,6 +206,12 @@ def test_pure():
           and "mount.can_eject()" in source
           and "mount.eject_with_operation(" in source
           and 'Gtk.MenuItem(label="Eject")' in source)
+    check("contract: Finder disconnects VolumeMonitor signals on destroy",
+          "self._mount_signal_ids = [" in source
+          and 'volume_monitor.connect("mount-added", self._mount_changed)' in source
+          and "def _on_destroy(self, _window):" in source
+          and "monitor.disconnect(signal_id)" in source
+          and "Gtk.main_quit()" in source)
     check("contract: Finder Open With accepts row activation",
           'tree.connect("row-activated",' in source
           and 'dialog.response(Gtk.ResponseType.OK)' in source)
