@@ -189,6 +189,12 @@ def test_pure():
           and 'add_action("paste"' in source
           and 'edit_menu.append("Copy", "app.copy")' in source
           and 'edit_menu.append("Paste", "app.paste")' in source)
+    check("contract: Finder sidebar exposes mounted devices and Eject",
+          "Gio.VolumeMonitor.get()" in source
+          and "volume_monitor.get_mounts()" in source
+          and "mount.can_eject()" in source
+          and "mount.eject_with_operation(" in source
+          and 'Gtk.MenuItem(label="Eject")' in source)
     check("contract: drag-and-drop move implementation remains present",
           'selection_data.set_uris' in source
           and 'shutil.move(source_abs, destination)' in source
