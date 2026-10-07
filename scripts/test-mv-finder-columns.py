@@ -198,6 +198,9 @@ def test_pure():
     check("contract: Finder Open With accepts row activation",
           'tree.connect("row-activated",' in source
           and 'dialog.response(Gtk.ResponseType.OK)' in source)
+    check("contract: Finder reports Thunar launch failures",
+          'except OSError as e:' in source
+          and 'self._show_error("Open in Thunar", e.strerror or str(e))' in source)
     check("contract: Finder exposes Command-style Open With/Thunar actions",
           'add_action("open-with"' in source
           and 'app.open-with' in source
