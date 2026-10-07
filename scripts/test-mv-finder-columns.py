@@ -182,6 +182,13 @@ def test_pure():
           and 'if key == "BackSpace":' in source
           and 'self.on_back(None)' in source
           and 'self._activate_path(path)' in source)
+    check("contract: Finder Copy/Paste uses the system clipboard",
+          'clipboard.set_uris([Gio.File.new_for_path(path).get_uri()])' in source
+          and 'clipboard.wait_for_uris()' in source
+          and 'add_action("copy"' in source
+          and 'add_action("paste"' in source
+          and 'edit_menu.append("Copy", "app.copy")' in source
+          and 'edit_menu.append("Paste", "app.paste")' in source)
     check("contract: drag-and-drop move implementation remains present",
           'selection_data.set_uris' in source
           and 'shutil.move(source_abs, destination)' in source
