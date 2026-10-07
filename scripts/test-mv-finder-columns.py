@@ -96,6 +96,9 @@ def make_tree(base):
 
 
 def test_pure():
+    import py_compile
+    py_compile.compile(APP_PATH, doraise=True)
+    ok("syntax: Finder companion compiles")
     m = app()
     with tempfile.TemporaryDirectory() as base:
         root = make_tree(base)
