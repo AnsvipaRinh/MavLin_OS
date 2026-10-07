@@ -292,8 +292,17 @@ class ColumnsWindow(Gtk.Window):
             self.sidebar_list.add(row)
         self.sidebar_list.show_all()
 
+    def _refresh_mount_state(self):
+        self._append_mounted_devices()
+        # If the user is currently inside a volume that disappeared, rebuild
+        # the columns so Finder exposes its normal unavailable-folder state
+        # instead of leaving a stale mounted path on screen.
+        if self.chain and not os.path.isdir(self.chain[-1]):
+            self.rebuild_columns()
+        return False
+
     def _mount_changed(self, *_args):
-        GLib.idle_add(self._append_mounted_devices)
+        GLib.idle_add(self._refresh_mount_state)
 
     def _sidebar_button_press(self, row, event):
         if event.button != 3 or not hasattr(row, "mount"):
