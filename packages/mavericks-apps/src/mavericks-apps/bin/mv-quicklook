@@ -242,31 +242,31 @@ class PreviewWindow(Gtk.Window):
         open_b = Gtk.Button(label="Open")
         open_b.get_style_context().add_class("suggested-action")
         open_b.connect("clicked", self.open_full, path)
-        hb.pack_end(open_b)
+        hb.pack_end(open_b, False, False, 0)
 
         # Navigation buttons (if multi-file)
         if len(self.paths) > 1:
             prev_b = Gtk.Button.new_from_icon_name("go-previous", Gtk.IconSize.BUTTON)
             prev_b.set_tooltip_text("Previous (← / P / Up)")
             prev_b.connect("clicked", lambda *_: self.navigate(-1))
-            hb.pack_start(prev_b)
+            hb.pack_start(prev_b, False, False, 0)
 
             # Grid button
             grid_b = Gtk.Button.new_from_icon_name("view-grid", Gtk.IconSize.BUTTON)
             grid_b.set_tooltip_text("Preview Selection (G)")
             grid_b.connect("clicked", lambda *_: self.show_grid())
-            hb.pack_start(grid_b)
+            hb.pack_start(grid_b, False, False, 0)
 
             next_b = Gtk.Button.new_from_icon_name("go-next", Gtk.IconSize.BUTTON)
             next_b.set_tooltip_text("Next (→ / N / Down / Space)")
             next_b.connect("clicked", lambda *_: self.navigate(1))
-            hb.pack_start(next_b)
+            hb.pack_start(next_b, False, False, 0)
 
         # Fullscreen button
         fs_b = Gtk.Button.new_from_icon_name("view-fullscreen", Gtk.IconSize.BUTTON)
         fs_b.set_tooltip_text("Fullscreen (F)")
         fs_b.connect("clicked", lambda *_: self.toggle_fullscreen())
-        hb.pack_end(fs_b)
+        hb.pack_end(fs_b, False, False, 0)
 
         # Build content widget
         widget = self.build_content(path, ext)

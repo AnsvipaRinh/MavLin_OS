@@ -78,6 +78,6 @@ for name, ok in checks:
 sys.exit(1 if failed else 0    # --- native Mavericks window chrome ---
     check("Quick Look uses real XFWM4 window decoration", "self.set_decorated(True)" in text)
     check("Quick Look no longer uses Gtk.HeaderBar CSD", "Gtk.HeaderBar" not in text and "self.set_titlebar(" not in text)
-    check("Quick Look keeps controls in an in-window toolbar", "mavericks-quicklook-toolbar" in text and "hb.pack_end(open_b)" in text)
+    check("Quick Look keeps controls in an in-window toolbar", "mavericks-quicklook-toolbar" in text and "hb.pack_end(open_b, False, False, 0)" in text)
 
 )

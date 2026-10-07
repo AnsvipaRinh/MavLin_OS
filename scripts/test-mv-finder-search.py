@@ -218,6 +218,10 @@ def test_pure(m):
               len(parsed) == len(set(r["path"] for r in parsed)))
         capped = m.parse_plocate_output(lines, root, "notes", max_results=1)
         check("plocate: cap", len(capped) == 1)
+        stale = os.path.join(root, "stale-notes.txt")
+        stale_lines = lines + "\n" + stale
+        parsed_stale = m.parse_plocate_output(stale_lines, root, "notes")
+        check("plocate: stale indexed path dropped", all(r["path"] != stale for r in parsed_stale))
 
     # --- choose_backend ---
     home = os.path.expanduser("~")
@@ -345,6 +349,10 @@ def test_portable(m):
         has_gi = True
     except ImportError:
         has_gi = False
+    source = open(APP_PATH, encoding="utf-8").read()
+    check("contract: search result launch failures use shared Mavericks alerts",
+          "from mv_dialogs import alert" in source
+          and 'alert(\n                    self,\n                    "Open Search Result"' in source)
     check("portable: build_search_window_class exists",
           callable(getattr(m, "build_search_window_class", None)))
     if not has_gi:

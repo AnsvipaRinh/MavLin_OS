@@ -195,6 +195,61 @@ def test_pure():
           and "mount.can_eject()" in source
           and "mount.eject_with_operation(" in source
           and 'Gtk.MenuItem(label="Eject")' in source)
+    check("contract: Finder Open With accepts row activation",
+          'tree.connect("row-activated",' in source
+          and 'dialog.response(Gtk.ResponseType.OK)' in source)
+    check("contract: Finder reports Thunar launch failures",
+          'except OSError as e:' in source
+          and 'self._show_error("Open in Thunar", e.strerror or str(e))' in source)
+    check("contract: Finder exposes Command-style Open With/Thunar actions",
+          'add_action("open-with"' in source
+          and 'app.open-with' in source
+          and '[\"<Super>o\", \"<Super><Shift>o\"]' in source
+          and '[\"<Super>e\"]' in source)
+    check("contract: Finder context menus expose clipboard actions",
+          'Gtk.MenuItem(label="Copy")' in source
+          and 'lambda _i: self._copy_selected()' in source
+          and 'Gtk.MenuItem(label="Paste")' in source
+          and 'lambda _i: self._paste()' in source)
+    check("contract: Finder application accelerators cover core Finder actions",
+          'add_action("get-info",' in source
+          and 'add_action("rename",' in source
+          and 'add_action("move-to-trash",' in source
+          and 'app.set_accels_for_action("app.back", ["<Super>bracketleft"])' in source
+          and 'app.set_accels_for_action("app.forward", ["<Super>bracketright"])' in source
+          and 'app.set_accels_for_action("app.copy", ["<Super>c"])' in source
+          and 'app.set_accels_for_action("app.paste", ["<Super>v"])' in source
+          and 'app.set_accels_for_action("app.get-info", ["<Super>i"])' in source
+          and 'app.set_accels_for_action("app.move-to-trash", ["<Super>Delete"])' in source
+          and 'app.set_accels_for_action("app.empty-trash", ["<Super><Shift>Delete"])' in source
+          and 'app.set_accels_for_action("app.focus-search", ["<Super>f"])' in source)
+    check("contract: Finder New Folder uses existing helper",
+          'def _new_folder(self):' in source
+          and '["mv-newfolder", target_dir]' in source
+          and 'app.new-folder' in source
+          and 'app.set_accels_for_action("app.new-folder", ["<Super><Shift>n"])' in source
+          and 'label="New Folder"' in source)
+    check("contract: Finder Go to Folder navigation",
+          "def on_go_to_folder(self, _action=None):" in source
+          and 'entry_dialog(' in source
+          and 'label="Enter a folder path:"' in source
+          and 'validator=lambda value: None if os.path.isdir(' in source
+          and '"Go to Folder…" in source
+          and 'app.go-to-folder' in source
+          and '<Super><Shift>g' in source)
+    check("contract: Finder status reports free space",
+          "os.statvfs(self.chain[-1])" in source
+          and "free_bytes = stat.f_bavail * stat.f_frsize" in source
+          and "free space unavailable" in source
+          and "free" in source)
+    check("contract: Finder device sidebar tracks mount changes",
+          '"mount-added"' in source
+          and '"mount-removed"' in source
+          and '"mount-changed"' in source
+          and "def _append_mounted_devices(self):" in source
+          and "def _refresh_mount_state(self):" in source
+          and "GLib.idle_add(self._refresh_mount_state)" in source
+          and "not os.path.isdir(self.chain[-1])" in source)
     check("contract: Finder sidebar navigation records history",
           "target = [os.path.abspath(row.path)]" in source
           and "self.history = self.history[:self.history_index + 1] + [target]" in source
@@ -203,6 +258,10 @@ def test_pure():
           "self.history = self.history[:self.history_index + 1] + [[target]]" in source
           and "self.chain = [target]" in source
           and "def _activate_path(self, path):" in source)
+    check("contract: Finder Up handles a single-column root chain",
+          "if len(self.chain) == 1:" in source
+          and "new_chain = [parent]" in source
+          and "new_chain[-1] = parent" in source)
     check("contract: Finder Left/Right keyboard focus keeps selection actionable",
           'if key == "Right":' in source
           and 'if key == "Left":' in source

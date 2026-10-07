@@ -1711,3 +1711,78 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Why**: Long resume prompts confuse workers, waste context window, and introduce unnecessary token overhead. The session state is already complete — only the single-word trigger is needed to resume. This rule prevents workers from wasting tokens on verbose re-contextualization and ensures parallel discipline across orchestration sessions.
 
 **Source**: Owner directive 2026-10-05/06; enforced via `scripts/session-reuse.py` discipline and AGENTS.md §14.5.2.
+
+## 2026-10-07 — Finder mounted-device sidebar is event-driven
+
+**Context:** Finder's column browser already enumerated mounted volumes and exposed native GIO Eject, but the sidebar was a snapshot taken only when the window was built. A USB/removable volume appearing or disappearing while Finder remained open could therefore leave the DEVICES section stale.
+
+**Decision:** Keep the existing GIO/GTK implementation and connect `Gio.VolumeMonitor` to `mount-added`, `mount-removed`, and `mount-changed`. Rebuild only mounted-device rows through `GLib.idle_add` so GTK mutations occur on the main loop. Do not add filesystem polling, shell `mount`/`umount`, or a daemon.
+
+**Validation:** Deterministic source regression coverage asserts all three signals, the device refresh helper, and the GTK idle scheduling path. Physical insertion/ejection remains a hardware-validation item.
+
+
+### Finder New Folder uses the existing helper — 2026-10-07
+
+**Context:** The canonical Finder surface already shipped `mv-newfolder`, but the native column Finder had no executable New Folder action of its own. This left the companion's direct filesystem surface behind the documented Finder contract.
+
+**Decision:** Reuse `mv-newfolder <directory>` rather than duplicate folder-creation logic. Expose it through the File menu, `Super+Shift+N`, and right-click whitespace in a Finder column. After successful creation, rebuild the visible column and select the new folder.
+
+**Validation:** Deterministic source regression coverage locks the helper invocation, action, accelerator, and context-menu entry. No new dependency or resident process is introduced.
+
+
+### Finder action accelerators are GApplication actions — 2026-10-07
+
+**Context:** The Finder companion had working methods for common actions, but several documented Command-style shortcuts were not actually registered at the application-action layer. This made the shortcuts dependent on incidental widget key handling and left some documented shortcuts absent entirely.
+
+**Decision:** Register the core Finder shortcuts directly on the existing Gio.Application action map and route them to the existing implementations: Back/Forward, Copy/Paste, Get Info, Rename, Move to Trash, Empty Trash, Search focus, and New Folder. Keep filesystem semantics in the existing methods rather than duplicating them in accelerator callbacks.
+
+**Validation:** Deterministic source regression coverage requires the action registrations and their exact accelerators. No resident process or external dependency is added.
+
+
+### Finder context menus reuse the existing clipboard implementation — 2026-10-07
+
+**Context:** Copy/Paste already worked from the application actions and keyboard path, but the native Finder context menus did not expose those existing operations.
+
+**Decision:** Add Copy to selected-item context menus and Paste to whitespace context menus, routing directly to the existing `_copy_selected()` / `_paste()` methods. Do not create a second clipboard implementation.
+
+**Validation:** Deterministic source regression coverage requires both menu entries and their existing handlers.
+
+
+### Finder command accelerators are action-backed — 2026-10-07
+
+**Context:** The canonical Finder matrix documented Super+O Open With, Super+Shift+O Open With Current, Super+E Finder/Thunar, and Super+Shift+I Get Info Current, while the native column companion did not register those routes.
+
+**Decision:** Register the documented shortcuts as GApplication actions in `mv-finder-columns`, routing to the existing Open With, Get Info, and Thunar implementations. Keep Super+O and Super+Shift+O as aliases because both are documented surfaces for the current selection.
+
+**Validation:** Deterministic source regression coverage requires the action and accelerator registrations.
+### Finder root-level Up navigation — 2026-10-07
+
+**Context:** the column Finder's Up handler assumed the navigation chain always contained a preceding column. When the chain contained only the current root, `self.chain[:-1]` was empty and the subsequent `new_chain[-1] = parent` raised `IndexError` instead of navigating upward.
+
+**Decision:** when the chain has one column, Up creates `[parent]`; deeper chains keep the existing collapse-to-parent behavior. Both paths continue through the same history mechanism.
+
+**Validation:** regression coverage requires the single-column branch and its parent-chain construction. The defect was pre-hardware and therefore fixed rather than deferred to hardware validation.
+
+### Finder Search drops stale plocate results — 2026-10-07
+
+**Context:** plocate is an optional fast-path and its index can contain paths that no longer exist. The parser previously trusted every in-root indexed path, so Finder Search could display a dead result that could not be opened.
+
+**Decision:** validate indexed paths with `os.path.lexists()` before creating a result row. Keep the existing walk fallback for a broken plocate invocation; this additional check handles the normal stale-index case without a second full filesystem scan.
+
+**Validation:** deterministic search regression coverage injects a nonexistent indexed path and requires it to be absent from the parsed result set.
+
+### Finder Search uses the shared Mavericks error surface — 2026-10-07
+
+**Context:** Search result launch failures used a raw GTK MessageDialog, bypassing the shared Mavericks dialog contract used by the rest of the desktop.
+
+**Decision:** Route Search result launch errors through mv_dialogs.alert(), preserving the existing error message while inheriting the common button order, Escape behavior, icon sizing and visual styling.
+
+**Validation:** The Search regression contract requires the shared alert import and Open Search Result error route.
+
+### Quick Look GTK3 runtime packing — 2026-10-07
+
+**Context:** CI launch smoke showed `mv-quicklook` crashing at startup because GTK3 `Gtk.Box.pack_end()` / `pack_start()` were called with only the child argument. Finder's Quick Look action therefore had a concrete runtime failure on the CI-supported GTK3 stack.
+
+**Decision:** use the full GTK3 packing signature for all Quick Look toolbar controls, preserving the existing layout while making the helper executable under GTK3.
+
+**Validation:** Quick Look regression coverage now pins the corrected Open-button packing call; the remaining toolbar calls use the same GTK3 signature.

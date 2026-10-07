@@ -3,6 +3,17 @@
 **Last Updated**: 2026-10-06 (Power/Shutdown + Trash + Archive Utility — oid `OS-power-trash-archive`, canonical #14/#15/#16: three surfaces that all read IMPLEMENTED and all shipped broken — `mv-power-ui <action>` mapped no window at all because its argv was read as a file to open (killing Ctrl+Alt+Delete and the Apple menu's Log Out), the ISO had no polkit and no authentication agent so no privileged action could ever be authorized (proven: `CanPowerOff: challenge`, and the same UDisks2 call denied as user / succeeds as root), `mv-eject` was dead code on a removed GIO API, Empty Trash was `trash-empty` with no confirmation from three entry points, Put Back opened a stock terminal that cannot complete, and Archive Utility had no extraction path and no MIME wiring at all; 396 new behavioural assertions)
 ---
 
+## Session 2026-10-07 — Finder P0 execution pass (issue #187, GPT claim `20261007-1100-gpt-finder-execution`)
+
+**Zone:** `mv-finder-columns` and its canonical regression contract.
+
+- Continued the executable Finder pass under isolated branch `wip/gpt-finder-execution` and PR #188.
+- Finder's mounted-device sidebar now listens to GIO `mount-added`, `mount-removed`, and `mount-changed` signals and rebuilds only the device rows on the GTK main loop; no polling or shell-based mount handling was introduced.
+- Existing native GIO Eject behavior is preserved.
+- Added deterministic source regression coverage for the three volume-monitor events and the refresh helper.
+- Current GitHub CI run #856 has Finder-adjacent unit steps before the unrelated existing Panel clock contract failure; Secret Scan and Profile Sync passed, while Static Analysis was still running at the last check. No green CI claim is made.
+- Hardware validation remains required for actual removable-media insertion/ejection and 2304×1440 visual fidelity; those are not used to defer executable software work.
+
 ## Session 2026-10-06 — Power/Shutdown + Trash + Archive Utility (oid `OS-power-trash-archive`, canonical #14/#15/#16)
 
 **Zone:** `bin/mv-eject`, `bin/mv-trash` (verified only), `bin/mv-empty-trash` (new), `bin/mv-trash-putback` (new), `bin/mv-archive-utility` (new), `bin/mv-power-ui`, `lib/mv_hotkeys_core.py` (the two Empty Trash chords only), `desktop/mv-archive-utility.desktop`, `config/thunar-uca.xml` + skel mirror, `config/xfce4-keyboard-shortcuts.xml` + skel mirror, `configs/desktop/polkit/` (new) + skel autostart mirror, `archiso-profile/releng/packages.x86_64` (4 added), `Makefile`, `scripts/check-sync.sh` (one mirror pair), the three new suites + extensions to four existing ones, and the three APPS.md rows. Parallel agents own Finder/mimeapps and the dialogs migration; two shared-harness fixes were unavoidable and are recorded in DECISIONS §14.
@@ -1003,3 +1014,58 @@ Added a regression contract requiring Gio application enumeration and selected-a
 **Checkpoint:** implementation `56cf12ab`; regression test `a16ad0f8`.
 
 Next: continue the Finder surface audit for remaining executable semantic gaps.
+## 2026-10-07 — Finder Go to Folder execution
+
+Added Finder's missing direct-location navigation surface to the native column browser: a Mavericks-style Go to Folder dialog using the shared validated text-entry dialog, history-aware navigation, and a `Super+Shift+G` application accelerator. Invalid/non-directory paths are rejected inline rather than producing a broken column state. A deterministic source regression contract covers the action, menu entry, accelerator, validation, and history path.
+
+
+## 2026-10-07 — Finder New Folder execution
+
+Added the missing New Folder execution path to the native column Finder. The File menu and empty-column context menu invoke the existing `mv-newfolder` helper, `Super+Shift+N` is bound to the same action, and the refreshed column selects the newly created folder. Existing helper semantics provide deterministic `New Folder 2`, `New Folder 3`, … collision naming. A source regression contract covers the action, helper invocation, menu/accelerator integration, and context-menu surface.
+
+
+## 2026-10-07 — Finder Command-style accelerators
+
+Closed a concrete interaction gap in the native column Finder: core documented Finder accelerators were not registered on the GApplication action map. Added action-backed accelerators for Back/Forward, Copy/Paste, Get Info, Rename, Move to Trash, Empty Trash, Search focus, and New Folder. The actions reuse the existing Finder implementations; no parallel key-handler implementation or daemon was introduced. Regression coverage locks the accelerator/action contract.
+
+
+## 2026-10-07 — Finder context clipboard actions
+
+Completed the context-menu clipboard surface in the native column Finder: selected-item context menus now expose Copy, while whitespace context menus expose Paste alongside New Folder. Both actions reuse the existing GTK clipboard implementation. A deterministic source contract locks both surfaces.
+
+
+## 2026-10-07 — Finder Command Open With / Thunar accelerators
+
+Closed the remaining native column-Finder command-surface mismatch for the documented Open With and Finder/Thunar shortcuts. The companion now exposes Open With as an application action and registers Super+O / Super+Shift+O; Super+E opens the current location in Thunar. Super+I and Super+Shift+I both target Get Info. Existing implementations are reused.
+
+### Finder execution — 2026-10-07 — root-level Up navigation
+
+The P0 execution pass found a concrete navigation crash: pressing Up while Finder had only one column produced an empty chain and then indexed `new_chain[-1]`, raising `IndexError`.
+
+Fixed `on_up()` to navigate `[parent]` for a single-column chain while retaining the existing history-aware collapse for deeper chains. Added a deterministic regression contract.
+
+Claim: `20261007-1100-gpt-finder-execution`.
+
+### Finder execution — 2026-10-07 — stale Search results
+
+The Search audit found a correctness gap in the plocate fast-path: stale index entries were surfaced even after the underlying file had disappeared.
+
+Fixed the parser to discard nonexistent indexed paths before creating Finder result rows, with a deterministic regression case. This preserves the fast-path and avoids an additional recursive scan just to validate every result.
+
+Claim: `20261007-1100-gpt-finder-execution`.
+
+### Finder execution — 2026-10-07 — Search error dialog integration
+
+Search result launch failures were using a raw GTK dialog instead of the shared Mavericks dialog system.
+
+The failure path now uses the shared mv_dialogs.alert() surface, while successful launch behavior remains unchanged. A deterministic source contract was added.
+
+Claim: 20261007-1100-gpt-finder-execution.
+
+### Finder execution — 2026-10-07 — Quick Look GTK3 launch crash
+
+CI launch smoke exposed a Finder-relevant runtime defect in `mv-quicklook`: GTK3 rejected the two-argument `pack_end/pack_start` calls used by the Quick Look toolbar.
+
+Fixed all affected toolbar packing calls to the full GTK3 signature and updated the Quick Look regression contract. This restores the backend used by Finder's Quick Look action.
+
+Claim: `20261007-1100-gpt-finder-execution`.
