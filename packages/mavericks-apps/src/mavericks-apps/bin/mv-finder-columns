@@ -401,13 +401,20 @@ class ColumnsWindow(Gtk.Window):
 
     def on_up(self, _button):
         parent = os.path.dirname(self.chain[-1])
-        if parent and parent != self.chain[-1]:
+        if not parent or parent == self.chain[-1]:
+            return
+        # At the top-level chain there is no preceding column to collapse;
+        # Up must replace the root location with its parent instead of
+        # indexing an empty list.
+        if len(self.chain) == 1:
+            new_chain = [parent]
+        else:
             new_chain = self.chain[:-1]
             new_chain[-1] = parent
-            self.history = self.history[:self.history_index + 1] + [new_chain]
-            self.history_index += 1
-            self.chain = new_chain
-            self.rebuild_columns()
+        self.history = self.history[:self.history_index + 1] + [new_chain]
+        self.history_index += 1
+        self.chain = new_chain
+        self.rebuild_columns()
 
     # ---------- column construction ----------
 
