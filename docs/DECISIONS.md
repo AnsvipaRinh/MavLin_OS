@@ -1746,3 +1746,12 @@ The correction is covered by `test_mv_finder_native_shell.py` source contracts s
 **Decision:** Add Copy to selected-item context menus and Paste to whitespace context menus, routing directly to the existing `_copy_selected()` / `_paste()` methods. Do not create a second clipboard implementation.
 
 **Validation:** Deterministic source regression coverage requires both menu entries and their existing handlers.
+
+
+### Finder command accelerators are action-backed — 2026-10-07
+
+**Context:** The canonical Finder matrix documented Super+O Open With, Super+Shift+O Open With Current, Super+E Finder/Thunar, and Super+Shift+I Get Info Current, while the native column companion did not register those routes.
+
+**Decision:** Register the documented shortcuts as GApplication actions in `mv-finder-columns`, routing to the existing Open With, Get Info, and Thunar implementations. Keep Super+O and Super+Shift+O as aliases because both are documented surfaces for the current selection.
+
+**Validation:** Deterministic source regression coverage requires the action and accelerator registrations.
