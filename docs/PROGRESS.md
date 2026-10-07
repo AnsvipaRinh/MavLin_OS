@@ -1069,3 +1069,8 @@ CI launch smoke exposed a Finder-relevant runtime defect in `mv-quicklook`: GTK3
 Fixed all affected toolbar packing calls to the full GTK3 signature and updated the Quick Look regression contract. This restores the backend used by Finder's Quick Look action.
 
 Claim: `20261007-1100-gpt-finder-execution`.
+
+
+## 2026-10-07 — Finder native archive actions
+
+The native column Finder was missing direct access to the canonical Archive Utility operations even though the project already defined Compress and Extract Here elsewhere. Added both actions to the companion and routed them through the existing `mv-archive-utility` backend. Compression chooses an adjacent `.zip` without overwriting an existing archive; extraction uses `--here --no-open` and refreshes the Finder columns afterward. No archive backend was duplicated.
