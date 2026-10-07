@@ -1022,3 +1022,8 @@ Added Finder's missing direct-location navigation surface to the native column b
 ## 2026-10-07 — Finder New Folder execution
 
 Added the missing New Folder execution path to the native column Finder. The File menu and empty-column context menu invoke the existing `mv-newfolder` helper, `Super+Shift+N` is bound to the same action, and the refreshed column selects the newly created folder. Existing helper semantics provide deterministic `New Folder 2`, `New Folder 3`, … collision naming. A source regression contract covers the action, helper invocation, menu/accelerator integration, and context-menu surface.
+
+
+## 2026-10-07 — Finder Command-style accelerators
+
+Closed a concrete interaction gap in the native column Finder: core documented Finder accelerators were not registered on the GApplication action map. Added action-backed accelerators for Back/Forward, Copy/Paste, Get Info, Rename, Move to Trash, Empty Trash, Search focus, and New Folder. The actions reuse the existing Finder implementations; no parallel key-handler implementation or daemon was introduced. Regression coverage locks the accelerator/action contract.
