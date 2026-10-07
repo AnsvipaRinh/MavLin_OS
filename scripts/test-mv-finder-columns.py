@@ -217,6 +217,15 @@ def test_pure():
           and 'lambda _i: self._copy_selected()' in source
           and 'Gtk.MenuItem(label="Paste")' in source
           and 'lambda _i: self._paste()' in source)
+    check("contract: Finder reuses Archive Utility for compression/extraction",
+          'def _archive_compress(self, path):' in source
+          and '[\"mv-archive-utility\", \"--new\", destination, path]' in source
+          and 'Gtk.MenuItem(label="Compress")' in source
+          and 'def _archive_extract_here(self, path):' in source
+          and '[\"mv-archive-utility\", \"--here\", \"--no-open\", path]' in source
+          and 'Gtk.MenuItem(label="Extract Here")' in source
+          and 'add_action("compress"' in source
+          and 'edit_menu.append("Compress", "app.compress")' in source)
     check("contract: Finder application accelerators cover core Finder actions",
           'add_action("get-info",' in source
           and 'add_action("rename",' in source
