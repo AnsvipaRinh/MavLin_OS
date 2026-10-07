@@ -238,7 +238,7 @@ class Notes(Gtk.Window):
         self.search.connect("changed", lambda *_: self.refresh_list())
         self.search.connect("search-changed", lambda *_: self.refresh_list())
         self.search.connect("key-press-event", self.on_search_key)
-        hb.pack_start(self.search)
+        hb.pack_start(self.search, False, False, 0)
         self.btn_folder = Gtk.Button(label="+ Folder")
         self.btn_folder.get_style_context().add_class("mavericks-toolbar-btn")
         self.btn_folder.connect("clicked", self.add_folder)
@@ -259,7 +259,7 @@ class Notes(Gtk.Window):
         self.btn_empty.connect("clicked", self.empty_trash_action)
         for b in (self.btn_folder, self.btn_note, self.btn_pin, self.btn_del,
                   self.btn_restore, self.btn_empty):
-            hb.pack_end(b)
+            hb.pack_end(b, False, False, 0)
         grp = Gtk.AccelGroup()
         self.add_accel_group(grp)
         self.btn_note.add_accelerator("clicked", grp, Gdk.KEY_n,

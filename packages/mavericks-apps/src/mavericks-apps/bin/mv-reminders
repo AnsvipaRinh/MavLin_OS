@@ -189,12 +189,12 @@ if _GUI:
                 b = Gtk.Button(label=label)
                 b.get_style_context().add_class("mavericks-toolbar-btn")
                 b.connect("clicked", cb)
-                hb.pack_end(b)
+                hb.pack_end(b, False, False, 0)
             self.search = Gtk.SearchEntry(placeholder_text="Search")
             # "changed" (not "search-changed"): fires on programmatic
             # set_text too — same fix as mv-notes
             self.search.connect("changed", self.on_search)
-            hb.pack_start(self.search)
+            hb.pack_start(self.search, False, False, 0)
 
             paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
             root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)

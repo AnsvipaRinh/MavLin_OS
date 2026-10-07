@@ -104,13 +104,13 @@ def build_window_class(Gtk, Gdk, GLib):
 
             search = Gtk.SearchEntry(placeholder_text="Search mail...")
             search.set_hexpand(True)
-            hb.pack_start(search)
+            hb.pack_start(search, True, True, 0)
 
             new_msg = Gtk.Button(label="New Message")
             new_msg.get_style_context().add_class("mavericks-toolbar-btn")
             new_msg.get_style_context().add_class("suggested-action")
             new_msg.connect("clicked", self.new_message)
-            hb.pack_end(new_msg)
+            hb.pack_end(new_msg, False, False, 0)
 
             paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
             root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)

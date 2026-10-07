@@ -206,7 +206,7 @@ class AirDropWindow(Gtk.Window):
         hb.pack_start(title_label, True, True, 8)
         self.attr_label = Gtk.Label(label="Powered by LocalSend")
         self.attr_label.get_style_context().add_class("mv-attribution")
-        hb.pack_end(self.attr_label)
+        hb.pack_end(self.attr_label, False, False, 0)
         root.pack_start(hb, False, False, 0)
 
         self.banner = Gtk.InfoBar()

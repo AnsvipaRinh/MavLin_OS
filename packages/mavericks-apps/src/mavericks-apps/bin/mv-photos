@@ -937,19 +937,19 @@ class PhotosWindow(Gtk.Window):
         self.search_entry = Gtk.SearchEntry(placeholder_text="Search photos...")
         self.search_entry.set_hexpand(True)
         self.search_entry.connect("changed", self.on_search_changed)
-        hb.pack_start(self.search_entry)
+        hb.pack_start(self.search_entry, True, True, 0)
 
         import_btn = Gtk.Button(label="Import")
         import_btn.get_style_context().add_class("mavericks-toolbar-btn")
         import_btn.connect("clicked", self.on_import)
-        hb.pack_end(import_btn)
+        hb.pack_end(import_btn, False, False, 0)
 
         slideshow_btn = Gtk.Button.new_from_icon_name(
             "media-playback-start", Gtk.IconSize.BUTTON)
         slideshow_btn.set_tooltip_text("Slideshow (Space)")
         slideshow_btn.get_style_context().add_class("mavericks-toolbar-btn")
         slideshow_btn.connect("clicked", self.on_slideshow_toggle)
-        hb.pack_end(slideshow_btn)
+        hb.pack_end(slideshow_btn, False, False, 0)
 
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)

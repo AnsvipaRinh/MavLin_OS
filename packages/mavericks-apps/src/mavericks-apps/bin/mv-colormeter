@@ -326,26 +326,26 @@ class ColorMeterWindow(Gtk.Window):
             "edit-copy", Gtk.IconSize.SMALL_TOOLBAR)
         self.copy_btn.set_tooltip_text("Copy Color (Ctrl+C)")
         self.copy_btn.connect("clicked", self.on_copy)
-        hb.pack_start(self.copy_btn)
+        hb.pack_start(self.copy_btn, False, False, 0)
 
         self.add_btn = Gtk.Button.new_from_icon_name(
             "list-add", Gtk.IconSize.SMALL_TOOLBAR)
         self.add_btn.set_tooltip_text("Add to Palette (Ctrl+P)")
         self.add_btn.connect("clicked", self.on_add_palette)
-        hb.pack_start(self.add_btn)
+        hb.pack_start(self.add_btn, False, False, 0)
 
         self.save_btn = Gtk.Button.new_from_icon_name(
             "document-save", Gtk.IconSize.SMALL_TOOLBAR)
         self.save_btn.set_tooltip_text("Save Palette (.gpl) (Ctrl+S)")
         self.save_btn.connect("clicked", self.on_save_palette)
-        hb.pack_start(self.save_btn)
+        hb.pack_start(self.save_btn, False, False, 0)
 
         if shutil.which("gcolor3"):
             self.picker_btn = Gtk.Button.new_from_icon_name(
                 "applications-graphics", Gtk.IconSize.SMALL_TOOLBAR)
             self.picker_btn.set_tooltip_text("Open in gcolor3 (Ctrl+O)")
             self.picker_btn.connect("clicked", self.on_open_picker)
-            hb.pack_end(self.picker_btn)
+            hb.pack_end(self.picker_btn, False, False, 0)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         vbox.set_border_width(14)

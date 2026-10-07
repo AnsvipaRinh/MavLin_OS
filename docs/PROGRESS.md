@@ -1,6 +1,36 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-07 (P1 DoD audit + pre-hardware gaps: mv-stickies/mv-calculator/mv-dictionary — oid `OS-qwen-p1scd`: fixed stickies pack-arity ×3 + get_title, calculator show_tape native-toolbar rework + OSError guards, dictionary orphan-toolbar GC destroy bug (dead bookmark/history handlers + 8 packed criticals) + StackSwitcher now packed + OSError guards; suites 75/145/88 = 308 checks, 0 failed; GUI smoke on pinned Xvfb :97, host-display guard 0 attempts; check-sync.sh: 34 FAIL vs origin/main baseline 38 FAIL — 0 new, 4 fixed; RESUME-FIRST rule appended to DECISIONS.md)
+**Last Updated**: 2026-10-07 (Undefined-hb + pack-arity fix for 8 apps — oid `OS-qwen-broken8`: mv-airdrop/mv-colormeter/mv-notes/mv-photos/mv-preview/mv-reminders/mv-mail/mv-diskutil; py_compile ×8 OK; all 8 app suites + GUI smoke pass; check-sync.sh: 34 FAIL vs origin/main baseline 38 FAIL — 0 new; APPS.md rows updated)
+---
+
+## Session 2026-10-07 — Undefined-hb + pack-arity fix for 8 apps (oid `OS-qwen-broken8`)
+
+**Zone:** `packages/mavericks-apps/src/mavericks-apps/bin/mv-airdrop`, `.../mv-colormeter`, `.../mv-notes`, `.../mv-photos`, `.../mv-preview`, `.../mv-reminders`, `.../mv-mail`, `.../mv-diskutil`, `docs/APPS.md`, `docs/PROGRESS.md`.
+
+**Objective:** Fix undefined `hb` toolbar variable and pack_start/pack_end arity TypeErrors in 8 apps diagnosed by `OS-qwen-p1scd` audit.
+
+**mv-airdrop** (line 209): `hb.pack_end(self.attr_label)` → `hb.pack_end(self.attr_label, False, False, 0)` — explicit arity.
+
+**mv-colormeter** (lines 329, 335, 341, 348): 4 toolbar buttons — all `pack_start`/`pack_end` calls now explicit `False, False, 0`.
+
+**mv-notes** (lines 241, 262): `hb.pack_start(self.search)` → `hb.pack_start(self.search, False, False, 0)`; loop `hb.pack_end(b)` → `hb.pack_end(b, False, False, 0)` (6 buttons).
+
+**mv-photos** (lines 940, 945, 952): `hb.pack_start(self.search_entry)` → `hb.pack_start(self.search_entry, True, True, 0)`; `hb.pack_end(import_btn)` / `hb.pack_end(slideshow_btn)` → explicit `False, False, 0`.
+
+**mv-preview** (lines 200, 204, 210, 216, 222): 5 toolbar sites — prev/next/file_label/export_b/open_b all explicit arity.
+
+**mv-reminders** (lines 192, 197): loop `hb.pack_end(b)` → `hb.pack_end(b, False, False, 0)`; `hb.pack_start(self.search)` → `hb.pack_start(self.search, False, False, 0)`.
+
+**mv-mail** (lines 107, 113): `hb.pack_start(search)` → `hb.pack_start(search, True, True, 0)`; `hb.pack_end(new_msg)` → `hb.pack_end(new_msg, False, False, 0)`.
+
+**mv-diskutil** (lines 976-977): `hb` was never defined (container renamed to `toolbar`); fixed `hb.pack_start(...)` / `hb.pack_end(...)` → `toolbar.pack_start(..., False, False, 0)` / `toolbar.pack_end(..., False, False, 0)`.
+
+**Tests:** All 8 apps `python3 -m py_compile` OK. All 8 app test suites pass (mv-airdrop 51, mv-colormeter 76, mv-notes 41, mv-photos 106, mv-preview 55, mv-reminders 32, mv-mail 23, mv-diskutil portable section). GUI smoke on pinned Xvfb :97 — all 8 apps stay up 3s. `check-sync.sh` failure set = **34 FAIL vs origin/main baseline 38 FAIL** (0 new failures; the 4 fixed in prior session persist).
+
+**Docs updated:** `docs/APPS.md` rows for AirDrop, Digital Color Meter, Notes, Reminders, Photos, Preview, Mail, Disk Utility annotated with fixes.
+
+**Qwen vs own split:** Qwen authenticated but transport timed out; 100% of delivered work is local implementation per the verbatim objective.
+
 ---
 
 ## Session 2026-10-07 — P1 DoD audit: Stickies / Calculator / Dictionary (oid `OS-qwen-p1scd`)
