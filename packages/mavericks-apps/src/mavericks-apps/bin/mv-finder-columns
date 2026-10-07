@@ -994,8 +994,8 @@ class ColumnsWindow(Gtk.Window):
         opener = ["thunar", target] if shutil.which("thunar") else ["xdg-open", target]
         try:
             subprocess.Popen(opener, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError:
-            pass
+        except OSError as e:
+            self._show_error("Open in Thunar", e.strerror or str(e))
 
     def on_key_press(self, _widget, event):
         key = Gdk.keyval_name(event.keyval)
