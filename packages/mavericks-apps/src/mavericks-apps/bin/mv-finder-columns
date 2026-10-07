@@ -103,6 +103,39 @@ def load_icon_pixbuf(name, size):
         pass
     return None
 
+    # Keep this list aligned with mv-archive-utility's ARCHIVE_SUFFIXES. The
+# helper is an executable script (not an importable Python module), so the
+# companion cannot import that constant without adding packaging machinery.
+ARCHIVE_SUFFIXES = (
+    ".zip", ".jar", ".apk", ".epub", ".tar", ".tar.gz", ".tgz",
+    ".tar.bz2", ".tbz2", ".tbz", ".tar.xz", ".txz", ".tar.lz",
+    ".tlz", ".tar.lzma", ".tar.zst", ".tzst", ".tar.z", ".taz",
+    ".7z", ".rar", ".cab", ".cpio", ".iso", ".lzh", ".lha", ".arj",
+    ".cbz", ".cbr", ".cba", ".deb", ".rpm", ".ar", ".z", ".gz",
+    ".bz2", ".xz", ".zst", ".zlib",
+)
+
+
+def _is_archive_path(path):
+    """Return whether PATH has an archive suffix supported by Archive Utility."""
+    lower = os.path.basename(path).lower()
+    return any(lower.endswith(suffix) for suffix in ARCHIVE_SUFFIXES)
+
+
+def _archive_destination(path):
+    """Choose a Finder-style adjacent .zip without overwriting an existing archive."""
+    base = os.path.basename(os.path.abspath(path))
+    candidate = os.path.join(os.path.dirname(os.path.abspath(path)), base + ".zip")
+    if not os.path.exists(candidate):
+        return candidate
+    stem = base + " "
+    n = 2
+    while os.path.exists(os.path.join(
+            os.path.dirname(os.path.abspath(path)), "%s%d.zip" % (stem, n))):
+        n += 1
+    return os.path.join(
+        os.path.dirname(os.path.abspath(path)), "%s%d.zip" % (stem, n))
+
 
 class ColumnRow(Gtk.ListBoxRow):
     def __init__(self, entry, icon_size=ZOOM_DEFAULT):
@@ -718,39 +751,6 @@ class ColumnsWindow(Gtk.Window):
             self._show_error("Paste", e.strerror or str(e))
         if pasted:
             self.rebuild_columns()
-
-    # Keep this list aligned with mv-archive-utility's ARCHIVE_SUFFIXES. The
-# helper is an executable script (not an importable Python module), so the
-# companion cannot import that constant without adding packaging machinery.
-ARCHIVE_SUFFIXES = (
-    ".zip", ".jar", ".apk", ".epub", ".tar", ".tar.gz", ".tgz",
-    ".tar.bz2", ".tbz2", ".tbz", ".tar.xz", ".txz", ".tar.lz",
-    ".tlz", ".tar.lzma", ".tar.zst", ".tzst", ".tar.z", ".taz",
-    ".7z", ".rar", ".cab", ".cpio", ".iso", ".lzh", ".lha", ".arj",
-    ".cbz", ".cbr", ".cba", ".deb", ".rpm", ".ar", ".z", ".gz",
-    ".bz2", ".xz", ".zst", ".zlib",
-)
-
-
-def _is_archive_path(path):
-    """Return whether PATH has an archive suffix supported by Archive Utility."""
-    lower = os.path.basename(path).lower()
-    return any(lower.endswith(suffix) for suffix in ARCHIVE_SUFFIXES)
-
-
-def _archive_destination(path):
-    """Choose a Finder-style adjacent .zip without overwriting an existing archive."""
-    base = os.path.basename(os.path.abspath(path))
-    candidate = os.path.join(os.path.dirname(os.path.abspath(path)), base + ".zip")
-    if not os.path.exists(candidate):
-        return candidate
-    stem = base + " "
-    n = 2
-    while os.path.exists(os.path.join(
-            os.path.dirname(os.path.abspath(path)), "%s%d.zip" % (stem, n))):
-        n += 1
-    return os.path.join(
-        os.path.dirname(os.path.abspath(path)), "%s%d.zip" % (stem, n))
 
 
     def _archive_compress(self, path):
