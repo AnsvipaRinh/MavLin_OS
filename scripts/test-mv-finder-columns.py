@@ -177,6 +177,11 @@ def test_pure():
           and 'add_action("home", lambda: w().on_home(None) if w() else None)' in source
           and 'go_menu.append("Forward", "app.forward")' in source
           and "def on_home(self, _button):" in source)
+    check("contract: folder activation and Backspace preserve history semantics",
+          'self.history = self.history[:self.history_index + 1] + [new_chain]' in source
+          and 'if key == "BackSpace":' in source
+          and 'self.on_back(None)' in source
+          and 'self._activate_path(path)' in source)
     check("contract: drag-and-drop move implementation remains present",
           'selection_data.set_uris' in source
           and 'shutil.move(source_abs, destination)' in source
