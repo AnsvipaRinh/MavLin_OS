@@ -1160,8 +1160,8 @@ def main():
     args = sys.argv[1:]
     if args and args[0] in ("-h", "--help"):
         print("usage: mv-finder-columns FOLDER\n"
-              "  Finder-like column view browser for FOLDER (navigation only;\n"
-              "  file management hands off to Thunar).")
+              "  Finder-like column view browser for FOLDER with native Finder actions;\n"
+              "  Open in Thunar remains available for the full Thunar surface.")
         return 0
     if len(args) != 1:
         print("usage: mv-finder-columns FOLDER", file=sys.stderr)
