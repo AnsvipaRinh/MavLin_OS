@@ -218,6 +218,10 @@ def test_pure(m):
               len(parsed) == len(set(r["path"] for r in parsed)))
         capped = m.parse_plocate_output(lines, root, "notes", max_results=1)
         check("plocate: cap", len(capped) == 1)
+        stale = os.path.join(root, "stale-notes.txt")
+        stale_lines = lines + "\n" + stale
+        parsed_stale = m.parse_plocate_output(stale_lines, root, "notes")
+        check("plocate: stale indexed path dropped", all(r["path"] != stale for r in parsed_stale))
 
     # --- choose_backend ---
     home = os.path.expanduser("~")
