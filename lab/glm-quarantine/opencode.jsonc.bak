@@ -10,7 +10,7 @@
   // Worker pool (2026-09-29+, see DECISIONS.md): build is the
   // primary worker; build-b..build-j are HIDDEN subagent fallbacks pinned to
   // other chain entries (build-e..g EXPERIMENTAL since 2026-10-02; build-j =
-  // Ling; build-d removed 2026-10-04). Runtime agent rotation = Task subagent_type switch
+  // Ling, demoted from primary 2026-10-03; build-d removed 2026-10-04). Runtime agent rotation = Task subagent_type switch
   // (no server restart, no config paste). mode=subagent + hidden=true keeps
   // them out of the Tab picker and @-menu; they are invokable ONLY via the
   // Task tool when the orchestrator's task allow-list permits. NEVER pin any
@@ -19,7 +19,7 @@
   "small_model": "opencode/ling-3.1-flash-free",
   "agent": {
     "build": {
-      // PRIMARY since 2026-10-04: Ling 3.1 Flash Free.
+      // PRIMARY since 2026-10-04: Ling 3.1 Flash Free (GLM 5.3 removed per user directive — cooldown memory unreliable, config-only removal).
       // Live-verified 2026-10-03: HTTP 200, tool_call:true, 1M context. First-priority
       // builder; the chain below governs fallback order.
       "model": "opencode/ling-3.1-flash-free",
@@ -123,7 +123,7 @@
         }
       }
     },
-    // Former primary (2026-10-03 morning), demoted when another model
+    // Former primary (2026-10-03 morning), demoted when GLM 5.3 Coding Plan
     // became the first-priority builder (user choice, live-verified). Kept
     // as a proven fallback worker (chain #2).
     "build-j": {

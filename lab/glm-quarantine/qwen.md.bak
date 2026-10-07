@@ -2,7 +2,7 @@
 description: Qwen Code sub-agent. Relays objectives VERBATIM to coder.qwen.ai (authenticated headless Chromium, network-level transport), returns answers with feedback, and applies Qwen-produced code to THIS repo locally. Never delegates.
 mode: subagent
 hidden: true
-model: opencode/ling-3.1-flash-free
+model: zai-coding-plan/glm-5.3
 permission:
   task:
     "*": deny

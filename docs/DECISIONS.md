@@ -1752,3 +1752,21 @@ auth mode fails loudly without a browser). `check --json` green.
 `scripts/check-sync.sh` (repo-wide gate) does not complete within
 practical time in this environment; the touched zone is Python +
 markdown only and is fully covered by the zone suite above.
+## 2026-10-07: GLM Eternal Quarantine
+
+**Owner directive:** Forget GLM ever existed until a new API key arrives.
+
+**Action taken:**
+- All GLM references purged from live runtime paths:
+  - `.opencode/model-fallback.json` — note, never_reason, worker_reason, history cleaned; label field cleaned
+  - `opencode.jsonc` — GLM comments removed
+  - `.opencode/sessions/model-health.json` — `zai-coding-plan/glm-5.3` and `zai-coding-plan/glm-5.3-flash` keys dropped
+  - `.opencode/agents/orchestrator.md` — model pin changed to `opencode/ling-3.1-flash-free`, GLM references removed
+  - `.opencode/agents/qwen.md` — model pin changed to `opencode/ling-3.1-flash-free`
+  - `scripts/session-reuse.py` — GLM references in comments/docstrings removed
+- Full pre-purge backups saved to `lab/glm-quarantine/` with README
+- Historical docs (DECISIONS/PROGRESS history) untouched (append-only)
+
+**Verification:** `grep -rn -i "glm\|zai-coding"` on live paths returns zero matches (excluding the quarantine history line itself). `opencode.jsonc` validates as JSONC. `model-fallback.json` validates as JSON.
+
+**Restoration:** Copy `.bak` files from `lab/glm-quarantine/` back to original paths.

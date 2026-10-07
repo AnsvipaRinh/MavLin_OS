@@ -253,6 +253,134 @@ def test_auth_mode_fails_loudly_without_browser():
     assert "disabled" in combined
 
 
+# --- Single designated chat tests ---
+
+def test_designated_chat_key_constant():
+    assert mod._DESIGNATED_CHAT_KEY == "designated_chat_id"
+
+
+def test_list_chats_empty_when_no_page():
+    w = _make_worker()
+    w.page = None
+    import asyncio
+    result = asyncio.new_event_loop().run_until_complete(w.list_chats())
+    assert result == []
+
+
+def test_list_chats_parses_sidebar_links():
+    w = _make_worker()
+
+    class MockPage:
+        async def evaluate(self, expr):
+            return [
+                {"chat_id": "abc-123", "title": "Test Chat 1"},
+                {"chat_id": "def-456", "title": "Test Chat 2"},
+            ]
+
+    w.page = MockPage()
+    import asyncio
+    result = asyncio.new_event_loop().run_until_complete(w.list_chats())
+    assert len(result) == 2
+    assert result[0]["chat_id"] == "abc-123"
+    assert result[1]["chat_id"] == "def-456"
+
+
+def test_delete_chat_returns_false_without_page():
+    w = _make_worker()
+    w.page = None
+    import asyncio
+    result = asyncio.new_event_loop().run_until_complete(w.delete_chat("some-id"))
+    assert result is False
+
+
+def test_ensure_designated_chat_stores_in_metadata(tmp_path, monkeypatch):
+    monkeypatch.setattr(mod, "_META_DIR", str(tmp_path))
+    monkeypatch.setattr(mod, "_META_FILE", str(tmp_path / "state.json"))
+    monkeypatch.setattr(mod, "_DEFAULT_PROFILE_DIR", str(tmp_path / "profile"))
+
+    w = _make_worker()
+
+    class MockPage:
+        url = "https://coder.qwen.ai/c/chat-1"
+        async def evaluate(self, expr):
+            return [{"chat_id": "chat-1", "title": "First"}]
+        async def wait_for_timeout(self, t):
+            return None
+        async def goto(self, url):
+            return None
+        async def wait_for_load_state(self, state):
+            return None
+
+    w.page = MockPage()
+    w._chat_id_from_url = lambda: "chat-1"
+
+    async def mock_start_new_task():
+        return True
+    async def mock_set_conversation(cid):
+        return True
+    async def mock_delete_chat(cid):
+        return True
+
+    w.start_new_task = mock_start_new_task
+    w.set_conversation = mock_set_conversation
+    w.delete_chat = mock_delete_chat
+
+    import asyncio
+    loop = asyncio.new_event_loop()
+    result = loop.run_until_complete(w.ensure_designated_chat())
+    assert result == "chat-1"
+    # Verify metadata was saved
+    saved = json.loads((tmp_path / "state.json").read_text())
+    assert saved.get(mod._DESIGNATED_CHAT_KEY) == "chat-1"
+
+
+def test_ensure_designated_chat_deletes_others(tmp_path, monkeypatch):
+    monkeypatch.setattr(mod, "_META_DIR", str(tmp_path))
+    monkeypatch.setattr(mod, "_META_FILE", str(tmp_path / "state.json"))
+    monkeypatch.setattr(mod, "_DEFAULT_PROFILE_DIR", str(tmp_path / "profile"))
+
+    # Pre-existing designated chat
+    (tmp_path / "state.json").write_text(json.dumps({mod._DESIGNATED_CHAT_KEY: "chat-keep"}))
+
+    w = _make_worker()
+
+    class MockPage:
+        url = "https://coder.qwen.ai/c/chat-keep"
+        async def evaluate(self, expr):
+            return [
+                {"chat_id": "chat-keep", "title": "Keep"},
+                {"chat_id": "chat-del-1", "title": "Delete 1"},
+                {"chat_id": "chat-del-2", "title": "Delete 2"},
+            ]
+        async def wait_for_timeout(self, t):
+            return None
+        async def goto(self, url):
+            return None
+        async def wait_for_load_state(self, state):
+            return None
+
+    w.page = MockPage()
+    w._chat_id_from_url = lambda: "chat-keep"
+
+    async def mock_set_conversation(cid):
+        return True
+    w.set_conversation = mock_set_conversation
+
+    deleted = []
+    async def mock_delete(cid):
+        deleted.append(cid)
+        return True
+    w.delete_chat = mock_delete
+
+    import asyncio
+    loop = asyncio.new_event_loop()
+    result = loop.run_until_complete(w.ensure_designated_chat())
+    assert result == "chat-keep"
+    assert "chat-del-1" in deleted
+    assert "chat-del-2" in deleted
+    assert "chat-keep" not in deleted
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):
