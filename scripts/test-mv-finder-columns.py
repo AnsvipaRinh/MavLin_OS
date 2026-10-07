@@ -232,9 +232,9 @@ def test_pure():
           and 'lambda _i: self._paste()' in source)
     check("contract: Finder Extract Here is archive-only",
           'def _is_archive_path(path):' in source
-          and 'if os.path.isfile(path) and _is_archive_path(path):' in source
-          and '"demo.zip" in source
-          and '"demo.txt" not in source)
+          and 'ARCHIVE_SUFFIXES = (' in source
+          and '".zip"' in source
+          and 'if os.path.isfile(path) and _is_archive_path(path):' in source)
 
     check("contract: Finder reuses Archive Utility for compression/extraction",
           'def _archive_compress(self, path):' in source
