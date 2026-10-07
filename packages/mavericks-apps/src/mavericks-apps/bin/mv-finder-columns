@@ -172,6 +172,7 @@ class ColumnsWindow(Gtk.Window):
         self.icon_size = ZOOM_DEFAULT
         self._clipboard_mode = None
         self._mount_signal_ids = []
+        self._mount_refresh_source_id = None
 
         self.set_default_size(760, 480)
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -319,6 +320,13 @@ class ColumnsWindow(Gtk.Window):
                 except (TypeError, ValueError):
                     pass
         self._mount_signal_ids = []
+        source_id = getattr(self, "_mount_refresh_source_id", None)
+        if source_id is not None:
+            try:
+                GLib.source_remove(source_id)
+            except (TypeError, ValueError):
+                pass
+            self._mount_refresh_source_id = None
         Gtk.main_quit()
 
 
@@ -343,6 +351,7 @@ class ColumnsWindow(Gtk.Window):
         self.sidebar_list.show_all()
 
     def _refresh_mount_state(self):
+        self._mount_refresh_source_id = None
         self._append_mounted_devices()
         # If the user is currently inside a volume that disappeared, rebuild
         # the columns so Finder exposes its normal unavailable-folder state
@@ -352,7 +361,8 @@ class ColumnsWindow(Gtk.Window):
         return False
 
     def _mount_changed(self, *_args):
-        GLib.idle_add(self._refresh_mount_state)
+        if self._mount_refresh_source_id is None:
+            self._mount_refresh_source_id = GLib.idle_add(self._refresh_mount_state)
 
     def _sidebar_button_press(self, row, event):
         if event.button != 3 or not hasattr(row, "mount"):
