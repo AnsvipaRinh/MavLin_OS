@@ -212,6 +212,10 @@ def test_pure():
           and "def _on_destroy(self, _window):" in source
           and "monitor.disconnect(signal_id)" in source
           and "Gtk.main_quit()" in source)
+    check("contract: Finder coalesces and cancels mount refresh idle",
+          "self._mount_refresh_source_id = None" in source
+          and "self._mount_refresh_source_id = GLib.idle_add(self._refresh_mount_state)" in source
+          and "GLib.source_remove(source_id)" in source)
     check("contract: Finder Open With accepts row activation",
           'tree.connect("row-activated",' in source
           and 'dialog.response(Gtk.ResponseType.OK)' in source)
