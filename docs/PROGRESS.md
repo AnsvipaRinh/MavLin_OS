@@ -1101,3 +1101,12 @@ The continued audit exposed a regression introduced during the archive applicabi
 Fixed the helper as a top-level function and restored the Finder method boundary. The Finder regression suite now runs py_compile on the companion before importing it, so future syntax regressions fail deterministically.
 
 Claim: 20261007-1100-gpt-finder-execution.
+
+
+### Finder execution — 2026-10-07 — archive helper scope repair
+
+The previous archive-helper checkpoint still left a real indentation defect in the branch: _archive_destination() had been moved to top-level while the following Finder methods retained class indentation, leaving an invalid indentation boundary. Repaired the archive helper placement so the helper is top-level and _archive_compress() / _archive_extract_here() remain methods of ColumnsWindow.
+
+The repository test already contains a py_compile gate for this executable; local runtime execution was attempted but this environment cannot resolve github.com, so no local test result is claimed.
+
+Claim: 20261007-1100-gpt-finder-execution.
