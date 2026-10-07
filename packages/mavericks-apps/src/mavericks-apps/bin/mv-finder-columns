@@ -521,7 +521,12 @@ class ColumnsWindow(Gtk.Window):
         adj = self.scrolled.get_hadjustment()
         adj.set_value(adj.get_upper())
         if self.listboxes:
-            self.listboxes[-1].grab_focus()
+            last = self.listboxes[-1]
+            last.grab_focus()
+            if last.get_selected_row() is None:
+                first = last.get_row_at_index(0)
+                if first is not None and hasattr(first, "entry"):
+                    last.select_row(first)
         return False
 
     # ---------- Finder file actions ----------
