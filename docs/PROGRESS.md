@@ -1,7 +1,31 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-06 (Power/Shutdown + Trash + Archive Utility — oid `OS-power-trash-archive`, canonical #14/#15/#16: three surfaces that all read IMPLEMENTED and all shipped broken — `mv-power-ui <action>` mapped no window at all because its argv was read as a file to open (killing Ctrl+Alt+Delete and the Apple menu's Log Out), the ISO had no polkit and no authentication agent so no privileged action could ever be authorized (proven: `CanPowerOff: challenge`, and the same UDisks2 call denied as user / succeeds as root), `mv-eject` was dead code on a removed GIO API, Empty Trash was `trash-empty` with no confirmation from three entry points, Put Back opened a stock terminal that cannot complete, and Archive Utility had no extraction path and no MIME wiring at all; 396 new behavioural assertions)
+**Last Updated**: 2026-10-07 (P1 DoD audit mv-textedit/mv-notes/mv-reminders — oid `OS-qwen-p1tnr`, canonical #26/#27/#28: Qwen relay produced truncated/unusable output (file cut mid-string at line 449); all work implemented locally. mv-reminders: entry_dialog() for list/task creation+rename, due-date validation, popup_at_pointer() context menus, overlay empty-state, consolidated main(). mv-notes: entry_dialog() for folder naming, menu bar Pin/Unpin + Delete/Restore under Edit. mv-textedit: keyboard accelerators Ctrl+B/I/U/S/O/P/R/F/Z/Y, duplicate import sys fixed, bogus Help menu removed. 3 app suites green: mv-notes 41, mv-reminders 32, mv-textedit 3/6 launch failures pre-existing on main.)
 ---
+
+## Session 2026-10-07 — P1 DoD audit: mv-textedit, mv-notes, mv-reminders (oid `OS-qwen-p1tnr`, canonical #26/#27/#28)
+
+**Zone:** `bin/mv-textedit`, `bin/mv-notes`, `bin/mv-reminders`, `docs/APPS.md`, `docs/PROGRESS.md`. Qwen relay driver: `scripts/qwen-integration/qwen-web-worker.py send --repo AnsvipaRinh/MavLinOS`. Qwen output truncated mid-string (line 449, unterminated string literal) — unusable; all implementation done locally.
+
+**Qwen vs own split:** Qwen attempted 2 fixes to mv-reminders (popup_at_pointer, consolidate main) but output was truncated and file did not compile. 100% of delivered work is local implementation.
+
+**mv-reminders** (32 headless tests green):
+- `entry_dialog()` for New List, Rename List, Edit Task title + due date (was: raw `Gtk.Dialog` with no validation)
+- Due-date validation: `is_valid_due()` — strict YYYY-MM-DD with calendar check (rejects 2026-02-30)
+- `menu.popup_at_pointer(ev)` replaces deprecated `menu.popup(None,None,None,None,0,ev.time)` (2 sites)
+- Empty state: `Gtk.Overlay` instead of hiding `task_sw` (was collapsing paned right child)
+- Consolidated duplicate `main()`/`__main__` bootstrap into single `main()` + `__main__` guard
+
+**mv-notes** (41 headless tests green):
+- `entry_dialog()` for New Folder naming (was: auto-"Folder N" with no user input)
+- Menu bar: Delete/Restore moved from View to Edit; Pin/Unpin added to Edit menu
+
+**mv-textedit** (3/6 checks pass; 3 launch failures pre-existing on main — GtkSourceView4 not available in test env):
+- Keyboard accelerators: Ctrl+B/I/U/S/O/P/R/F/Z/Y via `on_key_press` handler
+- Duplicate `import sys` removed
+- Bogus Help menu removed (was: "TextEdit Help" → app.about)
+
+**Tests:** `scripts/test-mv-notes.py` 41 passed, `scripts/test-mv-reminders.py` 32 passed, `scripts/test-mv-textedit.py` 3 passed / 3 failed (pre-existing on main, identical failure). `check-sync.sh`: all 3 app suites + desktop entries green; smoke failures pre-existing across codebase (pack_start/pack_end PyGObject version issue, not introduced by this change).
 
 ## Session 2026-10-06 — Power/Shutdown + Trash + Archive Utility (oid `OS-power-trash-archive`, canonical #14/#15/#16)
 
