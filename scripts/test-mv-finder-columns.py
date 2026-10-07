@@ -220,6 +220,11 @@ def test_pure():
           'with native Finder actions' in source
           and 'Open in Thunar remains available' in source)
 
+    check("contract: Finder companion docstring matches native scope",
+          "Finder-native file actions cover the core" in source
+          and '"Open in Thunar" remains the fallback' in source
+          and "all file management" not in source)
+
     check("contract: Finder context menus expose clipboard actions",
           'Gtk.MenuItem(label="Copy")' in source
           and 'lambda _i: self._copy_selected()' in source
