@@ -1117,3 +1117,10 @@ Claim: 20261007-1100-gpt-finder-execution.
 Found a Finder correctness gap for broken symbolic links: list_entries() still displays a dangling symlink, but action guards using os.path.exists() treated it as absent. Rename, Get Info, Move to Trash and Quick Look now use os.path.lexists() so a visible dangling symlink remains actionable without dereferencing it. Added a deterministic source contract.
 
 Claim: 20261007-1100-gpt-finder-execution.
+
+
+### Finder execution — 2026-10-07 — VolumeMonitor lifecycle cleanup
+
+Finder's live mounted-device sidebar subscribed to Gio.VolumeMonitor signals but did not disconnect them when the window was destroyed. The companion now stores the three signal IDs and disconnects them in its destroy handler before Gtk.main_quit(), preventing stale callbacks and retaining the existing event-driven/no-polling design. Added a deterministic source contract.
+
+Claim: 20261007-1100-gpt-finder-execution.
