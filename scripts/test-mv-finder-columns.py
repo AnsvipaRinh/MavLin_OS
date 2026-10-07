@@ -198,6 +198,11 @@ def test_pure():
     check("contract: Finder Open With accepts row activation",
           'tree.connect("row-activated",' in source
           and 'dialog.response(Gtk.ResponseType.OK)' in source)
+    check("contract: Finder exposes Command-style Open With/Thunar actions",
+          'add_action("open-with"' in source
+          and 'app.open-with' in source
+          and '[\"<Super>o\", \"<Super><Shift>o\"]' in source
+          and '[\"<Super>e\"]' in source)
     check("contract: Finder context menus expose clipboard actions",
           'Gtk.MenuItem(label="Copy")' in source
           and 'lambda _i: self._copy_selected()' in source
