@@ -691,7 +691,17 @@ class ColumnsWindow(Gtk.Window):
                     continue
                 destination = os.path.join(
                     target_dir, os.path.basename(os.path.abspath(source)))
-                if os.path.abspath(source) == os.path.abspath(destination):
+                source_abs = os.path.abspath(source)
+                target_abs = os.path.abspath(target_dir)
+                if source_abs == target_abs:
+                    continue
+                if os.path.isdir(source_abs) and os.path.commonpath(
+                        [source_abs, target_abs]) == source_abs:
+                    self._show_error(
+                        "Paste",
+                        "Cannot copy a folder into itself.")
+                    continue
+                if source_abs == os.path.abspath(destination):
                     continue
                 if os.path.exists(destination):
                     self._show_error(
