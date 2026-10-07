@@ -832,6 +832,8 @@ class ColumnsWindow(Gtk.Window):
         tree.append_column(column)
         selection = tree.get_selection()
         selection.select_path(Gtk.TreePath.new_first())
+        tree.connect("row-activated",
+                     lambda *_args: dialog.response(Gtk.ResponseType.OK))
         area.pack_start(tree, True, True, 0)
 
         dialog.show_all()
