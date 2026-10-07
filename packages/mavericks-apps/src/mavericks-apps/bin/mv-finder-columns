@@ -609,19 +609,20 @@ class ColumnsWindow(Gtk.Window):
         try:
             for uri in uris:
                 source = Gio.File.new_for_uri(uri).get_path()
-                if not source or not os.path.exists(source):
+                if not source or not os.path.lexists(source):
                     continue
                 source_abs = os.path.abspath(source)
                 target_abs = os.path.abspath(target_dir)
+                source_is_directory = os.path.isdir(source_abs) and not os.path.islink(source_abs)
                 if source_abs == target_abs:
                     continue
-                if os.path.isdir(source_abs) and os.path.commonpath(
+                if source_is_directory and os.path.commonpath(
                         [source_abs, target_abs]) == source_abs:
                     continue
                 destination = os.path.join(target_abs, os.path.basename(source_abs))
                 if os.path.abspath(destination) == source_abs:
                     continue
-                if os.path.exists(destination):
+                if os.path.lexists(destination):
                     self._show_error(
                         "Move",
                         "An item named “%s” already exists in the destination."
@@ -746,7 +747,7 @@ class ColumnsWindow(Gtk.Window):
         try:
             for uri in uris:
                 source = Gio.File.new_for_uri(uri).get_path()
-                if not source or not os.path.exists(source):
+                if not source or not os.path.lexists(source):
                     continue
                 destination = os.path.join(
                     target_dir, os.path.basename(os.path.abspath(source)))
@@ -754,7 +755,7 @@ class ColumnsWindow(Gtk.Window):
                 target_abs = os.path.abspath(target_dir)
                 if source_abs == target_abs:
                     continue
-                if os.path.isdir(source_abs) and os.path.commonpath(
+                if os.path.isdir(source_abs) and not os.path.islink(source_abs) and os.path.commonpath(
                         [source_abs, target_abs]) == source_abs:
                     self._show_error(
                         "Paste",
@@ -762,16 +763,16 @@ class ColumnsWindow(Gtk.Window):
                     continue
                 if source_abs == os.path.abspath(destination):
                     continue
-                if os.path.exists(destination):
+                if os.path.lexists(destination):
                     self._show_error(
                         "Paste",
                         "An item named “%s” already exists in the destination."
                         % os.path.basename(source))
                     continue
-                if os.path.isdir(source):
+                if os.path.isdir(source) and not os.path.islink(source):
                     shutil.copytree(source, destination)
                 else:
-                    shutil.copy2(source, destination)
+                    shutil.copy2(source, destination, follow_symlinks=False)
                 pasted = True
         except (OSError, ValueError) as e:
             self._show_error("Paste", e.strerror or str(e))
