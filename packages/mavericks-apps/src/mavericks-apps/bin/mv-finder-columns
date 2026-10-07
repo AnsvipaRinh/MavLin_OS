@@ -720,36 +720,27 @@ class ColumnsWindow(Gtk.Window):
     def _rename(self, path):
         if not path or not os.path.exists(path):
             return
-        dialog = Gtk.Dialog(title="Rename", transient_for=self,
-                            flags=Gtk.DialogFlags.MODAL)
-        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dialog.add_button("Rename", Gtk.ResponseType.OK)
-        area = dialog.get_content_area()
-        area.set_spacing(8)
-        area.set_margin_top(12)
-        area.set_margin_bottom(12)
-        area.set_margin_start(12)
-        area.set_margin_end(12)
-        area.pack_start(Gtk.Label(label="Name:", xalign=0), False, False, 0)
-        entry = Gtk.Entry()
-        entry.set_text(os.path.basename(path))
-        entry.select_region(0, -1)
-        area.pack_start(entry, False, False, 0)
-        dialog.show_all()
-        response = dialog.run()
-        new_name = entry.get_text().strip()
-        dialog.destroy()
-        if response != Gtk.ResponseType.OK or not new_name:
-            return
-        if os.path.basename(new_name) != new_name or new_name in (".", ".."):
-            self._show_error("Rename", "Please enter a single valid file name.")
+        from mv_dialogs import entry_dialog
+
+        def validate_name(name):
+            if os.path.basename(name) != name or name in (".", ".."):
+                return "Please enter a single valid file name."
+            target = os.path.join(os.path.dirname(path), name)
+            if os.path.abspath(target) != os.path.abspath(path) and os.path.exists(target):
+                return "An item with that name already exists."
+            return None
+
+        new_name = entry_dialog(
+            self,
+            "Rename",
+            label="Name:",
+            initial=os.path.basename(path),
+            ok_label="Rename",
+            validator=validate_name,
+        )
+        if new_name is None or os.path.abspath(new_name) == os.path.abspath(os.path.basename(path)):
             return
         target = os.path.join(os.path.dirname(path), new_name)
-        if os.path.abspath(target) == os.path.abspath(path):
-            return
-        if os.path.exists(target):
-            self._show_error("Rename", "An item with that name already exists.")
-            return
         try:
             os.rename(path, target)
             self.rebuild_columns()
