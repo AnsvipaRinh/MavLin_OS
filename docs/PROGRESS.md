@@ -1,7 +1,48 @@
 # MavLinOS Development Progress
 
-**Last Updated**: 2026-10-07 (P1 DoD audit mv-textedit/mv-notes/mv-reminders — oid `OS-qwen-p1tnr`, canonical #26/#27/#28: Qwen relay produced truncated/unusable output (file cut mid-string at line 449); all work implemented locally. mv-reminders: entry_dialog() for list/task creation+rename, due-date validation, popup_at_pointer() context menus, overlay empty-state, consolidated main(). mv-notes: entry_dialog() for folder naming, menu bar Pin/Unpin + Delete/Restore under Edit. mv-textedit: keyboard accelerators Ctrl+B/I/U/S/O/P/R/F/Z/Y, duplicate import sys fixed, bogus Help menu removed. 3 app suites green: mv-notes 41, mv-reminders 32, mv-textedit 3/6 launch failures pre-existing on main.)
+**Last Updated**: 2026-10-07 (undefined-hb toolbar fix: mv-activity/mv-textedit/mv-fontbook/mv-music/mv-quicklook — oid `20261007-1334-opencode-undefined-hb-toolbar-fix`: fixed undefined `hb` variable in mv-activity (container renamed to `toolbar`) + explicit pack_start/pack_end arity in all 5 apps; all py_compile OK; GUI smoke on pinned Xvfb :97 OK; test_mv_quicklook.py 3/3 passed; check-sync.sh: failure set identical to origin/main (no new failures))
 ---
+
+## Session 2026-10-07 — Undefined-hb toolbar fix (oid `20261007-1334-opencode-undefined-hb-toolbar-fix`)
+
+**Zone:** `packages/mavericks-apps/src/mavericks-apps/bin/mv-activity`, `packages/mavericks-apps/src/mavericks-apps/bin/mv-textedit`, `packages/mavericks-apps/src/mavericks-apps/bin/mv-fontbook`, `packages/mavericks-apps/src/mavericks-apps/bin/mv-music`, `packages/mavericks-apps/src/mavericks-apps/bin/mv-quicklook`, `docs/APPS.md`, `docs/PROGRESS.md`. Qwen relay driver: `scripts/qwen-integration/qwen-web-worker.py` (auth: OK).
+
+**Objective:** Fix undefined `hb` toolbar variable (leftover of container rename) + explicit `pack_start`/`pack_end` arity (PyGObject requires explicit expand/fill/padding).
+
+**mv-activity** (was unlaunchable — `NameError: name 'hb' is not defined` at 5 sites):
+- Container renamed from `hb` to `toolbar` (line 88); all 5 references rebound
+- `toolbar.pack_start(self.search, True, True, 0)` — search expands
+- `toolbar.pack_end(btn, False, False, 0)` ×4 — action buttons don't expand
+- **Result:** App launches, GUI smoke 3s OK on Xvfb :97
+
+**mv-textedit** (had arity omissions at 2 sites):
+- `hb.pack_start(self.title_label, True, True, 8)` — title expands
+- `hb.pack_end(b, False, False, 0)` in loop — buttons don't expand
+- **Result:** App launches, GUI smoke 3s OK on Xvfb :97
+
+**mv-fontbook** (had arity omissions at 4 sites):
+- `hb.pack_start(btn, False, False, 0)` ×3 — action buttons don't expand
+- `hb.pack_end(self.search, True, True, 0)` — search expands
+- **Result:** App launches, GUI smoke 3s OK on Xvfb :97
+
+**mv-music** (had arity omissions at 3 sites):
+- `hb.pack_start(self.search, True, True, 0)` — search expands
+- `hb.pack_end(self.sidebar_btn, False, False, 0)` — toggle button doesn't expand
+- `hb.pack_end(mini_btn, False, False, 0)` — button doesn't expand
+- **Result:** App launches (backend missing warning expected), GUI smoke 3s OK on Xvfb :97
+
+**mv-quicklook** (had arity omissions at 5 sites):
+- `hb.pack_start(title_label, True, True, 0)` — already correct
+- `hb.pack_end(open_b, False, False, 0)` — Open button
+- `hb.pack_start(prev_b, False, False, 0)` / `hb.pack_start(grid_b, False, False, 0)` / `hb.pack_start(next_b, False, False, 0)` — nav buttons
+- `hb.pack_end(fs_b, False, False, 0)` — fullscreen button
+- **Result:** `test_mv_quicklook.py` 3/3 passed; GUI smoke OK
+
+**Tests:** All 5 apps `python3 -m py_compile` OK. `packages/mavericks-apps/tests/test_mv_quicklook.py` 3 passed. Full suite: 26 failed / 198 passed (identical to `origin/main` — no new failures). `check-sync.sh`: failure set identical to pristine `origin/main` except pre-existing GUI-isolation coverage failures (3 scripts unrelated to this change) and pre-existing launch-smoke failures in other apps (mv-airdrop, mv-colormeter, mv-diskutil — outside this zone).
+
+**Qwen vs own split:** Qwen authenticated and available; objective sent verbatim; all diffs produced and applied locally in worktree.
+
+**Docs updated:** `docs/APPS.md` rows for Activity Monitor, Quick Look, TextEdit, Music, Font Book annotated with fixes.
 
 ## Session 2026-10-07 — P1 DoD audit: mv-textedit, mv-notes, mv-reminders (oid `OS-qwen-p1tnr`, canonical #26/#27/#28)
 

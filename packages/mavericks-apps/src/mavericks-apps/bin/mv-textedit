@@ -118,7 +118,7 @@ class TextEdit(Gtk.Window):
 
         self.title_label = Gtk.Label(label="Untitled")
         self.title_label.get_style_context().add_class("title")
-        hb.pack_start(self.title_label)
+        hb.pack_start(self.title_label, True, True, 8)
 
         for label, icon, cb in [
             ("New", "document-new", self.new_document),
@@ -133,7 +133,7 @@ class TextEdit(Gtk.Window):
             b.set_image(img)
             b.set_tooltip_text(label)
             b.connect("clicked", cb)
-            hb.pack_end(b)
+            hb.pack_end(b, False, False, 0)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
