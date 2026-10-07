@@ -1017,3 +1017,8 @@ Next: continue the Finder surface audit for remaining executable semantic gaps.
 ## 2026-10-07 — Finder Go to Folder execution
 
 Added Finder's missing direct-location navigation surface to the native column browser: a Mavericks-style Go to Folder dialog using the shared validated text-entry dialog, history-aware navigation, and a `Super+Shift+G` application accelerator. Invalid/non-directory paths are rejected inline rather than producing a broken column state. A deterministic source regression contract covers the action, menu entry, accelerator, validation, and history path.
+
+
+## 2026-10-07 — Finder New Folder execution
+
+Added the missing New Folder execution path to the native column Finder. The File menu and empty-column context menu invoke the existing `mv-newfolder` helper, `Super+Shift+N` is bound to the same action, and the refreshed column selects the newly created folder. Existing helper semantics provide deterministic `New Folder 2`, `New Folder 3`, … collision naming. A source regression contract covers the action, helper invocation, menu/accelerator integration, and context-menu surface.
