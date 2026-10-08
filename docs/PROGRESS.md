@@ -1175,3 +1175,19 @@ syntax error, dock/wm/filechooser GUI gates, gui-isolation coverage).
 **Next:** continue the canonical application audit (Finder /
 Spotlight / Launchpad / Mission Control remain the highest-priority
 PARTIALLY IMPLEMENTED surfaces per §13.9).
+
+## Session 2026-10-08 — Digital Color Meter P1 DoD (oid `OS-qwen-p1-dcm`, canonical objective #36)
+
+**Zone:** `bin/mv-colormeter` + `scripts/test-mv-colormeter.py` + `docs/APPS.md` Digital Color Meter row. Qwen relay driver (oid OS-qwen-p1-dcm); Qwen auth confirmed but `send` failed (TargetClosedError — headless browser crash), so work done directly per "do the work directly" directive.
+
+**Audit finding — the app was unlaunchable.** `hb.pack_start(self.copy_btn)` (and 3 more toolbar buttons) called `Gtk.Box.pack_start` with 2 args instead of 5 — `TypeError: Gtk.Box.pack_start() takes exactly 5 arguments (2 given)` at construction. This is the same pack-arity class of bug fixed in 8 other apps (oid OS-qwen-broken8) but mv-colormeter was missed by that sweep.
+
+**Changes:**
+- Fixed 4× `pack_start`/`pack_end` arity in the toolbar header bar (copy/add/save/picker buttons) — app now constructs and launches.
+- Integrated `mv_dialogs` (shared Mavericks dialog layer): `alert()` for palette-save errors, `confirm_delete()` before removing a swatch, `confirm_discard()` on window close when the session palette has unsaved colors, `entry_dialog()` for palette naming on save. Dialogs load lazily via `_dialogs()` so the pure-logic section imports cleanly headless.
+- `on_save_palette` now returns a bool (True=saved) so the close handler can keep the window open if the user cancels the save.
+- Tests: added `FakeDialogs` mock + module-level Gtk import; 76/76 green (was 75).
+
+**Gates:** `py_compile` clean; `scripts/test-mv-colormeter.py` 76/0; GUI smoke on pinned Xvfb :97 via `scripts/gui-isolation.sh` (0 host-display guard violations). `check-sync.sh`: failure set SMALLER than origin/main (no new failures).
+
+**Status:** Digital Color Meter = **IMPLEMENTED — HARDWARE VALIDATION REQUIRED**. Remaining: real pixel values on the 2304×1440 panel (see `docs/NEEDS_HARDWARE_TEST.md`).

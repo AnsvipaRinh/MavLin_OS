@@ -17,6 +17,25 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
+# Shared Mavericks dialogs (alert / confirm / sheet / entry).
+# Loaded lazily so the pure-logic section imports cleanly even
+# when mv_dialogs is not on sys.path (e.g. headless test loads).
+def _dialogs():
+    global _mv_dialogs
+    if _mv_dialogs is None:
+        try:
+            here = os.path.dirname(os.path.abspath(__file__))
+            for p in (here, "/usr/share/mavericks-apps"):
+                if p and p not in sys.path:
+                    sys.path.insert(0, p)
+            import mv_dialogs
+            _mv_dialogs = mv_dialogs
+        except Exception:
+            _mv_dialogs = False
+    return _mv_dialogs
+
+_mv_dialogs = None
+
 LOUPE_SIZE = 11
 TICK_MS = 200
 
@@ -326,26 +345,26 @@ class ColorMeterWindow(Gtk.Window):
             "edit-copy", Gtk.IconSize.SMALL_TOOLBAR)
         self.copy_btn.set_tooltip_text("Copy Color (Ctrl+C)")
         self.copy_btn.connect("clicked", self.on_copy)
-        hb.pack_start(self.copy_btn)
+        hb.pack_start(self.copy_btn, False, False, 0)
 
         self.add_btn = Gtk.Button.new_from_icon_name(
             "list-add", Gtk.IconSize.SMALL_TOOLBAR)
         self.add_btn.set_tooltip_text("Add to Palette (Ctrl+P)")
         self.add_btn.connect("clicked", self.on_add_palette)
-        hb.pack_start(self.add_btn)
+        hb.pack_start(self.add_btn, False, False, 0)
 
         self.save_btn = Gtk.Button.new_from_icon_name(
             "document-save", Gtk.IconSize.SMALL_TOOLBAR)
         self.save_btn.set_tooltip_text("Save Palette (.gpl) (Ctrl+S)")
         self.save_btn.connect("clicked", self.on_save_palette)
-        hb.pack_start(self.save_btn)
+        hb.pack_start(self.save_btn, False, False, 0)
 
         if shutil.which("gcolor3"):
             self.picker_btn = Gtk.Button.new_from_icon_name(
                 "applications-graphics", Gtk.IconSize.SMALL_TOOLBAR)
             self.picker_btn.set_tooltip_text("Open in gcolor3 (Ctrl+O)")
             self.picker_btn.connect("clicked", self.on_open_picker)
-            hb.pack_end(self.picker_btn)
+            hb.pack_end(self.picker_btn, False, False, 0)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         vbox.set_border_width(14)
@@ -428,6 +447,7 @@ class ColorMeterWindow(Gtk.Window):
         vbox.pack_start(self.status_bar, False, False, 0)
 
         self.connect("key-press-event", self.on_key_press)
+        self.connect("delete-event", self.on_delete_event)
 
         if self.backend == "wayland":
             self.show_message(WAYLAND_MSG, Gtk.MessageType.WARNING)
@@ -643,9 +663,20 @@ class ColorMeterWindow(Gtk.Window):
         self.loupe_area.queue_draw()
 
     def on_swatch_remove(self, color):
-        if color in self.palette:
-            self.palette.remove(color)
-            self.refresh_swatches()
+        if color not in self.palette:
+            return
+        dlg = _dialogs()
+        if dlg is not None and dlg is not False:
+            resp = dlg.confirm_delete(
+                self,
+                "Remove color %s from the palette?"
+                % format_color(*color, "Hex (sRGB)"),
+                "The swatch will be removed from this session.",
+                delete_label="Remove")
+            if resp != Gtk.ResponseType.OK:
+                return
+        self.palette.remove(color)
+        self.refresh_swatches()
 
     def refresh_swatches(self):
         for child in self.swatches.get_children():
@@ -689,31 +720,48 @@ class ColorMeterWindow(Gtk.Window):
         if not self.palette:
             self.show_message("Palette is empty — add colors with Ctrl+P.",
                               Gtk.MessageType.WARNING)
-            return
-        dlg = Gtk.FileChooserDialog(
+            return False
+        name = "Mavericks Palette"
+        dlg = _dialogs()
+        if dlg is not None and dlg is not False:
+            text = dlg.entry_dialog(
+                self, "Save Palette", "Palette name:",
+                initial=name, allow_empty=True)
+            if text is None:
+                return False
+            if text:
+                name = text
+        chooser = Gtk.FileChooserDialog(
             title="Save Palette…", parent=self,
             action=Gtk.FileChooserAction.SAVE)
-        dlg.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        dlg.add_button("Save", Gtk.ResponseType.OK)
-        dlg.set_current_name("palette.gpl")
-        dlg.set_do_overwrite_confirmation(True)
+        chooser.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        chooser.add_button("Save", Gtk.ResponseType.OK)
+        chooser.set_current_name("palette.gpl")
+        chooser.set_do_overwrite_confirmation(True)
         filt = Gtk.FileFilter()
         filt.set_name("GIMP palette (*.gpl)")
         filt.add_pattern("*.gpl")
-        dlg.add_filter(filt)
-        response = dlg.run()
-        path = dlg.get_filename() if response == Gtk.ResponseType.OK else None
-        dlg.destroy()
+        chooser.add_filter(filt)
+        response = chooser.run()
+        path = chooser.get_filename() if response == Gtk.ResponseType.OK else None
+        chooser.destroy()
         if not path:
-            return
+            return False
         if not path.endswith(".gpl"):
             path += ".gpl"
-        err = write_gpl(path, "Mavericks Palette", self.palette)
+        err = write_gpl(path, name, self.palette)
         if err:
-            self.show_message(err, Gtk.MessageType.ERROR)
-        else:
-            self.show_message("Saved %d colors to %s"
-                              % (len(self.palette), path), Gtk.MessageType.INFO)
+            if dlg is not None and dlg is not False:
+                dlg.alert(self, "Could not save palette",
+                          secondary=err,
+                          msg_type=Gtk.MessageType.ERROR,
+                          buttons=[("OK", Gtk.ResponseType.OK)])
+            else:
+                self.show_message(err, Gtk.MessageType.ERROR)
+            return False
+        self.show_message("Saved %d colors to %s"
+                          % (len(self.palette), path), Gtk.MessageType.INFO)
+        return True
 
     def on_open_picker(self, button):
         if not shutil.which("gcolor3"):
@@ -726,6 +774,22 @@ class ColorMeterWindow(Gtk.Window):
         except OSError as exc:
             self.show_message("Could not launch gcolor3: %s" % exc,
                               Gtk.MessageType.ERROR)
+
+    def on_delete_event(self, widget, event):
+        # Mavericks-style: ask to save/discard unsaved palette colors.
+        if not self.palette:
+            return False
+        dlg = _dialogs()
+        if dlg is None or dlg is False:
+            return False
+        resp = dlg.confirm_discard(self, "palette")
+        if resp == Gtk.ResponseType.YES:
+            if self.on_save_palette(None):
+                return False
+            return True
+        if resp == Gtk.ResponseType.CANCEL:
+            return True
+        return False
 
     def handle_argv(self, args):
         for arg in args or []:

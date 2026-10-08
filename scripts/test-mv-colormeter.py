@@ -24,6 +24,10 @@ import sys
 import tempfile
 from unittest import mock
 
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_PATH = os.path.join(
     REPO, "packages/mavericks-apps/src/mavericks-apps/bin/mv-colormeter")
@@ -110,6 +114,27 @@ def named_display(name, pointer=(30, 40)):
     obj = cls.__new__(cls)
     FakeDisplay.__init__(obj, pointer=pointer)
     return obj
+
+
+class FakeDialogs:
+    """Mock mv_dialogs for GUI smoke: confirm_delete/confirm_discard
+    auto-confirm, entry_dialog returns a fixed name."""
+
+    @staticmethod
+    def confirm_delete(parent, message, secondary, delete_label="Delete"):
+        return Gtk.ResponseType.OK
+
+    @staticmethod
+    def confirm_discard(parent, document_name=None):
+        return Gtk.ResponseType.NO
+
+    @staticmethod
+    def entry_dialog(parent, title, label=None, initial="", **kw):
+        return initial or "Test Palette"
+
+    @staticmethod
+    def alert(parent, message, **kw):
+        return Gtk.ResponseType.OK
 
 
 def make_pixbuf(w, h, fill=(128, 64, 32)):
@@ -411,7 +436,8 @@ def test_gui_smoke(m, td):
               win.current_rgb() == (10, 20, 30)
               and win.hex_label.get_text() == "Hex: #0A141E",
               win.hex_label.get_text())
-        win.on_swatch_remove(win.palette[0])
+        with mock.patch.object(m, "_dialogs", return_value=FakeDialogs):
+            win.on_swatch_remove(win.palette[0])
         check("gui swatch remove", len(win.palette) == 0)
 
         win.lock_btn.set_active(True)
@@ -501,7 +527,8 @@ def test_gui_smoke(m, td):
 
             fd.return_value = FakeChooser()
             win.palette = [(1, 2, 3), (4, 5, 6)]
-            win.on_save_palette(None)
+            with mock.patch.object(m, "_dialogs", return_value=FakeDialogs):
+                win.on_save_palette(None)
             for _ in range(5):
                 Gtk.main_iteration_do(False)
             check("gui palette save", os.path.isfile(
