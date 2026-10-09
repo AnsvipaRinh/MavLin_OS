@@ -23,6 +23,10 @@ Modes:
   stop        - Stop worker
   auth        - DISABLED: fails loudly, never opens a browser
 
+JSON `state` values (check/send/list-chats/designate-chat):
+  authenticated | needs_auth | profile_in_use | launch_failed |
+  send_failed (prompt NOT submitted) | timeout (prompt submitted, no answer)
+
 Usage:
     qwen-web-worker.py start                    # Start/resume worker (headless)
     qwen-web-worker.py check --json             # Auth gate (machine-readable)
@@ -64,6 +68,28 @@ _AUTH_STORAGE_RELPATHS = (
     os.path.join("Default", "Cookies"),
     os.path.join("Default", "Network", "Cookies"),
 )
+# Typing: Playwright's type() presses keys one by one. 30 ms/char is
+# human-like for short prompts, but a 4000-char objective then needs two
+# minutes just to type (and a hard kill mid-typing can corrupt the
+# profile). Long prompts are typed fast and in chunks so that a SIGTERM
+# is honoured between chunks.
+_TYPE_CHUNK_CHARS = 200
+_TYPE_SHORT_PROMPT_CHARS = 400
+_TYPE_DELAY_SHORT_MS = 30
+_TYPE_DELAY_LONG_MS = 5
+
+
+def _type_delay_ms(prompt_len):
+    """Per-key delay in ms for a prompt of the given length."""
+    if prompt_len <= _TYPE_SHORT_PROMPT_CHARS:
+        return _TYPE_DELAY_SHORT_MS
+    return _TYPE_DELAY_LONG_MS
+
+
+def _fail_state(worker):
+    """Machine-readable reason the last connect failed: profile_in_use,
+    launch_failed or needs_auth (the default when nothing else is known)."""
+    return getattr(worker, "_fail_reason", None) or "needs_auth"
 
 
 def _ensure_meta_dir():
@@ -349,6 +375,8 @@ class QwenWorker:
         self._feedback = {}
         self._repo = None
         self._xvfb_proc = None
+        self._fail_reason = None
+        self._prompt_sent = False
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
@@ -365,7 +393,10 @@ class QwenWorker:
         profile wipes the login on every reboot. If the profile
         or its token is missing, the auth snapshot (taken at the
         last successful login) is restored BEFORE giving up.
+        On failure self._fail_reason says why: profile_in_use,
+        launch_failed or needs_auth.
         """
+        self._fail_reason = None
         metadata = _load_metadata()
         # Explicit --profile wins; otherwise the metadata value;
         # the persistent default is the final fallback.
@@ -399,9 +430,12 @@ class QwenWorker:
                 "Close the other browser first (sharing corrupts the session).",
                 file=sys.stderr,
             )
+            self._fail_reason = "profile_in_use"
             return False
 
         if not await self._launch_and_verify(profile):
+            if self._fail_reason is None:
+                self._fail_reason = "needs_auth"
             return False
 
         # Session verified: refresh the safety snapshot so a future profile
@@ -421,9 +455,10 @@ class QwenWorker:
         On a missing token: cleanly close, restore from the auth snapshot
         once, and retry. Returns True when the session is verified."""
         if not await self._launch(profile):
+            self._fail_reason = "launch_failed"
             return False
 
-        self.authenticated = await self._has_token()
+        self.authenticated = await self._verify_session()
         if self.authenticated:
             return True
 
@@ -450,8 +485,9 @@ class QwenWorker:
             return False
 
         if not await self._launch(profile):
+            self._fail_reason = "launch_failed"
             return False
-        self.authenticated = await self._has_token()
+        self.authenticated = await self._verify_session()
         if not self.authenticated:
             print(
                 "[QwenWorker] Snapshot token rejected/expired "
@@ -538,6 +574,49 @@ class QwenWorker:
             )
         except Exception:
             return False
+
+    async def _task_status(self, chat_id):
+        """HTTP status of GET /coder/api/v2/task/{chat_id} (the endpoint the
+        SPA itself uses), or None when it cannot be determined."""
+        if not chat_id or not self.page:
+            return None
+        try:
+            status = await self.page.evaluate(
+                "async (cid) => {"
+                "  const r = await fetch('/coder/api/v2/task/' + cid);"
+                "  return r.status;"
+                "}",
+                chat_id,
+            )
+            return int(status)
+        except Exception:
+            return None
+
+    async def _session_valid(self):
+        """Probe the server with the stored login. False ONLY when the server
+        answers 401/403 (token present but rejected); True on 200; None when
+        unknown (no designated chat yet, another status, probe failure) so
+        callers keep the previous presence-only behaviour."""
+        status = await self._task_status(
+            _load_metadata().get(_DESIGNATED_CHAT_KEY))
+        if status in (401, 403):
+            return False
+        if status == 200:
+            return True
+        return None
+
+    async def _verify_session(self):
+        """Token present AND not rejected by the server."""
+        if not await self._has_token():
+            return False
+        if await self._session_valid() is False:
+            print(
+                "[QwenWorker] Token present but rejected by the server "
+                "(HTTP 401/403): needs_auth.",
+                file=sys.stderr,
+            )
+            return False
+        return True
 
     async def _disconnect(self):
         """
@@ -1080,6 +1159,25 @@ class QwenWorker:
         designated = metadata.get(_DESIGNATED_CHAT_KEY)
 
         chats = await self.list_chats()
+        if not chats and designated:
+            # The sidebar renders asynchronously. An empty list does NOT mean
+            # the designated chat is gone: retry the listing, then open the
+            # designated chat directly and confirm it exists on the server.
+            # Only a missing chat falls through to creating a new one (which
+            # would lose the conversation context).
+            for _ in range(3):
+                await self.page.wait_for_timeout(2000)
+                chats = await self.list_chats()
+                if chats:
+                    break
+            if not chats and await self.set_conversation(designated):
+                if await self._task_status(designated) == 200:
+                    print(
+                        "[QwenWorker] Sidebar still empty; opened the designated "
+                        "chat directly: {id}".format(id=designated),
+                        file=sys.stderr,
+                    )
+                    return designated
         if not chats:
             # No chats exist — start a new one and wait for the sidebar to update
             await self.start_new_task()
@@ -1137,6 +1235,13 @@ class QwenWorker:
         action, immune to React re-renders, CDP-level input React accepts).
         """
         try:
+            # A stop flag left over from an earlier clean close (the snapshot
+            # restore path calls _disconnect) must not abort this send; a
+            # SIGTERM that arrives from here on is honoured (typing chunks
+            # and _await_completion both check it).
+            self._stop_requested = False
+            self._prompt_sent = False
+
             # Use a Locator: it re-resolves before every action, which avoids
             # "Element is not attached to the DOM" after React re-renders.
             # fill()/type()/press() emulate real CDP-level input that the
@@ -1177,11 +1282,25 @@ class QwenWorker:
             await asyncio.sleep(0.2)
             await textarea.fill("")
             await asyncio.sleep(0.2)
-            await textarea.type(prompt, delay=30)
+            # Type in chunks (fast for long prompts) and stop early on SIGTERM
+            # so the browser is closed cleanly instead of being killed hard.
+            delay = _type_delay_ms(len(prompt))
+            for start in range(0, len(prompt), _TYPE_CHUNK_CHARS):
+                if self._stop_requested:
+                    print(
+                        "[QwenWorker] Stop requested while typing; aborting "
+                        "before submit.",
+                        file=sys.stderr,
+                    )
+                    return False
+                await textarea.type(
+                    prompt[start:start + _TYPE_CHUNK_CHARS], delay=delay)
             await asyncio.sleep(0.5)
 
             # Reset response capture BEFORE pressing Enter to avoid a race
-            # where a fast response gets wiped by a late reset.
+            # where a fast response gets wiped by a late reset. (The stop
+            # flag is deliberately NOT reset here: a SIGTERM received while
+            # typing used to be erased by this block.)
             self._response_text = None
             self._chat_id = None
             self._response_id = None
@@ -1190,9 +1309,11 @@ class QwenWorker:
             if self._repo:
                 # keep the repo label across the reset (chosen before submit)
                 self._feedback["repo"] = self._repo
-            self._stop_requested = False
 
+            if self._stop_requested:
+                return False
             await textarea.press("Enter")
+            self._prompt_sent = True
             await asyncio.sleep(1)
 
             print(
@@ -1298,7 +1419,7 @@ def main():
     parser.add_argument("--profile", default=None, help="Persistent Chromium profile path (defaults to metadata)")
     parser.add_argument("--prompt", default=None, help="Prompt text to send (for send mode)")
     parser.add_argument("--chat", default=None, help="Conversation/chat id to continue (send mode); omit to use the designated chat")
-    parser.add_argument("--repo", default=None, help="Repository to select for the task (send mode), e.g. AnsvipaRinh/MavLinOS or MavLinOS; omit for a blank workspace")
+    parser.add_argument("--repo", default=None, help="Repository to select for the task (send mode), e.g. AnsvipaRinh/MavLin_OS or MavLin_OS; omit for a blank workspace")
     parser.add_argument("--timeout", type=int, default=300, help="Maximum wait time in seconds (default: 300 = 5 min)")
     parser.add_argument("--json", action="store_true", help="Machine-readable output for send/check/status/list-chats/designate-chat")
     args = parser.parse_args()
@@ -1343,16 +1464,17 @@ def main():
         if args.mode == "check":
             ok = loop.run_until_complete(worker.run(mode="check"))
             if args.json:
+                state = "authenticated" if ok else _fail_state(worker)
                 print(json.dumps({
                     "mode": "check",
                     "authenticated": bool(ok),
-                    "state": "authenticated" if ok else "needs_auth",
-                    "profile_in_use": False,
+                    "state": state,
+                    "profile_in_use": state == "profile_in_use",
                 }))
             else:
                 print(
                     "[QwenWorker] Auth check: {state}".format(
-                        state="authenticated" if ok else "needs_auth"
+                        state="authenticated" if ok else _fail_state(worker)
                     ),
                     file=sys.stderr,
                 )
@@ -1367,20 +1489,25 @@ def main():
             connect_result = loop.run_until_complete(worker.run(mode="start"))
             if not connect_result:
                 if args.json:
-                    print(json.dumps({"mode": "send", "ok": False, "state": "needs_auth"}))
+                    print(json.dumps({"mode": "send", "ok": False, "state": _fail_state(worker)}))
                 else:
-                    print("[QwenWorker] Failed to connect (needs_auth).", file=sys.stderr)
+                    print("[QwenWorker] Failed to connect ({s}).".format(s=_fail_state(worker)), file=sys.stderr)
                 return
             send_result = loop.run_until_complete(
                 worker.run(mode="send", prompt=args.prompt, chat_id=args.chat, repo=args.repo))
             if not send_result:
                 # send failed (connect/input/repo/chat) — never fall through
                 # to wait(): a restored old conversation would answer instead
-                # of this prompt (stale-answer bug, fixed 2026-10-05)
+                # of this prompt (stale-answer bug, fixed 2026-10-05).
+                # If the prompt WAS submitted but nothing came back this is a
+                # timeout (the conversation may still be completing; follow up
+                # in the same chat), not a failed send.
+                state = "timeout" if getattr(worker, "_prompt_sent", False) else "send_failed"
                 if args.json:
-                    print(json.dumps({"mode": "send", "ok": False, "state": "send_failed"}))
+                    print(json.dumps({"mode": "send", "ok": False, "state": state,
+                                      "chat_id": worker._chat_id}))
                 else:
-                    print("[QwenWorker] Failed to send prompt.", file=sys.stderr)
+                    print("[QwenWorker] Failed to send prompt ({s}).".format(s=state), file=sys.stderr)
                 return
             response = loop.run_until_complete(worker.run(mode="wait"))
             if args.json:
@@ -1431,9 +1558,9 @@ def main():
             connect_result = loop.run_until_complete(worker.run(mode="start"))
             if not connect_result:
                 if args.json:
-                    print(json.dumps({"mode": "list-chats", "ok": False, "state": "needs_auth"}))
+                    print(json.dumps({"mode": "list-chats", "ok": False, "state": _fail_state(worker)}))
                 else:
-                    print("[QwenWorker] Failed to connect (needs_auth).", file=sys.stderr)
+                    print("[QwenWorker] Failed to connect ({s}).".format(s=_fail_state(worker)), file=sys.stderr)
                 return
             chats = loop.run_until_complete(worker.list_chats())
             if args.json:
@@ -1445,9 +1572,9 @@ def main():
             connect_result = loop.run_until_complete(worker.run(mode="start"))
             if not connect_result:
                 if args.json:
-                    print(json.dumps({"mode": "designate-chat", "ok": False, "state": "needs_auth"}))
+                    print(json.dumps({"mode": "designate-chat", "ok": False, "state": _fail_state(worker)}))
                 else:
-                    print("[QwenWorker] Failed to connect (needs_auth).", file=sys.stderr)
+                    print("[QwenWorker] Failed to connect ({s}).".format(s=_fail_state(worker)), file=sys.stderr)
                 return
             if args.chat:
                 # Explicit designation
