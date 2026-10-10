@@ -6,7 +6,7 @@ Thank you for contributing to MavLinOS! This guide will help you get started.
 
 ```bash
 # Clone the repo
-git clone https://github.com/AnsvipaRinh/MavLinOS.git
+git clone https://github.com/AnsvipaRinh/MavLin_OS.git
 cd MavLinOS
 
 # Install dependencies

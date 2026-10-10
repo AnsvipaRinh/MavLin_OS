@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-04
 **Source:** https://github.com/sziberov/Poppy-OS-X-Revieve
-**Issue:** https://github.com/AnsvipaRinh/MavLinOS/issues/2
+**Issue:** https://github.com/AnsvipaRinh/MavLin_OS/issues/2
 **Auditor:** Build agent (static inspection only)
 
 ---
@@ -560,6 +560,6 @@ Poppy OS X Revieve is a **theme-only** repository with **no application code**, 
 ## 11. References
 
 - Poppy OS X Revieve: https://github.com/sziberov/Poppy-OS-X-Revieve
-- MavLinOS: https://github.com/AnsvipaRinh/MavLinOS
-- Issue #2: https://github.com/AnsvipaRinh/MavLinOS/issues/2
+- MavLinOS: https://github.com/AnsvipaRinh/MavLin_OS
+- Issue #2: https://github.com/AnsvipaRinh/MavLin_OS/issues/2
 - Artistic License 1.0: https://opensource.org/licenses/Artistic-1.0

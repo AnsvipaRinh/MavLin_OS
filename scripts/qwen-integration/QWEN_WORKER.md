@@ -57,7 +57,7 @@ cannot log in itself). Do NOT loop retries.
 ```
 python3 scripts/qwen-integration/qwen-web-worker.py send --json \
   --timeout 600 \
-  [--repo AnsvipaRinh/MavLinOS] [--chat <chat_id>] \
+  [--repo AnsvipaRinh/MavLin_OS] [--chat <chat_id>] \
   --prompt "<objective text, verbatim>"
 → {"mode":"send","ok":true,"completed":true,"chat_id":"<uuid>",
    "response":"<final answer text>",
@@ -77,8 +77,8 @@ Options:
   objectives — always pass --repo for work on a real codebase. The
   repo must be connected to the Qwen account (it appears under
   "Recent repositories" in the selector). Verified live: with
-  `--repo AnsvipaRinh/MavLinOS` the model itself answered
-  "AnsvipaRinh/MavLinOS" when asked which repo it is connected to.
+  `--repo AnsvipaRinh/MavLin_OS` the model itself answered
+  "AnsvipaRinh/MavLin_OS" when asked which repo it is connected to.
   NOTE: the app keeps ONE persistent workspace conversation per repo
   ("Repository Working Environment") — repo-bound prompts append there
   (context accumulates across sends; check chat_id in the response to

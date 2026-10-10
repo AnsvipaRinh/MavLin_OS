@@ -9,7 +9,7 @@
 
 **Objective:** P1 DoD audit + implement feasible pre-hardware gaps for the three apps (§13.3 universal DoD), verify, document, merge `--no-ff`, push.
 
-**Qwen split (research vs implementation):** Qwen produced the mv-calculator show_tape/Head­erBar diff and an audit confirming the stickies pack-arity bugs; Qwen's sandbox was a shallow clone that lost diff context (`files: []`), so all remaining fixes were applied by the driver directly. Send path (`send --json --repo AnsvipaRinh/MavLinOS --timeout 900`) verified working, designated chat reused.
+**Qwen split (research vs implementation):** Qwen produced the mv-calculator show_tape/Head­erBar diff and an audit confirming the stickies pack-arity bugs; Qwen's sandbox was a shallow clone that lost diff context (`files: []`), so all remaining fixes were applied by the driver directly. Send path (`send --json --repo AnsvipaRinh/MavLin_OS --timeout 900`) verified working, designated chat reused.
 
 **mv-stickies** (baseline: app suite FAIL + launch-smoke traceback):
 - `pack_end(print_btn/collapse_btn, False, False, 0)` and `pack_start(entry, True, True, 0)` — explicit PyGObject arity (3 sites)
@@ -84,7 +84,7 @@ All 8 reproduce deterministically in `check-sync.sh` launch smoke; the same 1-li
 
 ## Session 2026-10-07 — P1 DoD audit: mv-textedit, mv-notes, mv-reminders (oid `OS-qwen-p1tnr`, canonical #26/#27/#28)
 
-**Zone:** `bin/mv-textedit`, `bin/mv-notes`, `bin/mv-reminders`, `docs/APPS.md`, `docs/PROGRESS.md`. Qwen relay driver: `scripts/qwen-integration/qwen-web-worker.py send --repo AnsvipaRinh/MavLinOS`. Qwen output truncated mid-string (line 449, unterminated string literal) — unusable; all implementation done locally.
+**Zone:** `bin/mv-textedit`, `bin/mv-notes`, `bin/mv-reminders`, `docs/APPS.md`, `docs/PROGRESS.md`. Qwen relay driver: `scripts/qwen-integration/qwen-web-worker.py send --repo AnsvipaRinh/MavLin_OS`. Qwen output truncated mid-string (line 449, unterminated string literal) — unusable; all implementation done locally.
 
 **Qwen vs own split:** Qwen attempted 2 fixes to mv-reminders (popup_at_pointer, consolidate main) but output was truncated and file did not compile. 100% of delivered work is local implementation.
 

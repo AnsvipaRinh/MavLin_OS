@@ -40,7 +40,7 @@ sudo pacman -S base-devel git python python-gobject gtk3 libnotify rofi plocate 
 pip install --user -r packages/mavericks-apps/requirements.txt 2>/dev/null || true
 
 # Clone
-git clone https://github.com/AnsvipaRinh/MavLinOS
+git clone https://github.com/AnsvipaRinh/MavLin_OS
 cd MavLinOS
 ```
 

@@ -64,7 +64,7 @@ The numeric GitHub ID was obtained from the authenticated GitHub
 profile (2026-10-03: `gh api user` → login `AnsvipaRinh`, id
 `336997779`). The noreply email follows GitHub's
 `<id>+<login>@users.noreply.github.com` format — the login has NO
-underscore (the repo lives at github.com/AnsvipaRinh/MavLinOS);
+underscore (the repo lives at github.com/AnsvipaRinh/MavLin_OS);
 `Ansvipa_Rinh` is the author display name, `AnsvipaRinh` is the
 login used in the email.
 
@@ -102,7 +102,7 @@ as reproducible tooling — do NOT hand-roll the filter-repo commands:
 
 # 1. remote + push (separate authenticated step — never performed
 #    by the agent):
-git -C <rewritten-copy> remote add origin https://github.com/AnsvipaRinh/MavLinOS.git
+git -C <rewritten-copy> remote add origin https://github.com/AnsvipaRinh/MavLin_OS.git
 git -C <rewritten-copy> push -u origin main
 ```
 

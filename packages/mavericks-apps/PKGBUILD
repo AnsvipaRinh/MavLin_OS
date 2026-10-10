@@ -4,7 +4,7 @@ pkgver=0.1.0
 pkgrel=18
 pkgdesc="Mavericks-like system apps for Xfce (settings, activity, console, control, notes, HUD)"
 arch=('x86_64')
-url="https://github.com/AnsvipaRinh/MavLinOS"
+url="https://github.com/AnsvipaRinh/MavLin_OS"
 license=('GPL2')
 depends=('gtk3' 'xfce4-genmon-plugin' 'python-gobject' 'python-cairo' 'gtksourceview4' 'webkit2gtk-4.1'
           'thunar' 'rofi' 'xfce4-screenshooter' 'trash-cli' 'xarchiver'

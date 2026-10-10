@@ -501,7 +501,7 @@ local-only работы: завершённый objective без push на origi
 блокер в PROGRESS.md и продолжить работу (это НЕ останавливает
 objectives).
 
-### ISSUE #1 RULE (https://github.com/AnsvipaRinh/MavLinOS/issues/1)
+### ISSUE #1 RULE (https://github.com/AnsvipaRinh/MavLin_OS/issues/1)
 
 Крупная, но доказанно необходимая архитектурная работа НЕ
 откладывается «потому что большая». Декомпозировать на мелкие

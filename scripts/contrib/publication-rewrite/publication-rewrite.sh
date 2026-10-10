@@ -293,9 +293,9 @@ if verify_rewrite; then
   echo "REWRITE VERIFIED. Rewritten repo: $WORKDIR"
   echo "Next steps (manual, authenticated):"
   echo "  git -C $WORKDIR branch -M main        # if not already main"
-  echo "  git -C $WORKDIR remote add origin https://github.com/AnsvipaRinh/MavLinOS.git"
+  echo "  git -C $WORKDIR remote add origin https://github.com/AnsvipaRinh/MavLin_OS.git"
   echo "  git -C $WORKDIR push -u origin main"
-  echo "  git -C $SOURCE_REPO remote add origin https://github.com/AnsvipaRinh/MavLinOS.git"
+  echo "  git -C $SOURCE_REPO remote add origin https://github.com/AnsvipaRinh/MavLin_OS.git"
   echo "  # then replace the local repo with the rewritten copy, or push from the copy"
 else
   echo

@@ -1298,7 +1298,7 @@ def main():
     parser.add_argument("--profile", default=None, help="Persistent Chromium profile path (defaults to metadata)")
     parser.add_argument("--prompt", default=None, help="Prompt text to send (for send mode)")
     parser.add_argument("--chat", default=None, help="Conversation/chat id to continue (send mode); omit to use the designated chat")
-    parser.add_argument("--repo", default=None, help="Repository to select for the task (send mode), e.g. AnsvipaRinh/MavLinOS or MavLinOS; omit for a blank workspace")
+    parser.add_argument("--repo", default=None, help="Repository to select for the task (send mode), e.g. AnsvipaRinh/MavLin_OS or MavLinOS; omit for a blank workspace")
     parser.add_argument("--timeout", type=int, default=300, help="Maximum wait time in seconds (default: 300 = 5 min)")
     parser.add_argument("--json", action="store_true", help="Machine-readable output for send/check/status/list-chats/designate-chat")
     args = parser.parse_args()
