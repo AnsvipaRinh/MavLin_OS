@@ -44,30 +44,43 @@ Orchestrator
 
 ### check — auth state gate
 ```
-python3 scripts/qwen-integration/qwen-web-worker.py check --json
-→ {"mode":"check","authenticated":true,"state":"authenticated"}
+timeout 120 python3 scripts/qwen-integration/qwen-web-worker.py check --json
+→ {"mode":"check","authenticated":true,"state":"authenticated","profile_in_use":false}
 → {"mode":"check","authenticated":false,"state":"needs_auth"}
+→ {"mode":"check","authenticated":false,"state":"profile_in_use"}
+→ {"mode":"check","authenticated":false,"state":"launch_failed"}
 ```
-Run `check` before delegating work. On `needs_auth` → the login
-is lost AND unrecoverable from the snapshot: REPORT that to the
-repository owner (the worker never opens a visible browser and
-cannot log in itself). Do NOT loop retries.
+Run `check` before delegating work. States are reported AS IS
+(2026-10-09): `authenticated`, `needs_auth` (login lost, snapshot
+restore unrecoverable), `profile_in_use` (another browser holds the
+profile — close it, retry once), `launch_failed` (browser could not
+start). On `needs_auth` → REPORT the login loss to the repository
+owner: the worker never opens a visible browser and cannot log in
+itself. Do NOT loop retries.
 
 ### send — objective → answer
 ```
-python3 scripts/qwen-integration/qwen-web-worker.py send --json \
+timeout 720000 python3 scripts/qwen-integration/qwen-web-worker.py send --json \
   --timeout 600 \
   [--repo AnsvipaRinh/MavLin_OS] [--chat <chat_id>] \
   --prompt "<objective text, verbatim>"
 → {"mode":"send","ok":true,"completed":true,"chat_id":"<uuid>",
    "response":"<final answer text>",
-   "repo":"MavLinOS",
+   "repo":"MavLin_OS",
    "files":["src/main.py"],"commit_id":"<sha>","model":"qwen3-coder-plus"}
 ```
 `send` internally performs start → (optional repo/chat selection) →
 submit → wait-for-completion, then closes the browser cleanly. Typical
 latency: ~30s first answer in a conversation (environment init), ~10s
 followups.
+
+**MANDATORY timeout rule (owner directive, 2026-10-09):** ALWAYS wrap
+every `send` in the bash `timeout 720000` guard shown above (the outer
+guard above `--timeout`), so a stuck provider never hangs the calling
+agent. The inner `--timeout` (seconds) is the worker's own completion
+wait; a prompt submitted without an answer returns
+`state:"timeout"` WITH the `chat_id`, so you can re-poll by followup
+instead of re-submitting.
 
 Options:
 - `--repo <owner/name | name>` — select the connected GitHub repository
@@ -104,18 +117,27 @@ Options:
 | commit_id   | sandbox commit of Qwen's work                                  |
 | model       | the model that produced the answer                             |
 
-Failure states:
-- `ok:false, completed:false` + stderr "needs_auth" → session lost AND
-  snapshot restore failed/absent → REPORT the login loss to the
-  repository owner (auth mode is disabled; the worker never opens a
-  visible browser and never attempts a login).
-- stderr "Profile is already in use" → another browser holds the
-  profile; close it, retry once. Never start a second browser anyway
-  (the worker refuses by design — concurrent browsers corrupt the
-  session; see Session-loss protection below).
-- timeout (`ok:false` after --timeout) → check status; the conversation
-  may still complete server-side; re-poll by sending a followup in the
-  same chat instead of re-submitting the whole objective.
+Failure states (reported verbatim in the `state` field since
+2026-10-09 — no more collapsing to `needs_auth`):
+- `state:"needs_auth"` (connect) → session lost AND snapshot restore
+  failed/absent → REPORT the login loss to the repository owner (auth
+  mode is disabled; the worker never opens a visible browser and never
+  attempts a login).
+- `state:"profile_in_use"` (connect) → another browser holds the
+  profile; close it and retry ONCE. Never start a second browser
+  anyway (the worker refuses by design — concurrent browsers corrupt
+  the session; see Session-loss protection below).
+- `state:"launch_failed"` (connect) → the browser could not start
+  (page never became ready). Transient: retry once, then report.
+- `state:"send_failed"` (send, `ok:false`) → the prompt was NOT
+  submitted (no usable input on the page — e.g. the code workspace
+  covers the prompt area after an interrupted long task). Retry: the
+  worker now waits for the designated chat to go idle before typing.
+- `state:"timeout"` (send, `ok:false`) → the prompt WAS submitted
+  (check `chat_id`) but no finished answer arrived within
+  `--timeout`. The task may still complete server-side: re-poll by
+  sending the follow-up "continue" in the SAME `--chat` instead of
+  re-submitting the whole objective.
 
 ## Prompting rules (transport transparency)
 
@@ -174,13 +196,24 @@ login from this worker.
 ## Tests
 
 - Offline (no auth needed): `python3 -m pytest scripts/qwen-integration/test_qwen_web_worker.py -v`
-  — 15 tests: REAL captured stream samples (parser, completion
+  — 21 tests: REAL captured stream samples (parser, completion
   semantics, artifact collection, same-chat followup) + invisibility
   and persistence invariants (launch choke point rejects visible
   launches, host display scrubbed from the browser environment,
   volatile-path detection, profile migration copies-never-deletes,
   auth mode fails loudly without a browser).
-- Live acceptance (needs authenticated profile):
-  `python3 scripts/qwen-integration/test_qwen_live.py` — tests A–D
-  (headless startup, deterministic request, same-conversation followup,
-  restart without re-auth). 8/8 passed on 2026-10-05.
+- Offline (no auth needed): `python3 scripts/qwen-integration/test_qwen_worker_fixes.py`
+  — 27 checks with a mocked browser and isolated state dir: true
+  failure states, server-side login probe (401/403 vs presence),
+  designated chat survives an empty sidebar, typing speed (30 ms
+  short / 5 ms long prompts), SIGTERM handling while typing, the
+  `timeout` state carrying `chat_id`, the IME-mirror input filter.
+- Live acceptance (needs authenticated profile, wrap in
+  `timeout 1200`): `python3 scripts/qwen-integration/test_qwen_live.py`
+  — tests A–D (headless startup, deterministic request,
+  same-conversation followup, restart without re-auth). 8/8 passed on
+  2026-10-10 after the busy-chat fixes.
+- Live end-to-end: `python3 scripts/qwen-integration/test_qwen_orchestrator_loop.py`
+  — auth gate + deterministic transport + a real coding objective +
+  same-chat followup. 11/11 passed on 2026-10-10 (was 2/11 before the
+  wait-for-idle / settle / IME-mirror fixes).
