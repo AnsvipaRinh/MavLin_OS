@@ -293,7 +293,7 @@ Tracked (public by user decision): `agents/orchestrator.md` (299 lines),
    project-meta.json, PKGBUILDs (url + maintainer line), boot
    entries, firstboot scripts, config headers (both sides of the
    sync pair), uBlock backup, orchestrator/agent docs; repo URL
-   `github.com/AnsvipaRinh/MavLinOS`; internal package/ISO
+   `github.com/AnsvipaRinh/MavLin_OS`; internal package/ISO
    identifiers (`mavericks-*`) deliberately unchanged; renamed
    branch `master` → `main`; implemented the publication rewrite
    as tooling (`scripts/contrib/publication-rewrite/`) and

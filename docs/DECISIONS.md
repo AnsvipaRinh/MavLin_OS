@@ -1812,3 +1812,37 @@ the two cases where the cheap wrong answer is "start over"; this rule makes
 `mavlinos-wt/OS-qwen-p1scd` / branch `work/OS-qwen-p1scd` (single-flight,
 one zone, no stash, no dot-revert) kept the relay objective continuously
 resumable for the whole P1 audit pass.
+
+## 2026-10-10 — Issue #1 points A/B/C: repo slug rename scope + Qwen worker busy-chat fix
+
+**Context:** repository renamed to `AnsvipaRinh/MavLin_OS`; a 118-file
+rename of the string `MavLinOS` had been applied locally; the Qwen web
+worker loop test failed 2/11 (see issue #1 comment threads).
+
+**Decision A — narrowed the rename to repository slugs only.** Brand name
+`MavLinOS` stays everywhere else (PKGBUILD, boot entries, ISO profiledef,
+docs prose). Changed: `AnsvipaRinh/MavLinOS`, `--repo MavLinOS`, `gh`
+slugs, github.com URLs, issue links. Kept unchanged: local checkout paths
+(`/home/builder/projects/MavLinOS` — real directory in this worktree),
+lowercase identifiers (`com.mavlinos.*`, `~/.config/mavlinos`). Reason:
+underscore in boot entries / volume labels / package metadata is a
+needless risk, and the product name was not renamed. Supersedes the
+118-file rename (backup patch: `~/rename-all.patch`). Commit `ccbc3119`.
+
+**Decision B — Qwen worker: wait-for-idle + settle + IME-mirror filter.**
+Root cause of the loop-test failures: a killed/timed-out send leaves the
+server-side task running; while a chat's SSE stream is open `networkidle`
+is never reached (so `set_conversation`/`_launch` waited pointlessly) and
+typing into a busy chat hits the 30s `Locator.type` timeout. A second
+defect surfaced during verification: with the code workspace open, the
+generic `textarea` selector resolves to Monaco's IME mirror
+(`readOnly`, `aria-hidden`), which is permanently covered by the editor,
+so `click()` burns 30s and fails. Fixes: `_chat_state`/`_wait_chat_idle`
+probe `/coder/api/v2/task/<id>` (45s stall = treat as dead),
+`_settle()` never fails on networkidle, input resolution skips
+readOnly/aria-hidden/disabled mirrors and fails loudly when no usable
+input exists. Commit `a1a03269`.
+
+**Verified:** offline 21/21 + 27/27; live `test_qwen_live.py` 8/8;
+`test_qwen_orchestrator_loop.py` 11/11 (was 2/11);
+`qwen-web-worker.py check --json` → authenticated.

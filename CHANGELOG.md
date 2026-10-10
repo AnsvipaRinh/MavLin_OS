@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Full Mission Control implementation with GUI overlay ([#2](https://github.com/AnsvipaRinh/MavLinOS/issues/2))
+- Full Mission Control implementation with GUI overlay ([#2](https://github.com/AnsvipaRinh/MavLin_OS/issues/2))
   - `mv-mc-gui` — GTK3 fullscreen overlay with thumbnails
   - `mv-mc-window-spaces` — JSON window listing by workspace
   - `mv-mc-thumbnail` — Window thumbnail generation

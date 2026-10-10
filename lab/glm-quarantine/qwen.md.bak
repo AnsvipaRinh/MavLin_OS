@@ -29,7 +29,7 @@ QWEN=python3 scripts/qwen-integration/qwen-web-worker.py
 $QWEN check --json
   → {"authenticated":true|false,"state":"authenticated"|"needs_auth"}
 
-$QWEN send --json --timeout 600 [--repo MavLinOS] [--chat <chat_id>] \
+$QWEN send --json --timeout 600 [--repo MavLin_OS] [--chat <chat_id>] \
      --prompt "<objective verbatim>"
   → {"ok":true,"completed":true,"chat_id":"<uuid>","repo":"MavLinOS / main",
      "response":"<final answer text>","files":[...],"commit_id":"<sha>",
@@ -46,7 +46,7 @@ Read the full contract before first use:
    Never loop retries, never try to log in yourself.
 
 2. PREPARE: for objectives about THIS repository always pass
-   `--repo MavLinOS` (Qwen then works against AnsvipaRinh/MavLinOS —
+   `--repo MavLin_OS` (Qwen then works against AnsvipaRinh/MavLin_OS —
    its persistent repo workspace). For general questions (no repo
    context needed) omit --repo. For a refinement of a previous Qwen
    answer pass `--chat <chat_id from that answer>` (context continues).

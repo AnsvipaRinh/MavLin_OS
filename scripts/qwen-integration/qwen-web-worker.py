@@ -1259,6 +1259,19 @@ class QwenWorker:
                 try:
                     loc = self.page.locator(sel).first
                     await loc.wait_for(state="visible", timeout=5000)
+                    # Skip read-only / hidden mirror inputs: the Monaco
+                    # editor mounts an IME textarea that is visible but
+                    # readOnly + aria-hidden and sits under the editor,
+                    # so clicking it throws "subtree intercepts pointer
+                    # events" forever.
+                    try:
+                        if await loc.evaluate(
+                            "el => !!(el.readOnly || el.disabled || "
+                            "el.getAttribute('aria-hidden') === 'true')"
+                        ):
+                            continue
+                    except Exception:
+                        pass
                     textarea = loc
                     print(
                         "[QwenWorker] Found input with selector: {sel}".format(sel=sel),
@@ -1269,13 +1282,12 @@ class QwenWorker:
                     continue
 
             if textarea is None:
-                # Fallback: click body and press Enter
-                await self.page.click("body")
-                await asyncio.sleep(0.5)
-                await self.page.keyboard.press("Enter")
-                await asyncio.sleep(1)
-                print("[QwenWorker] Prompt sent via Enter key (fallback)", file=sys.stderr)
-                return True
+                print(
+                    "[QwenWorker] No usable prompt input found (page busy "
+                    "or layout changed)",
+                    file=sys.stderr,
+                )
+                return False
 
             # Interact via locator: each action re-resolves the element
             await textarea.click()

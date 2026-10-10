@@ -46,7 +46,7 @@ git remote -v
 git branch -m master main
 
 # Add GitHub remote
-git remote add origin https://github.com/AnsvipaRinh/MavLinOS.git
+git remote add origin https://github.com/AnsvipaRinh/MavLin_OS.git
 
 # Verify
 git remote -v
@@ -83,12 +83,12 @@ git push
 ```bash
 # Option A: Use the script from docs/LABELS.md (copy-paste all commands)
 # Option B: Run this helper (requires gh auth)
-gh repo clone AnsvipaRinh/MavLinOS /tmp/mavericks-labels && cd /tmp/mavericks-labels && bash -c "$(cat docs/LABELS.md | grep '^gh label create')"
+gh repo clone AnsvipaRinh/MavLin_OS /tmp/mavericks-labels && cd /tmp/mavericks-labels && bash -c "$(cat docs/LABELS.md | grep '^gh label create')"
 ```
 
 **Verify:**
 ```bash
-gh label list --repo AnsvipaRinh/MavLinOS
+gh label list --repo AnsvipaRinh/MavLin_OS
 ```
 
 ---
@@ -98,7 +98,7 @@ gh label list --repo AnsvipaRinh/MavLinOS
 **Human** (requires admin access):
 ```bash
 # Protect main branch
-gh api repos/AnsvipaRinh/MavLinOS/branches/main/protection \
+gh api repos/AnsvipaRinh/MavLin_OS/branches/main/protection \
   --method PUT \
   --field required_status_checks='{"strict":true,"contexts":["Static Analysis","Secret Scan","Unit Tests","Profile Sync","Contribution Format"]}' \
   --field enforce_admins=true \
