@@ -1,0 +1,17 @@
+{
+  "schema": "mavlinos.ui-reference/1",
+  "guest": {
+    "os": "OS X 10.9 Mavericks",
+    "source_image": "OS X Mavericks Install DVD.dmg (archive.org item OSXMavericksInstallDVD)",
+    "hypervisor": "qemu-system-x86_64 11.1.1, accel=tcg thread=multi, machine pc-q35-6.1, cpu Penryn,+sse4.1,+sse4.2,+ssse3",
+    "boot": "OVMF (edk2) -> Clover r5175 (SMBIOS iMac13,2, CPU QEMU=1, KernelPm=1) -> macOS",
+    "display": "vmware-svga, 1600x900, 32bpp, 1 user pt == 1 guest px (no HiDPI in guest)"
+  },
+  "capture_rules": [
+    "C1 All metrics are @1x: 1 pt == 1 px. HiDPI (@2x) values are computed, never sampled.",
+    "C2 Timing/animation facts are NOT frame-derived (TCG is not isochronous): they carry source='literature' and confidence<=medium.",
+    "C3 Every numeric fact MUST name its evidence: a capture id present in captures/index.json, or an explicit external source.",
+    "C4 Derived/computed values carry deriv='<formula or reference id>' so they can be re-derived, not re-measured.",
+    "C5 No Apple binary or Apple-copyright asset is committed; only derived numeric facts, our own diagrams and our own drawings."
+  ]
+}
