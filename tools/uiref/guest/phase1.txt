@@ -1,0 +1,6 @@
+echo SHELL_OK > /Volumes/MAVLOG/log
+echo "== volumes" >> /Volumes/MAVLOG/log; ls /Volumes >> /Volumes/MAVLOG/log 2>&1
+echo "== version" >> /Volumes/MAVLOG/log; uname -a >> /Volumes/MAVLOG/log 2>&1
+echo "== disks" >> /Volumes/MAVLOG/log; for d in /dev/disk0 /dev/disk1 /dev/disk2 /dev/disk3 /dev/disk4; do echo "-- $d" >> /Volumes/MAVLOG/log; diskutil info $d 2>&1 | egrep "Device Node|Device / Media Name|Disk Size|File System Personality" >> /Volumes/MAVLOG/log; done
+echo "== sharedsupport" >> /Volumes/MAVLOG/log; ls /Volumes/InstallESD 2>&1 | head -8 >> /Volumes/MAVLOG/log
+echo DONE >> /Volumes/MAVLOG/log

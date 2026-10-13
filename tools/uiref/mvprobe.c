@@ -195,25 +195,39 @@ static const char *json_str(const char *v) {
     return v ? v : "null";
 }
 
-/* the errors[] and gaps[] arrays are written with a trailing comma; this
-   removes it so the document is always valid JSON */
-static void seal_array(void) {
-    while (out_len > 0 && out_buf[out_len - 1] == '\n') out_len--;
-    if (out_len > 0 && out_buf[out_len - 1] == ',') out_len--;
-    if (out_len + 2 < OUT_CAP) out_buf[out_len++] = '\n';
-}
+/* errors[] and gaps[] live in their own buffers: a gap raised while a section
+   is still open must not land inside that section's array */
+static char err_buf[OUT_CAP / 8];
+static unsigned long err_len;
+static char gap_buf[OUT_CAP / 4];
+static unsigned long gap_len;
 
 static void add_error(const char *section, const char *msg) {
     error_count++;
-    emit("    {\"section\": \"%s\", \"message\": \"%s\"},\n", section,
-         msg ? msg : "unspecified");
+    if (err_len + 512 >= sizeof(err_buf)) return;
+    err_len += (unsigned long)snprintf(err_buf + err_len, sizeof(err_buf) - err_len,
+                                      "%s    {\"section\": \"%s\", \"message\": \"%s\"}",
+                                      err_len ? ",\n" : "", section ? section : "?",
+                                      msg ? msg : "unspecified");
 }
 
 static void add_gap(const char *section, const char *what, const char *reason) {
     gap_count++;
-    emit("    {\"section\": \"%s\", \"missing\": \"%s\", \"reason\": \"%s\", "
-         "\"resolution\": \"re-run inside a full OS X 10.9 Aqua session\"},\n",
-         section, what ? what : "?", reason ? reason : "unavailable at runtime");
+    if (gap_len + 512 >= sizeof(gap_buf)) return;
+    gap_len += (unsigned long)snprintf(gap_buf + gap_len, sizeof(gap_buf) - gap_len,
+                                      "%s    {\"section\": \"%s\", \"missing\": \"%s\", "
+                                      "\"reason\": \"%s\", \"resolution\": "
+                                      "\"re-run inside a full OS X 10.9 Aqua session\"}",
+                                      gap_len ? ",\n" : "", section ? section : "?",
+                                      what ? what : "?", reason ? reason : "unavailable");
+}
+
+static void flush_side(const char *key, const char *buf, unsigned long len) {
+    if (!len) {
+        emit("  \"%s\": [null],\n", key);
+        return;
+    }
+    emit("  \"%s\": [\n    %.*s\n  ],\n", key, (int)len, buf);
 }
 
 /* --- colours --------------------------------------------------------------- */
@@ -299,7 +313,6 @@ static int probe_colors(Class NSColor) {
             add_gap("colors", COLOR_NAMES[i],
                     "AppKit refused getRed:/getWhite: (pattern or catalog colour)");
     }
-    if (!found) emit("      null\n");
     emit("    ]\n  },\n");
     if (!found) add_error("colors", "no colour could be read from NSColor");
     return found;
@@ -353,7 +366,6 @@ static int probe_window(Class NSWindow) {
         buttons++;
         item_count++;
     }
-    if (!buttons) emit("      null\n");
     emit("    ],\n");
 
     int math_ok = 0;
@@ -385,7 +397,6 @@ static int probe_window(Class NSWindow) {
         math_ok++;
         item_count++;
     }
-    if (!math_ok) emit("      null\n");
     emit("    ]\n  },\n");
 
     if (win) release_obj(win);
@@ -437,7 +448,6 @@ static int probe_controls(Class NSButton) {
         metrics++;
         item_count++;
     }
-    if (!metrics) emit("      null\n");
     emit("    ],\n");
 
     int types = 0, first = 1;
@@ -471,7 +481,6 @@ static int probe_controls(Class NSButton) {
             add_gap("controls", CELL_CLASSES[i],
                     "ns_widgetType present but the prototype instance could not answer");
     }
-    if (!types) emit("      null\n");
     emit("    ]\n  },\n");
     if (NSButton && !metrics) add_error("controls", "no NSControlSize measurement succeeded");
     return metrics;
@@ -514,7 +523,6 @@ static int probe_fonts(Class NSFont) {
         count++;
         item_count++;
     }
-    if (!count) emit("      null\n");
     emit("    ]\n  },\n");
     if (!count) add_error("text", "no font role could be measured");
     return count;
@@ -572,14 +580,8 @@ static int assemble_document(void) {
     int ok_text = probe_fonts(NSFont);
     int complete = ok_colors && ok_window && ok_controls && ok_text;
 
-    emit("  \"errors\": [\n");
-    if (error_count) seal_array();
-    else emit("    null\n");
-    emit("  ],\n");
-    emit("  \"gaps\": [\n");
-    if (gap_count) seal_array();
-    else emit("    null\n");
-    emit("  ],\n");
+    flush_side("errors", err_buf, err_len);
+    flush_side("gaps", gap_buf, gap_len);
     emit("  \"summary\": {\"items\": %d, \"errors\": %d, \"gaps\": %d, "
          "\"status\": \"%s\"},\n", item_count, error_count, gap_count,
          complete ? "complete" : "partial");
