@@ -191,22 +191,43 @@ A record may live at L0–L2 with gaps. Only L3 records are allowed to claim
 
 ## B.7 Machine-readable manifests
 
-`design/` (once generated) carries a manifest so consumers can resolve
-dependencies without reading every file:
+`design/` carries a manifest (`mavlinos.manifest/1`,
+`schemas/manifest.schema.json`) so consumers resolve dependencies without
+reading every record. The first compiled manifest
+(`design/manifest.json`) lists, per class, which records are derived from
+evidence, which are proposals, and which are still unverified gaps — so "what is
+not real yet" is answerable with one command:
 
 ```json
 {
   "schema": "mavlinos.manifest/1",
-  "generated_at": "2026-10-13T00:00:00Z",
-  "inputs": ["docs/UI_REFERENCE/data/palette.json", "docs/UI_REFERENCE/data/uiprobe.json"],
-  "counts": {"tokens": 41, "components": 28, "animations": 34, "behaviors": 26, "assets": 212},
-  "records": [
-    {"id": "component.button.push", "file": "components/component.button.push.json",
-     "status": "proposed", "confidence": "medium"}
-  ],
-  "gaps": [{"record": "component.window.traffic-lights", "what": "measured button frames"}]
+  "counts": {"tokens": 22},
+  "status": {"derived": ["color.window.background", "color.text.primary",
+                          "color.control.background.solid"],
+             "proposed": ["metric.menubar.height", "font.system.size", "..."]},
+  "gaps": [{"record": "color.traffic.close", "what": "Placeholder until uiprobe ..."}]
 }
 ```
+
+## B.9 The token compiler (first consumer of this contract)
+
+```bash
+python3 tools/uiplatform/tokens.py            # writes design/tokens + design/manifest.json
+python3 tools/uiplatform/tokens.py --check     # additionally fails on extraction drift
+```
+
+It maps the extracted palette to semantic token ids and proves the mechanism that
+keeps the platform honest:
+
+* a value read from a palette fact is emitted as `kind: derived`,
+  `confidence: medium`, with that fact's `evidence` in the record (the colour is
+  measured; the *role assignment* is a decision and stays at medium);
+* every MavLinOS decision is emitted as `kind: proposed` with a note that says
+  so, and with `confidence: unverified` while it is a placeholder;
+* a palette fact it references that no longer exists makes the generator exit
+  non-zero — extraction drift breaks the build instead of producing a stale
+  theme;
+* the output is byte-deterministic, so `design/**` can be committed and diffed.
 
 ## B.8 Validation commands and CI wiring
 

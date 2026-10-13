@@ -160,6 +160,12 @@ detect it.
 **Action:** generate `design/tokens/design-tokens.json` from the facts
 (palette/typography/metrics/uiprobe) and have the theme generators consume it;
 drift becomes a failing check rather than a visual opinion.
+**Status 2026-10-13 — partially closed:** `tools/uiplatform/tokens.py` emits
+`design/tokens/design-tokens.json` + `design/manifest.json` (3 tokens derived
+from the extracted palette, 19 proposed decisions, 10 unverified placeholders
+listed as gaps, drift fails the build). Remaining: no theme generator consumes
+the token file yet, and typography/metrics tokens stay proposed until
+`uiprobe.json` is harvested.
 
 ## H.3 Format incompatibilities with the contract
 

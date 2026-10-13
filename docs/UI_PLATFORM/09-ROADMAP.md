@@ -65,6 +65,13 @@ guessing (F-2).
 the manifest's gap list matches `08-GAP-ANALYSIS.md` minus the closed items.
 **Touches:** new `design/**`, `tools/uiplatform/**`.
 
+**Status 2026-10-13 (phase started):** the token compiler + manifest are
+delivered (`tools/uiplatform/tokens.py` → `design/tokens/design-tokens.json`,
+`design/manifest.json`; 22 tokens: 3 derived from the extracted palette, 19
+proposed MavLinOS decisions; 38 compiler tests pass). Still open in this phase:
+the curated `design/components/*.json`, the asset generator and the surface
+assembly records.
+
 ## P3 — Interaction records (Layer B)
 
 **Entry:** P0 (schemas), ideally P1 for measured timings.

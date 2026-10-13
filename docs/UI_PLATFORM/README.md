@@ -30,6 +30,7 @@ It is written for two readers:
 | `docs/UI_PLATFORM/` | **This specification.** Architecture, data contract, schemas, examples, acceptance criteria, gap analysis, roadmap. |
 | `schemas/` | Versioned JSON Schemas for every platform record (`mavlinos.*`). |
 | `examples/` | Reference records, hand-checked against the schemas and the semantic rules. |
+| `design/` (repo root) | **Compiled platform output**: `tokens/design-tokens.json` + `manifest.json`. Generated, never hand-edited. |
 
 ## Documents
 
@@ -54,9 +55,19 @@ python3 tools/uiplatform/validate.py validate [path ...]
 # read-only conformance audit of the extraction output
 python3 tools/uiplatform/validate.py conformance [--data DIR] [--json]
 
-# self-test: does the contract still catch defects?
-python3 tests/uiplatform/test_contract.py
+# compile the Layer A token file + manifest from the extracted palette
+python3 tools/uiplatform/tokens.py            # -> design/tokens/design-tokens.json
+python3 tools/uiplatform/tokens.py --check    # also fails on extraction drift
+
+# self-tests: does the contract still catch defects?
+python3 tests/uiplatform/test_contract.py     # 34 checks
+python3 tests/uiplatform/test_tokens.py       # 38 checks
 ```
+
+All three checks run on every commit through `scripts/check-sync.sh`
+(section "ui data contract"); the conformance report itself never turns the gate
+red on its own — gaps are findings, not failures, while the extraction is in
+flight.
 
 `tools/uiplatform/validate.py` is stdlib-only (the build container has no
 `jsonschema` package). It implements the JSON-Schema subset our schemas use,

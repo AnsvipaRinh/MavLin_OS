@@ -1,0 +1,87 @@
+{
+ "counts": {
+  "tokens": 22
+ },
+ "gaps": [
+  {
+   "record": "color.traffic.close",
+   "what": "Placeholder until uiprobe reports the real pixel."
+  },
+  {
+   "record": "color.traffic.inactive",
+   "what": "Placeholder until a capture confirms the inactive-window traffic light colour."
+  },
+  {
+   "record": "color.traffic.minimize",
+   "what": "Placeholder until uiprobe reports the real pixel."
+  },
+  {
+   "record": "color.traffic.zoom",
+   "what": "Placeholder until uiprobe reports the real pixel."
+  },
+  {
+   "record": "duration.motion.medium",
+   "what": "Placeholder."
+  },
+  {
+   "record": "duration.motion.short",
+   "what": "Placeholder."
+  },
+  {
+   "record": "duration.motion.window",
+   "what": "Placeholder consistent with animation.window.minimize."
+  },
+  {
+   "record": "easing.standard",
+   "what": "Placeholder curve until AppKit's own animation curve is read or captured."
+  },
+  {
+   "record": "easing.window.minimize",
+   "what": "Placeholder curve."
+  },
+  {
+   "record": "metric.window.chrome.height",
+   "what": "Placeholder. Derivation for the real value: uiprobe window.contentRectMath (frame vs contentRectForFrameRect:styleMask:7)."
+  },
+  {
+   "record": "shadow.window.rest",
+   "what": "Placeholder; a capture of a real window over wallpaper confirms the radius and spread."
+  }
+ ],
+ "generated_from": {
+  "generator": "tools/uiplatform/tokens.py",
+  "inputs": [
+   "docs/UI_REFERENCE/data/palette.json",
+   "AppKit"
+  ]
+ },
+ "schema": "mavlinos.manifest/1",
+ "status": {
+  "derived": [
+   "color.control.background.solid",
+   "color.text.primary",
+   "color.window.background"
+  ],
+  "proposed": [
+   "color.selection.control",
+   "color.traffic.close",
+   "color.traffic.inactive",
+   "color.traffic.minimize",
+   "color.traffic.zoom",
+   "duration.motion.medium",
+   "duration.motion.short",
+   "duration.motion.window",
+   "easing.standard",
+   "easing.window.minimize",
+   "font.system.family",
+   "font.system.size",
+   "metric.control.height.mini",
+   "metric.control.height.regular",
+   "metric.control.height.small",
+   "metric.control.radius",
+   "metric.menubar.height",
+   "metric.window.chrome.height",
+   "shadow.window.rest"
+  ]
+ }
+}

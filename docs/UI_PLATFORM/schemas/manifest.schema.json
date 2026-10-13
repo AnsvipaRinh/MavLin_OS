@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "manifest.schema.json",
+  "title": "MavLinOS platform manifest",
+  "description": "Index of the compiled design system (design/**). Consumers resolve dependencies from the manifest instead of reading every record. The gap list is the point: 'what is still unverified' must be answerable without a human.",
+  "type": "object",
+  "required": ["schema", "generated_from", "counts", "status", "gaps"],
+  "properties": {
+    "schema": {"const": "mavlinos.manifest/1"},
+    "generated_from": {
+      "type": "object",
+      "required": ["generator", "inputs"],
+      "properties": {
+        "generator": {"type": "string"},
+        "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "generated_at": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "derived": {"type": "array", "items": {"type": "string"}},
+        "proposed": {"type": "array", "items": {"type": "string"}},
+        "verified": {"type": "array", "items": {"type": "string"}},
+        "deprecated": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["record", "what"],
+        "properties": {
+          "record": {"type": "string"},
+          "what": {"type": "string"},
+          "resolution": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

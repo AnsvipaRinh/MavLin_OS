@@ -1941,3 +1941,40 @@ still fails on injected defects, so the validator itself is testable),
 (`docs/UI_REFERENCE/**`, `tools/uiref/**`, `tests/uiref/**`) untouched and left intact.
 `scripts/check-sync.sh` and `.github/workflows/**` are protected files, so the new checks
 are not wired into CI in this change; roadmap phase P7 records the exact addition.
+
+## 2026-10-13 — UI data contract wired into the repo gate; Layer A token compiler delivered
+
+**Gate.** `scripts/check-sync.sh` now runs the contract checks as three additional
+gates (protected file, claim `20261013-1330-opencode-ui-contract-gate`):
+design-system records must validate, the extraction output must be structurally
+sound, and the contract self-test must pass. The conformance *report* stays
+non-failing on purpose: while the extraction is in flight, its gaps are findings
+for the extraction agent, not a red gate for everyone else. `py_compile` in
+`.github/workflows/ci.yml` already covers the new Python, so no workflow edit was
+needed.
+
+**Token compiler (roadmap P2, first part).** `tools/uiplatform/tokens.py` compiles
+`design/tokens/design-tokens.json` + `design/manifest.json` from the extracted
+palette. Rules that the generator itself enforces, because they are the ones that
+make the platform trustworthy:
+* colours read from a palette fact are `kind: derived`, `confidence: medium`, and
+  cite that fact's evidence — the value is measured, the role assignment is our
+  decision and is therefore not high confidence;
+* every MavLinOS decision is `kind: proposed` with an explicit note;
+  placeholders are `confidence: unverified` and are listed in the manifest's gap
+  list;
+* a referenced palette fact that disappears makes the generator exit non-zero
+  (extraction drift breaks the build rather than silently producing a stale
+  theme);
+* output is byte-deterministic, so `design/**` is committed and reviewable.
+
+Current state of the compiled layer: 22 tokens (3 derived, 19 proposed, 10
+unverified). This is deliberately honest: the theme is *not* yet derived from
+ground truth, it is a documented decision set that the ground truth will replace
+value by value as `uiprobe.json`, metrics and typography facts arrive.
+
+**Tests.** `tests/uiplatform/test_tokens.py` (38 checks) proves: contract-valid
+output, evidence traceability, proposed-vs-measured separation, determinism,
+drift failure, `--check`. One test initially failed (`color.traffic.inactive` had
+a note that did not declare itself a placeholder); the note was fixed, not the
+test.

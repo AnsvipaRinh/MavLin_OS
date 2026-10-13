@@ -1305,3 +1305,43 @@ rendering or reproduction data. Highest-value next act: harvest
 **Next (roadmap):** P1 uiprobe harvest → P2 compile `design/**` from the facts → P3
 interaction records → P4 `packages/mavui` + generators → P5 shell services/SDK → P6 app
 migration → P7 visual regression in CI.
+
+## Session 2026-10-13 (2/2) — contract gate + Layer A token compiler (oid `ui-platform-spec`, claim 2)
+
+Continuation of `c4e1557a` (roadmap P2, first part) under claim
+`20261013-1330-opencode-ui-contract-gate`.
+
+**Shipped**
+
+- `scripts/check-sync.sh`: three additive gates — "ui data contract: design-system
+  records valid", "extraction output structurally sound", "contract self-test".
+  The conformance report itself stays non-failing by design (extraction in
+  flight; its gaps are findings, not a red gate). `.github/workflows/ci.yml`
+  needed no change: `py_compile` already covers the new Python and the workflow
+  runs `check-sync.sh`.
+- `tools/uiplatform/tokens.py`: compiles `design/tokens/design-tokens.json` and
+  `design/manifest.json` from `docs/UI_REFERENCE/data/palette.json`. Enforces:
+  derived ⇒ evidence + medium confidence (measured value, decided role),
+  proposed ⇒ explicit note, placeholder ⇒ unverified + listed as a gap, missing
+  palette fact ⇒ non-zero exit (drift breaks the build), byte-deterministic
+  output, `--check` flag.
+- `design/` committed: 22 tokens (3 derived, 19 proposed; 10 unverified gaps in
+  the manifest).
+- `docs/UI_PLATFORM/schemas/manifest.schema.json` (`mavlinos.manifest/1`);
+  README/02/06/08/09 updated with the compiler, the manifest and the new gate.
+
+**Verified**
+
+- `tools/uiplatform/tokens.py` → 22 tokens, 0 errors; `validate.py validate design` OK.
+- `tests/uiplatform/test_tokens.py` → 38 checks, 0 failed (incl. negative tests:
+  palette drift must fail the build).
+- `tests/uiplatform/test_contract.py` → 34 checks, 0 failed.
+- `tools/lint-tests.py --strict` → 0 errors.
+- `scripts/check-sync.sh` → all three contract gates **OK**; pre-existing red
+  unchanged and unrelated (`test-gui-isolation-coverage.py` 3 failures,
+  `mv-shot` 3/63, `test-mv-spotlight.py rofi_preview_integration`).
+
+**Contract maturity:** the Layer A data contract is now enforced on every commit
+and has a working compiler as its first consumer. Next: curated
+`design/components/*.json` and the asset generator (both need
+`uiprobe.json` + metric facts to stop being proposal-only).

@@ -55,6 +55,9 @@ answerable with a command, a file path or a rendered comparison.
       recipe (`R-REPRO`).
 - [ ] `catalog/*.md` regenerated and drift-checked (already enforced by
       `tests/uiref/test_catalog.py`).
+- [ ] `design/tokens/design-tokens.json` regenerated from the facts
+      (`tools/uiplatform/tokens.py --check` exits 0); every derived token cites a
+      registered source, every proposed token documents itself.
 
 **Extraction exit criterion:** every in-scope Mavericks surface named in
 `AGENTS.md` §13.2 has at least an L2 component/behaviour record set, and every

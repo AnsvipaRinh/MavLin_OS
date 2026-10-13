@@ -33,6 +33,30 @@ else
   bad "scripts/test-gui-isolation-coverage.py missing"
 fi
 
+# UI data contract (docs/UI_PLATFORM/02-DATA-CONTRACT.md):
+#   * every contract-conformant record must validate against its schema
+#   * the extraction output is audited read-only; gaps are reported, never
+#     silently accepted, and never turn the gate red on their own (the
+#     extraction is in flight; its own validator owns that signal)
+echo "--- ui data contract ---"
+if [[ -f tools/uiplatform/validate.py ]]; then
+  python3 tools/uiplatform/validate.py validate >/dev/null 2>&1 \
+    && ok "ui data contract: design-system records valid" \
+    || bad "ui data contract: design-system records invalid (tools/uiplatform/validate.py validate)"
+  python3 tools/uiplatform/validate.py conformance >/dev/null 2>&1 \
+    && ok "ui data contract: extraction output structurally sound" \
+    || bad "ui data contract: extraction output structurally broken (tools/uiplatform/validate.py conformance)"
+else
+  bad "tools/uiplatform/validate.py missing"
+fi
+if [[ -f tests/uiplatform/test_contract.py ]]; then
+  python3 tests/uiplatform/test_contract.py >/dev/null 2>&1 \
+    && ok "ui data contract: contract self-test" \
+    || bad "ui data contract: contract self-test failed (tests/uiplatform/test_contract.py)"
+else
+  bad "tests/uiplatform/test_contract.py missing"
+fi
+
 PAIRS=(
   "scripts/install/mavericks-firstboot.sh:archiso-profile/releng/airootfs/usr/local/bin/mavericks/mavericks-firstboot.sh"
   "scripts/install/mavericks-profile-select.sh:archiso-profile/releng/airootfs/usr/local/bin/mavericks/mavericks-profile-select.sh"

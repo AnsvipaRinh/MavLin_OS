@@ -1,0 +1,238 @@
+{
+ "appearance": [
+  "blue",
+  "graphite"
+ ],
+ "generated_from": {
+  "generated_at": "deterministic",
+  "generator": "tools/uiplatform/tokens.py",
+  "inputs": [
+   "docs/UI_REFERENCE/data/palette.json",
+   "AppKit"
+  ]
+ },
+ "schema": "mavlinos.design-tokens/1",
+ "tokens": {
+  "color.control.background.solid": {
+   "alpha": 0.867,
+   "confidence": "medium",
+   "evidence": [
+    "src:appkit"
+   ],
+   "kind": "derived",
+   "notes": "aqua.control.solid, a=0.867, 1199 occurrences, read from palette fact appkit.color.dddddd.add. The colour value is measured; the role assignment ('this is the window background') is a MavLinOS decision and stays at medium confidence until the surface captures confirm it.",
+   "type": "color",
+   "unit": "none",
+   "value": "#dddddd"
+  },
+  "color.selection.control": {
+   "confidence": "low",
+   "kind": "proposed",
+   "notes": "Muted Mavericks selection blue (docs/VISUAL_STYLE_GUIDE.md). Graphite variant is a MavLinOS decision, not an extracted value.",
+   "type": "color",
+   "unit": "none",
+   "value": "#6f8fbd",
+   "variants": {
+    "blue": "#6f8fbd",
+    "graphite": "#8e8e93"
+   }
+  },
+  "color.text.primary": {
+   "alpha": 1.0,
+   "confidence": "medium",
+   "evidence": [
+    "src:appkit"
+   ],
+   "kind": "derived",
+   "notes": "most frequent solid black in the ramp, read from palette fact appkit.color.000000.aff. The colour value is measured; the role assignment ('this is the window background') is a MavLinOS decision and stays at medium confidence until the surface captures confirm it.",
+   "type": "color",
+   "unit": "none",
+   "value": "#000000"
+  },
+  "color.traffic.close": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder until uiprobe reports the real pixel.",
+   "type": "color",
+   "unit": "none",
+   "value": "#ff5f57"
+  },
+  "color.traffic.inactive": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder until a capture confirms the inactive-window traffic light colour.",
+   "type": "color",
+   "unit": "none",
+   "value": "#d6d6d6"
+  },
+  "color.traffic.minimize": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder until uiprobe reports the real pixel.",
+   "type": "color",
+   "unit": "none",
+   "value": "#febc2e"
+  },
+  "color.traffic.zoom": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder until uiprobe reports the real pixel.",
+   "type": "color",
+   "unit": "none",
+   "value": "#28c840"
+  },
+  "color.window.background": {
+   "alpha": 1.0,
+   "confidence": "medium",
+   "evidence": [
+    "src:appkit"
+   ],
+   "kind": "derived",
+   "notes": "most frequent solid white in the AppKit __color ramp, read from palette fact appkit.color.ffffff.aff. The colour value is measured; the role assignment ('this is the window background') is a MavLinOS decision and stays at medium confidence until the surface captures confirm it.",
+   "type": "color",
+   "unit": "none",
+   "value": "#ffffff"
+  },
+  "duration.motion.medium": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder.",
+   "type": "duration",
+   "unit": "ms",
+   "value": 250
+  },
+  "duration.motion.short": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder.",
+   "type": "duration",
+   "unit": "ms",
+   "value": 120
+  },
+  "duration.motion.window": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder consistent with animation.window.minimize.",
+   "type": "duration",
+   "unit": "ms",
+   "value": 350
+  },
+  "easing.standard": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder curve until AppKit's own animation curve is read or captured.",
+   "type": "easing",
+   "unit": "none",
+   "value": {
+    "bezier": [
+     0.25,
+     0.1,
+     0.25,
+     1.0
+    ]
+   }
+  },
+  "easing.window.minimize": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder curve.",
+   "type": "easing",
+   "unit": "none",
+   "value": {
+    "bezier": [
+     0.25,
+     0.1,
+     0.25,
+     1.0
+    ]
+   }
+  },
+  "font.system.family": {
+   "confidence": "low",
+   "kind": "proposed",
+   "linux_substitute": {
+    "package": "cantarell-fonts",
+    "reason": "Lucida Grande is licensed Apple artwork and is not redistributed (rule C5).",
+    "value": "Cantarell"
+   },
+   "notes": "MavLinOS decision for the system font role.",
+   "type": "font",
+   "unit": "none",
+   "value": "Lucida Grande"
+  },
+  "font.system.size": {
+   "confidence": "low",
+   "kind": "proposed",
+   "notes": "Decision from docs/VISUAL_STYLE_GUIDE.md; uiprobe text.fonts confirms the original value and metrics.",
+   "type": "metric",
+   "unit": "pt",
+   "value": 11
+  },
+  "metric.control.height.mini": {
+   "confidence": "low",
+   "kind": "proposed",
+   "notes": "Decision; see uiprobe controls.buttonMetrics.",
+   "type": "metric",
+   "unit": "pt",
+   "value": 16
+  },
+  "metric.control.height.regular": {
+   "confidence": "low",
+   "kind": "proposed",
+   "notes": "Decision; uiprobe controls.buttonMetrics supplies the real frames.",
+   "type": "metric",
+   "unit": "pt",
+   "value": 22
+  },
+  "metric.control.height.small": {
+   "confidence": "low",
+   "kind": "proposed",
+   "notes": "Decision; see uiprobe controls.buttonMetrics.",
+   "type": "metric",
+   "unit": "pt",
+   "value": 20
+  },
+  "metric.control.radius": {
+   "confidence": "low",
+   "kind": "proposed",
+   "notes": "Decision from docs/VISUAL_STYLE_GUIDE.md.",
+   "type": "metric",
+   "unit": "pt",
+   "value": 4
+  },
+  "metric.menubar.height": {
+   "confidence": "low",
+   "kind": "proposed",
+   "notes": "Decision from docs/VISUAL_STYLE_GUIDE.md.",
+   "type": "metric",
+   "unit": "pt",
+   "value": 24
+  },
+  "metric.window.chrome.height": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder. Derivation for the real value: uiprobe window.contentRectMath (frame vs contentRectForFrameRect:styleMask:7).",
+   "type": "metric",
+   "unit": "pt",
+   "value": 22
+  },
+  "shadow.window.rest": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder; a capture of a real window over wallpaper confirms the radius and spread.",
+   "type": "shadow",
+   "unit": "none",
+   "value": {
+    "alpha": 0.28,
+    "blur": 12,
+    "color": "#000000",
+    "offset": [
+     0,
+     3
+    ],
+    "spread": -2
+   }
+  }
+ },
+ "version": 1
+}
