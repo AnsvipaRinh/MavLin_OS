@@ -118,6 +118,23 @@ def main():
         if page and page in cat_files and fid not in cat_files[page]:
             errors.append(f"docs drift: {fid} from {fn} not rendered into catalog/{page}")
 
+    # asset geometry: the decoded inventory must reconcile with itself and the
+    # icon grid the desktop ships must be visible in the rendered page
+    ast_path = os.path.join(DATA, "assets.json")
+    if os.path.exists(ast_path):
+        ast = json.load(open(ast_path))
+        if ast.get("count") != len(ast.get("assets", [])):
+            errors.append("assets.json: count does not match assets array")
+        bad = [a.get("path") for a in ast.get("assets", [])
+               if not a.get("format") or not a.get("path")]
+        if bad:
+            errors.append(f"assets.json: {len(bad)} assets without format/path")
+        page = cat_files.get("assets.md", "")
+        for px in ast.get("summary", {}).get("icns_grid_sizes", {}):
+            if f"| {px} |" not in page:
+                errors.append(f"catalog/assets.md does not show icon size {px}")
+
+
     # control appearance protocol: cells must reconcile with nib_geometry, and the
     # generated page must actually show them (fails if a rebuild loses data)
     ctl_path = os.path.join(DATA, "controls.json")

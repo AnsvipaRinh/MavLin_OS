@@ -72,6 +72,7 @@ def main():
     out = {
         "palette.md": render_palette(load("palette.json")),
         "controls.md": render_controls(load("controls.json")),
+        "assets.md": render_assets(load("assets.json")),
         "metrics.md": render_generic(load("metrics.json"), "Metrics",
                                      "@1x pixel/point values. `derived` facts show their formula in `deriv`."),
         "typography.md": render_generic(load("typography.json"), "Typography",
@@ -89,6 +90,39 @@ def main():
             fh.write(text.rstrip() + "\n")
         print("wrote", os.path.relpath(p, HERE))
     return 0
+
+
+def render_assets(data):
+    """Pixel geometry of Apple's own artwork: icon grid, chrome art, retina pairs."""
+    s = data["summary"]
+    out = ["# Asset geometry (pixel sizes decoded from the real 10.9 artwork)", "",
+           f"Assets inspected: **{data['count']}** "
+           f"({s['raster']} raster, {s['vector_pdf']} PDF, {s['icns']} icns).",
+           "Only container headers were read; no artwork is stored or copied.", "",
+           "## Icon grid (from icns headers)", "",
+           "| px | icons |", "|---|---|"]
+    for px, n in sorted((int(k), v) for k, v in s["icns_grid_sizes"].items()):
+        out.append(f"| {px} | {n} |")
+    out += ["", "These are the sizes the Finder icon views and the Dock must ship.",
+            "", "## Roles", "", "| role | assets |", "|---|---|"]
+    for role, n in list(s["roles"].items()):
+        out.append(f"| {role} | {n} |")
+    out += ["", "## Window chrome and toolbar artwork", "",
+            "| asset | bundle | px |", "|---|---|---|"]
+    chrome = [a for a in data["assets"]
+              if a.get("role") in ("toolbar", "sidebar", "statusbar", "scrollbar", "control")
+              and a["format"] in ("png", "tiff", "jpeg", "pdf")
+              and (a.get("w") or 0) >= 16 and "@2x" not in a["name"]]
+    seen = set()
+    for a in sorted(chrome, key=lambda x: (-(x.get("w") or 0), x["name"]))[:60]:
+        key = (a["name"], a["w"], a["h"])
+        if key in seen:
+            continue
+        seen.add(key)
+        unit = "pt" if a["format"] == "pdf" else "px"
+        out.append(f"| {a['name']} | {a['bundle']} | {a['w']}×{a['h']} {unit} |")
+    out.append("")
+    return "\n".join(out)
 
 
 def render_controls(data):
