@@ -75,6 +75,7 @@ def main():
         "controls.md": render_controls(load("controls.json")),
         "assets.md": render_assets(load("assets.json")),
         "windows.md": render_windows(load("windows.json")),
+        "theme.md": render_theme(load("theme.json")),
         "metrics.md": render_generic(load("metrics.json"), "Metrics",
                                      "@1x pixel/point values. `derived` facts show their formula in `deriv`."),
         "typography.md": render_generic(load("typography.json"), "Typography",
@@ -171,6 +172,31 @@ def render_windows(data):
     classes = collections.Counter(w["class"] for w in data["windows"] if w.get("class"))
     for cls, c in classes.most_common(10):
         out.append(f"| {cls} | {c} |")
+    out.append("")
+    return "\n".join(out)
+
+
+def render_theme(data):
+    """System colours and typography as the real nibs resolve them."""
+    s = data["summary"]
+    out = ["# Theme resolved from the real nibs", "",
+           f"Distinct system colour names: **{s['color_names']}**, "
+           f"font variants: **{s['font_variants']}**.", "",
+           "Point sizes actually used: "
+           + ", ".join(str(x) for x in s["distinct_sizes"]) + " px.", "",
+           "## System colours", "",
+           "| name | hex | rgb space | uses | apps |", "|---|---|---|---|---|"]
+    for c in data["system_colors"]:
+        out.append(f"| {c['name']} | `{c['hex'] or '-'}` | {c['space']} | {c['uses']} "
+                   f"| {', '.join(c['apps'][:4])} |")
+    out += ["", "## Typography", "",
+            "| family | px | style flags | uses |", "|---|---|---|---|"]
+    for f in data["fonts"]:
+        out.append(f"| {f['family']} | {f['size']} | {f['flags']} | {f['uses']} |")
+    out += ["", "## Sizes per family", ""]
+    for fam, sizes in list(data["font_sizes_by_family"].items()):
+        pretty = ", ".join(f"{k}px x{v}" for k, v in sizes.items())
+        out.append(f"* {fam}: {pretty}")
     out.append("")
     return "\n".join(out)
 

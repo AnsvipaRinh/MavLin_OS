@@ -113,40 +113,70 @@ def class_name(nib, obj, depth=0):
 
 
 def collect_fonts(nib, obj, out, depth=0):
+    """NSFont archives as AppKit writes them: NSName (PostScript), NSSize, NSfFlags."""
     cn = class_name(nib, obj)
     if cn and "Font" in str(cn):
-        name = nib.string(obj.get("NSFontName") or obj.get("NSFontFamily"))
-        size = nib.string(obj.get("NSFontSize"))
-        try:
-            size = float(size)
-        except (TypeError, ValueError):
-            size = None
-        out.append({"class": cn, "family": name, "size": size,
-                    "style": nib.string(obj.get("NSFontStyleMask"))})
+        name = nib.string(obj.get("NSFontName") or obj.get("NSFontFamily")
+                          or obj.get("NSName"))
+        size = number(nib, obj.get("NSFontSize"))
+        if size is None:
+            size = number(nib, obj.get("NSSize"))
+        flags = number(nib, obj.get("NSFontStyleMask"))
+        if flags is None:
+            flags = number(nib, obj.get("NSfFlags"))
+        out.append({"class": cn, "family": name,
+                    "size": float(size) if isinstance(size, (int, float)) else None,
+                    "style": nib.string(obj.get("NSFontStyleMask")),
+                    "flags": int(flags) if isinstance(flags, (int, float)) else None})
     return out
 
 
 def collect_colors(nib, obj, out, depth=0):
+    """NSColor archives: a catalog/name pair for system colours plus the raw
+    components, which AppKit stores as NUL-terminated ASCII floats."""
     cn = class_name(nib, obj)
     if cn and "Color" in str(cn):
-        space = nib.string(obj.get("NSColorSpace")) or nib.string(obj.get("NSColorSpaceName"))
-        raw = obj.get("NSRGB") or obj.get("NSWhite") or obj.get("NSComponents")
-        s = nib.string(raw) if raw is not None else None
-        comps = None
+        space = number(nib, obj.get("NSColorSpace"))
+        # In nib archives the components live in a nested NSColor object that the
+        # outer record points at (the outer one only carries catalog/name).
+        inner = nib.get(obj.get("NSColor")) if "NSColor" in obj else None
+        src = inner if isinstance(inner, dict) else obj
+        if src is not obj:
+            space = number(nib, src.get("NSColorSpace"))
+            if space is None:
+                space = number(nib, obj.get("NSColorSpace"))
+        raw = src.get("NSWhite") or src.get("NSRGB") or src.get("NSComponents")
+        if isinstance(raw, bytes):
+            # AppKit writes the components as NUL-terminated ASCII floats
+            s = raw.decode("ascii", "ignore")
+        elif isinstance(raw, str):
+            s = raw
+        else:
+            s = nib.string(raw)
+        nums = []
         if s:
-            m = NSRGB_RE.match(s)
-            if m:
-                comps = [float(m.group(i)) for i in range(1, 4)]
-                alpha = float(m.group(4))
-            else:
-                m2 = SIZE_RE.match(s)
-                if m2:
-                    comps = [float(m2.group(1))] * 3
-                    alpha = float(m2.group(2))
+            nums = [float(x) for x in
+                    re.findall(r"-?\d+\.?\d*(?:[eE][-+]?\d+)?", s.strip("\x00"))]
+        alpha = number(nib, src.get("NSAlpha"))
+        if alpha is None:
+            alpha = number(nib, src.get("NSAlphaComponent"))
+        if alpha is None:
+            alpha = number(nib, obj.get("NSAlpha"))
+        comps = None
+        if len(nums) == 1:
+            comps = [nums[0]] * 3
+        elif len(nums) >= 3:
+            comps = nums[:3]
+        entry = {"class": cn, "space": int(space) if space is not None else None,
+                 "catalog": nib.string(obj.get("NSCatalogName")),
+                 "name": nib.string(obj.get("NSColorName")),
+                 "alpha": float(alpha) if isinstance(alpha, (int, float)) else None,
+                 "rgb": comps}
         if comps:
-            hexv = "#%02x%02x%02x" % tuple(max(0, min(255, round(c * 255))) for c in comps)
-            out.append({"class": cn, "space": space, "rgb": comps,
-                        "alpha": alpha, "hex": hexv})
+            entry["hex"] = "#%02x%02x%02x" % tuple(
+                max(0, min(255, round(c * 255))) for c in comps)
+        if comps or entry["name"]:
+            out.append(entry)
     return out
 
 
@@ -169,7 +199,10 @@ def number(nib, v, depth=0):
         for k in NUM_KEYS:
             if k in v:
                 x = v[k]
-                return x if isinstance(x, (int, float)) and not isinstance(x, bool) else int(x)
+                if isinstance(x, (int, float)) and not isinstance(x, bool):
+                    return x
+                if isinstance(x, bool):
+                    return int(x)
     return None
 
 

@@ -118,6 +118,25 @@ def main():
         if page and page in cat_files and fid not in cat_files[page]:
             errors.append(f"docs drift: {fid} from {fn} not rendered into catalog/{page}")
 
+    # theme layer: colours/fonts must agree with nib_geometry and be rendered
+    th_path = os.path.join(DATA, "theme.json")
+    if os.path.exists(th_path):
+        th = json.load(open(th_path))
+        geo = json.load(open(os.path.join(DATA, "nib_geometry.json")))
+        named = sum(1 for n in geo.get("nibs", []) for c in n.get("colors", [])
+                    if c.get("name"))
+        if th["summary"]["color_names"] < 1:
+            errors.append("theme.json: no system colour names resolved")
+        if not th.get("fonts"):
+            errors.append("theme.json: no fonts resolved from nibs")
+        page = cat_files.get("theme.md", "")
+        for c in th["system_colors"][:5]:
+            if f"| {c['name']} |" not in page:
+                errors.append(f"catalog/theme.md missing colour {c['name']}")
+        if named and th["summary"]["color_names"] > named:
+            errors.append("theme.json: more colour names than nib records")
+
+
     # window templates: counts must reconcile and the page must show the real masks
     win_path = os.path.join(DATA, "windows.json")
     if os.path.exists(win_path):
