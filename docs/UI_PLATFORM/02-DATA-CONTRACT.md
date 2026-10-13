@@ -184,7 +184,7 @@ redistributable.
 | **L0 schema-valid** | parses, required fields present, types/enums/patterns OK | `validate.py validate` |
 | **L1 evidence-backed** | every measured/derived value resolves to a registered source or capture | `validate.py validate` + sources/capture registry check |
 | **L2 implementable** | complete field set for the kind (states, variants, rendering, reproduction, dependencies closed) | `validate.py conformance` + §F checklist per component |
-| **L3 validated** | the rendering matches the original within the record's tolerances | render test: golden-capture diff + geometry/colour/font metrics (§F.4) |
+| **L3 validated** | the rendering matches the original within the record's tolerances | render test: golden-capture diff + geometry/colour/font metrics (§F.5) |
 
 A record may live at L0–L2 with gaps. Only L3 records are allowed to claim
 `status: verified`.

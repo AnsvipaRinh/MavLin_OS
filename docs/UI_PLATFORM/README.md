@@ -59,15 +59,19 @@ python3 tools/uiplatform/validate.py conformance [--data DIR] [--json]
 python3 tools/uiplatform/tokens.py            # -> design/tokens/design-tokens.json
 python3 tools/uiplatform/tokens.py --check    # also fails on extraction drift
 
+# executable reference: does a record actually DRAW from the tokens alone?
+python3 tools/uiplatform/validate.py check-deps                     # R-TOKENDEP
+python3 tools/uiplatform/render_ref.py --component <record>.json \
+                                        --out build/render/out.png --state pressed
+
 # self-tests: does the contract still catch defects?
 python3 tests/uiplatform/test_contract.py     # 34 checks
 python3 tests/uiplatform/test_tokens.py       # 38 checks
 ```
 
-All three checks run on every commit through `scripts/check-sync.sh`
-(section "ui data contract"); the conformance report itself never turns the gate
-red on its own — gaps are findings, not failures, while the extraction is in
-flight.
+All of these run on every commit through `scripts/check-sync.sh` (section "ui data
+contract"); the conformance report itself never turns the gate red on its own —
+gaps are findings, not failures, while the extraction is in flight.
 
 `tools/uiplatform/validate.py` is stdlib-only (the build container has no
 `jsonschema` package). It implements the JSON-Schema subset our schemas use,

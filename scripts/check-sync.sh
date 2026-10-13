@@ -56,6 +56,24 @@ if [[ -f tests/uiplatform/test_contract.py ]]; then
 else
   bad "tests/uiplatform/test_contract.py missing"
 fi
+if [[ -f tests/uiplatform/test_tokens.py ]]; then
+  python3 tests/uiplatform/test_tokens.py >/dev/null 2>&1 \
+    && ok "ui data contract: token compiler" \
+    || bad "ui data contract: token compiler failed (tests/uiplatform/test_tokens.py)"
+else
+  bad "tests/uiplatform/test_tokens.py missing"
+fi
+# R-TOKENDEP + executable proof that the records are drawable
+if [[ -f tests/uiplatform/test_render_ref.py ]]; then
+  python3 tools/uiplatform/validate.py check-deps >/dev/null 2>&1 \
+    && ok "ui data contract: record dependency closure" \
+    || bad "ui data contract: record dependency closure (R-TOKENDEP)"
+  python3 tests/uiplatform/test_render_ref.py >/dev/null 2>&1 \
+    && ok "ui data contract: reference renderer" \
+    || bad "ui data contract: reference renderer failed (tests/uiplatform/test_render_ref.py)"
+else
+  bad "tests/uiplatform/test_render_ref.py missing"
+fi
 
 PAIRS=(
   "scripts/install/mavericks-firstboot.sh:archiso-profile/releng/airootfs/usr/local/bin/mavericks/mavericks-firstboot.sh"

@@ -1978,3 +1978,38 @@ output, evidence traceability, proposed-vs-measured separation, determinism,
 drift failure, `--check`. One test initially failed (`color.traffic.inactive` had
 a note that did not declare itself a placeholder); the note was fixed, not the
 test.
+
+## 2026-10-13 — Executable reference renderer for component records
+
+**Decision.** A data contract that no code can consume is a wish list, so the
+platform now ships an executable reference implementation of the record
+vocabulary: `tools/uiplatform/render_ref.py` draws a `mavlinos.component/1`
+record from the token set alone (pycairo, no GTK, no application). It implements
+a documented subset — variants, named layout rects, solid/linear-gradient fills,
+borders (width/style/radius), shadows, per-state overrides, opacity, linear
+scaling — and **fails loudly** on an invalid record or a missing token.
+
+**Why it matters more than it looks.** The renderer is the cheapest possible
+place to discover that a record is not drawable, and it is the mechanism the
+visual-regression harness (F.5) needs before any GTK application exists. It
+already caught two real defects:
+
+1. the reference component's shadow was composited *after* the background, i.e.
+   on top of the button body — buttons rendered grey instead of white;
+2. asset-only glyphs were drawn as black blobs, which would have made every
+   pixel probe of a traffic light meaningless.
+
+**Rules this established (recorded, not improvised).**
+* Draw order is fixed by the spec (§C.1.4 / F.3): shadow behind, then background,
+  then border, then glyphs, then text.
+* Glyph artwork is an `asset.*` slot: the reference renderer draws nothing there
+  rather than inventing a shape, because a placeholder blob is indistinguishable
+  from a bug in a pixel test.
+* Record coordinates are bottom-left (AppKit); the renderer converts once,
+  centrally, and never edits the record values.
+
+**Dependency closure (R-TOKENDEP).** `validate.py check-deps` proves every token
+a record references exists in the token set; a missing token is a hard error, a
+missing *asset* is a gap. Wired into `scripts/check-sync.sh`, which now runs six
+contract gates: records valid, extraction structurally sound, contract self-test,
+token compiler, dependency closure, reference renderer.

@@ -13,7 +13,7 @@ P3  interaction records (Layer B)
 P4  widget library + generators (plane 2)
 P5  shell services (plane 3) + SDK (plane 4)
 P6  application migration (A/B/C) per §E
-P7  visual regression harness (F.4) in CI
+P7  visual regression harness (F.5) in CI
 ```
 
 ## P0 — Contract and conformance tooling (done)
@@ -65,7 +65,8 @@ guessing (F-2).
 the manifest's gap list matches `08-GAP-ANALYSIS.md` minus the closed items.
 **Touches:** new `design/**`, `tools/uiplatform/**`.
 
-**Status 2026-10-13 (phase started):** the token compiler + manifest are
+**Status 2026-10-13 (phase started):** the token compiler + manifest, the
+executable reference renderer and the R-TOKENDEP closure check are
 delivered (`tools/uiplatform/tokens.py` → `design/tokens/design-tokens.json`,
 `design/manifest.json`; 22 tokens: 3 derived from the extracted palette, 19
 proposed MavLinOS decisions; 38 compiler tests pass). Still open in this phase:
@@ -135,7 +136,7 @@ without a recorded reason (AGENTS.md §13).
 ## P7 — Visual regression and CI
 
 **Entry:** P4 widgets + a rendering surface that can be captured headless.
-**Work:** `tools/uiplatform/difftest.py` (F.4): reference scenarios 1–12, guest
+**Work:** `tools/uiplatform/difftest.py` (F.5): reference scenarios 1–12, guest
 goldens captured with host timestamps, Linux captures under Xvfb :97, region
 masks from the component records, tolerances per record; hook into
 `scripts/check-sync.sh` and a workflow (protected files → claim first).

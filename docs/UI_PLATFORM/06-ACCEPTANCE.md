@@ -109,18 +109,38 @@ For each app/surface (mirrors `AGENTS.md` §13.3, applied to the platform):
 17. Launch smoke under Xvfb (`scripts/check-sync.sh` contract) — the app must
     actually render without errors.
 18. Unit/behaviour tests for the state machines, run headless.
-19. Visual regression: golden-capture diff within tolerance (see F.4).
+19. Visual regression: golden-capture diff within tolerance (see F.5).
 
-## F.3 Status vocabulary for realised surfaces
+## F.3 Executable reference and the pixel gate
+
+The contract is only real if code can consume it. Two tools make that checkable
+before any application exists:
+
+| Tool | Proves | Failure mode |
+|---|---|---|
+| `tools/uiplatform/render_ref.py` | a component record draws from the token set alone (background, gradient, border, shadow, per-state override, linear scaling) | refuses to draw on an invalid record or a missing token |
+| `tests/uiplatform/test_render_ref.py` | the declared states actually change pixels (probe the record's own geometry) | fails when a state is invisible or a colour is wrong |
+| `tools/uiplatform/validate.py check-deps` | R-TOKENDEP: every token a record references is defined | fails on an undefined token reference |
+
+Known renderer defects these tests already caught and fixed: the shadow was
+composited *over* the body (buttons came out grey) and asset-only glyphs were
+drawn as black blobs. That is the intended dynamic — the reference renderer is
+the cheapest place to discover that a record is not drawable.
+
+16. **Executable record check:** all records render, states differ, dependency
+    closure holds (`check-deps` + `test_render_ref.py`), and the output scales
+    linearly at @2x.
+
+## F.4 Status vocabulary for realised surfaces
 
 `NOT_STARTED · AUDIT_REQUIRED · IN_PROGRESS · PARTIALLY_IMPLEMENTED ·
 IMPLEMENTED_HARDWARE_VALIDATION_REQUIRED · VERIFIED · HARDWARE_BLOCKED ·
 DEFERRED · EXCLUDED` (`AGENTS.md` §13.4). Records use the same vocabulary via
 `status`, so a surface and its data can be compared directly.
 
-## F.4 Visual regression methodology
+## F.5 Visual regression methodology
 
-1. **Reference scenarios** — a fixed list (defined in F.5), each rendered in the
+1. **Reference scenarios** — a fixed list (defined in F.6), each rendered in the
    guest at 1600×900 @1x with the guest clock pinned, and on Linux under
    `Xvfb :97` at the same DPI.
 2. **Capture** — guest: HMP `screendump` (host-timestamped). Linux: Xvfb +
@@ -136,7 +156,7 @@ DEFERRED · EXCLUDED` (`AGENTS.md` §13.4). Records use the same vocabulary via
    `docs/UI_PLATFORM/reports/<scenario>.md` with the numbers, so a regression
    is a failing number, not an opinion.
 
-## F.5 Reference scenarios (minimum set)
+## F.6 Reference scenarios (minimum set)
 
 | # | Scenario | Proves |
 |---|---|---|

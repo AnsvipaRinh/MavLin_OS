@@ -503,6 +503,66 @@ def audit_conformance(data_dir, captures_path):
     return report
 
 
+TOKEN_RE = re.compile(r"^(color|font|metric|duration|easing|shadow|texture)\.[a-z0-9][a-z0-9_.-]*$")
+ASSET_RE = re.compile(r"^asset\.[a-z0-9][a-z0-9_.-]*$")
+
+
+def _collect_refs(node, tokens, assets):
+    if isinstance(node, dict):
+        for value in node.values():
+            _collect_refs(value, tokens, assets)
+    elif isinstance(node, list):
+        for value in node:
+            _collect_refs(value, tokens, assets)
+    elif isinstance(node, str):
+        if TOKEN_RE.match(node):
+            tokens.add(node)
+        elif ASSET_RE.match(node):
+            assets.add(node)
+
+
+def check_deps(record_paths, tokens_path, assets_manifest=None):
+    """R-TOKENDEP: every token a record references must exist in the token set.
+
+    A missing token is a hard error (the platform refuses to guess a value);
+    a missing asset is reported as a gap, because the asset layer of the
+    compiled tree is only partially generated today.
+    """
+    if not os.path.exists(tokens_path):
+        return {"ok": False, "errors": ["token file missing: %s" % tokens_path],
+                "asset_gaps": [], "records": 0}
+    tokens = set(json.load(open(tokens_path)).get("tokens", {}))
+    known_assets = set()
+    if assets_manifest and os.path.exists(assets_manifest):
+        for a in json.load(open(assets_manifest)).get("assets", []):
+            if isinstance(a, dict) and a.get("id"):
+                known_assets.add(a["id"])
+
+    errors, asset_gaps, used_tokens = [], [], set()
+    records = 0
+    for path in record_paths:
+        if not os.path.isfile(path):
+            continue
+        doc = json.load(open(path))
+        records += 1
+        refs, arefs = set(), set()
+        _collect_refs(doc, refs, arefs)
+        for ref in sorted(refs):
+            if ref in tokens:
+                used_tokens.add(ref)
+            else:
+                errors.append("%s: token %r is not defined in %s"
+                              % (os.path.basename(path), ref,
+                                 os.path.basename(tokens_path)))
+        for ref in sorted(arefs - known_assets):
+            asset_gaps.append("%s: asset %r has no record yet"
+                              % (os.path.basename(path), ref))
+    orphan = sorted(t for t in tokens - used_tokens)
+    return {"ok": not errors, "errors": errors, "asset_gaps": asset_gaps,
+            "records": records, "tokens_defined": len(tokens),
+            "tokens_referenced": len(used_tokens), "unused_tokens": orphan}
+
+
 # --- cli -----------------------------------------------------------------
 
 
@@ -525,10 +585,14 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", nargs="?", default="validate",
-                    choices=["validate", "conformance"])
+                    choices=["validate", "conformance", "check-deps"])
     ap.add_argument("paths", nargs="*")
     ap.add_argument("--data", default=DEFAULT_DATA)
     ap.add_argument("--captures", default=DEFAULT_CAPTURES)
+    ap.add_argument("--tokens", default=os.path.join(REPO, "design", "tokens",
+                                                     "design-tokens.json"))
+    ap.add_argument("--assets", default=os.path.join(REPO, "design", "assets",
+                                                     "manifest.json"))
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
@@ -540,6 +604,35 @@ def main(argv=None):
             return 1
         report = audit_conformance(args.data, args.captures)
         return 1 if report["verdict"] == "STRUCTURAL-FAIL" else print_report(report, args.json)
+
+    if args.command == "check-deps":
+        record_paths = [p for p in args.paths]
+        if not record_paths:
+            for cand in (EXAMPLES_DIR,
+                         os.path.join(REPO, "design", "components"),
+                         os.path.join(REPO, "design", "behaviors"),
+                         os.path.join(REPO, "design", "animations"),
+                         os.path.join(REPO, "design", "surfaces")):
+                if os.path.isdir(cand):
+                    record_paths += [os.path.join(cand, f) for f in sorted(os.listdir(cand))
+                                     if f.endswith(".json")]
+        result = check_deps(record_paths, args.tokens, args.assets)
+        if args.json:
+            print(json.dumps(result, indent=1, sort_keys=True))
+        else:
+            print("record dependency check: %s (%d records, %d/%d tokens referenced, "
+                  "%d asset gaps)"
+                  % ("OK" if result["ok"] else "FAILED", result["records"],
+                     result.get("tokens_referenced", 0), result.get("tokens_defined", 0),
+                     len(result["asset_gaps"])))
+            for e in result["errors"]:
+                print("   -", e)
+            for g in result["asset_gaps"]:
+                print("   .", g)
+            if result.get("unused_tokens"):
+                print("   note: %d tokens not referenced by these records"
+                      % len(result["unused_tokens"]))
+        return 0 if result["ok"] else 1
 
     paths = args.paths
     if not paths:

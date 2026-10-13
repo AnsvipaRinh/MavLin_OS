@@ -53,7 +53,7 @@ Points to notice:
   part of the record's job.
 
 The same record with `kind: measured`, `confidence: high` and
-`status: verified` becomes the moment the render test in §F.4 passes.
+`status: verified` becomes the moment the render test in §F.5 passes.
 
 ## G.2 `animation.window.minimize` — reading it
 

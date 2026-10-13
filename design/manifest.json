@@ -1,10 +1,66 @@
 {
  "counts": {
-  "tokens": 22
+  "tokens": 45
  },
  "gaps": [
   {
+   "record": "color.control.background.bottom.hover",
+   "what": "Placeholder; measured from the original."
+  },
+  {
+   "record": "color.control.background.bottom.pressed",
+   "what": "Placeholder; gradient inverts when held."
+  },
+  {
+   "record": "color.control.background.top.hover",
+   "what": "Placeholder; measured from the original."
+  },
+  {
+   "record": "color.control.background.top.pressed",
+   "what": "Placeholder; gradient inverts when held."
+  },
+  {
+   "record": "color.control.border",
+   "what": "Placeholder for the 1 px control border."
+  },
+  {
+   "record": "color.control.highlight",
+   "what": "Placeholder for the inner top-left highlight."
+  },
+  {
+   "record": "color.focus.ring",
+   "what": "Placeholder; accent-coloured focus ring."
+  },
+  {
+   "record": "color.label.disabled",
+   "what": "Placeholder for the disabled label colour."
+  },
+  {
+   "record": "color.label.primary",
+   "what": "Placeholder; matches the extracted primary text value."
+  },
+  {
+   "record": "color.toolbar.background.bottom",
+   "what": "Placeholder for the toolbar body's darker stop."
+  },
+  {
+   "record": "color.toolbar.background.top",
+   "what": "Placeholder for the toolbar body's lighter stop."
+  },
+  {
+   "record": "color.traffic.any.pressed",
+   "what": "Placeholder for a held traffic light."
+  },
+  {
    "record": "color.traffic.close",
+   "what": "Placeholder until uiprobe reports the real pixel."
+  },
+  {
+   "record": "color.traffic.close.bottom",
+   "what": "Placeholder until uiprobe reports the real pixel."
+  },
+  {
+   "record": "color.traffic.close.top",
    "what": "Placeholder until uiprobe reports the real pixel."
   },
   {
@@ -16,7 +72,27 @@
    "what": "Placeholder until uiprobe reports the real pixel."
   },
   {
+   "record": "color.traffic.minimize.bottom",
+   "what": "Placeholder until uiprobe reports the real pixel."
+  },
+  {
+   "record": "color.traffic.minimize.top",
+   "what": "Placeholder until uiprobe reports the real pixel."
+  },
+  {
+   "record": "color.traffic.ring",
+   "what": "Placeholder for the 1 px ring around each button."
+  },
+  {
    "record": "color.traffic.zoom",
+   "what": "Placeholder until uiprobe reports the real pixel."
+  },
+  {
+   "record": "color.traffic.zoom.bottom",
+   "what": "Placeholder until uiprobe reports the real pixel."
+  },
+  {
+   "record": "color.traffic.zoom.top",
    "what": "Placeholder until uiprobe reports the real pixel."
   },
   {
@@ -40,8 +116,20 @@
    "what": "Placeholder curve."
   },
   {
+   "record": "font.control",
+   "what": "Placeholder metrics; uiprobe text.fonts supplies the real five numbers."
+  },
+  {
+   "record": "metric.toolbar.height",
+   "what": "Placeholder; measured from the 320x44 toolbar strip in assets.json (GameKit resource, not AppKit)."
+  },
+  {
    "record": "metric.window.chrome.height",
    "what": "Placeholder. Derivation for the real value: uiprobe window.contentRectMath (frame vs contentRectForFrameRect:styleMask:7)."
+  },
+  {
+   "record": "shadow.control.rest",
+   "what": "Placeholder for the resting control shadow."
   },
   {
    "record": "shadow.window.rest",
@@ -58,21 +146,42 @@
  "schema": "mavlinos.manifest/1",
  "status": {
   "derived": [
-   "color.control.background.solid",
+   "color.control.background.bottom",
+   "color.control.background.top",
    "color.text.primary",
    "color.window.background"
   ],
   "proposed": [
+   "color.control.background.bottom.hover",
+   "color.control.background.bottom.pressed",
+   "color.control.background.top.hover",
+   "color.control.background.top.pressed",
+   "color.control.border",
+   "color.control.highlight",
+   "color.focus.ring",
+   "color.label.disabled",
+   "color.label.primary",
    "color.selection.control",
+   "color.toolbar.background.bottom",
+   "color.toolbar.background.top",
+   "color.traffic.any.pressed",
    "color.traffic.close",
+   "color.traffic.close.bottom",
+   "color.traffic.close.top",
    "color.traffic.inactive",
    "color.traffic.minimize",
+   "color.traffic.minimize.bottom",
+   "color.traffic.minimize.top",
+   "color.traffic.ring",
    "color.traffic.zoom",
+   "color.traffic.zoom.bottom",
+   "color.traffic.zoom.top",
    "duration.motion.medium",
    "duration.motion.short",
    "duration.motion.window",
    "easing.standard",
    "easing.window.minimize",
+   "font.control",
    "font.system.family",
    "font.system.size",
    "metric.control.height.mini",
@@ -80,7 +189,9 @@
    "metric.control.height.small",
    "metric.control.radius",
    "metric.menubar.height",
+   "metric.toolbar.height",
    "metric.window.chrome.height",
+   "shadow.control.rest",
    "shadow.window.rest"
   ]
  }

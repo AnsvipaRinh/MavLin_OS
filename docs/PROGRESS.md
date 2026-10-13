@@ -1345,3 +1345,37 @@ Continuation of `c4e1557a` (roadmap P2, first part) under claim
 and has a working compiler as its first consumer. Next: curated
 `design/components/*.json` and the asset generator (both need
 `uiprobe.json` + metric facts to stop being proposal-only).
+
+## Session 2026-10-13 (3/3) — reference renderer + dependency closure (oid `ui-platform-spec`, claim 2)
+
+**Shipped**
+
+- `tools/uiplatform/render_ref.py`: executable reference implementation of the
+  component record vocabulary (pycairo, no GTK, no app). Draws layout rects,
+  solid/linear-gradient fills, borders, shadows, per-state overrides, opacity,
+  @2x scaling; refuses to draw an invalid record or with a missing token.
+- `tools/uiplatform/validate.py check-deps`: R-TOKENDEP closure check — every
+  token referenced by any record must exist in `design/tokens/design-tokens.json`
+  (missing asset = gap, missing token = failure).
+- `tests/uiplatform/test_render_ref.py`: 17 pixel probes on the reference records
+  (gradient present, states visibly differ, traffic lights three distinct
+  colours, inactive-window greys all three, linear @2x scaling, hard-error cases).
+  Two renderer defects were found and fixed by these probes: shadow composited
+  over the button body; asset-only glyphs drawn as black blobs.
+- `scripts/check-sync.sh`: two more contract gates (dependency closure, reference
+  renderer) → six contract gates total, all OK.
+- Token file extended to satisfy the example records' dependency closure
+  (45 tokens: 4 derived from the extracted palette, 41 proposed; manifest lists
+  33 unverified gaps).
+- `.gitignore`: `build/` (reference renderer output).
+- docs: F.3 rewritten as "Executable reference and the pixel gate", cross-refs
+  renumbered, roadmap/README/acceptance updated, DECISIONS entry.
+
+**Verified**
+
+- `tests/uiplatform/test_render_ref.py` → 17 checks, 0 failed
+- `validate.py check-deps` → OK (6 records, 25/45 tokens referenced, 6 asset gaps)
+- `tests/uiplatform/test_tokens.py` → 38 checks, 0 failed
+- `tests/uiplatform/test_contract.py` → 34 checks, 0 failed
+- `tools/lint-tests.py --strict` → 0 errors
+- `scripts/check-sync.sh` → all six contract gates OK; pre-existing red unchanged

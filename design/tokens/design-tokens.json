@@ -13,17 +13,101 @@
  },
  "schema": "mavlinos.design-tokens/1",
  "tokens": {
-  "color.control.background.solid": {
+  "color.control.background.bottom": {
    "alpha": 0.867,
    "confidence": "medium",
    "evidence": [
     "src:appkit"
    ],
    "kind": "derived",
-   "notes": "aqua.control.solid, a=0.867, 1199 occurrences, read from palette fact appkit.color.dddddd.add. The colour value is measured; the role assignment ('this is the window background') is a MavLinOS decision and stays at medium confidence until the surface captures confirm it.",
+   "notes": "aqua.control.solid, a=0.867, 1199 occurrences; used as the bottom stop of the control gradient, read from palette fact appkit.color.dddddd.add. The colour value is measured; the role assignment ('this is the window background') is a MavLinOS decision and stays at medium confidence until the surface captures confirm it.",
    "type": "color",
    "unit": "none",
    "value": "#dddddd"
+  },
+  "color.control.background.bottom.hover": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder; measured from the original.",
+   "type": "color",
+   "unit": "none",
+   "value": "#e4e4e4"
+  },
+  "color.control.background.bottom.pressed": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder; gradient inverts when held.",
+   "type": "color",
+   "unit": "none",
+   "value": "#f0f0f0"
+  },
+  "color.control.background.top": {
+   "alpha": 1.0,
+   "confidence": "medium",
+   "evidence": [
+    "src:appkit"
+   ],
+   "kind": "derived",
+   "notes": "top stop of the aqua.control gradient, read from palette fact appkit.color.ffffff.aff. The colour value is measured; the role assignment ('this is the window background') is a MavLinOS decision and stays at medium confidence until the surface captures confirm it.",
+   "type": "color",
+   "unit": "none",
+   "value": "#ffffff"
+  },
+  "color.control.background.top.hover": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder; measured from the original.",
+   "type": "color",
+   "unit": "none",
+   "value": "#f6f6f6"
+  },
+  "color.control.background.top.pressed": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder; gradient inverts when held.",
+   "type": "color",
+   "unit": "none",
+   "value": "#d2d2d2"
+  },
+  "color.control.border": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder for the 1 px control border.",
+   "type": "color",
+   "unit": "none",
+   "value": "#9a9a9a"
+  },
+  "color.control.highlight": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder for the inner top-left highlight.",
+   "type": "color",
+   "unit": "none",
+   "value": "#ffffff"
+  },
+  "color.focus.ring": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder; accent-coloured focus ring.",
+   "type": "color",
+   "unit": "none",
+   "value": "#6f8fbd"
+  },
+  "color.label.disabled": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder for the disabled label colour.",
+   "type": "color",
+   "unit": "none",
+   "value": "#8a8a8a"
+  },
+  "color.label.primary": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder; matches the extracted primary text value.",
+   "type": "color",
+   "unit": "none",
+   "value": "#000000"
   },
   "color.selection.control": {
    "confidence": "low",
@@ -49,6 +133,30 @@
    "unit": "none",
    "value": "#000000"
   },
+  "color.toolbar.background.bottom": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder for the toolbar body's darker stop.",
+   "type": "color",
+   "unit": "none",
+   "value": "#e2e2e2"
+  },
+  "color.toolbar.background.top": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder for the toolbar body's lighter stop.",
+   "type": "color",
+   "unit": "none",
+   "value": "#f4f4f4"
+  },
+  "color.traffic.any.pressed": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder for a held traffic light.",
+   "type": "color",
+   "unit": "none",
+   "value": "#b9b9b9"
+  },
   "color.traffic.close": {
    "confidence": "unverified",
    "kind": "proposed",
@@ -56,6 +164,22 @@
    "type": "color",
    "unit": "none",
    "value": "#ff5f57"
+  },
+  "color.traffic.close.bottom": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder until uiprobe reports the real pixel.",
+   "type": "color",
+   "unit": "none",
+   "value": "#e0453c"
+  },
+  "color.traffic.close.top": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder until uiprobe reports the real pixel.",
+   "type": "color",
+   "unit": "none",
+   "value": "#ff7b72"
   },
   "color.traffic.inactive": {
    "confidence": "unverified",
@@ -73,6 +197,30 @@
    "unit": "none",
    "value": "#febc2e"
   },
+  "color.traffic.minimize.bottom": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder until uiprobe reports the real pixel.",
+   "type": "color",
+   "unit": "none",
+   "value": "#dfa018"
+  },
+  "color.traffic.minimize.top": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder until uiprobe reports the real pixel.",
+   "type": "color",
+   "unit": "none",
+   "value": "#ffd24d"
+  },
+  "color.traffic.ring": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder for the 1 px ring around each button.",
+   "type": "color",
+   "unit": "none",
+   "value": "#8a8a8a"
+  },
   "color.traffic.zoom": {
    "confidence": "unverified",
    "kind": "proposed",
@@ -80,6 +228,22 @@
    "type": "color",
    "unit": "none",
    "value": "#28c840"
+  },
+  "color.traffic.zoom.bottom": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder until uiprobe reports the real pixel.",
+   "type": "color",
+   "unit": "none",
+   "value": "#1f9c2f"
+  },
+  "color.traffic.zoom.top": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder until uiprobe reports the real pixel.",
+   "type": "color",
+   "unit": "none",
+   "value": "#3ed24f"
   },
   "color.window.background": {
    "alpha": 1.0,
@@ -147,6 +311,29 @@
     ]
    }
   },
+  "font.control": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "linux_substitute": {
+    "package": "cantarell-fonts",
+    "reason": "licensed Apple artwork (rule C5)",
+    "value": {
+     "family": "Cantarell",
+     "size_pt": 11
+    }
+   },
+   "notes": "Placeholder metrics; uiprobe text.fonts supplies the real five numbers.",
+   "type": "font",
+   "unit": "pt",
+   "value": {
+    "ascender": 0,
+    "descender": 0,
+    "family": "Lucida Grande",
+    "leading": 0,
+    "size_pt": 11,
+    "xHeight": 0
+   }
+  },
   "font.system.family": {
    "confidence": "low",
    "kind": "proposed",
@@ -208,6 +395,14 @@
    "unit": "pt",
    "value": 24
   },
+  "metric.toolbar.height": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder; measured from the 320x44 toolbar strip in assets.json (GameKit resource, not AppKit).",
+   "type": "metric",
+   "unit": "pt",
+   "value": 44
+  },
   "metric.window.chrome.height": {
    "confidence": "unverified",
    "kind": "proposed",
@@ -215,6 +410,23 @@
    "type": "metric",
    "unit": "pt",
    "value": 22
+  },
+  "shadow.control.rest": {
+   "confidence": "unverified",
+   "kind": "proposed",
+   "notes": "Placeholder for the resting control shadow.",
+   "type": "shadow",
+   "unit": "none",
+   "value": {
+    "alpha": 0.25,
+    "blur": 2,
+    "color": "#000000",
+    "offset": [
+     0,
+     1
+    ],
+    "spread": 0
+   }
   },
   "shadow.window.rest": {
    "confidence": "unverified",
