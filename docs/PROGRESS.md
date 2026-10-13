@@ -1220,3 +1220,28 @@ rules), so any Linux backend can be wrapped and any new app assembled from those
 installer running unattended). When the desktop is up, `mvprobe.dylib` is run inside the guest to
 replace the static palette section with AppKit's *runtime* system colours, and `components.json`
 coverage flips from `ipu` (nib+api, no runtime) to `111` for every component.
+
+### Where the guest work stopped, and the exact continuation
+
+The reference guest (QEMU + OpenCore + the real 10.9 installer) runs, boots the installer
+environment and drives a keyboard/mouse, but the unattended install loop is not reliable yet:
+
+- **Known-good facts:** keyboard reaches the guest; mouse buttons register *only* when the
+  pointer moves immediately before the press (`tools/uiref/../mvvm.py` click recipe: abs move →
+  1-unit rel jiggle → down → up); pointer lands ~10% left / ~4% high of the request; the
+  destination picker ignores arrow keys entirely, so it needs a real click.
+- **Known bad:** template matching on the small arrow glyphs is too weak (score < 0.5) to drive
+  the flow unattended; `~/vmwork/auto_install.py` therefore detects the screen but does not act.
+
+**Continuation plan (in order):**
+1. Boot the *full* installer instead of BaseSystem (edit the OpenCore config through
+   `qemu-nbd` + `plistlib`, add the "Install OS X Mavericks" stub volume as a boot entry). The
+   full installer ships **Terminal** in its Utilities menu — no installation required.
+2. In that Terminal: `curl -O http://10.0.2.2:8000/mvprobe.dylib` (host HTTP via QEMU slirp),
+   then `DYLD_INSERT_LIBRARIES=./mvprobe.dylib MVPROBE_OUT=/tmp/probe.json /usr/bin/true`.
+3. Harvest `/tmp/probe.json` (pull it out through the same HTTP direction or read it via a
+   second Terminal command that prints it) → `docs/UI_REFERENCE/data/uiprobe.json`.
+4. `python3 tools/uiref/components.py ... --probe uiprobe.json` flips every component's coverage
+   from `ipu` to `111` and replaces the static palette section with AppKit's runtime colours.
+5. Only then finish the full install (desktop capture: Finder views, Spotlight, Launchpad,
+   Mission Control, Notification Center, Quick Look) for the behaviour layer.
