@@ -57,8 +57,8 @@ def main():
     by_path = {n["path"]: n for n in geo.get("nibs", [])}
 
     surfaces = defaultdict(lambda: {"nib": None, "path": None, "windows": [],
-                                    "views": [], "menus": [], "kinds": set(),
-                                    "classes": defaultdict(int)})
+                                    "views": [], "menus": [], "images": [],
+                                    "kinds": set(), "classes": defaultdict(int)})
     for rel, nib in by_path.items():
         app = app_of(rel) or "System"
         name = os.path.basename(rel).replace(".nib", "")
@@ -70,6 +70,7 @@ def main():
         s["kinds"].add(classify(name))
         s["windows"] = nib.get("windows", [])
         s.setdefault("menus", []).extend(nib.get("menus", []))
+        s.setdefault("images", []).extend(nib.get("images", []))
         for v in nib.get("views", []):
             cls = v.get("class")
             if cls:
@@ -92,6 +93,7 @@ def main():
         out.append({
             "id": f"surface.{app}.{name}",
             "menu_items": menus[:120],
+            "artwork": sorted(set(s["images"]))[:20],
             "application": app,
             "surface": name,
             "kind": sorted(s["kinds"])[0] if s["kinds"] else "other",
