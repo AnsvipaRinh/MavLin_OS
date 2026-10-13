@@ -57,7 +57,7 @@ def main():
     by_path = {n["path"]: n for n in geo.get("nibs", [])}
 
     surfaces = defaultdict(lambda: {"nib": None, "path": None, "windows": [],
-                                    "views": [], "menus": [], "images": [],
+                                    "views": [], "menus": [], "images": [], "controls": [],
                                     "kinds": set(), "classes": defaultdict(int)})
     for rel, nib in by_path.items():
         app = app_of(rel) or "System"
@@ -71,6 +71,10 @@ def main():
         s["windows"] = nib.get("windows", [])
         s.setdefault("menus", []).extend(nib.get("menus", []))
         s.setdefault("images", []).extend(nib.get("images", []))
+        for cell in nib.get("controls", []):
+            s["controls"].append({"class": cell.get("class"),
+                                  "title": cell.get("title"),
+                                  "key_equiv": cell.get("key_equiv")})
         for v in nib.get("views", []):
             cls = v.get("class")
             if cls:
@@ -94,6 +98,8 @@ def main():
             "id": f"surface.{app}.{name}",
             "menu_items": menus[:120],
             "artwork": sorted(set(s["images"]))[:20],
+            "control_classes": sorted({c["class"] for c in s["controls"]
+                                       if c.get("class")})[:12],
             "application": app,
             "surface": name,
             "kind": sorted(s["kinds"])[0] if s["kinds"] else "other",

@@ -118,6 +118,29 @@ def main():
         if page and page in cat_files and fid not in cat_files[page]:
             errors.append(f"docs drift: {fid} from {fn} not rendered into catalog/{page}")
 
+    # control appearance protocol: cells must reconcile with nib_geometry, and the
+    # generated page must actually show them (fails if a rebuild loses data)
+    ctl_path = os.path.join(DATA, "controls.json")
+    geo_path = os.path.join(DATA, "nib_geometry.json")
+    if os.path.exists(ctl_path) and os.path.exists(geo_path):
+        ctl = json.load(open(ctl_path))
+        geo = json.load(open(geo_path))
+        raw_cells = sum(len(n.get("controls", [])) for n in geo.get("nibs", []))
+        if ctl.get("cells") != raw_cells:
+            errors.append(f"controls.json: cells {ctl.get('cells')} != nib_geometry {raw_cells}")
+        declared = sum(c["instances"] for c in ctl.get("classes", []))
+        if declared != ctl.get("cells"):
+            errors.append(f"controls.json: instances {declared} != cells {ctl.get('cells')}")
+        ctl_ids = [c["id"] for c in ctl.get("classes", [])]
+        if len(set(ctl_ids)) != len(ctl_ids):
+            errors.append("controls.json: duplicate control ids")
+        page = cat_files.get("controls.md", "")
+        missing = [c["class"] for c in ctl.get("classes", [])
+                   if c["class"] not in page]
+        if missing:
+            errors.append(f"catalog/controls.md missing classes: {missing[:5]}")
+
+
     if errors:
         print("UI_REFERENCE VALIDATION FAILED:")
         for e in errors:

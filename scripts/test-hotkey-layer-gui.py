@@ -67,11 +67,15 @@ check("application id is namespaced",
       "com.mavlinos.KeyboardShortcuts" in src)
 check("Apple glyphs are used, not GTK names",
       all(g in src for g in ("⌃", "⌥", "⇧", "⌘")))
-check("header bar present", "Gtk.HeaderBar(title=\"Keyboard Shortcuts\"" in src)
+check("window chrome is XFWM4, not CSD",
+      "self.set_decorated(True)" in src and "Gtk.HeaderBar" not in src)
+check("in-window toolbar carries the app controls",
+      "mavericks-hotkeys-toolbar" in src and "toolbar.pack_start" in src)
 check("sidebar stack present", "Gtk.Stack()" in src)
 check("search field present", "Gtk.SearchEntry(placeholder_text=" in src)
 check("rows expose a checkbox column", "Gtk.CheckButton()" in src)
-check("All Defaults action present", 'reset_all = Gtk.Button(label="All Defaults")')
+check("All Defaults action present",
+      'reset_all = Gtk.Button(label="All Defaults")' in src)
 check("click-to-record capture",
       'dialog.connect("key-press-event", self.on_key_press)' in src)
 check("recorder starts with no pending combination",

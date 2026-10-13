@@ -71,6 +71,7 @@ def main():
     os.makedirs(CAT, exist_ok=True)
     out = {
         "palette.md": render_palette(load("palette.json")),
+        "controls.md": render_controls(load("controls.json")),
         "metrics.md": render_generic(load("metrics.json"), "Metrics",
                                      "@1x pixel/point values. `derived` facts show their formula in `deriv`."),
         "typography.md": render_generic(load("typography.json"), "Typography",
@@ -88,6 +89,30 @@ def main():
             fh.write(text.rstrip() + "\n")
         print("wrote", os.path.relpath(p, HERE))
     return 0
+
+
+def render_controls(data):
+    """Control appearance protocol: cell classes, flag bitfields, key equivalents."""
+    out = ["# Control appearance protocol (decoded from compiled nib cell objects)", "",
+           f"Cells decoded from the real OS X 10.9 system tree: **{data['cells']}** "
+           f"instances across **{data['count']}** NS*Cell classes.", "",
+           "Flag values are reported exactly as stored in the archives. No bit name is",
+           "invented here: implementers must map a bitfield to a bezel appearance only",
+           "after verifying it against AppKit itself, then record the mapping here.", ""]
+    for c in sorted(data["classes"], key=lambda x: -x["instances"]):
+        out.append(f"## {c['class']} — {c['instances']} instances")
+        out.append(f"* apps: {', '.join(c['apps'][:6])}")
+        for key, vals in sorted(c.get("flags", {}).items()):
+            pretty = ", ".join(f"`{v}`x{n}" for v, n in vals[:6])
+            out.append(f"* {key}: {pretty}")
+        if c.get("titles"):
+            out.append(f"* titles: {', '.join(repr(t) for t in c['titles'][:8])}")
+        if c.get("key_equivalents"):
+            out.append(f"* key equivalents: "
+                       f"{', '.join(repr(k) for k in c['key_equivalents'][:8])}")
+        out.append("")
+    return "\n".join(out)
+
 
 
 if __name__ == "__main__":

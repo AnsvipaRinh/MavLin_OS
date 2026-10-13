@@ -18,6 +18,7 @@ source of geometry or colour.
 | Contract (code) | `data/ui-api.json` | ObjC class model per responsibility bucket (geometry, focus, keyboard, mouse, drawing, animation, window, control, menu, text, dragdrop) |
 | Surfaces | `data/surfaces.json` | 1198 surfaces: window frames, required controls, menu items, artwork per surface — the assembly rules |
 | Components | `data/components.json` | 15 prefabricated "skin + bones" pieces with a coverage report |
+| Controls | `data/controls.json` | 14375 decoded cell objects of 38 NS*Cell classes: bezel/flags bitfields, images, titles, key equivalents |
 | Palette | `data/palette.json` | 275 colours decoded from AppKit's `__color/__gray/__mac_color/__color_alpha` ramps |
 | Wording | `data/terminology.json` | 3910 exact English strings of system apps (menus, alerts, buttons) |
 | Rendering | `catalog/*.md` | generated from the data by `tools/uiref/render.py` (never hand-edit) |

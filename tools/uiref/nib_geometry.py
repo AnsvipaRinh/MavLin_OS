@@ -150,6 +150,29 @@ def collect_colors(nib, obj, out, depth=0):
     return out
 
 
+NUM_KEYS = ("NS.intval", "NS.floatval", "NS.doubleval", "NS.boolval",
+            "NS.integerval", "NS.unsignedval", "NS.charval", "NS.int")
+
+
+def number(nib, v, depth=0):
+    """Resolve a keyed-archive scalar (NSNumber wrapper or plain int/float)."""
+    if isinstance(v, bool):
+        return int(v)
+    if isinstance(v, (int, float)):
+        return v
+    v = nib.get(v, depth)
+    if isinstance(v, bool):
+        return int(v)
+    if isinstance(v, (int, float)):
+        return v
+    if isinstance(v, dict):
+        for k in NUM_KEYS:
+            if k in v:
+                x = v[k]
+                return x if isinstance(x, (int, float)) and not isinstance(x, bool) else int(x)
+    return None
+
+
 def walk(nib, obj, view, fonts, colors, images, depth=0):
     if depth > 60:
         return
@@ -183,6 +206,38 @@ def walk(nib, obj, view, fonts, colors, images, depth=0):
             if isinstance(v, (int, float)):
                 win["style_mask"] = int(v)
         view.setdefault("windows", []).append(win)
+    if cn and "Cell" in str(cn) and cn.startswith("NS"):
+        # Cell objects carry the control appearance protocol: bezel/flags bitfields,
+        # image + alternate image, key equivalent, title, text/background colour.
+        rec = {"class": cn}
+        for k, v in obj.items():
+            if k.startswith("$"):
+                continue
+            if k in ("NSNormalImage", "NSAlternateImage"):
+                s = nib.string(v)
+                if s:
+                    rec["image" if k == "NSNormalImage" else "alt_image"] = s
+            elif k == "NSKeyEquivalent":
+                s = nib.string(v)
+                if s:
+                    rec["key_equiv"] = s
+            elif k in ("NSContents", "NSAlternateContents"):
+                s = nib.string(v)
+                if s and k == "NSContents":
+                    rec["title"] = s
+                elif s:
+                    rec["alt_title"] = s
+            elif k == "NSFont":
+                collect_fonts(nib, nib.get(v), fonts)
+            else:
+                num = number(nib, v)
+                if num is not None:
+                    attrs = rec.setdefault("attrs", {})
+                    if len(attrs) < 16:
+                        attrs[k] = num
+        collect_colors(nib, obj, colors)
+        if len(rec) > 1:
+            view.setdefault("controls", []).append(rec)
     if cn and ("NSView" in str(cn) or cn.startswith("NS") and "Cell" not in str(cn)
                and any(k.endswith(("View", "Control", "Scroller", "TextField", "Button",
                                    "PopUp", "Box", "ScrollView", "TableView",
@@ -208,6 +263,12 @@ def walk(nib, obj, view, fonts, colors, images, depth=0):
                 v2 = nib.get(v)
                 if isinstance(v2, (int, float)):
                     rec["alignment"] = int(v2)
+            else:
+                num = number(nib, v)
+                if num is not None:
+                    attrs = rec.setdefault("attrs", {})
+                    if len(attrs) < 24:
+                        attrs[k] = num
         view.setdefault("views", []).append(rec)
     collect_fonts(nib, obj, fonts)
     collect_colors(nib, obj, colors)

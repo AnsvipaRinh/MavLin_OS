@@ -1,0 +1,2728 @@
+{
+ "cells": 14375,
+ "classes": [
+  {
+   "alt_titles": [],
+   "apps": [
+    "SEPDictionaryDocument.nib",
+    "ColumnView.nib",
+    "BKColumnHierarchyModule.nib",
+    "BKColumnHierarchyModuleAquaCongruency.nib",
+    "keyedobjects.nib"
+   ],
+   "class": "NSBrowserCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      67108928,
+      4
+     ],
+     [
+      67239488,
+      3
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      1024,
+      4
+     ],
+     [
+      2048,
+      3
+     ]
+    ]
+   },
+   "id": "control.NSBrowserCell",
+   "images": [],
+   "instances": 7,
+   "key_equivalents": [],
+   "titles": [
+    "BrowserItem",
+    " "
+   ]
+  },
+  {
+   "alt_titles": [
+    "1",
+    "mh35705",
+    "Roll Down",
+    "Drop",
+    "nuttoB"
+   ],
+   "apps": [
+    "main.nib",
+    "Hexadecimal.nib",
+    "SecurityPref.nib",
+    "RecInspector.nib",
+    "MainMenu.nib",
+    "ExtendedKUExt.nib",
+    "LDAPv3Panel.nib",
+    "keyedobjects.nib"
+   ],
+   "class": "NSButtonCell",
+   "flags": {
+    "NSButtonFlags": [
+     [
+      -2038284288,
+      1273
+     ],
+     [
+      1211912448,
+      962
+     ],
+     [
+      -2038284033,
+      289
+     ],
+     [
+      1211912703,
+      256
+     ],
+     [
+      1211650304,
+      227
+     ],
+     [
+      -938737664,
+      56
+     ],
+     [
+      -1232715521,
+      51
+     ],
+     [
+      -2033958657,
+      45
+     ]
+    ],
+    "NSButtonFlags2": [
+     [
+      2,
+      1270
+     ],
+     [
+      1,
+      968
+     ],
+     [
+      129,
+      522
+     ],
+     [
+      0,
+      389
+     ],
+     [
+      6,
+      177
+     ],
+     [
+      33,
+      106
+     ],
+     [
+      32,
+      85
+     ],
+     [
+      161,
+      38
+     ]
+    ],
+    "NSCellFlags": [
+     [
+      67108864,
+      2225
+     ],
+     [
+      -2080374784,
+      663
+     ],
+     [
+      67239424,
+      591
+     ],
+     [
+      -2080244224,
+      71
+     ],
+     [
+      603979776,
+      61
+     ],
+     [
+      134348288,
+      36
+     ],
+     [
+      0,
+      35
+     ],
+     [
+      604110336,
+      34
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      134217728,
+      1711
+     ],
+     [
+      0,
+      1186
+     ],
+     [
+      131072,
+      385
+     ],
+     [
+      134348800,
+      218
+     ],
+     [
+      137887744,
+      118
+     ],
+     [
+      262144,
+      63
+     ],
+     [
+      268435456,
+      56
+     ],
+     [
+      134479872,
+      32
+     ]
+    ],
+    "NSTag": [
+     [
+      1,
+      132
+     ],
+     [
+      2,
+      55
+     ],
+     [
+      -1,
+      33
+     ],
+     [
+      3,
+      23
+     ],
+     [
+      4,
+      19
+     ],
+     [
+      5000,
+      14
+     ],
+     [
+      4000,
+      14
+     ],
+     [
+      5,
+      10
+     ]
+    ]
+   },
+   "id": "control.NSButtonCell",
+   "images": [],
+   "instances": 3859,
+   "key_equivalents": [
+    "\r",
+    "\u001b",
+    ".",
+    "\u007f",
+    "e",
+    "n",
+    "-",
+    "2",
+    "3",
+    "1"
+   ],
+   "titles": [
+    "Cancel",
+    "OK",
+    "Radio",
+    "0",
+    "Done",
+    "Cell",
+    "Learn More\u2026",
+    "Continue",
+    "search",
+    "clear"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "CertInfo.nib",
+    "SubjAltNameExt.nib",
+    "BasicConstraintsExt.nib",
+    "ARDBundle.nib",
+    "AdditionalCertInfo.nib",
+    "EvalCerts.nib",
+    "RequestCertMisc.nib"
+   ],
+   "class": "NSCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      67239424,
+      57
+     ],
+     [
+      67108864,
+      9
+     ],
+     [
+      604110336,
+      2
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      67108864,
+      68
+     ]
+    ]
+   },
+   "id": "control.NSCell",
+   "images": [],
+   "instances": 68,
+   "key_equivalents": [],
+   "titles": [
+    "Field:",
+    "Path Length:",
+    "Name (Common Name):",
+    "Organization:",
+    "Organizational Unit:",
+    "City (Locality):",
+    "State/Province:",
+    "rfc822Name:",
+    "URI:",
+    "dNSName:"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "NSColorPickerSliders.nib",
+    "keyedobjects.nib"
+   ],
+   "class": "NSColorScaleSliderCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      392960,
+      21
+     ],
+     [
+      -2147090688,
+      4
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      131072,
+      25
+     ]
+    ],
+    "NSTag": [
+     [
+      -1,
+      12
+     ],
+     [
+      1,
+      3
+     ],
+     [
+      2,
+      3
+     ],
+     [
+      3,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSColorScaleSliderCell",
+   "images": [],
+   "instances": 25,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "CertInfo.nib",
+    "RequestCertMisc.nib",
+    "AddBuddy.nib",
+    "AUWirelessViewController.nib",
+    "CAIdentityNamePane.nib",
+    "InspectorTimeZoneView.nib",
+    "TimeZonePickerSheet.nib",
+    "ABLabelPrinting.nib"
+   ],
+   "class": "NSComboBoxCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      342884416,
+      20
+     ],
+     [
+      343014976,
+      14
+     ],
+     [
+      341966400,
+      2
+     ],
+     [
+      341835841,
+      1
+     ],
+     [
+      341835840,
+      1
+     ],
+     [
+      342884417,
+      1
+     ],
+     [
+      342952512,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      272630784,
+      22
+     ],
+     [
+      272761856,
+      11
+     ],
+     [
+      4327424,
+      1
+     ],
+     [
+      2048,
+      1
+     ],
+     [
+      1024,
+      1
+     ],
+     [
+      4196352,
+      1
+     ],
+     [
+      272892928,
+      1
+     ],
+     [
+      4195328,
+      1
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      1,
+      40
+     ]
+    ]
+   },
+   "id": "control.NSComboBoxCell",
+   "images": [],
+   "instances": 40,
+   "key_equivalents": [],
+   "titles": [
+    "US",
+    "<NO LOC>",
+    "C - Command",
+    "NO LOC",
+    "None",
+    "/bin/bash",
+    "Apple Americas/U.S. (time.apple.com.)"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "PreferencesPanel.nib",
+    "InspectorViews.nib",
+    "main.nib",
+    "InspectorViewsOld2.nib",
+    "PrintPanel.nib",
+    "ParentalControls.nib",
+    "DDNewEventView.nib",
+    "SmartMailboxCriterionView.nib"
+   ],
+   "class": "NSDatePickerCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      71303168,
+      35
+     ],
+     [
+      67108864,
+      27
+     ],
+     [
+      341966336,
+      3
+     ],
+     [
+      71433728,
+      2
+     ],
+     [
+      71307776,
+      1
+     ],
+     [
+      71311360,
+      1
+     ],
+     [
+      71308288,
+      1
+     ],
+     [
+      71326720,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      131072,
+      49
+     ],
+     [
+      0,
+      14
+     ],
+     [
+      163840,
+      5
+     ],
+     [
+      4325376,
+      3
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      0,
+      14
+     ]
+    ]
+   },
+   "id": "control.NSDatePickerCell",
+   "images": [],
+   "instances": 71,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "CertInfo.nib",
+    "SubjAltNameExt.nib",
+    "RequestCertMisc.nib",
+    "BasicConstraintsExt.nib",
+    "ARDBundle.nib",
+    "AdditionalCertInfo.nib",
+    "EvalCerts.nib"
+   ],
+   "class": "NSFormCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      343014977,
+      46
+     ],
+     [
+      343014976,
+      17
+     ],
+     [
+      342908480,
+      4
+     ],
+     [
+      879885889,
+      1
+     ],
+     [
+      879885888,
+      1
+     ],
+     [
+      342905409,
+      1
+     ],
+     [
+      342900289,
+      1
+     ],
+     [
+      342902849,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      205521920,
+      70
+     ],
+     [
+      205652992,
+      4
+     ]
+    ],
+    "NSTag": [
+     [
+      1,
+      12
+     ],
+     [
+      2,
+      9
+     ],
+     [
+      3,
+      9
+     ],
+     [
+      4,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSFormCell",
+   "images": [],
+   "instances": 74,
+   "key_equivalents": [],
+   "titles": [
+    "0"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "MainMenu.nib",
+    "main.nib",
+    "ParentalControls.nib",
+    "SubjAltNameExt.nib",
+    "SecurityPref.nib",
+    "PVAdjustColor.nib",
+    "ABAccountSetupAssistant.nib",
+    "PasswordInputNSViewController.nib"
+   ],
+   "class": "NSImageCell",
+   "flags": {
+    "NSAlign": [
+     [
+      0,
+      950
+     ],
+     [
+      4,
+      9
+     ],
+     [
+      5,
+      4
+     ],
+     [
+      8,
+      4
+     ],
+     [
+      2,
+      4
+     ],
+     [
+      1,
+      3
+     ]
+    ],
+    "NSCellFlags": [
+     [
+      134217728,
+      463
+     ],
+     [
+      130560,
+      195
+     ],
+     [
+      0,
+      188
+     ],
+     [
+      671088640,
+      54
+     ],
+     [
+      537001472,
+      28
+     ],
+     [
+      536870912,
+      15
+     ],
+     [
+      67108864,
+      4
+     ],
+     [
+      67239424,
+      4
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      33554432,
+      938
+     ],
+     [
+      33685504,
+      18
+     ],
+     [
+      0,
+      7
+     ],
+     [
+      33587200,
+      4
+     ],
+     [
+      33816576,
+      3
+     ],
+     [
+      33718272,
+      2
+     ],
+     [
+      33556992,
+      1
+     ],
+     [
+      33556480,
+      1
+     ]
+    ],
+    "NSScale": [
+     [
+      0,
+      540
+     ],
+     [
+      1,
+      178
+     ],
+     [
+      2,
+      166
+     ],
+     [
+      3,
+      90
+     ]
+    ],
+    "NSStyle": [
+     [
+      0,
+      928
+     ],
+     [
+      2,
+      38
+     ],
+     [
+      1,
+      7
+     ],
+     [
+      3,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSImageCell",
+   "images": [],
+   "instances": 974,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "AppleAACConverter.nib",
+    "SimpleViewStatus.nib",
+    "InfoDialogMultipleInfoView.nib",
+    "InfoDialogOptionsView.nib",
+    "main.nib"
+   ],
+   "class": "NSLevelIndicatorCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      0,
+      14
+     ],
+     [
+      -1876426752,
+      1
+     ],
+     [
+      270532608,
+      1
+     ],
+     [
+      536870912,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      0,
+      17
+     ]
+    ]
+   },
+   "id": "control.NSLevelIndicatorCell",
+   "images": [],
+   "instances": 17,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "ExceptionWindow.nib"
+   ],
+   "class": "NSPathCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      69206017,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      163840,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSPathCell",
+   "images": [],
+   "instances": 1,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "main.nib",
+    "keyedobjects.nib",
+    "SmartMailboxCriterionView.nib",
+    "RulesPreferences.nib",
+    "NBandEQView.nib",
+    "Captioning.nib",
+    "PreferencesPanel.nib",
+    "AMSmartGroupsPredicateView.nib"
+   ],
+   "class": "NSPopUpButtonCell",
+   "flags": {
+    "NSButtonFlags": [
+     [
+      109199360,
+      481
+     ],
+     [
+      -2038284288,
+      118
+     ],
+     [
+      109199615,
+      92
+     ],
+     [
+      -2038284033,
+      83
+     ],
+     [
+      -2038415105,
+      9
+     ],
+     [
+      -2044575744,
+      7
+     ],
+     [
+      100810752,
+      6
+     ],
+     [
+      100679680,
+      5
+     ]
+    ],
+    "NSButtonFlags2": [
+     [
+      1,
+      508
+     ],
+     [
+      129,
+      216
+     ],
+     [
+      36,
+      89
+     ],
+     [
+      163,
+      5
+     ],
+     [
+      162,
+      5
+     ],
+     [
+      164,
+      1
+     ],
+     [
+      134,
+      1
+     ],
+     [
+      130,
+      1
+     ]
+    ],
+    "NSCellFlags": [
+     [
+      -2076180416,
+      518
+     ],
+     [
+      -2076049856,
+      122
+     ],
+     [
+      337772096,
+      44
+     ],
+     [
+      71303232,
+      42
+     ],
+     [
+      67239488,
+      23
+     ],
+     [
+      -2080374720,
+      16
+     ],
+     [
+      67108928,
+      11
+     ],
+     [
+      -2076051392,
+      7
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      2048,
+      316
+     ],
+     [
+      132096,
+      148
+     ],
+     [
+      1024,
+      135
+     ],
+     [
+      133120,
+      83
+     ],
+     [
+      4327424,
+      46
+     ],
+     [
+      264192,
+      33
+     ],
+     [
+      4196352,
+      26
+     ],
+     [
+      134219776,
+      8
+     ]
+    ],
+    "NSTag": [
+     [
+      1,
+      15
+     ],
+     [
+      -1,
+      10
+     ],
+     [
+      13,
+      7
+     ],
+     [
+      1001,
+      4
+     ],
+     [
+      1024,
+      4
+     ],
+     [
+      30,
+      3
+     ],
+     [
+      102,
+      3
+     ],
+     [
+      11,
+      3
+     ]
+    ]
+   },
+   "id": "control.NSPopUpButtonCell",
+   "images": [],
+   "instances": 829,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "BKFileSystemContentModule.nib",
+    "BKFileSystemContentModuleAquaCongruency.nib"
+   ],
+   "class": "NSProBrowserCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      67239488,
+      2
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      2048,
+      2
+     ]
+    ]
+   },
+   "id": "control.NSProBrowserCell",
+   "images": [],
+   "instances": 2,
+   "key_equivalents": [],
+   "titles": [
+    " "
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib",
+    "BKBrowserControlsModuleGrayLarge.nib",
+    "BKPreviewModule.nib",
+    "BKSidebarBrowserContentsModule.nib",
+    "BKBaseContentsModule.nib"
+   ],
+   "class": "NSProButtonCell",
+   "flags": {
+    "NSButtonFlags": [
+     [
+      -2038284033,
+      37
+     ],
+     [
+      -2038283521,
+      19
+     ],
+     [
+      138428927,
+      16
+     ],
+     [
+      -2035138305,
+      15
+     ],
+     [
+      1211650303,
+      4
+     ],
+     [
+      -2037890305,
+      2
+     ],
+     [
+      -2038284288,
+      2
+     ],
+     [
+      138428672,
+      2
+     ]
+    ],
+    "NSButtonFlags2": [
+     [
+      1,
+      66
+     ],
+     [
+      0,
+      18
+     ],
+     [
+      2,
+      11
+     ],
+     [
+      6,
+      6
+     ]
+    ],
+    "NSCellFlags": [
+     [
+      67239424,
+      73
+     ],
+     [
+      -2080244224,
+      15
+     ],
+     [
+      130560,
+      3
+     ],
+     [
+      -2147353088,
+      3
+     ],
+     [
+      67223552,
+      2
+     ],
+     [
+      -2080374784,
+      2
+     ],
+     [
+      604110336,
+      2
+     ],
+     [
+      67108864,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      134217728,
+      34
+     ],
+     [
+      134479872,
+      32
+     ],
+     [
+      0,
+      13
+     ],
+     [
+      262144,
+      9
+     ],
+     [
+      136314880,
+      5
+     ],
+     [
+      393216,
+      2
+     ],
+     [
+      136445952,
+      2
+     ],
+     [
+      136708096,
+      2
+     ]
+    ],
+    "NSTag": [
+     [
+      1,
+      3
+     ]
+    ]
+   },
+   "id": "control.NSProButtonCell",
+   "images": [],
+   "instances": 101,
+   "key_equivalents": [
+    "\r",
+    "\u001b",
+    "\u007f"
+   ],
+   "titles": [
+    "Cancel",
+    "Save",
+    "OK",
+    "Search",
+    "clear",
+    "Apply",
+    "Done",
+    "Share Screen\u2026",
+    "Connect As\u2026",
+    "search"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib"
+   ],
+   "class": "NSProComboBoxCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      343014976,
+      4
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      268436480,
+      2
+     ],
+     [
+      268829696,
+      2
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      1,
+      4
+     ]
+    ]
+   },
+   "id": "control.NSProComboBoxCell",
+   "images": [],
+   "instances": 4,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib"
+   ],
+   "class": "NSProDisclosureButtonCell",
+   "flags": {
+    "NSButtonFlags": [
+     [
+      -932691457,
+      1
+     ],
+     [
+      -931642881,
+      1
+     ]
+    ],
+    "NSButtonFlags2": [
+     [
+      0,
+      1
+     ],
+     [
+      6,
+      1
+     ]
+    ],
+    "NSCellFlags": [
+     [
+      67239424,
+      2
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      134217728,
+      2
+     ]
+    ]
+   },
+   "id": "control.NSProDisclosureButtonCell",
+   "images": [],
+   "instances": 2,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "BKSidebarBrowserContentsModule.nib"
+   ],
+   "class": "NSProPaneCapPathCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      337772033,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      294912,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSProPaneCapPathCell",
+   "images": [],
+   "instances": 1,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "BKSidebarBrowserContentsModule.nib"
+   ],
+   "class": "NSProPaneCapPathComponentCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      67239488,
+      2
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      263168,
+      2
+     ]
+    ]
+   },
+   "id": "control.NSProPaneCapPathComponentCell",
+   "images": [],
+   "instances": 2,
+   "key_equivalents": [],
+   "titles": [
+    "10_6_2",
+    "Applications"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "BKSidebarBrowserContentsModule.nib"
+   ],
+   "class": "NSProPaneCapSegmentedCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      -2080244224,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      294912,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSProPaneCapSegmentedCell",
+   "images": [],
+   "instances": 1,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "BKItemsControlsModule.nib",
+    "BKItemsControlsModuleAquaCongruency.nib"
+   ],
+   "class": "NSProPathCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      337772033,
+      2
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      0,
+      1
+     ],
+     [
+      262144,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSProPathCell",
+   "images": [],
+   "instances": 2,
+   "key_equivalents": [],
+   "titles": [
+    "/Do/Not/Localize"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "BKItemsControlsModule.nib",
+    "BKItemsControlsModuleAquaCongruency.nib"
+   ],
+   "class": "NSProPathComponentCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      67239488,
+      6
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      1024,
+      3
+     ],
+     [
+      263168,
+      3
+     ]
+    ]
+   },
+   "id": "control.NSProPathComponentCell",
+   "images": [],
+   "instances": 6,
+   "key_equivalents": [],
+   "titles": [
+    "Do",
+    "Not",
+    "Localize"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib",
+    "BKBrowserControlsModule.nib",
+    "BKBrowserControlsModuleGrayLarge.nib",
+    "BKMenuedFilterQueryTile.nib",
+    "BKMenuedFilterQueryTileAquaCongruency.nib"
+   ],
+   "class": "NSProPopUpButtonCell",
+   "flags": {
+    "NSButtonFlags": [
+     [
+      109199615,
+      9
+     ],
+     [
+      -2038284033,
+      8
+     ],
+     [
+      109199360,
+      1
+     ]
+    ],
+    "NSButtonFlags2": [
+     [
+      1,
+      16
+     ],
+     [
+      2,
+      2
+     ]
+    ],
+    "NSCellFlags": [
+     [
+      -2076049856,
+      16
+     ],
+     [
+      67239488,
+      1
+     ],
+     [
+      -2076180416,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      1024,
+      4
+     ],
+     [
+      394240,
+      4
+     ],
+     [
+      263168,
+      3
+     ],
+     [
+      2048,
+      2
+     ],
+     [
+      1050624,
+      1
+     ],
+     [
+      2361344,
+      1
+     ],
+     [
+      134349824,
+      1
+     ],
+     [
+      134350848,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSProPopUpButtonCell",
+   "images": [],
+   "instances": 18,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib"
+   ],
+   "class": "NSProRuleEditorDatePickerCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      71433728,
+      2
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      0,
+      2
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      0,
+      2
+     ]
+    ]
+   },
+   "id": "control.NSProRuleEditorDatePickerCell",
+   "images": [],
+   "instances": 2,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib",
+    "BKBrowserControlsModuleGrayLarge.nib",
+    "BKSidebarBrowserContentsModule.nib"
+   ],
+   "class": "NSProSearchFieldCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      343014976,
+      8
+     ],
+     [
+      343001152,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      263168,
+      5
+     ],
+     [
+      1024,
+      3
+     ],
+     [
+      394240,
+      1
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      1,
+      7
+     ]
+    ]
+   },
+   "id": "control.NSProSearchFieldCell",
+   "images": [],
+   "instances": 9,
+   "key_equivalents": [],
+   "titles": [
+    "Jelly"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib",
+    "BKBrowserControlsModule.nib",
+    "BKBrowserControlsModuleGrayLarge.nib"
+   ],
+   "class": "NSProSegmentedCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      67239424,
+      8
+     ],
+     [
+      75497472,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      1441792,
+      2
+     ],
+     [
+      0,
+      2
+     ],
+     [
+      262144,
+      2
+     ],
+     [
+      2228224,
+      1
+     ],
+     [
+      393216,
+      1
+     ],
+     [
+      1310720,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSProSegmentedCell",
+   "images": [],
+   "instances": 9,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib",
+    "BKSidebarBrowserContentsModule.nib"
+   ],
+   "class": "NSProSliderCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      -2079981824,
+      1
+     ],
+     [
+      392960,
+      1
+     ],
+     [
+      67501824,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      917504,
+      1
+     ],
+     [
+      0,
+      1
+     ],
+     [
+      393216,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSProSliderCell",
+   "images": [],
+   "instances": 3,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib",
+    "BKFileSystemSidebarModule.nib",
+    "BKFilterQueryTile.nib",
+    "BKFilterQueryTileAquaCongruency.nib",
+    "BKListModule.nib",
+    "BKListModuleAquaCongruency.nib",
+    "BKMenuedFilterQueryTile.nib",
+    "BKMenuedFilterQueryTileAquaCongruency.nib"
+   ],
+   "class": "NSProTableHeaderCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      75628032,
+      42
+     ],
+     [
+      75497472,
+      6
+     ],
+     [
+      75619328,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      0,
+      28
+     ],
+     [
+      393216,
+      10
+     ],
+     [
+      131072,
+      7
+     ],
+     [
+      134217728,
+      1
+     ],
+     [
+      134610944,
+      1
+     ],
+     [
+      67108864,
+      1
+     ],
+     [
+      67502080,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSProTableHeaderCell",
+   "images": [],
+   "instances": 49,
+   "key_equivalents": [],
+   "titles": [
+    "First",
+    "Command",
+    "Color",
+    "Name",
+    "Modifiers",
+    "Key",
+    "Modifier",
+    "Command Groups",
+    "Layouts",
+    "Date Modified"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib",
+    "BKBrowserControlsModule.nib",
+    "BKBrowserControlsModuleGrayLarge.nib",
+    "BKFilterQueryModule.nib",
+    "BKItemsControlsModule.nib",
+    "BKItemsControlsModuleAquaCongruency.nib",
+    "BKFileSystemSidebarModule.nib",
+    "BKFileSystemSidebarModuleAquaCongruency.nib"
+   ],
+   "class": "NSProTextFieldCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      67239424,
+      63
+     ],
+     [
+      343014976,
+      47
+     ],
+     [
+      67239488,
+      42
+     ],
+     [
+      371326528,
+      12
+     ],
+     [
+      372375120,
+      10
+     ],
+     [
+      68288064,
+      7
+     ],
+     [
+      68288000,
+      7
+     ],
+     [
+      -1804468672,
+      6
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      394240,
+      21
+     ],
+     [
+      4194304,
+      15
+     ],
+     [
+      138413056,
+      12
+     ],
+     [
+      263168,
+      11
+     ],
+     [
+      0,
+      10
+     ],
+     [
+      1024,
+      9
+     ],
+     [
+      4457472,
+      8
+     ],
+     [
+      4456448,
+      8
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      1,
+      50
+     ]
+    ],
+    "NSTag": [
+     [
+      -1,
+      6
+     ],
+     [
+      1,
+      5
+     ],
+     [
+      2,
+      5
+     ],
+     [
+      3,
+      2
+     ]
+    ]
+   },
+   "id": "control.NSProTextFieldCell",
+   "images": [],
+   "instances": 208,
+   "key_equivalents": [],
+   "titles": [
+    "100",
+    "Text Cell",
+    "%",
+    "Pro Box",
+    "\n",
+    "1",
+    "Shared Folder",
+    "Save As:",
+    "Go to the folder:",
+    "Connecting\u2026"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "keyedobjects.nib"
+   ],
+   "class": "NSProTokenFieldCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      343014976,
+      2
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      1614808064,
+      1
+     ],
+     [
+      1615201280,
+      1
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      1,
+      2
+     ]
+    ]
+   },
+   "id": "control.NSProTokenFieldCell",
+   "images": [],
+   "instances": 2,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "SearchPredicateEditor.nib"
+   ],
+   "class": "NSRuleEditorButtonCell",
+   "flags": {
+    "NSButtonFlags": [
+     [
+      -2038284033,
+      8
+     ]
+    ],
+    "NSButtonFlags2": [
+     [
+      36,
+      8
+     ]
+    ],
+    "NSCellFlags": [
+     [
+      67239424,
+      8
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      134348800,
+      8
+     ]
+    ]
+   },
+   "id": "control.NSRuleEditorButtonCell",
+   "images": [],
+   "instances": 8,
+   "key_equivalents": [],
+   "titles": [
+    "+",
+    "-"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "PeoplePicker.nib",
+    "AddressHistory.nib",
+    "IMAPMailboxes.nib",
+    "PeopleList.nib",
+    "MainWindow.nib",
+    "SEPDictionaryDocument.nib",
+    "NSColorPickerPageableNameList.nib",
+    "LDAPv3Panel.nib"
+   ],
+   "class": "NSSearchFieldCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      342884416,
+      7
+     ],
+     [
+      343014976,
+      6
+     ],
+     [
+      342884417,
+      4
+     ],
+     [
+      343014977,
+      2
+     ],
+     [
+      343010368,
+      1
+     ],
+     [
+      342924352,
+      1
+     ],
+     [
+      342894144,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      268436480,
+      9
+     ],
+     [
+      268567552,
+      6
+     ],
+     [
+      1024,
+      3
+     ],
+     [
+      272761920,
+      1
+     ],
+     [
+      268469312,
+      1
+     ],
+     [
+      132096,
+      1
+     ],
+     [
+      268436544,
+      1
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      1,
+      18
+     ]
+    ]
+   },
+   "id": "control.NSSearchFieldCell",
+   "images": [],
+   "instances": 22,
+   "key_equivalents": [],
+   "titles": [
+    "Search for"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "PasswordInputNSViewController.nib",
+    "AUWirelessViewController.nib",
+    "Details.nib",
+    "AUBaseStationViewController.nib",
+    "AURadiusSettingsViewController.nib",
+    "PromptForPassword.nib",
+    "JabberPreferencesView.nib",
+    "PVPDFExportPrintingController.nib"
+   ],
+   "class": "NSSecureTextFieldCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      342884416,
+      93
+     ],
+     [
+      341835840,
+      13
+     ],
+     [
+      342884417,
+      6
+     ],
+     [
+      343014976,
+      3
+     ],
+     [
+      341835777,
+      2
+     ],
+     [
+      341835841,
+      1
+     ],
+     [
+      -1805647808,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      272630848,
+      88
+     ],
+     [
+      272630784,
+      12
+     ],
+     [
+      4195328,
+      9
+     ],
+     [
+      4326400,
+      4
+     ],
+     [
+      272761856,
+      3
+     ],
+     [
+      4194304,
+      2
+     ],
+     [
+      4195392,
+      1
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      1,
+      119
+     ]
+    ],
+    "NSTag": [
+     [
+      12,
+      2
+     ],
+     [
+      1023,
+      1
+     ],
+     [
+      1013,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSSecureTextFieldCell",
+   "images": [],
+   "instances": 119,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "SEPDictionaryDocument.nib",
+    "OSADictionaryWindow.nib",
+    "FreeBusy.nib",
+    "GameDetailViewControllerMac-FriendComparison.nib",
+    "NSInspectorBarSmallItems.nib",
+    "WebMessageEditor.nib",
+    "MainWindow.nib",
+    "Toolbar.nib"
+   ],
+   "class": "NSSegmentedCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      67108864,
+      32
+     ],
+     [
+      -2080374784,
+      6
+     ],
+     [
+      67239424,
+      4
+     ],
+     [
+      0,
+      3
+     ],
+     [
+      130560,
+      3
+     ],
+     [
+      -2080244224,
+      2
+     ],
+     [
+      -2080303616,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      0,
+      38
+     ],
+     [
+      131072,
+      10
+     ],
+     [
+      33685504,
+      3
+     ]
+    ]
+   },
+   "id": "control.NSSegmentedCell",
+   "images": [],
+   "instances": 51,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "main.nib",
+    "EnergySaverPref.nib",
+    "PVAdjustColor.nib",
+    "SCNRendererOptions.nib",
+    "MouseAndTrackpad.nib",
+    "Display.nib",
+    "Ink.nib",
+    "Keyboard.nib"
+   ],
+   "class": "NSSliderCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      67371264,
+      27
+     ],
+     [
+      67108864,
+      27
+     ],
+     [
+      -2080112384,
+      15
+     ],
+     [
+      -2080374784,
+      6
+     ],
+     [
+      -2147483648,
+      6
+     ],
+     [
+      -2147221248,
+      5
+     ],
+     [
+      67501824,
+      4
+     ],
+     [
+      604242176,
+      2
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      0,
+      63
+     ],
+     [
+      131072,
+      28
+     ],
+     [
+      262144,
+      4
+     ]
+    ],
+    "NSTag": [
+     [
+      1010,
+      4
+     ],
+     [
+      1020,
+      2
+     ],
+     [
+      1030,
+      2
+     ],
+     [
+      2010,
+      2
+     ],
+     [
+      268,
+      1
+     ],
+     [
+      269,
+      1
+     ],
+     [
+      267,
+      1
+     ],
+     [
+      1061,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSSliderCell",
+   "images": [],
+   "instances": 95,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "Switch.nib",
+    "ACPEDocument.nib",
+    "PDFThumbnailViewIBInspector.nib",
+    "SimpleCopiesPagesPDE.nib",
+    "main.nib",
+    "PrintPanel.nib",
+    "MonthPrefWindow.nib",
+    "SwipingPrefWindow.nib"
+   ],
+   "class": "NSStepperCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      786464,
+      20
+     ],
+     [
+      68025888,
+      4
+     ],
+     [
+      67895328,
+      1
+     ],
+     [
+      -2146697184,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      0,
+      19
+     ],
+     [
+      131072,
+      7
+     ]
+    ]
+   },
+   "id": "control.NSStepperCell",
+   "images": [],
+   "instances": 26,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "AUAccessControlViewControllerFancy.nib",
+    "NVPrintDetailsView.nib",
+    "TagColumnTableView.nib",
+    "TMPreferencePane.nib",
+    "UniversalAccessPref.nib",
+    "CNContactPicker.nib",
+    "AccountChooser.nib",
+    "MailboxesPane.nib"
+   ],
+   "class": "NSTableCellView",
+   "flags": {},
+   "id": "control.NSTableCellView",
+   "images": [],
+   "instances": 28,
+   "key_equivalents": [],
+   "titles": []
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "main.nib",
+    "MessageViewerContents.nib",
+    "PreferencesPanel.nib",
+    "ListView.nib",
+    "ParentalControls.nib",
+    "AccountsPref.nib",
+    "LDAPv3Panel.nib",
+    "VCInfo.nib"
+   ],
+   "class": "NSTableHeaderCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      75497536,
+      434
+     ],
+     [
+      75628096,
+      41
+     ],
+     [
+      75497472,
+      9
+     ],
+     [
+      75628032,
+      7
+     ],
+     [
+      75501120,
+      6
+     ],
+     [
+      67239424,
+      3
+     ],
+     [
+      75623488,
+      3
+     ],
+     [
+      75514432,
+      3
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      2048,
+      440
+     ],
+     [
+      134219776,
+      41
+     ],
+     [
+      0,
+      18
+     ],
+     [
+      67110912,
+      15
+     ],
+     [
+      268437504,
+      10
+     ],
+     [
+      134217728,
+      1
+     ]
+    ]
+   },
+   "id": "control.NSTableHeaderCell",
+   "images": [],
+   "instances": 525,
+   "key_equivalents": [],
+   "titles": [
+    "Name",
+    "Description",
+    "Type",
+    "Size",
+    "Kind",
+    "On",
+    "Status",
+    "Value",
+    "Accounts",
+    "Action"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "main.nib",
+    "NBandEQView.nib",
+    "keyedobjects.nib",
+    "LDAPv3Panel.nib",
+    "SecurityPref.nib",
+    "ParentalControls.nib",
+    "AppleAACConverter.nib",
+    "AccountsPref.nib"
+   ],
+   "class": "NSTextFieldCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      67108864,
+      2097
+     ],
+     [
+      68157504,
+      1587
+     ],
+     [
+      67239424,
+      829
+     ],
+     [
+      -1804599231,
+      664
+     ],
+     [
+      67108928,
+      524
+     ],
+     [
+      337641536,
+      157
+     ],
+     [
+      -1804468671,
+      97
+     ],
+     [
+      338690112,
+      97
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      4194304,
+      1000
+     ],
+     [
+      272630784,
+      753
+     ],
+     [
+      71304192,
+      533
+     ],
+     [
+      272629760,
+      523
+     ],
+     [
+      71303168,
+      508
+     ],
+     [
+      0,
+      494
+     ],
+     [
+      272761856,
+      358
+     ],
+     [
+      4195328,
+      261
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      1,
+      1032
+     ]
+    ],
+    "NSTag": [
+     [
+      1,
+      17
+     ],
+     [
+      3,
+      15
+     ],
+     [
+      2,
+      8
+     ],
+     [
+      100,
+      8
+     ],
+     [
+      10,
+      5
+     ],
+     [
+      103,
+      5
+     ],
+     [
+      40,
+      5
+     ],
+     [
+      4,
+      4
+     ]
+    ]
+   },
+   "id": "control.NSTextFieldCell",
+   "images": [],
+   "instances": 7102,
+   "key_equivalents": [],
+   "titles": [
+    "Text Cell",
+    "Box",
+    "Password:",
+    "Title",
+    "Label",
+    "Name:",
+    "Description:",
+    "<<>>",
+    "Table View Cell",
+    "User Name:"
+   ]
+  },
+  {
+   "alt_titles": [],
+   "apps": [
+    "main.nib",
+    "BuddyInfo.nib",
+    "ABPeoplePicker.nib",
+    "ServiceField.nib",
+    "SavePDFAccessory.nib",
+    "ShareFlickr.nib",
+    "ShareTudou.nib"
+   ],
+   "class": "NSTokenFieldCell",
+   "flags": {
+    "NSCellFlags": [
+     [
+      343014977,
+      5
+     ],
+     [
+      341835776,
+      5
+     ],
+     [
+      342884417,
+      2
+     ],
+     [
+      342884416,
+      1
+     ]
+    ],
+    "NSCellFlags2": [
+     [
+      1614939136,
+      5
+     ],
+     [
+      1614808064,
+      2
+     ],
+     [
+      0,
+      2
+     ],
+     [
+      268468224,
+      2
+     ],
+     [
+      4195328,
+      1
+     ],
+     [
+      4194816,
+      1
+     ]
+    ],
+    "NSDrawsBackground": [
+     [
+      1,
+      13
+     ]
+    ]
+   },
+   "id": "control.NSTokenFieldCell",
+   "images": [],
+   "instances": 13,
+   "key_equivalents": [],
+   "titles": []
+  }
+ ],
+ "count": 38
+}
