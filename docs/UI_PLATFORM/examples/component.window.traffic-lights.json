@@ -1,0 +1,105 @@
+{
+  "schema": "mavlinos.component/1",
+  "id": "component.window.traffic-lights",
+  "title": "Window traffic lights (close / minimize / zoom)",
+  "category": "chrome",
+  "status": "draft",
+  "usage": {
+    "where": ["every titled window", "every panel with a title bar"],
+    "counterexamples": ["menu bar", "Dock", "sheets attached to a parent window (they use their own close affordance)"],
+    "notes": "The three buttons live at the top-left of the title bar. The inactive-window state is the state that most Linux ports get wrong: all three lose their colour, two of them hide their glyph."
+  },
+  "geometry": {
+    "coordinate_system": {"origin": "bottom-left", "units": "pt", "scale": 1},
+    "variants": [
+      {
+        "id": "regular",
+        "intrinsic": {"w": 60, "h": 16},
+        "notes": "Bounding box of the three-button cluster, measured from the window frame origin."
+      }
+    ],
+    "constraints": [
+      {"expr": "button_centre_spacing == 20", "scope": "x axis, all variants", "evidence": ["src:uiprobe"]},
+      {"expr": "button_diameter == 12", "scope": "all variants", "evidence": ["src:uiprobe"]},
+      {"expr": "cluster_top == window_frame_height - 13", "scope": "placement in the frame"}
+    ],
+    "layout": [
+      {"part": "close", "rect": {"x": 8, "y": 2, "w": 12, "h": 12}, "z": 1},
+      {"part": "miniaturize", "rect": {"x": 28, "y": 2, "w": 12, "h": 12}, "z": 1},
+      {"part": "zoom", "rect": {"x": 48, "y": 2, "w": 12, "h": 12}, "z": 1}
+    ]
+  },
+  "states": ["normal", "hover", "pressed", "disabled", "inactive-window", "selected"],
+  "visuals": {
+    "background": [
+      {"slot": "close", "fill": "gradient", "stops": [{"at": 0, "color": "color.traffic.close.top"}, {"at": 1, "color": "color.traffic.close.bottom"}], "angle": 90},
+      {"slot": "miniaturize", "fill": "gradient", "stops": [{"at": 0, "color": "color.traffic.minimize.top"}, {"at": 1, "color": "color.traffic.minimize.bottom"}], "angle": 90},
+      {"slot": "zoom", "fill": "gradient", "stops": [{"at": 0, "color": "color.traffic.zoom.top"}, {"at": 1, "color": "color.traffic.zoom.bottom"}], "angle": 90}
+    ],
+    "border": [
+      {"slot": "all", "width": 1, "color": "color.traffic.ring", "style": "solid", "radius": 6, "notes": "1 px darker ring; a soft outer shadow only on the active window."}
+    ],
+    "glyph": [
+      {"part": "close", "asset": "asset.glyph.close", "rect": {"x": 8, "y": 2, "w": 12, "h": 12}, "notes": "Cross appears ONLY in hover/pressed cluster state."},
+      {"part": "miniaturize", "asset": "asset.glyph.minimize", "rect": {"x": 28, "y": 2, "w": 12, "h": 12}, "notes": "Minus appears only in hover/pressed cluster state."},
+      {"part": "zoom", "asset": "asset.glyph.zoom", "rect": {"x": 48, "y": 2, "w": 12, "h": 12}, "notes": "Two triangles; alternate full-screen glyph when Option is held - separate state."}
+    ],
+    "per_state": {
+      "hover": {"notes": "The hovered button keeps its colour, the others do NOT change; the glyph of the hovered button appears."},
+      "pressed": {"background": [{"slot": "hovered", "fill": "solid", "color": "color.traffic.any.pressed"}]},
+      "inactive-window": {
+        "background": [{"slot": "all", "fill": "solid", "color": "color.traffic.inactive"}],
+        "opacity": 1,
+        "notes": "All three turn flat grey; glyphs disappear. A themed port that keeps the colours on inactive windows is visibly wrong to anyone who used Mavericks."
+      },
+      "disabled": {"opacity": 0.4}
+    }
+  },
+  "behavior": {
+    "refs": ["behavior.window.traffic-light-activate", "behavior.window.traffic-light-cluster-hover", "behavior.window.traffic-light-modifier-variant"],
+    "keyboard": [
+      {"keys": ["Escape"], "action": "no-op", "modifiers": ["Cmd"], "notes": "Cmd+W closes; the lights themselves are never keyboard-focused in Mavericks."}
+    ],
+    "pointer": [
+      {"action": "cluster-hover-reveals-glyphs", "button": 0},
+      {"action": "close", "button": 1, "region": "close"},
+      {"action": "miniaturize", "button": 1, "region": "miniaturize"},
+      {"action": "zoom-or-fullscreen", "button": 1, "region": "zoom", "modifiers": ["Alt"]}
+    ],
+    "focus": {"focusable": false, "order": "none"},
+    "hit_testing": {"mode": "rect", "notes": "Circular visuals, rectangular hit area in AppKit."}
+  },
+  "animations": {"refs": ["animation.window.traffic-light-press"], "default": "animation.window.traffic-light-press"},
+  "a11y": {"role": "AXGroup", "title": "Window controls", "help": "Close, minimize and zoom", "notes": "AppKit exposes the cluster as a group of three AXButton children."},
+  "dependencies": {
+    "tokens": ["color.traffic.close.top", "color.traffic.close.bottom", "color.traffic.minimize.top", "color.traffic.minimize.bottom", "color.traffic.zoom.top", "color.traffic.zoom.bottom", "color.traffic.inactive", "color.traffic.ring"],
+    "assets": ["asset.glyph.close", "asset.glyph.minimize", "asset.glyph.zoom"],
+    "components": ["component.window.chrome"]
+  },
+  "acceptance": {
+    "reference": ["src:uiprobe"],
+    "tolerances": {"geometry_px": 1, "color_delta_e": 2}
+  },
+  "provenance": {
+    "artifact": "tools/uiref/mvprobe.c probe_window() -> window.standardButtons.{closeButton,miniaturizeButton,zoomButton}",
+    "extractor": "mvprobe runtime probe (never harvested)",
+    "guest": "osx109-ref",
+    "notes": "The probe prints the exact frames of the three standard buttons; that output is the missing measurement."
+  },
+  "evidence": ["src:uiprobe"],
+  "kind": "proposed",
+  "confidence": "low",
+  "gaps": [
+    {
+      "what": "measured frames of closeButton/miniaturizeButton/zoomButton and the exact colour of each state",
+      "resolution": "measure-in-guest",
+      "issue": "docs/UI_REFERENCE/data/uiprobe.json does not exist; PROGRESS.md records the continuation plan (full installer -> Terminal -> DYLD_INSERT_LIBRARIES)"
+    },
+    {
+      "what": "glyph artwork (cross, minus, triangles) as reproducible MavLinOS assets",
+      "resolution": "decision",
+      "issue": "Vector geometry is trivial to redraw clean-room; the record must list the exact size and weight"
+    }
+  ],
+  "notes": "Everything numeric here is derived from the constraints and is marked low confidence on purpose."
+}

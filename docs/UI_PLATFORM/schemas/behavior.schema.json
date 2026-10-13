@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "behavior.schema.json",
+  "title": "MavLinOS interaction/behavior record",
+  "description": "One interaction rule of the original system, expressed as a small state machine plus its side effects. Components reference behaviour records; renderers implement them. Splitting behaviour from visuals is what lets a Thunar-backed Finder, a GTK FileChooser and a native C tool all behave identically.",
+  "type": "object",
+  "required": ["schema", "id", "title", "triggers", "preconditions", "state_machine", "kind", "confidence"],
+  "properties": {
+    "schema": {"const": "mavlinos.behavior/1"},
+    "id": {
+      "description": "behavior.<subject>.<name>.",
+      "type": "string",
+      "pattern": "^behavior\\.[a-z0-9][a-z0-9_.-]*$"
+    },
+    "title": {"type": "string"},
+    "status": {"$ref": "common.schema.json#/definitions/status"},
+    "scope": {
+      "description": "Where this rule applies: a component, a class of components, a surface, or the whole desktop.",
+      "type": "string",
+      "enum": ["component", "class", "surface", "application", "desktop", "shell"]
+    },
+    "applies_to": {"type": "array", "items": {"type": "string"}},
+    "triggers": {
+      "description": "Events that can start the machine. Event ids are the platform's global event vocabulary (see SDK spec: mv.event.*).",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["event"],
+        "properties": {
+          "event": {"type": "string"},
+          "target": {"type": "string"},
+          "guard": {
+            "description": "Boolean expression over the machine context, e.g. 'hit == titlebar && window.active'.",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "preconditions": {"type": "array", "items": {"type": "string"}},
+    "state_machine": {
+      "type": "object",
+      "required": ["initial", "states"],
+      "properties": {
+        "initial": {"type": "string"},
+        "context": {
+          "description": "Named pieces of state the guards and actions may read/write (e.g. grabbed_window, drag_origin).",
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": {"type": "string"},
+              "enter": {"type": "string"},
+              "exit": {"type": "string"},
+              "on": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                "required": ["event"],
+                "properties": {
+                  "event": {"type": "string"},
+                  "to": {
+                    "description": "Target state. Omitted = internal transition (action runs, state unchanged).",
+                    "type": "string"
+                  },
+                  "guard": {"type": "string"},
+                  "action": {"type": "string"},
+                  "animation": {"type": "string"}
+                },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "keyboard": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["keys", "action"],
+        "properties": {
+          "keys": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "action": {"type": "string"},
+          "modifiers": {"type": "array", "items": {"type": "string"}},
+          "when": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "pointer": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": {"type": "string"},
+          "button": {"type": "integer", "minimum": 1, "maximum": 9},
+          "modifiers": {"type": "array", "items": {"type": "string"}},
+          "region": {"type": "string"},
+          "threshold_px": {"type": "number"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "side_effects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["effect"],
+        "properties": {
+          "effect": {"type": "string"},
+          "target": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "errors": {
+      "description": "What the original does when the interaction cannot complete (denied permission, missing volume, invalid drop).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["condition", "result"],
+        "properties": {
+          "condition": {"type": "string"},
+          "result": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "components": {
+      "description": "Components this behaviour is attached to (back-reference).",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "evidence": {"$ref": "common.schema.json#/definitions/evidence"},
+    "kind": {"$ref": "common.schema.json#/definitions/kind"},
+    "confidence": {"$ref": "common.schema.json#/definitions/confidence"},
+    "gaps": {"type": "array", "items": {"$ref": "common.schema.json#/definitions/gap"}},
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": false
+}

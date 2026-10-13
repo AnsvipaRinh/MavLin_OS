@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "asset.schema.json",
+  "title": "MavLinOS asset record",
+  "description": "One addressable graphical resource. Legal rule (UI_REFERENCE rule C5, unchanged): NO Apple bytes are committed. Every asset record therefore either (a) carries a reconstruction recipe that a Linux toolchain can execute, or (b) is explicitly 'reference-only' with a gap explaining what replaces it. An asset without a reproduction path is not shippable.",
+  "type": "object",
+  "required": ["schema", "id", "title", "category", "source", "media", "reproduction", "legal", "confidence"],
+  "properties": {
+    "schema": {"const": "mavlinos.asset/1"},
+    "id": {
+      "description": "asset.<category>.<name>, kebab-case. Stable forever: renaming breaks every component that references it.",
+      "type": "string",
+      "pattern": "^asset\\.[a-z0-9][a-z0-9_.-]*$"
+    },
+    "title": {"type": "string"},
+    "category": {
+      "type": "string",
+      "enum": ["icon", "chrome", "toolbar", "sidebar", "statusbar", "control", "dialog", "menu", "scrollbar", "dock", "texture", "cursor", "misc"]
+    },
+    "status": {"$ref": "common.schema.json#/definitions/status"},
+    "source": {
+      "description": "Exact guest location of the original, so the pixel facts are traceable.",
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": {"type": "string"},
+        "bundle": {"type": "string"},
+        "container": {
+          "description": "e.g. Assets.car member, icns element list, PDF inside framework.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "Hash of the ORIGINAL artifact. Optional here (the original is not in git) but mandatory in provenance.artifact_sha256 when the record is committed as verified."
+        }
+      },
+      "additionalProperties": false
+    },
+    "media": {
+      "type": "object",
+      "required": ["format", "px"],
+      "properties": {
+        "format": {
+          "description": "Container format of the original.",
+          "type": "string",
+          "enum": ["png", "tiff", "jpeg", "pdf", "icns", "car", "svg", "raw"]
+        },
+        "px": {"$ref": "common.schema.json#/definitions/size"},
+        "scale": {
+          "description": "1 = @1x, 2 = @2x retina element.",
+          "type": "number", "minimum": 1
+        },
+        "bits": {"type": "integer", "minimum": 1, "maximum": 128},
+        "alpha": {"type": "boolean"},
+        "colorspace": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "rendering": {
+      "description": "How a renderer must stretch it. Without this, a resizable control drawn from a fixed bitmap is wrong at every size but the authored one.",
+      "type": "object",
+      "properties": {
+        "mode": {"type": "string", "enum": ["stretch", "tile", "tile-x", "tile-y", "nine-slice", "nine-slice-h", "nine-slice-v", "fixed", "procedural"]},
+        "cap_insets": {"$ref": "common.schema.json#/definitions/rect"},
+        "align": {"type": "string", "enum": ["center", "left", "right", "top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"]},
+        "opacity": {"type": "number", "minimum": 0, "maximum": 1},
+        "interpolation": {"type": "string", "enum": ["nearest", "bilinear", "trilinear"]}
+      },
+      "additionalProperties": false
+    },
+    "reproduction": {
+      "description": "The Linux-side generation recipe. Required: this is what makes the platform reproducible without the guest.",
+      "type": "object",
+      "required": ["method"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["clean-room-redraw", "derived-from-measurement", "trace-vector-pdf", "generator", "system-font-substitute", "no-replacement"]
+        },
+        "recipe": {
+          "description": "Executable description: generator id + parameters, or the exact drawing operations.",
+          "type": "string"
+        },
+        "generator": {"type": "string"},
+        "output": {
+          "description": "Where the built artifact lands.",
+          "type": "string"
+        },
+        "checks": {
+          "description": "What the render test compares (source md5? pixel delta? token equality?).",
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "legal": {
+      "description": "Provenance of OUR copy. Apple bytes must never enter git.",
+      "type": "object",
+      "required": ["apple_bytes_in_repo", "licence"],
+      "properties": {
+        "apple_bytes_in_repo": {"const": false},
+        "licence": {"type": "string"},
+        "attribution": {"type": "string"},
+        "notes": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "dependencies": {
+      "type": "object",
+      "properties": {
+        "tokens": {"type": "array", "items": {"$ref": "common.schema.json#/definitions/token_ref"}},
+        "assets": {"type": "array", "items": {"type": "string"}},
+        "components": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "provenance": {"$ref": "common.schema.json#/definitions/provenance"},
+    "evidence": {"$ref": "common.schema.json#/definitions/evidence"},
+    "kind": {"$ref": "common.schema.json#/definitions/kind"},
+    "confidence": {"$ref": "common.schema.json#/definitions/confidence"},
+    "gaps": {"type": "array", "items": {"$ref": "common.schema.json#/definitions/gap"}},
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": false
+}

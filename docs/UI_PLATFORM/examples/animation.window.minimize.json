@@ -1,0 +1,72 @@
+{
+  "schema": "mavlinos.animation/1",
+  "id": "animation.window.minimize",
+  "title": "Minimize window to the Dock",
+  "family": "window",
+  "status": "proposed",
+  "trigger": {
+    "event": "window.minimize.requested",
+    "source": "user",
+    "guard": "window.miniaturizable == true"
+  },
+  "from_state": "window.normal",
+  "to_state": "window.minimized",
+  "duration_ms": 350,
+  "duration_tolerance_ms": 30,
+  "easing": {
+    "type": "bezier",
+    "points": [0.25, 0.1, 0.25, 1.0],
+    "token": "easing.window.minimize"
+  },
+  "properties": [
+    {"path": "window/opacity", "from": 1, "to": 0, "interpolate": "bezier", "notes": "Fades out over the last 60 % of the duration."},
+    {"path": "window/scale", "from": 1, "to": 0.08, "interpolate": "bezier", "notes": "Genie target scale, not a fixed pixel size: the window must reach the Dock tile it animates to."},
+    {"path": "window/anchor", "from": "window-frame-centre", "to": "dock-tile-centre", "interpolate": "discrete", "notes": "Motion path, not an interpolated number: implementation-dependent but must converge on the tile."}
+  ],
+  "timing": {
+    "delay_ms": 0,
+    "group": "minimize",
+    "depends_on": [],
+    "stagger_ms": 0
+  },
+  "interruption": {
+    "policy": "shortest-path",
+    "reversal": "reversible",
+    "max_retargets": 2,
+    "expected_result_when_interrupted": "Interrupting by clicking the Dock item mid-flight continues to the un-minimized end state from the current position; the window never snaps or disappears."
+  },
+  "reduced_motion": {
+    "policy": "substitute",
+    "substitute": "animation.window.minimize-instant"
+  },
+  "observed_source": {
+    "method": "literature",
+    "captures": [],
+    "notes": "Mavericks genie duration is documented around 0.3-0.4 s. It was NOT measured here: the reference guest runs under TCG without isochronous frames (UI_REFERENCE rule C2), and the guest desktop was never reached."
+  },
+  "bindings": {
+    "gtk3": {"notes": "Client-side animation of the toplevel is not possible under X11 without compositor cooperation."},
+    "compositor": {"notes": "xfwm4 has no minimize effect; a genie/suck effect requires a compositor with per-window effects (picom-class) or a custom compositor."},
+    "fallback": {
+      "policy": "substitute",
+      "what": "Cross-fade + scale to the Dock tile corner",
+      "reason": "xfwm4 cannot warp the window surface; documented compromise, see docs/DECISIONS.md"
+    }
+  },
+  "evidence": ["lit:mavlinos-hig-animations"],
+  "kind": "literature",
+  "confidence": "low",
+  "gaps": [
+    {
+      "what": "real measured duration and curve of the minimize effect",
+      "resolution": "capture",
+      "issue": "requires a desktop capture round in the reference guest (frame timestamps of screendumps, not TCG frame counts)"
+    },
+    {
+      "what": "which MavLinOS compositor can realize a warp-style minimize",
+      "resolution": "decision",
+      "issue": "xfwm4 (baseline, low power) has no such effect; choosing picom-class compositing would change the frozen power baseline and needs an explicit experiment"
+    }
+  ],
+  "notes": "This record is the contract: whatever the platform does, it must be expressible as these properties and this interruption policy."
+}

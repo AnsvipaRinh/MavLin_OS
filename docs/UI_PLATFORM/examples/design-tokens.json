@@ -1,0 +1,235 @@
+{
+  "schema": "mavlinos.design-tokens/1",
+  "version": 1,
+  "appearance": [
+    "blue",
+    "graphite"
+  ],
+  "generated_from": {
+    "inputs": [
+      "docs/UI_REFERENCE/data/palette.json (275 AppKit colour-section values)",
+      "docs/UI_REFERENCE/data/uiprobe.json (NOT YET HARVESTED - runtime colours, font metrics, standard button frames)",
+      "docs/VISUAL_STYLE_GUIDE.md (MavLinOS visual decisions where the guest has not been measured)"
+    ],
+    "generator": "hand-authored for the specification example; will be tools/uiplatform/tokens.py",
+    "generated_at": "2026-10-13T00:00:00Z"
+  },
+  "tokens": {
+    "color.window.background": {
+      "type": "color",
+      "value": "#ffffff",
+      "alpha": 1,
+      "unit": "none",
+      "evidence": [
+        "src:appkit"
+      ],
+      "kind": "derived",
+      "confidence": "high",
+      "notes": "Decoded from AppKit's __color ramp as the most frequent solid white in content contexts (palette fact appkit.color.ffffff.aff)."
+    },
+    "color.control.background.top": {
+      "type": "color",
+      "value": "#ffffff",
+      "alpha": 1,
+      "evidence": [
+        "src:appkit"
+      ],
+      "kind": "derived",
+      "confidence": "medium",
+      "notes": "AppKit __color ramp top of aqua.control.solid; exact role mapping still open (see gap on component.button.push)."
+    },
+    "color.control.background.bottom": {
+      "type": "color",
+      "value": "#dddddd",
+      "alpha": 0.867,
+      "evidence": [
+        "src:appkit"
+      ],
+      "kind": "derived",
+      "confidence": "medium",
+      "notes": "Palette fact appkit.color.dddddd.add: 1199 occurrences in the __color ramp with a=0.867."
+    },
+    "color.selection.control": {
+      "type": "color",
+      "value": "#6f8fbd",
+      "variants": {
+        "blue": "#6f8fbd",
+        "graphite": "#8e8e93"
+      },
+      "evidence": [
+        "src:appkit"
+      ],
+      "kind": "derived",
+      "confidence": "medium",
+      "notes": "Muted Mavericks blue; the graphite variant is our substitution for the Graphite accent, not a measured value."
+    },
+    "color.traffic.close.top": {
+      "type": "color",
+      "value": "#ff5f57",
+      "kind": "proposed",
+      "confidence": "unverified",
+      "notes": "Placeholder until uiprobe reports the real pixel."
+    },
+    "color.traffic.minimize.top": {
+      "type": "color",
+      "value": "#febc2e",
+      "kind": "proposed",
+      "confidence": "unverified"
+    },
+    "color.traffic.zoom.top": {
+      "type": "color",
+      "value": "#28c840",
+      "kind": "proposed",
+      "confidence": "unverified"
+    },
+    "color.traffic.inactive": {
+      "type": "color",
+      "value": "#d6d6d6",
+      "kind": "proposed",
+      "confidence": "unverified"
+    },
+    "font.system.family": {
+      "type": "font",
+      "value": "Lucida Grande",
+      "unit": "none",
+      "linux_substitute": {
+        "value": "Cantarell",
+        "reason": "Lucida Grande is licensed Apple artwork and is NOT redistributed (UI_REFERENCE rule C5).",
+        "package": "cantarell-fonts"
+      },
+      "kind": "literature",
+      "confidence": "high"
+    },
+    "font.system.size": {
+      "type": "metric",
+      "value": 11,
+      "unit": "pt",
+      "linux_substitute": {
+        "value": 11,
+        "reason": "same metric, substitute family"
+      },
+      "kind": "proposed",
+      "confidence": "medium",
+      "notes": "docs/VISUAL_STYLE_GUIDE.md target; uiprobe text.fonts would confirm the real system font size and metrics."
+    },
+    "font.system.metrics": {
+      "type": "font",
+      "value": {
+        "ascender": 0,
+        "descender": 0,
+        "leading": 0,
+        "xHeight": 0
+      },
+      "unit": "pt",
+      "kind": "proposed",
+      "confidence": "unverified",
+      "notes": "Zeroes are deliberate placeholders. mvprobe.c already prints exactly these five numbers per font role; fill them from docs/UI_REFERENCE/data/uiprobe.json."
+    },
+    "metric.menubar.height": {
+      "type": "metric",
+      "value": 24,
+      "unit": "pt",
+      "kind": "proposed",
+      "confidence": "medium",
+      "notes": "MavLinOS visual decision from docs/VISUAL_STYLE_GUIDE.md; the guest value must still be read from the real menu bar."
+    },
+    "metric.window.chrome.height": {
+      "type": "metric",
+      "value": 22,
+      "unit": "pt",
+      "kind": "proposed",
+      "confidence": "low",
+      "notes": "22 pt is a placeholder. Derivation for the real value: uiprobe window.contentRectMath compares the requested frame height with contentRectForFrameRect:styleMask:7; the difference is the chrome height. That output was never harvested."
+    },
+    "metric.control.height.regular": {
+      "type": "metric",
+      "value": 22,
+      "unit": "pt",
+      "kind": "proposed",
+      "confidence": "medium"
+    },
+    "metric.control.radius": {
+      "type": "metric",
+      "value": 4,
+      "unit": "pt",
+      "kind": "proposed",
+      "confidence": "medium"
+    },
+    "easing.standard": {
+      "type": "easing",
+      "value": {
+        "bezier": [
+          0.25,
+          0.1,
+          0.25,
+          1.0
+        ]
+      },
+      "kind": "proposed",
+      "confidence": "low",
+      "notes": "CSS-like default ease; replace with the curve AppKit actually uses for standard view animations."
+    },
+    "easing.window.minimize": {
+      "type": "easing",
+      "value": {
+        "bezier": [
+          0.25,
+          0.1,
+          0.25,
+          1.0
+        ]
+      },
+      "kind": "proposed",
+      "confidence": "low"
+    },
+    "duration.motion.short": {
+      "type": "duration",
+      "value": 120,
+      "unit": "ms",
+      "kind": "proposed",
+      "confidence": "low"
+    },
+    "duration.motion.medium": {
+      "type": "duration",
+      "value": 250,
+      "unit": "ms",
+      "kind": "proposed",
+      "confidence": "low"
+    },
+    "duration.motion.window": {
+      "type": "duration",
+      "value": 350,
+      "unit": "ms",
+      "kind": "literature",
+      "confidence": "low"
+    },
+    "shadow.window.rest": {
+      "type": "shadow",
+      "value": {
+        "offset": [
+          0,
+          3
+        ],
+        "blur": 12,
+        "spread": -2,
+        "color": "#000000",
+        "alpha": 0.28
+      },
+      "kind": "proposed",
+      "confidence": "low",
+      "notes": "Restrained Mavericks shadow; a capture of a real window over wallpaper is needed to confirm the radius."
+    },
+    "texture.toolbar.brush": {
+      "type": "texture",
+      "value": "asset.toolbar.background",
+      "kind": "proposed",
+      "confidence": "low"
+    },
+    "asset.glyph.close": {
+      "type": "asset",
+      "value": "asset.glyph.close",
+      "kind": "proposed",
+      "confidence": "unverified"
+    }
+  }
+}

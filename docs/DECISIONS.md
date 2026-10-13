@@ -1879,3 +1879,65 @@ only the semantic index is.
 **Consequence for the roadmap.** Implementation work now references `data/components.json`
 instead of screenshots; a component without runtime evidence is listed in its `coverage`
 report, so the next capture round is targeted rather than exploratory.
+
+## 2026-10-13 — UI Platform architecture, data contract and gap audit (parallel to the extraction)
+
+**Decision.** The Mavericks extraction output is treated as a *source* and is now bound to a
+formal contract, instead of being consumed ad hoc. Three layers are fixed:
+
+* **Layer A — design system:** `component.*` records (geometry, variants, states, per-state
+  visuals), `asset.*` records (measured media + rendering + reproduction recipes), and a
+  compiled `design/tokens/design-tokens.json` (colour/font/metric/duration/easing/shadow,
+  with the blue/graphite appearance as a token dimension and an explicit
+  `linux_substitute` wherever the original is not redistributable).
+* **Layer B — interaction system:** `behavior.*` records (state machines, keyboard, pointer,
+  errors) and `animation.*` records (duration + tolerance, easing, interruption policy,
+  reduced-motion substitute, mandatory platform fallback).
+* **Layer C — UI platform:** four planes — data (1), widget library `libmavui` on GTK3/Cairo
+  (2), on-demand D-Bus shell services (3), application SDK/CLI (4).
+
+**Why not a single toolkit/API.** Requirement was that the same design definition serve
+several renderers without duplication. Therefore records are toolkit-independent, and every
+renderer consumes a `bindings.<renderer>` mapping. Technology decision: GTK3 + X11/xfwm4
+stays the baseline (already the project's stack, keeps the power budget); Qt and Wayland are
+optional later bindings behind the same plane-2 interface; a custom compositor/toolkit and
+Electron are rejected (§7 of AGENTS.md). Compromises that cannot be met on the baseline
+(genie-style minimize warp, global compositor effects) are written into the animation
+record's `bindings.fallback` with the reason — never silently simplified.
+
+**Data contract (machine-enforced).** `docs/UI_PLATFORM/schemas/*.schema.json`
+(`mavlinos.component/1`, `.animation/1`, `.behavior/1`, `.asset/1`, `.design-tokens/1`,
+`common`) + semantic rules R-EVIDENCE / R-VERIFY / R-TOLERANCE / R-NOMOTION / R-REPRO /
+R-STATES / R-SM / R-TOKENID. Conformance levels L0 (schema) → L1 (evidence-backed) →
+L2 (implementable) → L3 (render-validated). Only L3 may claim `status: verified`.
+
+**Migration is additive, by design.** The existing extraction format (`data/*.json`
+`facts[]` with `kind`/`confidence`/`evidence`) already matches the vocabulary, so nothing is
+rewritten: `kind` gains `inferred`/`proposed` so a guess never has to pass as a measurement,
+and the compiled `design/**` tree is produced alongside `components.json`. Asset copyright
+rule C5 is unchanged; now every asset additionally needs a reproduction recipe before it may
+ship.
+
+**Audit result (today, 2026-10-13).** The extraction is strong on raw evidence (1447 nibs,
+2119 ObjC classes, 14375 control cells, 275 palette values, 1373 window templates, 1198
+surfaces, 3918 strings) but is **not yet consumable as a platform**: `behaviors.json`,
+`metrics.json`, `typography.json`, `patterns.json` are empty stubs; there is no animation
+data and no capture registry (0 captures); component records lack states/visuals/a11y and
+have no runtime evidence; no asset carries rendering or reproduction data; window style
+masks 128 and 144 decode as "undocumented bits only"; ivar slots decode as bytes, not names.
+Full list with severities and owners: `docs/UI_PLATFORM/08-GAP-ANALYSIS.md`. The single
+highest-value act remains harvesting `docs/UI_REFERENCE/data/uiprobe.json` (the probe already
+prints colours, content-rect math, standard button frames, per-control-size metrics and font
+metrics).
+
+**Tooling added (stdlib only, no new dependency).**
+`tools/uiplatform/validate.py` (schema validation + conformance audit of the extraction
+output), `tests/uiplatform/test_contract.py` (33 checks; the suite verifies the contract
+still fails on injected defects, so the validator itself is testable),
+`docs/UI_PLATFORM/{README,01-ARCHITECTURE,02-DATA-CONTRACT,03-COMPONENT-ANIMATION-SPEC,
+04-SDK-SPEC,05-INTEGRATION,06-ACCEPTANCE,07-EXAMPLES,08-GAP-ANALYSIS,09-ROADMAP}.md`.
+
+**Coordination.** Claim `20261013-1130-opencode-ui-platform-spec`; extraction paths
+(`docs/UI_REFERENCE/**`, `tools/uiref/**`, `tests/uiref/**`) untouched and left intact.
+`scripts/check-sync.sh` and `.github/workflows/**` are protected files, so the new checks
+are not wired into CI in this change; roadmap phase P7 records the exact addition.

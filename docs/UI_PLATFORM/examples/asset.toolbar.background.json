@@ -1,0 +1,59 @@
+{
+  "schema": "mavlinos.asset/1",
+  "id": "asset.toolbar.background",
+  "title": "Unified toolbar background (window title bar strip)",
+  "category": "toolbar",
+  "status": "proposed",
+  "source": {
+    "path": "System/Library/Frameworks/GameKit.framework/Versions/A/Resources/GKToolbarBackground.png",
+    "bundle": "System",
+    "container": "plain PNG resource in the framework"
+  },
+  "media": {
+    "format": "png",
+    "px": {"w": 320, "h": 44},
+    "scale": 1,
+    "bits": 32,
+    "alpha": true,
+    "colorspace": "sRGB (assumed from GameKit resource conventions; unverified)"
+  },
+  "rendering": {
+    "mode": "nine-slice-h",
+    "cap_insets": {"x": 0, "y": 0, "w": 320, "h": 12},
+    "align": "center",
+    "interpolation": "bilinear"
+  },
+  "reproduction": {
+    "method": "derived-from-measurement",
+    "recipe": "Render as a 44 pt tall strip: 1 px top highlight line at 35 % white, body #d9d9d9 -> #ececec vertical gradient, 1 px bottom hairline at 45 % black, flat centre so the strip tiles horizontally. Cap insets must be re-derived from the original after the tile seam is found (the 320 px width is a tile width, not a minimum width).",
+    "generator": "tools/uiplatform/gen-toolbar-bg.py (NOT YET WRITTEN - see gap)",
+    "output": "build/assets/toolbar-background.png",
+    "checks": ["pixel delta <= 2/255 per channel against the original capture", "seam invisible at 3 different window widths"]
+  },
+  "legal": {
+    "apple_bytes_in_repo": false,
+    "licence": "MavLinOS generated asset, GPL-3.0-or-later",
+    "notes": "Original PNG stays in the guest; only derived measurements and our own drawing enter this repo (UI_REFERENCE rule C5)."
+  },
+  "dependencies": {
+    "tokens": ["color.toolbar.background.top", "color.toolbar.background.bottom", "metric.toolbar.height"]
+  },
+  "provenance": {
+    "artifact": "docs/UI_REFERENCE/data/assets.json",
+    "artifact_sha256": "external-guest-derived; commit hash recorded by tests/uiref/test_catalog.py",
+    "extractor": "tools/uiref/assets.py",
+    "guest": "osx109-ref",
+    "notes": "w/h/format/alpha are the decoded header values of the real 10.9 resource. Everything under 'rendering' and 'reproduction' is MavLinOS engineering until the cap insets are measured."
+  },
+  "evidence": ["src:assets"],
+  "kind": "derived",
+  "confidence": "medium",
+  "gaps": [
+    {
+      "what": "cap insets / seamless tile boundary of the 320 px strip",
+      "resolution": "measure-in-guest",
+      "blocks": ["component.window.chrome", "component.toolbar"]
+    }
+  ],
+  "notes": "This is a GameKit resource, not an AppKit one: Mavericks' own X toolbars are drawn by AppKit (NSToolbar), so this asset is a FALLBACK for toolbars we cannot draw procedurally, not the canonical Finder toolbar."
+}

@@ -1,0 +1,135 @@
+{
+  "schema": "mavlinos.component/1",
+  "id": "component.button.push",
+  "title": "Push button (Aqua rounded bevel)",
+  "category": "control",
+  "status": "proposed",
+  "usage": {
+    "where": ["dialogs", "sheets", "settings panels", "toolbars (text mode)", "inspector panels"],
+    "counterexamples": ["menu bar", "Dock", "sidebar source rows"],
+    "notes": "Mavericks has exactly one push-button look: white body, 1 px inset border, subtle top highlight, blue default-button variant, Graphite variant when the accent is graphite."
+  },
+  "geometry": {
+    "coordinate_system": {"origin": "bottom-left", "units": "pt", "scale": 1},
+    "variants": [
+      {
+        "id": "regular",
+        "intrinsic": {"w": 68, "h": 22},
+        "min": {"w": 24, "h": 22},
+        "max": {"w": 400, "h": 22},
+        "elastic": ["w"],
+        "alignment": "center"
+      },
+      {
+        "id": "small",
+        "intrinsic": {"w": 60, "h": 20},
+        "min": {"w": 20, "h": 20},
+        "notes": "Inside dense popovers and list rows."
+      },
+      {
+        "id": "mini",
+        "intrinsic": {"w": 52, "h": 16},
+        "min": {"w": 16, "h": 16},
+        "notes": "Palettes and inspector footers only."
+      }
+    ],
+    "constraints": [
+      {"expr": "height == 22 || height == 20 || height == 16 (no other heights exist)", "scope": "variant"},
+      {"expr": "corner_radius == min(4, height/6)", "scope": "all variants"},
+      {"expr": "label_baseline == height/2 + 1", "scope": "all variants"}
+    ],
+    "layout": [
+      {"part": "bevel", "rect": {"x": 0, "y": 0, "w": 68, "h": 22}, "z": 0},
+      {"part": "label", "rect": {"x": 8, "y": 3, "w": 52, "h": 16}, "z": 1, "anchor": "center"},
+      {"part": "focus_ring", "rect": {"x": -3, "y": -3, "w": 74, "h": 28}, "z": 2, "notes": "Drawn outside the frame; the hit area must include it."}
+    ]
+  },
+  "states": ["normal", "hover", "pressed", "focused", "disabled", "inactive-window"],
+  "visuals": {
+    "background": [
+      {
+        "slot": "bevel",
+        "fill": "gradient",
+        "stops": [
+          {"at": 0, "color": "color.control.background.top"},
+          {"at": 1, "color": "color.control.background.bottom"}
+        ],
+        "angle": 90,
+        "alpha": 1
+      }
+    ],
+    "border": [
+      {"slot": "bevel", "width": 1, "color": "color.control.border", "style": "solid", "radius": 4, "inset": 1},
+      {"slot": "bevel", "width": 1, "color": "color.control.highlight", "style": "inset", "inset": 1, "notes": "Top-left inner highlight, 40 % opacity."}
+    ],
+    "shadow": [{"slot": "bevel", "token": "shadow.control.rest"}],
+    "typography": [{"role": "font.control", "color": "color.label.primary", "alignment": "center"}],
+    "per_state": {
+      "hover": {
+        "background": [{"fill": "gradient", "stops": [{"at": 0, "color": "color.control.background.top.hover"}, {"at": 1, "color": "color.control.background.bottom.hover"}], "angle": 90}]
+      },
+      "pressed": {
+        "background": [{"fill": "gradient", "stops": [{"at": 0, "color": "color.control.background.bottom.pressed"}, {"at": 1, "color": "color.control.background.top.pressed"}], "angle": 90, "notes": "Gradient inverts while held."}],
+        "shadow": []
+      },
+      "focused": {
+        "notes": "Focus ring token, 4 px outside the frame, same colour as the selectedControl accent. Not animated in Mavericks."
+      },
+      "disabled": {
+        "opacity": 1,
+        "notes": "Label switches to disabled label colour; the bevel keeps its grey. Mavericks does NOT fade the whole control."
+      },
+      "inactive-window": {
+        "notes": "Bevel unchanged; only the label loses contrast. An inactive window must not look like a disabled control."
+      }
+    }
+  },
+  "behavior": {
+    "refs": ["behavior.button.activate", "behavior.button.repeat-on-hold"],
+    "keyboard": [
+      {"keys": ["Return", "Enter"], "action": "activate"},
+      {"keys": ["Space"], "action": "activate", "modifiers": []},
+      {"keys": ["Escape"], "action": "cancel-default", "modifiers": []}
+    ],
+    "pointer": [
+      {"action": "press-highlight", "button": 1},
+      {"action": "activate-on-release-inside", "button": 1},
+      {"action": "repeat", "button": 1, "repeat": true}
+    ],
+    "focus": {"focusable": true, "ring": "color.focus.ring", "order": "tab"},
+    "hit_testing": {"mode": "rect", "extra_rect": {"x": -3, "y": -3, "w": 74, "h": 28}, "notes": "The focus ring is clickable in AppKit."}
+  },
+  "animations": {"refs": ["animation.button.press"], "default": "animation.button.press"},
+  "a11y": {"role": "AXButton", "title": "button title", "keys": ["Space", "Return"], "notes": "Exposed as a push button with the label as AXTitle, not as a generic container."},
+  "dependencies": {
+    "tokens": ["color.control.background.top", "color.control.background.bottom", "color.control.border", "color.control.highlight", "color.label.primary", "color.focus.ring", "font.control"],
+    "components": ["component.button.default-variant"]
+  },
+  "acceptance": {
+    "tolerances": {"geometry_px": 1, "color_delta_e": 2, "font_metrics_px": 1},
+    "reference": ["src:uiprobe"]
+  },
+  "provenance": {
+    "artifact": "docs/UI_REFERENCE/data/components.json (component.button) + docs/UI_REFERENCE/data/controls.json (NSButtonCell)",
+    "extractor": "tools/uiref/components.py, tools/uiref/controls.py",
+    "guest": "osx109-ref",
+    "notes": "The class contract and the bezel flag inventory exist in the repo; the per-state pixels and the controlSize metrics do not (uiprobe.json was never harvested)."
+  },
+  "evidence": ["src:components", "src:controls"],
+  "kind": "proposed",
+  "confidence": "medium",
+  "gaps": [
+    {
+      "what": "exact per-state colours and the regular/small/mini frames for a titled NSButton",
+      "resolution": "measure-in-guest",
+      "issue": "mvprobe.c already reports controls.buttonMetrics per control size and the full NSColor palette; the guest never reached the desktop, so docs/UI_REFERENCE/data/uiprobe.json does not exist",
+      "blocks": ["component.button.default-variant", "component.button.gradient"]
+    },
+    {
+      "what": "bezel style bitfield -> visual mapping for NSButtonCell flags decoded from real nibs",
+      "resolution": "research",
+      "issue": "controls.md reports flag values without bit names; mapping must be verified against AppKit, then recorded"
+    }
+  ],
+  "notes": "Numbers in geometry.variants are MavLinOS proposals (consistent with docs/VISUAL_STYLE_GUIDE.md), NOT measurements. Replace them with src:uiprobe values as soon as the probe output lands; the constraints stay."
+}

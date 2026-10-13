@@ -1245,3 +1245,63 @@ environment and drives a keyboard/mouse, but the unattended install loop is not 
    from `ipu` to `111` and replaces the static palette section with AppKit's runtime colours.
 5. Only then finish the full install (desktop capture: Finder views, Spotlight, Launchpad,
    Mission Control, Notification Center, Quick Look) for the behaviour layer.
+
+---
+
+## Session 2026-10-13 — UI Platform spec + data contract + gap audit (oid `ui-platform-spec`)
+
+**Objective (parallel workstream to the ground-truth extraction):** make the extraction
+output directly usable to build a production-grade Mavericks desktop platform, without a
+second reverse-engineering pass. Deliverables A–I of the platform brief.
+
+**Shipped**
+
+- `docs/UI_PLATFORM/` — nine specification documents:
+  - `README.md` index + rules; `01-ARCHITECTURE.md` (Layer A design system / Layer B
+    interaction system / Layer C platform in four planes, technology evaluation, data flow,
+    principle mapping); `02-DATA-CONTRACT.md` (layout, id grammar, versioning, provenance,
+    evidence, conformance levels L0–L3, validation commands); `03-COMPONENT-ANIMATION-SPEC.md`
+    (component anatomy, state model incl. the inactive-window trap, visual layering and
+    merge rules, animation semantics, behaviour state machines, event vocabulary);
+    `04-SDK-SPEC.md` (14 application-facing APIs, process model, no resident daemons);
+    `05-INTEGRATION.md` (Strategies A/B/C, suitability matrix, frontend-replacement workflow);
+    `06-ACCEPTANCE.md` (extraction completeness + realised-surface checklists, visual
+    regression methodology, 12 reference scenarios); `07-EXAMPLES.md` (annotated walkthrough +
+    target consumer code); `08-GAP-ANALYSIS.md` (11 findings with severity and evidence);
+    `09-ROADMAP.md` (P0–P8).
+- `docs/UI_PLATFORM/schemas/` — `common`, `component`, `animation`, `behavior`, `asset`,
+  `design-tokens` (JSON Schema draft-07, stdlib-validated subset).
+- `docs/UI_PLATFORM/examples/` — six reference records: push button, traffic lights,
+  minimize animation, title-bar-drag behaviour, toolbar background asset, design tokens.
+  All validate at L0/L1 and satisfy the semantic rules; each one states its own gaps.
+- `tools/uiplatform/validate.py` — schema validation (`validate`) + read-only conformance
+  audit of the extraction output (`conformance`, `--json`).
+- `tests/uiplatform/test_contract.py` — 33 checks, 0 failures. Includes negative tests:
+  missing required field, bad id pattern, unknown enum, additional property, wrong type,
+  per-state key outside the declared states, literature claiming high confidence, substitute
+  reduced motion without a substitute, duration without tolerance, transition to an
+  undeclared state, asset without a reproduction recipe, measured token without evidence.
+- `docs/DECISIONS.md` entry; claim `20261013-1130-opencode-ui-platform-spec`.
+
+**Verified**
+
+- `python3 tools/uiplatform/validate.py validate` → 6/6 documents valid, exit 0.
+- `python3 tools/uiplatform/validate.py conformance` → `GAPS-LISTED`, 13 checks, 10 gaps
+  (behaviour layer empty, metrics/typography empty, no captures, no asset rendering/
+  reproduction, unnamed window mask bits 128/144, no component states, ivar noise).
+- `python3 tests/uiplatform/test_contract.py` → 33 checks, 0 failed.
+- `python3 tools/lint-tests.py --strict` → 0 errors (warnings pre-existing, other files).
+- `python3 tests/uiref/test_catalog.py` → catalog OK (extraction suite unaffected).
+- `scripts/check-sync.sh` → still fails on the pre-existing red (`mv-shot` 3/63,
+  `test-mv-spotlight.py rofi_preview_integration`); neither suite references the new paths,
+  so 0 new failures are introduced (R7 noted here).
+
+**Gap audit headline (details in `docs/UI_PLATFORM/08-GAP-ANALYSIS.md`)** — raw evidence is
+strong; the consumable layer is missing: no behaviour/animation data, no capture registry,
+component records without states/visuals/a11y and without runtime evidence, no asset
+rendering or reproduction data. Highest-value next act: harvest
+`docs/UI_REFERENCE/data/uiprobe.json`.
+
+**Next (roadmap):** P1 uiprobe harvest → P2 compile `design/**` from the facts → P3
+interaction records → P4 `packages/mavui` + generators → P5 shell services/SDK → P6 app
+migration → P7 visual regression in CI.

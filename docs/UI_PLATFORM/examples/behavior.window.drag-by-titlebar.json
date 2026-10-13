@@ -1,0 +1,95 @@
+{
+  "schema": "mavlinos.behavior/1",
+  "id": "behavior.window.drag-by-titlebar",
+  "title": "Move a window by dragging its title bar",
+  "status": "proposed",
+  "scope": "class",
+  "applies_to": ["component.window.chrome", "component.panel.chrome"],
+  "triggers": [
+    {"event": "pointer.down", "target": "component.window.chrome.titlebar", "guard": "button == 1 && modifiers == []"},
+    {"event": "pointer.down", "target": "component.window.chrome.titlebar", "guard": "button == 1 && modifiers == [Meta]"}
+  ],
+  "preconditions": [
+    "window exists and is not in a fullscreen space transition",
+    "pointer hit test resolves to the title bar (not to a control inside it)"
+  ],
+  "state_machine": {
+    "initial": "idle",
+    "context": {
+      "grabbed": "null | window",
+      "grab_offset": "point in screen coordinates",
+      "origin_frame": "rect",
+      "moved": "boolean"
+    },
+    "states": [
+      {
+        "id": "idle",
+        "on": [
+          {"event": "pointer.down", "to": "pre-drag", "guard": "hit == titlebar"},
+          {"event": "pointer.down", "to": "occluded-drag", "guard": "hit == titlebar && modifiers == [Meta]"}
+        ]
+      },
+      {
+        "id": "pre-drag",
+        "enter": "record grab_offset and origin_frame; raise window to front (activation rules in behavior.window.activate)",
+        "exit": "clear grab_offset",
+        "on": [
+          {"event": "pointer.move", "to": "dragging", "guard": "distance > 3"},
+          {"event": "pointer.up", "to": "idle", "action": "no-move"},
+          {"event": "pointer.double-click", "to": "idle", "action": "minimize-or-zoom per window settings"}
+        ]
+      },
+      {
+        "id": "dragging",
+        "enter": "start animation.window.drag-frame at 0 ms delay (window follows the pointer 1:1)",
+        "on": [
+          {"event": "pointer.move", "guard": "true", "action": "set window frame origin = pointer - grab_offset, clamped to the visible screen"},
+          {"event": "key.down", "guard": "key == Space", "action": "cycle to next space with the window (Mavericks drag-to-space)"},
+          {"event": "pointer.up", "to": "idle", "action": "commit frame"}
+        ]
+      },
+      {
+        "id": "occluded-drag",
+        "enter": "drag the window that is BEHIND the window under the pointer",
+        "on": [
+          {"event": "pointer.move", "guard": "true", "action": "move occluded window, keep the front window untouched"},
+          {"event": "pointer.up", "to": "idle", "action": "commit frame"}
+        ]
+      }
+    ]
+  },
+  "keyboard": [
+    {"keys": ["Space"], "action": "move dragged window to the next space", "when": "state == dragging"},
+    {"keys": ["Escape"], "action": "abort drag, restore origin_frame", "when": "state == dragging"}
+  ],
+  "pointer": [
+    {"action": "grab", "button": 1, "region": "titlebar", "threshold_px": 3},
+    {"action": "drag-with-modifier", "button": 1, "modifiers": ["Meta"], "region": "titlebar"}
+  ],
+  "side_effects": [
+    {"effect": "raise-window", "target": "dragged window"},
+    {"effect": "update-workspace-assignment", "target": "dragged window"},
+    {"effect": "refresh Dock running indicator", "target": "Dock"}
+  ],
+  "errors": [
+    {"condition": "window is not draggable (modal sheet parent, locked window)", "result": "no grab; pointer events pass to the content below"},
+    {"condition": "pointer released outside any screen", "result": "window is clamped fully on-screen (Mavericks never looses a window off-screen)"}
+  ],
+  "components": ["component.window.chrome", "component.panel.chrome"],
+  "evidence": ["lit:mavlinos-hig-windows"],
+  "kind": "literature",
+  "confidence": "medium",
+  "gaps": [
+    {
+      "what": "exact drag threshold and whether a double-click on the title bar minimizes or zooms in the reference guest",
+      "resolution": "capture",
+      "issue": "system setting dependent (Appearance > Double-click title bar to minimize); must be read from the guest's own preference"
+    },
+    {
+      "what": "Xfce/xfwm4 equivalent of Cmd-drag of an occluded window",
+      "resolution": "research",
+      "issue": "xfwm4 raises on any title-bar press; the occluded-drag state needs a separate mechanism or an explicit compromise"
+    }
+  ],
+  "notes": "State machine is deliberately small: three states, two modifiers. Anything more is a renderer implementation detail."
+}

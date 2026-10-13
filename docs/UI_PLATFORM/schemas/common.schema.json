@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "common.schema.json",
+  "title": "MavLinOS design-system common vocabulary",
+  "description": "Shared definitions used by every mavlinos.* schema. Nothing here is optional in the sense of 'we will add it later': provenance and evidence are what make an extracted fact usable by someone who never met the extraction agent.",
+  "definitions": {
+    "kind": {
+      "description": "How the value came into existence. Legacy 'kind' from docs/UI_REFERENCE/data/*.json is the same vocabulary, extended by two honest additions (inferred, proposed) so we never have to dress a guess up as a measurement.",
+      "type": "string",
+      "enum": ["measured", "derived", "literature", "inferred", "proposed"]
+    },
+    "confidence": {
+      "description": "high = exact and reproducible; medium = bounded by an explicit tolerance; low = order-of-magnitude; unverified = asserted, no evidence attached.",
+      "type": "string",
+      "enum": ["high", "medium", "low", "unverified"]
+    },
+    "evidence_ref": {
+      "description": "src:<source key> = a checked-in artifact (see provenance.artifact / sources registry); capture:<id> = a capture in captures/index.json (md5-pinned); lit:<id> = external literature entry. Raw file names are NOT accepted as evidence.",
+      "type": "string",
+      "pattern": "^(src:[a-z0-9][a-z0-9_.-]*|capture:[a-z0-9][a-z0-9_.-]*|lit:[a-z0-9][a-z0-9_.-]*)$"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/evidence_ref"},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "status": {
+      "description": "draft = not usable yet; proposed = contract-complete, not validated; verified = validated against the original by the reference renderer; deprecated = do not use.",
+      "type": "string",
+      "enum": ["draft", "proposed", "verified", "deprecated"]
+    },
+    "provenance": {
+      "description": "Where this record's values came from and how to re-derive them. 'artifact' must be a path or URL that still resolves, or an explicit statement that the artifact is outside git.",
+      "type": "object",
+      "required": ["artifact"],
+      "properties": {
+        "artifact": {
+          "description": "Path/URL of the artifact the values were read from (e.g. System/Library/Frameworks/AppKit.framework/Versions/C/AppKit).",
+          "type": "string"
+        },
+        "artifact_sha256": {
+          "description": "Hash of that artifact. Required whenever the artifact is inside git; otherwise state 'external-guest' in notes.",
+          "type": "string"
+        },
+        "guest": {
+          "description": "Identifier of the reference guest the artifact belongs to (see docs/UI_REFERENCE/PROVENANCE.md).",
+          "type": "string"
+        },
+        "extractor": {
+          "description": "Script that produced the value, so it can be re-run.",
+          "type": "string"
+        },
+        "extracted_at": {"type": "string"},
+        "notes": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "gap": {
+      "description": "An honest hole. A record with gaps is allowed to live; a record that hides a gap by guessing is not.",
+      "type": "object",
+      "required": ["what", "resolution"],
+      "properties": {
+        "what": {"type": "string"},
+        "resolution": {
+          "description": "What must happen to close it. 'hardware' is never an acceptable resolution for a software gap.",
+          "type": "string",
+          "enum": ["measure-in-guest", "capture", "research", "render-test", "decision", "deferred-by-owner"]
+        },
+        "issue": {"type": "string"},
+        "blocks": {
+          "description": "Ids of components/behaviours that cannot be finished until this gap closes.",
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "token_ref": {
+      "description": "Reference to a design token id (design/tokens/design-tokens.json). Components must never hardcode a colour or a size: the token is the single definition.",
+      "type": "string",
+      "pattern": "^(color|font|metric|duration|easing|shadow|texture|asset)\\.[a-z0-9][a-z0-9_.-]*$"
+    },
+    "rect": {
+      "description": "Axis-aligned rectangle. 'origin' is declared per record, never assumed.",
+      "type": "object",
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": {"type": "number"},
+        "y": {"type": "number"},
+        "w": {"type": "number"},
+        "h": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "size": {
+      "type": "object",
+      "required": ["w", "h"],
+      "properties": {
+        "w": {"type": "number"},
+        "h": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "rgb": {
+      "description": "#rrggbb only. Alpha lives in its own field so colour maths stays in one place.",
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    }
+  }
+}

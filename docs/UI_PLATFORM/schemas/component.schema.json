@@ -1,0 +1,732 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "component.schema.json",
+  "title": "MavLinOS visual component record",
+  "description": "One Mavericks UI component: geometry, every visual state, its behaviour references, animation references and the accessibility contract. This is the single source an implementer (never having seen the guest) uses to draw AND drive the component. A component that only says 'it is a grey rounded button' is a draft, not a component.",
+  "type": "object",
+  "required": [
+    "schema",
+    "id",
+    "title",
+    "category",
+    "status",
+    "usage",
+    "geometry",
+    "states",
+    "visuals",
+    "behavior",
+    "a11y",
+    "dependencies",
+    "provenance",
+    "confidence"
+  ],
+  "properties": {
+    "schema": {
+      "const": "mavlinos.component/1"
+    },
+    "id": {
+      "description": "component.<family>.<name>, kebab-case. Families: chrome, control, container, menu, text, feedback, shell, dialog, overlay.",
+      "type": "string",
+      "pattern": "^component\\.[a-z0-9][a-z0-9_.-]*$"
+    },
+    "title": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "chrome",
+        "toolbar",
+        "sidebar",
+        "control",
+        "container",
+        "menu",
+        "text",
+        "feedback",
+        "dialog",
+        "overlay",
+        "shell"
+      ]
+    },
+    "status": {
+      "$ref": "common.schema.json#/definitions/status"
+    },
+    "usage": {
+      "description": "When and where this component appears in Mavericks. Prevents reuse in places the original never did.",
+      "type": "object",
+      "required": [
+        "where"
+      ],
+      "properties": {
+        "where": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "counterexamples": {
+          "description": "Places where it must NOT be used (keeps system-wide coherence).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "geometry": {
+      "type": "object",
+      "required": [
+        "coordinate_system",
+        "variants"
+      ],
+      "properties": {
+        "coordinate_system": {
+          "description": "Declared, never assumed. Mavericks/AppKit is bottom-left origin with y up; Linux toolkits are top-left with y down. Every authored number in this repo is stated with the origin it was authored in, and the platform converts once, centrally.",
+          "type": "object",
+          "required": [
+            "origin",
+            "units",
+            "scale"
+          ],
+          "properties": {
+            "origin": {
+              "enum": [
+                "bottom-left",
+                "top-left"
+              ]
+            },
+            "units": {
+              "const": "pt"
+            },
+            "scale": {
+              "const": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "variants": {
+          "description": "Every size class of the component (regular, small, mini, textured, hud, ...). One entry per distinct intrinsic size actually authored.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "intrinsic"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "intrinsic": {
+                "$ref": "common.schema.json#/definitions/size"
+              },
+              "min": {
+                "$ref": "common.schema.json#/definitions/size"
+              },
+              "max": {
+                "$ref": "common.schema.json#/definitions/size"
+              },
+              "elastic": {
+                "description": "Which axes may grow/shrink, and in what direction the surplus is distributed.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "alignment": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "constraints": {
+          "description": "Relations that hold between parts, e.g. 'traffic light centres are 20 pt apart at 1x'. A constraint is worth more than a measured number because it survives every future size.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "expr"
+            ],
+            "properties": {
+              "expr": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string"
+              },
+              "evidence": {
+                "$ref": "common.schema.json#/definitions/evidence"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "layout": {
+          "description": "Internal arrangement of child parts, in the record's own coordinate system, as a list of named rects. This is what makes a 'prefabricated skin+bones' piece actually assemblable.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "part",
+              "rect"
+            ],
+            "properties": {
+              "part": {
+                "type": "string"
+              },
+              "rect": {
+                "$ref": "common.schema.json#/definitions/rect"
+              },
+              "z": {
+                "type": "integer"
+              },
+              "anchor": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "states": {
+      "description": "The complete state list for this component. Missing a state here is why a themed Linux port looks 'almost right' and then wrong on hover.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "normal",
+          "hover",
+          "pressed",
+          "focused",
+          "selected",
+          "disabled",
+          "inactive-window",
+          "mixed",
+          "dragging",
+          "highlighted",
+          "open",
+          "checked"
+        ]
+      }
+    },
+    "visuals": {
+      "type": "object",
+      "required": [
+        "background"
+      ],
+      "properties": {
+        "background": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "fill"
+            ],
+            "properties": {
+              "slot": {
+                "type": "string"
+              },
+              "fill": {
+                "type": "string",
+                "enum": [
+                  "solid",
+                  "gradient",
+                  "texture",
+                  "asset",
+                  "none"
+                ]
+              },
+              "color": {
+                "$ref": "common.schema.json#/definitions/token_ref"
+              },
+              "alpha": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "stops": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "at",
+                    "color"
+                  ],
+                  "properties": {
+                    "at": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "color": {
+                      "$ref": "common.schema.json#/definitions/token_ref"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "angle": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 360
+              },
+              "texture": {
+                "$ref": "common.schema.json#/definitions/token_ref"
+              },
+              "texture_alpha": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "asset": {
+                "type": "string"
+              },
+              "rendering_mode": {
+                "type": "string",
+                "enum": [
+                  "stretch",
+                  "tile",
+                  "tile-x",
+                  "tile-y",
+                  "nine-slice",
+                  "nine-slice-h",
+                  "nine-slice-v",
+                  "fixed"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "border": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "slot": {
+                "type": "string"
+              },
+              "width": {
+                "type": "number"
+              },
+              "color": {
+                "$ref": "common.schema.json#/definitions/token_ref"
+              },
+              "style": {
+                "type": "string",
+                "enum": [
+                  "solid",
+                  "inset",
+                  "outset",
+                  "dashed",
+                  "hairline"
+                ]
+              },
+              "radius": {
+                "type": "number"
+              },
+              "inset": {
+                "type": "number"
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "shadow": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "slot": {
+                "type": "string"
+              },
+              "token": {
+                "$ref": "common.schema.json#/definitions/token_ref"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "glyph": {
+          "description": "The component's symbol/art element (traffic light dots, checkmark, disclosure arrow).",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "part"
+            ],
+            "properties": {
+              "part": {
+                "type": "string"
+              },
+              "asset": {
+                "type": "string"
+              },
+              "token": {
+                "$ref": "common.schema.json#/definitions/token_ref"
+              },
+              "rect": {
+                "$ref": "common.schema.json#/definitions/rect"
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "per_state": {
+          "description": "Overrides keyed by state id from 'states'. Values use the same vocabulary as the base fields; the platform merges base + override at render time.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "background": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "border": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "shadow": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "typography": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "opacity": {
+                "type": "number"
+              },
+              "transform": {
+                "type": "string"
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "typography": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "$ref": "common.schema.json#/definitions/token_ref"
+              },
+              "color": {
+                "$ref": "common.schema.json#/definitions/token_ref"
+              },
+              "alignment": {
+                "type": "string"
+              },
+              "truncation": {
+                "type": "string"
+              },
+              "tracking": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "behavior": {
+      "type": "object",
+      "required": [
+        "refs"
+      ],
+      "properties": {
+        "refs": {
+          "description": "Ids of behavior.* records that govern this component. Behaviour lives in its own records so several renderers can implement it once.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "keyboard": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "keys",
+              "action"
+            ],
+            "properties": {
+              "keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1
+              },
+              "action": {
+                "type": "string"
+              },
+              "modifiers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "notes": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "pointer": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "button": {
+                "description": "1 = left, 2 = middle, 3 = right, 0 = pure motion (hover/tracking, no button).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9
+              },
+              "modifiers": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "region": {
+                "description": "Named sub-region of the component the event applies to (hit-test target).",
+                "type": "string"
+              },
+              "repeat": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "focus": {
+          "type": "object",
+          "properties": {
+            "focusable": {
+              "type": "boolean"
+            },
+            "ring": {
+              "$ref": "common.schema.json#/definitions/token_ref"
+            },
+            "order": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "hit_testing": {
+          "description": "rect = rectangular hit area; alpha = per-pixel; shape = a named path. Controls whose visible frame is smaller than their frame (large buttons, rounded corners) must say so.",
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "rect",
+                "alpha",
+                "shape"
+              ]
+            },
+            "extra_rect": {
+              "$ref": "common.schema.json#/definitions/rect"
+            },
+            "notes": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "animations": {
+      "description": "Animation ids (design/animations/*) that may be attached to this component, and which one is default.",
+      "type": "object",
+      "properties": {
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "default": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "a11y": {
+      "description": "Accessibility contract: the original component had a specific AX role/help behaviour; the Linux port keeps it instead of dropping it.",
+      "type": "object",
+      "required": [
+        "role"
+      ],
+      "properties": {
+        "role": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "help": {
+          "type": "string"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bindings": {
+      "description": "Renderer-specific realisation. Multiple backends may implement one component; they must all read the same numbers. Empty is fine for a spec-only component, 'gap' is not.",
+      "type": "object",
+      "properties": {
+        "gtk3": {
+          "type": "object"
+        },
+        "qt": {
+          "type": "object"
+        },
+        "x11": {
+          "type": "object"
+        },
+        "native": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "dependencies": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/token_ref"
+          }
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fonts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "acceptance": {
+      "description": "How the implementer proves their component equals the original.",
+      "type": "object",
+      "properties": {
+        "reference": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/evidence_ref"
+          }
+        },
+        "tolerances": {
+          "type": "object",
+          "properties": {
+            "geometry_px": {
+              "type": "number"
+            },
+            "color_delta_e": {
+              "type": "number"
+            },
+            "font_metrics_px": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "$ref": "common.schema.json#/definitions/provenance"
+    },
+    "evidence": {
+      "$ref": "common.schema.json#/definitions/evidence"
+    },
+    "kind": {
+      "$ref": "common.schema.json#/definitions/kind"
+    },
+    "confidence": {
+      "$ref": "common.schema.json#/definitions/confidence"
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/definitions/gap"
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

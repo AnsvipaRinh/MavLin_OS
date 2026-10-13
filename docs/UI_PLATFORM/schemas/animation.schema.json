@@ -1,0 +1,163 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "animation.schema.json",
+  "title": "MavLinOS animation record",
+  "description": "A reusable, declarative Mavericks animation. The bar: an independent implementer must be able to reproduce the same motion from this record alone. 'Smoothly expands' is not a record. Durations carry a tolerance because Mavericks itself rounded to frames (~16.7 ms at 60 Hz); anything under one frame is not a distinct duration.",
+  "type": "object",
+  "required": ["schema", "id", "title", "trigger", "from_state", "to_state", "duration_ms", "easing", "properties", "interruption", "kind", "confidence"],
+  "properties": {
+    "schema": {"const": "mavlinos.animation/1"},
+    "id": {
+      "description": "animation.<family>.<name>.",
+      "type": "string",
+      "pattern": "^animation\\.[a-z0-9][a-z0-9_.-]*$"
+    },
+    "title": {"type": "string"},
+    "family": {
+      "type": "string",
+      "enum": ["window", "dock", "menu", "dialog", "control", "list", "overlay", "shell", "feedback"]
+    },
+    "status": {"$ref": "common.schema.json#/definitions/status"},
+    "trigger": {
+      "type": "object",
+      "required": ["event"],
+      "properties": {
+        "event": {
+          "description": "Event id that starts the animation. Same event vocabulary as behavior.* records, so the two layers compose.",
+          "type": "string"
+        },
+        "source": {"type": "string", "enum": ["user", "system", "app", "any"]},
+        "guard": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "from_state": {"type": "string"},
+    "to_state": {"type": "string"},
+    "duration_ms": {
+      "description": "Nominal duration. Mavericks rounded to display frames; record the nominal, not the frame count.",
+      "type": "number", "minimum": 0
+    },
+    "duration_tolerance_ms": {
+      "description": "How far an implementation may deviate and still be 'the same animation'. Default 8 ms (half a frame at 60 Hz).",
+      "type": "number", "minimum": 0
+    },
+    "easing": {
+      "description": "One cubic bezier (control points) or a named curve from design/tokens (easing.* token).",
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"type": "string", "enum": ["bezier", "named", "linear", "spring"]},
+        "points": {
+          "type": "array",
+          "items": {"type": "number", "minimum": 0, "maximum": 1},
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "token": {"$ref": "common.schema.json#/definitions/token_ref"},
+        "spring": {
+          "type": "object",
+          "properties": {
+            "mass": {"type": "number"},
+            "stiffness": {"type": "number"},
+            "damping": {"type": "number"},
+            "velocity": {"type": "number"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "properties": {
+      "description": "The interpolated quantities. One entry per animated property, with the value at both ends.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+            "required": ["path", "from", "to"],
+            "properties": {
+              "path": {
+                "description": "Property path in the component's own terms, e.g. window/opacity, window/frame/x, dock/scale, layer/blur-radius.",
+                "type": "string"
+              },
+              "from": {
+                "description": "Start value. Number for interpolated quantities; string for named anchors/motion paths.",
+                "type": ["number", "string"]
+              },
+              "to": {
+                "description": "End value.",
+                "type": ["number", "string"]
+              },
+          "unit": {"type": "string"},
+          "interpolate": {"type": "string", "enum": ["bezier", "linear", "spring", "discrete"]},
+          "notes": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "timing": {
+      "type": "object",
+      "properties": {
+        "delay_ms": {"type": "number", "minimum": 0},
+        "group": {
+          "description": "Animations sharing a group id start together and are reviewed together.",
+          "type": "string"
+        },
+        "depends_on": {"type": "array", "items": {"type": "string"}},
+        "stagger_ms": {
+          "description": "Per-item delay when the animation is applied to a list (e.g. Launchpad tiles, notification stacking).",
+          "type": "number", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "interruption": {
+      "description": "What happens when the same trigger fires again mid-animation, or a conflicting event arrives.",
+      "type": "object",
+      "required": ["policy"],
+      "properties": {
+        "policy": {"type": "string", "enum": ["shortest-path", "reverse", "restart", "queue", "snap", "ignore"]},
+        "reversal": {"type": "string", "enum": ["reversible", "one-way"]},
+        "max_retargets": {"type": "integer", "minimum": 1},
+        "expected_result_when_interrupted": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "reduced_motion": {
+      "description": "Mandatory: the platform must be usable with animations off. What replaces this animation.",
+      "type": "object",
+      "required": ["policy"],
+      "properties": {
+        "policy": {"type": "string", "enum": ["disable", "substitute"]},
+        "substitute": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "observed_source": {
+      "description": "How this was established: literature, a capture sequence, or a runtime probe reading AppKit's own animation dictionaries.",
+      "type": "object",
+      "properties": {
+        "method": {"type": "string", "enum": ["literature", "capture-frames", "appkit-runtime", "inferred", "proposed"]},
+        "captures": {"type": "array", "items": {"type": "string"}},
+        "notes": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "bindings": {
+      "type": "object",
+      "properties": {
+        "gtk3": {"type": "object"},
+        "compositor": {"type": "object"},
+        "fallback": {
+          "description": "What the platform does when the compositor cannot do this (documented compromise, never a silent simplification).",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {"$ref": "common.schema.json#/definitions/evidence"},
+    "kind": {"$ref": "common.schema.json#/definitions/kind"},
+    "confidence": {"$ref": "common.schema.json#/definitions/confidence"},
+    "gaps": {"type": "array", "items": {"$ref": "common.schema.json#/definitions/gap"}},
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": false
+}
