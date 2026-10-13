@@ -55,8 +55,10 @@ class Nib:
         v = self.get(v)
         if isinstance(v, str):
             return v
-        if isinstance(v, dict) and "NSString" in v:
-            return self.string(v["NSString"])
+        if isinstance(v, dict):
+            for k in ("NSString", "NS.string", "NSContents"):
+                if k in v:
+                    return self.string(v[k])
         return None
 
     @staticmethod
@@ -219,6 +221,51 @@ def walk(nib, obj, view, fonts, colors, images, depth=0):
                 return
 
 
+def collect_menus(nib, obj, out=None, depth=0, parent=None, path=""):
+    """Walk NSMenu/NSMenuItem archives into a plain menu tree.
+
+    Menu items are not views, so the geometry pass never saw them; this recovers
+    the *structure* of every menu: order, titles, key equivalents, submenus and
+    disabled/enabled state - i.e. the behaviour contract of a menu bar.
+    """
+    if out is None:
+        out = []
+    if depth > 30:
+        return out
+    if isinstance(obj, plistlib.UID):
+        if not nib.visit(obj.data):
+            return out
+        obj = nib.get(obj)
+    if isinstance(obj, list):
+        for it in obj:
+            collect_menus(nib, it, out, depth + 1, parent, path)
+        return out
+    if not isinstance(obj, dict):
+        return out
+    cn = class_name(nib, obj) or ""
+    if "NSMenuItem" in cn:
+        # old nibs store the strings under NSTitle/NSKeyEquiv (newer ones use
+        # NSMenuItemTitle/NSKeyEquivalent); accept both
+        title = nib.string(obj.get("NSTitle") or obj.get("NSMenuItemTitle"))
+        equiv = nib.string(obj.get("NSKeyEquiv") or obj.get("NSKeyEquivalent"))
+        sub = obj.get("NSMenu") or obj.get("NSSubmenu")
+        entry = {"title": title, "key_equivalent": equiv,
+                 "separator": bool(nib.string(obj.get("NSIsSeparator"))),
+                 "disabled": bool(nib.string(obj.get("NSIsDisabled"))),
+                 "action": nib.string(obj.get("NSAction")), "submenu": None}
+        out.append(entry)
+        if sub is not None:
+            child_path = f"{path}/{title}" if title else path
+            sub_list = []
+            collect_menus(nib, sub, sub_list, depth + 1, title, child_path)
+            entry["submenu"] = sub_list
+            entry["path"] = child_path
+    for v in obj.values():
+        if isinstance(v, (dict, list, plistlib.UID)):
+            collect_menus(nib, v, out, depth + 1, parent, path)
+    return out
+
+
 def parse_nib(path):
     with open(path, "rb") as fh:
         head = fh.read(8)
@@ -228,6 +275,7 @@ def parse_nib(path):
         data = fh.read()
     nib = Nib(data)
     view, fonts, colors, images = {}, [], [], []
+    menus = []
     top = nib.plist.get("$top", {})
     root_uid = top.get("root") or top.get("IB.objectdata")
     root = nib.get(root_uid)
@@ -236,7 +284,14 @@ def parse_nib(path):
     walk(nib, root, view, fonts, colors, images)
     if isinstance(root, dict) and "NSRoot" in root:
         walk(nib, root.get("NSRoot"), view, fonts, colors, images)
+    # menus first: the geometry walk marks objects as visited, and both passes
+    # share that guard so neither can loop forever
+    nib.visited.clear()
+    collect_menus(nib, root, menus)
+    nib.visited.clear()
     rec = {"nib": path, **view}
+    if menus:
+        rec["menus"] = menus
     if fonts:
         rec["fonts"] = fonts
     if colors:

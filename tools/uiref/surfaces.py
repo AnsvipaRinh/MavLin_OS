@@ -57,7 +57,8 @@ def main():
     by_path = {n["path"]: n for n in geo.get("nibs", [])}
 
     surfaces = defaultdict(lambda: {"nib": None, "path": None, "windows": [],
-                                    "views": [], "kinds": set(), "classes": defaultdict(int)})
+                                    "views": [], "menus": [], "kinds": set(),
+                                    "classes": defaultdict(int)})
     for rel, nib in by_path.items():
         app = app_of(rel) or "System"
         name = os.path.basename(rel).replace(".nib", "")
@@ -68,6 +69,7 @@ def main():
         s["path"] = rel
         s["kinds"].add(classify(name))
         s["windows"] = nib.get("windows", [])
+        s.setdefault("menus", []).extend(nib.get("menus", []))
         for v in nib.get("views", []):
             cls = v.get("class")
             if cls:
@@ -79,8 +81,17 @@ def main():
         controls = [{"class": c, "count": n} for c, n in
                     sorted(s["classes"].items(), key=lambda kv: -kv[1])[:14]]
         win = s["windows"][0] if s["windows"] else {}
+        menus = []
+        for it in s["menus"]:
+            if it.get("title") and not it.get("separator"):
+                menus.append({"title": it["title"],
+                              "key_equivalent": it.get("key_equivalent") or None,
+                              "action": it.get("action") or None,
+                              "disabled": bool(it.get("disabled")),
+                              "submenu": (it.get("submenu") or [])[:0] or None})
         out.append({
             "id": f"surface.{app}.{name}",
+            "menu_items": menus[:120],
             "application": app,
             "surface": name,
             "kind": sorted(s["kinds"])[0] if s["kinds"] else "other",

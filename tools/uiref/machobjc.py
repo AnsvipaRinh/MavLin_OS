@@ -242,7 +242,11 @@ def read_class(m, cls_addr):
                     n, t, imp = struct.unpack_from(e + "QQQ", m.buf, off)
                     sel = m.cstr(n)
                     if sel:
-                        methods.append({"selector": sel, "types": m.cstr(t)})
+                        # keep the IMP address: it is the entry into the code that
+                        # actually implements the behaviour (drawing, layout,
+                        # hit-testing) - the anchor for constant extraction
+                        methods.append({"selector": sel, "types": m.cstr(t),
+                                        "imp": hex(imp)})
                     off += 24
             except struct.error:
                 pass
