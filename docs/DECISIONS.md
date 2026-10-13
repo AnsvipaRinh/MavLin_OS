@@ -2013,3 +2013,42 @@ a record references exists in the token set; a missing token is a hard error, a
 missing *asset* is a gap. Wired into `scripts/check-sync.sh`, which now runs six
 contract gates: records valid, extraction structurally sound, contract self-test,
 token compiler, dependency closure, reference renderer.
+
+## 2026-10-13 — Runtime evidence: repaired probe, off-line install route, blind guest driving
+
+**Probe repair (`tools/uiref/mvprobe.c`).** The audit findings were verified
+against the AppKit semantics and fixed: `standardWindowButton:` is an *instance*
+method taking an `NSWindowButton` enum (the old code sent it to the class object
+with a `SEL`), `NSControlSize` really is `Regular=0, Small=1, Mini=2` (the old
+values 11/12/13/10 and the non-existent "large" were invented), `ns_widgetType`
+is an *instance* method (looked up with `class_getClassMethod` before), and
+`contentRectForFrameRect:styleMask:` is now measured for the eight masks that
+actually occur in the nib catalog. Output integrity: hex and alpha are separate
+fields, unconvertible colours are `null` plus a gap record, `errors[]`/`gaps[]`
+live outside the section buffers, the document is written temp+fsync+rename, and
+the exit code is 0/2/3.
+
+**Why both build flavours exist.** A dylib constructor (`DYLD_INSERT_LIBRARIES`)
+kills the process it is injected into; a standalone `mvprobe-tool` run inside the
+guest's Aqua session is preferred. Both are cross-built from Linux with
+`-nostdlib -Wl,-undefined,dynamic_lookup`, so no Apple SDK is ever required.
+
+**Install route.** A GUI install under TCG cannot be driven reliably and cannot
+be verified. We instead install off-line: the payload is a squashfs, the target
+is a real HFS+ volume, and a *static* Linux `init` copies the tree with modes,
+owners, symlinks and mtimes intact (`tools/uiref/guest/rescue-init.c`). Two
+facts that shaped it: this WSL kernel has no `hfsplus` and no `hfsprogs`, and
+even with the module loaded the kernel refuses a *freshly formatted, empty* HFS+
+volume, so the volume is created with Apple's own `newfs_hfs` (built from
+diskdev_cmds 540.1.linux3) and populated inside the guest.
+
+**Driving Darwin.** There is no serial console, so commands are injected as
+keystrokes over QMP and results are read back from a small FAT disk; every step
+is verified by an artefact on the host instead of by reading the framebuffer.
+This keeps the owner's "no screenshot-derived facts" rule intact for the data,
+while still allowing deterministic automation.
+
+**Coordination note.** `tools/uiref/build-probe.sh`, `tests/uiref/test_probe_json.py`
+and part of the probe fix disappeared from the shared worktree during this
+session and had to be restored; the affected files are committed again and their
+tests re-run. Claims are mandatory in this checkout.

@@ -1379,3 +1379,36 @@ and has a working compiler as its first consumer. Next: curated
 - `tests/uiplatform/test_contract.py` → 34 checks, 0 failed
 - `tools/lint-tests.py --strict` → 0 errors
 - `scripts/check-sync.sh` → all six contract gates OK; pre-existing red unchanged
+
+## 2026-10-13 — UI reference: runtime probe repaired, guest stack rebuilt (extraction)
+
+**Done**
+
+- `tools/uiref/mvprobe.c` repaired: real `NSWindow` instance, correct
+  `NSControlSize` (0/1/2), instance-method `ns_widgetType`, all eight style
+  masks for `contentRectForFrameRect:styleMask:`, hex+alpha split, gaps/errors
+  outside the section buffers, atomic write, exit codes 0/2/3.
+- `tools/uiref/build-probe.sh` cross-builds `mvprobe.dylib` and `mvprobe-tool`
+  as Mach-O x86_64 from Linux (no SDK) and runs a host self test.
+- `tests/uiref/test_probe_json.py`: 33 checks (valid JSON under a dead runtime,
+  gaps instead of invented values, Mach-O artifacts really produced).
+- `tools/uiref/guest/`: documented, reproducible guest stack — source image with
+  checksums, off-line install route, blind QMP driver, exact QEMU invocation.
+- `nib_geometry.py` now decodes connections as well: 27619 wirings (7213 action
+  selectors such as `ok:`, 3486 Cocoa bindings, the rest outlets).
+
+**Validation**
+
+- `tests/uiref/test_probe_json.py` → 33 checks, 0 failed
+- `tests/uiref/test_catalog.py` → OK (275 facts, 0 captures)
+- `tools/lint-tests.py --strict` → 0 errors
+
+**Blocked / next**
+
+- The guest boots but the screen stays blank with the patched OpenCore config,
+  so no runtime capture exists yet. Next step: keep `ShowPicker=True` with
+  `Debug.Target=67` and take a QMP `screendump` early in the boot to find out
+  which firmware stage is reached, then continue with the off-line install,
+  auto-login setup and finally `mvprobe-tool` over SSH inside the Aqua session.
+- Until that works, every runtime-only measurement stays a gap in
+  `docs/NEEDS_HARDWARE_TEST.md`; no static value is promoted to "measured".
