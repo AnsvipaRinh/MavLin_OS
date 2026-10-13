@@ -360,6 +360,65 @@ def collect_menus(nib, obj, out=None, depth=0, parent=None, path=""):
     return out
 
 
+def collect_connections(nib, obj, out=None, depth=0):
+    """Control wiring: outlets, action selectors and Cocoa bindings.
+
+    Every connection in a nib carries the name the interface was wired under:
+    an outlet name, an action selector ("ok:") or a binding label
+    ("contentArray: errors") with its key path. That wiring *is* the behaviour
+    of the surface, so it is decoded instead of being re-guessed later.
+    """
+    if out is None:
+        out = []
+    if depth > 30:
+        return out
+    if isinstance(obj, plistlib.UID):
+        if not nib.visit(obj.data):
+            return out
+        obj = nib.get(obj, depth)
+    if isinstance(obj, list):
+        for it in obj:
+            collect_connections(nib, it, out, depth + 1)
+        return out
+    if not isinstance(obj, dict):
+        return out
+    conns = nib.get(obj.get("NSConnections"))
+    if isinstance(conns, dict):
+        items = nib.get(conns.get("NS.objects"))
+        if isinstance(items, list):
+            for it in items:
+                rec = nib.get(it)
+                if not isinstance(rec, dict):
+                    continue
+                label = nib.string(rec.get("NSLabel")) or ""
+                key_path = nib.string(rec.get("NSKeyPath"))
+                binding = nib.string(rec.get("NSBinding"))
+                entry = {"label": label}
+                if key_path:
+                    entry["key_path"] = key_path
+                if binding:
+                    entry["binding"] = binding
+                if label.endswith(":"):
+                    entry["kind"] = "action"
+                    entry["selector"] = label
+                elif binding or key_path:
+                    entry["kind"] = "binding"
+                else:
+                    entry["kind"] = "outlet"
+                for side in ("NSSource", "NSDestination"):
+                    target = nib.get(rec.get(side))
+                    if isinstance(target, dict):
+                        cls = class_name(nib, target)
+                        if cls:
+                            entry[side[2:].lower() + "_class"] = cls
+                if len(entry) > 1:
+                    out.append(entry)
+    for v in obj.values():
+        if isinstance(v, (dict, list, plistlib.UID)):
+            collect_connections(nib, v, out, depth + 1)
+    return out
+
+
 def parse_nib(path):
     with open(path, "rb") as fh:
         head = fh.read(8)
@@ -380,6 +439,10 @@ def parse_nib(path):
         walk(nib, root.get("NSRoot"), view, fonts, colors, images)
     # menus first: the geometry walk marks objects as visited, and both passes
     # share that guard so neither can loop forever
+    nib.visited.clear()
+    connections = collect_connections(nib, root)
+    if connections:
+        view["connections"] = connections[:400]
     nib.visited.clear()
     collect_menus(nib, root, menus)
     nib.visited.clear()
