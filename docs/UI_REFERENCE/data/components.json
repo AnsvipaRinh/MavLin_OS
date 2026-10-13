@@ -1,0 +1,4853 @@
+{
+ "components": [
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSBox",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 98,
+      "selectors": {
+       "control": [
+        "ns_widgetType",
+        "titleCell"
+       ],
+       "drawing": [
+        "_didRemoveLayer",
+        "_drawRectIfEmpty",
+        "_invalidateLayerContentsForStateChange",
+        "_resetLayerContentsFromCustomBox",
+        "_resetLayerContentsToEmpty",
+        "_setLayerContentsForCustomBox",
+        "canSmoothFontsInLayer",
+        "drawRect:",
+        "updateLayer",
+        "wantsUpdateLayer"
+       ],
+       "focus": [
+        "accessibilityIsChildFocusable:"
+       ],
+       "geometry": [
+        "_backgroundViewFrame",
+        "_borderRectForOldStyleLineBox",
+        "_drawRectIfEmpty",
+        "_grooveFrameRect",
+        "_titleTextFieldFrame",
+        "accessibilitySizeOfChild:",
+        "alignmentRectInsets",
+        "borderRect",
+        "drawRect:",
+        "initWithFrame:",
+        "intrinsicContentSize",
+        "layout"
+       ],
+       "mouse": [
+        "accessibilityHitTest:"
+       ],
+       "text": [
+        "canSmoothFontsInLayer",
+        "setTitleFont:",
+        "titleFont"
+       ]
+      },
+      "super": "NSView"
+     },
+     {
+      "class": "NSScrollView",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 310,
+      "selectors": {
+       "animation": [
+        "_magnifyToFitRect:animate:",
+        "_setMagnification:centeredAroundPoint:animate:",
+        "_setScrollerNeedsDisplay:",
+        "_smartMagnifyToRect:centeredAt:animate:"
+       ],
+       "control": [
+        "ns_widgetType"
+       ],
+       "drawing": [
+        "_canUseInclusiveLayersAutomatically",
+        "_cornerViewForLayer",
+        "_desiredLayerSizeMeritsTiledBackingLayer:",
+        "_didRemoveLayer",
+        "_drawRect:clip:",
+        "_drawRectIfEmpty",
+        "_invalidateOverlayScrollerDebrisForScrollCopyOfClipView:byDeltas:",
+        "_layoutLayerPiecesIfNeeded",
+        "_makeAutomaticInclusiveLayer",
+        "_makeAutomaticInclusiveLayerIfNecessary",
+        "_recursiveGainedLayerTreeHostAncestor",
+        "_recursiveLostLayerTreeHostAncestor"
+       ],
+       "focus": [
+        "_dirtyFocusRingOrMask",
+        "_documentViewSubclassesLockFocus",
+        "_drawOldSchoolFocusRingIfNecessaryInRect:",
+        "_hasRectangularFocusRingAroundFrame",
+        "_setKeyboardFocusRingNeedsDisplayDuringLiveResize",
+        "_shouldUseFocusRingMask",
+        "acceptsFirstResponder",
+        "becomeFirstResponder",
+        "drawFocusRingMask",
+        "focusRingMaskBounds",
+        "needsPanelToBecomeKey",
+        "showActiveFirstResponderIndication"
+       ],
+       "geometry": [
+        "_allocContentAreaLayout",
+        "_applyContentAreaLayout:",
+        "_boundsInsetForBorder",
+        "_contentFrameMinusScrollers",
+        "_corneViewIsSmallSize",
+        "_cornerViewFrame",
+        "_desiredLayerSizeMeritsTiledBackingLayer:",
+        "_drawCornerViewInRect:",
+        "_drawOldSchoolFocusRingIfNecessaryInRect:",
+        "_drawRect:clip:",
+        "_drawRectIfEmpty",
+        "_drawScrollViewFrameInRect:enabled:textured:"
+       ],
+       "keyboard": [
+        "_setKeyboardFocusRingNeedsDisplayDuringLiveResize"
+       ],
+       "mouse": [
+        "_updateTrackingAreas",
+        "hitTest:",
+        "updateTrackingAreas"
+       ],
+       "window": [
+        "_ensureOveralyScrollerFlashForWindowOrderIn:",
+        "_ownsWindowGrowBox",
+        "_registerForWindowWillClose",
+        "_resetOveralyScrollerFlashForWindowOrderOut:",
+        "_setWindow:",
+        "_unregisterForWindowWillClose",
+        "_updateGrowBoxForWindowFrameChange",
+        "_windowChangedKeyState",
+        "_windowWillClose:",
+        "viewDidMoveToWindow",
+        "viewWillMoveToWindow:"
+       ]
+      },
+      "super": "NSView"
+     }
+    ],
+    "expected_bones": [
+     "title position",
+     "border type",
+     "fill"
+    ]
+   },
+   "id": "box",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 197.0,
+        "key": "NSFrame",
+        "rect": "{x=235, y=35, w=204, h=197}",
+        "w": 204.0,
+        "x": 235.0,
+        "y": 35.0
+       },
+       {
+        "h": 197.0,
+        "key": "NSFrame",
+        "rect": "{x=3, y=35, w=205, h=197}",
+        "w": 205.0,
+        "x": 3.0,
+        "y": 35.0
+       },
+       {
+        "h": 197.0,
+        "key": "NSFrame",
+        "rect": "{x=-1, y=-2, w=346, h=197}",
+        "w": 346.0,
+        "x": -1.0,
+        "y": -2.0
+       },
+       {
+        "h": 56.0,
+        "key": "NSFrame",
+        "rect": "{x=-1, y=195, w=346, h=56}",
+        "w": 346.0,
+        "x": -1.0,
+        "y": 195.0
+       },
+       {
+        "h": 274.0,
+        "key": "NSFrame",
+        "rect": "{x=13, y=25, w=346, h=274}",
+        "w": 346.0,
+        "x": 13.0,
+        "y": 25.0
+       },
+       {
+        "h": 132.0,
+        "key": "NSFrameSize",
+        "size": "{w=205, h=132}",
+        "w": 205.0
+       },
+       {
+        "h": 16.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=32, w=281, h=16}",
+        "w": 281.0,
+        "x": 0.0,
+        "y": 32.0
+       },
+       {
+        "h": 16.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=16, w=180, h=16}",
+        "w": 180.0,
+        "x": 0.0,
+        "y": 16.0
+       },
+       {
+        "h": 16.0,
+        "key": "NSFrameSize",
+        "size": "{w=178, h=16}",
+        "w": 178.0
+       },
+       {
+        "h": 5.0,
+        "key": "NSFrame",
+        "rect": "{x=7, y=74, w=391, h=5}",
+        "w": 391.0,
+        "x": 7.0,
+        "y": 74.0
+       },
+       {
+        "h": 57.0,
+        "key": "NSFrame",
+        "rect": "{x=298, y=-28, w=203, h=57}",
+        "w": 203.0,
+        "x": 298.0,
+        "y": -28.0
+       },
+       {
+        "h": 22.0,
+        "key": "NSFrameSize",
+        "size": "{w=282, h=22}",
+        "w": 282.0
+       }
+      ],
+      "nib_class": "NSBox",
+      "occurrences": 781,
+      "sample_nibs": [
+       "Applications/Calculator.app/Contents/PlugIns/BasicAndSci.calcview/Contents/Resources/English.lproj/BasicAdvanced.nib",
+       "Applications/Calculator.app/Contents/PlugIns/BasicAndSci.calcview/Contents/Resources/English.lproj/BasicAdvanced.nib",
+       "Applications/Calculator.app/Contents/PlugIns/BasicAndSci.calcview/Contents/Resources/English.lproj/BasicAdvanced.nib",
+       "Applications/Calculator.app/Contents/PlugIns/Hexadecimal.calcview/Contents/Resources/English.lproj/Hexadecimal.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Group box / separators"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSButton",
+      "method_count": 69,
+      "selectors": {
+       "control": [
+        "_clearMouseTrackingForCell:",
+        "_recursiveFindDefaultButtonCell",
+        "_setMouseTrackingForCell:",
+        "ns_widgetType"
+       ],
+       "focus": [
+        "_focusRingBleedRegion",
+        "becomeFirstResponder",
+        "resignFirstResponder"
+       ],
+       "geometry": [
+        "alignmentRectInsets",
+        "initWithFrame:",
+        "intrinsicContentSize"
+       ],
+       "keyboard": [
+        "performKeyEquivalent:"
+       ],
+       "menu": [
+        "_keyEquivalentModifierMaskMatchesModifierFlags:",
+        "keyEquivalent",
+        "keyEquivalentModifierMask",
+        "performKeyEquivalent:",
+        "setKeyEquivalent:",
+        "setKeyEquivalentModifierMask:"
+       ],
+       "mouse": [
+        "acceptsFirstMouse:"
+       ],
+       "window": [
+        "_setWindow:"
+       ]
+      },
+      "super": "NSControl"
+     },
+     {
+      "class": "NSButtonCell",
+      "ivars": [
+       "@",
+       "H",
+       "P",
+       "X",
+       "\\",
+       "^",
+       "`",
+       "h",
+       "p"
+      ],
+      "method_count": 258,
+      "selectors": {
+       "control": [
+        "_autolayout_cellSize",
+        "_buttonCellAccessibilityRoleAttribute",
+        "_canBecomeDefaultButtonCell",
+        "_configureAndDrawImageWithRect:cellFrame:controlView:",
+        "_configureAndDrawTitleWithRect:cellFrame:controlView:",
+        "_isAnimatingDefaultCell",
+        "_legacyDrawFocusRingInCellFrame:inView:",
+        "_minCellSize",
+        "_shouldHighlightCellWhenSelected",
+        "accessibilityActionDescription:",
+        "accessibilityActionNames",
+        "accessibilityPerformAction:"
+       ],
+       "drawing": [
+        "_backgroundIsSetOnLayer",
+        "_bezelStyleWantsUpdateLayerInView:",
+        "_interiorContentAppearanceInView:",
+        "_layerKeysForCachingWithFrame:inView:drawingRect:",
+        "_needsToDoBezelDrawingForLayerInView:",
+        "_setLayerNeedsLayout",
+        "_shouldDrawTextWithDisabledAppearance",
+        "_shouldUpdateLayersInControlView:",
+        "_updateSubviewsWhenLayerBackedInView:includeTitleTextField:",
+        "canSmoothFontsInFrame:forLayerBackedView:",
+        "layoutLayerWithFrame:inView:",
+        "updateLayerWithFrame:inView:"
+       ],
+       "focus": [
+        "_canUseFocusRingMaskForText",
+        "_drawCustomFocusMaskWithFrame:inView:",
+        "_focusRingBoundsWithFrame:inView:",
+        "_hasCustomFocusMask",
+        "_legacyDrawFocusRingInCellFrame:inView:",
+        "_preferredFocusLocationMask",
+        "_shouldShowFocus",
+        "_wantsToUseFocusRingMask",
+        "acceptsFirstResponder",
+        "accessibilityFocusRingBoundsForBounds:",
+        "drawFocusRingMaskWithFrame:inView:",
+        "focusRingMaskBoundsForFrame:inView:"
+       ],
+       "geometry": [
+        "_alignedTitleRectWithRect:",
+        "_alternateImageSynthesizedForCheckOrRadio:",
+        "_appendBezierPath:withBottomRoundRect:cornerRadius:",
+        "_autolayout_cellSize",
+        "_bezelContentsByDrawingWithFrame:inView:",
+        "_bezelContentsFromCoreUIWithFrame:inView:",
+        "_centerTitle:inRect:",
+        "_commonBaseRectWithFrame:inView:",
+        "_configureAndDrawImageWithRect:cellFrame:controlView:",
+        "_configureAndDrawTitleWithRect:cellFrame:controlView:",
+        "_coreUIBezelDrawOptionsWithFrame:inView:",
+        "_currentBezelContentsWithFrame:inView:"
+       ],
+       "menu": [
+        "keyEquivalent",
+        "keyEquivalentFont",
+        "keyEquivalentModifierMask",
+        "setKeyEquivalent:",
+        "setKeyEquivalentFont:",
+        "setKeyEquivalentFont:size:",
+        "setKeyEquivalentModifierMask:"
+       ],
+       "mouse": [
+        "_acceptsFirstMouseForEvent:inView:",
+        "_useHitTestInTrackMouse",
+        "hitTestForEvent:inRect:ofView:",
+        "mouseEntered:",
+        "mouseExited:",
+        "trackMouse:inRect:ofView:untilMouseUp:",
+        "updateTrackingAreaWithFrame:inView:"
+       ],
+       "text": [
+        "_attributedStringForDrawing",
+        "_backgroundColorForFontSmoothing",
+        "_currentTitleTextFieldAttributedString",
+        "_wantsBoldFont",
+        "attributedStringValue",
+        "canSmoothFontsInFrame:forLayerBackedView:",
+        "keyEquivalentFont",
+        "setAttributedStringValue:",
+        "setFont:",
+        "setKeyEquivalentFont:",
+        "setKeyEquivalentFont:size:",
+        "setStringValue:"
+       ],
+       "window": [
+        "_needRedrawOnWindowChangedKeyState",
+        "_windowChangedKeyStateInView:"
+       ]
+      },
+      "super": "NSActionCell"
+     },
+     {
+      "class": "NSPopUpButton",
+      "ivars": [
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 56,
+      "selectors": {
+       "control": [
+        "_fixTargetsForMenu:",
+        "indexOfItemWithTarget:andAction:",
+        "ns_widgetType",
+        "performClick:"
+       ],
+       "geometry": [
+        "alignmentRectInsets",
+        "initWithFrame:",
+        "initWithFrame:pullsDown:",
+        "sizeToFit"
+       ],
+       "menu": [
+        "_allowsContextMenus",
+        "_fixTargetsForMenu:",
+        "_updateMenuUniquing",
+        "menu",
+        "setMenu:"
+       ],
+       "window": [
+        "_setWindow:",
+        "_windowChangedKeyState"
+       ]
+      },
+      "super": "NSButton"
+     }
+    ],
+    "expected_bones": [
+     "widget type",
+     "bezel style",
+     "target/action",
+     "key equivalent",
+     "mixed state",
+     "highlight"
+    ]
+   },
+   "id": "button",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 19.0,
+        "key": "NSFrame",
+        "rect": "{x=-1, y=1, w=33, h=19}",
+        "w": 33.0,
+        "x": -1.0,
+        "y": 1.0
+       },
+       {
+        "h": 19.0,
+        "key": "NSFrame",
+        "rect": "{x=30, y=1, w=33, h=19}",
+        "w": 33.0,
+        "x": 30.0,
+        "y": 1.0
+       },
+       {
+        "h": 16.0,
+        "key": "NSFrame",
+        "rect": "{x=68, y=2, w=16, h=16}",
+        "w": 16.0,
+        "x": 68.0,
+        "y": 2.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=415, y=12, w=82, h=32}",
+        "w": 82.0,
+        "x": 415.0,
+        "y": 12.0
+       },
+       {
+        "h": 34.0,
+        "key": "NSFrame",
+        "rect": "{x=216, y=8, w=32, h=34}",
+        "w": 32.0,
+        "x": 216.0,
+        "y": 8.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=14, y=12, w=229, h=32}",
+        "w": 229.0,
+        "x": 14.0,
+        "y": 12.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=358, y=12, w=82, h=32}",
+        "w": 82.0,
+        "x": 358.0,
+        "y": 12.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=440, y=12, w=88, h=32}",
+        "w": 88.0,
+        "x": 440.0,
+        "y": 12.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=400, y=12, w=96, h=32}",
+        "w": 96.0,
+        "x": 400.0,
+        "y": 12.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=304, y=12, w=96, h=32}",
+        "w": 96.0,
+        "x": 304.0,
+        "y": 12.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=101, y=12, w=176, h=32}",
+        "w": 176.0,
+        "x": 101.0,
+        "y": 12.0
+       },
+       {
+        "h": 25.0,
+        "key": "NSFrame",
+        "rect": "{x=17, y=16, w=25, h=25}",
+        "w": 25.0,
+        "x": 17.0,
+        "y": 16.0
+       }
+      ],
+      "nib_class": "NSButton",
+      "occurrences": 3904,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Push button (default, momentary, checkbox, radio, switch)"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSImageView",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 76,
+      "selectors": {
+       "animation": [
+        "_ensureInitialStateIsSetForAnimationsForSize:",
+        "animates",
+        "setAnimates:"
+       ],
+       "control": [
+        "_setImageAndNotifyTarget:",
+        "_shouldTrackWithNonEditableCell",
+        "action",
+        "ns_widgetType",
+        "setAction:",
+        "setCell:",
+        "setTarget:",
+        "target"
+       ],
+       "dragdrop": [
+        "_copyImageToPasteboard",
+        "draggingEntered:",
+        "draggingExited:"
+       ],
+       "drawing": [
+        "_didRemoveLayer",
+        "_invalidateLayerLayoutAndSetNeedsDisplay",
+        "_redisplayImageWhenLayerBacked",
+        "_shouldDoLegacyLayerUpdate",
+        "_shouldDoOldLayerUpdate",
+        "_updateLayerContentsRedrawPolicy",
+        "_updateLayerContentsToBorderImage",
+        "_updateLayerContentsToImage",
+        "_usingUpdateLayer",
+        "makeBackingLayer",
+        "setLayer:",
+        "updateLayer"
+       ],
+       "geometry": [
+        "_ensureInitialStateIsSetForAnimationsForSize:",
+        "_imageViewFrame",
+        "_invalidateLayerLayoutAndSetNeedsDisplay",
+        "_wantsImageViewForBoundsSize:",
+        "alignmentRectInsets",
+        "imageFrameStyle",
+        "initWithFrame:",
+        "intrinsicContentSize",
+        "layout",
+        "setFrameSize:",
+        "setImageFrameStyle:"
+       ],
+       "keyboard": [
+        "keyDown:"
+       ],
+       "menu": [
+        "validateMenuItem:"
+       ]
+      },
+      "super": "NSControl"
+     },
+     {
+      "class": "NSImage",
+      "ivars": [
+       "\b",
+       "\u0010",
+       " ",
+       "(",
+       "0"
+      ],
+      "method_count": 153,
+      "selectors": {
+       "control": [
+        "_compositeFlipped:atPoint:fromRect:operation:fraction:",
+        "_compositeFlipped:inRect:fromRect:operation:fraction:",
+        "_compositeToPoint:fromRect:operation:fraction:",
+        "_compositeToPoint:operation:fraction:",
+        "_drawMappingAlignmentRectToRect:withState:backgroundStyle:operation:fraction:flip:hints:",
+        "compositeToPoint:fromRect:operation:fraction:",
+        "compositeToPoint:operation:fraction:",
+        "dissolveToPoint:fraction:",
+        "dissolveToPoint:fromRect:fraction:",
+        "drawAtPoint:fromRect:operation:fraction:",
+        "drawInRect:fromRect:operation:fraction:",
+        "drawInRect:fromRect:operation:fraction:hints:"
+       ],
+       "dragdrop": [
+        "initWithPasteboard:",
+        "initWithPasteboardPropertyList:ofType:",
+        "pasteboardPropertyListForType:",
+        "writableTypesForPasteboard:"
+       ],
+       "drawing": [
+        "_accessibilityDescriptionBacking",
+        "_accessibilityDescriptionBackingForArchiving",
+        "_accessibilityDescriptionBackingForCopying",
+        "_setAccessibilityDescriptionBacking:",
+        "layerContentsForContentsScale:",
+        "recommendedLayerContentsScale:"
+       ],
+       "focus": [
+        "_lockFocusOnRepresentation:rect:context:hints:flipped:",
+        "lockFocus",
+        "lockFocusFlipped:",
+        "lockFocusOnRepresentation:",
+        "lockFocusWithRect:context:hints:flipped:",
+        "unlockFocus"
+       ],
+       "geometry": [
+        "CGImageForProposedRect:context:hints:",
+        "_addRepresentationWithSharedKitWindow:rect:",
+        "_alignmentRectInNormalizedCoordinates",
+        "_composite:delta:fromRect:toPoint:",
+        "_compositeFlipped:atPoint:fromRect:operation:fraction:",
+        "_compositeFlipped:inRect:fromRect:operation:fraction:",
+        "_compositeToPoint:fromRect:operation:fraction:",
+        "_drawMappingAlignmentRectToRect:withState:backgroundStyle:operation:fraction:flip:hints:",
+        "_drawRepresentation:inRect:withScaling:",
+        "_imageByBadgingWithImage:rect:",
+        "_lockFocusOnRepresentation:rect:context:hints:flipped:",
+        "_newSnapshotRepForCGImage:drawingRect:applicableForRect:context:processedHints:"
+       ],
+       "mouse": [
+        "hitTestPoint:withImageDestinationRect:context:hints:",
+        "hitTestRect:withImageDestinationRect:context:hints:",
+        "hitTestRect:withImageDestinationRect:context:hints:flipped:"
+       ],
+       "window": [
+        "_addRepresentationWithSharedKitWindow:rect:"
+       ]
+      },
+      "super": null
+     }
+    ],
+    "expected_bones": [
+     "scaling modes",
+     "image names from nib",
+     "flipped"
+    ]
+   },
+   "id": "image_view",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 62.0,
+        "key": "NSFrame",
+        "rect": "{x=20, y=201, w=62, h=62}",
+        "w": 62.0,
+        "x": 20.0,
+        "y": 201.0
+       },
+       {
+        "h": 6.0,
+        "key": "NSFrame",
+        "rect": "{x=172, y=12, w=15, h=6}",
+        "w": 15.0,
+        "x": 172.0,
+        "y": 12.0
+       },
+       {
+        "h": 6.0,
+        "key": "NSFrame",
+        "rect": "{x=77, y=12, w=15, h=6}",
+        "w": 15.0,
+        "x": 77.0,
+        "y": 12.0
+       },
+       {
+        "h": 6.0,
+        "key": "NSFrame",
+        "rect": "{x=96, y=12, w=15, h=6}",
+        "w": 15.0,
+        "x": 96.0,
+        "y": 12.0
+       },
+       {
+        "h": 6.0,
+        "key": "NSFrame",
+        "rect": "{x=115, y=12, w=15, h=6}",
+        "w": 15.0,
+        "x": 115.0,
+        "y": 12.0
+       },
+       {
+        "h": 6.0,
+        "key": "NSFrame",
+        "rect": "{x=134, y=12, w=15, h=6}",
+        "w": 15.0,
+        "x": 134.0,
+        "y": 12.0
+       },
+       {
+        "h": 6.0,
+        "key": "NSFrame",
+        "rect": "{x=153, y=12, w=15, h=6}",
+        "w": 15.0,
+        "x": 153.0,
+        "y": 12.0
+       },
+       {
+        "h": 40.0,
+        "key": "NSFrame",
+        "rect": "{x=8, y=7, w=40, h=40}",
+        "w": 40.0,
+        "x": 8.0,
+        "y": 7.0
+       },
+       {
+        "h": 64.0,
+        "key": "NSFrame",
+        "rect": "{x=24, y=52, w=64, h=64}",
+        "w": 64.0,
+        "x": 24.0,
+        "y": 52.0
+       },
+       {
+        "h": 64.0,
+        "key": "NSFrame",
+        "rect": "{x=20, y=95, w=64, h=64}",
+        "w": 64.0,
+        "x": 20.0,
+        "y": 95.0
+       },
+       {
+        "h": 64.0,
+        "key": "NSFrame",
+        "rect": "{x=24, y=59, w=64, h=64}",
+        "w": 64.0,
+        "x": 24.0,
+        "y": 59.0
+       },
+       {
+        "h": 64.0,
+        "key": "NSFrame",
+        "rect": "{x=24, y=39, w=64, h=64}",
+        "w": 64.0,
+        "x": 24.0,
+        "y": 39.0
+       }
+      ],
+      "nib_class": "NSImageView",
+      "occurrences": 1135,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLoadingErrors.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLoadingErrors.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMMiniDisplay.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMMiniDisplay.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Image view with scaling"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSTableView",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\b\u0001",
+       "\u0010\u0001",
+       "\u0018\u0001",
+       " \u0001",
+       "(\u0001",
+       "0\u0001",
+       "8\u0001"
+      ],
+      "method_count": 948,
+      "selectors": {
+       "animation": [
+        "_adjustFieldEditorAnimated:",
+        "_canSwitchToViewBasedForAnimations",
+        "_drawScrollViewFocusRing:clipRect:needsFullDisplay:",
+        "_needsBackgroundImageForAnimation",
+        "_needsBackgroundToAnimate",
+        "_needsHighlightSelectionForBackgroundAnimations",
+        "_shouldSetObjectValueOnCellsForAnimations",
+        "_tileAnimated:",
+        "_tileAnimatedIfAnimating",
+        "_typeSelectEndCurrentSearchWithRedisplay:",
+        "applyPermutationsFromArray:toArray:insertAnimation:removeAnimation:",
+        "applyPermutationsFromArray:toArray:insertionAnimation:removalAnimation:"
+       ],
+       "control": [
+        "__ivar_getTrackingCell",
+        "__ivar_setTrackingCell:",
+        "_accessibilityCellElementClass",
+        "_accessibilityListCellElementClass",
+        "_accessibilityTracksRowAndCellIndexes",
+        "_accessibilityUnregisterAllRowsAndCells",
+        "_accessibilityUnregisterCellsOfRowIndexes:columnIndexes:",
+        "_accessibilityUnregisterCellsOfTableColumn:",
+        "_accessibilityUnregisterCellsOfTableColumns:",
+        "_addGroupRowAttributesToCell:withData:highlighted:",
+        "_addSourceListCellAttributesToCell:withData:selected:",
+        "_allowTabbingIntoCells"
+       ],
+       "dragdrop": [
+        "__doImageDragUsingRowsWithIndexes:event:pasteboard:source:slideBack:startRow:",
+        "_addDraggingDestinationViewForRowIndexes:draggingStyle:",
+        "_autoscrollForDraggingInfo:timeDelta:",
+        "_beginDraggingColumn:",
+        "_dataSourceRespondsToPasteboardWriterForRow",
+        "_delegateUpdateDraggingItemsForDrag:",
+        "_doImageDragUsingRows:event:pasteboard:source:slideBack:",
+        "_doImageDragUsingRowsWithIndexes:event:pasteboard:source:slideBack:startRow:",
+        "_draggingSource",
+        "_dropDestinationIndicatorFrameForDraggingDestinationStyle:rowIndexes:",
+        "_endDraggingColumn:",
+        "_hitRowForDropTargetRow:point:"
+       ],
+       "drawing": [
+        "_beginDrawView:",
+        "_didRemoveLayer",
+        "_drawRect:liveResizeCacheCoveredArea:",
+        "_drawRectIfEmpty",
+        "_drawView:",
+        "_drawView:withCellFrameUnion:inContext:",
+        "_endDrawView:",
+        "_funnelRowBackgroundDrawingThroughDrawRect",
+        "_invalidateForKeyChange",
+        "_invalidateGroupRowsIfNeeded",
+        "_invalidateLiveResizeCachedImage",
+        "_invalidateNumberOfRowsCache"
+       ],
+       "focus": [
+        "_adjustRectForFocusRing:atRow:",
+        "_attemptToEditFocusedColumn",
+        "_attemptToPerformClickOnFocusedColumn",
+        "_automaticFocusRingDisabled",
+        "_canFocusCellAtRow:column:",
+        "_cellBasedFieldEditorFocusRingFrame",
+        "_deprecatedCanFocusCell:atTableColumn:row:",
+        "_didSetFocusForCell:withKeyboardFocusClipView:",
+        "_drawFocusRingAroundRect:",
+        "_drawScrollViewFocusRing:clipRect:needsFullDisplay:",
+        "_drawTableExteriorFocusRingIfNecessaryInClipRect:",
+        "_endMyEditingAndRemainFirstResponder"
+       ],
+       "geometry": [
+        "__computePreLiveColumnResizeWidthsByColumn",
+        "__preLiveResizeWidthOfColumn:",
+        "_adjustDrawingTestFrame:atRow:column:",
+        "_adjustFrameSizeToFitSuperview:",
+        "_adjustRectForFocusRing:atRow:",
+        "_adjustRowHeight:forIntergroupSpacingRow:",
+        "_adjustRowRect:forIntergroupSpacingRow:",
+        "_adjustRowRect:forSourceListGroupRow:",
+        "_autoresizeToFit",
+        "_autoresizeToFitForHidingATableColumn:",
+        "_autoresizingStyleForColumnResize",
+        "_backgroundImageForRow:withFrame:"
+       ],
+       "keyboard": [
+        "_didSetFocusForCell:withKeyboardFocusClipView:",
+        "_keyboardFocusNeedsDisplayForColumn:row:",
+        "_performKeyEquivalent:conditionally:",
+        "_setKeyboardFocusRingNeedsDisplayDuringLiveResize",
+        "_setKeyboardFocusRingNeedsDisplayForCellInRect:",
+        "cancelOperation:",
+        "keyDown:"
+       ],
+       "menu": [
+        "_drawContextMenuHighlightForIndexes:clipRect:",
+        "_drawContextualMenuHighlightInClipRect:",
+        "_drawRegularContextMenuHighlightForRow:",
+        "_drawSourceListContextMenuHighlightForRow:",
+        "_menuDidEndTracking:",
+        "_performKeyEquivalent:conditionally:",
+        "_setContextMenuHighlightColorForRow:",
+        "_setupContextMenuHighlightingForRow:column:",
+        "accessibilityWindowPointForShowMenu",
+        "drawContextMenuHighlightForRow:",
+        "menuForEvent:"
+       ],
+       "mouse": [
+        "_addTrackingAreasForRow:column:",
+        "_delegateRespondsTo_wantsTrackingAreasForRowColumn",
+        "_delegateWantsTrackingAreasForRow:column:",
+        "_dragShouldBeginFromMouseDown:",
+        "_dropTrackingAreaData",
+        "_hitTestForEvent:atColumn:row:",
+        "_mouseDownShouldMakeFirstResponder",
+        "_performDragFromMouseDown:",
+        "_sendDelegateDidMouseDownInHeader:",
+        "_setTrackingAreasDirty:",
+        "_shouldAbortMouseDownAfterDragAttempt:",
+        "_supportsTrackingAreasForCells"
+       ],
+       "text": [
+        "_groupCellAttributedStringForString:withDefaultAttributes:highlighted:"
+       ],
+       "window": [
+        "_allowTabbingIntoCells",
+        "_getRowHeaderFixedContentRect:rowHeaderScrollableContentVisibleRect:",
+        "_highlightColorDependsOnWindowState",
+        "_resetThePreparedContentRectToTheVisibleRect",
+        "_rowHeaderFixedContentRect",
+        "_startWatchingWindowWillOrderOnScreen",
+        "_stopWatchingWindowWillOrderOnScreen",
+        "_tableViewWindowWillOrderOnScreen:",
+        "_windowChangedKeyState",
+        "accessibilityWindowPointForShowMenu",
+        "becomeKeyWindow",
+        "gridStyleMask"
+       ]
+      },
+      "super": "NSControl"
+     },
+     {
+      "class": "NSTableColumn",
+      "ivars": [
+       "\b",
+       "\u0010",
+       "\u0018",
+       " ",
+       "(",
+       "0",
+       "8",
+       "@",
+       "H"
+      ],
+      "method_count": 93,
+      "selectors": {
+       "control": [
+        "_updateDataCellControlView",
+        "_updateHeaderCellControlView",
+        "accessibilityActionDescription:",
+        "accessibilityActionNames",
+        "accessibilityPerformAction:",
+        "dataCell",
+        "dataCellForRow:",
+        "headerCell",
+        "setDataCell:",
+        "setHeaderCell:"
+       ],
+       "focus": [
+        "accessibilityFocusedUIElement"
+       ],
+       "geometry": [
+        "_canUseReorderResizeImageCache",
+        "_disableResizedPosting",
+        "_enableResizedPosting",
+        "_postColumnDidResizeNotificationWithOldWidth:",
+        "_reorderResizeImageCache",
+        "_resizePostingDisabled",
+        "_setCanUseReorderResizeImageCache:",
+        "_setReorderResizeImageCache:",
+        "accessibilityIsSizeAttributeSettable",
+        "accessibilitySetSizeAttribute:",
+        "accessibilitySizeAttribute",
+        "sizeToFit"
+       ],
+       "mouse": [
+        "accessibilityHitTest:"
+       ],
+       "window": [
+        "accessibilityIsWindowAttributeSettable",
+        "accessibilityWindowAttribute"
+       ]
+      },
+      "super": null
+     },
+     {
+      "class": "NSTableHeaderView",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 104,
+      "selectors": {
+       "animation": [
+        "_didMoveFromColumn:toColumn:animated:",
+        "_endDraggingColumn:animated:",
+        "_supportsViewsForAnimations",
+        "_updateColumnViewWidthsAnimated:"
+       ],
+       "control": [
+        "_alignTitleWithDataCell",
+        "_drawHeaderCell:withFrame:withStateFromColumn:",
+        "_overflowHeaderCellPrototype",
+        "_preparedHeaderCellAtColumn:",
+        "_preparedHeaderFillerCell",
+        "_setAlignTitleWithDataCell:",
+        "_setOverflowHeaderCellPrototype:"
+       ],
+       "dragdrop": [
+        "_beginDraggingColumn:",
+        "_endDraggingColumn:",
+        "_endDraggingColumn:animated:"
+       ],
+       "drawing": [
+        "_drawRect:liveResizeCacheCoveredArea:",
+        "_drawRect:liveResizeFill::::cacheCoveredArea:",
+        "_invalidateLiveResizeCachedImage",
+        "_invalidateOrComputeNewCursorRectsIfNecessary",
+        "_invalidateRightMostLineIfNeeded",
+        "_viewBasedRawRect:",
+        "drawRect:"
+       ],
+       "focus": [
+        "_startObservingKeyWindow:",
+        "_stopObservingKeyWindow",
+        "acceptsFirstResponder",
+        "accessibilityIsChildFocusable:"
+       ],
+       "geometry": [
+        "_addToolTipRects",
+        "_cursorRectForColumn:",
+        "_drawHeaderCell:withFrame:withStateFromColumn:",
+        "_drawHeaderFillerInRect:matchLastState:",
+        "_drawOverflowHeaderInRect:",
+        "_drawRect:liveResizeCacheCoveredArea:",
+        "_drawRect:liveResizeFill::::cacheCoveredArea:",
+        "_headerRectForInvalidation:",
+        "_invalidateLiveResizeCachedImage",
+        "_invalidateOrComputeNewCursorRectsIfNecessary",
+        "_layoutIsSameAsCachedLayoutWithFrame:",
+        "_overflowRectForBounds:"
+       ],
+       "mouse": [
+        "acceptsFirstMouse:",
+        "accessibilityHitTest:",
+        "mouseDown:",
+        "mouseDownCanMoveWindow",
+        "resetCursorRects"
+       ],
+       "window": [
+        "_rowHeaderFixedContentRect",
+        "_startObservingKeyWindow:",
+        "_stopObservingKeyWindow",
+        "_windowChangedKeyState",
+        "_windowKeyChanged:",
+        "mouseDownCanMoveWindow",
+        "viewWillMoveToWindow:"
+       ]
+      },
+      "super": "NSView"
+     }
+    ],
+    "expected_bones": [
+     "row height",
+     "column resize/reorder",
+     "selection",
+     "sort indicator",
+     "alternating rows"
+    ]
+   },
+   "id": "list_view",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 131.0,
+        "key": "NSFrameSize",
+        "size": "{w=469, h=131}",
+        "w": 469.0
+       },
+       {
+        "h": 220.0,
+        "key": "NSFrameSize",
+        "size": "{w=346, h=220}",
+        "w": 346.0
+       },
+       {
+        "h": 220.0,
+        "key": "NSFrameSize",
+        "size": "{w=105, h=220}",
+        "w": 105.0
+       },
+       {
+        "h": 315.0,
+        "key": "NSFrameSize",
+        "size": "{w=139, h=315}",
+        "w": 139.0
+       },
+       {
+        "h": 151.0,
+        "key": "NSFrameSize",
+        "size": "{w=312, h=151}",
+        "w": 312.0
+       },
+       {
+        "h": 151.0,
+        "key": "NSFrameSize",
+        "size": "{w=317, h=151}",
+        "w": 317.0
+       },
+       {
+        "h": 160.0,
+        "key": "NSFrameSize",
+        "size": "{w=315, h=160}",
+        "w": 315.0
+       },
+       {
+        "h": 160.0,
+        "key": "NSFrameSize",
+        "size": "{w=315, h=160}",
+        "w": 315.0
+       },
+       {
+        "h": 256.0,
+        "key": "NSFrameSize",
+        "size": "{w=231, h=256}",
+        "w": 231.0
+       },
+       {
+        "h": 78.0,
+        "key": "NSFrameSize",
+        "size": "{w=440, h=78}",
+        "w": 440.0
+       },
+       {
+        "h": 256.0,
+        "key": "NSFrameSize",
+        "size": "{w=231, h=256}",
+        "w": 231.0
+       },
+       {
+        "h": 126.0,
+        "key": "NSFrameSize",
+        "size": "{w=233, h=126}",
+        "w": 233.0
+       }
+      ],
+      "nib_class": "NSTableView",
+      "occurrences": 169,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLoadingErrors.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLoadingErrors.nib",
+       "Applications/Calendar.app/Contents/Resources/English.lproj/PeoplePicker.nib",
+       "Applications/Calendar.app/Contents/Resources/English.lproj/PeoplePicker.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Table list view with columns"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSMenu",
+      "ivars": [
+       "\b",
+       "\u0010",
+       "\u0018",
+       " ",
+       "(",
+       "0"
+      ],
+      "method_count": 185,
+      "selectors": {
+       "animation": [
+        "cancelTrackingWithoutAnimation"
+       ],
+       "control": [
+        "_hasPendingCancellationEvent",
+        "_insertItemInSortedOrderWithTitle:action:keyEquivalent:",
+        "_internalPerformActionForItemAtIndex:",
+        "_isEnabled",
+        "_menuItem:didChangeActionFrom:to:",
+        "_performActionWithHighlightingForItemAtIndex:",
+        "_performActionWithHighlightingForItemAtIndex:sendAccessibilityNotification:",
+        "_setEnabled:",
+        "addItemWithTitle:action:keyEquivalent:",
+        "indexOfItemWithTarget:andAction:",
+        "insertItemWithTitle:action:keyEquivalent:atIndex:",
+        "performActionForItemAtIndex:"
+       ],
+       "geometry": [
+        "_confinementRectForScreen:",
+        "_delegateWantsConfinementRectCall",
+        "_hasPaddingOnEdge:",
+        "_limitedViewWantsRedisplayForItem:inRect:",
+        "_recursivelyChangeLayoutDirectionFrom:to:",
+        "_setHasPadding:onEdge:",
+        "_userInterfaceLayoutDirection",
+        "size",
+        "sizeToFit"
+       ],
+       "keyboard": [
+        "_performKeyEquivalentWithDelegate:",
+        "performKeyEquivalent:"
+       ],
+       "menu": [
+        "_addSidebandMenuUpdaterForRoles:token:priority:handler:",
+        "_contextMenuImpl",
+        "_contextMenuPluginAEDesc",
+        "_currentMenuUpdateFlags",
+        "_getKeyEquivalentUniquerCreatingIfNecessary:",
+        "_insertItemInSortedOrderWithTitle:action:keyEquivalent:",
+        "_isContextualMenu",
+        "_isInMainMenu",
+        "_lockMenuPosition",
+        "_menuChanged",
+        "_menuDidChangeAccessibilityOverriddenAttribute:from:to:",
+        "_menuImpl"
+       ],
+       "text": [
+        "_fontOrNilIfDefault",
+        "_menuItem:didChangeFontFrom:to:",
+        "_popUpContextMenu:withEvent:forView:withFont:",
+        "font",
+        "setFont:"
+       ],
+       "window": [
+        "_windowInitWithCoder:"
+       ]
+      },
+      "super": null
+     },
+     {
+      "class": "NSMenuItem",
+      "ivars": [
+       "\b",
+       "\u0010",
+       "\u0018",
+       " ",
+       "(",
+       "0",
+       "8",
+       "@",
+       "H",
+       "P",
+       "X",
+       "\\"
+      ],
+      "method_count": 143,
+      "selectors": {
+       "control": [
+        "_actionCellInitWithCoder:",
+        "_buttonCellInitWithCoder:",
+        "_cellInitWithCoder:",
+        "_corePerformAction",
+        "_internalPerformActionThroughMenuIfPossible",
+        "_isEnabled",
+        "_menuCellInitWithCoder:",
+        "_startingWindowForSendAction:",
+        "action",
+        "initWithTitle:action:keyEquivalent:",
+        "isEnabled",
+        "setAction:"
+       ],
+       "geometry": [
+        "_cachedAttributedTitleSize",
+        "_computeAttributedTitleSizeForTitle:",
+        "_setViewNeedsDisplayInRect:"
+       ],
+       "menu": [
+        "_applicableKeyEquivalentModifierMask",
+        "_cacheUserKeyEquivalentInfo:",
+        "_canShareKeyEquivalentWithItem:",
+        "_defaultKeyEquivalentPriority",
+        "_desiredKeyEquivalent",
+        "_desiredKeyEquivalentModifierMask",
+        "_fetchFreshUserKeyEquivalentInfo",
+        "_internalPerformActionThroughMenuIfPossible",
+        "_isHelpMenu",
+        "_isHelpMenuAppKitOnly",
+        "_keyEquivalentPriority",
+        "_keyEquivalentVirtualKeyCode"
+       ],
+       "text": [
+        "font",
+        "setFont:"
+       ],
+       "window": [
+        "_startingWindowForSendAction:"
+       ]
+      },
+      "super": null
+     },
+     {
+      "class": "NSApplication",
+      "ivars": [
+       "\u0010",
+       "\u0018",
+       " ",
+       "(",
+       "0",
+       "8",
+       "@",
+       "H",
+       "P",
+       "X",
+       "`",
+       "b",
+       "d",
+       "h",
+       "p",
+       "x"
+      ],
+      "method_count": 546,
+      "selectors": {
+       "control": [
+        "accessibilityActionDescription:",
+        "accessibilityActionNames",
+        "accessibilityPerformAction:",
+        "sendAction:to:from:",
+        "supplementalTargetForAction:sender:",
+        "targetForAction:",
+        "targetForAction:to:from:"
+       ],
+       "drawing": [
+        "_invalidateRestorableStateOfContents",
+        "_invalidateWindowListForCycleIfNeededForWindow:"
+       ],
+       "focus": [
+        "_adjustKeyWindowFromOriginatingDisplayHint:",
+        "_bestKeyWindowCandidateOnScreen:",
+        "_findKeyWindowConsideringSpacesWithOriginatingDisplayHint:isAppleEventPending:makeKey:",
+        "_hasKeyFocus",
+        "_keyWindow",
+        "_keyWindowForHeartBeat",
+        "_obtainKeyFocus",
+        "_previousKeyWindow",
+        "_releaseKeyFocus",
+        "_resignKeyFocus",
+        "_setHasKeyFocus:",
+        "_setKeyWindow:"
+       ],
+       "geometry": [
+        "_cursorRectCursor",
+        "_sendScreenNotificationWhenDockSizeChanges",
+        "areCursorRectsEnabled",
+        "disableCursorRects",
+        "enableCursorRects",
+        "runPageLayout:",
+        "speechSynthesizer:didFinishSpeaking:",
+        "userInterfaceLayoutDirection"
+       ],
+       "keyboard": [
+        "isFullKeyboardAccessEnabled"
+       ],
+       "menu": [
+        "_addFullScreenMenuItemIfNeeded",
+        "_addUpdaterForDocumentMenuItem:",
+        "_addWindowsMenu:enabled:",
+        "_createDockMenu:",
+        "_flattenMenu:",
+        "_flattenMenu:flatList:",
+        "_flattenMenuItem:",
+        "_flattenMenuItem:flatList:",
+        "_handleKeyEquivalent:",
+        "_handleSpecialAlternateKeyEquivalent:",
+        "_hasOpenMenuItem",
+        "_isAlternateQuitMenuItem:"
+       ],
+       "mouse": [
+        "_accessibilityCompatibilityHitTest:",
+        "_setCursorForCurrentMouseLocation",
+        "accessibilityHitTest",
+        "accessibilityHitTest:",
+        "rightMouseDown:"
+       ],
+       "text": [
+        "orderFrontFontPanel:"
+       ],
+       "window": [
+        "_activateWindows",
+        "_addHiddenWindow:",
+        "_addKeyOverrideWindow:",
+        "_addWindow:",
+        "_addWindowsMenu:enabled:",
+        "_adjustKeyWindowFromOriginatingDisplayHint:",
+        "_anyOfMyWindowsAreOnAVisibleNonFullScreenSpace",
+        "_appHasNonMiniaturizedWindow",
+        "_appHasOpenNSWindow",
+        "_appHasVisibleWindowOrPanel",
+        "_bestKeyWindowCandidateOnScreen:",
+        "_bestMainWindowCandidateOnScreen:"
+       ]
+      },
+      "super": "NSResponder"
+     }
+    ],
+    "expected_bones": [
+     "menu titles",
+     "key equivalents",
+     "validation",
+     "tracking cycle"
+    ]
+   },
+   "id": "menu_bar",
+   "measured": false,
+   "skin": {
+    "from_nibs": []
+   },
+   "title": "System menu bar and application menus"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSPopUpButton",
+      "ivars": [
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 56,
+      "selectors": {
+       "control": [
+        "_fixTargetsForMenu:",
+        "indexOfItemWithTarget:andAction:",
+        "ns_widgetType",
+        "performClick:"
+       ],
+       "geometry": [
+        "alignmentRectInsets",
+        "initWithFrame:",
+        "initWithFrame:pullsDown:",
+        "sizeToFit"
+       ],
+       "menu": [
+        "_allowsContextMenus",
+        "_fixTargetsForMenu:",
+        "_updateMenuUniquing",
+        "menu",
+        "setMenu:"
+       ],
+       "window": [
+        "_setWindow:",
+        "_windowChangedKeyState"
+       ]
+      },
+      "super": "NSButton"
+     },
+     {
+      "class": "NSPopUpButtonCell",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 152,
+      "selectors": {
+       "control": [
+        "_accessibilityPressAction:",
+        "_autolayout_cellSize",
+        "_availableContentRectForCellFrame:isFlipped:",
+        "_canBecomeDefaultButtonCell",
+        "_clearTargetsFromMenuPointingAtSelf:",
+        "_extraWidthForCellHeight:",
+        "_fixTargetsForMenu:",
+        "_indicatorFrameForCellFrame:inView:",
+        "_indicatorFrameForCellFrame:isFlipped:",
+        "_indicatorImageForCellHeight:",
+        "_maxItemsToMeasureForCellSize",
+        "_menuLocationForEvent:inCellFrame:ofView:"
+       ],
+       "drawing": [
+        "_shouldDrawTextWithDisabledAppearance",
+        "drawBorderAndBackgroundWithFrame:inView:"
+       ],
+       "focus": [
+        "_preferredFocusLocationMask",
+        "accessibilityIsFocusedAttributeSettable"
+       ],
+       "geometry": [
+        "_autolayout_cellSize",
+        "_autolayout_preferredPopupHeight",
+        "_availableContentRectForCellFrame:isFlipped:",
+        "_bezelBottomPadding",
+        "_bezelToIndicatorInsets",
+        "_bezelTopPadding",
+        "_coreUIBezelDrawOptionsWithFrame:inView:",
+        "_defaultIndicatorSize",
+        "_drawIndicatorWithFrame:inView:",
+        "_drawStandardPopUpBorderWithFrame:inView:",
+        "_imageToBezelOrIndicatorPadding",
+        "_indicatorFrameForCellFrame:inView:"
+       ],
+       "keyboard": [
+        "_performKeyEquivalent:conditionally:",
+        "keyDown:inRect:ofView:"
+       ],
+       "menu": [
+        "_allowsContextMenus",
+        "_clearTargetsFromMenuPointingAtSelf:",
+        "_copyWithoutMenu",
+        "_createAndPopulateKeyEquivalentUniquerIfNecessary",
+        "_fixTargetsForMenu:",
+        "_keyEquivalentUniquerCreatingIfNecessary:",
+        "_locationForPopUpMenuWithFrame:",
+        "_menuLocationForEvent:inCellFrame:ofView:",
+        "_menuLocationHorizontalOffset",
+        "_menuMinimumWidthForEvent:inCellFrame:ofView:",
+        "_menuWillSendAction:",
+        "_performKeyEquivalent:conditionally:"
+       ],
+       "mouse": [
+        "hitTestForEvent:inRect:ofView:",
+        "trackMouse:inRect:ofView:untilMouseUp:"
+       ],
+       "text": [
+        "_highlightTextColor",
+        "setFont:"
+       ],
+       "window": [
+        "_availableContentRectForCellFrame:isFlipped:",
+        "_needRedrawOnWindowChangedKeyState"
+       ]
+      },
+      "super": "NSMenuItemCell"
+     },
+     {
+      "class": "NSMenu",
+      "ivars": [
+       "\b",
+       "\u0010",
+       "\u0018",
+       " ",
+       "(",
+       "0"
+      ],
+      "method_count": 185,
+      "selectors": {
+       "animation": [
+        "cancelTrackingWithoutAnimation"
+       ],
+       "control": [
+        "_hasPendingCancellationEvent",
+        "_insertItemInSortedOrderWithTitle:action:keyEquivalent:",
+        "_internalPerformActionForItemAtIndex:",
+        "_isEnabled",
+        "_menuItem:didChangeActionFrom:to:",
+        "_performActionWithHighlightingForItemAtIndex:",
+        "_performActionWithHighlightingForItemAtIndex:sendAccessibilityNotification:",
+        "_setEnabled:",
+        "addItemWithTitle:action:keyEquivalent:",
+        "indexOfItemWithTarget:andAction:",
+        "insertItemWithTitle:action:keyEquivalent:atIndex:",
+        "performActionForItemAtIndex:"
+       ],
+       "geometry": [
+        "_confinementRectForScreen:",
+        "_delegateWantsConfinementRectCall",
+        "_hasPaddingOnEdge:",
+        "_limitedViewWantsRedisplayForItem:inRect:",
+        "_recursivelyChangeLayoutDirectionFrom:to:",
+        "_setHasPadding:onEdge:",
+        "_userInterfaceLayoutDirection",
+        "size",
+        "sizeToFit"
+       ],
+       "keyboard": [
+        "_performKeyEquivalentWithDelegate:",
+        "performKeyEquivalent:"
+       ],
+       "menu": [
+        "_addSidebandMenuUpdaterForRoles:token:priority:handler:",
+        "_contextMenuImpl",
+        "_contextMenuPluginAEDesc",
+        "_currentMenuUpdateFlags",
+        "_getKeyEquivalentUniquerCreatingIfNecessary:",
+        "_insertItemInSortedOrderWithTitle:action:keyEquivalent:",
+        "_isContextualMenu",
+        "_isInMainMenu",
+        "_lockMenuPosition",
+        "_menuChanged",
+        "_menuDidChangeAccessibilityOverriddenAttribute:from:to:",
+        "_menuImpl"
+       ],
+       "text": [
+        "_fontOrNilIfDefault",
+        "_menuItem:didChangeFontFrom:to:",
+        "_popUpContextMenu:withEvent:forView:withFont:",
+        "font",
+        "setFont:"
+       ],
+       "window": [
+        "_windowInitWithCoder:"
+       ]
+      },
+      "super": null
+     },
+     {
+      "class": "NSMenuItem",
+      "ivars": [
+       "\b",
+       "\u0010",
+       "\u0018",
+       " ",
+       "(",
+       "0",
+       "8",
+       "@",
+       "H",
+       "P",
+       "X",
+       "\\"
+      ],
+      "method_count": 143,
+      "selectors": {
+       "control": [
+        "_actionCellInitWithCoder:",
+        "_buttonCellInitWithCoder:",
+        "_cellInitWithCoder:",
+        "_corePerformAction",
+        "_internalPerformActionThroughMenuIfPossible",
+        "_isEnabled",
+        "_menuCellInitWithCoder:",
+        "_startingWindowForSendAction:",
+        "action",
+        "initWithTitle:action:keyEquivalent:",
+        "isEnabled",
+        "setAction:"
+       ],
+       "geometry": [
+        "_cachedAttributedTitleSize",
+        "_computeAttributedTitleSizeForTitle:",
+        "_setViewNeedsDisplayInRect:"
+       ],
+       "menu": [
+        "_applicableKeyEquivalentModifierMask",
+        "_cacheUserKeyEquivalentInfo:",
+        "_canShareKeyEquivalentWithItem:",
+        "_defaultKeyEquivalentPriority",
+        "_desiredKeyEquivalent",
+        "_desiredKeyEquivalentModifierMask",
+        "_fetchFreshUserKeyEquivalentInfo",
+        "_internalPerformActionThroughMenuIfPossible",
+        "_isHelpMenu",
+        "_isHelpMenuAppKitOnly",
+        "_keyEquivalentPriority",
+        "_keyEquivalentVirtualKeyCode"
+       ],
+       "text": [
+        "font",
+        "setFont:"
+       ],
+       "window": [
+        "_startingWindowForSendAction:"
+       ]
+      },
+      "super": null
+     }
+    ],
+    "expected_bones": [
+     "menu construction",
+     "item state",
+     "separators",
+     "tracking"
+    ]
+   },
+   "id": "pop_up_button",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 26.0,
+        "key": "NSFrame",
+        "rect": "{x=91, y=17, w=192, h=26}",
+        "w": 192.0,
+        "x": 91.0,
+        "y": 17.0
+       },
+       {
+        "h": 26.0,
+        "key": "NSFrame",
+        "rect": "{x=71, y=16, w=195, h=26}",
+        "w": 195.0,
+        "x": 71.0,
+        "y": 16.0
+       },
+       {
+        "h": 26.0,
+        "key": "NSFrame",
+        "rect": "{x=148, y=16, w=152, h=26}",
+        "w": 152.0,
+        "x": 148.0,
+        "y": 16.0
+       },
+       {
+        "h": 26.0,
+        "key": "NSFrame",
+        "rect": "{x=148, y=-11, w=152, h=26}",
+        "w": 152.0,
+        "x": 148.0,
+        "y": -11.0
+       },
+       {
+        "h": 26.0,
+        "key": "NSFrame",
+        "rect": "{x=148, y=-39, w=152, h=26}",
+        "w": 152.0,
+        "x": 148.0,
+        "y": -39.0
+       },
+       {
+        "h": 26.0,
+        "key": "NSFrame",
+        "rect": "{x=86, y=148, w=223, h=26}",
+        "w": 223.0,
+        "x": 86.0,
+        "y": 148.0
+       },
+       {
+        "h": 26.0,
+        "key": "NSFrame",
+        "rect": "{x=86, y=109, w=223, h=26}",
+        "w": 223.0,
+        "x": 86.0,
+        "y": 109.0
+       },
+       {
+        "h": 22.0,
+        "key": "NSFrame",
+        "rect": "{x=47, y=0, w=146, h=22}",
+        "w": 146.0,
+        "x": 47.0,
+        "y": 0.0
+       },
+       {
+        "h": 22.0,
+        "key": "NSFrame",
+        "rect": "{x=7, y=42, w=81, h=22}",
+        "w": 81.0,
+        "x": 7.0,
+        "y": 42.0
+       },
+       {
+        "h": 22.0,
+        "key": "NSFrame",
+        "rect": "{x=803, y=520, w=103, h=22}",
+        "w": 103.0,
+        "x": 803.0,
+        "y": 520.0
+       },
+       {
+        "h": 26.0,
+        "key": "NSFrame",
+        "rect": "{x=192, y=131, w=211, h=26}",
+        "w": 211.0,
+        "x": 192.0,
+        "y": 131.0
+       },
+       {
+        "h": 26.0,
+        "key": "NSFrame",
+        "rect": "{x=192, y=161, w=211, h=26}",
+        "w": 211.0,
+        "x": 192.0,
+        "y": 161.0
+       }
+      ],
+      "nib_class": "NSPopUpButton",
+      "occurrences": 993,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocumentExportAccessoryView.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocumentExportAccessoryView.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocumentOpenAccessoryView.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocumentOpenAccessoryView.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Popup button and menu"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSProgressIndicator",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 107,
+      "selectors": {
+       "animation": [
+        "_animationIdler:",
+        "_drawAnimationStep",
+        "_isThreadedAnimationLooping",
+        "_proAnimationIndex",
+        "_reconfigureAnimationState:",
+        "_setProAnimationIndex:",
+        "_startAnimationWithThread:",
+        "_stopAnimationWithWait:",
+        "_stopAnimationWithWait:andRedisplay:",
+        "animate:",
+        "animationDelay",
+        "setAnimationDelay:"
+       ],
+       "control": [
+        "controlSize",
+        "ns_widgetType",
+        "setControlSize:"
+       ],
+       "drawing": [
+        "_invalidateGStatesForTree",
+        "_updateSurfaceWhenInAnInclusiveLayer",
+        "drawRect:"
+       ],
+       "geometry": [
+        "_drawFrame",
+        "_drawWindowsGaugeRects:",
+        "_fillGrayRect:with:",
+        "_getGaugeFrame",
+        "_getProgressFrame",
+        "_getRemainderFrame",
+        "_surfaceResized:",
+        "alignmentRectInsets",
+        "controlSize",
+        "drawRect:",
+        "initWithFrame:",
+        "intrinsicContentSize"
+       ],
+       "window": [
+        "_drawWindowsGaugeRects:",
+        "_needRedrawOnWindowChangedKeyState",
+        "_orderFrontSurfacesIfNotHidden",
+        "_setWindow:",
+        "_windowChangedKeyState",
+        "_windowExposed:"
+       ]
+      },
+      "super": "NSView"
+     }
+    ],
+    "expected_bones": [
+     "animation cadence",
+     "spinning geometry"
+    ]
+   },
+   "id": "progress_indicator",
+   "measured": false,
+   "skin": {
+    "from_nibs": []
+   },
+   "title": "Indeterminate/determinate progress"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSScrollView",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 310,
+      "selectors": {
+       "animation": [
+        "_magnifyToFitRect:animate:",
+        "_setMagnification:centeredAroundPoint:animate:",
+        "_setScrollerNeedsDisplay:",
+        "_smartMagnifyToRect:centeredAt:animate:"
+       ],
+       "control": [
+        "ns_widgetType"
+       ],
+       "drawing": [
+        "_canUseInclusiveLayersAutomatically",
+        "_cornerViewForLayer",
+        "_desiredLayerSizeMeritsTiledBackingLayer:",
+        "_didRemoveLayer",
+        "_drawRect:clip:",
+        "_drawRectIfEmpty",
+        "_invalidateOverlayScrollerDebrisForScrollCopyOfClipView:byDeltas:",
+        "_layoutLayerPiecesIfNeeded",
+        "_makeAutomaticInclusiveLayer",
+        "_makeAutomaticInclusiveLayerIfNecessary",
+        "_recursiveGainedLayerTreeHostAncestor",
+        "_recursiveLostLayerTreeHostAncestor"
+       ],
+       "focus": [
+        "_dirtyFocusRingOrMask",
+        "_documentViewSubclassesLockFocus",
+        "_drawOldSchoolFocusRingIfNecessaryInRect:",
+        "_hasRectangularFocusRingAroundFrame",
+        "_setKeyboardFocusRingNeedsDisplayDuringLiveResize",
+        "_shouldUseFocusRingMask",
+        "acceptsFirstResponder",
+        "becomeFirstResponder",
+        "drawFocusRingMask",
+        "focusRingMaskBounds",
+        "needsPanelToBecomeKey",
+        "showActiveFirstResponderIndication"
+       ],
+       "geometry": [
+        "_allocContentAreaLayout",
+        "_applyContentAreaLayout:",
+        "_boundsInsetForBorder",
+        "_contentFrameMinusScrollers",
+        "_corneViewIsSmallSize",
+        "_cornerViewFrame",
+        "_desiredLayerSizeMeritsTiledBackingLayer:",
+        "_drawCornerViewInRect:",
+        "_drawOldSchoolFocusRingIfNecessaryInRect:",
+        "_drawRect:clip:",
+        "_drawRectIfEmpty",
+        "_drawScrollViewFrameInRect:enabled:textured:"
+       ],
+       "keyboard": [
+        "_setKeyboardFocusRingNeedsDisplayDuringLiveResize"
+       ],
+       "mouse": [
+        "_updateTrackingAreas",
+        "hitTest:",
+        "updateTrackingAreas"
+       ],
+       "window": [
+        "_ensureOveralyScrollerFlashForWindowOrderIn:",
+        "_ownsWindowGrowBox",
+        "_registerForWindowWillClose",
+        "_resetOveralyScrollerFlashForWindowOrderOut:",
+        "_setWindow:",
+        "_unregisterForWindowWillClose",
+        "_updateGrowBoxForWindowFrameChange",
+        "_windowChangedKeyState",
+        "_windowWillClose:",
+        "viewDidMoveToWindow",
+        "viewWillMoveToWindow:"
+       ]
+      },
+      "super": "NSView"
+     },
+     {
+      "class": "NSScroller",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 148,
+      "selectors": {
+       "animation": [
+        "_setSuppressSurfaceBackingForAnimation:",
+        "scrollerImp:animateExpansionTransitionWithDuration:",
+        "scrollerImp:animateKnobAlphaTo:duration:",
+        "scrollerImp:animateTrackAlphaTo:duration:",
+        "scrollerImp:animateUIStateTransitionWithDuration:",
+        "setNeedsDisplay:"
+       ],
+       "control": [
+        "action",
+        "controlSize",
+        "sendAction:to:",
+        "setAction:",
+        "setControlSize:",
+        "setEnabled:",
+        "setTarget:",
+        "target"
+       ],
+       "drawing": [
+        "_desiredLayerSizeMeritsTiledBackingLayer:",
+        "_notLayerBackedOrWantsToUseSurfaceAnyways",
+        "_recursiveGainedLayerTreeHostAncestor",
+        "_setNeedsDisplayIfNotLayerBackedOverlayCompatible",
+        "_setNeedsDisplayIfNotLayerBackedOverlayCompatibleInRect:",
+        "_setSuppressSurfaceBackingForAnimation:",
+        "drawRect:",
+        "layer:shouldInheritContentsScale:fromWindow:",
+        "setLayer:",
+        "updateLayer",
+        "wantsUpdateLayer"
+       ],
+       "focus": [
+        "accessibilityIsChildFocusable:"
+       ],
+       "geometry": [
+        "_compositeScrollerPart:inRect:withAlpha:drawHandler:",
+        "_desiredLayerSizeMeritsTiledBackingLayer:",
+        "_drawingRectForPart:",
+        "_old_drawKnobSlotInRect:highlight:",
+        "_setNeedsDisplayIfNotLayerBackedOverlayCompatibleInRect:",
+        "_shouldAvoidScrollerExclusionRect",
+        "_windowResizeMouseLocationIsInVisibleScrollerThumb:",
+        "accessibilitySizeOfChild:",
+        "controlSize",
+        "drawKnobSlotInRect:highlight:",
+        "drawRect:",
+        "initWithFrame:"
+       ],
+       "mouse": [
+        "acceptsFirstMouse:",
+        "accessibilityHitTest:",
+        "hitTest:",
+        "mouseDown:",
+        "resetCursorRects",
+        "updateTrackingAreas"
+       ],
+       "window": [
+        "_setWindow:",
+        "_windowChangedKeyState",
+        "_windowResizeMouseLocationIsInVisibleScrollerThumb:",
+        "layer:shouldInheritContentsScale:fromWindow:"
+       ]
+      },
+      "super": "NSControl"
+     },
+     {
+      "class": "NSClipView",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 132,
+      "selectors": {
+       "animation": [
+        "_animateCurrentScroll",
+        "_animatedScrollToPoint:",
+        "_canAnimateScrolls",
+        "_scrollRectToVisible:fromView:animateScroll:flashScrollerKnobs:",
+        "_scrollTo:animate:",
+        "_scrollTo:animateScroll:flashScrollerKnobs:",
+        "_setAnimateCurrentScroll:",
+        "_setAnimationCompletionHandler:",
+        "_setCanAnimateScrolls:"
+       ],
+       "control": [
+        "_animatingScrollTargetOrigin",
+        "_isScrollDueToUserAction",
+        "_isUsedByCell",
+        "_markUsedByCell",
+        "_setIsScrollDueToUserAction:"
+       ],
+       "dragdrop": [
+        "_autoscrollForDraggingInfo:timeDelta:",
+        "_shouldAutoscrollForDraggingInfo:"
+       ],
+       "drawing": [
+        "_alignOriginOfBoundsRectToBackingIfNeeded:",
+        "_canUseTiledBackingLayer",
+        "_drawRect:clip:",
+        "_invalidateFocusRingIfItBleedsIntoOurBounds",
+        "_invalidateIntersectionsWithSiblingViews",
+        "_recursiveGainedLayerTreeHostAncestor",
+        "_recursiveLostLayerTreeHostAncestor",
+        "drawRect:",
+        "makeBackingLayer",
+        "setLayer:",
+        "updateLayer",
+        "wantsUpdateLayer"
+       ],
+       "focus": [
+        "_clipViewShouldClipFocusRing",
+        "_invalidateFocusRingIfItBleedsIntoOurBounds",
+        "acceptsFirstResponder",
+        "becomeFirstResponder",
+        "needsPanelToBecomeKey"
+       ],
+       "geometry": [
+        "_alignOriginOfBoundsRectToBackingIfNeeded:",
+        "_checkAlignmentOfOriginOfBoundsRectIfNeeded:",
+        "_constrainBoundsRect:",
+        "_constrainBoundsRectAndAlignIfNeeded:",
+        "_currentDocViewFrame",
+        "_dirtyRectUncoveredFromOldDocFrame:byNewDocFrame:",
+        "_drawOverhangShadowsInRect:",
+        "_drawRect:clip:",
+        "_drawShadowAroundRect:clipRect:",
+        "_drawsOverhangRects",
+        "_forcePixelAlignedClipViewFrame",
+        "_getOverhangFrames:"
+       ],
+       "mouse": [
+        "resetCursorRects"
+       ]
+      },
+      "super": "NSView"
+     }
+    ],
+    "expected_bones": [
+     "scroller metrics",
+     "aqua scroller variants",
+     "scrolling actions"
+    ]
+   },
+   "id": "scroll_view",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 610.0,
+        "key": "NSFrameSize",
+        "size": "{w=611, h=610}",
+        "w": 611.0
+       },
+       {
+        "h": 133.0,
+        "key": "NSFrame",
+        "rect": "{x=20, y=60, w=471, h=133}",
+        "w": 471.0,
+        "x": 20.0,
+        "y": 60.0
+       },
+       {
+        "h": 279.0,
+        "key": "NSFrameSize",
+        "size": "{w=487, h=279}",
+        "w": 487.0
+       },
+       {
+        "h": 260.0,
+        "key": "NSFrame",
+        "rect": "{x=20, y=218, w=502, h=260}",
+        "w": 502.0,
+        "x": 20.0,
+        "y": 218.0
+       },
+       {
+        "h": 62.0,
+        "key": "NSFrame",
+        "rect": "{x=10, y=15, w=475, h=62}",
+        "w": 475.0,
+        "x": 10.0,
+        "y": 15.0
+       },
+       {
+        "h": 358.0,
+        "key": "NSFrameSize",
+        "size": "{w=552, h=358}",
+        "w": 552.0
+       },
+       {
+        "h": 82.0,
+        "key": "NSFrame",
+        "rect": "{x=20, y=20, w=185, h=82}",
+        "w": 185.0,
+        "x": 20.0,
+        "y": 20.0
+       },
+       {
+        "h": 225.0,
+        "key": "NSFrame",
+        "rect": "{x=10, y=35, w=208, h=225}",
+        "w": 208.0,
+        "x": 10.0,
+        "y": 35.0
+       },
+       {
+        "h": 60.0,
+        "key": "NSFrame",
+        "rect": "{x=184, y=103, w=289, h=60}",
+        "w": 289.0,
+        "x": 184.0,
+        "y": 103.0
+       },
+       {
+        "h": 349.0,
+        "key": "NSFrameSize",
+        "size": "{w=201, h=349}",
+        "w": 201.0
+       },
+       {
+        "h": 54.0,
+        "key": "NSFrameSize",
+        "size": "{w=169, h=54}",
+        "w": 169.0
+       },
+       {
+        "h": 45.0,
+        "key": "NSFrame",
+        "rect": "{x=81, y=-16, w=120, h=45}",
+        "w": 120.0,
+        "x": 81.0,
+        "y": -16.0
+       }
+      ],
+      "nib_class": "NSScrollView",
+      "occurrences": 842,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLoadingErrors.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLoadingErrors.nib"
+      ]
+     },
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 350.0,
+        "key": "NSFrame",
+        "rect": "{x=-30, y=1, w=15, h=350}",
+        "w": 15.0,
+        "x": -30.0,
+        "y": 1.0
+       },
+       {
+        "h": 15.0,
+        "key": "NSFrame",
+        "rect": "{x=1, y=-30, w=488, h=15}",
+        "w": 488.0,
+        "x": 1.0,
+        "y": -30.0
+       },
+       {
+        "h": 117.0,
+        "key": "NSFrame",
+        "rect": "{x=455, y=0, w=15, h=117}",
+        "w": 15.0,
+        "x": 455.0,
+        "y": 0.0
+       },
+       {
+        "h": 15.0,
+        "key": "NSFrame",
+        "rect": "{x=1, y=117, w=454, h=15}",
+        "w": 454.0,
+        "x": 1.0,
+        "y": 117.0
+       },
+       {
+        "h": 247.0,
+        "key": "NSFrame",
+        "rect": "{x=476, y=17, w=11, h=247}",
+        "w": 11.0,
+        "x": 476.0,
+        "y": 17.0
+       },
+       {
+        "h": 11.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=268, w=471, h=11}",
+        "w": 471.0,
+        "x": 0.0,
+        "y": 268.0
+       },
+       {
+        "h": 117.0,
+        "key": "NSFrame",
+        "rect": "{x=-100, y=-100, w=15, h=117}",
+        "w": 15.0,
+        "x": -100.0,
+        "y": -100.0
+       },
+       {
+        "h": 15.0,
+        "key": "NSFrame",
+        "rect": "{x=-100, y=-100, w=608, h=15}",
+        "w": 608.0,
+        "x": -100.0,
+        "y": -100.0
+       },
+       {
+        "h": 326.0,
+        "key": "NSFrame",
+        "rect": "{x=541, y=17, w=11, h=326}",
+        "w": 11.0,
+        "x": 541.0,
+        "y": 17.0
+       },
+       {
+        "h": 11.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=347, w=536, h=11}",
+        "w": 536.0,
+        "x": 0.0,
+        "y": 347.0
+       },
+       {
+        "h": 102.0,
+        "key": "NSFrame",
+        "rect": "{x=-100, y=-100, w=15, h=102}",
+        "w": 15.0,
+        "x": -100.0,
+        "y": -100.0
+       },
+       {
+        "h": 15.0,
+        "key": "NSFrame",
+        "rect": "{x=-100, y=-100, w=386, h=15}",
+        "w": 386.0,
+        "x": -100.0,
+        "y": -100.0
+       }
+      ],
+      "nib_class": "NSScroller",
+      "occurrences": 1421,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLoadingErrors.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Scroll view with scrollers"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSOutlineView",
+      "ivars": [
+       "\ufffd\u0001",
+       "\ufffd\u0001",
+       "\ufffd\u0001",
+       "\ufffd\u0001",
+       "\ufffd\u0001",
+       "\ufffd\u0001",
+       "\ufffd\u0001",
+       "\ufffd\u0001",
+       "\ufffd\u0001",
+       "\b\u0002",
+       "\u0010\u0002",
+       "0\u0002",
+       "8\u0002",
+       "@\u0002",
+       "H\u0002",
+       "P\u0002"
+      ],
+      "method_count": 329,
+      "selectors": {
+       "animation": [
+        "_collapseAnimation",
+        "_doExpandAnimation:forRow:",
+        "_expandAnimation",
+        "_insertItemsAtIndexes:inParentRowEntry:withAnimation:",
+        "_recursivelyReloadItem:reloadChildren:withInsertAnimation:removeAnimation:",
+        "_removeItemsAtIndexes:inParentRowEntry:withAnimation:",
+        "_setAllowAnimationsToYes",
+        "_setAnimateExpandAndCollapse:",
+        "_setupAnimationsIfNeeded",
+        "_shouldAnimateChanges",
+        "_shouldAnimateExpandCollapse",
+        "_shouldDoExpandAnimationForRow:"
+       ],
+       "control": [
+        "_addOutlineCellTrackingAreas",
+        "_adjustEditedCellLocation",
+        "_alternateAutoExpandImageForOutlineCell:inRow:withFrame:",
+        "_debugDrawRowNumberInCell:withFrame:forRow:",
+        "_delegateRespondsToShouldShowCellExpansion",
+        "_delegateShouldShowOutlineCellForItem:",
+        "_delegateWillDisplayCell:forColumn:row:",
+        "_delegateWillDisplayOutlineCell:forColumn:row:",
+        "_delegate_dataCellForTableColumn:row:",
+        "_drawContentsAtRow:column:withCellFrame:",
+        "_drawOutlineCell:withFrame:inView:",
+        "_drawOutlineCellAtRow:"
+       ],
+       "dragdrop": [
+        "_autoscrollForDraggingInfo:timeDelta:",
+        "_dataSourceRespondsToPasteboardWriterForRow",
+        "_delegateUpdateDraggingItemsForDrag:",
+        "_dropDestinationIndicatorFrameForDraggingDestinationStyle:rowIndexes:",
+        "_hitRowForDropTargetRow:point:",
+        "_indentationForDropTargetRow:",
+        "_pasteboardWriterForRow:",
+        "_sendDataSourceWriteDragDataWithIndexes:toPasteboard:",
+        "_sendDraggingSession:endedAtPoint:operation:",
+        "_sendWillBeginDraggingSession:willBeginAtPoint:forDraggedRowIndexes:",
+        "dragImage:at:offset:event:pasteboard:source:slideBack:",
+        "draggingEntered:"
+       ],
+       "drawing": [
+        "_expandItemEntryChildren:atStartLevel:expandChildren:andInvalidate:",
+        "_invalidateDropCandidateItem"
+       ],
+       "focus": [
+        "_adjustRectForFocusRing:atRow:",
+        "acceptsFirstResponder"
+       ],
+       "geometry": [
+        "_adjustDrawingTestFrame:atRow:column:",
+        "_adjustRectForFocusRing:atRow:",
+        "_alternateAutoExpandImageForOutlineCell:inRow:withFrame:",
+        "_debugDrawRowNumberInCell:withFrame:forRow:",
+        "_delegateWillDisplayOutlineCell:forColumn:row:",
+        "_delegate_sizeToFitWidthOfColumn:",
+        "_drawContentsAtRow:column:withCellFrame:",
+        "_drawOutlineCell:withFrame:inView:",
+        "_dropDestinationIndicatorFrameForDraggingDestinationStyle:rowIndexes:",
+        "_dropHighlightBackgroundRectForRow:",
+        "_frameOfOutlineCellAtRow:",
+        "_frameOfSourceListGroupOutlineCellRow:"
+       ],
+       "keyboard": [
+        "keyDown:"
+       ],
+       "mouse": [
+        "_addOutlineCellTrackingAreas",
+        "_delegateRespondsTo_wantsTrackingAreasForRowColumn",
+        "_delegateWantsTrackingAreasForRow:column:",
+        "_outlineMouseEntered:",
+        "_outlineMouseExited:",
+        "_sendDelegateDidMouseDownInHeader:",
+        "_setOutlineCellTrackingAreaRow:",
+        "_shouldUseTrackingAreasForOutlineCell",
+        "_updateTrackingAreas",
+        "mouseDown:"
+       ]
+      },
+      "super": "NSTableView"
+     },
+     {
+      "class": "NSTableView",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\b\u0001",
+       "\u0010\u0001",
+       "\u0018\u0001",
+       " \u0001",
+       "(\u0001",
+       "0\u0001",
+       "8\u0001"
+      ],
+      "method_count": 948,
+      "selectors": {
+       "animation": [
+        "_adjustFieldEditorAnimated:",
+        "_canSwitchToViewBasedForAnimations",
+        "_drawScrollViewFocusRing:clipRect:needsFullDisplay:",
+        "_needsBackgroundImageForAnimation",
+        "_needsBackgroundToAnimate",
+        "_needsHighlightSelectionForBackgroundAnimations",
+        "_shouldSetObjectValueOnCellsForAnimations",
+        "_tileAnimated:",
+        "_tileAnimatedIfAnimating",
+        "_typeSelectEndCurrentSearchWithRedisplay:",
+        "applyPermutationsFromArray:toArray:insertAnimation:removeAnimation:",
+        "applyPermutationsFromArray:toArray:insertionAnimation:removalAnimation:"
+       ],
+       "control": [
+        "__ivar_getTrackingCell",
+        "__ivar_setTrackingCell:",
+        "_accessibilityCellElementClass",
+        "_accessibilityListCellElementClass",
+        "_accessibilityTracksRowAndCellIndexes",
+        "_accessibilityUnregisterAllRowsAndCells",
+        "_accessibilityUnregisterCellsOfRowIndexes:columnIndexes:",
+        "_accessibilityUnregisterCellsOfTableColumn:",
+        "_accessibilityUnregisterCellsOfTableColumns:",
+        "_addGroupRowAttributesToCell:withData:highlighted:",
+        "_addSourceListCellAttributesToCell:withData:selected:",
+        "_allowTabbingIntoCells"
+       ],
+       "dragdrop": [
+        "__doImageDragUsingRowsWithIndexes:event:pasteboard:source:slideBack:startRow:",
+        "_addDraggingDestinationViewForRowIndexes:draggingStyle:",
+        "_autoscrollForDraggingInfo:timeDelta:",
+        "_beginDraggingColumn:",
+        "_dataSourceRespondsToPasteboardWriterForRow",
+        "_delegateUpdateDraggingItemsForDrag:",
+        "_doImageDragUsingRows:event:pasteboard:source:slideBack:",
+        "_doImageDragUsingRowsWithIndexes:event:pasteboard:source:slideBack:startRow:",
+        "_draggingSource",
+        "_dropDestinationIndicatorFrameForDraggingDestinationStyle:rowIndexes:",
+        "_endDraggingColumn:",
+        "_hitRowForDropTargetRow:point:"
+       ],
+       "drawing": [
+        "_beginDrawView:",
+        "_didRemoveLayer",
+        "_drawRect:liveResizeCacheCoveredArea:",
+        "_drawRectIfEmpty",
+        "_drawView:",
+        "_drawView:withCellFrameUnion:inContext:",
+        "_endDrawView:",
+        "_funnelRowBackgroundDrawingThroughDrawRect",
+        "_invalidateForKeyChange",
+        "_invalidateGroupRowsIfNeeded",
+        "_invalidateLiveResizeCachedImage",
+        "_invalidateNumberOfRowsCache"
+       ],
+       "focus": [
+        "_adjustRectForFocusRing:atRow:",
+        "_attemptToEditFocusedColumn",
+        "_attemptToPerformClickOnFocusedColumn",
+        "_automaticFocusRingDisabled",
+        "_canFocusCellAtRow:column:",
+        "_cellBasedFieldEditorFocusRingFrame",
+        "_deprecatedCanFocusCell:atTableColumn:row:",
+        "_didSetFocusForCell:withKeyboardFocusClipView:",
+        "_drawFocusRingAroundRect:",
+        "_drawScrollViewFocusRing:clipRect:needsFullDisplay:",
+        "_drawTableExteriorFocusRingIfNecessaryInClipRect:",
+        "_endMyEditingAndRemainFirstResponder"
+       ],
+       "geometry": [
+        "__computePreLiveColumnResizeWidthsByColumn",
+        "__preLiveResizeWidthOfColumn:",
+        "_adjustDrawingTestFrame:atRow:column:",
+        "_adjustFrameSizeToFitSuperview:",
+        "_adjustRectForFocusRing:atRow:",
+        "_adjustRowHeight:forIntergroupSpacingRow:",
+        "_adjustRowRect:forIntergroupSpacingRow:",
+        "_adjustRowRect:forSourceListGroupRow:",
+        "_autoresizeToFit",
+        "_autoresizeToFitForHidingATableColumn:",
+        "_autoresizingStyleForColumnResize",
+        "_backgroundImageForRow:withFrame:"
+       ],
+       "keyboard": [
+        "_didSetFocusForCell:withKeyboardFocusClipView:",
+        "_keyboardFocusNeedsDisplayForColumn:row:",
+        "_performKeyEquivalent:conditionally:",
+        "_setKeyboardFocusRingNeedsDisplayDuringLiveResize",
+        "_setKeyboardFocusRingNeedsDisplayForCellInRect:",
+        "cancelOperation:",
+        "keyDown:"
+       ],
+       "menu": [
+        "_drawContextMenuHighlightForIndexes:clipRect:",
+        "_drawContextualMenuHighlightInClipRect:",
+        "_drawRegularContextMenuHighlightForRow:",
+        "_drawSourceListContextMenuHighlightForRow:",
+        "_menuDidEndTracking:",
+        "_performKeyEquivalent:conditionally:",
+        "_setContextMenuHighlightColorForRow:",
+        "_setupContextMenuHighlightingForRow:column:",
+        "accessibilityWindowPointForShowMenu",
+        "drawContextMenuHighlightForRow:",
+        "menuForEvent:"
+       ],
+       "mouse": [
+        "_addTrackingAreasForRow:column:",
+        "_delegateRespondsTo_wantsTrackingAreasForRowColumn",
+        "_delegateWantsTrackingAreasForRow:column:",
+        "_dragShouldBeginFromMouseDown:",
+        "_dropTrackingAreaData",
+        "_hitTestForEvent:atColumn:row:",
+        "_mouseDownShouldMakeFirstResponder",
+        "_performDragFromMouseDown:",
+        "_sendDelegateDidMouseDownInHeader:",
+        "_setTrackingAreasDirty:",
+        "_shouldAbortMouseDownAfterDragAttempt:",
+        "_supportsTrackingAreasForCells"
+       ],
+       "text": [
+        "_groupCellAttributedStringForString:withDefaultAttributes:highlighted:"
+       ],
+       "window": [
+        "_allowTabbingIntoCells",
+        "_getRowHeaderFixedContentRect:rowHeaderScrollableContentVisibleRect:",
+        "_highlightColorDependsOnWindowState",
+        "_resetThePreparedContentRectToTheVisibleRect",
+        "_rowHeaderFixedContentRect",
+        "_startWatchingWindowWillOrderOnScreen",
+        "_stopWatchingWindowWillOrderOnScreen",
+        "_tableViewWindowWillOrderOnScreen:",
+        "_windowChangedKeyState",
+        "accessibilityWindowPointForShowMenu",
+        "becomeKeyWindow",
+        "gridStyleMask"
+       ]
+      },
+      "super": "NSControl"
+     },
+     {
+      "class": "NSScroller",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 148,
+      "selectors": {
+       "animation": [
+        "_setSuppressSurfaceBackingForAnimation:",
+        "scrollerImp:animateExpansionTransitionWithDuration:",
+        "scrollerImp:animateKnobAlphaTo:duration:",
+        "scrollerImp:animateTrackAlphaTo:duration:",
+        "scrollerImp:animateUIStateTransitionWithDuration:",
+        "setNeedsDisplay:"
+       ],
+       "control": [
+        "action",
+        "controlSize",
+        "sendAction:to:",
+        "setAction:",
+        "setControlSize:",
+        "setEnabled:",
+        "setTarget:",
+        "target"
+       ],
+       "drawing": [
+        "_desiredLayerSizeMeritsTiledBackingLayer:",
+        "_notLayerBackedOrWantsToUseSurfaceAnyways",
+        "_recursiveGainedLayerTreeHostAncestor",
+        "_setNeedsDisplayIfNotLayerBackedOverlayCompatible",
+        "_setNeedsDisplayIfNotLayerBackedOverlayCompatibleInRect:",
+        "_setSuppressSurfaceBackingForAnimation:",
+        "drawRect:",
+        "layer:shouldInheritContentsScale:fromWindow:",
+        "setLayer:",
+        "updateLayer",
+        "wantsUpdateLayer"
+       ],
+       "focus": [
+        "accessibilityIsChildFocusable:"
+       ],
+       "geometry": [
+        "_compositeScrollerPart:inRect:withAlpha:drawHandler:",
+        "_desiredLayerSizeMeritsTiledBackingLayer:",
+        "_drawingRectForPart:",
+        "_old_drawKnobSlotInRect:highlight:",
+        "_setNeedsDisplayIfNotLayerBackedOverlayCompatibleInRect:",
+        "_shouldAvoidScrollerExclusionRect",
+        "_windowResizeMouseLocationIsInVisibleScrollerThumb:",
+        "accessibilitySizeOfChild:",
+        "controlSize",
+        "drawKnobSlotInRect:highlight:",
+        "drawRect:",
+        "initWithFrame:"
+       ],
+       "mouse": [
+        "acceptsFirstMouse:",
+        "accessibilityHitTest:",
+        "hitTest:",
+        "mouseDown:",
+        "resetCursorRects",
+        "updateTrackingAreas"
+       ],
+       "window": [
+        "_setWindow:",
+        "_windowChangedKeyState",
+        "_windowResizeMouseLocationIsInVisibleScrollerThumb:",
+        "layer:shouldInheritContentsScale:fromWindow:"
+       ]
+      },
+      "super": "NSControl"
+     },
+     {
+      "class": "NSTableHeaderView",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 104,
+      "selectors": {
+       "animation": [
+        "_didMoveFromColumn:toColumn:animated:",
+        "_endDraggingColumn:animated:",
+        "_supportsViewsForAnimations",
+        "_updateColumnViewWidthsAnimated:"
+       ],
+       "control": [
+        "_alignTitleWithDataCell",
+        "_drawHeaderCell:withFrame:withStateFromColumn:",
+        "_overflowHeaderCellPrototype",
+        "_preparedHeaderCellAtColumn:",
+        "_preparedHeaderFillerCell",
+        "_setAlignTitleWithDataCell:",
+        "_setOverflowHeaderCellPrototype:"
+       ],
+       "dragdrop": [
+        "_beginDraggingColumn:",
+        "_endDraggingColumn:",
+        "_endDraggingColumn:animated:"
+       ],
+       "drawing": [
+        "_drawRect:liveResizeCacheCoveredArea:",
+        "_drawRect:liveResizeFill::::cacheCoveredArea:",
+        "_invalidateLiveResizeCachedImage",
+        "_invalidateOrComputeNewCursorRectsIfNecessary",
+        "_invalidateRightMostLineIfNeeded",
+        "_viewBasedRawRect:",
+        "drawRect:"
+       ],
+       "focus": [
+        "_startObservingKeyWindow:",
+        "_stopObservingKeyWindow",
+        "acceptsFirstResponder",
+        "accessibilityIsChildFocusable:"
+       ],
+       "geometry": [
+        "_addToolTipRects",
+        "_cursorRectForColumn:",
+        "_drawHeaderCell:withFrame:withStateFromColumn:",
+        "_drawHeaderFillerInRect:matchLastState:",
+        "_drawOverflowHeaderInRect:",
+        "_drawRect:liveResizeCacheCoveredArea:",
+        "_drawRect:liveResizeFill::::cacheCoveredArea:",
+        "_headerRectForInvalidation:",
+        "_invalidateLiveResizeCachedImage",
+        "_invalidateOrComputeNewCursorRectsIfNecessary",
+        "_layoutIsSameAsCachedLayoutWithFrame:",
+        "_overflowRectForBounds:"
+       ],
+       "mouse": [
+        "acceptsFirstMouse:",
+        "accessibilityHitTest:",
+        "mouseDown:",
+        "mouseDownCanMoveWindow",
+        "resetCursorRects"
+       ],
+       "window": [
+        "_rowHeaderFixedContentRect",
+        "_startObservingKeyWindow:",
+        "_stopObservingKeyWindow",
+        "_windowChangedKeyState",
+        "_windowKeyChanged:",
+        "mouseDownCanMoveWindow",
+        "viewWillMoveToWindow:"
+       ]
+      },
+      "super": "NSView"
+     }
+    ],
+    "expected_bones": [
+     "selection",
+     "group disclosure",
+     "row height",
+     "icons per row",
+     "keyboard navigation"
+    ]
+   },
+   "id": "source_list",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 262.0,
+        "key": "NSFrameSize",
+        "size": "{w=487, h=262}",
+        "w": 487.0
+       },
+       {
+        "h": 339.0,
+        "key": "NSFrameSize",
+        "size": "{w=19, h=339}",
+        "w": 19.0
+       },
+       {
+        "h": 253.0,
+        "key": "NSFrameSize",
+        "size": "{w=198, h=253}",
+        "w": 198.0
+       },
+       {
+        "h": 115.0,
+        "key": "NSFrameSize",
+        "size": "{w=200, h=115}",
+        "w": 200.0
+       },
+       {
+        "h": 265.0,
+        "key": "NSFrameSize",
+        "size": "{w=338, h=265}",
+        "w": 338.0
+       },
+       {
+        "h": 105.0,
+        "key": "NSFrameSize",
+        "size": "{w=458, h=105}",
+        "w": 458.0
+       },
+       {
+        "h": 339.0,
+        "key": "NSFrameSize",
+        "size": "{w=19, h=339}",
+        "w": 19.0
+       },
+       {
+        "h": 395.0,
+        "key": "NSFrameSize",
+        "size": "{w=618, h=395}",
+        "w": 618.0
+       },
+       {
+        "h": 424.0,
+        "key": "NSFrameSize",
+        "size": "{w=384, h=424}",
+        "w": 384.0
+       },
+       {
+        "h": 165.0,
+        "key": "NSFrameSize",
+        "size": "{w=363, h=165}",
+        "w": 363.0
+       },
+       {
+        "h": 250.0,
+        "key": "NSFrameSize",
+        "size": "{w=171, h=250}",
+        "w": 171.0
+       },
+       {
+        "h": 176.0,
+        "key": "NSFrameSize",
+        "size": "{w=494, h=176}",
+        "w": 494.0
+       }
+      ],
+      "nib_class": "NSOutlineView",
+      "occurrences": 27,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLogView.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLogView.nib",
+       "Applications/Utilities/AppleScript Editor.app/Contents/PlugIns/DictionaryViewer.seplugin/Contents/Resources/English.lproj/SEPDictionaryDocument.nib",
+       "Applications/Utilities/AppleScript Editor.app/Contents/PlugIns/DictionaryViewer.seplugin/Contents/Resources/English.lproj/SEPDictionaryDocument.nib"
+      ]
+     },
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 131.0,
+        "key": "NSFrameSize",
+        "size": "{w=469, h=131}",
+        "w": 469.0
+       },
+       {
+        "h": 220.0,
+        "key": "NSFrameSize",
+        "size": "{w=346, h=220}",
+        "w": 346.0
+       },
+       {
+        "h": 220.0,
+        "key": "NSFrameSize",
+        "size": "{w=105, h=220}",
+        "w": 105.0
+       },
+       {
+        "h": 315.0,
+        "key": "NSFrameSize",
+        "size": "{w=139, h=315}",
+        "w": 139.0
+       },
+       {
+        "h": 151.0,
+        "key": "NSFrameSize",
+        "size": "{w=312, h=151}",
+        "w": 312.0
+       },
+       {
+        "h": 151.0,
+        "key": "NSFrameSize",
+        "size": "{w=317, h=151}",
+        "w": 317.0
+       },
+       {
+        "h": 160.0,
+        "key": "NSFrameSize",
+        "size": "{w=315, h=160}",
+        "w": 315.0
+       },
+       {
+        "h": 160.0,
+        "key": "NSFrameSize",
+        "size": "{w=315, h=160}",
+        "w": 315.0
+       },
+       {
+        "h": 256.0,
+        "key": "NSFrameSize",
+        "size": "{w=231, h=256}",
+        "w": 231.0
+       },
+       {
+        "h": 78.0,
+        "key": "NSFrameSize",
+        "size": "{w=440, h=78}",
+        "w": 440.0
+       },
+       {
+        "h": 256.0,
+        "key": "NSFrameSize",
+        "size": "{w=231, h=256}",
+        "w": 231.0
+       },
+       {
+        "h": 126.0,
+        "key": "NSFrameSize",
+        "size": "{w=233, h=126}",
+        "w": 233.0
+       }
+      ],
+      "nib_class": "NSTableView",
+      "occurrences": 169,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLoadingErrors.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMLoadingErrors.nib",
+       "Applications/Calendar.app/Contents/Resources/English.lproj/PeoplePicker.nib",
+       "Applications/Calendar.app/Contents/Resources/English.lproj/PeoplePicker.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Sidebar source list (Favorites/Devices/places)"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSSplitView",
+      "ivars": [
+       "\ufffd"
+      ],
+      "method_count": 126,
+      "selectors": {
+       "drawing": [
+        "_dividerLayers",
+        "_doLayerBackedLayout",
+        "_invalidateSizeConstraints",
+        "_invalidateStackAndSizeConstraints",
+        "_makeDividerLayerWithFrame:",
+        "_removeDividerLayers",
+        "_setDividerLayers:",
+        "_updateDividerLayer:",
+        "_updateLayerDividersIfNeeded",
+        "drawRect:",
+        "layer:shouldInheritContentsScale:fromWindow:",
+        "setLayer:"
+       ],
+       "focus": [
+        "accessibilityIsChildFocusable:"
+       ],
+       "geometry": [
+        "_accessibilitySplitterRects",
+        "_additionalEffectiveFrameOfDividerAtIndex:",
+        "_autosaveSubviewLayoutIfNecessary",
+        "_dividerFrames",
+        "_doConstraintBasedPresentDividerDragResult:withParams:",
+        "_doLayerBackedLayout",
+        "_drawDividerDimpleInRect:indicatorOnly:",
+        "_effectiveFrameForDrawnFrame:ofDividerAtIndex:",
+        "_frameOrAlignmentRectOfSubview:",
+        "_hitTestToBlockWindowResizing:forResizeDirection:",
+        "_indexOfDividerForLocation:andReturnFrame:",
+        "_invalidateSizeConstraints"
+       ],
+       "mouse": [
+        "_hitTestToBlockWindowResizing:forResizeDirection:",
+        "acceptsFirstMouse:",
+        "accessibilityHitTest:",
+        "hitTest:",
+        "mouseDown:",
+        "mouseDownCanMoveWindow",
+        "resetCursorRects"
+       ],
+       "window": [
+        "_hitTestToBlockWindowResizing:forResizeDirection:",
+        "_isInTexturedWindow",
+        "_windowChangedKeyState",
+        "layer:shouldInheritContentsScale:fromWindow:",
+        "mouseDownCanMoveWindow"
+       ]
+      },
+      "super": "NSView"
+     }
+    ],
+    "expected_bones": [
+     "divider thickness",
+     "collapse behaviour"
+    ]
+   },
+   "id": "split_view",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 237.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=31, w=450, h=237}",
+        "w": 450.0,
+        "x": 0.0,
+        "y": 31.0
+       },
+       {
+        "h": 356.0,
+        "key": "NSFrameSize",
+        "size": "{w=337, h=356}",
+        "w": 337.0
+       },
+       {
+        "h": 380.0,
+        "key": "NSFrame",
+        "rect": "{x=12, y=12, w=616, h=380}",
+        "w": 616.0,
+        "x": 12.0,
+        "y": 12.0
+       },
+       {
+        "h": 219.0,
+        "key": "NSFrame",
+        "rect": "{x=11, y=96, w=543, h=219}",
+        "w": 543.0,
+        "x": 11.0,
+        "y": 96.0
+       },
+       {
+        "h": 195.0,
+        "key": "NSFrame",
+        "rect": "{x=10, y=9, w=396, h=195}",
+        "w": 396.0,
+        "x": 10.0,
+        "y": 9.0
+       },
+       {
+        "h": 310.0,
+        "key": "NSFrame",
+        "rect": "{x=20, y=0, w=439, h=310}",
+        "w": 439.0,
+        "x": 20.0,
+        "y": 0.0
+       },
+       {
+        "h": 161.0,
+        "key": "NSFrameSize",
+        "size": "{w=611, h=161}",
+        "w": 611.0
+       },
+       {
+        "h": 155.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=52, w=357, h=155}",
+        "w": 357.0,
+        "x": 0.0,
+        "y": 52.0
+       },
+       {
+        "h": 464.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=-1, w=807, h=464}",
+        "w": 807.0,
+        "x": 0.0,
+        "y": -1.0
+       },
+       {
+        "h": 462.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=-1, w=620, h=462}",
+        "w": 620.0,
+        "x": 0.0,
+        "y": -1.0
+       },
+       {
+        "h": 237.0,
+        "key": "NSFrameSize",
+        "size": "{w=376.742, h=237}",
+        "w": 376.7421875
+       },
+       {
+        "h": 368.0,
+        "key": "NSFrameSize",
+        "size": "{w=566, h=368}",
+        "w": 566.0
+       }
+      ],
+      "nib_class": "NSSplitView",
+      "occurrences": 44,
+      "sample_nibs": [
+       "Applications/Calendar.app/Contents/Resources/English.lproj/PeoplePicker.nib",
+       "Applications/Calendar.app/Contents/Resources/English.lproj/PeoplePicker.nib",
+       "Applications/Contacts.app/Contents/Resources/English.lproj/ABCardViewer.nib",
+       "Applications/Contacts.app/Contents/Resources/English.lproj/ABCardViewer.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Split view panes"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSTabView",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\b\u0001",
+       "\f\u0001"
+      ],
+      "method_count": 198,
+      "selectors": {
+       "control": [
+        "_highlightColorForCell:",
+        "controlSize",
+        "ns_widgetType",
+        "performClick:",
+        "setControlSize:"
+       ],
+       "dragdrop": [
+        "_selectTabWithDraggingInfo:",
+        "draggingEntered:",
+        "draggingExited:",
+        "draggingUpdated:"
+       ],
+       "drawing": [
+        "_addAndUpdateBezelLayerIfNeeded",
+        "_backgroundBezelLayer",
+        "_bezelLayerFrame",
+        "_didRemoveLayer",
+        "_drawBorder:inRect:",
+        "_invalidateTabsCache",
+        "_removeBackgroundBezelLayer",
+        "_removeTabButtonLayer",
+        "_setBackgroundBezelLayer:",
+        "_updateBackgroundBezelLayerIfRequired",
+        "_updateTabBezelStyleForLayer:",
+        "drawRect:"
+       ],
+       "focus": [
+        "_hasKeyboardFocus",
+        "_hasKeyboardFocusInTabItem:",
+        "_keyboardNavigateDoSelectOfFocusItem:",
+        "_setKeyboardFocusRingNeedsDisplayForTabViewItem:",
+        "_switchInitialFirstResponder:lastKeyView:forTabViewItem:",
+        "_switchTabViewItem:oldView:withTabViewItem:newView:initialFirstResponder:lastKeyView:",
+        "acceptsFirstResponder",
+        "accessibilityFocusedAttribute",
+        "accessibilityFocusedUIElement",
+        "accessibilityIsFocusedAttributeSettable",
+        "becomeFirstResponder",
+        "becomeKeyWindow"
+       ],
+       "geometry": [
+        "_bezelLayerFrame",
+        "_coreUIDrawBezelInRect:withClip:flipped:",
+        "_coreUIDrawTab:withState:inRect:",
+        "_doLayoutTabs:",
+        "_drawBezelBorder:inRect:",
+        "_drawBorder:inRect:",
+        "_drawTabViewItem:inRect:",
+        "_drawTabsInDirtyRect:",
+        "_drawThemeBezelBorder:inBounds:clipRect:",
+        "_drawThemeTab:withState:inRect:",
+        "_frameForBezelBorder",
+        "_hackFrameToMatchLegacyBezelRect:"
+       ],
+       "keyboard": [
+        "_cancelDelayedKeyboardNavigationTabSwitch",
+        "_hasKeyboardFocus",
+        "_hasKeyboardFocusInTabItem:",
+        "_keyboardNavigateDoSelectOfFocusItem:",
+        "_keyboardNavigateToTabAtIndex:",
+        "_keyboardNavigateToTabByDelta:",
+        "_setKeyboardFocusRingNeedsDisplayForTabViewItem:"
+       ],
+       "mouse": [
+        "acceptsFirstMouse:",
+        "accessibilityHitTest:",
+        "mouseDown:",
+        "mouseDownCanMoveWindow"
+       ],
+       "text": [
+        "font",
+        "setFont:"
+       ],
+       "window": [
+        "_themeContentRect",
+        "_windowChangedKeyState",
+        "becomeKeyWindow",
+        "contentRect",
+        "layer:shouldInheritContentsScale:fromWindow:",
+        "mouseDownCanMoveWindow",
+        "resignKeyWindow",
+        "viewWillMoveToWindow:"
+       ]
+      },
+      "super": "NSView"
+     },
+     {
+      "class": "NSTabViewItem",
+      "ivars": [
+       "\b",
+       "\u0010",
+       "\u0018",
+       " ",
+       "(",
+       "0",
+       "8",
+       "@",
+       "H",
+       "P",
+       "`",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 96,
+      "selectors": {
+       "control": [
+        "accessibilityActionDescription:",
+        "accessibilityActionNames",
+        "accessibilityIsEnabledAttributeSettable",
+        "accessibilityPerformAction:"
+       ],
+       "focus": [
+        "_clearInitialFirstResponderAndLastKeyViewIfAutoGenerated",
+        "_initialFirstResponderIsAutoGenerated",
+        "_setAutoGeneratedInitialFirstResponder:",
+        "_setDefaultKeyViewLoopAndInitialFirstResponder",
+        "_setInitialFirstResponder:autoGenerated:",
+        "accessibilityFocusedAttribute",
+        "accessibilityFocusedUIElement",
+        "accessibilityIsFocusedAttributeSettable",
+        "accessibilitySetFocusedAttribute:",
+        "initialFirstResponder",
+        "setInitialFirstResponder:"
+       ],
+       "geometry": [
+        "_addToolTipRect:",
+        "_computeDisplayedSizeOfString:",
+        "_computeMinimumDisplayedLabelSize",
+        "_computeNominalDisplayedLabelSize",
+        "_drawOrientedLabel:inRect:",
+        "_invalidLabelSize",
+        "_rotateCoordsForDrawLabelInRect:",
+        "_setTabRect:",
+        "_tabRect",
+        "accessibilityIsSizeAttributeSettable",
+        "accessibilitySizeAttribute",
+        "drawLabel:inRect:"
+       ],
+       "keyboard": [
+        "_canAutoGenerateKeyboardLoops"
+       ],
+       "mouse": [
+        "accessibilityHitTest:"
+       ],
+       "text": [
+        "_rangeOfPrefixOfString:fittingWidth:withFont:"
+       ],
+       "window": [
+        "accessibilityIsWindowAttributeSettable",
+        "accessibilityWindowAttribute"
+       ]
+      },
+      "super": null
+     }
+    ],
+    "expected_bones": [
+     "tab metrics",
+     "selection",
+     "delegate"
+    ]
+   },
+   "id": "tab_view",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 162.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=619, w=611, h=162}",
+        "w": 611.0,
+        "x": 0.0,
+        "y": 619.0
+       },
+       {
+        "h": 92.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=14, w=788, h=92}",
+        "w": 788.0,
+        "x": 0.0,
+        "y": 14.0
+       },
+       {
+        "h": 350.0,
+        "key": "NSFrame",
+        "rect": "{x=164, y=40, w=361, h=350}",
+        "w": 361.0,
+        "x": 164.0,
+        "y": 40.0
+       },
+       {
+        "h": 171.0,
+        "key": "NSFrame",
+        "rect": "{x=29, y=79, w=478, h=171}",
+        "w": 478.0,
+        "x": 29.0,
+        "y": 79.0
+       },
+       {
+        "h": 169.0,
+        "key": "NSFrame",
+        "rect": "{x=44, y=90, w=319, h=169}",
+        "w": 319.0,
+        "x": 44.0,
+        "y": 90.0
+       },
+       {
+        "h": 214.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=44, w=202, h=214}",
+        "w": 202.0,
+        "x": 0.0,
+        "y": 44.0
+       },
+       {
+        "h": 356.0,
+        "key": "NSFrameSize",
+        "size": "{w=337, h=356}",
+        "w": 337.0
+       },
+       {
+        "h": 331.0,
+        "key": "NSFrame",
+        "rect": "{x=13, y=23, w=379, h=331}",
+        "w": 379.0,
+        "x": 13.0,
+        "y": 23.0
+       },
+       {
+        "h": 331.0,
+        "key": "NSFrame",
+        "rect": "{x=13, y=23, w=379, h=331}",
+        "w": 379.0,
+        "x": 13.0,
+        "y": 23.0
+       },
+       {
+        "h": 346.0,
+        "key": "NSFrame",
+        "rect": "{x=13, y=10, w=373, h=346}",
+        "w": 373.0,
+        "x": 13.0,
+        "y": 10.0
+       },
+       {
+        "h": 348.0,
+        "key": "NSFrame",
+        "rect": "{x=10, y=-5, w=353, h=348}",
+        "w": 353.0,
+        "x": 10.0,
+        "y": -5.0
+       },
+       {
+        "h": 348.0,
+        "key": "NSFrame",
+        "rect": "{x=0, y=32, w=316, h=348}",
+        "w": 316.0,
+        "x": 0.0,
+        "y": 32.0
+       }
+      ],
+      "nib_class": "NSTabView",
+      "occurrences": 216,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Calendar.app/Contents/Resources/English.lproj/FreeBusy.nib",
+       "Applications/Calendar.app/Contents/Resources/English.lproj/FreeBusy.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Tab view"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSTextField",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 64,
+      "selectors": {
+       "control": [
+        "errorAction",
+        "ns_widgetType",
+        "setEnabled:",
+        "setErrorAction:"
+       ],
+       "drawing": [
+        "_shouldPrintByCallingDrawRect"
+       ],
+       "focus": [
+        "acceptsFirstResponder",
+        "becomeFirstResponder"
+       ],
+       "geometry": [
+        "_shouldPrintByCallingDrawRect",
+        "_updateLayoutDependentMetricsIfNeeded",
+        "alignmentRectInsets",
+        "initWithFrame:",
+        "intrinsicContentSize",
+        "preferredMaxLayoutWidth",
+        "setFrameSize:",
+        "setPreferredMaxLayoutWidth:"
+       ],
+       "mouse": [
+        "acceptsFirstMouse:",
+        "mouseDown:",
+        "mouseDownCanMoveWindow"
+       ],
+       "text": [
+        "_baselineIsSpecialCasingForMiniFont",
+        "setTextColor:",
+        "textColor"
+       ],
+       "window": [
+        "mouseDownCanMoveWindow"
+       ]
+      },
+      "super": "NSControl"
+     },
+     {
+      "class": "NSTextFieldCell",
+      "ivars": [
+       "@",
+       "H",
+       "P"
+      ],
+      "method_count": 114,
+      "selectors": {
+       "control": [
+        "_coreUISizeKeyValueForCellFrame:",
+        "_focusRingFrameForFrame:cellFrame:",
+        "_isButtonTitleCell",
+        "_selectOrEdit:inView:target:editor:event:start:end:",
+        "_setButtonTitleCell:",
+        "_textLayerFrameForCellFrame:",
+        "accessibilityActionDescription:",
+        "accessibilityActionNames",
+        "accessibilityPerformAction:",
+        "actionForLayer:forKey:",
+        "cellSizeForBounds:",
+        "initTextCell:"
+       ],
+       "drawing": [
+        "_backgroundColorFillingTextLayer",
+        "_invalidateTextColor",
+        "_invalidateTextLayerIfNeeded",
+        "_opaqueBackgroundColorForTextLayerInControlView:",
+        "_setTextLayer:",
+        "_textLayer",
+        "_textLayerFrameForCellFrame:",
+        "_updateTextLayerWithFrame:inView:",
+        "actionForLayer:forKey:",
+        "allowsLinearMaskOverlayForLayer:",
+        "canSmoothFontsInFrame:forLayerBackedView:",
+        "drawLayer:inGraphicsContext:"
+       ],
+       "focus": [
+        "_acceptsFirstResponderWhenSelectableWithFullKeyboardAccess",
+        "_coreUIDrawOptionsWithFrame:inView:includeFocus:",
+        "_drawBezeledBackgroundWithFrame:inView:includeFocus:",
+        "_drawFocusRingWithFrame:",
+        "_drawKeyboardFocusRingWithFrame:inView:",
+        "_focusRingFrameForFrame:cellFrame:",
+        "acceptsFirstResponder",
+        "accessibilityIsChildFocusable:",
+        "accessibilitySetFocus:forChild:",
+        "drawFocusRingMaskWithFrame:inView:",
+        "focusRingMaskBoundsForFrame:inView:"
+       ],
+       "geometry": [
+        "_canCacheTextBoundingRect",
+        "_coreUIDrawOptionsWithFrame:inView:includeFocus:",
+        "_coreUISizeKeyValueForCellFrame:",
+        "_drawBezeledBackgroundWithFrame:inView:includeFocus:",
+        "_drawFocusRingWithFrame:",
+        "_drawKeyboardFocusRingWithFrame:inView:",
+        "_drawThemeBezelWithFrame:inView:",
+        "_focusRingFrameForFrame:cellFrame:",
+        "_highlightsWithHighlightRect",
+        "_setTextBoundingRect:",
+        "_textAlignmentForCanCacheTextBoundingRect",
+        "_textBoundingRect"
+       ],
+       "keyboard": [
+        "_acceptsFirstResponderWhenSelectableWithFullKeyboardAccess",
+        "_drawKeyboardFocusRingWithFrame:inView:"
+       ],
+       "mouse": [
+        "_okayToHitTest",
+        "accessibilityHitTest:",
+        "hitTestForEvent:inRect:ofView:",
+        "trackMouse:inRect:ofView:untilMouseUp:"
+       ],
+       "text": [
+        "_getTextColor:backgroundColor:",
+        "_invalidateTextColor",
+        "_textAlignmentForCanCacheTextBoundingRect",
+        "canSmoothFontsInFrame:forLayerBackedView:",
+        "placeholderAttributedString",
+        "setFont:",
+        "setPlaceholderAttributedString:",
+        "setTextColor:",
+        "textColor",
+        "textLayerShouldChangeFontSmoothing:"
+       ],
+       "window": [
+        "_needRedrawOnWindowChangedKeyState",
+        "_windowChangedKeyStateInView:",
+        "layer:shouldInheritContentsScale:fromWindow:"
+       ]
+      },
+      "super": "NSActionCell"
+     },
+     {
+      "class": "NSTextView",
+      "method_count": 856,
+      "selectors": {
+       "control": [
+        "_attachmentCellForSelection",
+        "_cellForPoint:characterIndex:level:row:column:range:",
+        "_getGlyphIndex:characterIndex:forWindowPoint:pinnedPoint:anchorPoint:useAnchorPoint:preferredTextView:partialFraction:",
+        "_getGlyphIndex:characterIndex:forWindowPoint:pinnedPoint:preferredTextView:partialFraction:",
+        "_getGlyphIndex:forWindowPoint:pinnedPoint:anchorPoint:useAnchorPoint:preferredTextView:partialFraction:",
+        "_getGlyphIndex:forWindowPoint:pinnedPoint:preferredTextView:partialFraction:",
+        "_performUndoCoalescingAction:",
+        "_shouldIncludePreviewActionInContextMenu",
+        "_trackAttachmentClick:characterIndex:glyphIndex:attachmentCell:",
+        "_validateMenuItemForPreviewAction:",
+        "fractionOfDistanceThroughGlyphForPoint:",
+        "mouseCancelled:"
+       ],
+       "dragdrop": [
+        "_deletesForGenericDragging",
+        "_draggingSession:endedAtPoint:operation:",
+        "_old_writeStringInRanges:toPasteboard:",
+        "_rangesForMultipleTextSelectionPasteAtIndex:fromPasteboard:",
+        "_readAttributedStringIntoRanges:fromPasteboard:stripAttachments:",
+        "_readColorIntoRange:fromPasteboard:",
+        "_readColorIntoRanges:fromPasteboard:",
+        "_readFilenameStringsIntoRange:fromPasteboard:",
+        "_readFilenamesIntoRange:fromPasteboard:",
+        "_readFontIntoRange:fromPasteboard:",
+        "_readFontIntoRanges:fromPasteboard:",
+        "_readImageIntoRange:fromPasteboard:"
+       ],
+       "drawing": [
+        "_autoInvalidateAfterFrameSizeChange",
+        "_autoInvalidateBeforeFrameSizeChange",
+        "_drawRect:clip:",
+        "_drawViewBackgroundInRect:",
+        "_hasScaledBacking",
+        "_invalidateBlinkTimer:",
+        "_invalidateDisplayForChangeOfSelectionFromRange:toRange:",
+        "_invalidateDisplayForMarkedOrSelectedRange",
+        "_invalidateGStatesForTree",
+        "_shouldPrintByCallingDrawRect",
+        "_viewDidDrawInLayer:inContext:",
+        "allowsLinearMaskOverlayForLayer:"
+       ],
+       "focus": [
+        "_giveUpFirstResponder:",
+        "acceptsFirstResponder",
+        "accessibilityIsChildFocusable:",
+        "accessibilitySetFocus:forChild:",
+        "acquireKeyFocus",
+        "becomeFirstResponder",
+        "becomeKeyWindow",
+        "designatedFocusRingView",
+        "resignFirstResponder",
+        "resignKeyFocus",
+        "resignKeyWindow"
+       ],
+       "geometry": [
+        "_adjustedCenteredScrollRectToVisible:forceCenter:",
+        "_autoInvalidateAfterFrameSizeChange",
+        "_autoInvalidateBeforeFrameSizeChange",
+        "_blockRowRectForCharRange:rect:",
+        "_calculatePageRectsWithOperation:pageSize:layoutAssuredComplete:",
+        "_centeredScrollRectToVisible:forceCenter:",
+        "_changeBaseWritingDirection:",
+        "_changeTextWritingDirection:",
+        "_changeToWritingDirectionAttribute:",
+        "_contentRectForTextBlock:glyphRange:",
+        "_createRectArrayForFindIndicatorForGlyphRange:rectCount:",
+        "_drawInsertionPointInRect:color:"
+       ],
+       "keyboard": [
+        "_wantsKeyDownForEvent:",
+        "_writingDirectionAttributeForInsertText:replacementRange:",
+        "_writingDirectionAttributeForPeriodBeforeInsertText:replacementRange:",
+        "flagsChanged:",
+        "insertText:",
+        "insertText:replacementRange:",
+        "keyDown:",
+        "keyUp:"
+       ],
+       "menu": [
+        "_changeAlternativesFromMenu:",
+        "_changeSpellingFromMenu:",
+        "_configureSharingServicesForMenu:",
+        "_forgetSpellingFromMenu:",
+        "_ignoreGrammarFromMenu:",
+        "_ignoreSpellingFromMenu:",
+        "_learnSpellingFromMenu:",
+        "_lookUpDefiniteRangeInDictionaryFromMenu:",
+        "_lookUpIndefiniteRangeInDictionaryFromMenu:",
+        "_makeLinkFromMenu:",
+        "_openLinkFromMenu:",
+        "_removeLinkFromMenu:"
+       ],
+       "mouse": [
+        "_createTrackingArea",
+        "_mouseExitedDataDetectionIndicator",
+        "acceptsFirstMouse:",
+        "accessibilityHitTest:",
+        "hitTest:",
+        "mouseDown:",
+        "mouseDownCanMoveWindow",
+        "mouseEntered:",
+        "mouseExited:",
+        "mouseMoved:",
+        "resetCursorRects",
+        "rightMouseDown:"
+       ],
+       "text": [
+        "_applyMarkerSettingsFromParagraphStyle:",
+        "_drawInsertionPointInRect:color:",
+        "_installRulerAccViewForParagraphStyle:ruler:enabled:",
+        "_readAttributedStringIntoRanges:fromPasteboard:stripAttachments:",
+        "_readFontIntoRange:fromPasteboard:",
+        "_readFontIntoRanges:fromPasteboard:",
+        "_replaceCharactersInRange:withPastedAttributedString:",
+        "_showAllInsertionPointsForGlyphRange:atPoint:",
+        "_showParagraphDirectionalityForGlyphRange:atPoint:",
+        "_stripAttachmentCharactersAndParagraphStylesFromAttributedString:",
+        "_stripAttachmentCharactersFromAttributedString:",
+        "_writeAttributedStringInRanges:toPasteboard:"
+       ],
+       "window": [
+        "_accessibilityTextViewCompletionWindow",
+        "_attachmentAtGlyphIndex:containsWindowPoint:",
+        "_contentRectForTextBlock:glyphRange:",
+        "_getGlyphIndex:characterIndex:forWindowPoint:pinnedPoint:anchorPoint:useAnchorPoint:preferredTextView:partialFraction:",
+        "_getGlyphIndex:characterIndex:forWindowPoint:pinnedPoint:preferredTextView:partialFraction:",
+        "_getGlyphIndex:forWindowPoint:pinnedPoint:anchorPoint:useAnchorPoint:preferredTextView:partialFraction:",
+        "_getGlyphIndex:forWindowPoint:pinnedPoint:preferredTextView:partialFraction:",
+        "_setWindow:",
+        "_showDataDetectionIndicatorForRange:dataResult:windowPoint:",
+        "accessibilityWindowPointForShowMenu",
+        "becomeKeyWindow",
+        "becomeMainWindow"
+       ]
+      },
+      "super": "NSText"
+     }
+    ],
+    "expected_bones": [
+     "font",
+     "alignment",
+     "line break",
+     "editable flag",
+     "bezel",
+     "placeholder colour"
+    ]
+   },
+   "id": "text_field",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 14.0,
+        "key": "NSFrame",
+        "rect": "{x=85, y=3, w=511, h=14}",
+        "w": 511.0,
+        "x": 85.0,
+        "y": 3.0
+       },
+       {
+        "h": 17.0,
+        "key": "NSFrame",
+        "rect": "{x=17, y=23, w=72, h=17}",
+        "w": 72.0,
+        "x": 17.0,
+        "y": 23.0
+       },
+       {
+        "h": 17.0,
+        "key": "NSFrame",
+        "rect": "{x=17, y=21, w=52, h=17}",
+        "w": 52.0,
+        "x": 17.0,
+        "y": 21.0
+       },
+       {
+        "h": 14.0,
+        "key": "NSFrame",
+        "rect": "{x=17, y=38, w=292, h=14}",
+        "w": 292.0,
+        "x": 17.0,
+        "y": 38.0
+       },
+       {
+        "h": 17.0,
+        "key": "NSFrame",
+        "rect": "{x=17, y=-5, w=129, h=17}",
+        "w": 129.0,
+        "x": 17.0,
+        "y": -5.0
+       },
+       {
+        "h": 17.0,
+        "key": "NSFrame",
+        "rect": "{x=107, y=22, w=39, h=17}",
+        "w": 39.0,
+        "x": 107.0,
+        "y": 22.0
+       },
+       {
+        "h": 17.0,
+        "key": "NSFrame",
+        "rect": "{x=17, y=-6, w=129, h=17}",
+        "w": 129.0,
+        "x": 17.0,
+        "y": -6.0
+       },
+       {
+        "h": 17.0,
+        "key": "NSFrame",
+        "rect": "{x=17, y=-33, w=129, h=17}",
+        "w": 129.0,
+        "x": 17.0,
+        "y": -33.0
+       },
+       {
+        "h": 34.0,
+        "key": "NSFrame",
+        "rect": "{x=87, y=215, w=407, h=34}",
+        "w": 407.0,
+        "x": 87.0,
+        "y": 215.0
+       },
+       {
+        "h": 17.0,
+        "key": "NSFrame",
+        "rect": "{x=64, y=26, w=163, h=17}",
+        "w": 163.0,
+        "x": 64.0,
+        "y": 26.0
+       },
+       {
+        "h": 17.0,
+        "key": "NSFrame",
+        "rect": "{x=17, y=486, w=335, h=17}",
+        "w": 335.0,
+        "x": 17.0,
+        "y": 486.0
+       },
+       {
+        "h": 28.0,
+        "key": "NSFrame",
+        "rect": "{x=68, y=93, w=540, h=28}",
+        "w": 540.0,
+        "x": 68.0,
+        "y": 93.0
+       }
+      ],
+      "nib_class": "NSTextField",
+      "occurrences": 6417,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocumentExportAccessoryView.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocumentExportAccessoryView.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Text field (label and editable)"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSToolbar",
+      "ivars": [
+       "\b",
+       "\u0010",
+       "\u0018",
+       " ",
+       "(",
+       "0",
+       "8",
+       "@",
+       "H",
+       "P",
+       "X",
+       "`",
+       "h",
+       "p",
+       "x"
+      ],
+      "method_count": 245,
+      "selectors": {
+       "control": [
+        "_setEnableDelegateNotifications:",
+        "initFromPList:target:andIdentifier:"
+       ],
+       "dragdrop": [
+        "_delegateMightBeAbleToProduceToolbarItemsFromPasteboard:",
+        "_toolbarItemsFromDelegateWithPasteboard:"
+       ],
+       "focus": [
+        "_makeFirstResponderForKeyboardHotKeyEvent"
+       ],
+       "geometry": [
+        "_adjustSizeForFullScreenAuxiliaryView",
+        "_allowsSizeMode:",
+        "_auxiliaryViewForceVisibleSetsMinSize",
+        "_auxiliaryViewMaxSize",
+        "_auxiliaryViewMinSize",
+        "_fullScreenContentWindowSizeForSize:",
+        "_maximumSizeForSearchFieldToolbarItem",
+        "_minimumSizeForSearchFieldToolbarItem",
+        "_minimumWindowSizeEnsuringVisibilityOfItem:",
+        "_noteToolbarSizeModeChangedAndPostSyncSEL",
+        "_setAuxiliaryViewMaxSize:",
+        "_setAuxiliaryViewMinSize:"
+       ],
+       "keyboard": [
+        "_computeToolbarItemKeyboardLoopIfNecessary",
+        "_keyboardLoopNeedsUpdating",
+        "_makeFirstResponderForKeyboardHotKeyEvent",
+        "_setKeyboardLoopNeedsUpdating:"
+       ],
+       "menu": [
+        "_allowsShowHideToolbarContextMenuItem",
+        "_attachesToMenuBar",
+        "_setAttachesToMenuBar:",
+        "_setWantsToolbarContextMenu:",
+        "_toolbarContextMenuForEvent:",
+        "_wantsToolbarContextMenu"
+       ],
+       "window": [
+        "_adjustViewToWindow",
+        "_configSheetDidEnd:returnCode:contextInfo:",
+        "_containingWindow",
+        "_customizationPaletteSheetWindow",
+        "_fullScreenContentWindowSizeForSize:",
+        "_fullScreenWindowManager",
+        "_hideWithoutResizingWindowHint",
+        "_inGlobalWindow",
+        "_logicalWindow",
+        "_minimumWindowSizeEnsuringVisibilityOfItem:",
+        "_noteInstantiationFromWindowTemplate",
+        "_prepareToolbarItemsForSheet"
+       ]
+      },
+      "super": null
+     },
+     {
+      "class": "NSToolbarItem",
+      "ivars": [
+       "\b",
+       "\u0010",
+       "\u0018",
+       " ",
+       "(",
+       "0",
+       "8",
+       "@",
+       "H",
+       "P",
+       "X",
+       "`",
+       "h",
+       "p",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 136,
+      "selectors": {
+       "control": [
+        "_applicableLabelIsEnabledAtIndex:forDisplayMode:isInPalette:",
+        "_handleSendControlSize:toCellOfView:",
+        "_handleSendControlSize:toView:",
+        "_isEnabledAndHasEnabledSubitem",
+        "_startingWindowForSendAction:",
+        "_viewIsEnabledAtIndex:",
+        "action",
+        "isEnabled",
+        "setAction:",
+        "setEnabled:",
+        "setTarget:",
+        "target"
+       ],
+       "dragdrop": [
+        "_beginDrawForDragging",
+        "_endDrawForDragging"
+       ],
+       "geometry": [
+        "_autorecalculateMinSize:maxSize:",
+        "_autorecalculateSizesIfNotSetExplicitly",
+        "_buttonFrameSizeForSizeMode:",
+        "_collectItemRectsForLabels:count:inBounds:",
+        "_collectItemRectsForViews:count:inBounds:",
+        "_getPartitionRect:inWindowCoordinatesForWindow:",
+        "_handleSendControlSize:toCellOfView:",
+        "_handleSendControlSize:toView:",
+        "_initialViewToSelectFromDirection:",
+        "_interlabelPadding",
+        "_interviewPadding",
+        "_itemLayoutChanged"
+       ],
+       "menu": [
+        "_clearDefaultMenuFormRepresentation",
+        "_computeDefaultMenuFormRepresentation",
+        "_imageForMenu",
+        "_itemMenuInPaletteForEvent:",
+        "_menuFormRepresentation",
+        "_menuFormRepresentationForOverflowMenu",
+        "_menuRepresentationHasBeenSet",
+        "_menuRepresentationIsDefault",
+        "_noteDefaultMenuAttributeChanged",
+        "_performMenuFormRepresentationClick",
+        "_shouldValidateMenuFormRepresentation",
+        "_standardCommonMenuFormRepresentationClicked:"
+       ],
+       "mouse": [
+        "_mouseDownInSurroundingRegionShouldMoveWindow"
+       ],
+       "window": [
+        "_getPartitionRect:inWindowCoordinatesForWindow:",
+        "_mouseDownInSurroundingRegionShouldMoveWindow",
+        "_prepareToolbarItemForSheet",
+        "_restoreToolbarItemAfterSheet",
+        "_startingWindowForSendAction:",
+        "_validateInPresenceOfSheet"
+       ]
+      },
+      "super": null
+     },
+     {
+      "class": "NSSegmentedControl",
+      "ivars": [
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 47,
+      "selectors": {
+       "control": [
+        "_highlightColorForCell:",
+        "isEnabledForSegment:",
+        "ns_widgetType",
+        "setEnabled:forSegment:"
+       ],
+       "drawing": [
+        "_updateLayerMasksToBoundsFromView"
+       ],
+       "geometry": [
+        "alignmentRectInsets",
+        "viewDidEndLiveResize"
+       ],
+       "menu": [
+        "_updateMenuUniquing",
+        "menuForSegment:",
+        "setMenu:forSegment:"
+       ],
+       "mouse": [
+        "acceptsFirstMouse:",
+        "updateTrackingAreas"
+       ],
+       "window": [
+        "_setWindow:",
+        "_updateHeightToReflectNewWindowStyleIfNecessary",
+        "_windowChangedKeyState",
+        "viewDidMoveToWindow"
+       ]
+      },
+      "super": "NSControl"
+     }
+    ],
+    "expected_bones": [
+     "item order",
+     "overflow menu",
+     "separators",
+     "drag to reorder",
+     "display mode (default/expanded/icon-only)"
+    ]
+   },
+   "id": "toolbar",
+   "measured": false,
+   "skin": {
+    "from_nibs": []
+   },
+   "title": "Window toolbar with items and overflow"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSWindow",
+      "ivars": [
+       "\u0010",
+       "0",
+       "8",
+       "@",
+       "H",
+       "P",
+       "X",
+       "`",
+       "h",
+       "p",
+       "x",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd",
+       "\ufffd"
+      ],
+      "method_count": 1379,
+      "selectors": {
+       "animation": [
+        "_addGlobalWindowToAnimationsWithWindowNumber:",
+        "_delayedWindowDisplay:",
+        "_doOrderWindowWithoutAnimation:relativeTo:findKey:forCounter:force:isModal:",
+        "_effectiveAnimationBehaviorIfModal:",
+        "_effectiveOrderFrontAnimationTypeIfModal:",
+        "_effectiveOrderOutAnimationTypeIfModal:",
+        "_enumerateAnimatedGlobalWindowsUsingBlock:",
+        "_hideToolbar:animate:",
+        "_orderFrontAnimationType",
+        "_orderOutAnimationType",
+        "_positionSheet:constrained:andDisplay:",
+        "_positionSheetConstrained:andDisplay:"
+       ],
+       "control": [
+        "_accessibilitySetTitleCellRemoved:",
+        "_accessibilityTitleCell",
+        "_accessibilityTitleCellRemoved",
+        "_blocksActionWhenModal:",
+        "_cancelActionIfCmdDot:",
+        "_customTitleCell",
+        "_disableEnablingKeyEquivalentForDefaultButtonCell",
+        "_drawBackgroundForCellWithRect:inView:",
+        "_enableEnablingKeyEquivalentForDefaultButtonCell",
+        "_findDragTargetFrom:",
+        "_forwardActionToParent:",
+        "_keyboardUIActionForEvent:"
+       ],
+       "dragdrop": [
+        "_beginDraggingSessionWithItems:clipRect:event:source:",
+        "_hitTestWithHysteresisCheck:forEvent:allowWindowDragging:",
+        "dragImage:at:offset:event:pasteboard:source:slideBack:",
+        "draggingEnded:",
+        "draggingEntered:",
+        "draggingExited:",
+        "draggingUpdated:",
+        "updateDraggingItemsForDrag:",
+        "wantsPeriodicDraggingUpdates"
+       ],
+       "drawing": [
+        "_allowsLinearMaskOverlayForLayer:fromView:",
+        "_appearanceBearingParent",
+        "_backingStoreIsNonCompositing",
+        "_backingStoreResolution",
+        "_backingType",
+        "_commonInitFrame:styleMask:backing:defer:",
+        "_contentsHostedInLayerSurface",
+        "_controlAppearanceChangesOnKeyStateChange",
+        "_dumpLayer",
+        "_hasActiveAppearance",
+        "_hasActiveAppearanceForStandardWindowButton:",
+        "_hasActiveAppearanceIgnoringKeyFocus"
+       ],
+       "focus": [
+        "_canBecomeSecondaryKeyWindow",
+        "_changeAllAttachmentsFirstResponder",
+        "_changeAllDrawersFirstResponder",
+        "_changeFirstResponderToParentsFirstResponder",
+        "_getRetainedLastFocusRingView:bleedRegion:",
+        "_handleFocusToolbarHotKey:",
+        "_hasActiveAppearanceIgnoringKeyFocus",
+        "_isKeyWindow",
+        "_isKeyWindowIgnoringFocus",
+        "_lockFirstResponder",
+        "_makeKeyRegardlessOfVisibility",
+        "_makeParentWindowHaveFirstResponder:"
+       ],
+       "geometry": [
+        "GDBDumpCursorRects",
+        "_accessibilityGrowBoxRect",
+        "_accessibilityTitleRect",
+        "_accessibilityViewCorrectedForFieldEditor:",
+        "_activateTrackingRectsForApplicationActivation",
+        "_addCursorRect:cursor:forView:",
+        "_adjustMinAndMaxSizeForSheet:",
+        "_adjustNeedsDisplayRegionForNewFrame:",
+        "_adjustedFrameForSaving:",
+        "_adjustedFrameFromDefaults:",
+        "_autoResizeState",
+        "_autolayoutEngagedSomewhereInWindow"
+       ],
+       "keyboard": [
+        "_drawKeyboardUIIndicationForView:debuggingIndex:",
+        "_drawKeyboardUILoopStartingAtResponder:validOnly:",
+        "_keyboardUIActionForEvent:",
+        "_performKeyEquivalentConditionally:",
+        "_processKeyboardUIKey:",
+        "cancelOperation:",
+        "keyDown:",
+        "performKeyEquivalent:"
+       ],
+       "menu": [
+        "_addToWindowsMenuIfNecessary",
+        "_allowsActiveInputContextDuringMenuTracking",
+        "_attachesToolbarToMenuBarInFullScreen",
+        "_cleanupMenuMaps",
+        "_containedMenusAreEligibleForKeyEquivalents",
+        "_createWindowsMenuEntryWithTitle:enabled:",
+        "_disableEnablingKeyEquivalentForDefaultButtonCell",
+        "_enableEnablingKeyEquivalentForDefaultButtonCell",
+        "_enforceMenuBarAvoidanceForFrame:onScreen:",
+        "_hideMenu:",
+        "_performKeyEquivalentConditionally:",
+        "_takeApplicationMenuIfNeeded:"
+       ],
+       "mouse": [
+        "_addMouseMovedListener:",
+        "_disableTrackingArea:",
+        "_dragWindowRelativeToMouseDown:",
+        "_enableTrackingArea:",
+        "_hitTestInResizeRegionShouldReturnNil",
+        "_hitTestWithHysteresisCheck:forEvent:allowWindowDragging:",
+        "_invalidateCursorRectsForViewsWithNoTrackingAreas",
+        "_lmouseUpPending",
+        "_makingFirstResponderForMouseDown",
+        "_moveTrackingArea:toRect:",
+        "_removeMouseMovedListener:",
+        "_setCursorForMouseLocation:"
+       ],
+       "text": [
+        "_fontSmoothingBackgroundColor"
+       ],
+       "window": [
+        "_accessibilitySheetParent",
+        "_addGlobalWindowToAnimationsWithWindowNumber:",
+        "_addTitlebarRenamingFloatingWindow",
+        "_addToWindowsMenuIfNecessary",
+        "_adjustEffectForSheet:",
+        "_adjustMinAndMaxSizeForSheet:",
+        "_adjustSheetEffect",
+        "_adjustWindowResolution",
+        "_adjustWindowToScreen",
+        "_attachSheetWindow:",
+        "_attachedSheet",
+        "_autolayoutEngagedSomewhereInWindow"
+       ]
+      },
+      "super": "NSResponder"
+     },
+     {
+      "class": "NSPanel",
+      "method_count": 21,
+      "selectors": {
+       "animation": [
+        "_resizeKeepingPanelOnScreen:expand:animate:"
+       ],
+       "drawing": [
+        "_initContent:styleMask:backing:defer:contentView:",
+        "_initContent:styleMask:backing:defer:counterpart:",
+        "initWithContentRect:styleMask:backing:defer:"
+       ],
+       "focus": [
+        "resignKeyWindow"
+       ],
+       "geometry": [
+        "_resizeKeepingPanelOnScreen:expand:animate:",
+        "initWithContentRect:styleMask:backing:defer:"
+       ],
+       "window": [
+        "_initContent:styleMask:backing:defer:contentView:",
+        "_initContent:styleMask:backing:defer:counterpart:",
+        "initWithContentRect:styleMask:backing:defer:",
+        "presentationWindowForError:originatedInWindow:",
+        "resignKeyWindow"
+       ]
+      },
+      "super": "NSWindow"
+     }
+    ],
+    "expected_bones": [
+     "first responder",
+     "key window",
+     "style mask",
+     "content rect math",
+     "standard buttons",
+     "resize increments",
+     "tabbing"
+    ]
+   },
+   "id": "window.chrome",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 1067.0,
+        "key": "NSFrameSize",
+        "size": "{w=1240, h=1067}",
+        "w": 1240.0
+       },
+       {
+        "h": 800.0,
+        "key": "NSFrameSize",
+        "size": "{w=1000, h=800}",
+        "w": 1000.0
+       },
+       {
+        "h": 162.0,
+        "key": "NSFrameSize",
+        "size": "{w=611, h=162}",
+        "w": 611.0
+       },
+       {
+        "h": 153.0,
+        "key": "NSFrameSize",
+        "size": "{w=535, h=153}",
+        "w": 535.0
+       },
+       {
+        "h": 63.0,
+        "key": "NSFrame",
+        "rect": "{x=1, y=1, w=326, h=63}",
+        "w": 326.0,
+        "x": 1.0,
+        "y": 1.0
+       },
+       {
+        "h": 277.0,
+        "key": "NSFrameSize",
+        "size": "{w=511, h=277}",
+        "w": 511.0
+       },
+       {
+        "h": 523.0,
+        "key": "NSFrame",
+        "rect": "{x=7, y=11, w=542, h=523}",
+        "w": 542.0,
+        "x": 7.0,
+        "y": 11.0
+       },
+       {
+        "h": 136.0,
+        "key": "NSFrame",
+        "rect": "{x=1, y=1, w=500, h=136}",
+        "w": 500.0,
+        "x": 1.0,
+        "y": 1.0
+       },
+       {
+        "h": 132.0,
+        "key": "NSFrameSize",
+        "size": "{w=510, h=132}",
+        "w": 510.0
+       },
+       {
+        "h": 197.0,
+        "key": "NSFrameSize",
+        "size": "{w=204, h=197}",
+        "w": 204.0
+       },
+       {
+        "h": 235.0,
+        "key": "NSFrameSize",
+        "size": "{w=449, h=235}",
+        "w": 449.0
+       },
+       {
+        "h": 197.0,
+        "key": "NSFrameSize",
+        "size": "{w=205, h=197}",
+        "w": 205.0
+       }
+      ],
+      "nib_class": "NSView",
+      "occurrences": 2377,
+      "sample_nibs": [
+       "Applications/App Store.app/Contents/Resources/en.lproj/APStoreWindowController.nib",
+       "Applications/App Store.app/Contents/Resources/en.lproj/APStoreWindowController.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Standard window (titled, closable, miniaturizable, resizable)"
+  },
+  {
+   "bones": {
+    "contract": [
+     {
+      "class": "NSButton",
+      "method_count": 69,
+      "selectors": {
+       "control": [
+        "_clearMouseTrackingForCell:",
+        "_recursiveFindDefaultButtonCell",
+        "_setMouseTrackingForCell:",
+        "ns_widgetType"
+       ],
+       "focus": [
+        "_focusRingBleedRegion",
+        "becomeFirstResponder",
+        "resignFirstResponder"
+       ],
+       "geometry": [
+        "alignmentRectInsets",
+        "initWithFrame:",
+        "intrinsicContentSize"
+       ],
+       "keyboard": [
+        "performKeyEquivalent:"
+       ],
+       "menu": [
+        "_keyEquivalentModifierMaskMatchesModifierFlags:",
+        "keyEquivalent",
+        "keyEquivalentModifierMask",
+        "performKeyEquivalent:",
+        "setKeyEquivalent:",
+        "setKeyEquivalentModifierMask:"
+       ],
+       "mouse": [
+        "acceptsFirstMouse:"
+       ],
+       "window": [
+        "_setWindow:"
+       ]
+      },
+      "super": "NSControl"
+     },
+     {
+      "class": "NSButtonCell",
+      "ivars": [
+       "@",
+       "H",
+       "P",
+       "X",
+       "\\",
+       "^",
+       "`",
+       "h",
+       "p"
+      ],
+      "method_count": 258,
+      "selectors": {
+       "control": [
+        "_autolayout_cellSize",
+        "_buttonCellAccessibilityRoleAttribute",
+        "_canBecomeDefaultButtonCell",
+        "_configureAndDrawImageWithRect:cellFrame:controlView:",
+        "_configureAndDrawTitleWithRect:cellFrame:controlView:",
+        "_isAnimatingDefaultCell",
+        "_legacyDrawFocusRingInCellFrame:inView:",
+        "_minCellSize",
+        "_shouldHighlightCellWhenSelected",
+        "accessibilityActionDescription:",
+        "accessibilityActionNames",
+        "accessibilityPerformAction:"
+       ],
+       "drawing": [
+        "_backgroundIsSetOnLayer",
+        "_bezelStyleWantsUpdateLayerInView:",
+        "_interiorContentAppearanceInView:",
+        "_layerKeysForCachingWithFrame:inView:drawingRect:",
+        "_needsToDoBezelDrawingForLayerInView:",
+        "_setLayerNeedsLayout",
+        "_shouldDrawTextWithDisabledAppearance",
+        "_shouldUpdateLayersInControlView:",
+        "_updateSubviewsWhenLayerBackedInView:includeTitleTextField:",
+        "canSmoothFontsInFrame:forLayerBackedView:",
+        "layoutLayerWithFrame:inView:",
+        "updateLayerWithFrame:inView:"
+       ],
+       "focus": [
+        "_canUseFocusRingMaskForText",
+        "_drawCustomFocusMaskWithFrame:inView:",
+        "_focusRingBoundsWithFrame:inView:",
+        "_hasCustomFocusMask",
+        "_legacyDrawFocusRingInCellFrame:inView:",
+        "_preferredFocusLocationMask",
+        "_shouldShowFocus",
+        "_wantsToUseFocusRingMask",
+        "acceptsFirstResponder",
+        "accessibilityFocusRingBoundsForBounds:",
+        "drawFocusRingMaskWithFrame:inView:",
+        "focusRingMaskBoundsForFrame:inView:"
+       ],
+       "geometry": [
+        "_alignedTitleRectWithRect:",
+        "_alternateImageSynthesizedForCheckOrRadio:",
+        "_appendBezierPath:withBottomRoundRect:cornerRadius:",
+        "_autolayout_cellSize",
+        "_bezelContentsByDrawingWithFrame:inView:",
+        "_bezelContentsFromCoreUIWithFrame:inView:",
+        "_centerTitle:inRect:",
+        "_commonBaseRectWithFrame:inView:",
+        "_configureAndDrawImageWithRect:cellFrame:controlView:",
+        "_configureAndDrawTitleWithRect:cellFrame:controlView:",
+        "_coreUIBezelDrawOptionsWithFrame:inView:",
+        "_currentBezelContentsWithFrame:inView:"
+       ],
+       "menu": [
+        "keyEquivalent",
+        "keyEquivalentFont",
+        "keyEquivalentModifierMask",
+        "setKeyEquivalent:",
+        "setKeyEquivalentFont:",
+        "setKeyEquivalentFont:size:",
+        "setKeyEquivalentModifierMask:"
+       ],
+       "mouse": [
+        "_acceptsFirstMouseForEvent:inView:",
+        "_useHitTestInTrackMouse",
+        "hitTestForEvent:inRect:ofView:",
+        "mouseEntered:",
+        "mouseExited:",
+        "trackMouse:inRect:ofView:untilMouseUp:",
+        "updateTrackingAreaWithFrame:inView:"
+       ],
+       "text": [
+        "_attributedStringForDrawing",
+        "_backgroundColorForFontSmoothing",
+        "_currentTitleTextFieldAttributedString",
+        "_wantsBoldFont",
+        "attributedStringValue",
+        "canSmoothFontsInFrame:forLayerBackedView:",
+        "keyEquivalentFont",
+        "setAttributedStringValue:",
+        "setFont:",
+        "setKeyEquivalentFont:",
+        "setKeyEquivalentFont:size:",
+        "setStringValue:"
+       ],
+       "window": [
+        "_needRedrawOnWindowChangedKeyState",
+        "_windowChangedKeyStateInView:"
+       ]
+      },
+      "super": "NSActionCell"
+     }
+    ],
+    "expected_bones": [
+     "hit area",
+     "hover/press states",
+     "role glyph",
+     "click action"
+    ]
+   },
+   "id": "window.traffic_lights",
+   "measured": false,
+   "skin": {
+    "from_nibs": [
+     {
+      "fonts": [],
+      "frames": [
+       {
+        "h": 19.0,
+        "key": "NSFrame",
+        "rect": "{x=-1, y=1, w=33, h=19}",
+        "w": 33.0,
+        "x": -1.0,
+        "y": 1.0
+       },
+       {
+        "h": 19.0,
+        "key": "NSFrame",
+        "rect": "{x=30, y=1, w=33, h=19}",
+        "w": 33.0,
+        "x": 30.0,
+        "y": 1.0
+       },
+       {
+        "h": 16.0,
+        "key": "NSFrame",
+        "rect": "{x=68, y=2, w=16, h=16}",
+        "w": 16.0,
+        "x": 68.0,
+        "y": 2.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=415, y=12, w=82, h=32}",
+        "w": 82.0,
+        "x": 415.0,
+        "y": 12.0
+       },
+       {
+        "h": 34.0,
+        "key": "NSFrame",
+        "rect": "{x=216, y=8, w=32, h=34}",
+        "w": 32.0,
+        "x": 216.0,
+        "y": 8.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=14, y=12, w=229, h=32}",
+        "w": 229.0,
+        "x": 14.0,
+        "y": 12.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=358, y=12, w=82, h=32}",
+        "w": 82.0,
+        "x": 358.0,
+        "y": 12.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=440, y=12, w=88, h=32}",
+        "w": 88.0,
+        "x": 440.0,
+        "y": 12.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=400, y=12, w=96, h=32}",
+        "w": 96.0,
+        "x": 400.0,
+        "y": 12.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=304, y=12, w=96, h=32}",
+        "w": 96.0,
+        "x": 304.0,
+        "y": 12.0
+       },
+       {
+        "h": 32.0,
+        "key": "NSFrame",
+        "rect": "{x=101, y=12, w=176, h=32}",
+        "w": 176.0,
+        "x": 101.0,
+        "y": 12.0
+       },
+       {
+        "h": 25.0,
+        "key": "NSFrame",
+        "rect": "{x=17, y=16, w=25, h=25}",
+        "w": 25.0,
+        "x": 17.0,
+        "y": 16.0
+       }
+      ],
+      "nib_class": "NSButton",
+      "occurrences": 3904,
+      "sample_nibs": [
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib",
+       "Applications/Automator.app/Contents/Resources/English.lproj/AMDocument.nib"
+      ]
+     }
+    ]
+   },
+   "title": "Close / minimize / zoom buttons"
+  }
+ ],
+ "count": 15,
+ "coverage": [
+  {
+   "component": "box",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "button",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "image_view",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "list_view",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "menu_bar",
+   "has_api_contract": true,
+   "has_nib_geometry": false,
+   "has_runtime": false
+  },
+  {
+   "component": "pop_up_button",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "progress_indicator",
+   "has_api_contract": true,
+   "has_nib_geometry": false,
+   "has_runtime": false
+  },
+  {
+   "component": "scroll_view",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "source_list",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "split_view",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "tab_view",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "text_field",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "toolbar",
+   "has_api_contract": true,
+   "has_nib_geometry": false,
+   "has_runtime": false
+  },
+  {
+   "component": "window.chrome",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  },
+  {
+   "component": "window.traffic_lights",
+   "has_api_contract": true,
+   "has_nib_geometry": true,
+   "has_runtime": false
+  }
+ ],
+ "schema": "mavlinos.ui-components/1",
+ "source": {
+  "api": "ui-api.json",
+  "nib": "nib_geometry.json",
+  "probe": null
+ }
+}

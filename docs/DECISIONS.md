@@ -1846,3 +1846,36 @@ input exists. Commit `a1a03269`.
 **Verified:** offline 21/21 + 27/27; live `test_qwen_live.py` 8/8;
 `test_qwen_orchestrator_loop.py` 11/11 (was 2/11);
 `qwen-web-worker.py check --json` → authenticated.
+
+## 2026-10-11 — Ground-truth UI/UX reverse engineering route (owner directive: real Mavericks, not guesses)
+
+**Decision.** The Mavericks look is no longer guessed from screenshots and HIG prose. We
+extract ground truth from a real 10.9 system in three layers — *skin* (colours, geometry,
+typography), *bones* (behaviour: focus, keyboard, mouse, animation, menus), and a
+*component library* (prefabricated pieces + per-surface assembly rules) — so any Linux
+backend can be wrapped in the same UI/UX, and new applications are assembled from those
+pieces.
+
+**Route (chosen over driving the installer UI).** Offline extraction beats GUI-driven
+capture because it is reproducible, scriptable and orders of magnitude cheaper:
+
+| layer | source of truth | tool | artifact |
+|---|---|---|---|
+| skin geometry | compiled `.nib` (NSKeyedArchiver) | `tools/uiref/nib_geometry.py` | `data/nib_geometry.json` (1447 nibs) |
+| skin/bones contract | Mach-O `__objc_classlist` | `tools/uiref/machobjc.py`, `objc_index.py` | `data/ui-api.json` (2119 classes) |
+| skin runtime truth | live AppKit inside the guest | `tools/uiref/mvprobe.c` (cross-compiled, no SDK) | `data/uiprobe.json` |
+| system tree | `InstallESD.dmg` -> `Essentials.pkg` | `tools/uiref/extract-osx109.sh` | `/home/builder/vmwork/sys` |
+
+**Why not only screenshots.** Screenshot reading costs an image per state and yields
+approximations; nibs give exact authored frames, ObjC gives the contract, and the probe
+gives the exact runtime numbers (palette, content-rect math, standard button frames, font
+metrics). Screenshots are now only a fallback for states that no artifact describes.
+
+**Legal/hygiene rule (unchanged, C5).** No Apple binary or asset is committed. Only derived
+numbers, our own JSON and our own drawings enter this repository; the guest and raw images
+stay outside git. Raw ObjC dumps (30 MB) are regenerable and deliberately not committed —
+only the semantic index is.
+
+**Consequence for the roadmap.** Implementation work now references `data/components.json`
+instead of screenshots; a component without runtime evidence is listed in its `coverage`
+report, so the next capture round is targeted rather than exploratory.
