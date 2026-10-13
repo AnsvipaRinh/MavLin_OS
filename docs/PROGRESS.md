@@ -1191,3 +1191,32 @@ PARTIALLY IMPLEMENTED surfaces per §13.9).
 **Gates:** `py_compile` clean; `scripts/test-mv-colormeter.py` 76/0; GUI smoke on pinned Xvfb :97 via `scripts/gui-isolation.sh` (0 host-display guard violations). `check-sync.sh`: failure set SMALLER than origin/main (no new failures).
 
 **Status:** Digital Color Meter = **IMPLEMENTED — HARDWARE VALIDATION REQUIRED**. Remaining: real pixel values on the 2304×1440 panel (see `docs/NEEDS_HARDWARE_TEST.md`).
+
+## 2026-10-11 — Mavericks ground-truth UI/UX reference: first extraction pass
+
+**Trigger:** owner directive — stop guessing the look, take the real Mavericks apart
+(skin = visuals, bones = behaviour, library = prefabricated components + assembly
+rules), so any Linux backend can be wrapped and any new app assembled from those pieces.
+
+**Delivered this pass (all committed under `docs/UI_REFERENCE/`, `tools/uiref/`):**
+
+| artifact | content | how it was obtained |
+|---|---|---|
+| `data/nib_geometry.json` | 1447 nibs → 641 Finder views, exact frames/sizes/fonts | compiled nib decode (NSKeyedArchiver) |
+| `data/ui-api.json` | 2119 ObjC classes (AppKit 1179, Finder 658, Dock 282) bucketed by responsibility | Mach-O `__objc_classlist` |
+| `data/palette.json` | 275 colours from AppKit's `__color/__gray/__mac_color/__color_alpha` ramps | Mach-O section decode |
+| `data/terminology.json` | 3910 exact English strings of 8 system apps | Mach-O string literals |
+| `data/surfaces.json` | 1198 surfaces with required controls and window frames | nib inventory |
+| `data/components.json` | 15 prefabricated components, coverage report | merge of the above |
+| `tools/uiref/mvprobe.c` | runtime probe: exact NSColor palette, window content-rect math, standard button frames, font metrics | compiled from Linux, runs inside the guest |
+
+**Environment facts worth keeping:**
+- QEMU has no KVM here; 10.9 boots under TCG and is slow but usable.
+- Clover's own boot hangs the Mavericks kernel; OpenCore (LegacyOSXKVM `opencore-MLion.qcow2`) boots the 10.9 installer reliably — that is the working reference chain.
+- The install DVD's visible volume is a 1185-file stub; the real system is `Essentials.pkg` inside `InstallESD.dmg` (offline extraction route, no GUI needed).
+- QEMU guest input: mouse buttons only register when the pointer moves immediately before the press; pointer lands ~10% left / ~4% high of the requested coordinate. Both are handled in the driver now.
+
+**Open:** the reference guest is still being installed (target disk formatted `Macintosh HD`,
+installer running unattended). When the desktop is up, `mvprobe.dylib` is run inside the guest to
+replace the static palette section with AppKit's *runtime* system colours, and `components.json`
+coverage flips from `ipu` (nib+api, no runtime) to `111` for every component.
