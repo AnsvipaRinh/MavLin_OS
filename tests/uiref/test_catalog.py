@@ -39,6 +39,13 @@ def main():
         if md5 != e.get("md5"):
             errors.append(f"md5 mismatch for {fn} (edited capture?)")
 
+    sources = {}
+    for cand in ("sources.json", "palette.json", "metrics.json", "typography.json",
+                 "behaviors.json", "patterns.json"):
+        p = os.path.join(DATA, cand)
+        if os.path.exists(p):
+            sources.update(json.load(open(p)).get("sources", {}))
+
     ids = {}
     for fn in sorted(os.listdir(DATA)):
         if not fn.endswith(".json"):
@@ -56,13 +63,46 @@ def main():
             if f.get("kind") in ("measured", "derived") and not ev:
                 errors.append(f"{fn}: {fid} is {f.get('kind')} but has no evidence")
             if ev:
-                if ev not in index.get("captures", {}):
+                if ev.startswith("src:"):
+                    key = ev[4:]
+                    if key not in sources:
+                        errors.append(f"{fn}: {fid} evidence '{ev}' is not in any sources registry")
+                elif ev not in index.get("captures", {}):
                     errors.append(f"{fn}: {fid} evidence '{ev}' not in captures/index.json")
             if f.get("kind") == "literature" and f.get("confidence") == "high":
                 errors.append(f"{fn}: {fid} literature cannot be high confidence")
             if fn == "palette.json":
                 if not HEX_RE.match(str(f.get("hex", ""))):
                     errors.append(f"palette.json: {fid} bad hex {f.get('hex')}")
+
+    # component library: every component must name its classes and must appear in
+    # the coverage report (so "what is still unmeasured" is always answerable)
+    comp_path = os.path.join(DATA, "components.json")
+    if os.path.exists(comp_path):
+        comp = json.load(open(comp_path))
+        cov = {c["component"] for c in comp.get("coverage", [])}
+        for c in comp.get("components", []):
+            if c["id"] not in cov:
+                errors.append(f"components.json: {c['id']} missing from coverage report")
+            if not c.get("bones", {}).get("contract"):
+                errors.append(f"components.json: {c['id']} has no ObjC contract")
+    api_path = os.path.join(DATA, "ui-api.json")
+    api = json.load(open(api_path)) if os.path.exists(api_path) else {}
+    api_classes = {name for mod in api.get("modules", {}).values()
+                   for name in mod.get("classes", {})}
+    comp_path2 = os.path.join(DATA, "components.json")
+    if os.path.exists(comp_path2):
+        for c in json.load(open(comp_path2)).get("components", []):
+            for entry in c.get("bones", {}).get("contract", []):
+                if entry["class"] not in api_classes:
+                    errors.append(f"components.json: {c['id']} references class "
+                                  f"{entry['class']} absent from ui-api.json")
+
+    # ui-api index must stay in sync with the dumps it was built from
+    if api:
+        for mod, body in api.get("modules", {}).items():
+            if body.get("class_count") != len(body.get("classes", {})):
+                errors.append(f"ui-api.json: {mod} class_count mismatch")
 
     # coverage: every fact id appears in a catalog page
     cat_files = {}
