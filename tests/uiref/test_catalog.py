@@ -130,9 +130,15 @@ def main():
         if not th.get("fonts"):
             errors.append("theme.json: no fonts resolved from nibs")
         page = cat_files.get("theme.md", "")
-        for c in th["system_colors"][:5]:
-            if f"| {c['name']} |" not in page:
-                errors.append(f"catalog/theme.md missing colour {c['name']}")
+        # the rendered table must have exactly one row per resolved colour, so
+        # the page can never drift away from the data behind it
+        section = page.split("## System colours", 1)[-1].split("\n## ", 1)[0]
+        rows = [ln for ln in section.splitlines()
+                if ln.startswith("|") and not ln.startswith("|--")
+                and "name" not in ln]
+        if len(rows) != len(th["system_colors"]):
+            errors.append(f"catalog/theme.md has {len(rows)} colour rows, "
+                          f"data has {len(th['system_colors'])}")
         if named and th["summary"]["color_names"] > named:
             errors.append("theme.json: more colour names than nib records")
 
