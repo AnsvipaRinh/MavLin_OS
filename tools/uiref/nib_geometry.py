@@ -254,48 +254,52 @@ def main():
                     help="keep localized copies instead of deduplicating by content hash")
     ap.add_argument("--apps", nargs="*", default=[],
                     help="only nibs below these app/framework names")
+    ap.add_argument("--jobs", type=int, default=8)
+    ap.add_argument("--locale", nargs="*", default=["English", "en"],
+                    help="localizations to keep: layout is identical, only strings differ")
     a = ap.parse_args()
     if os.path.isfile(a.target):
         paths = [a.target]
     else:
+        import re as _re
+        lproj = _re.compile(r"([A-Za-z-]+)\.lproj$")
+        keep = {x.lower() for x in a.locale}
         paths = []
         for base, dirs, files in os.walk(a.target):
             if a.apps and not any(x in base for x in a.apps):
                 continue
+            m = lproj.search(os.path.basename(base))
+            if m and m.group(1).lower() not in keep:
+                dirs[:] = []   # localized nibs differ only in strings
+                continue
             for f in files:
                 if f.endswith(".nib"):
                     paths.append(os.path.join(base, f))
-    if not a.all_locales and not os.path.isfile(a.target):
-        # Nibs are duplicated per language; identical bytes carry identical
-        # layout facts, so keep one representative (English preferred).
-        import hashlib
-        seen, uniq = {}, []
-        for p in sorted(paths, key=lambda s: ("English.lproj" not in s, s)):
-            try:
-                h = hashlib.sha256(open(p, "rb").read()).hexdigest()
-            except OSError:
-                continue
-            if h in seen:
-                continue
-            seen[h] = p
-            uniq.append(p)
-        paths = uniq
-        print(f"deduped {len(seen)} unique nibs")
+        print(f"selected {len(paths)} nib files")
     out = {"schema": "mavlinos.ui-reference-nib-geometry/1", "nibs": []}
     ok = fail = 0
-    for p in sorted(paths):
-        try:
-            r = parse_nib(p)
-        except Exception as e:  # keep going: one bad nib must not kill the run
-            r = None
-            err = str(e)[:120]
-        if r:
-            r.pop("nib")
-            r["path"] = os.path.relpath(p, a.target if os.path.isdir(a.target) else ".")
-            out["nibs"].append(r)
-            ok += 1
-        else:
-            fail += 1
+    root = a.target if os.path.isdir(a.target) else "."
+    # nib parsing is CPU bound and one pathological archive must not stall the
+    # whole run: parallel workers, each file independent.
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    results = []
+    with ProcessPoolExecutor(max_workers=a.jobs) as ex:
+        futs = {ex.submit(parse_nib, p): p for p in sorted(paths)}
+        for fut in as_completed(futs):
+            p = futs[fut]
+            try:
+                r = fut.result()
+            except Exception as e:  # keep going: one bad nib must not kill the run
+                r = None
+            if r:
+                r.pop("nib", None)
+                r["path"] = os.path.relpath(p, root)
+                results.append(r)
+                ok += 1
+            else:
+                fail += 1
+    results.sort(key=lambda d: d.get("path", ""))
+    out["nibs"] = results
     out["decoded"] = ok
     out["failed"] = fail
     text = json.dumps(out, indent=1, sort_keys=True)
