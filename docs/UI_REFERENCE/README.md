@@ -20,6 +20,7 @@ source of geometry or colour.
 | Components | `data/components.json` | 15 prefabricated "skin + bones" pieces with a coverage report |
 | Controls | `data/controls.json` | 14375 decoded cell objects of 38 NS*Cell classes: bezel/flags bitfields, images, titles, key equivalents |
 | Asset geometry | `data/assets.json` | 15582 assets with pixel sizes: icon grid, chrome/toolbar art, retina pairs (headers only, no artwork) |
+| Window geometry | `data/windows.json` | 1373 NSWindowTemplate records: designer rects, style masks, size frequencies |
 | Palette | `data/palette.json` | 275 colours decoded from AppKit's `__color/__gray/__mac_color/__color_alpha` ramps |
 | Wording | `data/terminology.json` | 3910 exact English strings of system apps (menus, alerts, buttons) |
 | Rendering | `catalog/*.md` | generated from the data by `tools/uiref/render.py` (never hand-edit) |

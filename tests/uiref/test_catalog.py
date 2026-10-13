@@ -118,6 +118,23 @@ def main():
         if page and page in cat_files and fid not in cat_files[page]:
             errors.append(f"docs drift: {fid} from {fn} not rendered into catalog/{page}")
 
+    # window templates: counts must reconcile and the page must show the real masks
+    win_path = os.path.join(DATA, "windows.json")
+    if os.path.exists(win_path):
+        win = json.load(open(win_path))
+        if win.get("count") != len(win.get("windows", [])):
+            errors.append("windows.json: count does not match windows array")
+        geo_count = sum(len(n.get("windows", []))
+                        for n in json.load(open(os.path.join(DATA, "nib_geometry.json")))
+                        .get("nibs", []))
+        if win.get("count") != geo_count:
+            errors.append(f"windows.json: {win.get('count')} != nib_geometry {geo_count}")
+        page = cat_files.get("windows.md", "")
+        for mask, count, _bits in win.get("summary", {}).get("style_masks", [])[:5]:
+            if f"| {mask} | {count} |" not in page:
+                errors.append(f"catalog/windows.md does not show mask {mask}")
+
+
     # asset geometry: the decoded inventory must reconcile with itself and the
     # icon grid the desktop ships must be visible in the rendered page
     ast_path = os.path.join(DATA, "assets.json")

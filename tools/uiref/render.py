@@ -3,6 +3,7 @@
 
 Idempotent: run after every data change; the repo copy is generated output.
 """
+import collections
 import json, os, sys
 
 HERE = os.path.dirname(__file__)
@@ -73,6 +74,7 @@ def main():
         "palette.md": render_palette(load("palette.json")),
         "controls.md": render_controls(load("controls.json")),
         "assets.md": render_assets(load("assets.json")),
+        "windows.md": render_windows(load("windows.json")),
         "metrics.md": render_generic(load("metrics.json"), "Metrics",
                                      "@1x pixel/point values. `derived` facts show their formula in `deriv`."),
         "typography.md": render_generic(load("typography.json"), "Typography",
@@ -145,6 +147,31 @@ def render_controls(data):
             out.append(f"* key equivalents: "
                        f"{', '.join(repr(k) for k in c['key_equivalents'][:8])}")
         out.append("")
+    return "\n".join(out)
+
+
+def render_windows(data):
+    """Window geometry as the designers shipped it: rects, masks, content sizes."""
+    s = data["summary"]
+    out = ["# Window geometry from real nib templates", "",
+           f"NSWindowTemplate records decoded: **{data['count']}**.", "",
+           "## Style masks in use", "",
+           "| mask | count | documented bits |", "|---|---|---|"]
+    for m, c, bits in s["style_masks"]:
+        out.append(f"| {m} | {c} | {', '.join(bits) or '(undocumented bits only)'} |")
+    out += ["", "## Most frequent window sizes", "", "| w | h | count |", "|---|---|---|"]
+    for w, h, c in s["sizes"]:
+        out.append(f"| {w} | {h} | {c} |")
+    if s["chrome_heights"]:
+        out += ["", "## Titlebar height implied by rect vs content rect", "",
+                "| delta | count |", "|---|---|"]
+        for h, c in s["chrome_heights"]:
+            out.append(f"| {h} | {c} |")
+    out += ["", "## Template classes", "", "| class | count |", "|---|---|"]
+    classes = collections.Counter(w["class"] for w in data["windows"] if w.get("class"))
+    for cls, c in classes.most_common(10):
+        out.append(f"| {cls} | {c} |")
+    out.append("")
     return "\n".join(out)
 
 
