@@ -393,8 +393,8 @@ static int resolve_runtime(void) {
    open/write/close path, and - in the probe build - mirrored to stderr, which
    the runner already captures, so the result can never be lost. */
 static int write_document(const char *path) {
-#ifdef NSINSPECT_FIRSTWINDOW
-    write(2, "---BEGIN JSON---\n", 18);
+#if defined(NSINSPECT_FIRSTWINDOW) || defined(NSINSPECT_FULL)
+    write(2, "---BEGIN JSON---\n", 17);
     write(2, out_buf, out_len);
     write(2, "\n---END JSON---\n", 16);
 #endif
@@ -502,6 +502,325 @@ static int run(const char *out_path) {
 }
 
 /* ====================== self test on Linux (fake runtime) ================= */
+
+
+/* ==========================================================================
+ * Geometry via NSInvocation
+ *
+ * NSRect is 32 bytes, so on x86_64 it does not come back in registers.  Every
+ * hand-rolled objc_msgSend cast for it stalled the capture at exactly that
+ * call, whether or not the hidden pointer was added by hand.  NSInvocation
+ * sidesteps the question completely: -methodSignatureForSelector: and
+ * -invocationWithMethodSignature: return objects, -invoke takes no return
+ * value, and -getReturnValue: writes into a buffer we own.  No struct ever
+ * crosses a function-pointer cast in this path.
+ *
+ * The invocation is cached per (class, selector) so the signature is resolved
+ * once per window class rather than for every view.
+ * ========================================================================== */
+typedef struct { Class cls; const char *sel; id sig; } mv_sig_cache;
+static mv_sig_cache g_sigs[64];
+static int g_sig_n;
+
+static id invocation_for(id obj, const char *selname) {
+    if (!obj || !fn_msgSend) return 0;
+    SEL s = S(selname);
+    if (!s) return 0;
+    /* The cache holds the *signature* only. Returning it on a hit used to
+       send -getReturnValue: to an NSMethodSignature, which the guest reported
+       as "unrecognized selector"; a fresh NSInvocation is built every time. */
+    id sig = 0;
+    for (int i = 0; i < g_sig_n; i++) {
+        if (g_sigs[i].cls == (Class)fn_object_getClass(obj) &&
+            g_sigs[i].sel == selname) { sig = g_sigs[i].sig; break; }
+    }
+    if (!sig) {
+        id (*msig)(id, SEL, SEL) = (id (*)(id, SEL, SEL))fn_msgSend;
+        sig = msig(obj, S("methodSignatureForSelector:"), s);
+        if (!sig) return 0;
+    }
+    id (*mk)(id, SEL, id) = (id (*)(id, SEL, id))fn_msgSend;
+    Class NSInvocation = fn_objc_getClass("NSInvocation");
+    if (!NSInvocation) return 0;
+    id inv = mk(NSInvocation, S("invocationWithMethodSignature:"), sig);
+    if (!inv) return 0;
+    if (g_sig_n < (int)(sizeof g_sigs / sizeof g_sigs[0])) {
+        g_sigs[g_sig_n].cls = (Class)fn_object_getClass(obj);
+        g_sigs[g_sig_n].sel = selname;
+        g_sigs[g_sig_n].sig = sig;
+        g_sig_n++;
+    }
+    void (*setSel)(id, SEL, SEL) = (void (*)(id, SEL, SEL))fn_msgSend;
+    void (*setTgt)(id, SEL, id) = (void (*)(id, SEL, id))fn_msgSend;
+    setSel(inv, S("setSelector:"), s);
+    setTgt(inv, S("setTarget:"), obj);
+    void (*invoke)(id, SEL) = (void (*)(id, SEL))fn_msgSend;
+    invoke(inv, S("invoke"));
+    return inv;
+}
+
+/* Returns 1 and fills *out when the selector could be invoked at all. */
+static int send_rect_inv(id obj, const char *selname, ns_rect *out) {
+    if (out) { out->x = 0; out->y = 0; out->w = 0; out->h = 0; }
+    id inv = invocation_for(obj, selname);
+    if (!inv || !out) return 0;
+    void (*get)(id, SEL, void *) = (void (*)(id, SEL, void *))fn_msgSend;
+    get(inv, S("getReturnValue:"), out);
+    return 1;
+}
+
+/* Superclass chain, oldest first. */
+static int superclass_chain(Class c, const char **out, int cap) {
+    int n = 0;
+    void *(*gsc)(Class) = (void *(*)(Class))dlsym(RTLD_DEFAULT, "class_getSuperclass");
+    if (!gsc) return 0;
+    while (c && n < cap) {
+        const char *nm = class_name_of(c);
+        out[n++] = nm ? nm : "?";
+        c = (Class)gsc(c);
+    }
+    return n;
+}
+
+/* Bounded identity set: guards against a view appearing twice in a tree. */
+#define VISIT_CAP 20000
+static id g_visited[VISIT_CAP];
+static int g_visited_n;
+
+static int already_visited(id o) {
+    for (int i = 0; i < g_visited_n; i++) if (g_visited[i] == o) return 1;
+    if (g_visited_n < VISIT_CAP) g_visited[g_visited_n++] = o;
+    return 0;
+}
+
+static int g_control_total;
+static int g_view_total;
+
+
+/* ==========================================================================
+ * Full capture (NSINSPECT_FULL)
+ *
+ * Every NSWindow with its own independently collected facts, an explicit
+ * choice of the primary window, and a bounded recursive NSView walk.  Geometry
+ * goes through NSInvocation.  Unavailable values are emitted as null and are
+ * never invented, clamped or normalised.
+ * ========================================================================== */
+#ifdef NSINSPECT_FULL
+
+static int g_depth_max = 32;
+static int g_view_cap = 4000;
+
+static void emit_supers(id obj) {
+    const char *chain[16];
+    int n = superclass_chain((Class)fn_object_getClass(obj), chain, 16);
+    emit("[");
+    for (int i = 0; i < n; i++) { if (i) emit(", "); emit_json_str(chain[i]); }
+    emit("]");
+}
+
+static void emit_bool_attr(id obj, const char *name) {
+    if (!obj) { emit("null"); return; }
+    signed char (*b)(id, SEL) = (signed char (*)(id, SEL))fn_msgSend;
+    emit(b(obj, S(name)) ? "true" : "false");
+}
+
+static void emit_num_attr(id obj, const char *name) {
+    if (!obj) { emit("null"); return; }
+    ns_int (*n)(id, SEL) = (ns_int (*)(id, SEL))fn_msgSend;
+    emit("%ld", (long)n(obj, S(name)));
+}
+
+static int is_kind_of_class(id obj, const char *clsname) {
+    if (!obj || !fn_msgSend) return 0;
+    Class target = fn_objc_getClass(clsname);
+    if (!target) return 0;
+    int (*isKind)(id, SEL, Class) = (int (*)(id, SEL, Class))fn_msgSend;
+    return isKind(obj, S("isKindOfClass:"), target) ? 1 : 0;
+}
+
+static int is_kind_of_class(id obj, const char *clsname);
+
+static void walk_view(id view, int depth) {
+    if (!view || depth > g_depth_max || g_view_total >= g_view_cap) return;
+    if (already_visited(view)) { emit("{\"note\": \"already visited\"}"); return; }
+    g_view_total++;
+
+    const char *chain[16];
+    int nchain = superclass_chain((Class)fn_object_getClass(view), chain, 16);
+    int is_ctrl = is_kind_of_class(view, "NSControl");
+
+    emit("{\"object\": \"%p\", ", view);
+    emit("\"class\": "); emit_json_str(nchain ? chain[0] : "?");
+    emit(", \"superclasses\": [");
+    for (int i = 1; i < nchain; i++) { if (i > 1) emit(", "); emit_json_str(chain[i]); }
+    emit("], \"depth\": "); emit("%d", depth);
+
+    ns_rect frame, bounds;
+    int got_frame = send_rect_inv(view, "frame", &frame);
+    int got_bounds = send_rect_inv(view, "bounds", &bounds);
+    emit(", \"frame\": ");
+    if (got_frame) emit("[%g, %g, %g, %g]", frame.x, frame.y, frame.w, frame.h);
+    else emit("null");
+    emit(", \"frame_source\": \"%s\"", got_frame ? "NSInvocation" : "unavailable");
+    emit(", \"bounds\": ");
+    if (got_bounds) emit("[%g, %g, %g, %g]", bounds.x, bounds.y, bounds.w, bounds.h);
+    else emit("null");
+
+    emit(", \"hidden\": ");       emit_bool_attr(view, "isHidden");
+    emit(", \"alpha\": ");       emit("%g", send_dbl(view, "alphaValue"));
+    emit(", \"autoresizing\": ");emit_num_attr(view, "autoresizingMask");
+    emit(", \"tag\": ");         emit("%lu", (unsigned long)send_ulong(view, "tag"));
+    emit(", \"superview\": \"%p\"", send_id(view, "superview"));
+
+    id subviews = send_id(view, "subviews");
+    int nsub = 0;
+    if (subviews && is_kind_of_class(subviews, "NSArray")) {
+        ns_uint (*cnt)(id, SEL) = (ns_uint (*)(id, SEL))fn_msgSend;
+        nsub = (int)cnt(subviews, S("count"));
+    }
+    emit(", \"subview_count\": %d", nsub);
+
+    if (is_ctrl) {
+        g_control_total++;
+        emit(", \"kind\": \"NSControl\"");
+        emit(", \"enabled\": ");   emit_bool_attr(view, "isEnabled");
+        id cell = send_id(view, "cell");
+        emit(", \"cell\": ");
+        if (cell) {
+            const char *cc[16];
+            int cn = superclass_chain((Class)fn_object_getClass(cell), cc, 16);
+            emit("\"%p\"", cell);
+            emit(", \"cell_class\": "); emit_json_str(cn ? cc[0] : "?");
+            emit(", \"cell_control_size\": "); emit_num_attr(cell, "controlSize");
+        } else {
+            emit("null");
+        }
+        id tgt = send_ptr(view, "target");
+        SEL act = (SEL)send_ptr(view, "action");
+        emit(", \"target\": "); emit_json_str(tgt ? class_name_of((Class)fn_object_getClass(tgt)) : "null");
+        emit(", \"action\": ");
+        if (act) emit_json_str(sel_name(act)); else emit("null");
+    }
+
+    if (nsub > 0) {
+        emit(", \"subviews\": [");
+        ns_uint (*cnt)(id, SEL) = (ns_uint (*)(id, SEL))fn_msgSend;
+        id (*at)(id, SEL, ns_uint) = (id (*)(id, SEL, ns_uint))fn_msgSend;
+        for (int i = 0; i < nsub; i++) {
+            if (i) emit(",");
+            walk_view(at(subviews, S("objectAtIndex:"), (ns_uint)i), depth + 1);
+        }
+        emit("]");
+    } else {
+        emit(", \"subviews\": []");
+    }
+    emit("}");
+}
+
+static int full_capture(const char *path) {
+    if (!resolve_runtime()) return 3;
+
+    Class NSApp = fn_objc_getClass("NSApplication");
+    id app = NSApp ? send_id(NSApp, "sharedApplication") : 0;
+    id wins = app ? send_id(app, "windows") : 0;
+    int n = 0;
+    if (wins) {
+        ns_uint (*cnt)(id, SEL) = (ns_uint (*)(id, SEL))fn_msgSend;
+        n = (int)cnt(wins, S("count"));
+    }
+
+    /* Pass 1: collect windows, remembering which is primary. */
+    id wlist[256];
+    int nw = n < 256 ? n : 256;
+    for (int i = 0; i < nw; i++) {
+        id (*at)(id, SEL, ns_uint) = (id (*)(id, SEL, ns_uint))fn_msgSend;
+        wlist[i] = at(wins, S("objectAtIndex:"), (ns_uint)i);
+    }
+    /* Primary window selection uses only signals that are stable at the moment
+       the run loop starts.  isMainWindow, isKeyWindow and isVisible are NOT
+       used for the decision: the capture fires from inside -[NSApplication
+       run], before the app can become active, so they are false or flaky and
+       made repeated runs disagree (primary 1 then primary 0).  They are still
+       recorded per window, because they are facts about the app at that
+       instant.  The decision itself uses structure: real NSWindow class, normal
+       window level, a non-empty title and an on-screen, non-degenerate frame. */
+    int primary = -1, best = -1000;
+    for (int i = 0; i < nw; i++) {
+        id w = wlist[i];
+        const char *cc[16];
+        int cn = superclass_chain((Class)fn_object_getClass(w), cc, 16);
+        const char *cls = cn ? cc[0] : "?";
+        char title[512];
+        nsstring_utf8(send_id(w, "title"), title, sizeof title);
+        ns_rect fr;
+        int got = send_rect_inv(w, "frame", &fr);
+        int score = 0;
+        if (!strcmp(cls, "NSWindow")) score += 3;
+        if (title[0]) score += 2;
+        if (!strcmp(cls, "CustomWindow")) score -= 10;
+        if (send_long(w, "level") != 0) score -= 6;
+        if (got && fr.w > 1 && fr.h > 1) score += 1;
+        if (got && fr.x < 4000 && fr.y < 4000) score += 1;   /* on-screen */
+        if (score > best) { best = score; primary = i; }
+    }
+    if (primary < 0) primary = 0;
+
+    emit("{\n");
+    emit("  \"schema\": \"mavlinos.nsinspect/1\",\n");
+    emit("  \"kind\": \"runtime-observed\",\n");
+    emit("  \"mode\": \"full-capture\",\n");
+    emit("  \"extractor\": \"nsinspect.c\",\n");
+    emit("  \"source\": \"live Objective-C objects in the host process\",\n");
+    emit("  \"pid\": %d,\n", getpid());
+    emit("  \"depth_max\": %d,\n", g_depth_max);
+    emit("  \"view_cap\": %d,\n", g_view_cap);
+
+    emit("  \"window_count\": %d,\n", nw);
+    emit("  \"windows\": [\n");
+    for (int i = 0; i < nw; i++) {
+        id w = wlist[i];
+        const char *cc[16];
+        int cn = superclass_chain((Class)fn_object_getClass(w), cc, 16);
+        char title[512];
+        nsstring_utf8(send_id(w, "title"), title, sizeof title);
+        ns_rect fr;
+        int got = send_rect_inv(w, "frame", &fr);
+        emit("    {\"index\": %d, \"object\": \"%p\", \"class\": ", i, w);
+        emit_json_str(cn ? cc[0] : "?");
+        emit(", \"superclasses\": [");
+        for (int k = 1; k < cn; k++) { if (k > 1) emit(", "); emit_json_str(cc[k]); }
+        emit("], \"title\": "); emit_json_str(title);
+        emit(", \"visible\": ");  emit_bool_attr(w, "isVisible");
+        emit(", \"key\": ");     emit_bool_attr(w, "isKeyWindow");
+        emit(", \"main\": ");     emit_bool_attr(w, "isMainWindow");
+        emit(", \"can_be_key\": ");  emit_bool_attr(w, "canBecomeKeyWindow");
+        emit(", \"can_be_main\": "); emit_bool_attr(w, "canBecomeMainWindow");
+        emit(", \"level\": ");   emit_num_attr(w, "level");
+        emit(", \"frame\": ");
+        if (got) emit("[%g, %g, %g, %g]", fr.x, fr.y, fr.w, fr.h);
+        else emit("null");
+        emit(", \"frame_source\": \"%s\"", got ? "NSInvocation" : "unavailable");
+        emit(", \"is_primary\": "); emit(i == primary ? "true" : "false");
+        emit("}%s\n", i + 1 < nw ? "," : "");
+    }
+    emit("  ],\n");
+    emit("  \"primary_window_index\": %d,\n", primary);
+
+    id content = send_id(wlist[primary], "contentView");
+    emit("  \"primary_content_view\": ");
+    if (content) {
+        walk_view(content, 0);
+    } else {
+        emit("null");
+    }
+    emit(",\n");
+    emit("  \"views_visited\": %d,\n", g_view_total);
+    emit("  \"controls_found\": %d,\n", g_control_total);
+    emit("  \"status\": \"ok\"\n}\n");
+
+    return write_document(path) ? 0 : 3;
+}
+#endif
 
 /* ==========================================================================
  * First-window probe (NSINSPECT_FIRSTWINDOW)
@@ -728,6 +1047,8 @@ static int nsinspect_run(void) {
     if (!path) path = "/tmp/nsinspect.json";
 #ifdef NSINSPECT_FIRSTWINDOW
     return first_window_probe(path);
+#elif defined(NSINSPECT_FULL)
+    return full_capture(path);
 #else
     return run(path);
 #endif

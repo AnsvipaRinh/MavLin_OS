@@ -1,0 +1,1135 @@
+{
+  "schema": "mavlinos.nsinspect/1",
+  "kind": "runtime-observed",
+  "mode": "full-capture",
+  "extractor": "nsinspect.c",
+  "source": "live Objective-C objects in the host process",
+  "pid": 974,
+  "depth_max": 32,
+  "view_cap": 4000,
+  "window_count": 4,
+  "windows": [
+    {
+      "index": 0,
+      "object": "0x7fcbc253fa80",
+      "class": "NSWindow",
+      "superclasses": [
+        "NSResponder",
+        "NSObject"
+      ],
+      "title": "Calculator",
+      "visible": false,
+      "key": false,
+      "main": false,
+      "can_be_key": true,
+      "can_be_main": false,
+      "level": 0,
+      "frame": [
+        107,
+        88,
+        273,
+        207
+      ],
+      "frame_source": "NSInvocation",
+      "is_primary": true
+    },
+    {
+      "index": 1,
+      "object": "0x7fcbc25625c0",
+      "class": "CustomWindow",
+      "superclasses": [
+        "NSWindow",
+        "NSResponder",
+        "NSObject"
+      ],
+      "title": "Window",
+      "visible": false,
+      "key": false,
+      "main": false,
+      "can_be_key": true,
+      "can_be_main": false,
+      "level": 25,
+      "frame": [
+        10000,
+        10000,
+        1,
+        1
+      ],
+      "frame_source": "NSInvocation",
+      "is_primary": false
+    },
+    {
+      "index": 2,
+      "object": "0x7fcbc2472fc0",
+      "class": "NSWindow",
+      "superclasses": [
+        "NSResponder",
+        "NSObject"
+      ],
+      "title": "Paper Tape",
+      "visible": false,
+      "key": false,
+      "main": false,
+      "can_be_key": true,
+      "can_be_main": false,
+      "level": 0,
+      "frame": [
+        345,
+        88,
+        228,
+        292
+      ],
+      "frame_source": "NSInvocation",
+      "is_primary": false
+    },
+    {
+      "index": 3,
+      "object": "0x7fcbc2508d10",
+      "class": "NSPanel",
+      "superclasses": [
+        "NSWindow",
+        "NSResponder",
+        "NSObject"
+      ],
+      "title": "",
+      "visible": true,
+      "key": false,
+      "main": false,
+      "can_be_key": true,
+      "can_be_main": false,
+      "level": 0,
+      "frame": [
+        430,
+        391,
+        420,
+        193
+      ],
+      "frame_source": "NSInvocation",
+      "is_primary": false
+    }
+  ],
+  "primary_window_index": 0,
+  "primary_content_view": {
+    "object": "0x7fcbc25053e0",
+    "class": "NSView",
+    "superclasses": [
+      "NSResponder",
+      "NSObject"
+    ],
+    "depth": 0,
+    "frame": [
+      0,
+      0,
+      273,
+      185
+    ],
+    "frame_source": "NSInvocation",
+    "bounds": [
+      0,
+      0,
+      273,
+      185
+    ],
+    "hidden": false,
+    "alpha": 1,
+    "autoresizing": 0,
+    "tag": 18446744073709551615,
+    "superview": "0x7fcbc25458c0",
+    "subview_count": 2,
+    "subviews": [
+      {
+        "object": "0x7fcbc2544e30",
+        "class": "NSView",
+        "superclasses": [
+          "NSResponder",
+          "NSObject"
+        ],
+        "depth": 1,
+        "frame": [
+          214,
+          57,
+          52,
+          128
+        ],
+        "frame_source": "NSInvocation",
+        "bounds": [
+          0,
+          0,
+          52,
+          128
+        ],
+        "hidden": true,
+        "alpha": 1,
+        "autoresizing": 9,
+        "tag": 18446744073709551615,
+        "superview": "0x7fcbc25053e0",
+        "subview_count": 4,
+        "subviews": [
+          {
+            "object": "0x7fcbc243d170",
+            "class": "NSButton",
+            "superclasses": [
+              "NSControl",
+              "NSView",
+              "NSResponder",
+              "NSObject"
+            ],
+            "depth": 2,
+            "frame": [
+              1,
+              64,
+              49,
+              30
+            ],
+            "frame_source": "NSInvocation",
+            "bounds": [
+              0,
+              0,
+              49,
+              30
+            ],
+            "hidden": false,
+            "alpha": 1,
+            "autoresizing": 0,
+            "tag": 81,
+            "superview": "0x7fcbc2544e30",
+            "subview_count": 0,
+            "kind": "NSControl",
+            "enabled": true,
+            "cell": "0x7fcbc243d430",
+            "cell_class": "NSButtonCell",
+            "cell_control_size": 0,
+            "target": "LCDController",
+            "action": "rpnRollDown:",
+            "subviews": []
+          },
+          {
+            "object": "0x7fcbc243ceb0",
+            "class": "NSButton",
+            "superclasses": [
+              "NSControl",
+              "NSView",
+              "NSResponder",
+              "NSObject"
+            ],
+            "depth": 2,
+            "frame": [
+              1,
+              96,
+              49,
+              30
+            ],
+            "frame_source": "NSInvocation",
+            "bounds": [
+              0,
+              0,
+              49,
+              30
+            ],
+            "hidden": false,
+            "alpha": 1,
+            "autoresizing": 0,
+            "tag": 80,
+            "superview": "0x7fcbc2544e30",
+            "subview_count": 0,
+            "kind": "NSControl",
+            "enabled": true,
+            "cell": "0x7fcbc243d5f0",
+            "cell_class": "NSButtonCell",
+            "cell_control_size": 0,
+            "target": "LCDController",
+            "action": "rpnExchange:",
+            "subviews": []
+          },
+          {
+            "object": "0x7fcbc2532820",
+            "class": "NSButton",
+            "superclasses": [
+              "NSControl",
+              "NSView",
+              "NSResponder",
+              "NSObject"
+            ],
+            "depth": 2,
+            "frame": [
+              1,
+              0,
+              49,
+              30
+            ],
+            "frame_source": "NSInvocation",
+            "bounds": [
+              0,
+              0,
+              49,
+              30
+            ],
+            "hidden": false,
+            "alpha": 1,
+            "autoresizing": 0,
+            "tag": 83,
+            "superview": "0x7fcbc2544e30",
+            "subview_count": 0,
+            "kind": "NSControl",
+            "enabled": true,
+            "cell": "0x7fcbc2532e90",
+            "cell_class": "NSButtonCell",
+            "cell_control_size": 0,
+            "target": "LCDController",
+            "action": "rpnDrop:",
+            "subviews": []
+          },
+          {
+            "object": "0x7fcbc2532360",
+            "class": "NSButton",
+            "superclasses": [
+              "NSControl",
+              "NSView",
+              "NSResponder",
+              "NSObject"
+            ],
+            "depth": 2,
+            "frame": [
+              1,
+              32,
+              49,
+              30
+            ],
+            "frame_source": "NSInvocation",
+            "bounds": [
+              0,
+              0,
+              49,
+              30
+            ],
+            "hidden": false,
+            "alpha": 1,
+            "autoresizing": 0,
+            "tag": 82,
+            "superview": "0x7fcbc2544e30",
+            "subview_count": 0,
+            "kind": "NSControl",
+            "enabled": true,
+            "cell": "0x7fcbc243cb10",
+            "cell_class": "NSButtonCell",
+            "cell_control_size": 0,
+            "target": "LCDController",
+            "action": "rpnRollUp:",
+            "subviews": []
+          }
+        ]
+      },
+      {
+        "object": "0x7fcbc2457c90",
+        "class": "NSView",
+        "superclasses": [
+          "NSResponder",
+          "NSObject"
+        ],
+        "depth": 1,
+        "frame": [
+          9,
+          129,
+          257,
+          56
+        ],
+        "frame_source": "NSInvocation",
+        "bounds": [
+          0,
+          0,
+          257,
+          56
+        ],
+        "hidden": false,
+        "alpha": 1,
+        "autoresizing": 10,
+        "tag": 18446744073709551615,
+        "superview": "0x7fcbc25053e0",
+        "subview_count": 2,
+        "subviews": [
+          {
+            "object": "0x7fcbc243f340",
+            "class": "NSBox",
+            "superclasses": [
+              "NSView",
+              "NSResponder",
+              "NSObject"
+            ],
+            "depth": 2,
+            "frame": [
+              0,
+              0,
+              257,
+              56
+            ],
+            "frame_source": "NSInvocation",
+            "bounds": [
+              0,
+              0,
+              257,
+              56
+            ],
+            "hidden": false,
+            "alpha": 1,
+            "autoresizing": 18,
+            "tag": 18446744073709551615,
+            "superview": "0x7fcbc2457c90",
+            "subview_count": 1,
+            "subviews": [
+              {
+                "object": "0x7fcbc243f6c0",
+                "class": "NSView",
+                "superclasses": [
+                  "NSResponder",
+                  "NSObject"
+                ],
+                "depth": 3,
+                "frame": [
+                  0,
+                  0,
+                  257,
+                  56
+                ],
+                "frame_source": "NSInvocation",
+                "bounds": [
+                  0,
+                  0,
+                  257,
+                  56
+                ],
+                "hidden": false,
+                "alpha": 1,
+                "autoresizing": 18,
+                "tag": 18446744073709551615,
+                "superview": "0x7fcbc243f340",
+                "subview_count": 10,
+                "subviews": [
+                  {
+                    "object": "0x7fcbc2466110",
+                    "class": "LCDBackgroundView",
+                    "superclasses": [
+                      "NSView",
+                      "NSResponder",
+                      "NSObject"
+                    ],
+                    "depth": 4,
+                    "frame": [
+                      3,
+                      3,
+                      250,
+                      50
+                    ],
+                    "frame_source": "NSInvocation",
+                    "bounds": [
+                      0,
+                      0,
+                      250,
+                      50
+                    ],
+                    "hidden": false,
+                    "alpha": 1,
+                    "autoresizing": 18,
+                    "tag": 18446744073709551615,
+                    "superview": "0x7fcbc243f6c0",
+                    "subview_count": 0,
+                    "subviews": []
+                  },
+                  {
+                    "object": "0x7fcbc24400d0",
+                    "class": "NSTextField",
+                    "superclasses": [
+                      "NSControl",
+                      "NSView",
+                      "NSResponder",
+                      "NSObject"
+                    ],
+                    "depth": 4,
+                    "frame": [
+                      10,
+                      33,
+                      217,
+                      18
+                    ],
+                    "frame_source": "NSInvocation",
+                    "bounds": [
+                      0,
+                      0,
+                      217,
+                      18
+                    ],
+                    "hidden": false,
+                    "alpha": 1,
+                    "autoresizing": 34,
+                    "tag": 0,
+                    "superview": "0x7fcbc243f6c0",
+                    "subview_count": 0,
+                    "kind": "NSControl",
+                    "enabled": true,
+                    "cell": "0x7fcbc24441f0",
+                    "cell_class": "NSTextFieldCell",
+                    "cell_control_size": 0,
+                    "target": "null",
+                    "action": "clear:",
+                    "subviews": []
+                  },
+                  {
+                    "object": "0x7fcbc24413d0",
+                    "class": "NSTextField",
+                    "superclasses": [
+                      "NSControl",
+                      "NSView",
+                      "NSResponder",
+                      "NSObject"
+                    ],
+                    "depth": 4,
+                    "frame": [
+                      161,
+                      8,
+                      30,
+                      15
+                    ],
+                    "frame_source": "NSInvocation",
+                    "bounds": [
+                      0,
+                      0,
+                      30,
+                      15
+                    ],
+                    "hidden": true,
+                    "alpha": 1,
+                    "autoresizing": 33,
+                    "tag": 13,
+                    "superview": "0x7fcbc243f6c0",
+                    "subview_count": 0,
+                    "kind": "NSControl",
+                    "enabled": true,
+                    "cell": "0x7fcbc2443050",
+                    "cell_class": "NSTextFieldCell",
+                    "cell_control_size": 0,
+                    "target": "null",
+                    "action": null,
+                    "subviews": []
+                  },
+                  {
+                    "object": "0x7fcbc2440b30",
+                    "class": "NSTextField",
+                    "superclasses": [
+                      "NSControl",
+                      "NSView",
+                      "NSResponder",
+                      "NSObject"
+                    ],
+                    "depth": 4,
+                    "frame": [
+                      33,
+                      8,
+                      30,
+                      15
+                    ],
+                    "frame_source": "NSInvocation",
+                    "bounds": [
+                      0,
+                      0,
+                      30,
+                      15
+                    ],
+                    "hidden": true,
+                    "alpha": 1,
+                    "autoresizing": 36,
+                    "tag": 11,
+                    "superview": "0x7fcbc243f6c0",
+                    "subview_count": 0,
+                    "kind": "NSControl",
+                    "enabled": true,
+                    "cell": "0x7fcbc24414e0",
+                    "cell_class": "NSTextFieldCell",
+                    "cell_control_size": 0,
+                    "target": "null",
+                    "action": null,
+                    "subviews": []
+                  },
+                  {
+                    "object": "0x7fcbc2440e10",
+                    "class": "NSTextField",
+                    "superclasses": [
+                      "NSControl",
+                      "NSView",
+                      "NSResponder",
+                      "NSObject"
+                    ],
+                    "depth": 4,
+                    "frame": [
+                      62,
+                      8,
+                      28,
+                      15
+                    ],
+                    "frame_source": "NSInvocation",
+                    "bounds": [
+                      0,
+                      0,
+                      28,
+                      15
+                    ],
+                    "hidden": true,
+                    "alpha": 1,
+                    "autoresizing": 36,
+                    "tag": 12,
+                    "superview": "0x7fcbc243f6c0",
+                    "subview_count": 0,
+                    "kind": "NSControl",
+                    "enabled": true,
+                    "cell": "0x7fcbc243ef10",
+                    "cell_class": "NSTextFieldCell",
+                    "cell_control_size": 0,
+                    "target": "null",
+                    "action": null,
+                    "subviews": []
+                  },
+                  {
+                    "object": "0x7fcbc24418f0",
+                    "class": "NSTextField",
+                    "superclasses": [
+                      "NSControl",
+                      "NSView",
+                      "NSResponder",
+                      "NSObject"
+                    ],
+                    "depth": 4,
+                    "frame": [
+                      196,
+                      8,
+                      43,
+                      15
+                    ],
+                    "frame_source": "NSInvocation",
+                    "bounds": [
+                      0,
+                      0,
+                      43,
+                      15
+                    ],
+                    "hidden": true,
+                    "alpha": 1,
+                    "autoresizing": 33,
+                    "tag": 14,
+                    "superview": "0x7fcbc243f6c0",
+                    "subview_count": 0,
+                    "kind": "NSControl",
+                    "enabled": true,
+                    "cell": "0x7fcbc2441df0",
+                    "cell_class": "NSTextFieldCell",
+                    "cell_control_size": 0,
+                    "target": "null",
+                    "action": null,
+                    "subviews": []
+                  },
+                  {
+                    "object": "0x7fcbc24410f0",
+                    "class": "NSTextField",
+                    "superclasses": [
+                      "NSControl",
+                      "NSView",
+                      "NSResponder",
+                      "NSObject"
+                    ],
+                    "depth": 4,
+                    "frame": [
+                      82,
+                      8,
+                      80,
+                      15
+                    ],
+                    "frame_source": "NSInvocation",
+                    "bounds": [
+                      0,
+                      0,
+                      80,
+                      15
+                    ],
+                    "hidden": false,
+                    "alpha": 1,
+                    "autoresizing": 34,
+                    "tag": 0,
+                    "superview": "0x7fcbc243f6c0",
+                    "subview_count": 0,
+                    "kind": "NSControl",
+                    "enabled": true,
+                    "cell": "0x7fcbc243ee70",
+                    "cell_class": "NSTextFieldCell",
+                    "cell_control_size": 0,
+                    "target": "null",
+                    "action": null,
+                    "subviews": []
+                  },
+                  {
+                    "object": "0x7fcbc2440850",
+                    "class": "NSTextField",
+                    "superclasses": [
+                      "NSControl",
+                      "NSView",
+                      "NSResponder",
+                      "NSObject"
+                    ],
+                    "depth": 4,
+                    "frame": [
+                      10,
+                      9,
+                      87,
+                      18
+                    ],
+                    "frame_source": "NSInvocation",
+                    "bounds": [
+                      0,
+                      0,
+                      87,
+                      18
+                    ],
+                    "hidden": false,
+                    "alpha": 1,
+                    "autoresizing": 34,
+                    "tag": 1,
+                    "superview": "0x7fcbc243f6c0",
+                    "subview_count": 0,
+                    "kind": "NSControl",
+                    "enabled": true,
+                    "cell": "0x7fcbc24415d0",
+                    "cell_class": "NSTextFieldCell",
+                    "cell_control_size": 0,
+                    "target": "null",
+                    "action": null,
+                    "subviews": []
+                  },
+                  {
+                    "object": "0x7fcbc2440470",
+                    "class": "NSTextField",
+                    "superclasses": [
+                      "NSControl",
+                      "NSView",
+                      "NSResponder",
+                      "NSObject"
+                    ],
+                    "depth": 4,
+                    "frame": [
+                      9,
+                      8,
+                      37,
+                      15
+                    ],
+                    "frame_source": "NSInvocation",
+                    "bounds": [
+                      0,
+                      0,
+                      37,
+                      15
+                    ],
+                    "hidden": true,
+                    "alpha": 1,
+                    "autoresizing": 36,
+                    "tag": 10,
+                    "superview": "0x7fcbc243f6c0",
+                    "subview_count": 0,
+                    "kind": "NSControl",
+                    "enabled": true,
+                    "cell": "0x7fcbc2444100",
+                    "cell_class": "NSTextFieldCell",
+                    "cell_control_size": 0,
+                    "target": "null",
+                    "action": null,
+                    "subviews": []
+                  },
+                  {
+                    "object": "0x7fcbc2473670",
+                    "class": "NSView",
+                    "superclasses": [
+                      "NSResponder",
+                      "NSObject"
+                    ],
+                    "depth": 4,
+                    "frame": [
+                      -10,
+                      -63,
+                      277,
+                      122
+                    ],
+                    "frame_source": "NSInvocation",
+                    "bounds": [
+                      0,
+                      0,
+                      277,
+                      122
+                    ],
+                    "hidden": false,
+                    "alpha": 1,
+                    "autoresizing": 10,
+                    "tag": 18446744073709551615,
+                    "superview": "0x7fcbc243f6c0",
+                    "subview_count": 1,
+                    "subviews": [
+                      {
+                        "object": "0x7fcbc2445130",
+                        "class": "NSScrollView",
+                        "superclasses": [
+                          "NSView",
+                          "NSResponder",
+                          "NSObject"
+                        ],
+                        "depth": 5,
+                        "frame": [
+                          20,
+                          20,
+                          237,
+                          82
+                        ],
+                        "frame_source": "NSInvocation",
+                        "bounds": [
+                          0,
+                          0,
+                          237,
+                          82
+                        ],
+                        "hidden": true,
+                        "alpha": 1,
+                        "autoresizing": 18,
+                        "tag": 18446744073709551615,
+                        "superview": "0x7fcbc2473670",
+                        "subview_count": 3,
+                        "subviews": [
+                          {
+                            "object": "0x7fcbc2446070",
+                            "class": "NSClipView",
+                            "superclasses": [
+                              "NSView",
+                              "NSResponder",
+                              "NSObject"
+                            ],
+                            "depth": 6,
+                            "frame": [
+                              1,
+                              1,
+                              235,
+                              80
+                            ],
+                            "frame_source": "NSInvocation",
+                            "bounds": [
+                              0,
+                              0,
+                              235,
+                              80
+                            ],
+                            "hidden": false,
+                            "alpha": 1,
+                            "autoresizing": 0,
+                            "tag": 18446744073709551615,
+                            "superview": "0x7fcbc2445130",
+                            "subview_count": 1,
+                            "subviews": [
+                              {
+                                "object": "0x7fcbc2446950",
+                                "class": "RPNTableView",
+                                "superclasses": [
+                                  "NSTableView",
+                                  "NSControl",
+                                  "NSView",
+                                  "NSResponder",
+                                  "NSObject"
+                                ],
+                                "depth": 7,
+                                "frame": [
+                                  0,
+                                  0,
+                                  235,
+                                  80
+                                ],
+                                "frame_source": "NSInvocation",
+                                "bounds": [
+                                  0,
+                                  0,
+                                  235,
+                                  80
+                                ],
+                                "hidden": false,
+                                "alpha": 1,
+                                "autoresizing": 0,
+                                "tag": 11,
+                                "superview": "0x7fcbc2446070",
+                                "subview_count": 0,
+                                "kind": "NSControl",
+                                "enabled": true,
+                                "cell": null,
+                                "target": "null",
+                                "action": null,
+                                "subviews": []
+                              }
+                            ]
+                          },
+                          {
+                            "object": "0x7fcbc240d300",
+                            "class": "NSScroller",
+                            "superclasses": [
+                              "NSControl",
+                              "NSView",
+                              "NSResponder",
+                              "NSObject"
+                            ],
+                            "depth": 6,
+                            "frame": [
+                              173,
+                              1,
+                              11,
+                              80
+                            ],
+                            "frame_source": "NSInvocation",
+                            "bounds": [
+                              0,
+                              0,
+                              11,
+                              80
+                            ],
+                            "hidden": true,
+                            "alpha": 1,
+                            "autoresizing": 0,
+                            "tag": 0,
+                            "superview": "0x7fcbc2445130",
+                            "subview_count": 0,
+                            "kind": "NSControl",
+                            "enabled": false,
+                            "cell": null,
+                            "target": "NSScrollView",
+                            "action": "_doScroller:",
+                            "subviews": []
+                          },
+                          {
+                            "object": "0x7fcbc2447420",
+                            "class": "NSScroller",
+                            "superclasses": [
+                              "NSControl",
+                              "NSView",
+                              "NSResponder",
+                              "NSObject"
+                            ],
+                            "depth": 6,
+                            "frame": [
+                              -100,
+                              -100,
+                              185,
+                              11
+                            ],
+                            "frame_source": "NSInvocation",
+                            "bounds": [
+                              0,
+                              0,
+                              185,
+                              11
+                            ],
+                            "hidden": true,
+                            "alpha": 1,
+                            "autoresizing": 0,
+                            "tag": 0,
+                            "superview": "0x7fcbc2445130",
+                            "subview_count": 0,
+                            "kind": "NSControl",
+                            "enabled": false,
+                            "cell": null,
+                            "target": "NSScrollView",
+                            "action": "_doScroller:",
+                            "subviews": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "object": "0x7fcbc2562370",
+            "class": "NSView",
+            "superclasses": [
+              "NSResponder",
+              "NSObject"
+            ],
+            "depth": 2,
+            "frame": [
+              -1,
+              -111,
+              205,
+              30
+            ],
+            "frame_source": "NSInvocation",
+            "bounds": [
+              0,
+              0,
+              205,
+              30
+            ],
+            "hidden": true,
+            "alpha": 1,
+            "autoresizing": 12,
+            "tag": 18446744073709551615,
+            "superview": "0x7fcbc2457c90",
+            "subview_count": 4,
+            "subviews": [
+              {
+                "object": "0x7fcbc243ebb0",
+                "class": "NSButton",
+                "superclasses": [
+                  "NSControl",
+                  "NSView",
+                  "NSResponder",
+                  "NSObject"
+                ],
+                "depth": 3,
+                "frame": [
+                  52,
+                  0,
+                  49,
+                  30
+                ],
+                "frame_source": "NSInvocation",
+                "bounds": [
+                  0,
+                  0,
+                  49,
+                  30
+                ],
+                "hidden": false,
+                "alpha": 1,
+                "autoresizing": 0,
+                "tag": 81,
+                "superview": "0x7fcbc2562370",
+                "subview_count": 0,
+                "kind": "NSControl",
+                "enabled": true,
+                "cell": "0x7fcbc243d820",
+                "cell_class": "NSButtonCell",
+                "cell_control_size": 0,
+                "target": "LCDController",
+                "action": "rpnRollDown:",
+                "subviews": []
+              },
+              {
+                "object": "0x7fcbc243e8f0",
+                "class": "NSButton",
+                "superclasses": [
+                  "NSControl",
+                  "NSView",
+                  "NSResponder",
+                  "NSObject"
+                ],
+                "depth": 3,
+                "frame": [
+                  2,
+                  0,
+                  49,
+                  30
+                ],
+                "frame_source": "NSInvocation",
+                "bounds": [
+                  0,
+                  0,
+                  49,
+                  30
+                ],
+                "hidden": false,
+                "alpha": 1,
+                "autoresizing": 0,
+                "tag": 80,
+                "superview": "0x7fcbc2562370",
+                "subview_count": 0,
+                "kind": "NSControl",
+                "enabled": true,
+                "cell": "0x7fcbc243f0c0",
+                "cell_class": "NSButtonCell",
+                "cell_control_size": 0,
+                "target": "LCDController",
+                "action": "rpnExchange:",
+                "subviews": []
+              },
+              {
+                "object": "0x7fcbc243e3a0",
+                "class": "NSButton",
+                "superclasses": [
+                  "NSControl",
+                  "NSView",
+                  "NSResponder",
+                  "NSObject"
+                ],
+                "depth": 3,
+                "frame": [
+                  152,
+                  0,
+                  49,
+                  30
+                ],
+                "frame_source": "NSInvocation",
+                "bounds": [
+                  0,
+                  0,
+                  49,
+                  30
+                ],
+                "hidden": false,
+                "alpha": 1,
+                "autoresizing": 0,
+                "tag": 83,
+                "superview": "0x7fcbc2562370",
+                "subview_count": 0,
+                "kind": "NSControl",
+                "enabled": true,
+                "cell": "0x7fcbc243e6a0",
+                "cell_class": "NSButtonCell",
+                "cell_control_size": 0,
+                "target": "LCDController",
+                "action": "rpnDrop:",
+                "subviews": []
+              },
+              {
+                "object": "0x7fcbc243e0e0",
+                "class": "NSButton",
+                "superclasses": [
+                  "NSControl",
+                  "NSView",
+                  "NSResponder",
+                  "NSObject"
+                ],
+                "depth": 3,
+                "frame": [
+                  102,
+                  0,
+                  49,
+                  30
+                ],
+                "frame_source": "NSInvocation",
+                "bounds": [
+                  0,
+                  0,
+                  49,
+                  30
+                ],
+                "hidden": false,
+                "alpha": 1,
+                "autoresizing": 0,
+                "tag": 82,
+                "superview": "0x7fcbc2562370",
+                "subview_count": 0,
+                "kind": "NSControl",
+                "enabled": true,
+                "cell": "0x7fcbc243ce00",
+                "cell_class": "NSButtonCell",
+                "cell_control_size": 0,
+                "target": "LCDController",
+                "action": "rpnRollUp:",
+                "subviews": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "views_visited": 29,
+  "controls_found": 19,
+  "status": "ok"
+}

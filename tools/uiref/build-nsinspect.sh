@@ -76,6 +76,10 @@ echo "building $outdir/nsinspect-fw.dylib (minimal first-window probe)"
 clang "${common[@]}" -DNSINSPECT_FIRSTWINDOW -dynamiclib \
       -o "$outdir/nsinspect-fw.dylib" "$src"
 
+echo "building $outdir/nsinspect-full.dylib (all windows + recursive views)"
+clang "${common[@]}" -DNSINSPECT_FULL -dynamiclib \
+      -o "$outdir/nsinspect-full.dylib" "$src"
+
 echo "building $outdir/nsinspect-tool"
 clang "${common[@]}" -DNSINSPECT_TOOL -o "$outdir/nsinspect-tool" "$src"
 
