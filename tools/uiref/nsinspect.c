@@ -54,6 +54,7 @@ extern int unlink(const char *path);
 extern void _exit(int code);
 extern int strcmp(const char *a, const char *b);
 extern unsigned long fwrite(const void *p, unsigned long size, unsigned long n, FILE *f);
+extern int getpid(void);
 
 #define RTLD_DEFAULT ((void *)-2)
 #define RTLD_LAZY 0x4
@@ -262,14 +263,25 @@ static void emit_view(id view, ns_rect origin) {
 }
 
 /* --- top level ------------------------------------------------------------ */
+static void *fn_class_getInstanceMethod;
+static void *fn_method_getImplementation;
+static void *(*fn_method_setImplementation)(void *, void *);
+static int (*fn_class_addMethod)(Class, SEL, void *, const char *);
+
 static int resolve_runtime(void) {
     fn_objc_getClass = (Class(*)(const char *))dlsym(RTLD_DEFAULT, "objc_getClass");
     fn_sel_registerName = (SEL(*)(const char *))dlsym(RTLD_DEFAULT, "sel_registerName");
     fn_msgSend = dlsym(RTLD_DEFAULT, "objc_msgSend");
     fn_sel_getName = (void *(*)(SEL))dlsym(RTLD_DEFAULT, "sel_getName");
     fn_class_getName = (void *(*)(Class))dlsym(RTLD_DEFAULT, "class_getName");
-    fn_objc_getMetaClass = (Class(*)(const char *))dlsym(RTLD_DEFAULT, "objc_getMetaClass");
+    fn_objc_getMetaClass = (Class(*)(const char *))dlsym(RTLD_DEFAULT, "objc_getClassMetaClass");
     fn_object_getClass = (Class(*)(id))dlsym(RTLD_DEFAULT, "object_getClass");
+    fn_class_getInstanceMethod = dlsym(RTLD_DEFAULT, "class_getInstanceMethod");
+    fn_method_getImplementation = dlsym(RTLD_DEFAULT, "method_getImplementation");
+    fn_method_setImplementation = (void *(*)(void *, void *))
+        dlsym(RTLD_DEFAULT, "method_setImplementation");
+    fn_class_addMethod = (int(*)(Class, SEL, void *, const char *))
+        dlsym(RTLD_DEFAULT, "class_addMethod");
     return fn_objc_getClass && fn_sel_registerName && fn_msgSend && fn_class_getName;
 }
 
@@ -286,22 +298,32 @@ static int write_document(const char *path) {
     return 1;
 }
 
-static int run(void) {
+static int run(const char *out_path) {
     if (!resolve_runtime()) {
         emit("{\n  \"schema\": \"mavlinos.nsinspect/1\",\n  \"status\": \"failed\",\n");
         emit("  \"error\": \"Objective-C runtime unavailable\"\n}\n");
-        return write_document("failed") ? 3 : 3;
+        write_document(out_path);
+        return 3;
     }
     Class NSApp = fn_objc_getClass("NSApplication");
     Class NSWindow = fn_objc_getClass("NSWindow");
     Class NSCell = fn_objc_getClass("NSCell");
+    Class NSBundle = fn_objc_getClass("NSBundle");
     id app = NSApp ? send_id(NSApp, "sharedApplication") : 0;
+#ifdef NSINSPECT_TOOL
+    /* Only the standalone tool has no Aqua presence of its own; when injected
+       into a running GUI process the policy must be left exactly as it was. */
     if (app) send_long_arg(app, "setActivationPolicy:", 1);
+#endif
+    id mb = NSBundle ? send_id(NSBundle, "mainBundle") : 0;
+    const char *bundle_id = mb ? (const char *)send_id(mb, "bundleIdentifier") : 0;
 
     emit("{\n");
     emit("  \"schema\": \"mavlinos.nsinspect/1\",\n");
     emit("  \"kind\": \"runtime-observed\",\n");
     emit("  \"extractor\": \"nsinspect.c\",\n");
+    emit("  \"pid\": %d,\n", getpid());
+    emit("  \"bundle_id\": \"%s\",\n", bundle_id ? bundle_id : "");
     emit("  \"aqua_session\": %s,\n", app ? "true" : "false");
 
     id windows = app ? send_id(app, "windows") : 0;
@@ -347,7 +369,8 @@ static int run(void) {
     emit("  \"cells_available\": %s\n", NSCell ? "true" : "false");
     emit("  \"status\": \"ok\"\n}\n");
     (void)NSWindow;
-    return write_document("ok") ? 0 : 3;
+    if (!write_document(out_path)) return 3;
+    return 0;
 }
 
 /* ====================== self test on Linux (fake runtime) ================= */
@@ -371,7 +394,8 @@ static void *stub_meta(Class c) { return (Class)1; }
 static Class stub_objc_getClass(id o) { return o; }
 static void *stub_msgSend(id o, SEL s) { (void)o; (void)s; return 0; }
 int main(int argc, char **argv) {
-    const char *out = argc > 1 ? argv[1] : "/tmp/nsinspect-selftest.json";
+    const char *out = argc > 1 ? argv[1] : getenv("NSINSPECT_OUT");
+    if (!out) out = "/tmp/nsinspect-selftest.json";
     fn_objc_getClass = stub_class;
     fn_sel_registerName = stub_sel;
     fn_msgSend = (void *)stub_msgSend;
@@ -380,6 +404,7 @@ int main(int argc, char **argv) {
     fn_object_getClass = (Class(*)(id))stub_objc_getClass;
     emit("{\n  \"schema\": \"mavlinos.nsinspect/1\",\n");
     emit("  \"kind\": \"runtime-observed\",\n  \"extractor\": \"nsinspect.c\",\n");
+    emit("  \"pid\": %d,\n  \"bundle_id\": \"\",\n", getpid());
     emit("  \"aqua_session\": false,\n  \"windows\": [null],\n");
     emit("  \"controls_found\": 0,\n  \"cells_available\": false,\n");
     emit("  \"status\": \"failed - no AppKit in this process\"\n}\n");
@@ -390,10 +415,80 @@ int main(int argc, char **argv) {
 static int nsinspect_run(void) {
     const char *path = getenv("NSINSPECT_OUT");
     if (!path) path = "/tmp/nsinspect.json";
-    return run() ? 0 : 0;
+    return run(path);
 }
 #ifndef NSINSPECT_TOOL
-__attribute__((constructor)) static void nsinspect_init(void) { _exit(nsinspect_run()); }
+/*
+ * Injected flavour.
+ *
+ * Timing matters enormously here.  dyld runs the constructor of a
+ * DYLD_INSERT_LIBRARIES image *before* the Objective-C runtime and AppKit of
+ * the host process have been initialised, so touching objc_getClass() from the
+ * constructor crashes the host: the guest produced
+ *
+ *     Segmentation fault: 11   DYLD_INSERT_LIBRARIES=... Calculator
+ *
+ * and no document.  An early -[NSApplication run] swizzle fails for the same
+ * reason.  The only safe point is after the host app has finished launching, so
+ * the constructor does nothing but start one worker thread.  That thread waits,
+ * then asks the main thread (which is by then in the AppKit run loop) to perform
+ * the capture, so every AppKit call happens on the main thread with real windows
+ * on screen.  The inspected app keeps running: the capture is non-destructive.
+ */
+extern int pthread_create(void *th, const void *attr,
+                          void *(*start)(void *), void *arg);
+extern unsigned int sleep(unsigned int seconds);
+
+/* Append a breadcrumb so a crash in the guest tells us how far we got. */
+static void nsinspect_trace(const char *msg) {
+    const char *p = getenv("NSINSPECT_TRACE");
+    if (!p) p = "/tmp/nsinspect-stage.log";
+    FILE *f = fopen(p, "a");
+    if (!f) return;
+    fprintf(f, "pid=%d %s\n", getpid(), msg);
+    fflush(f);
+    fclose(f);
+}
+
+static void nsinspect_dump_now(id target, SEL _cmd, id timer) {
+    (void)target; (void)_cmd; (void)timer;
+    nsinspect_trace("stage:dump-enter");
+    nsinspect_run();
+    nsinspect_trace("stage:dump-done");
+}
+
+static void *nsinspect_worker(void *arg) {
+    (void)arg;
+    nsinspect_trace("stage:worker-start");
+    /* Let the host app create its windows before we inspect them. */
+    sleep(9);
+    nsinspect_trace("stage:worker-after-sleep");
+    Class NSApp = fn_objc_getClass("NSApplication");
+    nsinspect_trace("stage:worker-class-lookup");
+    if (!NSApp || !fn_msgSend) return 0;
+    id app = send_id(NSApp, "sharedApplication");
+    nsinspect_trace("stage:worker-shared-app");
+    if (!app) return 0;
+    SEL dump = S("nsinspect_dump:");
+    if (fn_class_addMethod &&
+        fn_class_addMethod(NSApp, dump, (void *)nsinspect_dump_now, "v@:@")) {
+        id (*vsend)(id, SEL, ...) = (id (*)(id, SEL, ...))fn_msgSend;
+        nsinspect_trace("stage:worker-perform");
+        vsend(app, S("performSelectorOnMainThread:withObject:waitUntilDone:"),
+              dump, 0, 1);
+        nsinspect_trace("stage:worker-perform-returned");
+    }
+    return 0;
+}
+
+__attribute__((constructor)) static void nsinspect_init(void) {
+    nsinspect_trace("stage:constructor-enter");
+    /* dlsym() is safe this early; the Objective-C runtime is not touched yet. */
+    if (!resolve_runtime()) { nsinspect_trace("stage:constructor-runtime-failed"); return; }
+    nsinspect_trace("stage:constructor-runtime-ok");
+    pthread_create(0, 0, nsinspect_worker, 0);
+    nsinspect_trace("stage:constructor-thread-started");
+}
 #else
 int main(void) { return nsinspect_run(); }
 #endif

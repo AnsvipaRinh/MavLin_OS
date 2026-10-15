@@ -1,0 +1,13 @@
+{
+  "schema": "mavlinos.nsinspect/1",
+  "kind": "runtime-observed",
+  "extractor": "nsinspect.c",
+  "pid": 933,
+  "bundle_id": "",
+  "aqua_session": false,
+  "windows": [
+  ],
+  "controls_found": 0,
+  "cells_available": false,
+  "status": "ok"
+}

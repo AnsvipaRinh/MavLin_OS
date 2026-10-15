@@ -25,14 +25,46 @@ mkdir -p "$outdir"
 
 command -v clang >/dev/null || { echo "clang is required (pacman -S clang lld)" >&2; exit 1; }
 
+# --- link form -------------------------------------------------------------
+# No Apple SDK is available, so the images link with -undefined
+# dynamic_lookup and resolve libc/Objective-C in the guest.  Two consequences
+# found in the real Mavericks guest, both fixed here:
+#   * __stack_chk_guard is unreachable in the flat namespace -> -fno-stack-protector
+#   * dyld imports dyld_stub_binder from the guest libSystem; overriding it with
+#     a no-op breaks every lazy call, so lld's own binder must be left alone.
+
+stubdir="$outdir/stubs"
+mkdir -p "$stubdir"
+gen_stub() {
+  local src="$1"; shift
+  : > "$src"
+  echo '/* link-time stub only - never shipped to the guest */' >> "$src"
+  local s
+  for s in "$@"; do printf 'void %s(void) {}\n' "$s" >> "$src"; done
+}
+gen_stub "$stubdir/libsys.c" _dyld_stub_binder dlopen dlsym getenv fopen fclose fprintf \
+    snprintf vsnprintf fflush fsync fileno rename unlink _exit strcmp fwrite getpid \
+    pthread_create sleep
+gen_stub "$stubdir/libobjc.c" objc_getClass sel_registerName objc_msgSend sel_getName \
+    class_getName class_getSuperclass object_getClass class_getInstanceMethod \
+    method_getImplementation method_setImplementation class_addMethod
+clang -target x86_64-apple-macos10.9 -nostdinc -fPIC -nostdlib -fuse-ld=lld -shared -w \
+      -Wl,-install_name,/usr/lib/libSystem.B.dylib -o "$stubdir/libSystem.B.dylib" "$stubdir/libsys.c"
+clang -target x86_64-apple-macos10.9 -nostdinc -fPIC -nostdlib -fuse-ld=lld -shared -w \
+      -Wl,-install_name,/usr/lib/libobjc.A.dylib  -o "$stubdir/libobjc.A.dylib"  "$stubdir/libobjc.c"
+
 common=(
   -target x86_64-apple-macos10.9
   -nostdinc
   -fPIC -O1
+  -fno-stack-protector   # __stack_chk_guard is not resolvable in the flat namespace
+                         # of a -nostdlib binary; without this the guest dies with
+                         # "dyld: Symbol not found: __stack_chk_guard" (exit 133).
   -Wall -Wextra -Wno-unused-parameter
   -fvisibility=hidden
   -nostdlib                        # no SDK, no libSystem: symbols resolve in the guest
   -fuse-ld=lld
+  "$stubdir/libSystem.B.dylib" "$stubdir/libobjc.A.dylib"
   -Wl,-undefined,dynamic_lookup
   -Wno-deprecated-non-prototype
 )

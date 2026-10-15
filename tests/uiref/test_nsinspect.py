@@ -11,6 +11,7 @@ Run:  python3 tests/uiref/test_nsinspect.py
 import json
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -29,6 +30,21 @@ def check(name, ok, detail=""):
 
 def run(cmd, **kw):
     return subprocess.run(cmd, capture_output=True, text=True, **kw)
+
+
+def macho_min_version(blob):
+    """Return (major, minor, patch) from LC_VERSION_MIN_MACOSX, or None."""
+    if blob[:4] not in (b"\xfe\xed\xfa\xce", b"\xcf\xfa\xed\xfe"):
+        return None
+    ncmds = struct.unpack_from("<I", blob, 16)[0]
+    off = 32
+    for _ in range(ncmds):
+        cmd, size = struct.unpack_from("<II", blob, off)
+        if cmd == 0x24:                      # LC_VERSION_MIN_MACOSX
+            raw = struct.unpack_from("<I", blob, off + 8)[0]
+            return ((raw >> 16) & 0xFFFF, (raw >> 8) & 0xFF, raw & 0xFF)
+        off += size
+    return None
 
 
 def main():
@@ -62,13 +78,29 @@ def main():
         check("schema is the contract id", doc.get("schema") == "mavlinos.nsinspect/1",
               str(doc.get("schema")))
         for key in ("kind", "extractor", "aqua_session", "windows",
-                    "controls_found", "status"):
+                    "controls_found", "status", "pid", "bundle_id"):
             check("document carries %r" % key, key in doc)
         check("kind is runtime-observed, not OCR or screenshot derived",
               doc.get("kind") == "runtime-observed", str(doc.get("kind")))
         check("status is reported, not hidden",
               doc.get("status") in ("ok", "failed - no AppKit in this process"),
               str(doc.get("status")))
+        check("provenance records the inspected process id",
+              isinstance(doc.get("pid"), int) and doc["pid"] > 0, str(doc.get("pid")))
+
+        # Regression: the writer used to hardcode the literal filenames "ok" and
+        # "failed" instead of the requested output path, so NSINSPECT_OUT was
+        # silently ignored and the document landed in the working directory.
+        stray = [n for n in ("ok", "failed") if os.path.exists(os.path.join(tmp, n))]
+        check("output path is honoured, not a literal 'ok'/'failed' file",
+              not stray, "stray files: %s" % stray)
+
+        # NSINSPECT_OUT must be the path actually written to.
+        env_out = os.path.join(tmp, "from-env.json")
+        env = dict(os.environ, NSINSPECT_OUT=env_out)
+        run([binary], env=env)
+        check("NSINSPECT_OUT selects the document path",
+              os.path.exists(env_out), os.listdir(tmp))
 
         # The whole point of the tool: it must query live objects.
         source = open(SRC, encoding="utf-8").read()
@@ -100,9 +132,18 @@ def main():
                 if not os.path.exists(path):
                     check("%s is produced" % name, False)
                     continue
-                head = open(path, "rb").read(4)
-                check("%s is a Mach-O binary" % name, head in (b"\xfe\xed\xfa\xce", b"\xcf\xfa\xed\xfe"),
-                      head.hex())
+                blob = open(path, "rb").read()
+                head = blob[:4]
+                check("%s is a Mach-O binary" % name,
+                      head in (b"\xfe\xed\xfa\xce", b"\xcf\xfa\xed\xfe"), head.hex())
+                # A -nostdlib binary links nothing, so it resolves symbols in the
+                # dyld flat namespace.  __stack_chk_guard is NOT reachable that
+                # way: the guest aborted with exit 133 before any AppKit call.
+                check("%s does not reference __stack_chk_guard" % name,
+                      b"__stack_chk_guard" not in blob)
+                ver = macho_min_version(blob)
+                check("%s deployment target is macOS 10.9" % name,
+                      ver == (10, 9, 0), str(ver))
         finally:
             shutil.rmtree(mach_dir, ignore_errors=True)
 
