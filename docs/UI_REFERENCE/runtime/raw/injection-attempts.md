@@ -203,3 +203,21 @@ What is therefore established, and what is not:
 
 Keep this file: a future toolchain or OS change must be able to tell whether a
 finding moved, or disappeared.
+## Menu tree extraction (added during the TextEdit iteration)
+
+Reading the application menu works, but three framework facts had to be
+discovered against the running system:
+
+- `-submenu` is an `NSMenuItem` method. Calling it on an `NSMenu` raises
+  `unrecognized selector` and kills the whole capture.
+- `-items` does not exist on `NSMenu` in 10.9. Use the `itemArray` key-value
+  key, which returns an `NSArray` of `NSMenuItem`.
+- Menu items must therefore be branched by `isKindOfClass:` on the way down:
+  `NSMenuItem` -> `submenu` -> `itemArray`, bare `NSMenu` -> `itemArray`.
+
+`isEnabled` and `state` are read live on every item, so disabled separators
+are distinguishable from real commands without guessing from the title.
+
+This is the first extraction in the project that reaches beyond the window
+content tree, and it is what makes the captured data useful for menu
+modelling rather than only for layout.

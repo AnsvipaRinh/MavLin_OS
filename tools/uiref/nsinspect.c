@@ -597,6 +597,65 @@ static int g_control_total;
 static int g_view_total;
 
 
+
+/* Key-value read: returns an object, so no struct-return ABI is involved. */
+static id kvc_value(id o, const char *key) {
+    if (!o || !fn_msgSend) return 0;
+    id nskey = nsstring_from_cstr(key);
+    if (!nskey) return 0;
+    id (*v4k)(id, SEL, id) = (id (*)(id, SEL, id))fn_msgSend;
+    return v4k(o, S("valueForKey:"), nskey);
+}
+
+/* Menu bar and application menus.  Read-only: titles, classes and the item
+   hierarchy.  No item is ever performed and no target/action is invoked. */
+static void emit_bool_attr(id obj, const char *name);
+static void emit_num_attr(id obj, const char *name);
+static int is_kind_of_class(id obj, const char *clsname);
+
+static void walk_menu(id item, int depth) {
+    if (!item || depth > 12) return;
+    const char *cc[16];
+    int cn = superclass_chain((Class)fn_object_getClass(item), cc, 16);
+    emit("{\"object\": \"%p\", \"class\": ", item);
+    emit_json_str(cn ? cc[0] : "?");
+
+    /* -submenu exists on NSMenuItem, not on NSMenu.  Querying it on an NSMenu
+       raised "unrecognized selector" and aborted the whole capture, which is
+       why menus are branched by their actual class here. */
+    int is_item = is_kind_of_class(item, "NSMenuItem");
+    if (is_item) {
+        char title[512];
+        nsstring_utf8(send_id(item, "title"), title, sizeof title);
+        emit(", \"title\": "); emit_json_str(title);
+        emit(", \"enabled\": "); emit_bool_attr(item, "isEnabled");
+        emit(", \"state\": ");     emit_num_attr(item, "state");
+    } else {
+        emit(", \"title\": null");
+    }
+
+    /* NSMenu has no -items; "itemArray" is its documented key-value key and
+       returns an NSArray of NSMenuItem, so one path serves both cases. */
+    id container = is_item ? send_id(item, "submenu") : item;
+    id sub = container ? kvc_value(container, "itemArray") : 0;
+    int n = 0;
+    if (sub && is_kind_of_class(sub, "NSArray")) {
+        ns_uint (*cnt)(id, SEL) = (ns_uint (*)(id, SEL))fn_msgSend;
+        n = (int)cnt(sub, S("count"));
+    }
+    emit(", \"item_count\": ");
+    emit("%d, \"items\": [", n);
+    if (n > 0) {
+        ns_uint (*cnt)(id, SEL) = (ns_uint (*)(id, SEL))fn_msgSend;
+        id (*at)(id, SEL, ns_uint) = (id (*)(id, SEL, ns_uint))fn_msgSend;
+        for (int i = 0; i < n; i++) {
+            if (i) emit(",");
+            walk_menu(at(sub, S("objectAtIndex:"), (ns_uint)i), depth + 1);
+        }
+    }
+    emit("]}");
+}
+
 /* ==========================================================================
  * Full capture (NSINSPECT_FULL)
  *
@@ -805,6 +864,12 @@ static int full_capture(const char *path) {
     }
     emit("  ],\n");
     emit("  \"primary_window_index\": %d,\n", primary);
+
+    /* Menu bar: [NSApplication mainMenu] plus the status item menu if any. */
+    id mainMenu = app ? send_id(app, "mainMenu") : 0;
+    emit("  \"main_menu\": ");
+    if (mainMenu) { walk_menu(mainMenu, 0); } else { emit("null"); }
+    emit(",\n");
 
     id content = send_id(wlist[primary], "contentView");
     emit("  \"primary_content_view\": ");
