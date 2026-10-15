@@ -1,7 +1,7 @@
 # Claim: opencode-ui-runtime-guest
 
 agent: opencode
-task: TextEdit runtime capture (state A complete, state B open) Runtime AppKit extraction from the Mavericks guest — Calculator (done) and TextEdit
+task: TextEdit crash isolation — switches+markers implemented and committed; test matrix blocked by stale-dylib/mcopy/VFAT-cache defects
 paths: tools/uiref/**, tests/uiref/**, docs/UI_REFERENCE/**, .agents/claims/20261013-opencode-ui-runtime-guest.md
 expires: 2026-10-15T20:00Z
 started: 2026-10-13
@@ -13,3 +13,4 @@ note: >
   was restored only from the verified backup mavericks-hdd.raw.backup-2026-10-15.
 
 - 2026-10-15: TextEdit state A captured (2 windows, 8 views, 166 menu items); state B (document argument) still hangs in traversal and is recorded as an open gap.
+- 2026-10-15: isolation machinery landed (NSINSPECT_STAGES, NSINSPECT_MENU_MAXDEPTH, fd-2 stage markers, primary_frame_view). Matrix run blocked by three documented guest-side defects; findings and the exact rerun procedure are in docs/UI_REFERENCE/runtime/raw/textedit-crash-isolation.md.
