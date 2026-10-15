@@ -1,0 +1,57 @@
+Diagnostic trace of the first-window probe inside Calculator (pid 756).
+Each operation is bracketed by a flushed marker with a sequence number, so the
+operation that stops a run is unambiguous. Captured verbatim from the guest.
+
+[1]  00 enter first-window probe
+[2]  01 resolve_runtime ok
+[3]  02 before objc_getClass(NSApplication)
+[4]  03 after objc_getClass(NSApplication)
+[5]  04 before +[NSApplication sharedApplication]
+[6]  05 after +[NSApplication sharedApplication] = 0x7ff303d136c0
+[7]  06 before -[NSApp windows]
+[8]  07 after -[NSApp windows] = 0x7ff303c63100
+[9]  08 before -[windows count]
+[10] 09 after -[windows count] = 4
+[11] 10 before -[windows objectAtIndex:0]
+[12] 11 after -[windows objectAtIndex:0] = 0x7ff303d76480
+[13] 12 before object_getClass(window)
+[14] 13 after object_getClass(window) = 0x7fff71a87e18
+[15] 14 before class_getName(window class)
+[16] 15 after class_getName(window class)
+[17] 16 before -[window title]
+[18] 17 after -[window title] (NSString object) = 0x7ff303c1b200
+[19] 18 before -[title UTF8String] + copy
+[20] 19 after -[title UTF8String] + copy
+[21] 20 before window frame via KVC (no struct-return ABI)
+[22] 21 after window frame via KVC
+[23] 22 before -[window contentView]
+[24] 23 after -[window contentView] = ...
+[25] 24 before object_getClass(contentView)
+[26] 25 after object_getClass(contentView) = 0x7fff71a87a08
+[27] 26 before class_getName(contentView class)
+[28] 27 after class_getName(contentView class)
+[29] 28 before contentView frame via KVC
+[30] 29 after contentView frame via KVC
+[31] path = /tmp/fw5.json
+[32] fopen(/tmp/nsinspect-probe.txt) = 0x0
+[33] document write begin
+[34] write_document -> 0
+[35] document write end
+nsinspect: capture: done
+
+---BEGIN JSON---
+(see calculator-first-window.json)
+---END JSON---
+
+Notes on the sequence, all reproducible from the marker numbers:
+
+* Steps [3]-[28] are Objective-C calls that all completed. This is the first
+  run in which every one of them did.
+* Step [21] is where the earlier revisions stopped: -[view frame] returns an
+  NSRect (32 bytes) and every objc_msgSend cast tried for it stalled the
+  capture there. Reading the frame through KVC (-valueForKey: -> NSValue ->
+  -getValue:) avoids the struct-return ABI entirely and completes.
+* Step [32] is the second, independent defect: fopen() returns NULL inside the
+  injected image even though the path is valid and writable, while write(),
+  snprintf() and every Objective-C call work. The document is therefore written
+  with open/write/close and mirrored to stderr, which the runner captures.

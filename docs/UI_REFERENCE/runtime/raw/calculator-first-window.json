@@ -1,0 +1,22 @@
+{
+  "schema": "mavlinos.nsinspect/1",
+  "kind": "runtime-observed",
+  "mode": "first-window-probe",
+  "extractor": "nsinspect.c",
+  "pid": 756,
+  "window_count": 4,
+  "window": {
+    "object": "0x7fc0db522ec0",
+    "class_object": "0x10d909ed8",
+    "class": "CustomWindow",
+    "title": "Window",
+    "frame": [10000, 10000, 1, 1],
+    "content_view": {
+      "object": "0x7fc0db43b8c0",
+      "class_object": "0x7fff71a87a08",
+      "class": "NSView",
+      "frame": [0, 0, 1, 1]
+    }
+  },
+  "status": "ok"
+}

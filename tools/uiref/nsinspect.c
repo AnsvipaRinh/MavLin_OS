@@ -56,6 +56,12 @@ extern int strcmp(const char *a, const char *b);
 extern unsigned long fwrite(const void *p, unsigned long size, unsigned long n, FILE *f);
 extern int getpid(void);
 extern long write(int fd, const void *buf, unsigned long count);
+extern int open(const char *path, int flags, ...);
+extern int close(int fd);
+
+#define MV_O_WRONLY 0x0001
+#define MV_O_CREAT  0x0200
+#define MV_O_TRUNC  0x0400
 
 static unsigned long strlen_local(const char *s) {
     unsigned long n = 0; while (s[n]) n++; return n;
@@ -98,18 +104,58 @@ static void *send_ptr(id o, const char *sel) {
     return f(o, s);
 }
 
-/* NSRect is four doubles = 32 bytes, so on x86_64 it is returned in memory
-   through a hidden pointer in the first argument register.  Casting
-   objc_msgSend to "ns_rect (*)(id, SEL)" therefore shifts every argument and
-   objc_msgSend is handed the sret pointer as the receiver; the capture hung on
-   the first real NSWindow until this was corrected. */
+/* NSRect is four doubles (32 bytes), so it exceeds two eightbytes and x86_64
+   returns it in memory through a hidden pointer.  The compiler emits that
+   call correctly for a cast of the form "ns_rect (*)(id, SEL)" - adding the
+   pointer by hand makes it emit the pointer twice, which hands objc_msgSend a
+   float where it expects a selector and hangs the capture.  Keep the plain
+   two-argument cast and let the compiler own the ABI. */
+static id nsstring_from_cstr(const char *s);
+
 static ns_rect send_rect(id o, const char *sel) {
     SEL s = S(sel);
     ns_rect r = {0, 0, -1, -1};
     if (!o || !s || !fn_msgSend) return r;
-    ns_rect (*f)(ns_rect *, id, SEL) = (ns_rect (*)(ns_rect *, id, SEL))fn_msgSend;
-    f(&r, o, s);
+    ns_rect (*f)(id, SEL) = (ns_rect (*)(id, SEL))fn_msgSend;
+    return f(o, s);
+}
+
+/* Geometry without relying on the struct-return ABI at all.
+ *
+ * -[view frame] returns an NSRect, which is 32 bytes and therefore travels
+ * through the hidden-pointer convention; every cast of objc_msgSend tried here
+ * stopped the capture dead at exactly that call, with the window already
+ * obtained, its class known and its title converted.
+ *
+ * Key-value coding gives the same numbers with no struct return: -valueForKey:
+ * yields an NSValue object, and -[NSValue getValue:] writes into a buffer we
+ * own and returns void.  Both are plain object/pointer calls. */
+static ns_rect send_rect_kvc(id o, const char *key) {
+    ns_rect r = {0, 0, 0, 0};
+    if (!o || !fn_msgSend) return r;
+    {
+        char keybuf[128];
+        unsigned long i = 0;
+        while (key[i] && i + 1 < sizeof keybuf) { keybuf[i] = key[i]; i++; }
+        keybuf[i] = 0;
+        id nskey = nsstring_from_cstr(keybuf);
+        id (*v4k)(id, SEL, id) = (id (*)(id, SEL, id))fn_msgSend;
+        id v = nskey ? v4k(o, S("valueForKey:"), nskey) : 0;
+        if (!v) return r;
+        void (*get)(id, SEL, void *) = (void (*)(id, SEL, void *))fn_msgSend;
+        get(v, S("getValue:"), &r);
+    }
     return r;
+}
+
+/* Build an NSString from a C string through the runtime (no NSString class
+   literals are available without headers). */
+static id nsstring_from_cstr(const char *s) {
+    if (!fn_objc_getClass || !fn_msgSend || !s) return 0;
+    Class NSString = fn_objc_getClass("NSString");
+    if (!NSString) return 0;
+    id (*mk)(id, SEL, const char *) = (id (*)(id, SEL, const char *))fn_msgSend;
+    return mk(NSString, S("stringWithUTF8String:"), s);
 }
 
 static ns_uint send_ulong(id o, const char *sel) {
@@ -341,7 +387,25 @@ static int resolve_runtime(void) {
     return fn_objc_getClass && fn_sel_registerName && fn_msgSend && fn_class_getName;
 }
 
+/* stdio is not usable from inside the injected image: fopen() returns NULL
+   there even for a valid, writable path, while write(), snprintf() and every
+   Objective-C call work.  The document is therefore written with the raw
+   open/write/close path, and - in the probe build - mirrored to stderr, which
+   the runner already captures, so the result can never be lost. */
 static int write_document(const char *path) {
+#ifdef NSINSPECT_FIRSTWINDOW
+    write(2, "---BEGIN JSON---\n", 18);
+    write(2, out_buf, out_len);
+    write(2, "\n---END JSON---\n", 16);
+#endif
+    if (!path) return 0;
+    int fd = open(path, MV_O_WRONLY | MV_O_CREAT | MV_O_TRUNC, 0644);
+    if (fd >= 0) {
+        long done = (long)write(fd, out_buf, out_len);
+        close(fd);
+        return done == (long)out_len;
+    }
+    {
     char tmp[512];
     snprintf(tmp, sizeof(tmp), "%s.tmp", path);
     FILE *f = fopen(tmp, "w");
@@ -352,6 +416,7 @@ static int write_document(const char *path) {
     fclose(f);
     if (rename(tmp, path) != 0) { unlink(tmp); return 0; }
     return 1;
+    }
 }
 
 static int run(const char *out_path) {
@@ -437,6 +502,188 @@ static int run(const char *out_path) {
 }
 
 /* ====================== self test on Linux (fake runtime) ================= */
+
+/* ==========================================================================
+ * First-window probe (NSINSPECT_FIRSTWINDOW)
+ *
+ * A deliberately minimal extraction: it walks exactly the twelve operations
+ * that lead to the first real NSWindow and nothing else.  Each one is bracketed
+ * by a flushed marker carrying a monotonically increasing sequence number, so
+ * a run that stops tells us precisely which operation stopped it and later
+ * attempts can never be confused with earlier ones.
+ *
+ * Rules followed here, each of which the full capture had violated:
+ *   * objects are printed with %p, never with %s;
+ *   * an NSString, its UTF-8 pointer and the copied C string are three
+ *     different things and are handled as such;
+ *   * the UTF-8 pointer is borrowed and copied immediately into owned storage;
+ *   * NSRect is returned through the x86_64 hidden-pointer convention.
+ * ========================================================================== */
+#ifdef NSINSPECT_FIRSTWINDOW
+static unsigned long g_step;
+
+static void mark(const char *what) {
+    g_step++;
+    char buf[256];
+    snprintf(buf, sizeof buf, "[%lu] %s\n", g_step, what);
+    write(2, buf, strlen_local(buf));
+}
+
+static void markp(const char *what, const void *p) {
+    g_step++;
+    char buf[256];
+    snprintf(buf, sizeof buf, "[%lu] %s = %p\n", g_step, what, p);
+    write(2, buf, strlen_local(buf));
+}
+
+static void marku(const char *what, unsigned long v) {
+    g_step++;
+    char buf[256];
+    snprintf(buf, sizeof buf, "[%lu] %s = %lu\n", g_step, what, v);
+    write(2, buf, strlen_local(buf));
+}
+
+static int first_window_probe(const char *path) {
+    char clsbuf[256], titlebuf[512], cclsbuf[256];
+    const char *wname = "?", *cname = "?", *title = "";
+    id app = 0, wins = 0, w = 0, content = 0;
+    ns_uint n = 0;
+    ns_rect frame = {0, 0, 0, 0}, cframe = {0, 0, 0, 0};
+
+    mark("00 enter first-window probe");
+    if (!resolve_runtime()) { mark("01 resolve_runtime FAILED"); return 3; }
+    mark("01 resolve_runtime ok");
+
+    mark("02 before objc_getClass(NSApplication)");
+    Class NSApp = fn_objc_getClass("NSApplication");
+    mark("03 after objc_getClass(NSApplication)");
+
+    mark("04 before +[NSApplication sharedApplication]");
+    app = NSApp ? send_id(NSApp, "sharedApplication") : 0;
+    markp("05 after +[NSApplication sharedApplication]", app);
+
+    mark("06 before -[NSApp windows]");
+    wins = app ? send_id(app, "windows") : 0;
+    markp("07 after -[NSApp windows]", wins);
+
+    mark("08 before -[windows count]");
+    if (wins && fn_msgSend) {
+        ns_uint (*cnt)(id, SEL) = (ns_uint (*)(id, SEL))fn_msgSend;
+        n = cnt(wins, S("count"));
+    }
+    marku("09 after -[windows count]", (unsigned long)n);
+
+    mark("10 before -[windows objectAtIndex:0]");
+    if (wins && fn_msgSend && n > 0) {
+        id (*at)(id, SEL, ns_uint) = (id (*)(id, SEL, ns_uint))fn_msgSend;
+        w = at(wins, S("objectAtIndex:"), 0);
+    }
+    markp("11 after -[windows objectAtIndex:0]", w);
+
+    mark("12 before object_getClass(window)");
+    Class wcls = w ? (Class)fn_object_getClass(w) : 0;
+    markp("13 after object_getClass(window)", wcls);
+
+    mark("14 before class_getName(window class)");
+    wname = class_name_of(wcls);
+    if (wname && wname[0]) {
+        unsigned long i = 0;
+        while (wname[i] && i + 1 < sizeof clsbuf) { clsbuf[i] = wname[i]; i++; }
+        clsbuf[i] = 0;
+        wname = clsbuf;
+    } else {
+        wname = "?";
+    }
+    mark("15 after class_getName(window class)");
+
+    mark("16 before -[window title]");
+    id titleobj = w ? send_id(w, "title") : 0;
+    markp("17 after -[window title] (NSString object)", titleobj);
+
+    mark("18 before -[title UTF8String] + copy");
+    nsstring_utf8(titleobj, titlebuf, sizeof titlebuf);
+    title = titlebuf;
+    mark("19 after -[title UTF8String] + copy");
+
+    mark("20 before window frame via KVC (no struct-return ABI)");
+    if (w) frame = send_rect_kvc(w, "frame");
+    mark("21 after window frame via KVC");
+
+    mark("22 before -[window contentView]");
+    content = w ? send_id(w, "contentView") : 0;
+    markp("23 after -[window contentView]", content);
+
+    mark("24 before object_getClass(contentView)");
+    Class ccls = content ? (Class)fn_object_getClass(content) : 0;
+    markp("25 after object_getClass(contentView)", ccls);
+
+    mark("26 before class_getName(contentView class)");
+    cname = class_name_of(ccls);
+    if (cname && cname[0]) {
+        unsigned long i = 0;
+        while (cname[i] && i + 1 < sizeof cclsbuf) { cclsbuf[i] = cname[i]; i++; }
+        cclsbuf[i] = 0;
+        cname = cclsbuf;
+    } else {
+        cname = "?";
+    }
+    mark("27 after class_getName(contentView class)");
+
+    mark("28 before contentView frame via KVC");
+    if (content) cframe = send_rect_kvc(content, "frame");
+    mark("29 after contentView frame via KVC");
+
+    emit("{\n");
+    emit("  \"schema\": \"mavlinos.nsinspect/1\",\n");
+    emit("  \"kind\": \"runtime-observed\",\n");
+    emit("  \"mode\": \"first-window-probe\",\n");
+    emit("  \"extractor\": \"nsinspect.c\",\n");
+    emit("  \"pid\": %d,\n", getpid());
+    emit("  \"window_count\": %lu,\n", (unsigned long)n);
+    emit("  \"window\": {\n");
+    emit("    \"object\": \"%p\",\n", w);
+    emit("    \"class_object\": \"%p\",\n", wcls);
+    emit("    \"class\": ");   emit_json_str(wname);
+    emit(",\n    \"title\": "); emit_json_str(title);
+    emit(",\n    \"frame\": [%g, %g, %g, %g],\n",
+         frame.x, frame.y, frame.w, frame.h);
+    emit("    \"content_view\": {\n");
+    emit("      \"object\": \"%p\",\n", content);
+    emit("      \"class_object\": \"%p\",\n", ccls);
+    emit("      \"class\": "); emit_json_str(cname);
+    emit(",\n      \"frame\": [%g, %g, %g, %g]\n",
+         cframe.x, cframe.y, cframe.w, cframe.h);
+    emit("    }\n");
+    emit("  },\n");
+    emit("  \"status\": \"ok\"\n");
+    emit("}\n");
+
+    {
+        char pb[300];
+        int n = snprintf(pb, sizeof pb, "[%lu] path = %s\n", ++g_step,
+                         path ? path : "(null)");
+        if (n > 0) write(2, pb, (unsigned long)n);
+    }
+    {
+        FILE *probe = fopen("/tmp/nsinspect-probe.txt", "w");
+        char pb[200];
+        int n = snprintf(pb, sizeof pb, "[%lu] fopen(/tmp/nsinspect-probe.txt) = %p\n",
+                         ++g_step, (void *)probe);
+        if (n > 0) write(2, pb, (unsigned long)n);
+        if (probe) { fprintf(probe, "write_document target: %s\n", path ? path : "(null)"); fclose(probe); }
+    }
+    mark("document write begin");
+    int wrote = write_document(path);
+    {
+        char pb[160];
+        int n = snprintf(pb, sizeof pb, "[%lu] write_document -> %d\n", ++g_step, wrote);
+        if (n > 0) write(2, pb, (unsigned long)n);
+    }
+    mark("document write end");
+    return wrote ? 0 : 3;
+}
+#endif
+
 #ifdef NSINSPECT_SELFTEST
 #include <stdarg.h>
 #include <stdio.h>
@@ -474,11 +721,16 @@ int main(int argc, char **argv) {
     if (!write_document(out)) return 3;
     return 2;
 }
+
 #else
 static int nsinspect_run(void) {
     const char *path = getenv("NSINSPECT_OUT");
     if (!path) path = "/tmp/nsinspect.json";
+#ifdef NSINSPECT_FIRSTWINDOW
+    return first_window_probe(path);
+#else
     return run(path);
+#endif
 }
 #ifndef NSINSPECT_TOOL
 /*
