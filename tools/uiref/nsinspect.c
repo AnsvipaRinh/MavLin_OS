@@ -613,8 +613,92 @@ static void emit_bool_attr(id obj, const char *name);
 static void emit_num_attr(id obj, const char *name);
 static int is_kind_of_class(id obj, const char *clsname);
 
+/* --------------------------------------------------------------------------
+ * Stage switches and stage markers.
+ *
+ * Both are read from the environment at capture time, never in the
+ * constructor: the constructor runs before dyld has finished and must not
+ * allocate, log or call into AppKit.
+ *
+ *   NSINSPECT_STAGES         comma list of "win", "view", "menu".
+ *                            Unset means all three.  Set to anything without
+ *                            those tokens (e.g. "none") to inject the library
+ *                            and extract nothing, which is the control run.
+ *   NSINSPECT_MENU_MAXDEPTH  maximum submenu recursion depth.  0 emits the
+ *                            top-level menu bar items and no submenus.
+ *
+ * Markers go to fd 2 unbuffered.  A crash inside the injected library leaves
+ * no JSON at all, so the marker stream is the only evidence that survives.
+ * -------------------------------------------------------------------------- */
+static int g_stage_win  = 1;
+static int g_stage_view = 1;
+static int g_stage_menu = 1;
+static int g_menu_maxdepth = 12;
+
+static void fmark(const char *a, const char *b, const char *c) {
+    char buf[512];
+    unsigned long n = 0;
+    const char *parts[3]; int np = 0;
+    parts[np++] = a; parts[np++] = b; parts[np++] = c;
+    const char *tag = "nsinspect: ";
+    while (tag[n] && n < sizeof buf - 1) { buf[n] = tag[n]; n++; }
+    for (int i = 0; i < 3; i++) {
+        if (!parts[i] || !parts[i][0]) continue;
+        if (n && n < sizeof buf - 2) buf[n++] = ' ';
+        for (const char *q = parts[i]; *q && n < sizeof buf - 3; q++) buf[n++] = *q;
+    }
+    buf[n++] = '\n';
+    write(2, buf, n);
+}
+
+static void fmarku(const char *a, unsigned long v) {
+    char digits[24]; int d = 0;
+    if (v == 0) digits[d++] = '0';
+    while (v && d < (int)sizeof digits) { digits[d++] = (char)('0' + (v % 10)); v /= 10; }
+    char rev[24];
+    for (int i = 0; i < d; i++) rev[i] = digits[d - 1 - i];
+    rev[d] = 0;
+    fmark(a, rev, "");
+}
+
+static int has_token(const char *list, const char *tok) {
+    if (!list || !*list) return 0;
+    int tl = 0; while (tok[tl]) tl++;
+    const char *p = list;
+    while (*p) {
+        int match = 1;
+        for (int i = 0; ; i++) {
+            char ch = p[i];
+            if (ch == 0 || ch == ',') { if (i != tl) match = 0; break; }
+            if (i < tl && ch != tok[i]) match = 0;
+        }
+        if (match) return 1;
+        while (*p && *p != ',') p++;
+        if (*p == ',') p++;
+    }
+    return 0;
+}
+
+static int parse_int(const char *s, int def) {
+    if (!s || !*s) return def;
+    int v = 0, neg = 0;
+    if (*s == '-') { neg = 1; s++; }
+    while (*s >= '0' && *s <= '9') { v = v * 10 + (*s - '0'); s++; }
+    return neg ? -v : v;
+}
+
+static void read_switches(void) {
+    const char *s = getenv("NSINSPECT_STAGES");
+    if (s) {
+        g_stage_win  = has_token(s, "win");
+        g_stage_view = has_token(s, "view");
+        g_stage_menu = has_token(s, "menu");
+    }
+    g_menu_maxdepth = parse_int(getenv("NSINSPECT_MENU_MAXDEPTH"), 12);
+}
+
 static void walk_menu(id item, int depth) {
-    if (!item || depth > 12) return;
+    if (!item) return;
     const char *cc[16];
     int cn = superclass_chain((Class)fn_object_getClass(item), cc, 16);
     emit("{\"object\": \"%p\", \"class\": ", item);
@@ -645,12 +729,33 @@ static void walk_menu(id item, int depth) {
     }
     emit(", \"item_count\": ");
     emit("%d, \"items\": [", n);
-    if (n > 0) {
+    /* Depth budget: with maxdepth 0 the menu bar items are emitted with no
+       submenus, which separates "the submenu walk" from "the menu read". */
+    int descend = (depth < g_menu_maxdepth) && n > 0;
+    if (descend) {
+        char d[24];
+        d[0] = (char)('0' + (depth & 7)); d[1] = 0;
+        char nn[24]; { int k = 0, q = n; if (!q) nn[k++] = '0'; while (q && k < 20) { nn[k++] = (char)('0' + q % 10); q /= 10; } for (int z = 0; z < k / 2; z++) { char t = nn[z]; nn[z] = nn[k - 1 - z]; nn[k - 1 - z] = t; } nn[k] = 0; }
+        fmark("menu-descend", cn ? cc[0] : "?", d);
+        fmark("menu-descend-items", nn, "");
+    } else if (n > 0) {
+        fmark("menu-depth-limit-reached", "", "");
+    }
+    if (descend) {
         ns_uint (*cnt)(id, SEL) = (ns_uint (*)(id, SEL))fn_msgSend;
         id (*at)(id, SEL, ns_uint) = (id (*)(id, SEL, ns_uint))fn_msgSend;
         for (int i = 0; i < n; i++) {
             if (i) emit(",");
-            walk_menu(at(sub, S("objectAtIndex:"), (ns_uint)i), depth + 1);
+            id child = at(sub, S("objectAtIndex:"), (ns_uint)i);
+            if (g_stage_menu) {
+                const char *kc[16];
+                int kn = superclass_chain((Class)fn_object_getClass(child), kc, 16);
+                char kt[256];
+                kt[0] = 0;
+                if (is_item) nsstring_utf8(send_id(child, "title"), kt, sizeof kt);
+                fmark("menu-item", kc && kn ? kc[0] : "?", kt);
+            }
+            walk_menu(child, depth + 1);
         }
     }
     emit("]}");
@@ -777,17 +882,28 @@ static void walk_view(id view, int depth) {
 }
 
 static int full_capture(const char *path) {
-    if (!resolve_runtime()) return 3;
+    read_switches();
+    fmark("stage:runtime-resolve-begin", "", "");
+    if (!resolve_runtime()) { fmark("stage:runtime-resolve-FAILED", "", ""); return 3; }
+    fmark("stage:runtime-resolve-end", "", "");
+    fmarku("stages:win", (unsigned long)g_stage_win);
+    fmarku("stages:view", (unsigned long)g_stage_view);
+    fmarku("stages:menu", (unsigned long)g_stage_menu);
+    fmarku("menu:maxdepth", (unsigned long)g_menu_maxdepth);
 
+    fmark("stage:app-lookup-begin", "", "");
     Class NSApp = fn_objc_getClass("NSApplication");
     id app = NSApp ? send_id(NSApp, "sharedApplication") : 0;
     id wins = app ? send_id(app, "windows") : 0;
     int n = 0;
+    fmark("stage:windows-count-begin", "", "");
     if (wins) {
         ns_uint (*cnt)(id, SEL) = (ns_uint (*)(id, SEL))fn_msgSend;
         n = (int)cnt(wins, S("count"));
     }
+    fmarku("stage:windows-count-end", (unsigned long)n);
 
+    if (!g_stage_win) { fmark("stage:windows-skipped", "", ""); }
     /* Pass 1: collect windows, remembering which is primary. */
     id wlist[256];
     int nw = n < 256 ? n : 256;
@@ -834,6 +950,10 @@ static int full_capture(const char *path) {
     emit("  \"depth_max\": %d,\n", g_depth_max);
     emit("  \"view_cap\": %d,\n", g_view_cap);
 
+    fmark("stage:window-list-end", "", "");
+    emit("  \"stages\": {\"win\": %s, \"view\": %s, \"menu\": %s, \"menu_maxdepth\": %d},\n",
+         g_stage_win ? "true" : "false", g_stage_view ? "true" : "false",
+         g_stage_menu ? "true" : "false", g_menu_maxdepth);
     emit("  \"window_count\": %d,\n", nw);
     emit("  \"windows\": [\n");
     for (int i = 0; i < nw; i++) {
@@ -868,22 +988,46 @@ static int full_capture(const char *path) {
     /* Menu bar: [NSApplication mainMenu] plus the status item menu if any. */
     id mainMenu = app ? send_id(app, "mainMenu") : 0;
     emit("  \"main_menu\": ");
-    if (mainMenu) { walk_menu(mainMenu, 0); } else { emit("null"); }
+    if (g_stage_menu && mainMenu) { fmark("stage:menu-walk-begin", "", ""); walk_menu(mainMenu, 0); fmark("stage:menu-walk-end", "", ""); }
+    else if (g_stage_menu) { fmark("stage:menu-none", "", ""); emit("null"); }
+    else { fmark("stage:menu-skipped", "", ""); emit("null"); }
     emit(",\n");
 
     id content = send_id(wlist[primary], "contentView");
     emit("  \"primary_content_view\": ");
-    if (content) {
-        walk_view(content, 0);
-    } else {
-        emit("null");
-    }
+    if (g_stage_view && content) { fmark("stage:content-walk-begin", "", ""); walk_view(content, 0); fmark("stage:content-walk-end", "", ""); }
+    else if (!g_stage_view) { fmark("stage:content-skipped", "", ""); emit("null"); }
+    else { emit("null"); }
     emit(",\n");
-    emit("  \"views_visited\": %d,\n", g_view_total);
-    emit("  \"controls_found\": %d,\n", g_control_total);
+    int content_views = g_view_total, content_controls = g_control_total;
+    emit("  \"views_visited\": %d,\n", content_views);
+    emit("  \"controls_found\": %d,\n", content_controls);
+
+    /* The window frame view, not the content view.  In 10.9 the toolbar and
+       the ruler are drawn into the theme frame, so a content-view walk cannot
+       see them no matter how deep it goes.  Walking the frame view answers
+       "is the hierarchy short because it was filtered, or because the
+       toolbar is not in the content tree at all". */
+    emit("  \"primary_frame_view\": ");
+    if (g_stage_view) {
+        int before_views = g_view_total, before_ctrl = g_control_total;
+        g_visited_n = 0;                       /* independent traversal */
+        id fv = send_id(wlist[primary], "frameView");
+        fmark("stage:frameview-walk-begin", "", "");
+        if (fv) walk_view(fv, 0); else emit("null");
+        fmark("stage:frameview-walk-end", "", "");
+        emit(", \"frame_view_views\": %d, \"frame_view_controls\": %d",
+             g_view_total - before_views, g_control_total - before_ctrl);
+        (void)before_ctrl;
+    } else { emit("null"); }
+    emit(",\n");
+    emit("  \"frame_view_total_views\": %d,\n", g_view_total);
     emit("  \"status\": \"ok\"\n}\n");
 
-    return write_document(path) ? 0 : 3;
+    fmark("stage:serialize-begin", "", "");
+    int rc = write_document(path) ? 0 : 3;
+    fmark(rc == 0 ? "stage:serialize-end-ok" : "stage:serialize-end-FAILED", "", "");
+    return rc;
 }
 #endif
 
