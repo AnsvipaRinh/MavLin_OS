@@ -41,6 +41,14 @@ typedef struct { CGFloat x, y, w, h; } ns_rect;
 extern void *dlopen(const char *path, int mode);
 extern void *dlsym(void *handle, const char *sym);
 extern char *getenv(const char *name);
+
+/* Build identity, injected by build-nsinspect.sh as -DNSINSPECT_BUILD_ID.
+ * It is compiled into the image, printed on load and emitted in the capture
+ * document, so a guest can prove which binary actually ran instead of
+ * trusting a filename or a timestamp on a shared volume. */
+#ifndef NSINSPECT_BUILD_ID
+#define NSINSPECT_BUILD_ID "unidentified"
+#endif
 extern FILE *fopen(const char *path, const char *mode);
 extern int fclose(FILE *f);
 extern int fprintf(FILE *f, const char *fmt, ...);
@@ -866,6 +874,20 @@ static void walk_view(id view, int depth) {
         if (act) emit_json_str(sel_name(act)); else emit("null");
     }
 
+    /* Text carried by this view, for NSTextField and NSTextView only.  This is
+       how an NSAlert in the window list can be identified by its text instead
+       of guessed from its class.  Truncated; never a dump of the document. */
+    if (is_kind_of_class(view, "NSTextField") || is_kind_of_class(view, "NSTextView")) {
+        char tv[1024];
+        tv[0] = 0;
+        id sv = is_kind_of_class(view, "NSTextField") ? send_id(view, "stringValue")
+                                                      : send_id(view, "string");
+        if (sv) nsstring_utf8(sv, tv, sizeof tv);
+        emit(", \"text_value\": ");
+        emit_json_str(tv);
+        emit(", \"text_truncated\": %s", strlen_local(tv) >= sizeof tv - 1 ? "true" : "false");
+    }
+
     if (nsub > 0) {
         emit(", \"subviews\": [");
         ns_uint (*cnt)(id, SEL) = (ns_uint (*)(id, SEL))fn_msgSend;
@@ -942,6 +964,7 @@ static int full_capture(const char *path) {
 
     emit("{\n");
     emit("  \"schema\": \"mavlinos.nsinspect/1\",\n");
+    emit("  \"build_id\": \"%s\",\n", NSINSPECT_BUILD_ID);
     emit("  \"kind\": \"runtime-observed\",\n");
     emit("  \"mode\": \"full-capture\",\n");
     emit("  \"extractor\": \"nsinspect.c\",\n");
@@ -1012,7 +1035,13 @@ static int full_capture(const char *path) {
     if (g_stage_view) {
         int before_views = g_view_total, before_ctrl = g_control_total;
         g_visited_n = 0;                       /* independent traversal */
-        id fv = send_id(wlist[primary], "frameView");
+        /* NSWindow does NOT respond to -frameView on 10.9 (verified against
+           both Calculator and TextEdit: "unrecognized selector sent to
+           instance", which aborted the capture after the content walk).  The
+           theme frame is reached through the content view's superview, which
+           is the documented way to get at the window frame. */
+        id fv = 0;
+        if (content) fv = send_id(content, "superview");
         fmark("stage:frameview-walk-begin", "", "");
         if (fv) walk_view(fv, 0); else emit("null");
         fmark("stage:frameview-walk-end", "", "");
@@ -1293,7 +1322,7 @@ extern id objc_msgSend(id self, SEL op, ...);
    only step in the chain that did not fire reliably. */
 static void nsinspect_capture_on_main(id obj, SEL _cmd, id arg) {
     (void)obj; (void)_cmd; (void)arg;
-    nsinspect_banner("main-thread: capture begin");
+    nsinspect_banner(NSINSPECT_BUILD_ID);
     if (!resolve_runtime()) { nsinspect_banner("capture: no ObjC runtime"); return; }
     nsinspect_run();
     nsinspect_banner("capture: done");
@@ -1302,20 +1331,61 @@ static void nsinspect_capture_on_main(id obj, SEL _cmd, id arg) {
 /* First stage: replaces -[NSApplication run].  We are on the main thread and a
    run loop exists from here on, so posting a selector is safe - posting from
    the constructor was NOT, and is what crashed every earlier attempt. */
+/* Capture point "window": fires when the application actually puts a real
+   window on screen.  The run-loop hook fires earlier than that, and an
+   application launched with a document can still have only an alert in its
+   window list at that point. */
+static void *g_orig_mkor;
+static int g_capture_done;
+
+static void nsinspect_window_hook(id self, SEL _cmd, int flag) {
+    void (*orig)(id, SEL, int) = (void (*)(id, SEL, int))g_orig_mkor;
+    if (orig) orig(self, _cmd, flag);
+    if (g_capture_done) return;
+    ns_rect fr;
+    if (send_rect_inv(self, "frame", &fr) && fr.w > 1 && fr.h > 1) {
+        g_capture_done = 1;
+        nsinspect_banner("window capture point");
+        void (*post)(id, SEL, SEL, id, signed char) =
+            (void (*)(id, SEL, SEL, id, signed char))objc_msgSend;
+        post(self, sel_registerName("performSelectorOnMainThread:withObject:waitUntilDone:"),
+             sel_registerName("nsinspect_captureOnMainThread:"), 0, 0);
+    }
+}
+
 static void *g_orig_run;
 
 static void nsinspect_run_hook(id self, SEL _cmd) {
     nsinspect_banner("run hook entered");
-    void (*post)(id, SEL, SEL, id, signed char) =
-        (void (*)(id, SEL, SEL, id, signed char))objc_msgSend;
-    post(self, sel_registerName("performSelectorOnMainThread:withObject:waitUntilDone:"),
-         sel_registerName("nsinspect_captureOnMainThread:"), 0, 0);
+    const char *cpw = getenv("NSINSPECT_CAPTURE_POINT");
+    if (cpw && cpw[0] == 'w' && cpw[1] == 'i') {
+        ((void (*)(id, SEL))g_orig_run)(self, _cmd);
+        return;
+    }
+    /* NSINSPECT_DELAY defers the capture to a later run-loop turn.  The first
+       run-loop turn is very early: an application launched with a document can
+       still have only an alert in its window list, so "capture later" is a
+       real alternative to "capture the wrong window". */
+    int delay = parse_int(getenv("NSINSPECT_DELAY"), 0);
+    if (delay > 0) {
+        void (*after)(id, SEL, SEL, id, double) =
+            (void (*)(id, SEL, SEL, id, double))objc_msgSend;
+        after(self, sel_registerName("performSelector:withObject:afterDelay:"),
+              sel_registerName("nsinspect_captureOnMainThread:"), 0, (double)delay);
+        fmarku("capture:deferred-by-seconds", (unsigned long)delay);
+    } else {
+        void (*post)(id, SEL, SEL, id, signed char) =
+            (void (*)(id, SEL, SEL, id, signed char))objc_msgSend;
+        post(self, sel_registerName("performSelectorOnMainThread:withObject:waitUntilDone:"),
+             sel_registerName("nsinspect_captureOnMainThread:"), 0, 0);
+    }
     nsinspect_banner("capture queued");
     ((void (*)(id, SEL))g_orig_run)(self, _cmd);
 }
 
 __attribute__((constructor)) static void nsinspect_init(void) {
     nsinspect_banner("loaded");
+    nsinspect_banner(NSINSPECT_BUILD_ID);
     Class NSApp = objc_getClass("NSApplication");
     if (!NSApp) { nsinspect_banner("no NSApplication"); return; }
     /* Both callbacks are published on NSObject so any instance can carry them;
@@ -1327,6 +1397,19 @@ __attribute__((constructor)) static void nsinspect_init(void) {
                         (void *)nsinspect_capture_on_main, "v@:@");
         nsinspect_banner("callbacks published on NSObject");
     }
+    const char *cp = getenv("NSINSPECT_CAPTURE_POINT");
+    if (cp && cp[0] == 'w' && cp[1] == 'i') {
+        Class NSWindow = objc_getClass("NSWindow");
+        void *wm = NSWindow ? class_getInstanceMethod(NSWindow, sel_registerName("makeKeyAndOrderFront:")) : 0;
+        if (NSWindow && wm) {
+            g_orig_mkor = method_getImplementation(wm);
+            method_setImplementation(wm, (void *)nsinspect_window_hook);
+            nsinspect_banner("makeKeyAndOrderFront: swizzled");
+        } else {
+            nsinspect_banner("no makeKeyAndOrderFront:");
+        }
+    }
+
     void *m = class_getInstanceMethod(NSApp, sel_registerName("run"));
     if (!m) { nsinspect_banner("no -[NSApplication run]"); return; }
     g_orig_run = method_getImplementation(m);

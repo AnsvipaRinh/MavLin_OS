@@ -1,0 +1,11 @@
+RUN build=66b39198 script=/volumes/mvq7b2/run-66b39198.sh
+DEPLOY-OK build=66b39198
+calc app=Calculator cp=run delay=0 doc= alive=alive idhits=3 begin=1 end=1 log=   43223 json=0
+calcwin app=Calculator cp=window delay=0 doc= alive=alive idhits=1 begin=0
+0 end=0
+0 log=     192 json=0
+teplain app=TextEdit cp=run delay=0 doc= alive=alive idhits=3 begin=1 end=1 log=   39069 json=0
+tedocwin app=TextEdit cp=window delay=0 doc=/Users/builder/te.txt alive=alive idhits=1 begin=0
+0 end=0
+0 log=     192 json=0
+RUN-DONE

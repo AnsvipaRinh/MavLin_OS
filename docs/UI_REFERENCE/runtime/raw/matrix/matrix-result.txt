@@ -1,0 +1,17 @@
+RUN build=66b39198
+DEPLOY-OK build=66b39198
+m_a_none stages=none depth=12 doc= alive=alive idhits=3 begin=1 end=1 exc=0
+0 log=    1664 json=0
+m_b_win stages=win depth=12 doc= alive=alive idhits=3 begin=1 end=1 exc=0
+0 log=    1629 json=0
+m_c_wv stages=win,view depth=12 doc= alive=alive idhits=3 begin=1 end=1 exc=0
+0 log=    8522 json=0
+m_d_menu0 stages=win,view,menu depth=0 doc= alive=alive idhits=3 begin=1 end=1 exc=0
+0 log=    8679 json=0
+m_e_menu stages=win,view,menu depth=12 doc= alive=alive idhits=3 begin=1 end=1 exc=0
+0 log=   39069 json=0
+m_f_frame stages=win,view depth=0 doc= alive=alive idhits=3 begin=1 end=1 exc=0
+0 log=    8520 json=0
+m_g_doc stages=win,view,menu depth=12 doc=/Users/builder/te.txt alive=alive idhits=3 begin=1 end=1 exc=0
+0 log=   39069 json=0
+RUN-DONE

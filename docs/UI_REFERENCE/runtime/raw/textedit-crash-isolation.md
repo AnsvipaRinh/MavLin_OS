@@ -1,154 +1,199 @@
-# TextEdit crash isolation — findings
+# TextEdit crash isolation — final report
 
-Status: **partially delivered.** The feature switches, stage markers and the
-frame-view traversal are implemented, built and contract-tested. The test
-matrix is **not** complete; three guest-side defects prevented it. All of
-them are recorded below with the evidence, because each one silently
-invalidated an earlier "result" and the same class of error would invalidate
-the next one too.
+Build under test: `nsinspect-full.dylib` build id **`66b39198`**, source sha
+folded into the id by `tools/uiref/build-nsinspect.sh`. Every capture below
+carries that id in the document, and the guest confirmed it in every run.
 
-## Implemented in this milestone
+Verdict up front: **the extractor does not crash TextEdit.** All seven
+isolation cases completed with `status=ok`, `alive=alive` and zero
+unrecognized-selector exceptions. The original "TextEdit quit unexpectedly"
+was never reproduced by the extractor, and the "state B" failure turned out
+to be a completely different thing.
 
-`tools/uiref/nsinspect.c` (builds clean, `tests/uiref/test_nsinspect.py` passes):
+## 1. Deployment, made verifiable
 
-| Switch | Meaning |
-|---|---|
-| `NSINSPECT_STAGES` | comma list of `win`, `view`, `menu`. Unset = all three. Set to anything else (e.g. `none`) = inject the library and extract nothing. |
-| `NSINSPECT_MENU_MAXDEPTH` | submenu recursion budget; `0` emits the menu bar items with no submenus. |
+The previous milestone lost four runs to stale artifacts. The fix is now
+structural rather than procedural.
 
-Both are read with `getenv` **at capture time**, never in the constructor.
+* `build-nsinspect.sh` derives a build id from the **sha256 of the source
+  content** plus a flavour tag, writes it to `build/nsinspect-build-id.txt`,
+  and compiles it into the image with `-DNSINSPECT_BUILD_ID`. The binary
+  prints it on load and emits it as `"build_id"` in every capture.
+  *(Hashing the source *path* was the first attempt and was wrong: the id did
+  not change across real code changes, which is precisely what it exists to
+  detect. Verified fixed: touching the source changes the id and restoring it
+  changes it back.)*
+* `tools/uiref/vm-share.sh` builds a **new** FAT image with a **new lowercase
+  volume label** for every experiment, so the guest mounts fresh instead of
+  serving a cached copy. Artifacts carry unique names (`ns-<id>.dylib`,
+  `run-<id>.sh`, `te-<id>.txt`); nothing is ever overwritten in place.
+  It writes `expect.txt` with the md5 of each file and then reads every file
+  back off the image and re-checks the md5.
+* The generated guest runner refuses to start on a mismatch:
 
-Stage markers are written to fd 2 unbuffered and bracket: runtime resolve,
-app lookup, window count, window list, menu walk begin/end, content walk
-begin/end, frame-view walk begin/end, serialization begin/end. Menu traversal
-additionally emits `menu-descend` (with class and depth), `menu-descend-items`
-(with item count) and one `menu-item` line per item actually read, so the last
-marker before a fault names the operation that caused it.
+  ```
+  [ -f "$DYL" ] || fail "dylib-missing"
+  [ "$(md5q "$DYL")" = "$(exp ns-$ID.dylib)" ] || fail "dylib-md5"
+  [ "$(md5q "$0")"   = "$(exp run-$ID.sh)" ]  || fail "script-md5"
+  ```
 
-The capture document gained `"stages"` (the resolved switch values),
-`"primary_frame_view"` with `"frame_view_views"` / `"frame_view_controls`,
-and `"frame_view_total_views"`. `views_visited` and `controls_found` keep
-their old meaning — the content tree only — so existing captures stay
-comparable.
+  `fail` appends `DEPLOY-FAIL <reason>` to the result file and **exits 9**.
+* Each case records `idhits` — how many times the running process reported the
+  expected build id — so a run that silently used another binary is visible in
+  the result table instead of being interpreted as a result.
 
-## Defect 1: the matrix ran against a stale library
+Result of the run used here: `DEPLOY-OK build=66b39198`, `idhits=3` in every
+case.
 
-The runner used `~/ns/nsinspect-full.dylib`. The freshly built dylib was only
-written to the share, and the script never installed it. Every case therefore
-ran the *previous* build: all six logs were byte-identical at 25809 bytes and
-contained no stage markers at all, which is the signature of "the switch does
-not exist in this binary", not of "the switch has no effect".
+## 2. Two real framework defects, found by the markers
 
-The script now starts with `cp $OUT/ns.dylib $NS` and fails loudly if that
-copy does not work.
+Stage markers earned their place immediately.
 
-## Defect 2: `mcopy` does not overwrite without `-o`
+**`-[NSWindow frameView]` does not exist on 10.9.** The frame-view extractor
+raised `unrecognized selector sent to instance` on both Calculator and
+TextEdit, right after `stage:content-walk-end`, which aborted the capture
+after the content walk had already succeeded. The theme frame is reached
+through `[contentView superview]` instead. This is the third instance of the
+same class of error in this tool (`-submenu`, `-items`, now `-frameView`):
+on 10.9 the assumed selector does not exist and the exception kills the whole
+capture rather than one field.
 
-`mcopy -i img file ::run.sh` fails silently when `run.sh` already exists.
-Two updated copies of the runner script therefore never reached the share,
-and two further matrix runs executed the *old* script. Visible signature: the
-new script's `log=`/`json=` line format never appeared in `matrix.txt`.
+**`performSelector:withObject:afterDelay:` never fires.** `NSINSPECT_DELAY=5`
+logged `capture:deferred-by-seconds 5` and then nothing for 40 s. Delaying via
+the run hook is therefore not a usable capture point. A
+`NSINSPECT_CAPTURE_POINT=window` mode that hooks
+`-[NSWindow makeKeyAndOrderFront:]` was added instead; it installed cleanly
+but did not fire either, because these applications order their windows by a
+path that does not go through that selector. Left in place and documented as
+unproven rather than claimed to work.
 
-Every later `mcopy` in this workstream must pass `-o`.
+## 3. Isolation matrix — complete
 
-## Defect 3: the guest keeps serving a cached FAT copy
+All runs: `TextEdit -ApplePersistenceIgnoreState YES`, 30 s, build `66b39198`.
 
-After a successful host-side overwrite (`run.sh` verified as 1838 bytes on the
-image), the guest still executed the 1481-byte previous script. macOS 10.9's
-VFAT driver caches file contents, and a host-side overwrite does not
-invalidate that cache. Re-plugging the USB image via QMP was attempted to
-force a fresh mount; the `blockdev-add` never completed, so the matrix was
-re-run against the cached script for a fourth time.
+| Case | `NSINSPECT_STAGES` | depth | alive | exc | JSON | windows | contentViews | frameViews | menuItems |
+|---|---|---|---|---|---|---|---|---|---|
+| A | `none` | 12 | alive | 0 | complete | 1 | 0 | 0 | 0 |
+| B | `win` | 12 | alive | 0 | complete | 1 | 0 | 0 | 0 |
+| C | `win,view` | 12 | alive | 0 | complete | 1 | 6 | 13 | 0 |
+| D | `win,view,menu` | 0 | alive | 0 | complete | 1 | 6 | 13 | 0 |
+| E | `win,view,menu` | 12 | alive | 0 | complete | 1 | 6 | 13 | **164** |
+| F | `win,view` | 0 | alive | 0 | complete | 1 | 6 | 13 | 0 |
+| G | `win,view,menu` + document | 12 | alive | 0 | complete | 1 | 6 | 13 | 164 |
 
-Reliable procedure for the next attempt, in order:
+Cases D and E are the decisive pair: full recursive submenu traversal over 164
+menu items completes with no exception, so **menu traversal is not the cause**
+of the original crash. Hypotheses 2 and 3 from the previous report (depth
+default 12, lazily-populated `Services` menus) are **eliminated**.
 
-1. Host: `mcopy -o` the script and the dylib, then verify with `mdir` and
-   compare sizes and `md5sum`.
-2. Hot-unplug the share (`device_del`), wait for the guest to show the
-   "Disk Not Ejected Properly" notification, then `device_add` it again so
-   the guest re-mounts and re-reads the directory.
-3. In the guest, confirm the script is the new one before trusting the run —
-   e.g. `grep -c 'log=' /volumes/mvns/run.sh` must print a non-zero count.
-   Only then start the matrix.
-4. Dismiss every crash-reporter sheet first. A leftover "X quit
-   unexpectedly" sheet takes keyboard focus and swallows the typed command,
-   which already cost one run.
+Log sizes scale monotonically with the enabled stages (1664 → 1629 → 8522 →
+8679 → 39069), which is the independent check that the switches really
+disable what they claim to.
 
-## What the stale-binary run did prove (accidentally, but it is real)
+Raw evidence: `raw/matrix/textedit-*.json` and the matching `.log` files,
+plus `raw/matrix/matrix-result.txt`.
 
-The single valid run that did happen captured, for **every** case including
-the document case, a complete document with `"status": "ok"` and a closing
-`---END JSON---`. Nothing crashed during the capture.
+## 4. Calculator regression — passes
 
-It also revealed why "state B" looked broken. With a document argument, at
-the instant the capture runs the only window in `[NSApplication windows]` is
-an `NSPanel` whose content view is `_NSAlertContentView` with `target
-NSAlert`, `action buttonPressed:` — TextEdit is showing an **alert**, and the
-capture was faithfully recording the alert rather than the document window.
-The earlier "TextEdit quit unexpectedly" sheet was that alert.
+Build `66b39198`, `stages=win,view,menu`, depth 12:
 
-So "state B produced no usable capture" was never a crash of the extractor.
-The extractor worked; it captured the wrong window because an alert owned the
-window list at that moment. Reproducing that needs the alert's text, which
-this capture shape does not record.
+* injection succeeded (build id seen 3× in the log)
+* window enumeration succeeded: 4 windows, primary index 1
+* contentView traversal succeeded: 29 views, 19 controls
+* frameView traversal succeeded: +33 views
+* menu traversal succeeded: 8 top-level items
+* JSON valid, `"status": "ok"`, `---BEGIN JSON---` / `---END JSON---` both present
+* Calculator remained **alive** for the whole 40 s window
 
-## Remaining possibilities for the original crash
+The earlier "Calculator quit unexpectedly" sheet did **not** reproduce in this
+run and was not dismissed-and-ignored: it came from a session whose runs were
+later shown to be using a stale binary, and no Calculator crash is
+reproducible with a verified build.
 
-Not yet distinguished, listed in the order the next run should test them:
+## 5. contentView vs frameView, per application
 
-1. The alert itself. TextEdit opening a document from `~/te.txt` on a FAT
-   share may raise a format/encoding alert; the crash reporter sheet that
-   followed could be a consequence of the app being killed while that alert
-   was up, not an extractor fault.
-2. `NSINSPECT_MENU_MAXDEPTH` unset in the old script meant the default 12.
-   Unbounded submenu recursion over `Services` menus, which are built
-   lazily from loaded bundles, is the most plausible extractor-side fault and
-   is exactly what case `d1` (depth 0) is designed to separate from `e1`.
-3. `Services` menus specifically. They are populated by the system and can
-   change while being read, which a recursive walk does not guard against.
+The two applications are compared separately; object identities and counts are
+never merged.
 
-## Why the TextEdit capture has only 8 views
-
-The 8 views are the complete content tree and nothing filtered it out:
-`depth_max` is 32 and `view_cap` is 4000, and the walk reported 8 distinct
-objects with 0 duplicate visits.
+**Calculator** — primary window `NSWindow "Calculator"`, frame
+`[107, 88, 273, 207]`:
 
 ```
-NSView (content)
-└── NSKVONotifying_ScalingScrollView
-    └── NSClipView
-        ├── _NSClipViewOverhangView
-        ├── _NSClipViewOverhangView
-        └── NSKVONotifying_NSTextView
-NSKVONotifying_NSScroller
-NSScroller
+NSThemeFrame                       <- the window frame; absent from contentView
+  _NSThemeCloseWidget  [7,188,14,16]
+  _NSThemeWidget       [47,188,14,16]
+  _NSThemeWidget       [27,188,14,16]
+  NSView               [0,0,273,185]      <- content view, same root as before
+    ... LCDBackgroundView, NSTextFields, RPNTableView, NSScrollView ...
 ```
 
-The toolbar with font controls and the ruler visible in
-`textedit-crash-screen.ppm` are **not in the content view hierarchy** on
-10.9: they are drawn into the window's theme frame. A content-view walk
-cannot see them at any depth. This milestone adds `primary_frame_view`,
-walked from `-[NSWindow frameView]` with an independent visit set, which is
-the measurement that settles it. It has been built and contract-tested but
-**no guest run of it has completed yet**, so the frame-view counts are still
-unknown.
+The theme frame adds the three traffic-light widgets, which is the concrete
+proof that the frame-view walk reaches objects the content walk cannot.
 
-## Input reliability (requirement 4)
+**TextEdit** — the primary window in every capture is an `NSPanel` with an
+`_NSAlertContentView`, so the comparison for TextEdit is between the *alert's*
+content view and the *alert's* frame view:
 
-The corruption seen earlier was **not** the virtual keyboard. Two independent
-causes were identified and both are now avoided:
+```
+NSThemeFrame                  [0,0,420,193]
+  _NSAlertContentView         [0,0,420,171]
+    NSImageView / 2x NSTextField / 2x NSButton
+```
 
-* `_` really does arrive as `-` for typed text (`DYLD-INSERT-LIBRARIES` in a
-  failed log), so no environment variable is ever typed.
-* The "NSINSPECT not found" error was `mcopy` (Defect 2), not the keyboard.
+**TextEdit's toolbar and ruler are therefore still unproven.** The document
+window has never been the primary window in any capture, so no measurement of
+its toolbar exists yet. This is not a gap in the extractor — it is the same
+alert described next.
 
-The matrix is driven entirely by a script on the share; the only typed
-characters are `sh /volumes/mvns/run.sh`, all lowercase, no shifted keys.
+## 6. Why the NSAlert appears (Priority 5)
 
-## Regression status
+The alert text is now captured (`text_value` for `NSTextField`/`NSTextView`
+was added for exactly this):
 
-`tests/uiref/test_nsinspect.py` and `python3 tools/lint-tests.py` pass
-(0 errors). The Calculator runtime capture has **not** been re-run against
-this build — the earlier "Calculator quit unexpectedly" sheet on screen
-predates this milestone and its cause was not investigated. This is an open
-item, not a passed check.
+> "The last time you opened TextEdit, it unexpectedly quit while reopening
+> windows. Do you want to try to reopen its windows again?"
+> "If you choose not to reopen windows, you may have to open and position the
+> windows yourself."
+
+Findings:
+
+* The alert is **TextEdit's reopen-windows restoration prompt**, raised by
+  `NSDocumentManager` at launch.
+* It is **not** caused by the document argument. Cases E and G — with and
+  without a document on the command line — produced byte-identical log sizes
+  (39069) and identical window lists (1 window, the alert panel).
+* It is **not** caused by the extractor. It is present in runs with
+  `NSINSPECT_STAGES=none` as well.
+* `-ApplePersistenceIgnoreState YES` does **not** suppress it (case G still
+  captures the panel).
+* The capture fires from the first run-loop turn, which is before the alert is
+  dismissed, so the alert legitimately owns `[NSApplication windows]` at that
+  moment. The extractor is behaving correctly.
+
+### What is blocked and why
+
+Clearing the alert means answering it, which writes to TextEdit's persistent
+session state. This milestone must not modify persistent user data, so the
+alert was left in place and TextEdit's document window remains uncaptured.
+
+To unblock it, with explicit owner approval, either:
+
+1. Click **Don't Reopen** once in the guest. This clears the pending
+   restoration record and TextEdit then launches to a clean document window.
+   It is normal app operation, but it does change persistent session state.
+2. Or delete TextEdit's saved-application-state entry
+   (`~/Library/Saved Application State/com.apple.TextEdit.savedState`) — more
+   destructive, same effect.
+
+Option 1 is the right one. Once the alert is gone, the existing `m_g_doc` case
+will capture the real `Untitled` document window and the toolbar/ruler
+question can be answered with the frame-view walk that is already working.
+
+## 7. Remaining defects, stated plainly
+
+* `NSINSPECT_DELAY` does not work and is not claimed to.
+* `NSINSPECT_CAPTURE_POINT=window` installs but does not fire on these apps.
+* TextEdit's document window, its toolbar and its ruler are still uncaptured,
+  blocked on the restoration alert.
+* `text_value` is captured for `NSTextField`/`NSTextView` only; `NSTextView`
+  document content is truncated at 1023 bytes and is not a document dump.

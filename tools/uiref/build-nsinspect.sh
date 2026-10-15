@@ -53,6 +53,18 @@ clang -target x86_64-apple-macos10.9 -nostdinc -fPIC -nostdlib -fuse-ld=lld -sha
 clang -target x86_64-apple-macos10.9 -nostdinc -fPIC -nostdlib -fuse-ld=lld -shared -w \
       -Wl,-install_name,/usr/lib/libobjc.A.dylib  -o "$stubdir/libobjc.A.dylib"  "$stubdir/libobjc.c"
 
+# --- build identity --------------------------------------------------------
+# Derived from the source CONTENT and the flavour being built, so it changes
+# whenever the code changes and differs between flavours of the same source.
+# (Hashing the path instead of the bytes was a bug: the id stayed constant
+# across real code changes, which is exactly what it exists to detect.)
+srcsum=$(sha256sum "$src" | cut -d' ' -f1)
+SRC_SHA=$srcsum
+BID_ALL=$(printf '%s:all'   "$srcsum" | sha256sum | cut -c1-8)
+BID_FW=$(printf '%s:fw'     "$srcsum" | sha256sum | cut -c1-8)
+BID_FULL=$(printf '%s:full'   "$srcsum" | sha256sum | cut -c1-8)
+BID_TOOL=$(printf '%s:tool'   "$srcsum" | sha256sum | cut -c1-8)
+
 common=(
   -target x86_64-apple-macos10.9
   -nostdinc
@@ -67,21 +79,22 @@ common=(
   "$stubdir/libSystem.B.dylib" "$stubdir/libobjc.A.dylib"
   -Wl,-undefined,dynamic_lookup
   -Wno-deprecated-non-prototype
+  -DNSINSPECT_BUILD_ID="\"$BID_ALL\""
 )
 
 echo "building $outdir/nsinspect.dylib"
 clang "${common[@]}" -dynamiclib -o "$outdir/nsinspect.dylib" "$src"
 
 echo "building $outdir/nsinspect-fw.dylib (minimal first-window probe)"
-clang "${common[@]}" -DNSINSPECT_FIRSTWINDOW -dynamiclib \
+clang "${common[@]}" -DNSINSPECT_BUILD_ID="\"$BID_FW\"" -DNSINSPECT_FIRSTWINDOW -dynamiclib \
       -o "$outdir/nsinspect-fw.dylib" "$src"
 
 echo "building $outdir/nsinspect-full.dylib (all windows + recursive views)"
-clang "${common[@]}" -DNSINSPECT_FULL -dynamiclib \
+clang "${common[@]}" -DNSINSPECT_BUILD_ID="\"$BID_FULL\"" -DNSINSPECT_FULL -dynamiclib \
       -o "$outdir/nsinspect-full.dylib" "$src"
 
 echo "building $outdir/nsinspect-tool"
-clang "${common[@]}" -DNSINSPECT_TOOL -o "$outdir/nsinspect-tool" "$src"
+clang "${common[@]}" -DNSINSPECT_BUILD_ID="\"$BID_TOOL\"" -DNSINSPECT_TOOL -o "$outdir/nsinspect-tool" "$src"
 
 echo "smoke: host-side self test (fake runtime, proves the JSON writer)"
 clang -DNSINSPECT_SELFTEST -Wall -Wextra -o "$outdir/nsinspect-selftest" "$src"
@@ -97,5 +110,12 @@ print("self test OK: schema=%s status=%s windows=%s controls=%s" % (
 PY
 
 echo
+cat > "$outdir/nsinspect-build-id.txt" <<EOF
+nsinspect.dylib      $BID_ALL
+nsinspect-fw.dylib   $BID_FW
+nsinspect-full.dylib $BID_FULL
+nsinspect-tool       $BID_TOOL
+EOF
+cat "$outdir/nsinspect-build-id.txt"
 file "$outdir/nsinspect.dylib" "$outdir/nsinspect-tool" 2>/dev/null || true
 echo "done: $outdir"

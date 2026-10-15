@@ -1,0 +1,26 @@
+
+{
+  "schema": "mavlinos.nsinspect/1",
+  "build_id": "66b39198",
+  "kind": "runtime-observed",
+  "mode": "full-capture",
+  "extractor": "nsinspect.c",
+  "source": "live Objective-C objects in the host process",
+  "pid": 1584,
+  "depth_max": 32,
+  "view_cap": 4000,
+  "stages": {"win": false, "view": false, "menu": false, "menu_maxdepth": 12},
+  "window_count": 1,
+  "windows": [
+    {"index": 0, "object": "0x7f8119452490", "class": "NSPanel", "superclasses": ["NSWindow", "NSResponder", "NSObject"], "title": "", "visible": true, "key": false, "main": false, "can_be_key": true, "can_be_main": false, "level": 0, "frame": [430, 390, 420, 193], "frame_source": "NSInvocation", "is_primary": true}
+  ],
+  "primary_window_index": 0,
+  "main_menu": null,
+  "primary_content_view": null,
+  "views_visited": 0,
+  "controls_found": 0,
+  "primary_frame_view": null,
+  "frame_view_total_views": 0,
+  "status": "ok"
+}
+

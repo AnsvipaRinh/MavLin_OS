@@ -1,7 +1,7 @@
 # Claim: opencode-ui-runtime-guest
 
 agent: opencode
-task: TextEdit crash isolation — switches+markers implemented and committed; test matrix blocked by stale-dylib/mcopy/VFAT-cache defects
+task: TextEdit crash isolation complete (7/7 matrix cases, Calculator regression pass); document window blocked on TextEdit restoration alert pending owner approval
 paths: tools/uiref/**, tests/uiref/**, docs/UI_REFERENCE/**, .agents/claims/20261013-opencode-ui-runtime-guest.md
 expires: 2026-10-15T20:00Z
 started: 2026-10-13
@@ -14,3 +14,4 @@ note: >
 
 - 2026-10-15: TextEdit state A captured (2 windows, 8 views, 166 menu items); state B (document argument) still hangs in traversal and is recorded as an open gap.
 - 2026-10-15: isolation machinery landed (NSINSPECT_STAGES, NSINSPECT_MENU_MAXDEPTH, fd-2 stage markers, primary_frame_view). Matrix run blocked by three documented guest-side defects; findings and the exact rerun procedure are in docs/UI_REFERENCE/runtime/raw/textedit-crash-isolation.md.
+- 2026-10-15: build-identity + verified deployment landed (sha256-derived build id, md5-checked immutable VFAT artifacts, non-zero deploy failure). Full 7-case matrix passes, menu traversal eliminated as crash cause, NSThemeFrame/traffic lights captured via frameView. TextEdit document window blocked by its reopen-windows alert; clearing it would modify persistent session state.
