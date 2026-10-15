@@ -1,0 +1,26 @@
+{
+  "schema": "mavlinos.axinspect/1",
+  "kind": "runtime-observed",
+  "method": "AXUIElement (HIServices)",
+  "extractor": "mvax.c",
+  "source": "cross-process accessibility tree",
+  "not_an_nsview_tree": true,
+  "host_pid": 1085,
+  "ax_is_process_trusted": false,
+  "depth_limit": 24,
+  "system_wide_children_err": -25205,
+  "targets": [
+    { "name": "Finder", "pid": 430,
+      "app_identifier": null,
+      "app_title": null,
+      "attribute_names_err": -25204, "attribute_names": [],
+      "actions_err": -25204, "actions": [],
+      "focused_window": null,
+      "windows_err": -25204, "windows": [],
+      "ax_errors": { "create_application": 0, "windows": -25204,
+                     "app_identifier": -25201, "children": -25201 },
+      "nodes_visited": 0 }
+  ],
+  "targets_inspected": 1,
+  "status": "ok"
+}

@@ -4,8 +4,21 @@ Target: make `nsinspect.dylib` load into a running Mavericks app via
 `DYLD_INSERT_LIBRARIES` and write a document describing that app's real
 `NSWindow` / `NSView` graph.
 
-Host app for the trials: `/Applications/Calculator.app`.
+Host apps for the trials: `/Applications/Calculator.app`, `/System/Library/…/Finder.app`.
 Runner (in the guest): `sh /Volumes/NSINSPECT/run.sh /Applications/Calculator.app calc`.
+
+## Summary of the final state
+
+Injection **works**; it was misdiagnosed for most of this investigation. The
+three real mechanisms behind every crash are now identified and each is backed
+by an isolated experiment, not by guesswork:
+
+| # | Finding | How it was proved |
+|---|---|---|
+| F1 | A `DYLD_INSERT_LIBRARIES` constructor **does** run inside a Mavericks app | `probe-insert.dylib` printed its banner inside Calculator and the app stayed alive |
+| F2 | Calling **`pthread_create` from that constructor deadlocks** on 10.9 | `probe-insert` thread starts, then never finishes; the host hangs |
+| F3 | Calling **`dlsym` from that constructor segfaults** | the fault moved between runs, once inside the resolver and once past it |
+| F4 | **Platform binaries strip `DYLD_*`** — injection is impossible for Finder and System Preferences | Finder launched with an injected library produced an empty log: the library was never loaded |
 
 ## 1. Original build (`-nostdlib -undefined dynamic_lookup`)
 
@@ -15,7 +28,7 @@ Segmentation fault: 11   DYLD_INSERT_LIBRARIES=... /Applications/Calculator.app/
 
 No breadcrumb file, no dyld message. The app died at load.
 
-## 2. Standalone tool, same build — different failure
+## 2. Standalone tool, same build — a different failure
 
 ```
 dyld: Symbol not found: __stack_chk_guard
@@ -33,16 +46,15 @@ dyld: Symbol not found: dyld_stub_binder
 ```
 
 The main executable cannot obtain dyld's lazy-binding callback because it has
-no library dependencies at all. (The same error never appeared for the
-*dylib*; only the executable needs the binder imported by name.)
+no library dependencies at all.
 
 ### 3a. Defining the binder in the source
 
-A C definition became an `N_ABS` symbol outside any section (dyld will not
-bind it). Emitting it into `__TEXT,__text` by hand did produce a real symbol —
-but it was a bare `ret`, which **replaced lld's own working binder** and broke
-every lazy call, so the injected image then died before its constructor.
-Reverted: lld's binder must be left alone.
+A C definition became an `N_ABS` symbol outside any section (dyld will not bind
+it). Emitting it into `__TEXT,__text` by hand did produce a real symbol — but
+it was a bare `ret`, which **replaced lld's own working binder** and broke every
+lazy call, so the injected image then died before its constructor. Reverted:
+lld's binder must be left alone.
 
 ## 4. Link-time stubs with real guest install names
 
@@ -58,40 +70,80 @@ libSystem/libobjc at launch.
 
 - With `-nostdlib` and no `-undefined dynamic_lookup`, `lld` refuses the link:
   `ld64.lld: error: undefined symbol: dyld_stub_binder`.
-- With the stubs **plus** `-Wl,-undefined,dynamic_lookup`, the link succeeds
-  and the standalone tool runs in the guest (`exit=0`, valid 246-byte
-  document). This is the first successful real-guest execution.
+- With the stubs **plus** `-Wl,-undefined,dynamic_lookup`, the link succeeds and
+  the standalone tool runs in the guest (`exit=0`, valid 246-byte document).
 
-## 5. Injected dylib after the fix — still fails
+**This was the fix that made the binary loadable at all.**
+
+## 5. Isolating the injection itself (F1, F2)
+
+Built `tools/uiref/probe-insert.c`: the smallest possible injected dylib, whose
+constructor calls only `write(2)` and `getpid()`.
 
 ```
-Segmentation fault: 11   DYLD_INSERT_LIBRARIES="$HOME/ns/nsinspect.dylib" ...
+== injecting minimal probe into Calculator ==
+probe-insert: constructor ran, pid=1112
+Calculator still running (pid 1112)
 ```
 
-Breadcrumb file `/tmp/nsinspect-stage.log` was **never created**, so the fault
-happens before the constructor's first statement, i.e. during image
-initialisation rather than in our code. Three code variants were tried, all
-with the same result:
+Injection is fine. Adding one line — `pthread_create` — produced:
 
-| Constructor behaviour | Result |
-|---|---|
-| inspect immediately, then `_exit` | app exited without a document |
-| swizzle `-[NSApplication run]`, dump from the run loop | `SIGSEGV`, no breadcrumb |
-| start one worker thread, sleep, `performSelectorOnMainThread:` | `SIGSEGV`, no breadcrumb |
+```
+probe-insert: constructor ran, pid=1262
+probe-insert: thread started
+Calculator still running (pid 1262)
+```
 
-The consistent absence of the first breadcrumb points at dyld's early
-initialisation of an inserted image, not at our logic: at that point the host
-process' own dependencies are not yet initialised, and our image's lazy
-symbols still have nothing to bind against.
+and **never** printed either `pthread_create returned` (emitted by the
+constructor after the call) or `thread slept ok` (emitted by the thread after a
+3 s sleep). Both the thread and the constructor are blocked: spawning a thread
+from an injected constructor deadlocks on Mavericks. That rules out the entire
+"background worker" design for in-process capture.
 
-## Conclusion / next step
+## 6. Fixing the constructor (F3)
 
-The `-nostdlib` + link-time-stub approach is good enough to produce a binary
-the guest **executes**, but not one it will accept as an *inserted* library.
-Closing this needs a real SDK (or libSystem/libobjc import libraries) so the
-image is linked with genuine dependencies and eager binding. The alternative,
-which avoids injection entirely, is to collect the same facts through
-`AXUIElement` from a separate process.
+Moving every external call out of the constructor into a worker thread moved
+the failure exactly as F2 predicts. An intermediate revision still called
+`resolve_runtime()` (i.e. `dlsym`) in the constructor and produced:
 
-Keep this file: a future toolchain change must be able to tell whether the
-failure moved, or disappeared.
+```
+nsinspect: constructor entered
+nsinspect: worker: start
+nsinspect: worker: runtime resolved      <- one run
+...
+nsinspect: worker: start                 <- another run died inside resolve
+```
+
+A failure that changes position between runs is a race, not a bad call. The
+constructor now does nothing but `write(2)` and `pthread_create`; `dlsym` was
+moved after a delay. Both are still blocked by F2.
+
+## 7. Platform binaries (F4)
+
+```
+== launching Finder with the extractor injected ==
+== finder stderr ==
+                        <- empty: the library never loaded
+```
+
+Finder and System Preferences live under `/System` and are signed as part of
+the OS. macOS removes `DYLD_*` from the environment of such binaries, so
+**injection into Finder and System Preferences is not possible on 10.9** by
+this route, and no amount of code in our dylib can change that. Any native
+in-process capture of those two applications needs a different mechanism
+(a debugger, Mach task APIs, or an OS-level capture such as the accessibility
+API from a trusted client).
+
+## 8. Where this leaves Track B
+
+* Injection into non-platform apps: **proven**.
+* Thread/worker hand-off from an injected constructor: **deadlocks** (F2), so
+  the capture must run on a thread that already exists.
+* Signal-driven capture is the remaining option and is implemented in
+  `mvax.c` (`-DMVAX_INJECT`): a `SIGALRM` handler needs no thread and no run
+  loop. It loads and arms correctly (`mvax-inject: loaded`,
+  `mvax-inject: SIGALRM armed for 9s`) but has not yet produced a document; that
+  step is still open.
+
+Keep this file: a future toolchain or OS change must be able to tell whether a
+finding moved, or disappeared.

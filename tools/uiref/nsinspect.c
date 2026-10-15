@@ -53,6 +53,9 @@ extern int rename(const char *from, const char *to);
 extern int unlink(const char *path);
 extern void _exit(int code);
 extern int strcmp(const char *a, const char *b);
+static unsigned long strlen_local(const char *s) {
+    unsigned long n = 0; while (s[n]) n++; return n;
+}
 extern unsigned long fwrite(const void *p, unsigned long size, unsigned long n, FILE *f);
 extern int getpid(void);
 
@@ -438,6 +441,17 @@ static int nsinspect_run(void) {
 extern int pthread_create(void *th, const void *attr,
                           void *(*start)(void *), void *arg);
 extern unsigned int sleep(unsigned int seconds);
+extern long write(int fd, const void *buf, unsigned long count);
+
+/* The constructor runs while dyld is still bringing the image up: stdio is not
+   initialised and the dynamic loader is not ready to resolve anything.  A plain
+   write(2) is the only thing safe here, so it is what every early breadcrumb
+   uses. */
+static void nsinspect_banner(const char *msg) {
+    write(2, "nsinspect: ", 11);
+    write(2, msg, (unsigned long)strlen_local(msg));
+    write(2, "\n", 1);
+}
 
 /* Append a breadcrumb so a crash in the guest tells us how far we got. */
 static void nsinspect_trace(const char *msg) {
@@ -457,37 +471,61 @@ static void nsinspect_dump_now(id target, SEL _cmd, id timer) {
     nsinspect_trace("stage:dump-done");
 }
 
+/* Runs on the MAIN thread, inside the AppKit run loop: everything here is
+   safe to call because the window server is fully up. */
+static void nsinspect_dump_on_main(id obj, SEL _cmd, id arg) {
+    (void)obj; (void)_cmd; (void)arg;
+    nsinspect_banner("main-thread: capture start");
+    nsinspect_run();
+    nsinspect_banner("main-thread: capture done");
+}
+
 static void *nsinspect_worker(void *arg) {
     (void)arg;
-    nsinspect_trace("stage:worker-start");
-    /* Let the host app create its windows before we inspect them. */
-    sleep(9);
-    nsinspect_trace("stage:worker-after-sleep");
-    Class NSApp = fn_objc_getClass("NSApplication");
-    nsinspect_trace("stage:worker-class-lookup");
-    if (!NSApp || !fn_msgSend) return 0;
-    id app = send_id(NSApp, "sharedApplication");
-    nsinspect_trace("stage:worker-shared-app");
-    if (!app) return 0;
-    SEL dump = S("nsinspect_dump:");
-    if (fn_class_addMethod &&
-        fn_class_addMethod(NSApp, dump, (void *)nsinspect_dump_now, "v@:@")) {
-        id (*vsend)(id, SEL, ...) = (id (*)(id, SEL, ...))fn_msgSend;
-        nsinspect_trace("stage:worker-perform");
-        vsend(app, S("performSelectorOnMainThread:withObject:waitUntilDone:"),
-              dump, 0, 1);
-        nsinspect_trace("stage:worker-perform-returned");
-    }
+    nsinspect_banner("worker: start");
+
+    /* Wait first, resolve second.  dlsym() called the instant this thread is
+       created races with the host's own initialisation: the failure moved
+       between runs, once past the resolver and once inside it, which is the
+       signature of a race rather than of a specific bad call. */
+    sleep(6);
+    nsinspect_banner("worker: slept");
+
+    if (!resolve_runtime()) { nsinspect_banner("worker: no ObjC runtime"); return 0; }
+    nsinspect_banner("worker: runtime resolved");
+
+    /* AppKit must never be touched from this thread, and even
+       +[NSApplication sharedApplication] off the main thread aborts the host.
+       So we post a plain selector to the main run loop instead; it is carried
+       by an ordinary NSObject, which needs no AppKit to create. */
+    Class NSObject = fn_objc_getClass("NSObject");
+    nsinspect_banner("worker: objc_getClass done");
+    if (!NSObject || !fn_msgSend) { nsinspect_banner("worker: no NSObject"); return 0; }
+    SEL dump = S("nsinspect_dumpOnMainThread:");
+    if (fn_class_addMethod)
+        fn_class_addMethod(NSObject, dump, (void *)nsinspect_dump_on_main, "v@:@");
+    nsinspect_banner("worker: method added");
+
+    id (*vsend)(id, SEL, ...) = (id (*)(id, SEL, ...))fn_msgSend;
+    id dummy = vsend(NSObject, S("alloc"));
+    nsinspect_banner("worker: alloc done");
+    if (!dummy) { nsinspect_banner("worker: alloc failed"); return 0; }
+    dummy = vsend(dummy, S("init"));
+    nsinspect_banner("worker: init done");
+    vsend(dummy, S("performSelectorOnMainThread:withObject:waitUntilDone:"),
+          dump, 0, 0);
+    nsinspect_banner("worker: posted to main thread");
     return 0;
 }
 
 __attribute__((constructor)) static void nsinspect_init(void) {
-    nsinspect_trace("stage:constructor-enter");
-    /* dlsym() is safe this early; the Objective-C runtime is not touched yet. */
-    if (!resolve_runtime()) { nsinspect_trace("stage:constructor-runtime-failed"); return; }
-    nsinspect_trace("stage:constructor-runtime-ok");
+    /* Nothing but a breadcrumb and a thread.  An earlier revision called
+       resolve_runtime() here, i.e. dlsym(), and every injected host died with
+       SIGSEGV before this point: the dynamic loader is not usable yet.  See
+       docs/UI_REFERENCE/runtime/raw/injection-attempts.md. */
+    nsinspect_banner("constructor entered");
     pthread_create(0, 0, nsinspect_worker, 0);
-    nsinspect_trace("stage:constructor-thread-started");
+    nsinspect_banner("worker thread started");
 }
 #else
 int main(void) { return nsinspect_run(); }
