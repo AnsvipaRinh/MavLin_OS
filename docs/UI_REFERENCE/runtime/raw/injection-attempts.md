@@ -134,7 +134,63 @@ in-process capture of those two applications needs a different mechanism
 (a debugger, Mach task APIs, or an OS-level capture such as the accessibility
 API from a trusted client).
 
-## 8. Where this leaves Track B
+## 8. A working injection architecture
+
+Each earlier attempt moved the failure by guessing. Stepping the constructor
+forward one verified primitive at a time produced a chain that now runs to
+completion in Calculator:
+
+```
+nsinspect: loaded
+nsinspect: callbacks published on NSObject
+nsinspect: -[NSApplication run] swizzled
+nsinspect: run hook entered
+nsinspect: capture queued
+nsinspect: main-thread: capture begin
+nsinspect: run: classes resolved
+nsinspect: run: sharedApplication
+nsinspect: run: got windows array
+```
+
+and **Calculator stays alive throughout** (pid reported still running).
+
+What each link needed, all established by isolation rather than assumption:
+
+| Step | Why this one |
+|---|---|
+| `objc_getClass` from the constructor | probe-insert: the ObjC runtime *is* usable there |
+| `class_addMethod` to publish callbacks | plain runtime call, proven safe |
+| swizzle `-[NSApplication run]` instead of posting from the constructor | `performSelectorOnMainThread:` needs a run loop, which does not exist yet; inside `run` it does |
+| resolve the runtime only in the main-thread callback | `dlsym` in the constructor is a race |
+| no worker thread at all | `pthread_create` from the constructor deadlocks |
+
+## 9. Still open: the capture does not finish
+
+The chain reaches `run: got windows array` and then stops, before finishing the
+first window's attributes. Two genuine defects were found and fixed on the way
+(and neither could have been found without a real window to look at):
+
+1. **`Class p = c; while (p) {...}` never advanced `p`** — an infinite loop on
+   the first control view, left behind next to a correct superclass walk.
+2. **NSRect returned with the wrong ABI.** `NSRect` is four doubles (32 bytes),
+   so x86_64 returns it through a hidden pointer; casting `objc_msgSend` to
+   `ns_rect (*)(id, SEL)` shifted every argument and handed the receiver the
+   sret pointer.
+
+A third, also fixed: window titles were `NSString` objects cast straight to
+`const char *` and printed with `%s`, which walks whatever memory follows the
+object.
+
+What is therefore established, and what is not:
+
+* Established: injection into ordinary apps, a safe main-thread execution
+  context, survival of the target application, and a working
+  constructor -> swizzle -> run loop -> capture path.
+* **Not** established: a completed document containing real NSWindow/NSView
+  objects. No runtime-observed view has been recorded yet, so no such claim is
+  made anywhere in this repository.
+
+## 10. Where this leaves Track B
 
 * Injection into non-platform apps: **proven**.
 * Thread/worker hand-off from an injected constructor: **deadlocks** (F2), so

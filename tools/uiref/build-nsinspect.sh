@@ -47,7 +47,7 @@ gen_stub "$stubdir/libsys.c" _dyld_stub_binder dlopen dlsym getenv fopen fclose 
     pthread_create sleep
 gen_stub "$stubdir/libobjc.c" objc_getClass sel_registerName objc_msgSend sel_getName \
     class_getName class_getSuperclass object_getClass class_getInstanceMethod \
-    method_getImplementation method_setImplementation class_addMethod
+    method_getImplementation method_setImplementation class_addMethod class_createInstance
 clang -target x86_64-apple-macos10.9 -nostdinc -fPIC -nostdlib -fuse-ld=lld -shared -w \
       -Wl,-install_name,/usr/lib/libSystem.B.dylib -o "$stubdir/libSystem.B.dylib" "$stubdir/libsys.c"
 clang -target x86_64-apple-macos10.9 -nostdinc -fPIC -nostdlib -fuse-ld=lld -shared -w \

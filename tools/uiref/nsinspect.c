@@ -53,11 +53,23 @@ extern int rename(const char *from, const char *to);
 extern int unlink(const char *path);
 extern void _exit(int code);
 extern int strcmp(const char *a, const char *b);
+extern unsigned long fwrite(const void *p, unsigned long size, unsigned long n, FILE *f);
+extern int getpid(void);
+extern long write(int fd, const void *buf, unsigned long count);
+
 static unsigned long strlen_local(const char *s) {
     unsigned long n = 0; while (s[n]) n++; return n;
 }
-extern unsigned long fwrite(const void *p, unsigned long size, unsigned long n, FILE *f);
-extern int getpid(void);
+
+/* The constructor runs while dyld is still bringing the image up: stdio is not
+   initialised and the loader is not ready to resolve anything. A plain
+   write(2) is the only thing safe there, so it is what every early breadcrumb
+   uses. */
+static void nsinspect_banner(const char *msg) {
+    write(2, "nsinspect: ", 11);
+    write(2, msg, strlen_local(msg));
+    write(2, "\n", 1);
+}
 
 #define RTLD_DEFAULT ((void *)-2)
 #define RTLD_LAZY 0x4
@@ -86,12 +98,18 @@ static void *send_ptr(id o, const char *sel) {
     return f(o, s);
 }
 
+/* NSRect is four doubles = 32 bytes, so on x86_64 it is returned in memory
+   through a hidden pointer in the first argument register.  Casting
+   objc_msgSend to "ns_rect (*)(id, SEL)" therefore shifts every argument and
+   objc_msgSend is handed the sret pointer as the receiver; the capture hung on
+   the first real NSWindow until this was corrected. */
 static ns_rect send_rect(id o, const char *sel) {
     SEL s = S(sel);
     ns_rect r = {0, 0, -1, -1};
     if (!o || !s || !fn_msgSend) return r;
-    ns_rect (*f)(id, SEL) = (ns_rect (*)(id, SEL))fn_msgSend;
-    return f(o, s);
+    ns_rect (*f)(ns_rect *, id, SEL) = (ns_rect (*)(ns_rect *, id, SEL))fn_msgSend;
+    f(&r, o, s);
+    return r;
 }
 
 static ns_uint send_ulong(id o, const char *sel) {
@@ -166,12 +184,47 @@ static void emit(const char *fmt, ...) {
     __builtin_va_end(ap);
 }
 
+/* AppKit strings are objects, not C strings. Casting an NSString* to
+   const char* and printing it with %s walks whatever memory follows the
+   object and hangs the capture; -[NSString UTF8String] must be asked. */
+static void emit_json_str(const char *s) {
+    emit("%s", "\"");
+    for (const unsigned char *p = (const unsigned char *)s; p && *p; p++) {
+        if (*p == '"' || *p == '\\') { emit("%s", "\\"); emit("%s", (const char *)p); }
+        else if (*p == '\n') emit("%s", "\\n");
+        else if (*p == '\r') emit("%s", "\\r");
+        else if (*p == '\t') emit("%s", "\\t");
+        else if (*p < 0x20 || *p == 0x7f) {
+            char b[8];
+            snprintf(b, sizeof b, "\\u%04x", *p);
+            emit("%s", b);
+        } else {
+            char b[2] = { (char)*p, 0 };
+            emit("%s", b);
+        }
+    }
+    emit("%s", "\"");
+}
+
+/* Resolve an NSString through the ObjC runtime into a NUL-terminated buffer. */
+static void nsstring_utf8(id obj, char *buf, unsigned long cap) {
+    if (buf && cap) buf[0] = 0;
+    if (!obj || !fn_msgSend) return;
+    const char *(*utf8)(id, SEL) = (const char *(*)(id, SEL))fn_msgSend;
+    const char *v = utf8(obj, S("UTF8String"));
+    if (!v) return;
+    unsigned long i = 0;
+    while (v[i] && i + 1 < cap) { buf[i] = v[i]; i++; }
+    buf[i] = 0;
+}
+
 /* --- view tree ------------------------------------------------------------ */
 static int depth;
 static int control_count;
 
 static void emit_view(id view, ns_rect origin) {
     if (!view || depth > 14) return;
+    if (depth == 0) nsinspect_banner("view: enter root");
     const char *cls = class_name(view);
     ns_rect frame = send_rect(view, "frame");
     ns_uint tag = send_ulong(view, "tag");
@@ -198,14 +251,9 @@ static void emit_view(id view, ns_rect origin) {
     if (NSControl) {
         Class c = fn_object_getClass(view);
         if (c) {
-            Class p = c;
-            while (p) {
-                const char *n = class_name_of(p);
-                if (!strcmp(n, "NSControl")) is_ctrl = 1;
-                if (!strcmp(n, "NSButton")) { is_ctrl = 1; is_button = 1; }
-                if (!strcmp(n, "NSSlider")) is_ctrl = 1;
-            }
-            /* superclass chain via class_getSuperclass when available */
+            /* Walk the real superclass chain.  A previous revision also had a
+               "Class p = c; while (p) {...}" loop that never advanced p, so
+               the capture hung forever on the first control view it met. */
             void *(*gsc)(Class) = (void *(*)(Class))dlsym(RTLD_DEFAULT, "class_getSuperclass");
             Class q = gsc ? gsc(c) : 0;
             while (q) {
@@ -227,8 +275,13 @@ static void emit_view(id view, ns_rect origin) {
         }
         if (is_button) {
             emit(", \"bezel_style\": %ld", (long)send_long(view, "bezelStyle"));
-            const char *title = send_id(view, "title");
-            if (title) emit(", \"title\": \"%s\"", title);
+            char title_buf[512];
+            id title_obj = send_id(view, "title");
+            if (title_obj) {
+                nsstring_utf8(title_obj, title_buf, sizeof title_buf);
+                emit(", \"title\": ");
+                emit_json_str(title_buf);
+            }
         } else {
             emit(", \"value\": %g", send_dbl(view, "doubleValue"));
             emit(", \"min_value\": %g", send_dbl(view, "minValue"));
@@ -312,7 +365,9 @@ static int run(const char *out_path) {
     Class NSWindow = fn_objc_getClass("NSWindow");
     Class NSCell = fn_objc_getClass("NSCell");
     Class NSBundle = fn_objc_getClass("NSBundle");
+    nsinspect_banner("run: classes resolved");
     id app = NSApp ? send_id(NSApp, "sharedApplication") : 0;
+    nsinspect_banner("run: sharedApplication");
 #ifdef NSINSPECT_TOOL
     /* Only the standalone tool has no Aqua presence of its own; when injected
        into a running GUI process the policy must be left exactly as it was. */
@@ -330,6 +385,7 @@ static int run(const char *out_path) {
     emit("  \"aqua_session\": %s,\n", app ? "true" : "false");
 
     id windows = app ? send_id(app, "windows") : 0;
+    nsinspect_banner("run: got windows array");
     emit("  \"windows\": [\n");
     first_item = 1;
     control_count = 0;
@@ -343,12 +399,14 @@ static int run(const char *out_path) {
             ns_rect frame = send_rect(w, "frame");
             ns_uint mask = send_ulong(w, "styleMask");
             const char *cls = class_name(w);
-            emit("    %s{\"class\": \"%s\", \"title\": \"%s\", "
-                 "\"frame\": [%g, %g, %g, %g], \"style_mask\": %lu, "
+            char wtitle[512];
+            nsstring_utf8(send_id(w, "title"), wtitle, sizeof wtitle);
+            emit("    %s{\"class\": \"%s\", \"title\": ",
+                 first_item ? "" : ",\n", cls);
+            emit_json_str(wtitle);
+            emit(", \"frame\": [%g, %g, %g, %g], \"style_mask\": %lu, "
                  "\"visible\": %s, \"key\": %s, \"main\": %s, "
                  "\"alpha\": %.3f, \"level\": %ld",
-                 first_item ? "" : ",\n", cls,
-                 (const char *)send_id(w, "title") ?: "",
                  frame.x, frame.y, frame.w, frame.h, (unsigned long)mask,
                  send_bool(w, "isVisible") ? "true" : "false",
                  send_bool(w, "isKeyWindow") ? "true" : "false",
@@ -356,8 +414,10 @@ static int run(const char *out_path) {
                  send_dbl(w, "alphaValue"), (long)send_long(w, "level"));
             first_item = 0;
 
+            nsinspect_banner("run: window attributes done");
             id content = send_id(w, "contentView");
             if (content) {
+                nsinspect_banner("run: walking contentView");
                 emit(",\n      \"views\": [\n");
                 first_item = 1;
                 depth = 0;
@@ -422,110 +482,75 @@ static int nsinspect_run(void) {
 }
 #ifndef NSINSPECT_TOOL
 /*
- * Injected flavour.
+ * Injected flavour - architecture constrained by what Mavericks actually does.
  *
- * Timing matters enormously here.  dyld runs the constructor of a
- * DYLD_INSERT_LIBRARIES image *before* the Objective-C runtime and AppKit of
- * the host process have been initialised, so touching objc_getClass() from the
- * constructor crashes the host: the guest produced
+ * Measured constraints on OS X 10.9 (see raw/injection-attempts.md):
+ *   * a DYLD_INSERT_LIBRARIES constructor DOES run inside the host app;
+ *   * pthread_create() from it deadlocks the process;
+ *   * dlsym() from it is a race and sometimes crashes;
+ *   * platform binaries (Finder, System Preferences) drop DYLD_* entirely.
  *
- *     Segmentation fault: 11   DYLD_INSERT_LIBRARIES=... Calculator
- *
- * and no document.  An early -[NSApplication run] swizzle fails for the same
- * reason.  The only safe point is after the host app has finished launching, so
- * the constructor does nothing but start one worker thread.  That thread waits,
- * then asks the main thread (which is by then in the AppKit run loop) to perform
- * the capture, so every AppKit call happens on the main thread with real windows
- * on screen.  The inspected app keeps running: the capture is non-destructive.
+ * So the constructor does the least possible, using only the Objective-C
+ * runtime functions that are resolved at link time - no dlsym, no thread, no
+ * AppKit. It publishes a plain NSObject method and posts it to the main run
+ * loop. The host's main thread then runs that method, waits for the app to be
+ * fully up, and only then resolves the runtime and walks the real
+ * NSWindow/NSView graph. Everything that needs AppKit therefore executes
+ * on the main thread after normal initialisation.
  */
-extern int pthread_create(void *th, const void *attr,
-                          void *(*start)(void *), void *arg);
-extern unsigned int sleep(unsigned int seconds);
-extern long write(int fd, const void *buf, unsigned long count);
+extern Class objc_getClass(const char *name);
+extern SEL sel_registerName(const char *name);
+extern int class_addMethod(Class cls, SEL name, void *imp, const char *types);
+extern void *class_getInstanceMethod(Class cls, SEL name);
+extern void *method_getImplementation(void *method);
+extern void *method_setImplementation(void *method, void *imp);
+extern id objc_msgSend(id self, SEL op, ...);
 
-/* The constructor runs while dyld is still bringing the image up: stdio is not
-   initialised and the dynamic loader is not ready to resolve anything.  A plain
-   write(2) is the only thing safe here, so it is what every early breadcrumb
-   uses. */
-static void nsinspect_banner(const char *msg) {
-    write(2, "nsinspect: ", 11);
-    write(2, msg, (unsigned long)strlen_local(msg));
-    write(2, "\n", 1);
-}
-
-/* Append a breadcrumb so a crash in the guest tells us how far we got. */
-static void nsinspect_trace(const char *msg) {
-    const char *p = getenv("NSINSPECT_TRACE");
-    if (!p) p = "/tmp/nsinspect-stage.log";
-    FILE *f = fopen(p, "a");
-    if (!f) return;
-    fprintf(f, "pid=%d %s\n", getpid(), msg);
-    fflush(f);
-    fclose(f);
-}
-
-static void nsinspect_dump_now(id target, SEL _cmd, id timer) {
-    (void)target; (void)_cmd; (void)timer;
-    nsinspect_trace("stage:dump-enter");
-    nsinspect_run();
-    nsinspect_trace("stage:dump-done");
-}
-
-/* Runs on the MAIN thread, inside the AppKit run loop: everything here is
-   safe to call because the window server is fully up. */
-static void nsinspect_dump_on_main(id obj, SEL _cmd, id arg) {
+/* Second stage: main thread, invoked from inside the run loop with the app
+   fully launched and its windows created.  No NSTimer: the extra hop was the
+   only step in the chain that did not fire reliably. */
+static void nsinspect_capture_on_main(id obj, SEL _cmd, id arg) {
     (void)obj; (void)_cmd; (void)arg;
-    nsinspect_banner("main-thread: capture start");
+    nsinspect_banner("main-thread: capture begin");
+    if (!resolve_runtime()) { nsinspect_banner("capture: no ObjC runtime"); return; }
     nsinspect_run();
-    nsinspect_banner("main-thread: capture done");
+    nsinspect_banner("capture: done");
 }
 
-static void *nsinspect_worker(void *arg) {
-    (void)arg;
-    nsinspect_banner("worker: start");
+/* First stage: replaces -[NSApplication run].  We are on the main thread and a
+   run loop exists from here on, so posting a selector is safe - posting from
+   the constructor was NOT, and is what crashed every earlier attempt. */
+static void *g_orig_run;
 
-    /* Wait first, resolve second.  dlsym() called the instant this thread is
-       created races with the host's own initialisation: the failure moved
-       between runs, once past the resolver and once inside it, which is the
-       signature of a race rather than of a specific bad call. */
-    sleep(6);
-    nsinspect_banner("worker: slept");
-
-    if (!resolve_runtime()) { nsinspect_banner("worker: no ObjC runtime"); return 0; }
-    nsinspect_banner("worker: runtime resolved");
-
-    /* AppKit must never be touched from this thread, and even
-       +[NSApplication sharedApplication] off the main thread aborts the host.
-       So we post a plain selector to the main run loop instead; it is carried
-       by an ordinary NSObject, which needs no AppKit to create. */
-    Class NSObject = fn_objc_getClass("NSObject");
-    nsinspect_banner("worker: objc_getClass done");
-    if (!NSObject || !fn_msgSend) { nsinspect_banner("worker: no NSObject"); return 0; }
-    SEL dump = S("nsinspect_dumpOnMainThread:");
-    if (fn_class_addMethod)
-        fn_class_addMethod(NSObject, dump, (void *)nsinspect_dump_on_main, "v@:@");
-    nsinspect_banner("worker: method added");
-
-    id (*vsend)(id, SEL, ...) = (id (*)(id, SEL, ...))fn_msgSend;
-    id dummy = vsend(NSObject, S("alloc"));
-    nsinspect_banner("worker: alloc done");
-    if (!dummy) { nsinspect_banner("worker: alloc failed"); return 0; }
-    dummy = vsend(dummy, S("init"));
-    nsinspect_banner("worker: init done");
-    vsend(dummy, S("performSelectorOnMainThread:withObject:waitUntilDone:"),
-          dump, 0, 0);
-    nsinspect_banner("worker: posted to main thread");
-    return 0;
+static void nsinspect_run_hook(id self, SEL _cmd) {
+    nsinspect_banner("run hook entered");
+    void (*post)(id, SEL, SEL, id, signed char) =
+        (void (*)(id, SEL, SEL, id, signed char))objc_msgSend;
+    post(self, sel_registerName("performSelectorOnMainThread:withObject:waitUntilDone:"),
+         sel_registerName("nsinspect_captureOnMainThread:"), 0, 0);
+    nsinspect_banner("capture queued");
+    ((void (*)(id, SEL))g_orig_run)(self, _cmd);
 }
 
 __attribute__((constructor)) static void nsinspect_init(void) {
-    /* Nothing but a breadcrumb and a thread.  An earlier revision called
-       resolve_runtime() here, i.e. dlsym(), and every injected host died with
-       SIGSEGV before this point: the dynamic loader is not usable yet.  See
-       docs/UI_REFERENCE/runtime/raw/injection-attempts.md. */
-    nsinspect_banner("constructor entered");
-    pthread_create(0, 0, nsinspect_worker, 0);
-    nsinspect_banner("worker thread started");
+    nsinspect_banner("loaded");
+    Class NSApp = objc_getClass("NSApplication");
+    if (!NSApp) { nsinspect_banner("no NSApplication"); return; }
+    /* Both callbacks are published on NSObject so any instance can carry them;
+       class_addMethod is a plain runtime call and is safe here (proved by
+       probe-insert: objc_getClass works in an injected constructor). */
+    Class NSObject = objc_getClass("NSObject");
+    if (NSObject) {
+        class_addMethod(NSObject, sel_registerName("nsinspect_captureOnMainThread:"),
+                        (void *)nsinspect_capture_on_main, "v@:@");
+        nsinspect_banner("callbacks published on NSObject");
+    }
+    void *m = class_getInstanceMethod(NSApp, sel_registerName("run"));
+    if (!m) { nsinspect_banner("no -[NSApplication run]"); return; }
+    g_orig_run = method_getImplementation(m);
+    if (!g_orig_run) { nsinspect_banner("no original run"); return; }
+    method_setImplementation(m, (void *)nsinspect_run_hook);
+    nsinspect_banner("-[NSApplication run] swizzled");
 }
 #else
 int main(void) { return nsinspect_run(); }

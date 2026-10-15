@@ -12,19 +12,15 @@ typedef void *id;
 typedef void *Class;
 typedef void *SEL;
 
+/* Linked from the guest's real libobjc.A.dylib (see build-probe-insert.sh). */
+extern Class objc_getClass(const char *name);
+extern SEL sel_registerName(const char *name);
+
 extern long write(int fd, const void *buf, unsigned long count);
 extern int getpid(void);
-extern int pthread_create(void *th, const void *attr,
-                          void *(*start)(void *), void *arg);
-extern unsigned int sleep(unsigned int s);
-
-static void *probe_thread(void *arg) {
-    (void)arg;
-    write(2, "probe-insert: thread started\n", 29);
-    sleep(3);
-    write(2, "probe-insert: thread slept ok\n", 30);
-    return 0;
-}
+/* pthread_create from this constructor is already known to deadlock on 10.9;
+   it is deliberately NOT exercised here any more, so that the Objective-C
+   runtime calls below are actually reached. */
 
 __attribute__((constructor)) static void probe_insert_init(void) {
     write(2, "probe-insert: constructor ran, pid=", 34);
@@ -36,6 +32,14 @@ __attribute__((constructor)) static void probe_insert_init(void) {
     for (int i = n - 1; i >= 0; i--) buf[i] = tmp[n - 1 - i];
     write(2, buf, (unsigned long)n);
     write(2, "\n", 1);
-    pthread_create(0, 0, probe_thread, 0);
-    write(2, "probe-insert: pthread_create returned\n", 36);
+    /* Is the Objective-C runtime usable from an injected constructor at all?
+       This is the one thing our inspector cannot work without. */
+    Class nsobj = objc_getClass("NSObject");
+    write(2, "probe-insert: objc_getClass(NSObject) = ", 38);
+    write(2, nsobj ? "non-NULL" : "NULL", nsobj ? 8 : 4);
+    write(2, "\n", 1);
+    Class nsapp = objc_getClass("NSApplication");
+    write(2, "probe-insert: objc_getClass(NSApplication) = ", 42);
+    write(2, nsapp ? "non-NULL" : "NULL", nsapp ? 8 : 4);
+    write(2, "\n", 1);
 }
