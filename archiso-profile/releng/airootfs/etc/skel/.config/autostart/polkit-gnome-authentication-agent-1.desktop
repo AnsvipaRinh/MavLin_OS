@@ -1,0 +1,29 @@
+[Desktop Entry]
+Type=Application
+Name=PolicyKit Authentication Agent
+Comment=Authenticator for privileged actions (Shut Down, Restart, Eject)
+# There was no polkit agent anywhere in the ISO, so every privileged
+# action in this system was unanswerable: logind's CanPowerOff/CanReboot/
+# CanSuspend return "challenge" for an active local session, the D-Bus
+# call then needs org.freedesktop.login1.power-off authorization, and with
+# no agent registered nothing can ever grant it. Measured on this build
+# container with polkitd running and no session agent: mv-eject's UDisks2
+# Unmount comes back "not authorized" while the identical call as root
+# succeeds, i.e. the API is right and only the agent was missing.
+#
+# polkit-gnome installs NO autostart entry (Arch file list: only
+# usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 and a
+# usr/share/applications launcher), so under Xfce it never starts by
+# itself. This file is that missing entry.
+#
+# No resident cost when idle: the agent registers with polkitd and parks
+# until an action needs authorization. It is the only way to satisfy the
+# power actions and USB eject without weakening the privilege model, and
+# it adds no polkit rules, no pkexec and no setuid to this project.
+Exec=/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+Icon=system-shield
+Terminal=false
+NoDisplay=true
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true
+X-Mavericks-Native=true

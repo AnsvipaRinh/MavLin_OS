@@ -1,0 +1,49 @@
+# thunarrc — Finder-like defaults (source of truth; installed to ~/.config/Thunar/thunarrc)
+[Configuration]
+LastView=ThunarIconView
+# View/zoom defaults (Mavericks Finder parity):
+# - default view = icon view (Finder default)
+# - icon size 64px = Finder default (THUNAR_ZOOM_LEVEL_150_PERCENT; 100% = 48px)
+# - per-directory zoom is remembered natively by Thunar via GVFS metadata
+#   (metadata::thunar-zoom-level-Thunar*) — no extra config needed
+# - in-window zoom/view keys are app-level: Ctrl+= / Ctrl+- / Ctrl+0 and
+#   Ctrl+1/2/3 (icons/list/compact) — same Cmd-like app-level split as macOS
+LastIconViewZoomLevel=THUNAR_ZOOM_LEVEL_150_PERCENT
+LastDetailsViewZoomLevel=THUNAR_ZOOM_LEVEL_100_PERCENT
+LastCompactViewZoomLevel=THUNAR_ZOOM_LEVEL_100_PERCENT
+LastLocationBar=ThunarLocationButtons
+LastShowHidden=FALSE
+LastSortColumn=THUNAR_COLUMN_NAME
+LastSortOrder=GTK_SORT_ASCENDING
+LastStatusbarVisible=TRUE
+LastSidePane=ThunarTreePane
+MiscSingleClick=FALSE
+MiscSingleClickTimeout=400
+MiscThumbnailMode=THUNAR_THUMBNAIL_MODE_ALWAYS
+MiscShowThumbnails=TRUE
+MiscRecursivePermissions=FALSE
+MiscConfirmMoveToTrash=TRUE
+MiscDateStyle=THUNAR_DATE_STYLE_SIMPLE
+MiscFoldersFirst=TRUE
+MiscHorizontalWheelNavigates=TRUE
+MiscMiddleClickInTab=FALSE
+MiscOpenNewWindowAsTab=FALSE
+MiscRememberGeometry=TRUE
+MiscShowAboutTimestamps=FALSE
+MiscTabCloseMiddleClick=TRUE
+MiscTabCloseButtons=TRUE
+MiscTabNewButton=TRUE
+MiscTextBesideIcons=FALSE
+MiscSingleClickTimeoutMiddle=FALSE
+# Finder-like additions
+MiscCaseSensitive=FALSE
+MiscFullscreenNewTabs=FALSE
+ShortcutsPaneVisibility=TRUE
+TreePaneWidth=200
+LastWindowWidth=1024
+LastWindowHeight=768
+LastWindowMaximized=FALSE
+LastPane=ThunarTreePane
+ShowToolbar=TRUE
+ShowStatusbar=TRUE
+ShowLocationSelector=TRUE

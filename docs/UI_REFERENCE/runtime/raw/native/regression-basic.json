@@ -1,0 +1,1485 @@
+{
+ "provenance": {
+  "program": "BasicAndSci",
+  "language": "x86:LE:64:default",
+  "processor": "x86",
+  "image_base": "0x0",
+  "ghidra_version": "12.1.2",
+  "script": "objc_extract.py",
+  "sections": {
+   "__objc_methname": [
+    "0xdfe0",
+    "0xfa01",
+    6690
+   ],
+   "__objc_classname": [
+    "0x10601",
+    "0x1069f",
+    159
+   ],
+   "__objc_methtype": [
+    "0x106a0",
+    "0x10a8b",
+    1004
+   ],
+   "__objc_classlist": [
+    "0x111a8",
+    "0x111e7",
+    64
+   ],
+   "__objc_catlist": [
+    "0x111e8",
+    "0x111ef",
+    8
+   ],
+   "__objc_protolist": [
+    "0x111f0",
+    "0x111ff",
+    16
+   ],
+   "__objc_imageinfo": [
+    "0x11200",
+    "0x11207",
+    8
+   ],
+   "__objc_const": [
+    "0x11208",
+    "0x13cef",
+    10984
+   ],
+   "__objc_selrefs": [
+    "0x13cf0",
+    "0x143d7",
+    1768
+   ],
+   "__objc_msgrefs": [
+    "0x143e0",
+    "0x1448f",
+    176
+   ],
+   "__objc_classrefs": [
+    "0x14490",
+    "0x14577",
+    232
+   ],
+   "__objc_superrefs": [
+    "0x14578",
+    "0x145b7",
+    64
+   ],
+   "__objc_data": [
+    "0x145b8",
+    "0x14837",
+    640
+   ],
+   "__objc_ivar": [
+    "0x14838",
+    "0x14adf",
+    680
+   ]
+  }
+ },
+ "counts": {
+  "classes": 8,
+  "categories": 1,
+  "methods_total": 153,
+  "methods_with_selector": 153,
+  "methods_with_known_imp": 153,
+  "methods_matched_to_ghidra_function": 153
+ },
+ "classes": [
+  {
+   "class_ptr": "0x145b8",
+   "ro_ptr": "0x12598",
+   "name": "BasicAdvancedController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x11920",
+   "instance_methods": 59
+  },
+  {
+   "class_ptr": "0x14608",
+   "ro_ptr": "0x12888",
+   "name": "Token",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x12710",
+   "instance_methods": 8
+  },
+  {
+   "class_ptr": "0x14658",
+   "ro_ptr": "0x12a20",
+   "name": "Stack",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x12918",
+   "instance_methods": 9
+  },
+  {
+   "class_ptr": "0x146a8",
+   "ro_ptr": "0x130e8",
+   "name": "Function",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x12e60",
+   "instance_methods": 12
+  },
+  {
+   "class_ptr": "0x146f8",
+   "ro_ptr": "0x13588",
+   "name": "CalculatorEngine",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x13178",
+   "instance_methods": 27
+  },
+  {
+   "class_ptr": "0x14748",
+   "ro_ptr": "0x137d0",
+   "name": "AlgebraicEngine",
+   "name_source": "class_ro_t.name",
+   "super": "CalculatorEngine",
+   "method_list_ptr": "0x13618",
+   "instance_methods": 11
+  },
+  {
+   "class_ptr": "0x14798",
+   "ro_ptr": "0x139a0",
+   "name": "RPNEngine",
+   "name_source": "class_ro_t.name",
+   "super": "CalculatorEngine",
+   "method_list_ptr": "0x13860",
+   "instance_methods": 10
+  },
+  {
+   "class_ptr": "0x147e8",
+   "ro_ptr": "0x13ca8",
+   "name": "EngineNumber",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x13a98",
+   "instance_methods": 13
+  },
+  {
+   "category": "",
+   "class": "",
+   "instance_methods": 4,
+   "class_methods": 0
+  }
+ ],
+ "selectors": {
+  "_refreshModeIndicator": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x1790",
+    "ghidra_function": "_refreshModeIndicator",
+    "types": "v16@0:8"
+   }
+  ],
+  "_loadRootButtonsFont": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x1a20",
+    "ghidra_function": "_loadRootButtonsFont",
+    "types": "v16@0:8"
+   }
+  ],
+  "_setRootTitle:onButton:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x1aca",
+    "ghidra_function": "_setRootTitle:onButton:",
+    "types": "v32@0:8@16@24"
+   }
+  ],
+  "init": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x1c66",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "Stack",
+    "kind": "instance",
+    "imp": "0x637c",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0x9fd0",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xb2a6",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "RPNEngine",
+    "kind": "instance",
+    "imp": "0xc99d",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   }
+  ],
+  "awakeFromNib": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x1d31",
+    "ghidra_function": "awakeFromNib",
+    "types": "v16@0:8"
+   }
+  ],
+  "setupResponderStatus:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x233f",
+    "ghidra_function": "setupResponderStatus:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "dealloc": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2431",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "Token",
+    "kind": "instance",
+    "imp": "0x61ae",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "Stack",
+    "kind": "instance",
+    "imp": "0x63e7",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x6c66",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0x9fe8",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xb360",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "RPNEngine",
+    "kind": "instance",
+    "imp": "0xca13",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xd925",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   }
+  ],
+  "acceptsFirstResponder": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x250a",
+    "ghidra_function": "acceptsFirstResponder",
+    "types": "c16@0:8"
+   }
+  ],
+  "becomeFirstResponder": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2515",
+    "ghidra_function": "becomeFirstResponder",
+    "types": "c16@0:8"
+   }
+  ],
+  "resignFirstResponder": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2520",
+    "ghidra_function": "resignFirstResponder",
+    "types": "c16@0:8"
+   }
+  ],
+  "window": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x252b",
+    "ghidra_function": "window",
+    "types": "@16@0:8"
+   }
+  ],
+  "keyDown:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2548",
+    "ghidra_function": "keyDown:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "momentarilyHighlightButton:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x28d7",
+    "ghidra_function": "momentarilyHighlightButton:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "unhighlightButton:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2937",
+    "ghidra_function": "unhighlightButton:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "paste:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x296a",
+    "ghidra_function": "paste:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "digit:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2c51",
+    "ghidra_function": "digit:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "handleDigit:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2c96",
+    "ghidra_function": "handleDigit:",
+    "types": "v24@0:8q16"
+   }
+  ],
+  "delete": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2d07",
+    "ghidra_function": "delete",
+    "types": "v16@0:8"
+   }
+  ],
+  "decimal:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2d2f",
+    "ghidra_function": "decimal:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "handleOperatorPress:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2d57",
+    "ghidra_function": "handleOperatorPress:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "handleMemoryOperatorPress:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2dba",
+    "ghidra_function": "handleMemoryOperatorPress:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "handleAllClearPress:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2e1a",
+    "ghidra_function": "handleAllClearPress:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "handleEEPress:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2e20",
+    "ghidra_function": "handleEEPress:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "handleModePress:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2e48",
+    "ghidra_function": "handleModePress:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "keyboardModifiersChangedTo:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2e9c",
+    "ghidra_function": "keyboardModifiersChangedTo:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "handleSecondFunctionPress:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x2fa8",
+    "ghidra_function": "handleSecondFunctionPress:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setCalcController:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x4d11",
+    "ghidra_function": "setCalcController:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setSpeechController:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x4d58",
+    "ghidra_function": "setSpeechController:",
+    "types": "v24@0:8@16"
+   },
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb295",
+    "ghidra_function": "setSpeechController:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setLCDDisplay:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x4db7",
+    "ghidra_function": "setLCDDisplay:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setPaperTape:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x4e2b",
+    "ghidra_function": "setPaperTape:",
+    "types": "v24@0:8@16"
+   },
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb273",
+    "ghidra_function": "setPaperTape:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "normalSize:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x4e8a",
+    "ghidra_function": "normalSize:",
+    "types": "{CGSize=dd}24@0:8@16"
+   }
+  ],
+  "minimumSize:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x4f9d",
+    "ghidra_function": "minimumSize:",
+    "types": "{CGSize=dd}24@0:8@16"
+   }
+  ],
+  "maximumSize:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x4fa9",
+    "ghidra_function": "maximumSize:",
+    "types": "{CGSize=dd}24@0:8@16"
+   }
+  ],
+  "removeAllViewsFromWindow:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x4fbb",
+    "ghidra_function": "removeAllViewsFromWindow:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "addView:toWindow:atPoint:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x4ffe",
+    "ghidra_function": "addView:toWindow:atPoint:",
+    "types": "v48@0:8@16@24{CGPoint=dd}32"
+   }
+  ],
+  "shouldShowDisplay:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x539f",
+    "ghidra_function": "shouldShowDisplay:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "canShowTape:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x53aa",
+    "ghidra_function": "canShowTape:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "viewNames:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x53b5",
+    "ghidra_function": "viewNames:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "nameForSaveMenu:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5459",
+    "ghidra_function": "nameForSaveMenu:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "nameForPrintMenu:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5466",
+    "ghidra_function": "nameForPrintMenu:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "supportsConversions": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5473",
+    "ghidra_function": "supportsConversions",
+    "types": "c16@0:8"
+   }
+  ],
+  "readyForConversion": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x547e",
+    "ghidra_function": "readyForConversion",
+    "types": "c16@0:8"
+   }
+  ],
+  "handleConversion:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x54f4",
+    "ghidra_function": "handleConversion:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "supportsSpeech": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x56b8",
+    "ghidra_function": "supportsSpeech",
+    "types": "c16@0:8"
+   }
+  ],
+  "supportsRPN": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x56c3",
+    "ghidra_function": "supportsRPN",
+    "types": "c16@0:8"
+   }
+  ],
+  "rpnStack": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x56ce",
+    "ghidra_function": "rpnStack",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xabdb",
+    "ghidra_function": "rpnStack",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "RPNEngine",
+    "kind": "instance",
+    "imp": "0xd6b0",
+    "ghidra_function": "rpnStack",
+    "types": "@16@0:8"
+   }
+  ],
+  "rpnRollUp": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x56eb",
+    "ghidra_function": "rpnRollUp",
+    "types": "v16@0:8"
+   }
+  ],
+  "rpnRollDown": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x570d",
+    "ghidra_function": "rpnRollDown",
+    "types": "v16@0:8"
+   }
+  ],
+  "rpnDrop": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x572f",
+    "ghidra_function": "rpnDrop",
+    "types": "v16@0:8"
+   }
+  ],
+  "rpnExchange": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5751",
+    "ghidra_function": "rpnExchange",
+    "types": "v16@0:8"
+   }
+  ],
+  "rpnViewIsWide": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5773",
+    "ghidra_function": "rpnViewIsWide",
+    "types": "c16@0:8"
+   }
+  ],
+  "supportsIEEEMode": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x57db",
+    "ghidra_function": "supportsIEEEMode",
+    "types": "c16@0:8"
+   }
+  ],
+  "setIEEEMode:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x57e6",
+    "ghidra_function": "setIEEEMode:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "ieeeMode": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5837",
+    "ghidra_function": "ieeeMode",
+    "types": "c16@0:8"
+   }
+  ],
+  "setRPNMode:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5848",
+    "ghidra_function": "setRPNMode:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "supportsDisplayModeChanges": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5da9",
+    "ghidra_function": "supportsDisplayModeChanges",
+    "types": "c16@0:8"
+   }
+  ],
+  "setPrecision:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5db1",
+    "ghidra_function": "setPrecision:",
+    "types": "v24@0:8Q16"
+   },
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb1c2",
+    "ghidra_function": "setPrecision:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "logState": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5dce",
+    "ghidra_function": "logState",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb23a",
+    "ghidra_function": "logState",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xc85c",
+    "ghidra_function": "logState",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "RPNEngine",
+    "kind": "instance",
+    "imp": "0xd6c1",
+    "ghidra_function": "logState",
+    "types": "v16@0:8"
+   }
+  ],
+  "setInitialValue:": [
+   {
+    "owner": "BasicAdvancedController",
+    "kind": "instance",
+    "imp": "0x5deb",
+    "ghidra_function": "setInitialValue:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "initWithNumber:": [
+   {
+    "owner": "Token",
+    "kind": "instance",
+    "imp": "0x60e5",
+    "ghidra_function": "initWithNumber:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "initWithOperator:": [
+   {
+    "owner": "Token",
+    "kind": "instance",
+    "imp": "0x614f",
+    "ghidra_function": "initWithOperator:",
+    "types": "@24@0:8Q16"
+   }
+  ],
+  "number": [
+   {
+    "owner": "Token",
+    "kind": "instance",
+    "imp": "0x61f8",
+    "ghidra_function": "number",
+    "types": "@16@0:8"
+   }
+  ],
+  "description": [
+   {
+    "owner": "Token",
+    "kind": "instance",
+    "imp": "0x625c",
+    "ghidra_function": "description",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "Stack",
+    "kind": "instance",
+    "imp": "0x65c3",
+    "ghidra_function": "description",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x6d2d",
+    "ghidra_function": "description",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xdaa3",
+    "ghidra_function": "description",
+    "types": "@16@0:8"
+   }
+  ],
+  "type": [
+   {
+    "owner": "Token",
+    "kind": "instance",
+    "imp": "0x634a",
+    "ghidra_function": "type",
+    "types": "i16@0:8"
+   }
+  ],
+  "value": [
+   {
+    "owner": "Token",
+    "kind": "instance",
+    "imp": "0x635a",
+    "ghidra_function": "value",
+    "types": "@16@0:8"
+   }
+  ],
+  "operator": [
+   {
+    "owner": "Token",
+    "kind": "instance",
+    "imp": "0x636b",
+    "ghidra_function": "operator",
+    "types": "Q16@0:8"
+   },
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x9f7b",
+    "ghidra_function": "operator",
+    "types": "Q16@0:8"
+   }
+  ],
+  "push:": [
+   {
+    "owner": "Stack",
+    "kind": "instance",
+    "imp": "0x6431",
+    "ghidra_function": "push:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "pop": [
+   {
+    "owner": "Stack",
+    "kind": "instance",
+    "imp": "0x64a8",
+    "ghidra_function": "pop",
+    "types": "@16@0:8"
+   }
+  ],
+  "peek": [
+   {
+    "owner": "Stack",
+    "kind": "instance",
+    "imp": "0x652d",
+    "ghidra_function": "peek",
+    "types": "@16@0:8"
+   }
+  ],
+  "peekAt:": [
+   {
+    "owner": "Stack",
+    "kind": "instance",
+    "imp": "0x6541",
+    "ghidra_function": "peekAt:",
+    "types": "@24@0:8Q16"
+   }
+  ],
+  "isEmpty": [
+   {
+    "owner": "Stack",
+    "kind": "instance",
+    "imp": "0x659c",
+    "ghidra_function": "isEmpty",
+    "types": "c16@0:8"
+   }
+  ],
+  "count": [
+   {
+    "owner": "Stack",
+    "kind": "instance",
+    "imp": "0x65f0",
+    "ghidra_function": "count",
+    "types": "Q16@0:8"
+   }
+  ],
+  "initWithDictionary:": [
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x6aba",
+    "ghidra_function": "initWithDictionary:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "performOperationWithParameters:": [
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x6cb0",
+    "ghidra_function": "performOperationWithParameters:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "performOperation": [
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x6cf6",
+    "ghidra_function": "performOperation",
+    "types": "@16@0:8"
+   }
+  ],
+  "name": [
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x9f59",
+    "ghidra_function": "name",
+    "types": "@16@0:8"
+   }
+  ],
+  "speechName": [
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x9f6a",
+    "ghidra_function": "speechName",
+    "types": "@16@0:8"
+   }
+  ],
+  "paramsRequired": [
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x9f8c",
+    "ghidra_function": "paramsRequired",
+    "types": "Q16@0:8"
+   }
+  ],
+  "peekParameters": [
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x9f9d",
+    "ghidra_function": "peekParameters",
+    "types": "Q16@0:8"
+   }
+  ],
+  "precedence": [
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x9fae",
+    "ghidra_function": "precedence",
+    "types": "q16@0:8"
+   }
+  ],
+  "selector": [
+   {
+    "owner": "Function",
+    "kind": "instance",
+    "imp": "0x9fbf",
+    "ghidra_function": "selector",
+    "types": ":16@0:8"
+   }
+  ],
+  "handleOperationException:": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xa075",
+    "ghidra_function": "handleOperationException:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "userEnteredDigit:": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xa324",
+    "ghidra_function": "userEnteredDigit:",
+    "types": "c24@0:8q16"
+   },
+   {
+    "owner": "RPNEngine",
+    "kind": "instance",
+    "imp": "0xcf00",
+    "ghidra_function": "userEnteredDigit:",
+    "types": "c24@0:8q16"
+   }
+  ],
+  "userDeletedDigit": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xa485",
+    "ghidra_function": "userDeletedDigit",
+    "types": "c16@0:8"
+   }
+  ],
+  "userEnteredDecimalSeparator": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xa661",
+    "ghidra_function": "userEnteredDecimalSeparator",
+    "types": "c16@0:8"
+   }
+  ],
+  "eeMode": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xa76f",
+    "ghidra_function": "eeMode",
+    "types": "c16@0:8"
+   }
+  ],
+  "userEnteredEEMode": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xa787",
+    "ghidra_function": "userEnteredEEMode",
+    "types": "c16@0:8"
+   },
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xbef7",
+    "ghidra_function": "userEnteredEEMode",
+    "types": "c16@0:8"
+   },
+   {
+    "owner": "RPNEngine",
+    "kind": "instance",
+    "imp": "0xcf84",
+    "ghidra_function": "userEnteredEEMode",
+    "types": "c16@0:8"
+   }
+  ],
+  "userEnteredNumber:": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xa82a",
+    "ghidra_function": "userEnteredNumber:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "test_userEnteredOperator:": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xa938",
+    "ghidra_function": "test_userEnteredOperator:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "userEnteredOperator:": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xa96d",
+    "ghidra_function": "userEnteredOperator:",
+    "types": "v20@0:8i16"
+   }
+  ],
+  "userEnteredToken:": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xaa31",
+    "ghidra_function": "userEnteredToken:",
+    "types": "c24@0:8@16"
+   },
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xbf5a",
+    "ghidra_function": "userEnteredToken:",
+    "types": "c24@0:8@16"
+   },
+   {
+    "owner": "RPNEngine",
+    "kind": "instance",
+    "imp": "0xcfbf",
+    "ghidra_function": "userEnteredToken:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "displayNumber": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xab8c",
+    "ghidra_function": "displayNumber",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xc7d5",
+    "ghidra_function": "displayNumber",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "RPNEngine",
+    "kind": "instance",
+    "imp": "0xd64b",
+    "ghidra_function": "displayNumber",
+    "types": "@16@0:8"
+   }
+  ],
+  "performMemoryOperation:": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xabe3",
+    "ghidra_function": "performMemoryOperation:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "completeEEMode:": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xaee0",
+    "ghidra_function": "completeEEMode:",
+    "types": "c20@0:8i16"
+   }
+  ],
+  "radMode": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb10d",
+    "ghidra_function": "radMode",
+    "types": "c16@0:8"
+   }
+  ],
+  "setRadMode:": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb11e",
+    "ghidra_function": "setRadMode:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "clear": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb188",
+    "ghidra_function": "clear",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xbdc6",
+    "ghidra_function": "clear",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "RPNEngine",
+    "kind": "instance",
+    "imp": "0xca5d",
+    "ghidra_function": "clear",
+    "types": "v16@0:8"
+   }
+  ],
+  "frontEnd": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb240",
+    "ghidra_function": "frontEnd",
+    "types": "@16@0:8"
+   }
+  ],
+  "setFrontEnd:": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb251",
+    "ghidra_function": "setFrontEnd:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "paperTape": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb262",
+    "ghidra_function": "paperTape",
+    "types": "@16@0:8"
+   }
+  ],
+  "speechController": [
+   {
+    "owner": "CalculatorEngine",
+    "kind": "instance",
+    "imp": "0xb284",
+    "ghidra_function": "speechController",
+    "types": "@16@0:8"
+   }
+  ],
+  "processOperationResult:": [
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xb3ed",
+    "ghidra_function": "processOperationResult:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "updateTape": [
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xb512",
+    "ghidra_function": "updateTape",
+    "types": "v16@0:8"
+   }
+  ],
+  "evaluateTOS": [
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xb6ae",
+    "ghidra_function": "evaluateTOS",
+    "types": "@16@0:8"
+   }
+  ],
+  "immediateFunction:": [
+   {
+    "owner": "AlgebraicEngine",
+    "kind": "instance",
+    "imp": "0xbaa5",
+    "ghidra_function": "immediateFunction:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "applyFunction:": [
+   {
+    "owner": "RPNEngine",
+    "kind": "instance",
+    "imp": "0xcaaa",
+    "ghidra_function": "applyFunction:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "initWithDecimalNumber:tapeRepresentation:": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xd81d",
+    "ghidra_function": "initWithDecimalNumber:tapeRepresentation:",
+    "types": "@32@0:8@16@24"
+   }
+  ],
+  "initWithString:tapeRepresentation:": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xd893",
+    "ghidra_function": "initWithString:tapeRepresentation:",
+    "types": "@32@0:8@16@24"
+   }
+  ],
+  "doubleValue": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xd98a",
+    "ghidra_function": "doubleValue",
+    "types": "d16@0:8"
+   }
+  ],
+  "stringValue": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xd9b8",
+    "ghidra_function": "stringValue",
+    "types": "@16@0:8"
+   }
+  ],
+  "integerValue": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xd9e6",
+    "ghidra_function": "integerValue",
+    "types": "q16@0:8"
+   }
+  ],
+  "tapeRepresentation": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xda14",
+    "ghidra_function": "tapeRepresentation",
+    "types": "@16@0:8"
+   }
+  ],
+  "setTapeRepresentation:": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xda5c",
+    "ghidra_function": "setTapeRepresentation:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "displayStringWithPrecision:useEE:": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xdaf3",
+    "ghidra_function": "displayStringWithPrecision:useEE:",
+    "types": "@32@0:8Q16@24"
+   }
+  ],
+  "decimalNumber": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xdb38",
+    "ghidra_function": "decimalNumber",
+    "types": "@16@0:8"
+   }
+  ],
+  "inParenthesis": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xdb4e",
+    "ghidra_function": "inParenthesis",
+    "types": "c16@0:8"
+   }
+  ],
+  "setInParenthesis:": [
+   {
+    "owner": "EngineNumber",
+    "kind": "instance",
+    "imp": "0xdb61",
+    "ghidra_function": "setInParenthesis:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "stringByRemovingCharactersInSet:options:": [
+   {
+    "owner": "()",
+    "kind": "instance",
+    "imp": "0x5e70",
+    "ghidra_function": "FUN_00005e70",
+    "types": "@28@0:8@16I24"
+   }
+  ],
+  "stringByRemovingCharactersInSet:": [
+   {
+    "owner": "()",
+    "kind": "instance",
+    "imp": "0x5f6d",
+    "ghidra_function": "FUN_00005f6d",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "stringByRemovingCharacter:": [
+   {
+    "owner": "()",
+    "kind": "instance",
+    "imp": "0x5f81",
+    "ghidra_function": "FUN_00005f81",
+    "types": "@20@0:8S16"
+   }
+  ],
+  "_negateString:": [
+   {
+    "owner": "()",
+    "kind": "instance",
+    "imp": "0x5fc0",
+    "ghidra_function": "FUN_00005fc0",
+    "types": "v24@0:8@16"
+   }
+  ]
+ }
+}

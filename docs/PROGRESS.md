@@ -1511,3 +1511,33 @@ Decompiled chain: `digit:` → `handleDigit:` (highlight button, `[engine userEn
 **Inventory:** fully investigated — Calculator (incl. plug-ins). Partially — Finder. Not started — Dock, System Preferences, AppKit/WindowServer split, system dialogs. Extracted but unanalysed: `dock.tar` (path corrected to `/System/Library/CoreServices/Dock.app`), `syspref.tar` (289 MB).
 
 **Verification:** native/REA suites green, lint 0 errors.
+
+### 2026-10-16 — Finder ObjC class-name ABI resolved (as "no class names in the binary")
+
+**Root cause.** Finder uses the *same* standard 64-bit objc4 layout that already
+works for TextEdit and Calculator (`name` at +24, `baseMethodList` at +32,
+`data` at +32 from `objc_class`). The earlier "different `class_ro_t`" reading was
+wrong. The real cause is that Finder's `__TEXT,__objc_classname`
+(19525 bytes @ `0x1004222e8`) contains **no class-name strings** — identical bytes
+in Ghidra and in the raw file, longest printable run 12 chars, and no occurrence
+of `NSOutlineView`/`NSToolbar`/`NSWindow`. `LC_SYMTAB` has 1959 symbols and zero
+`CLASS_$_` entries, so there is no symbol fallback either.
+
+**Two extractor defects fixed** (both produced the earlier "garbage" names):
+`classname_ok()` validated only 4 bytes, accepting ~hundreds of false positives in
+a 37.5%-printable section; and on a failed layout scan the rejected pointer was
+decoded anyway. Names are now resolved symbol-first, then `class_ro_t.name`, then
+a bounded scan, else reported as `unresolved`.
+
+**Regression: none.** TextEdit 15/1/253, Calculator 11/2/217, BasicAndSci 8/1/153,
+Hexadecimal 2/0/77 — identical to the previously committed evidence. Finder reports
+0 named / 663 unresolved (was 661 fictional names) with selectors, IMPs, method
+lists and ownership-by-address intact.
+
+New: `tests/uiref/test_objc_classnames.py`, evidence `regression-*.json`,
+`finder-abi-layout.json`, findings F0 rewritten / F3 added.
+
+**Still open:** Finder class attribution by name is impossible from this on-disk
+binary with the available instruments; Dock and System Preferences still need their
+bundles re-retrieved from the guest (`dock.tar`/`syspref.tar` are in the guest
+share, which is an unmountable HFS+ image on the host).

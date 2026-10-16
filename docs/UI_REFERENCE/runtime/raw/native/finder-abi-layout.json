@@ -1,0 +1,364 @@
+{
+ "program": "Finder",
+ "sections": {
+  "__objc_classname": [
+   "0x1004222e8",
+   "0x100426f2c"
+  ],
+  "__objc_methname": [
+   "0x100426f2d",
+   "0x10045aa72"
+  ],
+  "__objc_methtype": [
+   "0x10045aa73",
+   "0x1004971ff"
+  ],
+  "__objc_classlist": [
+   "0x1004cb358",
+   "0x1004cc80f"
+  ],
+  "__objc_catlist": [
+   "0x1004cc810",
+   "0x1004cc8cf"
+  ],
+  "__objc_protolist": [
+   "0x1004cc8d0",
+   "0x1004ccbd7"
+  ],
+  "__objc_imageinfo": [
+   "0x1004ccbd8",
+   "0x1004ccbdf"
+  ],
+  "__objc_const": [
+   "0x1004ccbe0",
+   "0x100558957"
+  ],
+  "__objc_selrefs": [
+   "0x100558958",
+   "0x100565437"
+  ],
+  "__objc_msgrefs": [
+   "0x100565440",
+   "0x10056555f"
+  ],
+  "__objc_protorefs": [
+   "0x100565560",
+   "0x10056558f"
+  ],
+  "__objc_classrefs": [
+   "0x100565590",
+   "0x100566817"
+  ],
+  "__objc_superrefs": [
+   "0x100566818",
+   "0x1005676d7"
+  ],
+  "__objc_data": [
+   "0x1005676d8",
+   "0x100574607"
+  ],
+  "__objc_ivar": [
+   "0x100587688",
+   "0x10058b25f"
+  ]
+ },
+ "classes": [
+  {
+   "class_ptr": "0x100567700",
+   "chain": [
+    {
+     "label": "class+32",
+     "addr": "0x1004ccc48",
+     "section": "__objc_const"
+    },
+    {
+     "label": "struct@0x1004ccc48",
+     "words": [
+      {
+       "off": 0,
+       "val": "0x7900000010",
+       "section": null,
+       "str": null,
+       "u32": "0x10"
+      },
+      {
+       "off": 8,
+       "val": "0x79",
+       "section": null,
+       "str": null,
+       "u32": "0x79"
+      },
+      {
+       "off": 16,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 24,
+       "val": "0x1004222e8",
+       "section": "__objc_classname",
+       "str": null,
+       "u32": "0x4222e8"
+      },
+      {
+       "off": 32,
+       "val": "0x1004ccc28",
+       "section": "__objc_const",
+       "str": null,
+       "u32": "0x4ccc28"
+      },
+      {
+       "off": 40,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 48,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 56,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 64,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 72,
+       "val": "0x100000018",
+       "section": "__TEXT",
+       "str": null,
+       "u32": "0x18"
+      },
+      {
+       "off": 80,
+       "val": "0x100426f4a",
+       "section": "__objc_methname",
+       "str": null,
+       "u32": "0x426f4a"
+      },
+      {
+       "off": 88,
+       "val": "0x10045aa7b",
+       "section": "__objc_methtype",
+       "str": null,
+       "u32": "0x45aa7b"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "class_ptr": "0x100567750",
+   "chain": [
+    {
+     "label": "class+32",
+     "addr": "0x1004cccf8",
+     "section": "__objc_const"
+    },
+    {
+     "label": "struct@0x1004cccf8",
+     "words": [
+      {
+       "off": 0,
+       "val": "0xd100000010",
+       "section": null,
+       "str": null,
+       "u32": "0x10"
+      },
+      {
+       "off": 8,
+       "val": "0xd1",
+       "section": null,
+       "str": null,
+       "u32": "0xd1"
+      },
+      {
+       "off": 16,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 24,
+       "val": "0x100422301",
+       "section": "__objc_classname",
+       "str": null,
+       "u32": "0x422301"
+      },
+      {
+       "off": 32,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 40,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 48,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 56,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 64,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 72,
+       "val": "0x100000018",
+       "section": "__TEXT",
+       "str": null,
+       "u32": "0x18"
+      },
+      {
+       "off": 80,
+       "val": "0x1004272d3",
+       "section": "__objc_methname",
+       "str": null,
+       "u32": "0x4272d3"
+      },
+      {
+       "off": 88,
+       "val": "0x10045aa83",
+       "section": "__objc_methtype",
+       "str": null,
+       "u32": "0x45aa83"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "class_ptr": "0x100567778",
+   "chain": [
+    {
+     "label": "class+32",
+     "addr": "0x1004cce20",
+     "section": "__objc_const"
+    },
+    {
+     "label": "struct@0x1004cce20",
+     "words": [
+      {
+       "off": 0,
+       "val": "0x800000014",
+       "section": null,
+       "str": null,
+       "u32": "0x14"
+      },
+      {
+       "off": 8,
+       "val": "0x10",
+       "section": null,
+       "str": null,
+       "u32": "0x10"
+      },
+      {
+       "off": 16,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 24,
+       "val": "0x100422316",
+       "section": "__objc_classname",
+       "str": null,
+       "u32": "0x422316"
+      },
+      {
+       "off": 32,
+       "val": "0x1004ccda8",
+       "section": "__objc_const",
+       "str": null,
+       "u32": "0x4ccda8"
+      },
+      {
+       "off": 40,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 48,
+       "val": "0x1004ccdf8",
+       "section": "__objc_const",
+       "str": " ",
+       "u32": "0x4ccdf8"
+      },
+      {
+       "off": 56,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 64,
+       "val": "0x0",
+       "section": null,
+       "str": null,
+       "u32": "0x0"
+      },
+      {
+       "off": 72,
+       "val": "0x1300000018",
+       "section": null,
+       "str": null,
+       "u32": "0x18"
+      },
+      {
+       "off": 80,
+       "val": "0x100427361",
+       "section": "__objc_methname",
+       "str": null,
+       "u32": "0x427361"
+      },
+      {
+       "off": 88,
+       "val": "0x10045ab1c",
+       "section": "__objc_methtype",
+       "str": null,
+       "u32": "0x45ab1c"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

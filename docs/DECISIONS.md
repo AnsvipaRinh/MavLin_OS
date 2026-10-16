@@ -2073,3 +2073,18 @@ upstream files overlap the `20261013-opencode-ui-runtime-guest` claim paths:
 touched upstream, so no Finder/Calculator evidence was at risk.
 
 Merged with `--no-ff`; nothing was reverted or overwritten.
+
+## 2026-10-16 — Refuse to attribute Finder classes by name; recover them by address instead
+
+The Finder binary stores no class names at all (no strings in
+`__objc_classname`, no `CLASS_$_` symbols). Class ownership is therefore reported
+by **class address + selector + IMP**, never by an inferred or heuristically
+matched name. An earlier extractor bug produced 661 fictional class names; the
+alternative to fixing that was to keep them, which would have poisoned every later
+Finder finding with confident-looking fiction.
+
+Rationale: AGENTS.md requires evidence-backed findings and forbids invented
+evidence; a wrong class name is worse than an explicit gap, because downstream
+mapping work would silently inherit it. The unresolved list is therefore a
+first-class output of the extractor (`name_source`), covered by
+`tests/uiref/test_objc_classnames.py` so the regression cannot come back.

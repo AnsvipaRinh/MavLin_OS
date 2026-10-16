@@ -1,0 +1,2460 @@
+{
+ "provenance": {
+  "program": "TextEdit",
+  "language": "x86:LE:64:default",
+  "processor": "x86",
+  "image_base": "0x100000000",
+  "ghidra_version": "12.1.2",
+  "script": "objc_extract.py",
+  "sections": {
+   "__objc_methname": [
+    "0x1000156b2",
+    "0x10001988c",
+    16859
+   ],
+   "__objc_classname": [
+    "0x10001988d",
+    "0x100019a6f",
+    483
+   ],
+   "__objc_methtype": [
+    "0x100019a70",
+    "0x10001aa0b",
+    3996
+   ],
+   "__objc_classlist": [
+    "0x10001b3a0",
+    "0x10001b417",
+    120
+   ],
+   "__objc_catlist": [
+    "0x10001b418",
+    "0x10001b41f",
+    8
+   ],
+   "__objc_protolist": [
+    "0x10001b420",
+    "0x10001b447",
+    40
+   ],
+   "__objc_imageinfo": [
+    "0x10001b448",
+    "0x10001b44f",
+    8
+   ],
+   "__objc_const": [
+    "0x10001b450",
+    "0x10001e6c7",
+    12920
+   ],
+   "__objc_selrefs": [
+    "0x10001e6c8",
+    "0x10001f98f",
+    4808
+   ],
+   "__objc_msgrefs": [
+    "0x10001f990",
+    "0x10001fa5f",
+    208
+   ],
+   "__objc_classrefs": [
+    "0x10001fa60",
+    "0x10001fc37",
+    472
+   ],
+   "__objc_superrefs": [
+    "0x10001fc38",
+    "0x10001fc97",
+    96
+   ],
+   "__objc_data": [
+    "0x10001fc98",
+    "0x100020147",
+    1200
+   ],
+   "__objc_ivar": [
+    "0x100021f20",
+    "0x1000220f7",
+    472
+   ]
+  }
+ },
+ "counts": {
+  "classes": 15,
+  "categories": 1,
+  "methods_total": 253,
+  "methods_with_selector": 253,
+  "methods_with_known_imp": 253,
+  "methods_matched_to_ghidra_function": 253
+ },
+ "classes": [
+  {
+   "class_ptr": "0x10001fc98",
+   "ro_ptr": "0x10001bfa0",
+   "name": "Document",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001b450",
+   "instance_methods": 78
+  },
+  {
+   "class_ptr": "0x10001fd10",
+   "ro_ptr": "0x10001c218",
+   "name": "Controller",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001bfe8",
+   "instance_methods": 12
+  },
+  {
+   "class_ptr": "0x10001fd38",
+   "ro_ptr": "0x10001c370",
+   "name": "ScalingScrollView",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001c2a8",
+   "instance_methods": 8
+  },
+  {
+   "class_ptr": "0x10001fd88",
+   "ro_ptr": "0x10001c708",
+   "name": "MultiplePageView",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001c400",
+   "instance_methods": 25
+  },
+  {
+   "class_ptr": "0x10001fdd8",
+   "ro_ptr": "0x10001c9a0",
+   "name": "Preferences",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001c7b8",
+   "instance_methods": 17
+  },
+  {
+   "class_ptr": "0x10001fe28",
+   "ro_ptr": "0x10001cab0",
+   "name": "EncodingPopUpButtonCell",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001ca30",
+   "instance_methods": 5
+  },
+  {
+   "class_ptr": "0x10001fe50",
+   "ro_ptr": "0x10001cce8",
+   "name": "EncodingManager",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001cb78",
+   "instance_methods": 12
+  },
+  {
+   "class_ptr": "0x10001fef0",
+   "ro_ptr": "0x10001cde0",
+   "name": "OpenSaveAccessoryOwner",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x0",
+   "instance_methods": 0
+  },
+  {
+   "class_ptr": "0x10001ff18",
+   "ro_ptr": "0x10001d070",
+   "name": "DocumentController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001ce90",
+   "instance_methods": 14
+  },
+  {
+   "class_ptr": "0x10001ff68",
+   "ro_ptr": "0x10001dd70",
+   "name": "DocumentWindowController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001d0b8",
+   "instance_methods": 46
+  },
+  {
+   "class_ptr": "0x10001ffb8",
+   "ro_ptr": "0x10001df48",
+   "name": "LinePanelController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001de70",
+   "instance_methods": 7
+  },
+  {
+   "class_ptr": "0x100020008",
+   "ro_ptr": "0x10001e1e8",
+   "name": "PrintPanelAccessoryController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001e040",
+   "instance_methods": 12
+  },
+  {
+   "class_ptr": "0x100020058",
+   "ro_ptr": "0x10001e3d8",
+   "name": "DocumentPropertiesPanelController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001e298",
+   "instance_methods": 10
+  },
+  {
+   "class_ptr": "0x1000200d0",
+   "ro_ptr": "0x10001e4c0",
+   "name": "FontNameTransformer",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001e4a0",
+   "instance_methods": 1
+  },
+  {
+   "class_ptr": "0x1000200f8",
+   "ro_ptr": "0x10001e680",
+   "name": "PrintingTextView",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x10001e550",
+   "instance_methods": 5
+  },
+  {
+   "category": "",
+   "class": "",
+   "instance_methods": 1,
+   "class_methods": 0
+  }
+ ],
+ "selectors": {
+  "makeWindowControllers": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100003f33",
+    "ghidra_function": "makeWindowControllers",
+    "types": "v16@0:8"
+   }
+  ],
+  "writableTypesForSaveOperation:ignoreTemporaryState:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x1000079d8",
+    "ghidra_function": "writableTypesForSaveOperation:ignoreTemporaryState:",
+    "types": "@28@0:8Q16c24"
+   }
+  ],
+  "writableTypesForSaveOperation:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100007c59",
+    "ghidra_function": "writableTypesForSaveOperation:",
+    "types": "@24@0:8Q16"
+   }
+  ],
+  "fileNameExtensionForType:saveOperation:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000c53d",
+    "ghidra_function": "fileNameExtensionForType:saveOperation:",
+    "types": "@32@0:8@16Q24"
+   }
+  ],
+  "saveToURL:ofType:forSaveOperation:completionHandler:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100007c7a",
+    "ghidra_function": "saveToURL:ofType:forSaveOperation:completionHandler:",
+    "types": "v48@0:8@16@24Q32@?40"
+   }
+  ],
+  "canAsynchronouslyWriteToURL:ofType:forSaveOperation:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100007d67",
+    "ghidra_function": "canAsynchronouslyWriteToURL:ofType:forSaveOperation:",
+    "types": "c40@0:8@16@24Q32"
+   }
+  ],
+  "errorInTextEditDomainWithCode:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000c7ca",
+    "ghidra_function": "errorInTextEditDomainWithCode:",
+    "types": "@24@0:8q16"
+   }
+  ],
+  "checkAutosavingSafetyAfterChangeAndReturnError:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100006c70",
+    "ghidra_function": "checkAutosavingSafetyAfterChangeAndReturnError:",
+    "types": "c24@0:8^@16"
+   }
+  ],
+  "updateChangeCount:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100003c80",
+    "ghidra_function": "updateChangeCount:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "autosavingFileType": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100008ec9",
+    "ghidra_function": "autosavingFileType",
+    "types": "@16@0:8"
+   }
+  ],
+  "duplicateAndReturnError:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100008e7b",
+    "ghidra_function": "duplicateAndReturnError:",
+    "types": "@24@0:8^@16"
+   }
+  ],
+  "document:didSave:block:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000d2f2",
+    "ghidra_function": "document:didSave:block:",
+    "types": "v36@0:8@16c24@?28"
+   }
+  ],
+  "didPresentErrorWithRecovery:block:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000d311",
+    "ghidra_function": "didPresentErrorWithRecovery:block:",
+    "types": "v28@0:8c16@?20"
+   }
+  ],
+  "attemptRecoveryFromError:optionIndex:delegate:didRecoverSelector:contextInfo:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000d330",
+    "ghidra_function": "attemptRecoveryFromError:optionIndex:delegate:didRecoverSelector:contextInfo:",
+    "types": "v56@0:8@16Q24@32:40^v48"
+   }
+  ],
+  "fileWrapperOfType:error:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100007d9b",
+    "ghidra_function": "fileWrapperOfType:error:",
+    "types": "@32@0:8@16^@24"
+   }
+  ],
+  "checkAutosavingSafetyAndReturnError:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x1000043e7",
+    "ghidra_function": "checkAutosavingSafetyAndReturnError:",
+    "types": "c24@0:8^@16"
+   }
+  ],
+  "shouldRunSavePanelWithAccessoryView": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000d817",
+    "ghidra_function": "shouldRunSavePanelWithAccessoryView",
+    "types": "c16@0:8"
+   }
+  ],
+  "prepareSavePanel:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000d82d",
+    "ghidra_function": "prepareSavePanel:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "init": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100002113",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000162e",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000718b",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100003fe0",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "LinePanelController",
+    "kind": "instance",
+    "imp": "0x1000015fa",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "DocumentPropertiesPanelController",
+    "kind": "instance",
+    "imp": "0x100001662",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   }
+  ],
+  "textDocumentTypeToTextEditDocumentTypeMappingTable": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100003759",
+    "ghidra_function": "textDocumentTypeToTextEditDocumentTypeMappingTable",
+    "types": "@16@0:8"
+   }
+  ],
+  "readFromURL:ofType:error:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100002809",
+    "ghidra_function": "readFromURL:ofType:error:",
+    "types": "c40@0:8@16@24^@32"
+   }
+  ],
+  "readFromURL:ofType:encoding:ignoreRTF:ignoreHTML:error:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100002a67",
+    "ghidra_function": "readFromURL:ofType:encoding:ignoreRTF:ignoreHTML:error:",
+    "types": "c56@0:8@16@24Q32c40c44^@48"
+   }
+  ],
+  "defaultTextAttributes:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000384a",
+    "ghidra_function": "defaultTextAttributes:",
+    "types": "@20@0:8c16"
+   }
+  ],
+  "applyDefaultTextAttributes:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100003787",
+    "ghidra_function": "applyDefaultTextAttributes:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "suggestedDocumentEncoding": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000bc1b",
+    "ghidra_function": "suggestedDocumentEncoding",
+    "types": "Q16@0:8"
+   }
+  ],
+  "dealloc": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000bcf5",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000b58e",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "EncodingPopUpButtonCell",
+    "kind": "instance",
+    "imp": "0x10000f4ae",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000f5b8",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x10000fe40",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x10000b479",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x1000138c5",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "DocumentPropertiesPanelController",
+    "kind": "instance",
+    "imp": "0x100013a4e",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   }
+  ],
+  "scaleFactor": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000b3fe",
+    "ghidra_function": "scaleFactor",
+    "types": "d16@0:8"
+   },
+   {
+    "owner": "ScalingScrollView",
+    "kind": "instance",
+    "imp": "0x10000e7ec",
+    "ghidra_function": "scaleFactor",
+    "types": "d16@0:8"
+   }
+  ],
+  "setScaleFactor:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100002390",
+    "ghidra_function": "setScaleFactor:",
+    "types": "v24@0:8d16"
+   },
+   {
+    "owner": "ScalingScrollView",
+    "kind": "instance",
+    "imp": "0x100004fd9",
+    "ghidra_function": "setScaleFactor:",
+    "types": "v24@0:8d16"
+   }
+  ],
+  "viewSize": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x1000056f2",
+    "ghidra_function": "viewSize",
+    "types": "{CGSize=dd}16@0:8"
+   }
+  ],
+  "setViewSize:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000617a",
+    "ghidra_function": "setViewSize:",
+    "types": "v32@0:8{CGSize=dd}16"
+   }
+  ],
+  "setReadOnly:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100003c12",
+    "ghidra_function": "setReadOnly:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "isReadOnly": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100005192",
+    "ghidra_function": "isReadOnly",
+    "types": "c16@0:8"
+   }
+  ],
+  "setBackgroundColor:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100002313",
+    "ghidra_function": "setBackgroundColor:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "backgroundColor": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x1000059dc",
+    "ghidra_function": "backgroundColor",
+    "types": "@16@0:8"
+   }
+  ],
+  "textStorage": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000372d",
+    "ghidra_function": "textStorage",
+    "types": "@16@0:8"
+   }
+  ],
+  "paperSize": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100008aae",
+    "ghidra_function": "paperSize",
+    "types": "{CGSize=dd}16@0:8"
+   }
+  ],
+  "setPaperSize:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100007b1c",
+    "ghidra_function": "setPaperSize:",
+    "types": "v32@0:8{CGSize=dd}16"
+   }
+  ],
+  "setOriginalOrientationSections:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100003c2f",
+    "ghidra_function": "setOriginalOrientationSections:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "originalOrientationSections": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100004ec6",
+    "ghidra_function": "originalOrientationSections",
+    "types": "@16@0:8"
+   }
+  ],
+  "setUsesScreenFonts:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000be17",
+    "ghidra_function": "setUsesScreenFonts:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "usesScreenFonts": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000be27",
+    "ghidra_function": "usesScreenFonts",
+    "types": "c16@0:8"
+   }
+  ],
+  "setHyphenationFactor:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100003bf8",
+    "ghidra_function": "setHyphenationFactor:",
+    "types": "v20@0:8f16"
+   }
+  ],
+  "hyphenationFactor": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000450e",
+    "ghidra_function": "hyphenationFactor",
+    "types": "f16@0:8"
+   }
+  ],
+  "encoding": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000be40",
+    "ghidra_function": "encoding",
+    "types": "Q16@0:8"
+   }
+  ],
+  "setEncoding:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100002361",
+    "ghidra_function": "setEncoding:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "encodingForSaving": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000be52",
+    "ghidra_function": "encodingForSaving",
+    "types": "Q16@0:8"
+   }
+  ],
+  "setEncodingForSaving:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100002373",
+    "ghidra_function": "setEncodingForSaving:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "isConverted": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100007af4",
+    "ghidra_function": "isConverted",
+    "types": "c16@0:8"
+   }
+  ],
+  "setConverted:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000be65",
+    "ghidra_function": "setConverted:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "isLossy": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100007b05",
+    "ghidra_function": "isLossy",
+    "types": "c16@0:8"
+   }
+  ],
+  "setLossy:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000be76",
+    "ghidra_function": "setLossy:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "isOpenedIgnoringRichText": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100003746",
+    "ghidra_function": "isOpenedIgnoringRichText",
+    "types": "c16@0:8"
+   }
+  ],
+  "setOpenedIgnoringRichText:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000be87",
+    "ghidra_function": "setOpenedIgnoringRichText:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "isTransient": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100006887",
+    "ghidra_function": "isTransient",
+    "types": "c16@0:8"
+   }
+  ],
+  "setTransient:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100003e78",
+    "ghidra_function": "setTransient:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "isTransientAndCanBeReplaced": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000be98",
+    "ghidra_function": "isTransientAndCanBeReplaced",
+    "types": "c16@0:8"
+   }
+  ],
+  "setFileType:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000bfc4",
+    "ghidra_function": "setFileType:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "isRichText": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100004f78",
+    "ghidra_function": "isRichText",
+    "types": "c16@0:8"
+   }
+  ],
+  "documentPropertyToAttributeNameMappings": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100002527",
+    "ghidra_function": "documentPropertyToAttributeNameMappings",
+    "types": "@16@0:8"
+   }
+  ],
+  "knownDocumentProperties": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x1000024f5",
+    "ghidra_function": "knownDocumentProperties",
+    "types": "@16@0:8"
+   }
+  ],
+  "hasDocumentProperties": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000b033",
+    "ghidra_function": "hasDocumentProperties",
+    "types": "c16@0:8"
+   }
+  ],
+  "clearDocumentProperties": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000adae",
+    "ghidra_function": "clearDocumentProperties",
+    "types": "v16@0:8"
+   }
+  ],
+  "setDocumentPropertiesToDefaults": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x1000023ab",
+    "ghidra_function": "setDocumentPropertiesToDefaults",
+    "types": "v16@0:8"
+   }
+  ],
+  "setValue:forDocumentProperty:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x1000025eb",
+    "ghidra_function": "setValue:forDocumentProperty:",
+    "types": "v32@0:8@16@24"
+   }
+  ],
+  "setValue:forKey:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000255b",
+    "ghidra_function": "setValue:forKey:",
+    "types": "v32@0:8@16@24"
+   }
+  ],
+  "printOperationWithSettings:error:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100008f82",
+    "ghidra_function": "printOperationWithSettings:error:",
+    "types": "@32@0:8@16^@24"
+   }
+  ],
+  "printInfo": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000272b",
+    "ghidra_function": "printInfo",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000e947",
+    "ghidra_function": "printInfo",
+    "types": "@16@0:8"
+   }
+  ],
+  "toggleReadOnly:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000c129",
+    "ghidra_function": "toggleReadOnly:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "toggleRichWillLoseInformation": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100006e02",
+    "ghidra_function": "toggleRichWillLoseInformation",
+    "types": "c16@0:8"
+   }
+  ],
+  "hasMultiplePages": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x1000046c3",
+    "ghidra_function": "hasMultiplePages",
+    "types": "c16@0:8"
+   }
+  ],
+  "setHasMultiplePages:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100003be4",
+    "ghidra_function": "setHasMultiplePages:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "togglePageBreaks:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x100009c64",
+    "ghidra_function": "togglePageBreaks:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "toggleHyphenation:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000c20c",
+    "ghidra_function": "toggleHyphenation:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "appendPlainTextExtensionChanged:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000c29b",
+    "ghidra_function": "appendPlainTextExtensionChanged:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "encodingPopupChanged:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000c32d",
+    "ghidra_function": "encodingPopupChanged:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "validateMenuItem:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x1000061a1",
+    "ghidra_function": "validateMenuItem:",
+    "types": "c24@0:8@16"
+   },
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x1000063ce",
+    "ghidra_function": "validateMenuItem:",
+    "types": "c24@0:8@16"
+   },
+   {
+    "owner": "DocumentPropertiesPanelController",
+    "kind": "instance",
+    "imp": "0x1000065f7",
+    "ghidra_function": "validateMenuItem:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "setTextStorage:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000c384",
+    "ghidra_function": "setTextStorage:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "revertToContentsOfURL:ofType:error:": [
+   {
+    "owner": "Document",
+    "kind": "instance",
+    "imp": "0x10000c47b",
+    "ghidra_function": "revertToContentsOfURL:ofType:error:",
+    "types": "c40@0:8@16@24^@32"
+   }
+  ],
+  "endTest:": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x10000df61",
+    "ghidra_function": "endTest:",
+    "types": "v24@0:8^{?=qdd@c@@q}16"
+   }
+  ],
+  "application:runTest:duration:": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x10000dfff",
+    "ghidra_function": "application:runTest:duration:",
+    "types": "v40@0:8@16Q24d32"
+   }
+  ],
+  "doOneTest:": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x10000e419",
+    "ghidra_function": "doOneTest:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "applicationDidFinishLaunching:": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x10000206b",
+    "ghidra_function": "applicationDidFinishLaunching:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "openFile:userData:error:": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x10000dc5e",
+    "ghidra_function": "openFile:userData:error:",
+    "types": "v40@0:8@16@24^@32"
+   }
+  ],
+  "openSelection:userData:error:": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x10000deb7",
+    "ghidra_function": "openSelection:userData:error:",
+    "types": "v40@0:8@16@24^@32"
+   }
+  ],
+  "preferencesController": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x10000df2e",
+    "ghidra_function": "preferencesController",
+    "types": "@16@0:8"
+   }
+  ],
+  "setPreferencesController:": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x100001f51",
+    "ghidra_function": "setPreferencesController:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "propertiesController": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x10000df3f",
+    "ghidra_function": "propertiesController",
+    "types": "@16@0:8"
+   }
+  ],
+  "setPropertiesController:": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x100001f62",
+    "ghidra_function": "setPropertiesController:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "lineController": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x10000df50",
+    "ghidra_function": "lineController",
+    "types": "@16@0:8"
+   }
+  ],
+  "setLineController:": [
+   {
+    "owner": "Controller",
+    "kind": "instance",
+    "imp": "0x100001f73",
+    "ghidra_function": "setLineController:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "awakeFromNib": [
+   {
+    "owner": "ScalingScrollView",
+    "kind": "instance",
+    "imp": "0x10000e773",
+    "ghidra_function": "awakeFromNib",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x100001f90",
+    "ghidra_function": "awakeFromNib",
+    "types": "v16@0:8"
+   }
+  ],
+  "setScaleFactor:adjustPopup:": [
+   {
+    "owner": "ScalingScrollView",
+    "kind": "instance",
+    "imp": "0x100004fc7",
+    "ghidra_function": "setScaleFactor:adjustPopup:",
+    "types": "v28@0:8d16c24"
+   }
+  ],
+  "zoomToActualSize:": [
+   {
+    "owner": "ScalingScrollView",
+    "kind": "instance",
+    "imp": "0x10000e7fe",
+    "ghidra_function": "zoomToActualSize:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "zoomIn:": [
+   {
+    "owner": "ScalingScrollView",
+    "kind": "instance",
+    "imp": "0x10000e834",
+    "ghidra_function": "zoomIn:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "zoomOut:": [
+   {
+    "owner": "ScalingScrollView",
+    "kind": "instance",
+    "imp": "0x10000e8ac",
+    "ghidra_function": "zoomOut:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "preservesContentDuringLiveResize": [
+   {
+    "owner": "ScalingScrollView",
+    "kind": "instance",
+    "imp": "0x10000e931",
+    "ghidra_function": "preservesContentDuringLiveResize",
+    "types": "c16@0:8"
+   }
+  ],
+  "initWithFrame:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x100009c9c",
+    "ghidra_function": "initWithFrame:",
+    "types": "@48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16"
+   }
+  ],
+  "isFlipped": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a0f2",
+    "ghidra_function": "isFlipped",
+    "types": "c16@0:8"
+   }
+  ],
+  "isOpaque": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a852",
+    "ghidra_function": "isOpaque",
+    "types": "c16@0:8"
+   }
+  ],
+  "updateFrame": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x100009f02",
+    "ghidra_function": "updateFrame",
+    "types": "v16@0:8"
+   }
+  ],
+  "setPrintInfo:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x100009e74",
+    "ghidra_function": "setPrintInfo:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setNumberOfPages:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a4fc",
+    "ghidra_function": "setNumberOfPages:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "numberOfPages": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a4c5",
+    "ghidra_function": "numberOfPages",
+    "types": "Q16@0:8"
+   },
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x10000a473",
+    "ghidra_function": "numberOfPages",
+    "types": "Q16@0:8"
+   }
+  ],
+  "pageSeparatorHeight": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a844",
+    "ghidra_function": "pageSeparatorHeight",
+    "types": "d16@0:8"
+   }
+  ],
+  "documentSizeInPage": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a4d6",
+    "ghidra_function": "documentSizeInPage",
+    "types": "{CGSize=dd}16@0:8"
+   }
+  ],
+  "documentRectForPageNumber:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a5da",
+    "ghidra_function": "documentRectForPageNumber:",
+    "types": "{CGRect={CGPoint=dd}{CGSize=dd}}24@0:8Q16"
+   }
+  ],
+  "pageRectForPageNumber:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a6b5",
+    "ghidra_function": "pageRectForPageNumber:",
+    "types": "{CGRect={CGPoint=dd}{CGSize=dd}}24@0:8Q16"
+   }
+  ],
+  "pageNumberForPoint:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000e958",
+    "ghidra_function": "pageNumberForPoint:",
+    "types": "Q32@0:8{CGPoint=dd}16"
+   }
+  ],
+  "setLineColor:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x100009d76",
+    "ghidra_function": "setLineColor:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "lineColor": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000eb08",
+    "ghidra_function": "lineColor",
+    "types": "@16@0:8"
+   }
+  ],
+  "setMarginColor:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x100009df5",
+    "ghidra_function": "setMarginColor:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "marginColor": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000eb19",
+    "ghidra_function": "marginColor",
+    "types": "@16@0:8"
+   }
+  ],
+  "setLayoutOrientation:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a0fd",
+    "ghidra_function": "setLayoutOrientation:",
+    "types": "v24@0:8q16"
+   }
+  ],
+  "layoutOrientation": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a4eb",
+    "ghidra_function": "layoutOrientation",
+    "types": "q16@0:8"
+   }
+  ],
+  "drawRect:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000a85d",
+    "ghidra_function": "drawRect:",
+    "types": "v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16"
+   }
+  ],
+  "rectForSmartMagnificationAtPoint:inRect:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000eb2a",
+    "ghidra_function": "rectForSmartMagnificationAtPoint:inRect:",
+    "types": "{CGRect={CGPoint=dd}{CGSize=dd}}64@0:8{CGPoint=dd}16{CGRect={CGPoint=dd}{CGSize=dd}}32"
+   }
+  ],
+  "knowsPageRange:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000ee97",
+    "ghidra_function": "knowsPageRange:",
+    "types": "c24@0:8^{_NSRange=QQ}16"
+   },
+   {
+    "owner": "PrintingTextView",
+    "kind": "instance",
+    "imp": "0x100009583",
+    "ghidra_function": "knowsPageRange:",
+    "types": "c24@0:8^{_NSRange=QQ}16"
+   }
+  ],
+  "rectForPage:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000eebd",
+    "ghidra_function": "rectForPage:",
+    "types": "{CGRect={CGPoint=dd}{CGSize=dd}}24@0:8q16"
+   }
+  ],
+  "locationOfPrintRect:": [
+   {
+    "owner": "MultiplePageView",
+    "kind": "instance",
+    "imp": "0x10000ef08",
+    "ghidra_function": "locationOfPrintRect:",
+    "types": "{CGPoint=dd}48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16"
+   }
+  ],
+  "windowDidLoad": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000b357",
+    "ghidra_function": "windowDidLoad",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100004563",
+    "ghidra_function": "windowDidLoad",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "LinePanelController",
+    "kind": "instance",
+    "imp": "0x100013053",
+    "ghidra_function": "windowDidLoad",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "DocumentPropertiesPanelController",
+    "kind": "instance",
+    "imp": "0x100013c4b",
+    "ghidra_function": "windowDidLoad",
+    "types": "v16@0:8"
+   }
+  ],
+  "changeRichTextFont:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000ef91",
+    "ghidra_function": "changeRichTextFont:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "changePlainTextFont:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000f032",
+    "ghidra_function": "changePlainTextFont:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "changeFont:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000f0d3",
+    "ghidra_function": "changeFont:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setRichTextFont:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000f166",
+    "ghidra_function": "setRichTextFont:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setPlainTextFont:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000f17f",
+    "ghidra_function": "setPlainTextFont:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "richTextFont": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000b33b",
+    "ghidra_function": "richTextFont",
+    "types": "@16@0:8"
+   }
+  ],
+  "plainTextFont": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000b27e",
+    "ghidra_function": "plainTextFont",
+    "types": "@16@0:8"
+   }
+  ],
+  "HTMLDocumentType": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000b206",
+    "ghidra_function": "HTMLDocumentType",
+    "types": "Q16@0:8"
+   }
+  ],
+  "setHTMLDocumentType:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000f198",
+    "ghidra_function": "setHTMLDocumentType:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "HTMLStylingMode": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000b19e",
+    "ghidra_function": "HTMLStylingMode",
+    "types": "q16@0:8"
+   }
+  ],
+  "setHTMLStylingMode:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000f206",
+    "ghidra_function": "setHTMLStylingMode:",
+    "types": "v24@0:8q16"
+   }
+  ],
+  "revertToDefault:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000f283",
+    "ghidra_function": "revertToDefault:",
+    "types": "v24@0:8@16"
+   },
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000fdae",
+    "ghidra_function": "revertToDefault:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "windowShouldClose:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000b3e1",
+    "ghidra_function": "windowShouldClose:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "controlTextDidBeginEditing:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000f3aa",
+    "ghidra_function": "controlTextDidBeginEditing:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "control:didFailToFormatString:errorDescription:": [
+   {
+    "owner": "Preferences",
+    "kind": "instance",
+    "imp": "0x10000f3e5",
+    "ghidra_function": "control:didFailToFormatString:errorDescription:",
+    "types": "c40@0:8@16@24@32"
+   }
+  ],
+  "initTextCell:pullsDown:": [
+   {
+    "owner": "EncodingPopUpButtonCell",
+    "kind": "instance",
+    "imp": "0x10000f40e",
+    "ghidra_function": "initTextCell:pullsDown:",
+    "types": "@28@0:8@16c24"
+   }
+  ],
+  "initWithCoder:": [
+   {
+    "owner": "EncodingPopUpButtonCell",
+    "kind": "instance",
+    "imp": "0x100007023",
+    "ghidra_function": "initWithCoder:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "selectItemAtIndex:": [
+   {
+    "owner": "EncodingPopUpButtonCell",
+    "kind": "instance",
+    "imp": "0x100007109",
+    "ghidra_function": "selectItemAtIndex:",
+    "types": "v24@0:8q16"
+   }
+  ],
+  "encodingsListChanged:": [
+   {
+    "owner": "EncodingPopUpButtonCell",
+    "kind": "instance",
+    "imp": "0x10000f50c",
+    "ghidra_function": "encodingsListChanged:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setupEncodingsList": [
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000f7b5",
+    "ghidra_function": "setupEncodingsList",
+    "types": "v16@0:8"
+   }
+  ],
+  "setupPopUpCell:selectedEncoding:withDefaultEntry:": [
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x1000071e4",
+    "ghidra_function": "setupPopUpCell:selectedEncoding:withDefaultEntry:",
+    "types": "v36@0:8@16Q24c32"
+   }
+  ],
+  "enabledEncodings": [
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000751a",
+    "ghidra_function": "enabledEncodings",
+    "types": "@16@0:8"
+   }
+  ],
+  "noteEncodingListChange:updateList:postNotification:": [
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000f909",
+    "ghidra_function": "noteEncodingListChange:updateList:postNotification:",
+    "types": "v28@0:8c16c20c24"
+   }
+  ],
+  "worksWhenModal": [
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000fa51",
+    "ghidra_function": "worksWhenModal",
+    "types": "c16@0:8"
+   }
+  ],
+  "showPanel:": [
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000fa5c",
+    "ghidra_function": "showPanel:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "encodingListChanged:": [
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000fb7e",
+    "ghidra_function": "encodingListChanged:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "clearAll:": [
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000fcaa",
+    "ghidra_function": "clearAll:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "selectAll:": [
+   {
+    "owner": "EncodingManager",
+    "kind": "instance",
+    "imp": "0x10000fd26",
+    "ghidra_function": "selectAll:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "openDocumentWithContentsOfPasteboard:display:error:": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x10000fecd",
+    "ghidra_function": "openDocumentWithContentsOfPasteboard:display:error:",
+    "types": "@36@0:8@16c24^@28"
+   }
+  ],
+  "openUntitledDocumentAndDisplay:error:": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x100006796",
+    "ghidra_function": "openUntitledDocumentAndDisplay:error:",
+    "types": "@28@0:8c16^@20"
+   }
+  ],
+  "transientDocumentToReplace": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x10000796b",
+    "ghidra_function": "transientDocumentToReplace",
+    "types": "@16@0:8"
+   }
+  ],
+  "displayDocument:": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x100007bd1",
+    "ghidra_function": "displayDocument:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "replaceTransientDocument:": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x1000102fe",
+    "ghidra_function": "replaceTransientDocument:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "openDocumentWithContentsOfURL:display:error:": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x100007686",
+    "ghidra_function": "openDocumentWithContentsOfURL:display:error:",
+    "types": "@36@0:8@16c24^@28"
+   }
+  ],
+  "addDocument:": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x100003e89",
+    "ghidra_function": "addDocument:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "beginOpenPanel:forTypes:completionHandler:": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x100010673",
+    "ghidra_function": "beginOpenPanel:forTypes:completionHandler:",
+    "types": "v40@0:8@16@24@?32"
+   }
+  ],
+  "lastSelectedEncodingForURL:": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x1000029c5",
+    "ghidra_function": "lastSelectedEncodingForURL:",
+    "types": "Q24@0:8@16"
+   }
+  ],
+  "lastSelectedIgnoreHTMLForURL:": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x1000028bb",
+    "ghidra_function": "lastSelectedIgnoreHTMLForURL:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "lastSelectedIgnoreRichForURL:": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x10000293f",
+    "ghidra_function": "lastSelectedIgnoreRichForURL:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "defaultType": [
+   {
+    "owner": "DocumentController",
+    "kind": "instance",
+    "imp": "0x1000026d3",
+    "ghidra_function": "defaultType",
+    "types": "@16@0:8"
+   }
+  ],
+  "textView:menu:forEvent:atIndex:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100012e37",
+    "ghidra_function": "textView:menu:forEvent:atIndex:",
+    "types": "@48@0:8@16@24@32Q40"
+   }
+  ],
+  "windowWillUseStandardFrame:defaultFrame:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x1000068a5",
+    "ghidra_function": "windowWillUseStandardFrame:defaultFrame:",
+    "types": "{CGRect={CGPoint=dd}{CGSize=dd}}56@0:8@16{CGRect={CGPoint=dd}{CGSize=dd}}24"
+   }
+  ],
+  "windowDidResize:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100005fe2",
+    "ghidra_function": "windowDidResize:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "windowDidMove:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100006bae",
+    "ghidra_function": "windowDidMove:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "textView:clickedOnLink:atIndex:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x1000126fe",
+    "ghidra_function": "textView:clickedOnLink:atIndex:",
+    "types": "c40@0:8@16@24Q32"
+   }
+  ],
+  "textView:URLForContentsOfTextAttachment:atIndex:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100012bdb",
+    "ghidra_function": "textView:URLForContentsOfTextAttachment:atIndex:",
+    "types": "@40@0:8@16@24Q32"
+   }
+  ],
+  "textView:writablePasteboardTypesForCell:atIndex:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100012c88",
+    "ghidra_function": "textView:writablePasteboardTypesForCell:atIndex:",
+    "types": "@40@0:8@16@24Q32"
+   }
+  ],
+  "textView:writeCell:atIndex:toPasteboard:type:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100012d2a",
+    "ghidra_function": "textView:writeCell:atIndex:toPasteboard:type:",
+    "types": "c56@0:8@16@24Q32@40@48"
+   }
+  ],
+  "layoutManager:didCompleteLayoutForTextContainer:atEnd:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100004fed",
+    "ghidra_function": "layoutManager:didCompleteLayoutForTextContainer:atEnd:",
+    "types": "v36@0:8@16@24c32"
+   }
+  ],
+  "setDocument:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x10000409e",
+    "ghidra_function": "setDocument:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "breakUndoCoalescing": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100007d31",
+    "ghidra_function": "breakUndoCoalescing",
+    "types": "v16@0:8"
+   }
+  ],
+  "layoutManager": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x10000454f",
+    "ghidra_function": "layoutManager",
+    "types": "@16@0:8"
+   }
+  ],
+  "firstTextView": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100004520",
+    "ghidra_function": "firstTextView",
+    "types": "@16@0:8"
+   }
+  ],
+  "setupInitialTextViewSharedState": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x1000051ae",
+    "ghidra_function": "setupInitialTextViewSharedState",
+    "types": "v16@0:8"
+   }
+  ],
+  "observeValueForKeyPath:ofObject:change:context:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x1000059f1",
+    "ghidra_function": "observeValueForKeyPath:ofObject:change:context:",
+    "types": "v48@0:8@16@24@32^v40"
+   },
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x100013942",
+    "ghidra_function": "observeValueForKeyPath:ofObject:change:context:",
+    "types": "v48@0:8@16@24@32^v40"
+   },
+   {
+    "owner": "DocumentPropertiesPanelController",
+    "kind": "instance",
+    "imp": "0x100013b8c",
+    "ghidra_function": "observeValueForKeyPath:ofObject:change:context:",
+    "types": "v48@0:8@16@24@32^v40"
+   }
+  ],
+  "setupTextViewForDocument": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100005710",
+    "ghidra_function": "setupTextViewForDocument",
+    "types": "v16@0:8"
+   }
+  ],
+  "printInfoUpdated": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100009afd",
+    "ghidra_function": "printInfoUpdated",
+    "types": "v16@0:8"
+   }
+  ],
+  "showRulerDelayed:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100006b1d",
+    "ghidra_function": "showRulerDelayed:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "showRuler:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100006be0",
+    "ghidra_function": "showRuler:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "removeAttachments": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x10000aeba",
+    "ghidra_function": "removeAttachments",
+    "types": "v16@0:8"
+   }
+  ],
+  "presenterDidPresent:soContinue:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100010c3e",
+    "ghidra_function": "presenterDidPresent:soContinue:",
+    "types": "v28@0:8c16@?20"
+   }
+  ],
+  "chooseAndAttachFiles:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100010c5d",
+    "ghidra_function": "chooseAndAttachFiles:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "updateForRichTextAndRulerState:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100011383",
+    "ghidra_function": "updateForRichTextAndRulerState:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "configureTypingAttributesAndDefaultParagraphStyleForTextView:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100004edf",
+    "ghidra_function": "configureTypingAttributesAndDefaultParagraphStyleForTextView:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "convertTextForRichTextState:removeAttachments:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100011480",
+    "ghidra_function": "convertTextForRichTextState:removeAttachments:",
+    "types": "v24@0:8c16c20"
+   }
+  ],
+  "updateTextViewGeometry": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100011625",
+    "ghidra_function": "updateTextViewGeometry",
+    "types": "v16@0:8"
+   }
+  ],
+  "setupPagesViewForLayoutOrientation:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100011783",
+    "ghidra_function": "setupPagesViewForLayoutOrientation:",
+    "types": "v24@0:8q16"
+   }
+  ],
+  "addPage": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x10000a12d",
+    "ghidra_function": "addPage",
+    "types": "v16@0:8"
+   }
+  ],
+  "removePage": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x10001183b",
+    "ghidra_function": "removePage",
+    "types": "v16@0:8"
+   }
+  ],
+  "documentView": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100011936",
+    "ghidra_function": "documentView",
+    "types": "@16@0:8"
+   }
+  ],
+  "setHasMultiplePages:force:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x1000046e3",
+    "ghidra_function": "setHasMultiplePages:force:",
+    "types": "v24@0:8c16c20"
+   }
+  ],
+  "restoreStateWithCoder:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100011962",
+    "ghidra_function": "restoreStateWithCoder:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "encodeRestorableStateWithCoder:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100011b5e",
+    "ghidra_function": "encodeRestorableStateWithCoder:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "resizeWindowForViewSize:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100005cb3",
+    "ghidra_function": "resizeWindowForViewSize:",
+    "types": "v32@0:8{CGSize=dd}16"
+   }
+  ],
+  "setupWindowForDocument": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100005457",
+    "ghidra_function": "setupWindowForDocument",
+    "types": "v16@0:8"
+   }
+  ],
+  "setDocumentEdited:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x10000b419",
+    "ghidra_function": "setDocumentEdited:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "layoutOrientationSections": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100008ae6",
+    "ghidra_function": "layoutOrientationSections",
+    "types": "@16@0:8"
+   }
+  ],
+  "toggleRichWithNewFileType:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100011bc6",
+    "ghidra_function": "toggleRichWithNewFileType:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "toggleRich:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100006d89",
+    "ghidra_function": "toggleRich:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "didEndToggleRichSheet:returnCode:contextInfo:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100006ecb",
+    "ghidra_function": "didEndToggleRichSheet:returnCode:contextInfo:",
+    "types": "v40@0:8@16q24@?32"
+   }
+  ],
+  "toggleLayoutOrientation:": [
+   {
+    "owner": "DocumentWindowController",
+    "kind": "instance",
+    "imp": "0x100012612",
+    "ghidra_function": "toggleLayoutOrientation:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "parseLineDescription:fromLineSpec:toLineSpec:relative:": [
+   {
+    "owner": "LinePanelController",
+    "kind": "instance",
+    "imp": "0x100013126",
+    "ghidra_function": "parseLineDescription:fromLineSpec:toLineSpec:relative:",
+    "types": "c48@0:8@16^q24^q32^q40"
+   }
+  ],
+  "getRange:inTextView:fromLineSpec:toLineSpec:relative:": [
+   {
+    "owner": "LinePanelController",
+    "kind": "instance",
+    "imp": "0x100013220",
+    "ghidra_function": "getRange:inTextView:fromLineSpec:toLineSpec:relative:",
+    "types": "c56@0:8^{_NSRange=QQ}16@24q32q40q48"
+   }
+  ],
+  "selectLinesUsingDescription:error:": [
+   {
+    "owner": "LinePanelController",
+    "kind": "instance",
+    "imp": "0x10001341e",
+    "ghidra_function": "selectLinesUsingDescription:error:",
+    "types": "c32@0:8@16^@24"
+   }
+  ],
+  "lineFieldChanged:": [
+   {
+    "owner": "LinePanelController",
+    "kind": "instance",
+    "imp": "0x100013755",
+    "ghidra_function": "lineFieldChanged:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "selectClicked:": [
+   {
+    "owner": "LinePanelController",
+    "kind": "instance",
+    "imp": "0x100013814",
+    "ghidra_function": "selectClicked:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "initWithNibName:bundle:": [
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x10000935b",
+    "ghidra_function": "initWithNibName:bundle:",
+    "types": "@32@0:8@16@24"
+   }
+  ],
+  "setRepresentedObject:": [
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x1000093f8",
+    "ghidra_function": "setRepresentedObject:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setPageNumbering:": [
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x1000094d9",
+    "ghidra_function": "setPageNumbering:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "pageNumbering": [
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x100009a9f",
+    "ghidra_function": "pageNumbering",
+    "types": "c16@0:8"
+   }
+  ],
+  "keyPathsForValuesAffectingPreview": [
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x100009557",
+    "ghidra_function": "keyPathsForValuesAffectingPreview",
+    "types": "@16@0:8"
+   }
+  ],
+  "localizedSummaryItems": [
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x100009898",
+    "ghidra_function": "localizedSummaryItems",
+    "types": "@16@0:8"
+   }
+  ],
+  "showsWrappingToFit": [
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x1000093e5",
+    "ghidra_function": "showsWrappingToFit",
+    "types": "c16@0:8"
+   }
+  ],
+  "setShowsWrappingToFit:": [
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x10000938f",
+    "ghidra_function": "setShowsWrappingToFit:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "wrappingToFit": [
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x1000097cc",
+    "ghidra_function": "wrappingToFit",
+    "types": "c16@0:8"
+   }
+  ],
+  "setWrappingToFit:": [
+   {
+    "owner": "PrintPanelAccessoryController",
+    "kind": "instance",
+    "imp": "0x100009547",
+    "ghidra_function": "setWrappingToFit:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "activeDocumentChanged": [
+   {
+    "owner": "DocumentPropertiesPanelController",
+    "kind": "instance",
+    "imp": "0x100013aca",
+    "ghidra_function": "activeDocumentChanged",
+    "types": "v16@0:8"
+   }
+  ],
+  "objectDidBeginEditing:": [
+   {
+    "owner": "DocumentPropertiesPanelController",
+    "kind": "instance",
+    "imp": "0x100013c11",
+    "ghidra_function": "objectDidBeginEditing:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "objectDidEndEditing:": [
+   {
+    "owner": "DocumentPropertiesPanelController",
+    "kind": "instance",
+    "imp": "0x100013c2e",
+    "ghidra_function": "objectDidEndEditing:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "documentPropertiesPanelDidResignKey:": [
+   {
+    "owner": "DocumentPropertiesPanelController",
+    "kind": "instance",
+    "imp": "0x100013dbb",
+    "ghidra_function": "documentPropertiesPanelDidResignKey:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "toggleWindow:": [
+   {
+    "owner": "DocumentPropertiesPanelController",
+    "kind": "instance",
+    "imp": "0x100013dd8",
+    "ghidra_function": "toggleWindow:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "transformedValue:": [
+   {
+    "owner": "FontNameTransformer",
+    "kind": "instance",
+    "imp": "0x10000b29a",
+    "ghidra_function": "transformedValue:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "printPanelAccessoryController": [
+   {
+    "owner": "PrintingTextView",
+    "kind": "instance",
+    "imp": "0x10000970e",
+    "ghidra_function": "printPanelAccessoryController",
+    "types": "@16@0:8"
+   }
+  ],
+  "setPrintPanelAccessoryController:": [
+   {
+    "owner": "PrintingTextView",
+    "kind": "instance",
+    "imp": "0x1000093d4",
+    "ghidra_function": "setPrintPanelAccessoryController:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "originalSize": [
+   {
+    "owner": "PrintingTextView",
+    "kind": "instance",
+    "imp": "0x100013e87",
+    "ghidra_function": "originalSize",
+    "types": "{CGSize=dd}16@0:8"
+   }
+  ],
+  "setOriginalSize:": [
+   {
+    "owner": "PrintingTextView",
+    "kind": "instance",
+    "imp": "0x10000939f",
+    "ghidra_function": "setOriginalSize:",
+    "types": "v32@0:8{CGSize=dd}16"
+   }
+  ],
+  "textEditDoForegroundLayoutToCharacterIndex:": [
+   {
+    "owner": "()",
+    "kind": "instance",
+    "imp": "0x1000097e3",
+    "ghidra_function": "FUN_1000097e3",
+    "types": "v24@0:8Q16"
+   }
+  ]
+ }
+}

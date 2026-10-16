@@ -387,29 +387,71 @@ extracted from the running guest (tar `finder.tar`, md5 `6569a3b188c7da4b29038da
 Evidence: `runtime/raw/native/finder-objc-summary.json`,
 `finder-nib-graph-rea.json`, `finder-nib-selectors-rea.json`.
 
-## F0. What was obtained, and what is broken
+## F0. Finder ABI diagnosis: the layout was never wrong, the class names are absent
 
-* REA decoded **64 Finder NIBs** (the tool's 64-document cap), 7313 graph
-  nodes, 2398 edges, 200 selectors **[NIB]**.
-* Ghidra analysed the binary; the ObjC extractor recovered **663 class entries,
-  24 categories, 9337 methods, 9286 with a selector and an IMP**, 1333 of them
-  mapped onto Ghidra functions **[BIN]**.
+Binary SHA256 `98d3fc27136a6a30e33472be994fb397ea3a4c5ddb731e83e6cddad60b550eab`.
+Evidence: `runtime/raw/native/finder-abi-layout.json`,
+`runtime/raw/native/finder-objc-metadata.json`.
 
-**Defect — class names are unresolved.** For TextEdit and Calculator the
-`class_ro_t` layout (`name` at +24, `baseMethodList` at +32) read correctly;
-for Finder it does not: no pointer in the first 256 bytes of `class_ro_t`
-lands in `__objc_classname`, and `baseMethodList` reads to an address *before*
-the `class_ro_t` itself. Method selectors and IMPs remain correct because they
-are recovered through `method_list_t`, not through `class_ro_t`.
+### The ABI is the standard 64-bit objc4 layout
 
-This is stated as a defect, not worked around: no class list is reported for
-Finder until the real field order is established. **Next experiment:** dump
-the bytes at one known `class_ro_t` address (e.g. `0x1004ccc48`) and read the
-pointer triple in memory order to determine whether Finder carries
-`class_rw_t` at that address or a reordered `class_ro_t`.
+Dumping the first `__objc_classlist` entries and following the pointers shows
+Finder uses exactly the layout that already works for TextEdit and Calculator:
 
-Until then Finder class-level results are unusable, and only selector-level
-and NIB-level statements below are treated as findings.
+| Offset from `objc_class` | Value for entry 0 (`0x100567700`) | Interpretation |
+|---|---|---|
+| +0 | `0x1005676d8` | `isa` (metaclass) |
+| +8 | `0x10056da88` | `superclass` |
+| +16 / +24 | `0x100618200` / `0x100618300` | cache / vtable |
+| +32 | `0x1004ccc48` (`__objc_const`) | `data` -> `class_rw_t`/`class_ro_t` |
+| +40 | `0x100613800` | `data->flags` mirror region |
+
+At `0x1004ccc48`: +0 `0x10` flags, +8 `0x79` instanceStart, +16 `0x0`,
++24 a pointer into `__objc_classname`, +32 a pointer into `__objc_const`
+(`baseMethodList`). So `name` at +24 and `baseMethodList` at +32 hold, and the
+earlier "different `class_ro_t`" reading was wrong.
+
+### The class names are not in the binary
+
+The pointer at `+24` resolves to `0x1004222e8`, the first byte of
+`__objc_classname` (19525 bytes, `__TEXT,` file offset `0x4222e8`). Reading that
+region in **both** Ghidra's object model and directly from the file on disk
+gives the same non-text bytes:
+
+* printable-byte ratio 0.375, longest printable run 12 characters;
+* the only identifier-like runs are random short tokens (`usC`, `AQRx`, `X3I`);
+* `NSOutlineView`, `NSToolbar`, `NSWindow` and `FinderApplication` do **not**
+  occur anywhere inside the section.
+
+A control experiment shows the ratio alone is not the point: `__objc_methname`
+has the same 0.371 ratio yet yields 9286 valid selectors, because its strings
+begin later in the section. The class-name section simply has no strings.
+
+There is also no symbol fallback: `LC_SYMTAB` holds 1959 symbols and **zero**
+`CLASS_$_` / `OBJC_CLASS_$_` entries, and Ghidra imported no symbols at the
+class addresses. Class names for Finder appear in the binary only as
+`CLASS_$_NSOutlineView`-style strings inside the linker string area, which
+address the `__objc_classrefs` slots rather than the class structures.
+
+**Conclusion:** Finder class *ownership* cannot be attributed by name from this
+on-disk binary with the available static instruments. Selectors, IMPs, method
+lists and their ownership by class *address* are fully recovered (663 class
+entries, 24 categories, 9337 methods, 9286 with selector+IMP, 1333 mapped to
+Ghidra functions) and remain valid. Guessing names from selectors is refused.
+
+### Two extractor defects that this exposed
+
+1. `classname_ok()` validated only the first 4 bytes. With 37.5% printable
+   bytes in a non-text section that accepted hundreds of false positives, which
+   is exactly how the earlier "garbage class names" were produced. It now
+   requires a complete, terminated Objective-C identifier.
+2. When the layout scan failed, `name_ptr` kept its rejected value and was
+   decoded anyway, turning an unresolved class into a plausible-looking string.
+   It now resolves to "unresolved" and is reported as such.
+
+Both fixes are confirmed by regression: TextEdit 15/1/253, Calculator 11/2/217,
+BasicAndSci 8/1/153, Hexadecimal 2/0/77 — byte-identical counts to the previous
+evidence. Finder now reports 0 named / 663 unresolved instead of 661 wrong names.
 
 ## F1. View-mode commands are Finder's own, and are NIB-driven
 
@@ -432,8 +474,8 @@ The recovered NIB selectors **[NIB]** give the command surface:
 | Area | Status |
 |---|---|
 | Finder NIB surface (commands, controls) | partially — REA 64-document cap hit; 76 English NIBs exist |
-| Finder ObjC methods | partially — selectors+IMPs recovered, **class attribution broken** |
-| Finder window construction / views / sidebar internals | **not started** (blocked on F0) |
+| Finder ObjC methods | partially — selectors+IMPs recovered and correct; **class names provably absent from the binary** (F0), ownership known by address only |
+| Finder window construction / views / sidebar internals | **not started** (now unblocked: work by selector+class address) |
 | Dock | **not started** (binary extracted as `dock.tar`, path corrected to `/System/Library/CoreServices/Dock.app`) |
 | System Preferences | binary extracted (`syspref.tar`, 289 MB), **not started** |
 | AppKit / WindowServer split of responsibilities | **not started** |
@@ -447,3 +489,20 @@ The recovered NIB selectors **[NIB]** give the command surface:
 3. Dock: import, extract metadata, decompile the icon/magnification/animation
    paths — the Dock owns behaviour that must *not* be attributed to AppKit.
 4. AppKit vs WindowServer vs application split, evidenced rather than assumed.
+
+## F3. Reproducible commands for the 2026-10-16 ABI batch
+
+```sh
+export GHIDRA_INSTALL_DIR=/opt/ghidra
+/opt/ghidra/support/pyghidraRun --headless /home/builder/ghidra_proj finder \
+  -process Finder -postScript tools/uiref/ghidra/objc_extract.py
+```
+
+`OBJC_META_OUT` overrides the output path; without it the file is written as
+`objc_meta_<program name>.json`, which makes multi-program runs (`-process '*'`)
+safe. Diagnostics used for F0: `finder-abi-layout.json` (raw words of
+`objc_class` and of the structure at +32) produced with the throwaway probes in
+`/home/builder/vmwork/gh_scripts/abi_dump.py`, `abi_follow.py` and `raw_at.py`.
+
+Regression evidence for the unaffected binaries:
+`runtime/raw/native/regression-{textedit,calc,basic,hex}.json`.

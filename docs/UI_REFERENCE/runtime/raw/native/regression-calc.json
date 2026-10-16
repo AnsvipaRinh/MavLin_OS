@@ -1,0 +1,2117 @@
+{
+ "provenance": {
+  "program": "Calculator",
+  "language": "x86:LE:64:default",
+  "processor": "x86",
+  "image_base": "0x100000000",
+  "ghidra_version": "12.1.2",
+  "script": "objc_extract.py",
+  "sections": {
+   "__objc_methname": [
+    "0x10000f798",
+    "0x100012864",
+    12493
+   ],
+   "__objc_classname": [
+    "0x100013207",
+    "0x10001334c",
+    326
+   ],
+   "__objc_methtype": [
+    "0x10001334d",
+    "0x100013bd8",
+    2188
+   ],
+   "__objc_classlist": [
+    "0x100014170",
+    "0x1000141c7",
+    88
+   ],
+   "__objc_catlist": [
+    "0x1000141c8",
+    "0x1000141d7",
+    16
+   ],
+   "__objc_protolist": [
+    "0x1000141d8",
+    "0x10001420f",
+    56
+   ],
+   "__objc_imageinfo": [
+    "0x100014210",
+    "0x100014217",
+    8
+   ],
+   "__objc_const": [
+    "0x100014218",
+    "0x100017ccf",
+    15032
+   ],
+   "__objc_selrefs": [
+    "0x100017cd0",
+    "0x100018a87",
+    3512
+   ],
+   "__objc_msgrefs": [
+    "0x100018a90",
+    "0x100018b6f",
+    224
+   ],
+   "__objc_protorefs": [
+    "0x100018b70",
+    "0x100018b77",
+    8
+   ],
+   "__objc_classrefs": [
+    "0x100018b78",
+    "0x100018cf7",
+    384
+   ],
+   "__objc_superrefs": [
+    "0x100018cf8",
+    "0x100018d47",
+    80
+   ],
+   "__objc_data": [
+    "0x100018d48",
+    "0x1000190b7",
+    880
+   ],
+   "__objc_ivar": [
+    "0x10001a1f8",
+    "0x10001a597",
+    928
+   ]
+  }
+ },
+ "counts": {
+  "classes": 11,
+  "categories": 2,
+  "methods_total": 217,
+  "methods_with_selector": 217,
+  "methods_with_known_imp": 217,
+  "methods_matched_to_ghidra_function": 217
+ },
+ "classes": [
+  {
+   "class_ptr": "0x100018d48",
+   "ro_ptr": "0x1000143d8",
+   "name": "LCDBackgroundView",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x100014260",
+   "instance_methods": 3
+  },
+  {
+   "class_ptr": "0x100018d98",
+   "ro_ptr": "0x100015208",
+   "name": "LCDController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x100014420",
+   "instance_methods": 70
+  },
+  {
+   "class_ptr": "0x100018de8",
+   "ro_ptr": "0x100015568",
+   "name": "CalcConversion",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x100015388",
+   "instance_methods": 11
+  },
+  {
+   "class_ptr": "0x100018e38",
+   "ro_ptr": "0x100016570",
+   "name": "CalculatorController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x100015d68",
+   "instance_methods": 44
+  },
+  {
+   "class_ptr": "0x100018e88",
+   "ro_ptr": "0x1000166c8",
+   "name": "CustomView",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x100016600",
+   "instance_methods": 5
+  },
+  {
+   "class_ptr": "0x100018ed8",
+   "ro_ptr": "0x1000167d8",
+   "name": "CustomWindow",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x100016758",
+   "instance_methods": 5
+  },
+  {
+   "class_ptr": "0x100018f28",
+   "ro_ptr": "0x100016d70",
+   "name": "PaperTapeController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x100016908",
+   "instance_methods": 32
+  },
+  {
+   "class_ptr": "0x100018fa0",
+   "ro_ptr": "0x100016e50",
+   "name": "NoVOImageView",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x100016e00",
+   "instance_methods": 3
+  },
+  {
+   "class_ptr": "0x100018fc8",
+   "ro_ptr": "0x1000178f8",
+   "name": "ConversionController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x100016e98",
+   "instance_methods": 29
+  },
+  {
+   "class_ptr": "0x100019018",
+   "ro_ptr": "0x100017bc0",
+   "name": "SpeechController",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x1000179e8",
+   "instance_methods": 10
+  },
+  {
+   "class_ptr": "0x100019068",
+   "ro_ptr": "0x100017c88",
+   "name": "RPNTableView",
+   "name_source": "class_ro_t.name",
+   "super": "",
+   "method_list_ptr": "0x100017c50",
+   "instance_methods": 2
+  },
+  {
+   "category": "",
+   "class": "",
+   "instance_methods": 2,
+   "class_methods": 0
+  },
+  {
+   "category": "",
+   "class": "",
+   "instance_methods": 1,
+   "class_methods": 0
+  }
+ ],
+ "selectors": {
+  "initWithFrame:": [
+   {
+    "owner": "LCDBackgroundView",
+    "kind": "instance",
+    "imp": "0x100005ff6",
+    "ghidra_function": "initWithFrame:",
+    "types": "@48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16"
+   }
+  ],
+  "dealloc": [
+   {
+    "owner": "LCDBackgroundView",
+    "kind": "instance",
+    "imp": "0x1000061c5",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000067e4",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x100008d8d",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x1000093c5",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "CustomView",
+    "kind": "instance",
+    "imp": "0x10000afa6",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000b58e",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000c6bc",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "SpeechController",
+    "kind": "instance",
+    "imp": "0x10000f0a5",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   }
+  ],
+  "drawRect:": [
+   {
+    "owner": "LCDBackgroundView",
+    "kind": "instance",
+    "imp": "0x1000062b6",
+    "ghidra_function": "drawRect:",
+    "types": "v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16"
+   },
+   {
+    "owner": "CustomView",
+    "kind": "instance",
+    "imp": "0x10000b023",
+    "ghidra_function": "drawRect:",
+    "types": "v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16"
+   }
+  ],
+  "_showRPNViews": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100007ad2",
+    "ghidra_function": "_showRPNViews",
+    "types": "v16@0:8"
+   }
+  ],
+  "_hideRPNViews": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100007c68",
+    "ghidra_function": "_hideRPNViews",
+    "types": "v16@0:8"
+   }
+  ],
+  "_hideRegRPNView": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100007e33",
+    "ghidra_function": "_hideRegRPNView",
+    "types": "v16@0:8"
+   }
+  ],
+  "_hideWideRPNView": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100008207",
+    "ghidra_function": "_hideWideRPNView",
+    "types": "v16@0:8"
+   }
+  ],
+  "_reload": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100002beb",
+    "ghidra_function": "_reload",
+    "types": "v16@0:8"
+   }
+  ],
+  "_showWideRPNView": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000084f8",
+    "ghidra_function": "_showWideRPNView",
+    "types": "v16@0:8"
+   }
+  ],
+  "_showRegRPNView": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000087dd",
+    "ghidra_function": "_showRegRPNView",
+    "types": "v16@0:8"
+   }
+  ],
+  "_restoreRightLCD:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100002d83",
+    "ghidra_function": "_restoreRightLCD:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "init": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000063fc",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   },
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009324",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   }
+  ],
+  "setRPNStack:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100004327",
+    "ghidra_function": "setRPNStack:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setShowSeparators:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006585",
+    "ghidra_function": "setShowSeparators:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "stringWithSeparators:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100004a71",
+    "ghidra_function": "stringWithSeparators:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "awakeFromNib": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000065a3",
+    "ghidra_function": "awakeFromNib",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009eb4",
+    "ghidra_function": "awakeFromNib",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "CustomView",
+    "kind": "instance",
+    "imp": "0x10000b00b",
+    "ghidra_function": "awakeFromNib",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000b500",
+    "ghidra_function": "awakeFromNib",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000c785",
+    "ghidra_function": "awakeFromNib",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "SpeechController",
+    "kind": "instance",
+    "imp": "0x10000f10a",
+    "ghidra_function": "awakeFromNib",
+    "types": "v16@0:8"
+   }
+  ],
+  "setOperandText:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100002d20",
+    "ghidra_function": "setOperandText:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setExponent:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100001eff",
+    "ghidra_function": "setExponent:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setCalcModeText:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x10000395f",
+    "ghidra_function": "setCalcModeText:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "showMemoryIndicator:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100004a4a",
+    "ghidra_function": "showMemoryIndicator:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "showParenIndicator:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100001ea7",
+    "ghidra_function": "showParenIndicator:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "showParenError": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000068c2",
+    "ghidra_function": "showParenError",
+    "types": "v16@0:8"
+   }
+  ],
+  "clearParenError": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006944",
+    "ghidra_function": "clearParenError",
+    "types": "v16@0:8"
+   }
+  ],
+  "showLCDModeIndicator:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100003b9c",
+    "ghidra_function": "showLCDModeIndicator:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "changeDisplayedNumber:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100004e19",
+    "ghidra_function": "changeDisplayedNumber:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setLCDDoubleValue:input:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100002c86",
+    "ghidra_function": "setLCDDoubleValue:input:",
+    "types": "v28@0:8d16c24"
+   }
+  ],
+  "setLCDStringValue:input:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100004dab",
+    "ghidra_function": "setLCDStringValue:input:",
+    "types": "v28@0:8@16c24"
+   }
+  ],
+  "setLCDIntValue:input:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x10000499c",
+    "ghidra_function": "setLCDIntValue:input:",
+    "types": "v28@0:8Q16c24"
+   }
+  ],
+  "message:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006968",
+    "ghidra_function": "message:",
+    "types": "v20@0:8i16"
+   }
+  ],
+  "setErrorCondition:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x10000534a",
+    "ghidra_function": "setErrorCondition:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "blink": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100001d67",
+    "ghidra_function": "blink",
+    "types": "v16@0:8"
+   }
+  ],
+  "localizedStringForError:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100005368",
+    "ghidra_function": "localizedStringForError:",
+    "types": "@24@0:8Q16"
+   }
+  ],
+  "clear": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100001e48",
+    "ghidra_function": "clear",
+    "types": "v16@0:8"
+   }
+  ],
+  "showValue": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100001f66",
+    "ghidra_function": "showValue",
+    "types": "v16@0:8"
+   }
+  ],
+  "localizeDecimalSeparator:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100002b60",
+    "ghidra_function": "localizeDecimalSeparator:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "revertSeparators:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x10000696e",
+    "ghidra_function": "revertSeparators:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "showLeftValue": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000069f8",
+    "ghidra_function": "showLeftValue",
+    "types": "v16@0:8"
+   }
+  ],
+  "actualValue": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000052a5",
+    "ghidra_function": "actualValue",
+    "types": "@16@0:8"
+   }
+  ],
+  "doubleValue": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000042e6",
+    "ghidra_function": "doubleValue",
+    "types": "d16@0:8"
+   }
+  ],
+  "actualValuePeriodDecimal": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000026cc",
+    "ghidra_function": "actualValuePeriodDecimal",
+    "types": "@16@0:8"
+   }
+  ],
+  "actualValueWithThousandsSeparators": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100004f61",
+    "ghidra_function": "actualValueWithThousandsSeparators",
+    "types": "@16@0:8"
+   }
+  ],
+  "intValue": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000055ac",
+    "ghidra_function": "intValue",
+    "types": "Q16@0:8"
+   }
+  ],
+  "localizedStringValue": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006c53",
+    "ghidra_function": "localizedStringValue",
+    "types": "@16@0:8"
+   }
+  ],
+  "stringValue": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100004988",
+    "ghidra_function": "stringValue",
+    "types": "@16@0:8"
+   }
+  ],
+  "displayedString": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006caa",
+    "ghidra_function": "displayedString",
+    "types": "@16@0:8"
+   }
+  ],
+  "hexString": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x10000554c",
+    "ghidra_function": "hexString",
+    "types": "@16@0:8"
+   }
+  ],
+  "octString": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006ce9",
+    "ghidra_function": "octString",
+    "types": "@16@0:8"
+   }
+  ],
+  "binaryStringRepresentationOfSize:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006d46",
+    "ghidra_function": "binaryStringRepresentationOfSize:",
+    "types": "@20@0:8i16"
+   }
+  ],
+  "setPrecision:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006e07",
+    "ghidra_function": "setPrecision:",
+    "types": "v24@0:8Q16"
+   },
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009466",
+    "ghidra_function": "setPrecision:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "precision": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006e24",
+    "ghidra_function": "precision",
+    "types": "Q16@0:8"
+   }
+  ],
+  "setLCDMode:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100003bc1",
+    "ghidra_function": "setLCDMode:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "setLeftLCDMode:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000043d7",
+    "ghidra_function": "setLeftLCDMode:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "lcdMode": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006e37",
+    "ghidra_function": "lcdMode",
+    "types": "Q16@0:8"
+   }
+  ],
+  "leftLCDMode": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006e48",
+    "ghidra_function": "leftLCDMode",
+    "types": "Q16@0:8"
+   }
+  ],
+  "setLCDModeIndicatorText:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100003c0d",
+    "ghidra_function": "setLCDModeIndicatorText:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "validateMenuItem:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006e5c",
+    "ghidra_function": "validateMenuItem:",
+    "types": "c24@0:8@16"
+   },
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100002da2",
+    "ghidra_function": "validateMenuItem:",
+    "types": "c24@0:8@16"
+   },
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000e1c8",
+    "ghidra_function": "validateMenuItem:",
+    "types": "c24@0:8@16"
+   },
+   {
+    "owner": "SpeechController",
+    "kind": "instance",
+    "imp": "0x10000f250",
+    "ghidra_function": "validateMenuItem:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "drawLargeType:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100006edb",
+    "ghidra_function": "drawLargeType:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "contentRectForString:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100007013",
+    "ghidra_function": "contentRectForString:",
+    "types": "{CGRect={CGPoint=dd}{CGSize=dd}}24@0:8@16"
+   }
+  ],
+  "setRPNState:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x10000724d",
+    "ghidra_function": "setRPNState:",
+    "types": "v20@0:8i16"
+   }
+  ],
+  "displayStringForActualValue": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100002484",
+    "ghidra_function": "displayStringForActualValue",
+    "types": "@16@0:8"
+   }
+  ],
+  "displayStringForString:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100007341",
+    "ghidra_function": "displayStringForString:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "numberOfRowsInTableView:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100004385",
+    "ghidra_function": "numberOfRowsInTableView:",
+    "types": "q24@0:8@16"
+   }
+  ],
+  "tableView:objectValueForTableColumn:row:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100007431",
+    "ghidra_function": "tableView:objectValueForTableColumn:row:",
+    "types": "@40@0:8@16@24q32"
+   }
+  ],
+  "tableView:shouldSelectRow:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100007614",
+    "ghidra_function": "tableView:shouldSelectRow:",
+    "types": "c32@0:8@16q24"
+   }
+  ],
+  "setRPNIsWide:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100004314",
+    "ghidra_function": "setRPNIsWide:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "setCurrentView:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100003918",
+    "ghidra_function": "setCurrentView:",
+    "types": "v24@0:8@16"
+   },
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x1000030e4",
+    "ghidra_function": "setCurrentView:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "rpnRollUp:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x10000761f",
+    "ghidra_function": "rpnRollUp:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "rpnRollDown:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x10000763c",
+    "ghidra_function": "rpnRollDown:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "rpnDrop:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100007659",
+    "ghidra_function": "rpnDrop:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "rpnExchange:": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100007676",
+    "ghidra_function": "rpnExchange:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "switchRPNRegToWide": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x100007693",
+    "ghidra_function": "switchRPNRegToWide",
+    "types": "v16@0:8"
+   }
+  ],
+  "switchRPNWideToReg": [
+   {
+    "owner": "LCDController",
+    "kind": "instance",
+    "imp": "0x1000078af",
+    "ghidra_function": "switchRPNWideToReg",
+    "types": "v16@0:8"
+   }
+  ],
+  "initWithType:fromUnit:toUnit:": [
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x100008d21",
+    "ghidra_function": "initWithType:fromUnit:toUnit:",
+    "types": "@40@0:8@16@24@32"
+   }
+  ],
+  "dictionaryRepresentation": [
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x100008e06",
+    "ghidra_function": "dictionaryRepresentation",
+    "types": "@16@0:8"
+   }
+  ],
+  "localizedTitle": [
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x100008ead",
+    "ghidra_function": "localizedTitle",
+    "types": "@16@0:8"
+   }
+  ],
+  "localizedFrom": [
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x100009037",
+    "ghidra_function": "localizedFrom",
+    "types": "@16@0:8"
+   }
+  ],
+  "localizedTo": [
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x100009104",
+    "ghidra_function": "localizedTo",
+    "types": "@16@0:8"
+   }
+  ],
+  "isOfType:": [
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x1000091d1",
+    "ghidra_function": "isOfType:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "isEqual:": [
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x100009204",
+    "ghidra_function": "isEqual:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "type": [
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x1000092f1",
+    "ghidra_function": "type",
+    "types": "@16@0:8"
+   }
+  ],
+  "from": [
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x100009302",
+    "ghidra_function": "from",
+    "types": "@16@0:8"
+   }
+  ],
+  "to": [
+   {
+    "owner": "CalcConversion",
+    "kind": "instance",
+    "imp": "0x100009313",
+    "ghidra_function": "to",
+    "types": "@16@0:8"
+   }
+  ],
+  "convert:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009580",
+    "ghidra_function": "convert:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "clearRecentConversionsMenu:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x1000095be",
+    "ghidra_function": "clearRecentConversionsMenu:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "openExpressionSyntaxHelp:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x1000095f9",
+    "ghidra_function": "openExpressionSyntaxHelp:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "toggleSeparators:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009663",
+    "ghidra_function": "toggleSeparators:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "toggleRPNMode:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000972b",
+    "ghidra_function": "toggleRPNMode:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "menuViewSelectionDidChange:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x1000030d2",
+    "ghidra_function": "menuViewSelectionDidChange:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "prepareConversion:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000991c",
+    "ghidra_function": "prepareConversion:",
+    "types": "v24@0:8@16"
+   },
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000e2d3",
+    "ghidra_function": "prepareConversion:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "showAbout:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009939",
+    "ghidra_function": "showAbout:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "dumpStack:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009968",
+    "ghidra_function": "dumpStack:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "languageIsFrench": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009985",
+    "ghidra_function": "languageIsFrench",
+    "types": "c16@0:8"
+   }
+  ],
+  "updateRecentConversionsMenu": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009a08",
+    "ghidra_function": "updateRecentConversionsMenu",
+    "types": "v16@0:8"
+   }
+  ],
+  "populateConvertMenu": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009c8c",
+    "ghidra_function": "populateConvertMenu",
+    "types": "v16@0:8"
+   }
+  ],
+  "initItemsWithStoredDefaults": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100009ffb",
+    "ghidra_function": "initItemsWithStoredDefaults",
+    "types": "v16@0:8"
+   }
+  ],
+  "pathsToPlugins": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000a3dd",
+    "ghidra_function": "pathsToPlugins",
+    "types": "@16@0:8"
+   }
+  ],
+  "loadView:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000a48f",
+    "ghidra_function": "loadView:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setBackEndMode:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x1000043c6",
+    "ghidra_function": "setBackEndMode:",
+    "types": "v20@0:8i16"
+   }
+  ],
+  "sendDataToCalcEngine:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x1000055e3",
+    "ghidra_function": "sendDataToCalcEngine:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "lcd:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x1000043b5",
+    "ghidra_function": "lcd:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "previousView:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100003e10",
+    "ghidra_function": "previousView:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "copy:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000a84f",
+    "ghidra_function": "copy:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "writeObject:toPasteboard:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000a8af",
+    "ghidra_function": "writeObject:toPasteboard:",
+    "types": "v32@0:8@16@24"
+   }
+  ],
+  "localizedValueForString:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000a91a",
+    "ghidra_function": "localizedValueForString:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "adjustWindowPosition": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100003e21",
+    "ghidra_function": "adjustWindowPosition",
+    "types": "v16@0:8"
+   }
+  ],
+  "recentConversionsHaveChanged": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000a97a",
+    "ghidra_function": "recentConversionsHaveChanged",
+    "types": "v16@0:8"
+   }
+  ],
+  "readyForConversion": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000a98c",
+    "ghidra_function": "readyForConversion",
+    "types": "c16@0:8"
+   }
+  ],
+  "handleConversion:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000a9d2",
+    "ghidra_function": "handleConversion:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "applicationShouldOpenUntitledFile:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000a9ef",
+    "ghidra_function": "applicationShouldOpenUntitledFile:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "applicationDidFinishLaunching:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000a9f7",
+    "ghidra_function": "applicationDidFinishLaunching:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "applicationShouldTerminateAfterLastWindowClosed:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000acb7",
+    "ghidra_function": "applicationShouldTerminateAfterLastWindowClosed:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "windowShouldZoom:toFrame:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000ad35",
+    "ghidra_function": "windowShouldZoom:toFrame:",
+    "types": "c56@0:8@16{CGRect={CGPoint=dd}{CGSize=dd}}24"
+   }
+  ],
+  "windowWillResize:toSize:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000aded",
+    "ghidra_function": "windowWillResize:toSize:",
+    "types": "{CGSize=dd}40@0:8@16{CGSize=dd}24"
+   }
+  ],
+  "windowDidUpdate:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100001cc0",
+    "ghidra_function": "windowDidUpdate:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "windowDidMove:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000ae33",
+    "ghidra_function": "windowDidMove:",
+    "types": "v24@0:8@16"
+   },
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000becd",
+    "ghidra_function": "windowDidMove:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "windowDidBecomeKey:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000550a",
+    "ghidra_function": "windowDidBecomeKey:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "windowWillClose:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000ae68",
+    "ghidra_function": "windowWillClose:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "windowDidLoad": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000aec8",
+    "ghidra_function": "windowDidLoad",
+    "types": "v16@0:8"
+   },
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000bf02",
+    "ghidra_function": "windowDidLoad",
+    "types": "v16@0:8"
+   }
+  ],
+  "window:willEncodeRestorableState:": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x10000521e",
+    "ghidra_function": "window:willEncodeRestorableState:",
+    "types": "v32@0:8@16@24"
+   },
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x1000052c1",
+    "ghidra_function": "window:willEncodeRestorableState:",
+    "types": "v32@0:8@16@24"
+   }
+  ],
+  "window": [
+   {
+    "owner": "CalculatorController",
+    "kind": "instance",
+    "imp": "0x100003906",
+    "ghidra_function": "window",
+    "types": "@16@0:8"
+   }
+  ],
+  "setValueString:": [
+   {
+    "owner": "CustomView",
+    "kind": "instance",
+    "imp": "0x10000af34",
+    "ghidra_function": "setValueString:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setAttributes:": [
+   {
+    "owner": "CustomView",
+    "kind": "instance",
+    "imp": "0x10000af5f",
+    "ghidra_function": "setAttributes:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "initWithContentRect:styleMask:backing:defer:": [
+   {
+    "owner": "CustomWindow",
+    "kind": "instance",
+    "imp": "0x10000b37e",
+    "ghidra_function": "initWithContentRect:styleMask:backing:defer:",
+    "types": "@68@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16Q48Q56c64"
+   }
+  ],
+  "canBecomeKeyWindow": [
+   {
+    "owner": "CustomWindow",
+    "kind": "instance",
+    "imp": "0x10000b480",
+    "ghidra_function": "canBecomeKeyWindow",
+    "types": "c16@0:8"
+   }
+  ],
+  "resignKeyWindow": [
+   {
+    "owner": "CustomWindow",
+    "kind": "instance",
+    "imp": "0x10000b48b",
+    "ghidra_function": "resignKeyWindow",
+    "types": "v16@0:8"
+   }
+  ],
+  "keyDown:": [
+   {
+    "owner": "CustomWindow",
+    "kind": "instance",
+    "imp": "0x10000b4cd",
+    "ghidra_function": "keyDown:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "mouseDown:": [
+   {
+    "owner": "CustomWindow",
+    "kind": "instance",
+    "imp": "0x10000b4e2",
+    "ghidra_function": "mouseDown:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setBasicEquation:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x100005f6b",
+    "ghidra_function": "setBasicEquation:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "clearTape:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x1000054e6",
+    "ghidra_function": "clearTape:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "savePanelDidEnd:returnCode:contextInfo:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000b5ca",
+    "ghidra_function": "savePanelDidEnd:returnCode:contextInfo:",
+    "types": "v36@0:8@16i24^v28"
+   }
+  ],
+  "saveTape:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000b63e",
+    "ghidra_function": "saveTape:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "validateTapeMenuItems": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000b7fb",
+    "ghidra_function": "validateTapeMenuItems",
+    "types": "v16@0:8"
+   }
+  ],
+  "printTape:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000b899",
+    "ghidra_function": "printTape:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "pageSetup:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000b99e",
+    "ghidra_function": "pageSetup:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "pageSetupDidEnd:returnCode:contextInfo:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000ba6f",
+    "ghidra_function": "pageSetupDidEnd:returnCode:contextInfo:",
+    "types": "v36@0:8@16i24^v28"
+   }
+  ],
+  "printOperationDidRun:success:contextInfo:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000ba75",
+    "ghidra_function": "printOperationDidRun:success:contextInfo:",
+    "types": "v36@0:8@16c24^v28"
+   }
+  ],
+  "hideTape:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000ba7b",
+    "ghidra_function": "hideTape:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "showTape:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000bafb",
+    "ghidra_function": "showTape:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "adjustTapeWindowPosition:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000bb6a",
+    "ghidra_function": "adjustTapeWindowPosition:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "toggleTape:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000bc53",
+    "ghidra_function": "toggleTape:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "close:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000be2b",
+    "ghidra_function": "close:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "windowShouldClose:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000be3d",
+    "ghidra_function": "windowShouldClose:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "setAdvancedEquation:total:atEquals:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000bf51",
+    "ghidra_function": "setAdvancedEquation:total:atEquals:",
+    "types": "v36@0:8@16@24c32"
+   }
+  ],
+  "setCurrentEquation:total:atEquals:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x1000057b6",
+    "ghidra_function": "setCurrentEquation:total:atEquals:",
+    "types": "v36@0:8@16@24c32"
+   }
+  ],
+  "_getSpaceArray": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000c273",
+    "ghidra_function": "_getSpaceArray",
+    "types": "@16@0:8"
+   }
+  ],
+  "setBasicEquation:total:atEquals:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000592d",
+    "ghidra_function": "setBasicEquation:total:atEquals:",
+    "types": "v36@0:8@16@24c32"
+   }
+  ],
+  "operatorIntForString:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x100005e86",
+    "ghidra_function": "operatorIntForString:",
+    "types": "i24@0:8@16"
+   }
+  ],
+  "appendOperation:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x100005f44",
+    "ghidra_function": "appendOperation:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "insertSpace": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000c391",
+    "ghidra_function": "insertSpace",
+    "types": "v16@0:8"
+   }
+  ],
+  "startNewEquation": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x1000051ac",
+    "ghidra_function": "startNewEquation",
+    "types": "v16@0:8"
+   }
+  ],
+  "setCurrentEquation:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x100004fde",
+    "ghidra_function": "setCurrentEquation:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "completeEquationWithResult:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x1000050bc",
+    "ghidra_function": "completeEquationWithResult:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "parentWindow": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000c457",
+    "ghidra_function": "parentWindow",
+    "types": "@16@0:8"
+   }
+  ],
+  "setParentWindow:": [
+   {
+    "owner": "PaperTapeController",
+    "kind": "instance",
+    "imp": "0x10000c468",
+    "ghidra_function": "setParentWindow:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "accessibilityHitTest:": [
+   {
+    "owner": "NoVOImageView",
+    "kind": "instance",
+    "imp": "0x10000c479",
+    "ghidra_function": "accessibilityHitTest:",
+    "types": "@32@0:8{CGPoint=dd}16"
+   }
+  ],
+  "accessibilityAttributeValue:": [
+   {
+    "owner": "NoVOImageView",
+    "kind": "instance",
+    "imp": "0x10000c481",
+    "ghidra_function": "accessibilityAttributeValue:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "accessibilityIsIgnored": [
+   {
+    "owner": "NoVOImageView",
+    "kind": "instance",
+    "imp": "0x10000c489",
+    "ghidra_function": "accessibilityIsIgnored",
+    "types": "c16@0:8"
+   }
+  ],
+  "download:didFailWithError:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000edb5",
+    "ghidra_function": "download:didFailWithError:",
+    "types": "v32@0:8@16@24"
+   }
+  ],
+  "downloadDidFinish:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000ede8",
+    "ghidra_function": "downloadDidFinish:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "initWithDelegate:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000c494",
+    "ghidra_function": "initWithDelegate:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "executeConversion:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000ca9e",
+    "ghidra_function": "executeConversion:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "addRecentConversion:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000cef5",
+    "ghidra_function": "addRecentConversion:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "saveRecentConversions": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000d062",
+    "ghidra_function": "saveRecentConversions",
+    "types": "v16@0:8"
+   }
+  ],
+  "clearRecentConversions": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000d208",
+    "ghidra_function": "clearRecentConversions",
+    "types": "v16@0:8"
+   }
+  ],
+  "attributedStringFromDateString:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000d225",
+    "ghidra_function": "attributedStringFromDateString:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "recentConversionsAreClearable": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000d42d",
+    "ghidra_function": "recentConversionsAreClearable",
+    "types": "c16@0:8"
+   }
+  ],
+  "updateCurrencyDictFromFileAtPath:locale:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000d459",
+    "ghidra_function": "updateCurrencyDictFromFileAtPath:locale:",
+    "types": "c32@0:8@16@24"
+   }
+  ],
+  "populateConvertPopupsForKey:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000d7d5",
+    "ghidra_function": "populateConvertPopupsForKey:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "showOrHideCaveatsForKey:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000e139",
+    "ghidra_function": "showOrHideCaveatsForKey:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "sortedCategoryNames": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000e2ad",
+    "ghidra_function": "sortedCategoryNames",
+    "types": "@16@0:8"
+   }
+  ],
+  "cancelConvertSheet:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000e551",
+    "ghidra_function": "cancelConvertSheet:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "okayConvertSheet:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000e5a2",
+    "ghidra_function": "okayConvertSheet:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "conversionTypePopupDidChange:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000e6d5",
+    "ghidra_function": "conversionTypePopupDidChange:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "conversionFromPopupDidChange:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000e740",
+    "ghidra_function": "conversionFromPopupDidChange:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "conversionToPopupDidChange:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000e7f1",
+    "ghidra_function": "conversionToPopupDidChange:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "updateCurrencyRates:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000e7f7",
+    "ghidra_function": "updateCurrencyRates:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "browseRatesWebsite:": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000ea24",
+    "ghidra_function": "browseRatesWebsite:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "getPathForFinancialRatesXML": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000ea83",
+    "ghidra_function": "getPathForFinancialRatesXML",
+    "types": "@16@0:8"
+   }
+  ],
+  "updateRatesStaleDate": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000eb5c",
+    "ghidra_function": "updateRatesStaleDate",
+    "types": "v16@0:8"
+   }
+  ],
+  "validateAndMoveNewCurrencyRateData": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000ebeb",
+    "ghidra_function": "validateAndMoveNewCurrencyRateData",
+    "types": "c16@0:8"
+   }
+  ],
+  "recentConversions": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000ed93",
+    "ghidra_function": "recentConversions",
+    "types": "@16@0:8"
+   }
+  ],
+  "categories": [
+   {
+    "owner": "ConversionController",
+    "kind": "instance",
+    "imp": "0x10000eda4",
+    "ghidra_function": "categories",
+    "types": "@16@0:8"
+   }
+  ],
+  "_languageIsEnglish": [
+   {
+    "owner": "SpeechController",
+    "kind": "instance",
+    "imp": "0x10000ef3f",
+    "ghidra_function": "_languageIsEnglish",
+    "types": "c16@0:8"
+   }
+  ],
+  "_speakString:": [
+   {
+    "owner": "SpeechController",
+    "kind": "instance",
+    "imp": "0x10000efc2",
+    "ghidra_function": "_speakString:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "speechMenu:": [
+   {
+    "owner": "SpeechController",
+    "kind": "instance",
+    "imp": "0x10000f27b",
+    "ghidra_function": "speechMenu:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "speakButton:": [
+   {
+    "owner": "SpeechController",
+    "kind": "instance",
+    "imp": "0x100001ddc",
+    "ghidra_function": "speakButton:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "speakTotal:": [
+   {
+    "owner": "SpeechController",
+    "kind": "instance",
+    "imp": "0x100004f94",
+    "ghidra_function": "speakTotal:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "enabled": [
+   {
+    "owner": "SpeechController",
+    "kind": "instance",
+    "imp": "0x10000f3d0",
+    "ghidra_function": "enabled",
+    "types": "c16@0:8"
+   }
+  ],
+  "setEnabled:": [
+   {
+    "owner": "SpeechController",
+    "kind": "instance",
+    "imp": "0x10000f3e3",
+    "ghidra_function": "setEnabled:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "makeBackingLayer": [
+   {
+    "owner": "RPNTableView",
+    "kind": "instance",
+    "imp": "0x10000f3f3",
+    "ghidra_function": "makeBackingLayer",
+    "types": "@16@0:8"
+   }
+  ],
+  "setLayer:": [
+   {
+    "owner": "RPNTableView",
+    "kind": "instance",
+    "imp": "0x10000f40c",
+    "ghidra_function": "setLayer:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setAttributedTitle:subscriptLength:": [
+   {
+    "owner": "()",
+    "kind": "instance",
+    "imp": "0x100004753",
+    "ghidra_function": "FUN_100004753",
+    "types": "v28@0:8@16i24"
+   }
+  ],
+  "setAttributedTitle:superscriptLength:": [
+   {
+    "owner": "()",
+    "kind": "instance",
+    "imp": "0x10000451f",
+    "ghidra_function": "FUN_10000451f",
+    "types": "v28@0:8@16i24"
+   }
+  ],
+  "displayStringWithPrecision:useEE:separatorIsShowing:": [
+   {
+    "owner": "()",
+    "kind": "instance",
+    "imp": "0x1000028db",
+    "ghidra_function": "FUN_1000028db",
+    "types": "@36@0:8Q16@24c32"
+   }
+  ]
+ }
+}

@@ -23,11 +23,13 @@ and full provenance.
 """
 import json
 import os
+import re
 import struct
 
 prog = currentProgram
 mem = prog.getMemory()
-OUT = os.environ.get("OBJC_META_OUT", "/home/builder/vmwork/opencode/objc_meta.json")
+prog_name = prog.getName()
+OUT = os.environ.get("OBJC_META_OUT") or ("/home/builder/vmwork/opencode/objc_meta_%s.json" % re.sub(r"[^A-Za-z0-9._-]", "_", prog_name))
 
 AS = prog.getAddressFactory().getDefaultAddressSpace()
 
@@ -95,6 +97,17 @@ sections = {}
 for b in mem.getBlocks():
     sections[b.getName()] = (b.getStart().getOffset(), b.getEnd().getOffset(), b.getSize())
 
+# Exported Objective-C class symbols, when the loader imported them.  Where a
+# binary# exposes OBJC_CLASS_$_<Name> at a class address this is authoritative and
+# takes precedence over __objc_classname, which some system binaries do not
+# store as plain text.  Stripped binaries yield an empty table and fall back
+# to class_ro_t.name.
+sym_class = {}
+for sym in prog.getSymbolTable().getAllSymbols(True):
+    nm = sym.getName()
+    if nm.startswith("OBJC_CLASS_$_"):
+        sym_class.setdefault(sym.getAddress().getOffset(), nm[len("OBJC_CLASS_$_"):])
+
 METHNAME = sections.get("__objc_methname", (0, 0, 0))
 CLASSPTR = sections.get("__objc_classname", (0, 0, 0))
 
@@ -120,20 +133,28 @@ def printable(p):
 
 
 def classname_ok(p):
-    """A class name pointer must land in __objc_classname and be readable."""
+    """True only if p is a plausible Objective-C class-name string.
+
+    Validating just a short prefix is not enough: in binaries whose
+    __objc_classname section is not plain text a large fraction of bytes are
+    printable, so a prefix check accepts hundreds of false positives and yields
+    plausible-looking garbage names.  A class name must be a complete,
+    terminated identifier built from Objective-C name characters.
+    """
     if not (CLASSPTR[0] <= p < CLASSPTR[1]):
         return False
     try:
-        for i in range(4):
-            b = int(mem.getByte(A(p + i))) & 0xFF
+        n = 0
+        while n < 256:
+            b = int(mem.getByte(A(p + n))) & 0xFF
             if b == 0:
-                return True
-            if not (0x20 <= b < 0x7F):
+                return n >= 2
+            if not (0x21 <= b < 0x7F) or b in (0x28, 0x29, 0x2C):
                 return False
+            n += 1
     except Exception:
         return False
-    return True
-
+    return False
 
 def resolve_ref(field_addr, raw, table):
     """Absolute pointer, else pointer relative to the field's own address."""
@@ -219,19 +240,30 @@ if cl:
     for a in range(cl[0], cl[1], 8):
         cp = rd64(a)
         ro = rd64(cp + 32)
-        # Prefer the documented offset, but fall back to scanning class_ro_t for
-        # the first pointer into __objc_classname: Finder and other large
-        # binaries do not always keep the 64-bit field order we assumed, and a
-        # wrong guess yields a readable method table but garbage class names.
-        name_ptr = rd64(ro + 24)
         methlist = rd64(ro + 32)
-        if not classname_ok(name_ptr):
-            for off in range(0, 256, 8):
-                cand = rd64(ro + off)
-                if classname_ok(cand):
-                    name_ptr = cand
-                    break
-        cname = cstr(name_ptr)
+        # Class-name resolution, strongest source first:
+        #   1. the exported OBJC_CLASS_$_ symbol at the class pointer
+        #   2. class_ro_t.name at the documented +24 offset
+        #   3. a scan of class_ro_t for the first readable __objc_classname ptr
+        name_src = "unresolved"
+        cname = sym_class.get(cp, "")
+        if cname:
+            name_src = "objc_class_symbol"
+        else:
+            name_ptr = rd64(ro + 24)
+            if not classname_ok(name_ptr):
+                # Layout variation: look for the first pointer inside
+                # class_ro_t that actually resolves to a class name.  If none
+                # does, the name is unresolvable and must be reported as such
+                # rather than decoded from a pointer we already rejected.
+                name_ptr = 0
+                for off in range(0, 256, 8):
+                    cand = rd64(ro + off)
+                    if classname_ok(cand):
+                        name_ptr = cand
+                        break
+            cname = cstr(name_ptr) if name_ptr else ""
+            name_src = "class_ro_t.name" if cname else "unresolved"
         # superclass name, if resolvable
         sup = rd64(cp + 8)
         sname = ""
@@ -245,14 +277,14 @@ if cl:
                         if classname_ok(cand):
                             sp = cand
                             break
-                sname = cstr(sp)
+                sname = sym_class.get(sup) or cstr(sp)
         inst = parse_methods(methlist, cname or hex(cp), "instance")
         # class methods: pointer stored after baseMethodList (objc_class has no direct
         # class method list in the ro; the metaclass holds it) -> read metaclass ro
         meta = rd64(cp + 40) if False else 0
         classes.append({
             "class_ptr": hex(cp), "ro_ptr": hex(ro),
-            "name": cname, "super": sname,
+            "name": cname, "name_source": name_src, "super": sname,
             "method_list_ptr": hex(methlist),
             "instance_methods": len(inst),
         })
@@ -266,9 +298,19 @@ if cat:
         cls_ptr = rd64(c)
         cls_name = ""
         if cls_ptr:
-            cro = rd64(cls_ptr + 32)
-            if cro:
-                cls_name = cstr(rd64(cro + 24))
+            cls_name = sym_class.get(cls_ptr, "")
+            if not cls_name:
+                cro = rd64(cls_ptr + 32)
+                if cro:
+                    cp2 = rd64(cro + 24)
+                    if not classname_ok(cp2):
+                        cp2 = 0
+                        for off in range(0, 256, 8):
+                            cand = rd64(cro + off)
+                            if classname_ok(cand):
+                                cp2 = cand
+                                break
+                    cls_name = cstr(cp2) if cp2 else ""
         im = parse_methods(rd64(c + 16), f"{cls_name}({name})", "instance", name)
         cm = parse_methods(rd64(c + 24), f"{cls_name}({name})", "class", name)
         classes.append({"category": name, "class": cls_name,
