@@ -1436,3 +1436,17 @@ and has a working compiler as its first consumer. Next: curated
 **Tool audit:** retain `nsinspect`, `mvprobe`, `machobjc.py`/`objc_index.py` (no REA equivalent here); NIB-decoding stages of `extract_nibs.py`/`nib_geometry.py` superseded by REA; no new custom static parsers until REA+existing tools prove insufficient.
 
 **Verification:** `tests/uiref/test_rea_evidence.py` 24 checks pass (provenance, sha256, selector joins, NIB-absence of code-built classes); `tools/lint-tests.py` 0 errors (163 files); existing suites untouched.
+
+## Session 2026-10-16 — native RE tier operational: Ghidra + PyGhidra, TextEdit decompiled (opencode-ui-runtime-guest)
+
+**Zone:** `tools/uiref/ghidra/`, `docs/UI_REFERENCE/native-findings.md`, `docs/UI_REFERENCE/runtime/raw/native/`, `tests/uiref/test_native_evidence.py`, `docs/UI_REFERENCE/rea-toolchain.md`, `docs/UI_REFERENCE/rea-findings.md`, `docs/COORDINATION.md` §6.
+
+**Toolchain:** `ghidra 12.1.2` (`/opt/ghidra`) + `jdk21-openjdk` (`archlinux-java set java-21-openjdk`; JDK 27 rejected by Ghidra), PyGhidra into Ghidra's own venv. REA stays the agent-facing interface; its native provider remains `provider_unavailable` (documented, not faked).
+
+**Extraction:** `objc_extract.py` recovers 15 classes, 1 category, **253/253 methods with selector + IMP + matching Ghidra function** from `__objc_classlist`/`__objc_catlist`/`class_ro_t`/`method_list_t`. Two 10.9 ABI facts encoded: 24-byte **absolute** `method_t` (not the later 32-bit relative form) and class names in `__objc_classname`.
+
+**Findings (binary-level, decompiled):** `toggleRuler:` is **not implemented anywhere in TextEdit** — it is only a NIB selector string; the ruler is driven by `-[DocumentWindowController showRuler:]` (0x100006be0) → `[NSUserDefaults boolForKey:@"ShowRuler"]` → `[firstTextView setRulerVisible:]`, coalesced by `showRulerDelayed:` through responder deferral. **No `NSRulerView` exists**: the ruler is an `NSTextView` property. Same for the toolbar: `updateForRichTextAndRulerState:` calls `setUsesInspectorBar:`/`setUsesRuler:` on the text view — this is the static explanation for the runtime observation that the plain-text document had no inspector bar. `toggleRich:` wraps a block in `performActivityWithSynchronousWait:`; the block runs `performSynchronousFileAccessUsingBlock:`, shows the localized "Making a rich text document plain…" NSAlert sheet when properties would be lost, and converges on `toggleRichWithNewFileType:` → `updateForRichTextAndRulerState:`. `ScalingScrollView` (own class, `setScaleFactor:adjustPopup:`) matches the runtime `NSKVONotifying_ScalingScrollView`. ObjC callers have no xrefs (objc_msgSend indirection) — documented; callees recovered via the IMP index.
+
+**Corrected:** `rea-findings.md` F2 mapping `Show Ruler`→`toggleRuler:` is annotated REFUTED with binary evidence.
+
+**Verification:** `test_native_evidence.py` 29 checks pass (extraction completeness, provenance, IMP/selector truth, decompilation content, doc-binary consistency, refutation annotation); `test_rea_evidence.py` 24 pass; `test_nsinspect.py` OK; `lint-tests.py` 0 errors (164 files).

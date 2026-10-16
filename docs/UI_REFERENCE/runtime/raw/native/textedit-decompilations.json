@@ -1,0 +1,308 @@
+{
+ "program": "TextEdit",
+ "ghidra": "12.1.2",
+ "functions": [
+  {
+   "selector": "showRuler:",
+   "owner": "DocumentWindowController",
+   "kind": "instance",
+   "imp": "0x100006be0",
+   "ghidra_function": "showRuler:",
+   "types": "v24@0:8@16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100032500",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "boolForKey:",
+     "entry": "0x100030506",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "standardUserDefaults",
+     "entry": "0x100030501",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "firstTextView",
+     "entry": "0x100004520",
+     "selector": "firstTextView",
+     "owner": "DocumentWindowController"
+    },
+    {
+     "function": "showRulerDelayed:",
+     "entry": "0x100006b1d",
+     "selector": "showRulerDelayed:",
+     "owner": "DocumentWindowController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid DocumentWindowController::showRuler_(ID param_1,SEL param_2,ID param_3)\n\n{\n  undefined *puVar1;\n  ID IVar2;\n  \n  if ((*(char *)(param_1 + rulerIsBeingDisplayed) != '\\0') && (param_3 == 0)) {\n    showRulerDelayed_(param_1,PTR_s_showRulerDelayed__10001f3d8,'\\0');\n  }\n  puVar1 = PTR__objc_msgSend_10001b278;\n  IVar2 = NSUserDefaults::standardUserDefaults\n                    ((ID)PTR__OBJC_CLASS___NSUserDefaults_10001fa78,\n                     PTR_s_standardUserDefaults_10001e758);\n  IVar2 = NSUserDefaults::boolForKey_(IVar2,PTR_s_boolForKey__10001e760,&cf_ShowRuler);\n  if ((char)IVar2 != '\\0') {\n    IVar2 = firstTextView(param_1,PTR_s_firstTextView_10001ea78);\n    (*(code *)puVar1)(IVar2,PTR_s_setRulerVisible__10001f4f0,1);\n    return;\n  }\n  return;\n}\n\n"
+  },
+  {
+   "selector": "showRulerDelayed:",
+   "owner": "DocumentWindowController",
+   "kind": "instance",
+   "imp": "0x100006b1d",
+   "ghidra_function": "showRulerDelayed:",
+   "types": "v20@0:8c16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100032500",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100032600",
+     "selector": null,
+     "owner": null
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x14 bytes */\n\nvoid DocumentWindowController::showRulerDelayed_(ID param_1,SEL param_2,char param_3)\n\n{\n  undefined8 uVar1;\n  long lVar2;\n  \n  lVar2 = rulerIsBeingDisplayed;\n  if (param_3 == '\\0') {\n    if (*(char *)(param_1 + rulerIsBeingDisplayed) != '\\0') {\n      uVar1 = (*class_message_ref.imp)(param_1,&class_message_ref);\n      (*(code *)PTR__objc_msgSend_10001b278)\n                (uVar1,PTR_s_cancelPreviousPerformRequestsWit_10001f4e0,param_1,\n                 PTR_s_showRuler__10001f4d8,param_1);\n    }\n  }\n  else if (*(char *)(param_1 + rulerIsBeingDisplayed) == '\\0') {\n    (*(code *)PTR__objc_msgSend_10001b278)\n              (0,param_1,PTR_s_performSelector_withObject_after_10001f4e8,PTR_s_showRuler__10001f4d8\n               ,param_1);\n  }\n  *(char *)(param_1 + lVar2) = param_3;\n  return;\n}\n\n"
+  },
+  {
+   "selector": "toggleRich:",
+   "owner": "DocumentWindowController",
+   "kind": "instance",
+   "imp": "0x100006d89",
+   "ghidra_function": "toggleRich:",
+   "types": "v24@0:8@16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100032500",
+     "selector": null,
+     "owner": null
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid DocumentWindowController::toggleRich_(ID param_1,SEL param_2,ID param_3)\n\n{\n  undefined *puVar1;\n  undefined *local_48;\n  undefined4 local_40;\n  undefined4 local_3c;\n  code *local_38;\n  undefined *local_30;\n  undefined8 local_28;\n  ID local_20;\n  \n  puVar1 = PTR__objc_msgSend_10001b278;\n  local_28 = (*(code *)PTR__objc_msgSend_10001b278)(param_1,PTR_s_document_10001f3b8);\n  local_48 = PTR___NSConcreteStackBlock_10001b228;\n  local_40 = 0xc2000000;\n  local_3c = 0;\n  local_38 = FUN_100011fee;\n  local_30 = &DAT_100021e30;\n  local_20 = param_1;\n  (*(code *)puVar1)(local_28,PTR_s_performActivityWithSynchronousWa_10001ece0,1,&local_48);\n  return;\n}\n\n"
+  },
+  {
+   "selector": "updateForRichTextAndRulerState:",
+   "owner": "DocumentWindowController",
+   "kind": "instance",
+   "imp": "0x100011383",
+   "ghidra_function": "updateForRichTextAndRulerState:",
+   "types": "v20@0:8c16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100032500",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "firstTextView",
+     "entry": "0x100004520",
+     "selector": "firstTextView",
+     "owner": "DocumentWindowController"
+    },
+    {
+     "function": "layoutManager",
+     "entry": "0x10000454f",
+     "selector": "layoutManager",
+     "owner": "DocumentWindowController"
+    },
+    {
+     "function": "showRulerDelayed:",
+     "entry": "0x100006b1d",
+     "selector": "showRulerDelayed:",
+     "owner": "DocumentWindowController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x14 bytes */\n\nvoid DocumentWindowController::updateForRichTextAndRulerState_(ID param_1,SEL param_2,char param_3)\n\n{\n  undefined *puVar1;\n  char cVar2;\n  ID IVar3;\n  undefined8 uVar4;\n  undefined7 in_register_00000011;\n  ulong uVar5;\n  \n  puVar1 = PTR__objc_msgSend_10001b278;\n  uVar5 = CONCAT71(in_register_00000011,param_3) & 0xffffffff;\n  IVar3 = firstTextView(param_1,PTR_s_firstTextView_10001ea78);\n  (*(code *)puVar1)(IVar3,PTR_s_setRichText__10001f568,uVar5);\n  (*(code *)puVar1)(IVar3,PTR_s_setUsesRuler__10001f570,\n                    CONCAT71(in_register_00000011,param_3) & 0xffffffff);\n  (*(code *)puVar1)(IVar3,PTR_s_setUsesInspectorBar__10001f578,uVar5);\n  if ((char)uVar5 == '\\0') {\n    uVar4 = 1;\n    if (*(char *)(param_1 + rulerIsBeingDisplayed) == '\\0') goto LAB_10001143c;\n    cVar2 = '\\0';\n  }\n  else {\n    uVar4 = (*(code *)puVar1)(param_1,PTR_s_document_10001f3b8);\n    cVar2 = (*(code *)puVar1)(uVar4,PTR_s_isReadOnly_10001eb38);\n    uVar4 = 0;\n    if (cVar2 != '\\0') goto LAB_10001143c;\n    cVar2 = '\\x01';\n  }\n  showRulerDelayed_(param_1,PTR_s_showRulerDelayed__10001f3d8,cVar2);\nLAB_10001143c:\n  (*(code *)puVar1)(IVar3,PTR_s_setImportsGraphics__10001f580,(int)(char)uVar5);\n  IVar3 = layoutManager(IVar3,PTR_s_layoutManager_10001ea90);\n  (*(code *)puVar1)(IVar3,PTR_s_setUsesScreenFonts__10001e770,uVar4);\n  return;\n}\n\n"
+  },
+  {
+   "selector": "toggleRichWithNewFileType:",
+   "owner": "DocumentWindowController",
+   "kind": "instance",
+   "imp": "0x100011bc6",
+   "ghidra_function": "toggleRichWithNewFileType:",
+   "types": "v24@0:8@16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_CFRunLoopGetMain",
+     "entry": "0x100013f70",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_CFRunLoopPerformBlock",
+     "entry": "0x100013f76",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100032500",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100032600",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "localizedStringForKey:value:table:",
+     "entry": "0x10002d802",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "mainBundle",
+     "entry": "0x10002d801",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "convertTextForRichTextState:removeAttachments:",
+     "entry": "0x100011480",
+     "selector": "convertTextForRichTextState:removeAttachments:",
+     "owner": "DocumentWindowController"
+    },
+    {
+     "function": "firstTextView",
+     "entry": "0x100004520",
+     "selector": "firstTextView",
+     "owner": "DocumentWindowController"
+    },
+    {
+     "function": "updateForRichTextAndRulerState:",
+     "entry": "0x100011383",
+     "selector": "updateForRichTextAndRulerState:",
+     "owner": "DocumentWindowController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid DocumentWindowController::toggleRichWithNewFileType_(ID param_1,SEL param_2,ID param_3)\n\n{\n  undefined *puVar1;\n  char cVar2;\n  char cVar3;\n  undefined8 uVar4;\n  long lVar5;\n  undefined8 uVar6;\n  ID IVar7;\n  undefined8 uVar8;\n  ID *pIVar9;\n  cfstringStruct *pcVar10;\n  undefined8 *puVar11;\n  undefined *puVar12;\n  undefined *local_68;\n  undefined4 local_60;\n  undefined4 local_5c;\n  code *local_58;\n  undefined *local_50;\n  undefined8 local_48;\n  long local_40;\n  ID local_38;\n  \n  puVar1 = PTR__objc_msgSend_10001b278;\n  uVar4 = (*(code *)PTR__objc_msgSend_10001b278)(param_1,PTR_s_document_10001f3b8);\n  lVar5 = (*(code *)puVar1)(uVar4,PTR_s_fileURL_10001ec88);\n  cVar2 = (*(code *)puVar1)(uVar4,PTR_s_isRichText_10001e768);\n  uVar6 = (*(code *)puVar1)(uVar4,PTR_s_undoManager_10001e6e8);\n  (*(code *)puVar1)(uVar6,PTR_s_beginUndoGrouping_10001f738);\n  puVar11 = (undefined8 *)PTR__kUTTypePlainText_10001b250;\n  if (cVar2 != '\\0') {\n    IVar7 = firstTextView(param_1,PTR_s_firstTextView_10001ea78);\n    uVar8 = (*(code *)puVar1)(IVar7,PTR_s_textStorage_10001e7b0);\n    cVar3 = (*(code *)puVar1)(uVar8,PTR_s_containsAttachments_10001ec10);\n    puVar11 = (undefined8 *)PTR__kUTTypeRTFD_10001b260;\n    if (cVar3 == '\\0') {\n      uVar8 = (*(code *)PTR__objc_msgSend_10001b278)(uVar4,PTR_s_fileType_10001ea10);\n      puVar11 = (undefined8 *)PTR__kUTTypeRTFD_10001b260;\n      cVar3 = (*isEqualToString__message_ref.imp)\n                        (uVar8,&isEqualToString__message_ref,\n                         *(undefined8 *)PTR__kUTTypeRTFD_10001b260);\n      if (cVar3 == '\\0') {\n        puVar11 = (undefined8 *)PTR__kUTTypeRTF_10001b258;\n      }\n    }\n  }\n  (*(code *)puVar1)(uVar6,PTR_s_registerUndoWithTarget_selector__10001eb30,param_1,param_2,*puVar11)\n  ;\n  (*(code *)puVar1)(uVar4,PTR_s_setUsesScreenFonts__10001e770,(int)cVar2);\n  updateForRichTextAndRulerState_\n            (param_1,PTR_s_updateForRichTextAndRulerState__10001f4b8,cVar2 == '\\0');\n  convertTextForRichTextState_removeAttachments_\n            (param_1,PTR_s_convertTextForRichTextState_remo_10001f740,cVar2 == '\\0',cVar2);\n  puVar12 = PTR_s_setDocumentPropertiesToDefaults_10001e728;\n  if (cVar2 != '\\0') {\n    puVar12 = PTR_s_clearDocumentProperties_10001f748;\n  }\n  (*(code *)PTR__objc_msgSend_10001b278)(uVar4,puVar12);\n  cVar3 = (*(code *)puVar1)(uVar6,PTR_s_isUndoing_10001f590);\n  IVar7 = NSBundle::mainBundle((ID)PTR__OBJC_CLASS___NSBundle_10001fad0,PTR_s_mainBundle_10001ea38);\n  if (cVar3 == cVar2) {\n    pcVar10 = &cf_MakeRichText;\n  }\n  else {\n    pcVar10 = &cf_MakePlainText;\n  }\n  IVar7 = NSBundle::localizedStringForKey_value_table_\n                    (IVar7,PTR_s_localizedStringForKey_value_tabl_10001ea40,pcVar10,&cf___,0);\n  (*(code *)puVar1)(uVar6,PTR_s_setActionName__10001ea48,IVar7);\n  (*(code *)puVar1)(uVar6,PTR_s_endUndoGrouping_10001f750);\n  if (param_3 == 0) {\n    pIVar9 = (ID *)PTR__kUTTypeRTF_10001b258;\n    if (cVar2 != '\\0') {\n      pIVar9 = (ID *)PTR__kUTTypePlainText_10001b250;\n    }\n    param_3 = *pIVar9;\n  }\n  if (lVar5 == 0) {\n    (*(code *)PTR__objc_msgSend_10001b278)(uVar4,PTR_s_setFileType__10001e740,param_3);\n  }\n  else {\n    uVar6 = _CFRunLoopGetMain();\n    local_68 = PTR___NSConcreteStackBlock_10001b228;\n    local_60 = 0xc2000000;\n    local_5c = 0;\n    local_58 = FUN_100011e32;\n    local_50 = &DAT_100021d40;\n    local_48 = uVar4;\n    local_40 = lVar5;\n    local_38 = param_3;\n    _CFRunLoopPerformBlock(uVar6,*(undefined8 *)PTR__kCFRunLoopDefaultMode_10001b240,&local_68);\n  }\n  return;\n}\n\n"
+  },
+  {
+   "selector": "toggleRichWillLoseInformation",
+   "owner": "Document",
+   "kind": "instance",
+   "imp": "0x100006e02",
+   "ghidra_function": "toggleRichWillLoseInformation",
+   "types": "c16@0:8",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100032500",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100032600",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "defaultTextAttributes:",
+     "entry": "0x10000384a",
+     "selector": "defaultTextAttributes:",
+     "owner": "Document"
+    },
+    {
+     "function": "hasDocumentProperties",
+     "entry": "0x10000b033",
+     "selector": "hasDocumentProperties",
+     "owner": "Document"
+    },
+    {
+     "function": "isRichText",
+     "entry": "0x100004f78",
+     "selector": "isRichText",
+     "owner": "Document"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x10 bytes */\n\nchar Document::toggleRichWillLoseInformation(ID param_1,SEL param_2)\n\n{\n  char cVar1;\n  ulong uVar2;\n  long lVar3;\n  ID IVar4;\n  undefined1 local_38 [8];\n  ulong local_30;\n  \n  lVar3 = textStorage;\n  uVar2 = (*length_message_ref.imp)(*(undefined8 *)(param_1 + textStorage),&length_message_ref);\n  cVar1 = isRichText(param_1,PTR_s_isRichText_10001e768);\n  if (((cVar1 != '\\0') && (0 < (long)uVar2)) &&\n     (lVar3 = (*(code *)PTR__objc_msgSend_10001b278)\n                        (*(undefined8 *)(param_1 + lVar3),\n                         PTR_s_attributesAtIndex_effectiveRange_10001eb40,0,local_38), lVar3 != 0))\n  {\n    if (local_30 < uVar2) {\n      return '\\x01';\n    }\n    IVar4 = defaultTextAttributes_(param_1,PTR_s_defaultTextAttributes__10001e9a0,'\\x01');\n    cVar1 = (*isEqual__message_ref.imp)(IVar4,&isEqual__message_ref,lVar3);\n    if (cVar1 == '\\0') {\n      return '\\x01';\n    }\n  }\n  cVar1 = hasDocumentProperties(param_1,PTR_s_hasDocumentProperties_10001eb48);\n  return cVar1 != '\\0';\n}\n\n"
+  },
+  {
+   "selector": "isRichText",
+   "owner": "Document",
+   "kind": "instance",
+   "imp": "0x100004f78",
+   "ghidra_function": "isRichText",
+   "types": "c16@0:8",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100032500",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100032600",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "isRichTextType:",
+     "entry": "0x10000b5e0",
+     "selector": null,
+     "owner": null
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x10 bytes */\n\nchar Document::isRichText(ID param_1,SEL param_2)\n\n{\n  char cVar1;\n  ID IVar2;\n  ID IVar3;\n  \n  IVar2 = (*class_message_ref.imp)(param_1,&class_message_ref);\n  IVar3 = (*(code *)PTR__objc_msgSend_10001b278)(param_1,PTR_s_fileType_10001ea10);\n  cVar1 = isRichTextType_(IVar2,PTR_s_isRichTextType__10001e850,IVar3);\n  return cVar1;\n}\n\n"
+  },
+  {
+   "selector": "convertTextForRichTextState:removeAttachments:",
+   "owner": "DocumentWindowController",
+   "kind": "instance",
+   "imp": "0x100011480",
+   "ghidra_function": "convertTextForRichTextState:removeAttachments:",
+   "types": "v24@0:8c16c20",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100032500",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100032600",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "firstTextView",
+     "entry": "0x100004520",
+     "selector": "firstTextView",
+     "owner": "DocumentWindowController"
+    },
+    {
+     "function": "removeAttachments",
+     "entry": "0x10000aeba",
+     "selector": "removeAttachments",
+     "owner": "DocumentWindowController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid DocumentWindowController::convertTextForRichTextState_removeAttachments_\n               (ID param_1,SEL param_2,char param_3,char param_4)\n\n{\n  undefined *puVar1;\n  char cVar2;\n  char cVar3;\n  ID IVar4;\n  undefined8 uVar5;\n  undefined8 uVar6;\n  undefined8 uVar7;\n  undefined8 uVar8;\n  undefined8 uVar9;\n  undefined7 in_register_00000011;\n  ulong uVar10;\n  \n  puVar1 = PTR__objc_msgSend_10001b278;\n  uVar10 = CONCAT71(in_register_00000011,param_3) & 0xffffffff;\n  IVar4 = firstTextView(param_1,PTR_s_firstTextView_10001ea78);\n  uVar5 = (*(code *)puVar1)(param_1,PTR_s_document_10001f3b8);\n  uVar6 = (*(code *)puVar1)(uVar5,PTR_s_defaultTextAttributes__10001e9a0,uVar10);\n  uVar7 = (*objectForKey__message_ref.imp)\n                    (uVar6,&objectForKey__message_ref,\n                     *(undefined8 *)PTR__NSParagraphStyleAttributeName_10001b130);\n  uVar8 = (*(code *)puVar1)(uVar5,PTR_s_undoManager_10001e6e8);\n  cVar2 = (*(code *)puVar1)(uVar8,PTR_s_isUndoing_10001f590);\n  if (cVar2 == '\\0') {\n    uVar8 = (*(code *)puVar1)(uVar5,PTR_s_undoManager_10001e6e8);\n    cVar2 = (*(code *)puVar1)(uVar8,PTR_s_isRedoing_10001f598);\n    if (cVar2 == '\\0') {\n      uVar8 = (*(code *)puVar1)(param_1,PTR_s_document_10001f3b8);\n      uVar8 = (*(code *)puVar1)(uVar8,PTR_s_textStorage_10001e7b0);\n      cVar2 = (char)uVar10;\n      if ((cVar2 == '\\0') && (param_4 != '\\0')) {\n        removeAttachments(param_1,PTR_s_removeAttachments_10001f5a0);\n      }\n      uVar9 = (*length_message_ref.imp)(uVar8,&length_message_ref);\n      cVar3 = (*(code *)PTR__objc_msgSend_10001b278)\n                        (IVar4,PTR_s_shouldChangeTextInRange_replacem_10001f508,0,uVar9,0);\n      if (cVar3 != '\\0') {\n        (*(code *)puVar1)(uVar8,PTR_s_beginEditing_10001e828);\n        (*(code *)puVar1)(uVar5,PTR_s_applyDefaultTextAttributes__10001e858,(int)cVar2);\n        (*(code *)puVar1)(uVar8,PTR_s_endEditing_10001e838);\n        (*(code *)puVar1)(IVar4,PTR_s_didChangeText_10001f510);\n      }\n    }\n  }\n  (*(code *)puVar1)(IVar4,PTR_s_setTypingAttributes__10001f4b0,uVar6);\n  (*(code *)puVar1)(IVar4,PTR_s_setDefaultParagraphStyle__10001f588,uVar7);\n  return;\n}\n\n"
+  }
+ ]
+}

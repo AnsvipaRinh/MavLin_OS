@@ -43,7 +43,7 @@ meaning, flagged as such):
 
 | Runtime menu item | NIB selector | Notes |
 |---|---|---|
-| `Format/Text/Show Ruler` | `toggleRuler:` | implementation name; enabled=True at runtime |
+| `Format/Text/Show Ruler` | ~~`toggleRuler:`~~ → **`showRuler:`** | **REFUTED 2026-10-16 by binary evidence** (`docs/UI_REFERENCE/native-findings.md` N1): `toggleRuler:` exists as a NIB selector string but is implemented by no class in the TextEdit binary; the ruler is driven by `-[DocumentWindowController showRuler:]` |
 | `Format/Make Rich Text` | `toggleRich:` | |
 | `Format/Text/Copy Ruler`, `Paste Ruler` | `copyRuler:`, `pasteRuler:` | ruler clipboard exists as concept |
 | `Format/Font/Show Fonts`, `Show Colors` (inferred) | `orderFrontFontPanel:`, `orderFrontColorPanel:` | panel commands |
@@ -52,9 +52,10 @@ meaning, flagged as such):
 | `Format/Text/Wrap to Page`, `Allow Hyphenation` | `togglePageBreaks:`, `toggleHyphenation:` | |
 | `Format/Make Vertical Layout` | `toggleLayoutOrientation:` | |
 
-**Limitation (explicit):** selector *bodies* are unknown without a
-disassembler — `toggleRuler:` names the implementation but its effects are
-verified only through the runtime state comparison (F4), never assumed.
+**Superseded:** the native tier is now operational (Ghidra 12.1.2 + PyGhidra).
+Selector bodies are decompiled; see `docs/UI_REFERENCE/native-findings.md`
+for the recovered implementations of `showRuler:`, `showRulerDelayed:`,
+`toggleRich:` and `updateForRichTextAndRulerState:`.
 
 ## F3. Calculator: NIB action inventory exceeds the runtime-visible set
 

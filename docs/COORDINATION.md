@@ -71,6 +71,10 @@
 
 - NIB/архивы/бандлы: `rea decode-interface-builder`, `inspect-keyed-archive`,
   `inspect-artifact` — работают без дизассемблера, с provenance.
+- Дизассемблирование/декомпиляция/xrefs/call-graph: Ghidra 12.1.2
+  (`GHIDRA_INSTALL_DIR=/opt/ghidra`, JDK 21) headless через PyGhidra —
+  скрипты `tools/uiref/ghidra/`, находки `docs/UI_REFERENCE/native-findings.md`.
+  REA-эквивалента тут нет: его native-провайдер не настроен.
 - Mach-O/дизассемблирование/диспетчер ObjC/trace native: требуют
   Hopper/Ghidra/IDA — их нет; используй `tools/uiref/machobjc.py` и
   `nsinspect`, не пиши свой дизассемблер.

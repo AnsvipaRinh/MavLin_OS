@@ -57,13 +57,39 @@ is server-capped at 64 — analyse large bundles via minimal copies (English +
   `unsupported_provider`), and the exact remediation string. Never present
   a blocked command's absence of output as a finding.
 
-## Unlocking the native tier (explicit next step, not attempted)
+## Native tier — OPERATIONAL (Ghidra 12.1.2 + PyGhidra)
 
-Install Ghidra 12.1.x + set `GHIDRA_INSTALL_DIR` (+ raise
-`REA_GHIDRA_STARTUP_TIMEOUT_MS` for large binaries). Caveats found by
-inspection: only JDK 27 is installed and Ghidra 12.1.x wants JDK 17–21, so a
-compatible JDK is needed too (~500 MB download + JDK). Decide on disk budget
-first; until then the NIB + runtime tiers carry the work.
+Installed and verified: `ghidra 12.1.2` at `/opt/ghidra`, `jdk21-openjdk` with
+`archlinux-java set java-21-openjdk` (Ghidra 12.1.x requires JDK 21; the default
+JDK 27 on this host is not accepted). PyGhidra is installed into Ghidra's own
+venv (`/home/builder/.config/ghidra/ghidra_12.1.2_DEV/venv`), so headless
+Python scripts work.
+
+REA's own native tier still reports `provider_unavailable` — it needs
+Hopper/Ghidra/IDA wired through its provider config, which is separate from
+having Ghidra installed. Verified REA commands remain the agent-facing
+interface for NIB/artifact work; for disassembly, decompilation, call graphs and
+xrefs the documented workflow below is the supported path.
+
+Workflow, scripts in `tools/uiref/ghidra/`, findings in
+`docs/UI_REFERENCE/native-findings.md`:
+
+```bash
+export GHIDRA_INSTALL_DIR=/opt/ghidra
+/opt/ghidra/support/analyzeHeadless /home/builder/ghidra_proj <proj> -import <macho> -overwrite
+/opt/ghidra/support/pyghidraRun --headless /home/builder/ghidra_proj <proj> -process <name>   -postScript tools/uiref/ghidra/objc_extract.py      # classes/methods/IMPs
+OBJC_DECOMPILE_INDEX=... /opt/ghidra/support/pyghidraRun --headless ...   -postScript tools/uiref/ghidra/objc_decompile.py    # decompile + callers/callees
+DEC_ADDRS=0x... /opt/ghidra/support/pyghidraRun --headless ...   -postScript tools/uiref/ghidra/decompile_addrs.py  # ad-hoc addresses
+```
+
+Gotchas that cost real time and are now encoded in the scripts: Ghidra's
+PyGhidra provider is separate from `-script` (use `pyghidraRun`); addresses
+above 2 GiB overflow Java ints (use the address-space factory, not `toAddr`);
+`program.getBytes` does not exist (use `memory.getByte`); and 10.9 binaries use
+**absolute 24-byte** `method_t` entries, not the later 32-bit relative form.
+
+Next tier (not done): wire Ghidra into REA's provider config so REA itself can
+serve disassembly, and repeat the workflow for Calculator and AppKit.
 
 ## Tool audit (custom tools vs REA)
 
