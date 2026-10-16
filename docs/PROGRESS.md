@@ -1541,3 +1541,20 @@ New: `tests/uiref/test_objc_classnames.py`, evidence `regression-*.json`,
 binary with the available instruments; Dock and System Preferences still need their
 bundles re-retrieved from the guest (`dock.tar`/`syspref.tar` are in the guest
 share, which is an unmountable HFS+ image on the host).
+
+### 2026-10-16 — Dock and System Preferences baselines extracted
+
+Dock (283 classes / 4 categories implied by the section sizes, 35 NIBs) and
+System Preferences (18 classes / 2 categories, 33 NIBs, universal binary) were
+extracted read-only from the guest HFS+ volume via `losetup -r` + `7z` — the guest
+disk was not modified and the earlier unmountable share image was not needed.
+
+Control result: System Preferences `__objc_classname` **is** readable
+(`NSPrefPaneGroup`, `NPPrefPaneGroup`-style toolbar classes, `NSFlippedView`,
+`NSDraggableButton(Cell)`, `NSToolbarDelegate`), so the extractor will resolve its
+classes fully. Dock, like Finder, stores no readable class names. This confirms
+the naming gap is per-binary, not a 10.9-wide or tool-wide problem.
+
+System Preferences structure visible already: host app owns toolbar + flipped
+container, each pane is an `NSPrefPaneGroup` in a draggable outline, 34
+`.prefPane` bundles system-wide.

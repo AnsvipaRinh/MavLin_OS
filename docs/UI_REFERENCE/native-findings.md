@@ -506,3 +506,64 @@ safe. Diagnostics used for F0: `finder-abi-layout.json` (raw words of
 
 Regression evidence for the unaffected binaries:
 `runtime/raw/native/regression-{textedit,calc,basic,hex}.json`.
+
+## F4. Dock and System Preferences baselines (2026-10-16)
+
+Both bundles were taken read-only from the guest HFS+ volume with
+`losetup -r -o $((411648*512))` plus `7z`; the guest was never modified and the
+host-side loop device is read-only **[BIN]**.
+
+### Dock
+
+`/System/Library/CoreServices/Dock.app`, binary SHA256
+`2d3fd8b8a33b1b711ec38f06acedf5cc9510a4cc1c3c39637c220b24038803be`, 3259200
+bytes, thin x86_64, 35 NIBs **[BIN]**.
+
+| ObjC section | Bytes | Implied entries |
+|---|---:|---:|
+| `__objc_classlist` | 2264 | 283 classes |
+| `__objc_catlist` | 32 | 4 categories |
+| `__objc_methname` | 99242 | selector pool |
+| `__objc_classname` | 6811 | **not plain text** (see below) |
+| `__objc_ivar` | 15480 | instance variables |
+| `__objc_protolist` | 352 | 44 protocols |
+
+Like Finder, Dock stores no readable class names: the only identifier-shaped
+runs in `__objc_classname` are 30 random tokens (`WJt`, `NpAYj`, `OiuM`).
+
+### System Preferences
+
+`/Applications/System Preferences.app`, binary SHA256
+`ce3efe53ddbee8c01aa39b30d2e348906c8c769355ef149fbf4af464f8275222`,
+universal (x86_64 209536 bytes @ `0x1000`, i386 184000 @ `0x35000`), 33 NIBs
+**[BIN]**.
+
+| ObjC section (x86_64) | Bytes | Implied entries |
+|---|---:|---:|
+| `__objc_classlist` | 144 | 18 classes |
+| `__objc_catlist` | 16 | 2 categories |
+| `__objc_classname` | 741 | **readable** |
+| `__objc_methname` | 20292 | 817 selector-shaped strings |
+
+Class names resolve normally here, which is the control that shows the Finder and
+Dock condition is **per-binary**, not a property of OS X 10.9 and not an extractor
+bug. Names already visible in the class-name section **[BIN]**:
+
+`NSPrefPaneGroup`, `NSPPLayoutManager`, `NSPPToolbarManager`, `NSDraggableButton`,
+`NSDraggableButtonCell`, `NSFlippedView`, `NSToolbarDelegate`, plus `Private`
+(the `System Preferences` host app) and `PreferencePanes` protocol types.
+
+That already fixes the shape of the subsystem: the host app owns a toolbar
+(`NSPPToolbarManager`) and a flipped container (`NSFlippedView`), each pane is an
+`NSPrefPaneGroup` drawn by a draggable outline (`NSDraggableButton` /
+`NSDraggableButtonCell`), and panes advertise a `NSToolbarDelegate`. The system
+carries **34 `.prefPane` bundles** under `/System/Library/PreferencePanes`
+(inventory obtained from the guest volume), so the host/pane split is the
+dominant structural fact to reconstruct next.
+
+### Consequence for the extractor
+
+`tools/uiref/ghidra/objc_extract.py` is expected to produce fully named classes
+for System Preferences and unresolved names for Dock, exactly as it does for
+Finder. That difference is now a documented, testable expectation rather than an
+open defect.
