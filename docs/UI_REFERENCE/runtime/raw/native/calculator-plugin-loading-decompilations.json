@@ -1,0 +1,485 @@
+{
+ "program": "Calculator",
+ "ghidra": "12.1.2",
+ "functions": [
+  {
+   "selector": "pathsToPlugins",
+   "owner": "CalculatorController",
+   "imp": "0x10000a3dd",
+   "status": "ok",
+   "callees": [
+    {
+     "function": "_NSHomeDirectory",
+     "entry": "0x10000f460",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100025d00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100025e00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "arrayWithObjects:",
+     "entry": "0x100022001",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "builtInPlugInsPath",
+     "entry": "0x10002230b",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "bundleForClass:",
+     "entry": "0x100022301",
+     "selector": null,
+     "owner": null
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x10 bytes */\n\nID CalculatorController::pathsToPlugins(ID param_1,SEL param_2)\n\n{\n  undefined *puVar1;\n  undefined *self;\n  undefined8 uVar2;\n  ID IVar3;\n  undefined8 uVar4;\n  \n  self = PTR__OBJC_CLASS___NSBundle_100018b78;\n  uVar2 = (*class_message_ref.imp)(PTR_CalculatorController_100018c40,&class_message_ref);\n  puVar1 = PTR__objc_msgSend_100014090;\n  IVar3 = NSBundle::bundleForClass_((ID)self,PTR_s_bundleForClass__100017cd8,uVar2);\n  IVar3 = NSBundle::builtInPlugInsPath(IVar3,PTR_s_builtInPlugInsPath_100018420);\n  uVar2 = _NSHomeDirectory();\n  uVar2 = (*(code *)puVar1)(uVar2,PTR_s_stringByAppendingPathComponent__100018428,\n                            &cf_Library_ApplicationSupport_Calculator_PlugIns_);\n  uVar4 = (*(code *)puVar1)(&cf__,PTR_s_stringByAppendingPathComponent__100018428,\n                            &cf_Library_ApplicationSupport_Calculator_PlugIns_);\n  IVar3 = NSArray::arrayWithObjects_\n                    ((ID)PTR__OBJC_CLASS___NSArray_100018bf0,PTR_s_arrayWithObjects__1000180a0,IVar3\n                     ,uVar2,uVar4,0);\n  return IVar3;\n}\n\n"
+  },
+  {
+   "selector": "applicationDidFinishLaunching:",
+   "owner": "CalculatorController",
+   "imp": "0x10000a9f7",
+   "status": "ok",
+   "callees": [
+    {
+     "function": "___stack_chk_fail",
+     "entry": "0x10000f4a2",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_enumerationMutation",
+     "entry": "0x10000f47e",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100025d00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100025e00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "alloc",
+     "entry": "0x100023401",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "alloc",
+     "entry": "0x100023605",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "arrayWithCapacity:",
+     "entry": "0x100023403",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "countByEnumeratingWithState:objects:count:",
+     "entry": "0x100022317",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "init",
+     "entry": "0x100023606",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "init",
+     "entry": "0x100023402",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "pathsForResourcesOfType:inDirectory:",
+     "entry": "0x100022319",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "retain",
+     "entry": "0x100023404",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "initItemsWithStoredDefaults",
+     "entry": "0x100009ffb",
+     "selector": "initItemsWithStoredDefaults",
+     "owner": "CalculatorController"
+    },
+    {
+     "function": "initWithDelegate:",
+     "entry": "0x10000c494",
+     "selector": "initWithDelegate:",
+     "owner": "ConversionController"
+    },
+    {
+     "function": "loadView:",
+     "entry": "0x10000a48f",
+     "selector": "loadView:",
+     "owner": "CalculatorController"
+    },
+    {
+     "function": "pathsToPlugins",
+     "entry": "0x10000a3dd",
+     "selector": "pathsToPlugins",
+     "owner": "CalculatorController"
+    },
+    {
+     "function": "populateConvertMenu",
+     "entry": "0x100009c8c",
+     "selector": "populateConvertMenu",
+     "owner": "CalculatorController"
+    },
+    {
+     "function": "window",
+     "entry": "0x100003906",
+     "selector": "window",
+     "owner": "CalculatorController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid CalculatorController::applicationDidFinishLaunching_(ID param_1,SEL param_2,ID param_3)\n\n{\n  undefined *puVar1;\n  ID IVar2;\n  undefined8 uVar3;\n  long lVar4;\n  ID IVar5;\n  ulong uVar6;\n  undefined1 local_f8 [128];\n  undefined8 local_78;\n  long lStack_70;\n  long *local_68;\n  undefined8 uStack_60;\n  undefined8 local_58;\n  undefined8 uStack_50;\n  undefined8 local_48;\n  undefined8 uStack_40;\n  long local_38;\n  \n  local_38 = *(long *)PTR____stack_chk_guard_100014088;\n  IVar2 = NSMutableDictionary::alloc\n                    ((ID)PTR__OBJC_CLASS___NSMutableDictionary_100018bc8,(SEL)&alloc_message_ref);\n  puVar1 = PTR__objc_msgSend_100014090;\n  IVar2 = NSMutableDictionary::init(IVar2,PTR_s_init_100017d00);\n  *(ID *)(param_1 + __ViewControllerDict) = IVar2;\n  IVar2 = NSMutableArray::alloc\n                    ((ID)PTR__OBJC_CLASS___NSMutableArray_100018c58,(SEL)&alloc_message_ref);\n  IVar2 = NSMutableArray::init(IVar2,PTR_s_init_100017d00);\n  *(ID *)(param_1 + __OrderedControllerNames) = IVar2;\n  IVar2 = window(param_1,PTR_s_window_100017fd8);\n  (*(code *)puVar1)(IVar2,PTR_s_setShowsResizeIndicator__100018558,0);\n  uVar3 = *(undefined8 *)(param_1 + mTapeWindow);\n  IVar2 = window(param_1,PTR_s_window_100017fd8);\n  (*(code *)puVar1)(uVar3,PTR_s_setParentWindow__1000185a0,IVar2);\n  IVar2 = NSMutableArray::arrayWithCapacity_\n                    ((ID)PTR__OBJC_CLASS___NSMutableArray_100018c58,\n                     PTR_s_arrayWithCapacity__1000185a8,1);\n  IVar2 = NSMutableArray::retain(IVar2,(SEL)&retain_message_ref);\n  *(ID *)(param_1 + mPlugins) = IVar2;\n  IVar2 = pathsToPlugins(param_1,PTR_s_pathsToPlugins_1000185b0);\n  uVar3 = (*(code *)puVar1)(IVar2,PTR_s_objectEnumerator_1000184e0);\n  lVar4 = (*(code *)puVar1)(uVar3,PTR_s_nextObject_1000184e8);\n  while (lVar4 != 0) {\n    IVar2 = NSBundle::pathsForResourcesOfType_inDirectory_\n                      ((ID)PTR__OBJC_CLASS___NSBundle_100018b78,\n                       PTR_s_pathsForResourcesOfType_inDirect_1000185b8,&cf_calcview,lVar4);\n    local_48 = 0;\n    uStack_40 = 0;\n    local_58 = 0;\n    uStack_50 = 0;\n    local_68 = (long *)0x0;\n    uStack_60 = 0;\n    local_78 = 0;\n    lStack_70 = 0;\n    IVar5 = NSBundle::countByEnumeratingWithState_objects_count_\n                      (IVar2,PTR_s_countByEnumeratingWithState_obje_100018370,&local_78,local_f8,\n                       0x10);\n    if (IVar5 != 0) {\n      lVar4 = *local_68;\n      do {\n        uVar6 = 0;\n        do {\n          if (*local_68 != lVar4) {\n            _objc_enumerationMutation(IVar2);\n          }\n          loadView_(param_1,PTR_s_loadView__1000185c0,*(ID *)(lStack_70 + uVar6 * 8));\n          uVar6 = uVar6 + 1;\n        } while (uVar6 < IVar5);\n        IVar5 = NSBundle::countByEnumeratingWithState_objects_count_\n                          (IVar2,PTR_s_countByEnumeratingWithState_obje_100018370,&local_78,local_f8\n                           ,0x10);\n      } while (IVar5 != 0);\n    }\n    lVar4 = (*(code *)PTR__objc_msgSend_100014090)(uVar3,PTR_s_nextObject_1000184e8);\n  }\n  IVar2 = (*alloc_message_ref.imp)(PTR_ConversionController_100018c60,&alloc_message_ref);\n  puVar1 = PTR__objc_msgSend_100014090;\n  IVar2 = ConversionController::initWithDelegate_(IVar2,PTR_s_initWithDelegate__1000185c8,param_1);\n  *(ID *)(param_1 + _conversionController) = IVar2;\n  initItemsWithStoredDefaults(param_1,PTR_s_initItemsWithStoredDefaults_1000185d0);\n  populateConvertMenu(param_1,PTR_s_populateConvertMenu_1000185d8);\n  IVar2 = window(param_1,PTR_s_window_100017fd8);\n  (*(code *)puVar1)(IVar2,PTR_s_makeKeyAndOrderFront__1000185e0,param_1);\n  (*(code *)puVar1)(*(undefined8 *)(param_1 + __CurrentView),PTR_s_setupResponderStatus__100018590,\n                    *(undefined8 *)(param_1 + mWindow));\n  if (*(long *)PTR____stack_chk_guard_100014088 != local_38) {\n                    /* WARNING: Subroutine does not return */\n    ___stack_chk_fail();\n  }\n  return;\n}\n\n"
+  },
+  {
+   "selector": "setBackEndMode:",
+   "owner": "CalculatorController",
+   "imp": "0x1000043c6",
+   "status": "ok",
+   "callees": [],
+   "decompiled": "\n/* Function Stack Size: 0x14 bytes */\n\nvoid CalculatorController::setBackEndMode_(ID param_1,SEL param_2,int param_3)\n\n{\n  *(int *)(param_1 + __BackEndMode) = param_3;\n  return;\n}\n\n"
+  },
+  {
+   "selector": "loadView:",
+   "owner": "CalculatorController",
+   "imp": "0x10000a48f",
+   "status": "ok",
+   "callees": [
+    {
+     "function": "_NSClassFromString",
+     "entry": "0x10000f45a",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "___stack_chk_fail",
+     "entry": "0x10000f4a2",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_enumerationMutation",
+     "entry": "0x10000f47e",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100025d00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100025e00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "alloc",
+     "entry": "0x100022311",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "bundleWithPath:",
+     "entry": "0x10002230c",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "conformsToProtocol:",
+     "entry": "0x100022310",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "countByEnumeratingWithState:objects:count:",
+     "entry": "0x100022317",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "init",
+     "entry": "0x100022312",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "length",
+     "entry": "0x10002230e",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "loadNibNamed:owner:",
+     "entry": "0x100022313",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "objectForInfoDictionaryKey:",
+     "entry": "0x10002230d",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "principalClass",
+     "entry": "0x10002230f",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "release",
+     "entry": "0x100022318",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "setCalcController:",
+     "entry": "0x100022314",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "setSpeechController:",
+     "entry": "0x100022315",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "stringWithFormat:",
+     "entry": "0x100024605",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "viewNames:",
+     "entry": "0x100022316",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "languageIsFrench",
+     "entry": "0x100009985",
+     "selector": "languageIsFrench",
+     "owner": "CalculatorController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid CalculatorController::loadView_(ID param_1,SEL param_2,ID param_3)\n\n{\n  long lVar1;\n  undefined8 uVar2;\n  undefined *puVar3;\n  undefined *puVar4;\n  char cVar5;\n  ID IVar6;\n  ID IVar7;\n  ID IVar8;\n  ID IVar9;\n  undefined8 uVar10;\n  undefined8 uVar11;\n  long lVar12;\n  ulong uVar13;\n  ulong local_110;\n  undefined1 local_f8 [128];\n  undefined8 local_78;\n  long lStack_70;\n  long *local_68;\n  undefined8 uStack_60;\n  undefined8 local_58;\n  undefined8 uStack_50;\n  undefined8 local_48;\n  undefined8 uStack_40;\n  long local_38;\n  \n  local_38 = *(long *)PTR____stack_chk_guard_100014088;\n  IVar6 = NSBundle::bundleWithPath_\n                    ((ID)PTR__OBJC_CLASS___NSBundle_100018b78,PTR_s_bundleWithPath__100018430);\n  puVar3 = PTR__objc_msgSend_100014090;\n  if (IVar6 != 0) {\n    IVar7 = NSBundle::objectForInfoDictionaryKey_\n                      (IVar6,PTR_s_objectForInfoDictionaryKey__100018438,&cf_NSPrincipalClass);\n    IVar8 = NSBundle::objectForInfoDictionaryKey_\n                      (IVar6,PTR_s_objectForInfoDictionaryKey__100018438,&cf_NSMainNibFile);\n    if (IVar7 != 0) {\n      IVar9 = NSBundle::length(IVar7,(SEL)&length_message_ref);\n      if (IVar9 != 0) {\n        IVar7 = _NSClassFromString(IVar7);\n        if (IVar7 == 0) {\n          IVar7 = NSBundle::principalClass(IVar6,PTR_s_principalClass_100018440);\n        }\n        IVar6 = NSBundle::conformsToProtocol_\n                          (IVar7,PTR_s_conformsToProtocol__100018448,PTR_CalculatorView_100018b70);\n        if ((char)IVar6 != '\\0') {\n          IVar6 = NSBundle::alloc(IVar7,(SEL)&alloc_message_ref);\n          IVar6 = NSBundle::init(IVar6,PTR_s_init_100017d00);\n          NSBundle::loadNibNamed_owner_\n                    ((ID)PTR__OBJC_CLASS___NSBundle_100018b78,PTR_s_loadNibNamed_owner__100018450,\n                     IVar8,IVar6);\n          NSBundle::setCalcController_(IVar6,PTR_s_setCalcController__100018458,param_1);\n          NSBundle::setSpeechController_\n                    (IVar6,PTR_s_setSpeechController__100018460,\n                     *(undefined8 *)(param_1 + mSpeechController));\n          local_48 = 0;\n          uStack_40 = 0;\n          local_58 = 0;\n          uStack_50 = 0;\n          local_68 = (long *)0x0;\n          uStack_60 = 0;\n          local_78 = 0;\n          lStack_70 = 0;\n          IVar7 = NSBundle::viewNames_(IVar6,PTR_s_viewNames__100018468,param_1);\n          local_110 = NSBundle::countByEnumeratingWithState_objects_count_\n                                (IVar7,PTR_s_countByEnumeratingWithState_obje_100018370,&local_78,\n                                 local_f8,0x10);\n          puVar4 = PTR_s_insertItemWithTitle_action_keyEq_100018478;\n          if (local_110 != 0) {\n            lVar1 = *local_68;\n            do {\n              uVar13 = 0;\n              do {\n                if (*local_68 != lVar1) {\n                  _objc_enumerationMutation(IVar7);\n                }\n                uVar2 = *(undefined8 *)(lStack_70 + uVar13 * 8);\n                (*(code *)puVar3)(*(undefined8 *)(param_1 + __ViewControllerDict),\n                                  PTR_s_setObject_forKey__100018008,IVar6,uVar2);\n                (*(code *)puVar3)(*(undefined8 *)(param_1 + __OrderedControllerNames),\n                                  PTR_s_addObject__100018470,uVar2);\n                uVar10 = *(undefined8 *)(param_1 + _ViewsMenu);\n                if (DAT_10001a650 < 10) {\n                  IVar8 = NSString::stringWithFormat_\n                                    ((ID)PTR__OBJC_CLASS___NSString_100018bb8,\n                                     PTR_s_stringWithFormat__100017e88,&cf__d);\n                  (*(code *)puVar3)(uVar10,puVar4,uVar2,PTR_s_menuViewSelectionDidChange__100018348,\n                                    IVar8,(long)(DAT_10001a650 + -1));\n                }\n                else {\n                  (*(code *)PTR__objc_msgSend_100014090)\n                            (uVar10,puVar4,uVar2,PTR_s_menuViewSelectionDidChange__100018348,&cf___,\n                             (long)(DAT_10001a650 + -1));\n                }\n                uVar10 = (*(code *)puVar3)(*(undefined8 *)(param_1 + _ViewsMenu),\n                                           PTR_s_itemAtIndex__1000181d0,(long)(DAT_10001a650 + -1));\n                uVar11 = (*(code *)puVar3)(uVar10,PTR_s_keyEquivalent_100018480);\n                lVar12 = (*length_message_ref.imp)(uVar11,&length_message_ref);\n                if (lVar12 != 0) {\n                  cVar5 = languageIsFrench(param_1,PTR_s_languageIsFrench_100018488);\n                  if (cVar5 != '\\0') {\n                    (*(code *)PTR__objc_msgSend_100014090)\n                              (uVar10,PTR_s_setKeyEquivalentModifierMask__100018490,0x180000);\n                  }\n                }\n                (*(code *)PTR__objc_msgSend_100014090)\n                          (uVar10,PTR_s_setRepresentedObject__1000183a0,uVar2);\n                DAT_10001a650 = DAT_10001a650 + 1;\n                uVar13 = uVar13 + 1;\n              } while (uVar13 < local_110);\n              local_110 = NSBundle::countByEnumeratingWithState_objects_count_\n                                    (IVar7,PTR_s_countByEnumeratingWithState_obje_100018370,\n                                     &local_78,local_f8,0x10);\n            } while (local_110 != 0);\n          }\n          (*(code *)PTR__objc_msgSend_100014090)\n                    (*(undefined8 *)(param_1 + mPlugins),PTR_s_addObject__100018470,IVar6);\n          NSBundle::release(IVar6,(SEL)&release_message_ref);\n        }\n      }\n    }\n  }\n  if (*(long *)PTR____stack_chk_guard_100014088 == local_38) {\n    return;\n  }\n                    /* WARNING: Subroutine does not return */\n  ___stack_chk_fail();\n}\n\n"
+  },
+  {
+   "selector": "setCurrentView:",
+   "owner": "LCDController",
+   "imp": "0x100003918",
+   "status": "ok",
+   "callees": [
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100025e00",
+     "selector": null,
+     "owner": null
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid LCDController::setCurrentView_(ID param_1,SEL param_2,ID param_3)\n\n{\n  long lVar1;\n  \n  (*retain_message_ref.imp)(param_3,&retain_message_ref);\n  lVar1 = _curView;\n  (*release_message_ref.imp)(*(undefined8 *)(param_1 + _curView),&release_message_ref);\n  *(ID *)(param_1 + lVar1) = param_3;\n  return;\n}\n\n"
+  },
+  {
+   "selector": "setCurrentView:",
+   "owner": "CalculatorController",
+   "imp": "0x1000030e4",
+   "status": "ok",
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100025d00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100025e00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_stret",
+     "entry": "0x10000f48a",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "class",
+     "entry": "0x10002460a",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "isEqualToString:",
+     "entry": "0x100022304",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "localizedStringForKey:value:table:",
+     "entry": "0x100022302",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "mainBundle",
+     "entry": "0x100022303",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "objectForKey:",
+     "entry": "0x100024b02",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "retain",
+     "entry": "0x100022305",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "setObject:forKey:",
+     "entry": "0x100024b03",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "standardUserDefaults",
+     "entry": "0x100024b01",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "adjustWindowPosition",
+     "entry": "0x100003e21",
+     "selector": "adjustWindowPosition",
+     "owner": "CalculatorController"
+    },
+    {
+     "function": "window",
+     "entry": "0x100003906",
+     "selector": "window",
+     "owner": "CalculatorController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid CalculatorController::setCurrentView_(ID param_1,SEL param_2,ID param_3)\n\n{\n  long lVar1;\n  cfstringStruct *pcVar2;\n  double dVar3;\n  undefined *puVar4;\n  long lVar5;\n  long lVar6;\n  char cVar7;\n  char cVar8;\n  ID IVar9;\n  ID IVar10;\n  undefined8 uVar11;\n  undefined8 uVar12;\n  uint uVar13;\n  cfstringStruct *pcVar14;\n  undefined *puVar15;\n  undefined4 uVar16;\n  undefined4 uVar17;\n  double in_XMM1_Qa;\n  double local_f8;\n  undefined8 local_d8;\n  undefined8 uStack_d0;\n  undefined8 local_c8;\n  undefined8 uStack_c0;\n  undefined8 local_b8;\n  undefined8 uStack_b0;\n  undefined8 local_a8;\n  double dStack_a0;\n  undefined8 local_98;\n  undefined8 uStack_90;\n  undefined8 local_88;\n  double dStack_80;\n  undefined8 local_78;\n  undefined8 uStack_70;\n  undefined8 local_68;\n  undefined8 uStack_60;\n  undefined8 local_58;\n  double dStack_50;\n  double local_48;\n  double dStack_40;\n  \n  puVar4 = PTR__objc_msgSend_100014090;\n  IVar9 = window(param_1,PTR_s_window_100017fd8);\n  IVar10 = (*(code *)puVar4)(IVar9,PTR_s_contentView_1000180d8);\n  if (IVar9 == 0) {\n    local_68 = 0;\n    uStack_60 = 0;\n    local_78 = 0;\n    uStack_70 = 0;\n  }\n  else {\n    _objc_msgSend_stret((undefined *)&local_78,IVar9,PTR_s_frame_100017e00);\n  }\n  if (IVar10 == 0) {\n    local_48 = 0.0;\n    dStack_40 = 0.0;\n    local_58 = 0;\n    dStack_50 = 0.0;\n  }\n  else {\n    _objc_msgSend_stret((undefined *)&local_58,IVar10,PTR_s_convertRect_fromView__1000180e0,0);\n  }\n  lVar6 = __CurrentView;\n  lVar1 = *(long *)(param_1 + __CurrentView);\n  IVar10 = NSString::class((ID)PTR__OBJC_CLASS___NSString_100018bb8,(SEL)&class_message_ref);\n  cVar7 = (*isKindOfClass__message_ref.imp)(param_3,&isKindOfClass__message_ref,IVar10);\n  if (cVar7 == '\\0') {\n    if (param_1 == param_3) {\n      IVar10 = NSBundle::mainBundle\n                         ((ID)PTR__OBJC_CLASS___NSBundle_100018b78,PTR_s_mainBundle_100017e10);\n      param_3 = NSBundle::localizedStringForKey_value_table_\n                          (IVar10,PTR_s_localizedStringForKey_value_tabl_100017e18,&cf_Basic,&cf___,\n                           0);\n    }\n    else {\n      param_3 = (*(code *)PTR__objc_msgSend_100014090)(param_3,PTR_s_representedObject_1000181f0);\n    }\n  }\n  uVar11 = (*objectForKey__message_ref.imp)\n                     (*(undefined8 *)(param_1 + __ViewControllerDict),&objectForKey__message_ref,\n                      param_3);\n  *(undefined8 *)(param_1 + __CurrentView) = uVar11;\n  dVar3 = (double)(*(code *)puVar4)(uVar11,PTR_s_normalSize__1000184f0,param_3);\n  lVar5 = mLCD;\n  (*(code *)puVar4)(*(undefined8 *)(param_1 + mLCD),PTR_s_setCurrentView__100018280,\n                    *(undefined8 *)(param_1 + lVar6));\n  IVar10 = NSBundle::mainBundle((ID)PTR__OBJC_CLASS___NSBundle_100018b78,PTR_s_mainBundle_100017e10)\n  ;\n  IVar10 = NSBundle::localizedStringForKey_value_table_\n                     (IVar10,PTR_s_localizedStringForKey_value_tabl_100017e18,&cf_Basic,&cf___,0);\n  IVar10 = NSBundle::isEqualToString_(param_3,(SEL)&isEqualToString__message_ref,IVar10);\n  cVar7 = (char)IVar10;\n  if (*(char *)(param_1 + g_RPN) != '\\0') {\n    IVar10 = window(param_1,PTR_s_window_100017fd8);\n    cVar8 = (*(code *)puVar4)(IVar10,PTR_s_isVisible_100018098);\n    if (cVar8 != '\\0') {\n      cVar8 = (*(code *)PTR__objc_msgSend_100014090)(lVar1,PTR_s_rpnViewIsWide_100018260);\n      uVar13 = (uint)(cVar7 == '\\0');\n      if (((int)cVar8 == uVar13) || (cVar7 != '\\0')) {\n        if (((int)cVar8 == uVar13) || (cVar7 == '\\0')) goto LAB_10000338a;\n        uVar11 = *(undefined8 *)(param_1 + lVar5);\n        puVar15 = PTR_s_switchRPNWideToReg_100018500;\n      }\n      else {\n        uVar11 = *(undefined8 *)(param_1 + lVar5);\n        puVar15 = PTR_s_switchRPNRegToWide_1000184f8;\n      }\n      (*(code *)PTR__objc_msgSend_100014090)(uVar11,puVar15);\n    }\n  }\nLAB_10000338a:\n  (*(code *)puVar4)(*(undefined8 *)(param_1 + lVar5),PTR_s_setCalcModeText__100017de8,&cf___);\n  cVar8 = (*(code *)puVar4)(*(undefined8 *)(param_1 + lVar6),PTR_s_shouldShowDisplay__100018508,\n                            param_1);\n  local_f8 = in_XMM1_Qa;\n  if (cVar8 != '\\0') {\n    (*(code *)PTR__objc_msgSend_100014090)\n              (*(undefined8 *)(param_1 + lVar6),PTR_s_setLCDDisplay__100018510,\n               *(undefined8 *)(param_1 + lVar5));\n    if (*(ID *)(param_1 + mDisplayBox) == 0) {\n      local_88 = 0;\n      dStack_80 = 0.0;\n      local_98 = 0;\n      uStack_90 = 0;\n      local_f8 = DAT_10000f6d8;\n    }\n    else {\n      _objc_msgSend_stret((undefined *)&local_98,*(ID *)(param_1 + mDisplayBox),\n                          PTR_s_frame_100017e00);\n      local_f8 = dStack_80 + DAT_10000f6d8;\n    }\n    local_f8 = in_XMM1_Qa + local_f8;\n    cVar8 = (*(code *)PTR__objc_msgSend_100014090)\n                      (*(undefined8 *)(param_1 + lVar6),PTR_s_supportsDisplayModeChanges_100018518);\n    if (cVar8 == '\\0') {\n      (*(code *)puVar4)(*(undefined8 *)(param_1 + lVar5),PTR_s_showLCDModeIndicator__100018520,0);\n      (*(code *)puVar4)(*(undefined8 *)(param_1 + lVar5),PTR_s_setLCDMode__100018528,0);\n    }\n    else {\n      (*(code *)PTR__objc_msgSend_100014090)\n                (*(undefined8 *)(param_1 + lVar5),PTR_s_showLCDModeIndicator__100018520,1);\n    }\n  }\n  cVar8 = (*(code *)PTR__objc_msgSend_100014090)\n                    (*(undefined8 *)(param_1 + lVar6),PTR_s_canShowTape__100018530,param_1);\n  if (cVar8 != '\\0') {\n    (*(code *)PTR__objc_msgSend_100014090)\n              (*(undefined8 *)(param_1 + lVar6),PTR_s_setPaperTape__100018538,\n               *(undefined8 *)(param_1 + mTapeWindow));\n  }\n  (*(code *)PTR__objc_msgSend_100014090)\n            (*(undefined8 *)(param_1 + lVar6),PTR_s_setSpeechController__100018460,\n             *(undefined8 *)(param_1 + mSpeechController));\n  if (lVar1 != 0) {\n    (*(code *)PTR__objc_msgSend_100014090)(lVar1,PTR_s_removeAllViewsFromWindow__100018540,IVar9);\n  }\n  IVar10 = (*(code *)PTR__objc_msgSend_100014090)(IVar9,PTR_s_contentView_1000180d8);\n  if (IVar10 == 0) {\n    local_a8 = 0;\n    dStack_a0 = 0.0;\n    local_b8 = 0;\n    uStack_b0 = 0;\n    uVar16 = 0;\n    uVar17 = 0;\n  }\n  else {\n    _objc_msgSend_stret((undefined *)&local_b8,IVar10,PTR_s_frame_100017e00);\n    uVar16 = (undefined4)local_a8;\n    uVar17 = (undefined4)((ulong)local_a8 >> 0x20);\n  }\n  local_f8 = local_f8 - dStack_a0;\n  dStack_40 = dStack_40 + (double)(float)local_f8;\n  local_48 = (double)(float)(dVar3 - (double)CONCAT44(uVar17,uVar16)) + local_48;\n  cVar8 = (*(code *)PTR__objc_msgSend_100014090)(IVar9,PTR_s_isVisible_100018098);\n  if (cVar8 != '\\0') {\n    dStack_50 = dStack_50 - (double)(float)local_f8;\n  }\n  IVar10 = (*(code *)PTR__objc_msgSend_100014090)(IVar9,PTR_s_contentView_1000180d8);\n  if (IVar10 == 0) {\n    local_c8 = 0;\n    uStack_c0 = 0;\n    local_d8 = 0;\n    uStack_d0 = 0;\n  }\n  else {\n    _objc_msgSend_stret((undefined *)&local_d8,IVar10,PTR_s_convertRect_toView__1000180e8,0);\n  }\n  dStack_40 = (double)uStack_c0;\n  local_48 = (double)local_c8;\n  dStack_50 = (double)uStack_d0;\n  local_58 = local_d8;\n  (*(code *)PTR__objc_msgSend_100014090)(IVar9,PTR_s_setFrame_display_animate__1000180f0,1,1);\n  uVar11 = DAT_10000f720;\n  if (cVar7 != '\\0') {\n    uVar11 = *(undefined8 *)(&DAT_10000f728 + (ulong)(*(char *)(param_1 + g_RPN) != '\\0') * 8);\n  }\n  (*(code *)puVar4)((int)DAT_10000f720,uVar11,*(undefined8 *)(param_1 + lVar6),\n                    PTR_s_addView_toWindow_atPoint__100018548,param_3,IVar9);\n  adjustWindowPosition(param_1,PTR_s_adjustWindowPosition_100018550);\n  (*(code *)puVar4)(IVar9,PTR_s_setShowsResizeIndicator__100018558,0);\n  cVar8 = (*(code *)puVar4)(*(undefined8 *)(param_1 + lVar6),PTR_s_canShowTape__100018530,param_1);\n  lVar1 = mTapeWindow;\n  if (cVar8 != '\\0') {\n    uVar11 = (*(code *)puVar4)(*(undefined8 *)(param_1 + mTapeWindow),PTR_s_window_100017fd8);\n    cVar8 = (*(code *)puVar4)(uVar11,PTR_s_setFrameUsingName__100018560,\n                              PTR_cf_Calc_History_Window_10001a618);\n    if (cVar8 == '\\0') {\n      uVar12 = *(undefined8 *)(param_1 + lVar1);\n      cVar8 = (*(code *)puVar4)(uVar11,PTR_s_isVisible_100018098);\n      (*(code *)puVar4)(uVar12,PTR_s_adjustTapeWindowPosition__100018568,(int)cVar8);\n    }\n    (*(code *)PTR__objc_msgSend_100014090)\n              (uVar11,PTR_s_setFrameAutosaveName__100018570,PTR_cf_Calc_History_Window_10001a618);\n  }\n  lVar1 = __CurrentView;\n  cVar8 = (*(code *)PTR__objc_msgSend_100014090)\n                    (*(undefined8 *)(param_1 + __CurrentView),PTR_s_supportsRPN_100018248);\n  if (cVar8 != '\\0') {\n    (*(code *)puVar4)(*(undefined8 *)(param_1 + lVar1),PTR_s_setRPNMode__100018258,\n                      (int)*(char *)(param_1 + g_RPN));\n    lVar6 = mLCD;\n    (*(code *)puVar4)(*(undefined8 *)(param_1 + mLCD),PTR_s_setRPNIsWide__100018268,cVar7 == '\\0');\n    uVar11 = *(undefined8 *)(param_1 + lVar6);\n    uVar12 = (*(code *)puVar4)(*(undefined8 *)(param_1 + lVar1),PTR_s_rpnStack_100018270);\n    (*(code *)puVar4)(uVar11,PTR_s_setRPNStack__100018278,uVar12);\n  }\n  (*(code *)puVar4)(IVar9,PTR_s_makeFirstResponder__100018578,IVar9);\n  (*(code *)puVar4)(IVar9,PTR_s_setNextResponder__100018580,param_1);\n  uVar11 = *(undefined8 *)(param_1 + lVar1);\n  uVar12 = (*(code *)puVar4)(IVar9,PTR_s_firstResponder_100018588);\n  (*(code *)puVar4)(uVar11,PTR_s_setupResponderStatus__100018590,uVar12);\n  lVar1 = __PreviousViewKey;\n  (*autorelease_message_ref.imp)\n            (*(undefined8 *)(param_1 + __PreviousViewKey),&autorelease_message_ref);\n  IVar9 = NSBundle::retain(param_3,(SEL)&retain_message_ref);\n  *(ID *)(param_1 + lVar1) = IVar9;\n  IVar9 = NSUserDefaults::standardUserDefaults\n                    ((ID)PTR__OBJC_CLASS___NSUserDefaults_100018c18,\n                     PTR_s_standardUserDefaults_1000181e0);\n  pcVar2 = *(cfstringStruct **)(param_1 + lVar1);\n  IVar10 = NSUserDefaults::objectForKey_\n                     (IVar9,(SEL)&objectForKey__message_ref,PTR_cf_ViewDefaultsKey_10001a610);\n  pcVar14 = &cf_Basic;\n  if (pcVar2 != (cfstringStruct *)0x0) {\n    pcVar14 = pcVar2;\n  }\n  cVar7 = (*isEqualToString__message_ref.imp)(pcVar14,&isEqualToString__message_ref,IVar10);\n  if (cVar7 == '\\0') {\n    NSUserDefaults::setObject_forKey_\n              (IVar9,PTR_s_setObject_forKey__100018008,pcVar14,PTR_cf_ViewDefaultsKey_10001a610);\n  }\n  return;\n}\n\n"
+  },
+  {
+   "selector": "sendDataToCalcEngine:",
+   "owner": "CalculatorController",
+   "imp": "0x1000055e3",
+   "status": "ok",
+   "callees": [
+    {
+     "function": "_CalculateExpression",
+     "entry": "0x10000f454",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "___stack_chk_fail",
+     "entry": "0x10000f4a2",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100025d00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100025e00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "componentsSeparatedByString:",
+     "entry": "0x10002460c",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "count",
+     "entry": "0x10002460d",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "lastObject",
+     "entry": "0x10002460e",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "stringWithUTF8String:",
+     "entry": "0x10002460b",
+     "selector": null,
+     "owner": null
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid CalculatorController::sendDataToCalcEngine_(ID param_1,SEL param_2,ID param_3)\n\n{\n  undefined *puVar1;\n  undefined *puVar2;\n  char cVar3;\n  undefined8 uVar4;\n  ID IVar5;\n  ID self;\n  ID IVar6;\n  undefined4 uVar7;\n  char local_438 [1024];\n  long local_38;\n  \n  puVar2 = PTR__objc_msgSend_100014090;\n  puVar1 = PTR____stack_chk_guard_100014088;\n  local_38 = *(long *)PTR____stack_chk_guard_100014088;\n  local_438[0] = '\\0';\n  uVar4 = (*(code *)PTR__objc_msgSend_100014090)\n                    (param_3,PTR_s_componentsSeparatedByString__100017f38,DAT_10001a900);\n  uVar4 = (*(code *)puVar2)(uVar4,PTR_s_componentsJoinedByString__100017f40,&cf__);\n  cVar3 = (*isEqualToString__message_ref.imp)(DAT_10001a900,&isEqualToString__message_ref,&cf__);\n  if (cVar3 != '\\0') {\n    uVar4 = (*(code *)puVar2)(uVar4,PTR_s_componentsSeparatedByString__100017f38,&cf__);\n    uVar4 = (*(code *)puVar2)(uVar4,PTR_s_componentsJoinedByString__100017f40,&cf__);\n  }\n  uVar4 = (*(code *)puVar2)(uVar4,PTR_s_UTF8String_100017ee8);\n  cVar3 = (*(code *)puVar2)(param_3,PTR_s_hasPrefix__100018028,&cf_fact);\n  uVar7 = 4;\n  if (cVar3 == '\\0') {\n    uVar7 = *(undefined4 *)(param_1 + __BackEndMode);\n  }\n  cVar3 = _CalculateExpression(uVar4,0x10,uVar7,local_438,0x400);\n  if (cVar3 == '\\0') {\n    (*(code *)PTR__objc_msgSend_100014090)\n              (*(undefined8 *)(param_1 + __CurrentView),PTR_s_handleStringFromCalcEngine__100018498,\n               &cf_Error);\n  }\n  if (local_438[0] != '\\0') {\n    IVar5 = NSString::stringWithUTF8String_\n                      ((ID)PTR__OBJC_CLASS___NSString_100018bb8,\n                       PTR_s_stringWithUTF8String__1000184a0,local_438);\n    self = NSString::componentsSeparatedByString_\n                     (IVar5,PTR_s_componentsSeparatedByString__100017f38,&cf_error);\n    IVar6 = NSString::count(self,(SEL)&count_message_ref);\n    uVar4 = *(undefined8 *)(param_1 + __CurrentView);\n    if ((int)IVar6 < 2) {\n      (*(code *)PTR__objc_msgSend_100014090)\n                (uVar4,PTR_s_handleStringFromCalcEngine__100018498,IVar5);\n    }\n    else {\n      IVar5 = NSString::lastObject(self,PTR_s_lastObject_1000184a8);\n      (*(code *)puVar2)(uVar4,PTR_s_handleStringFromCalcEngine__100018498,IVar5);\n    }\n  }\n  if (*(long *)puVar1 == local_38) {\n    return;\n  }\n                    /* WARNING: Subroutine does not return */\n  ___stack_chk_fail();\n}\n\n"
+  },
+  {
+   "selector": "menuViewSelectionDidChange:",
+   "owner": "CalculatorController",
+   "imp": "0x1000030d2",
+   "status": "ok",
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100025d00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "setCurrentView:",
+     "entry": "0x1000030e4",
+     "selector": "setCurrentView:",
+     "owner": "CalculatorController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid CalculatorController::menuViewSelectionDidChange_(ID param_1,SEL param_2,ID param_3)\n\n{\n  setCurrentView_(param_1,PTR_s_setCurrentView__100018280,param_3);\n  return;\n}\n\n"
+  }
+ ]
+}

@@ -1464,3 +1464,11 @@ Decompiled chain: `digit:` → `handleDigit:` (highlight button, `[engine userEn
 **Open:** `Hexadecimal.calcview` not yet imported; which plug-in loads per mode; NIB menu→action bindings not visible in either binary.
 
 **Verification:** native/REA/nsinspect suites and lint unchanged and green.
+
+## Session 2026-10-16 — Calculator plugin gaps closed; system-UI expansion started (opencode-ui-runtime-guest)
+
+**Zone:** `docs/UI_REFERENCE/native-findings.md`, `docs/UI_REFERENCE/runtime/raw/native/`.
+
+`Hexadecimal.calcview` imported (2 classes, 77/77 methods). Plug-in loader decompiled: `pathsToPlugins` = builtInPlugInsPath + `~/Library/Application Support/Calculator/PlugIns` + cwd-relative (user-extensible); `loadView:` establishes **`@protocol(CalculatorView)`** as the contract (not a base class) — plug-in instantiates principal class, loads its own nib as owner, receives `setCalcController:`/`setSpeechController:`, and injects named views into `_ViewControllerDict`/`_OrderedControllerNames`/`_ViewsMenu`. Mode switch = `menuViewSelectionDidChange:` → `setCurrentView:` (contentView swap); `setBackEndMode:` stores only an int. Mode map confirmed: Basic/Scientific → BasicAndSci (`BasicAdvancedController`, `AlgebraicEngine`|`RPNEngine`); Programmer → Hexadecimal (`HexadecimalController`, plus `binaryButtonPress:`, `handleBitManipulation:`, `hideShowBinary:`, `_advanceRadix`).
+
+**Open:** `HexadecimalEngine` base class across bundles; runtime capture of the three modes; generated View-menu titles prevent naming entries from the NIB inventory alone.

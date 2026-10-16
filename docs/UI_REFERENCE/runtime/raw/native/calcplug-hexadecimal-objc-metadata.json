@@ -1,0 +1,798 @@
+{
+ "provenance": {
+  "program": "Hexadecimal",
+  "language": "x86:LE:64:default",
+  "processor": "x86",
+  "image_base": "0x0",
+  "ghidra_version": "12.1.2",
+  "script": "objc_extract.py",
+  "sections": {
+   "__objc_methname": [
+    "0x8708",
+    "0x97ad",
+    4262
+   ],
+   "__objc_classname": [
+    "0x9b02",
+    "0x9b41",
+    64
+   ],
+   "__objc_methtype": [
+    "0x9b42",
+    "0x9eab",
+    874
+   ],
+   "__objc_classlist": [
+    "0xa090",
+    "0xa09f",
+    16
+   ],
+   "__objc_protolist": [
+    "0xa0a0",
+    "0xa0af",
+    16
+   ],
+   "__objc_imageinfo": [
+    "0xa0b0",
+    "0xa0b7",
+    8
+   ],
+   "__objc_const": [
+    "0xa0b8",
+    "0xb6f7",
+    5696
+   ],
+   "__objc_selrefs": [
+    "0xb6f8",
+    "0xbb6f",
+    1144
+   ],
+   "__objc_msgrefs": [
+    "0xbb70",
+    "0xbc2f",
+    192
+   ],
+   "__objc_classrefs": [
+    "0xbc30",
+    "0xbca7",
+    120
+   ],
+   "__objc_superrefs": [
+    "0xbca8",
+    "0xbcaf",
+    8
+   ],
+   "__objc_data": [
+    "0xbcb0",
+    "0xbd4f",
+    160
+   ],
+   "__objc_ivar": [
+    "0xbd50",
+    "0xbf0f",
+    448
+   ]
+  }
+ },
+ "counts": {
+  "classes": 2,
+  "categories": 0,
+  "methods_total": 77,
+  "methods_with_selector": 77,
+  "methods_with_known_imp": 77,
+  "methods_matched_to_ghidra_function": 77
+ },
+ "classes": [
+  {
+   "class_ptr": "0xbcb0",
+   "ro_ptr": "0xb600",
+   "name": "HexadecimalController",
+   "super": "",
+   "method_list_ptr": "0xa7d0",
+   "instance_methods": 76
+  },
+  {
+   "class_ptr": "0xbd28",
+   "ro_ptr": "0xb6b0",
+   "name": "HexadecimalEngine",
+   "super": "",
+   "method_list_ptr": "0xb690",
+   "instance_methods": 1
+  }
+ ],
+ "selectors": {
+  "ullFromString:withBase:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x1a30",
+    "ghidra_function": "ullFromString:withBase:",
+    "types": "Q28@0:8@16i24"
+   }
+  ],
+  "window": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x1acd",
+    "ghidra_function": "window",
+    "types": "@16@0:8"
+   }
+  ],
+  "keyDown:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x1aea",
+    "ghidra_function": "keyDown:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "_momentarilyHighlightButton:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x1df9",
+    "ghidra_function": "_momentarilyHighlightButton:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "_unhighlightButton:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x1e59",
+    "ghidra_function": "_unhighlightButton:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "paste:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x1e8c",
+    "ghidra_function": "paste:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "okToProceed": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x2381",
+    "ghidra_function": "okToProceed",
+    "types": "c16@0:8"
+   }
+  ],
+  "digit:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x250a",
+    "ghidra_function": "digit:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "handleDigit:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x2540",
+    "ghidra_function": "handleDigit:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "selectAltDisplayMode:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x285e",
+    "ghidra_function": "selectAltDisplayMode:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setAltDisplayMode:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x2962",
+    "ghidra_function": "setAltDisplayMode:",
+    "types": "v24@0:8q16"
+   }
+  ],
+  "hideShowBinary:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x2a35",
+    "ghidra_function": "hideShowBinary:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "updateBinaryButtons": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x2e6d",
+    "ghidra_function": "updateBinaryButtons",
+    "types": "v16@0:8"
+   }
+  ],
+  "binaryButtonPress:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x2fbf",
+    "ghidra_function": "binaryButtonPress:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "_advanceRadix": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x31ae",
+    "ghidra_function": "_advanceRadix",
+    "types": "v16@0:8"
+   }
+  ],
+  "selectInputMode:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x31f4",
+    "ghidra_function": "selectInputMode:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setInputMode:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x3283",
+    "ghidra_function": "setInputMode:",
+    "types": "v24@0:8q16"
+   }
+  ],
+  "equals:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x36fb",
+    "ghidra_function": "equals:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "readyForConversion": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x3968",
+    "ghidra_function": "readyForConversion",
+    "types": "c16@0:8"
+   }
+  ],
+  "enter:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x3980",
+    "ghidra_function": "enter:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "clear:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x3a7a",
+    "ghidra_function": "clear:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "allClear:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x3ba4",
+    "ghidra_function": "allClear:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "rollStack:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x3ce8",
+    "ghidra_function": "rollStack:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "handleBitManipulation:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x3d30",
+    "ghidra_function": "handleBitManipulation:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "handleOperatorPress:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x40d0",
+    "ghidra_function": "handleOperatorPress:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "stringForOperator:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x473e",
+    "ghidra_function": "stringForOperator:",
+    "types": "@24@0:8Q16"
+   }
+  ],
+  "speakStringForTag:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x4804",
+    "ghidra_function": "speakStringForTag:",
+    "types": "v20@0:8i16"
+   }
+  ],
+  "stringForTag:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x488a",
+    "ghidra_function": "stringForTag:",
+    "types": "@20@0:8i16"
+   }
+  ],
+  "performRPNOperation:withX:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x4bf0",
+    "ghidra_function": "performRPNOperation:withX:",
+    "types": "v28@0:8i16Q20"
+   }
+  ],
+  "_removeLastItemFromEquation": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x63b0",
+    "ghidra_function": "_removeLastItemFromEquation",
+    "types": "v16@0:8"
+   }
+  ],
+  "_delayedSpeakString:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6495",
+    "ghidra_function": "_delayedSpeakString:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "push:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x654a",
+    "ghidra_function": "push:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "pop": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x65f4",
+    "ghidra_function": "pop",
+    "types": "@16@0:8"
+   }
+  ],
+  "stackIsEmpty": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6674",
+    "ghidra_function": "stackIsEmpty",
+    "types": "c16@0:8"
+   }
+  ],
+  "stack": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x669b",
+    "ghidra_function": "stack",
+    "types": "@16@0:8"
+   }
+  ],
+  "rpnRollUp": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x66ac",
+    "ghidra_function": "rpnRollUp",
+    "types": "v16@0:8"
+   }
+  ],
+  "rpnRollDown": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x67f6",
+    "ghidra_function": "rpnRollDown",
+    "types": "v16@0:8"
+   }
+  ],
+  "rpnDrop": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6956",
+    "ghidra_function": "rpnDrop",
+    "types": "v16@0:8"
+   }
+  ],
+  "rpnExchange": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6afd",
+    "ghidra_function": "rpnExchange",
+    "types": "v16@0:8"
+   }
+  ],
+  "setCalcController:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6c7c",
+    "ghidra_function": "setCalcController:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setLCDDisplay:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6ca9",
+    "ghidra_function": "setLCDDisplay:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setSpeechController:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6cd6",
+    "ghidra_function": "setSpeechController:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "setPaperTape:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6cdc",
+    "ghidra_function": "setPaperTape:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "stringForIntegerString:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6d23",
+    "ghidra_function": "stringForIntegerString:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "valueForString:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6db2",
+    "ghidra_function": "valueForString:",
+    "types": "Q24@0:8@16"
+   }
+  ],
+  "cleanEquationString": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x6e10",
+    "ghidra_function": "cleanEquationString",
+    "types": "@16@0:8"
+   }
+  ],
+  "handleStringFromCalcEngine:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7008",
+    "ghidra_function": "handleStringFromCalcEngine:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "normalSize:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x770d",
+    "ghidra_function": "normalSize:",
+    "types": "{CGSize=dd}24@0:8@16"
+   }
+  ],
+  "minimumSize:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x77ff",
+    "ghidra_function": "minimumSize:",
+    "types": "{CGSize=dd}24@0:8@16"
+   }
+  ],
+  "maximumSize:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x780b",
+    "ghidra_function": "maximumSize:",
+    "types": "{CGSize=dd}24@0:8@16"
+   }
+  ],
+  "removeAllViewsFromWindow:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x781d",
+    "ghidra_function": "removeAllViewsFromWindow:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "addView:toWindow:atPoint:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x783a",
+    "ghidra_function": "addView:toWindow:atPoint:",
+    "types": "v48@0:8@16@24{CGPoint=dd}32"
+   }
+  ],
+  "setupResponderStatus:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x78ad",
+    "ghidra_function": "setupResponderStatus:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "shouldShowDisplay:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x79c8",
+    "ghidra_function": "shouldShowDisplay:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "canShowTape:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x79d3",
+    "ghidra_function": "canShowTape:",
+    "types": "c24@0:8@16"
+   }
+  ],
+  "viewNames:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x79de",
+    "ghidra_function": "viewNames:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "nameForSaveMenu:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7a41",
+    "ghidra_function": "nameForSaveMenu:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "nameForPrintMenu:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7a4e",
+    "ghidra_function": "nameForPrintMenu:",
+    "types": "@24@0:8@16"
+   }
+  ],
+  "supportsConversions": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7a5b",
+    "ghidra_function": "supportsConversions",
+    "types": "c16@0:8"
+   }
+  ],
+  "supportsSpeech": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7a63",
+    "ghidra_function": "supportsSpeech",
+    "types": "c16@0:8"
+   }
+  ],
+  "setSpeakButtonPressed:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7a6b",
+    "ghidra_function": "setSpeakButtonPressed:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "setSpeakTotal:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7b47",
+    "ghidra_function": "setSpeakTotal:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "supportsRPN": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7c23",
+    "ghidra_function": "supportsRPN",
+    "types": "c16@0:8"
+   }
+  ],
+  "rpnStack": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7c2e",
+    "ghidra_function": "rpnStack",
+    "types": "@16@0:8"
+   }
+  ],
+  "rpnViewIsWide": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7c3f",
+    "ghidra_function": "rpnViewIsWide",
+    "types": "c16@0:8"
+   }
+  ],
+  "setRPNMode:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7c4a",
+    "ghidra_function": "setRPNMode:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "supportsDisplayModeChanges": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7f5f",
+    "ghidra_function": "supportsDisplayModeChanges",
+    "types": "c16@0:8"
+   }
+  ],
+  "init": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x7f6a",
+    "ghidra_function": "init",
+    "types": "@16@0:8"
+   }
+  ],
+  "supportsIEEEMode": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x800b",
+    "ghidra_function": "supportsIEEEMode",
+    "types": "c16@0:8"
+   }
+  ],
+  "setIEEEMode:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x8013",
+    "ghidra_function": "setIEEEMode:",
+    "types": "v20@0:8c16"
+   }
+  ],
+  "setPrecision:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x8019",
+    "ghidra_function": "setPrecision:",
+    "types": "v24@0:8Q16"
+   }
+  ],
+  "setInitialValue:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x801f",
+    "ghidra_function": "setInitialValue:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "ieeeMode": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x8031",
+    "ghidra_function": "ieeeMode",
+    "types": "c16@0:8"
+   }
+  ],
+  "setInputString:": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x8039",
+    "ghidra_function": "setInputString:",
+    "types": "v24@0:8@16"
+   }
+  ],
+  "awakeFromNib": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x8056",
+    "ghidra_function": "awakeFromNib",
+    "types": "v16@0:8"
+   }
+  ],
+  "dealloc": [
+   {
+    "owner": "HexadecimalController",
+    "kind": "instance",
+    "imp": "0x84e6",
+    "ghidra_function": "dealloc",
+    "types": "v16@0:8"
+   }
+  ],
+  "LCDStringValue": [
+   {
+    "owner": "HexadecimalEngine",
+    "kind": "instance",
+    "imp": "0x860f",
+    "ghidra_function": "LCDStringValue",
+    "types": "@16@0:8"
+   }
+  ]
+ }
+}

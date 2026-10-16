@@ -287,3 +287,91 @@ Not established: the `Hexadecimal.calcview` engine (not yet imported), the
 `Function` dictionary contents that back `performOperationWithParameters:`, and
 the menu→action bindings that REA saw in the NIBs but that are not visible in
 either binary's method table.
+
+---
+
+# Calculator gaps closed — plugin discovery, loading and switching
+
+All from the same two binaries plus a third, `Hexadecimal.calcview`
+(`Hexadecimal`, 2 classes, 77/77 methods). Evidence:
+`runtime/raw/native/calcplug-hexadecimal-objc-metadata.json`,
+`calculator-plugin-loading-decompilations.json`.
+
+## P1. Plug-in search paths (`pathsToPlugins`)
+
+Decompiled `-[CalculatorController pathsToPlugins]` returns a three-element
+array:
+
+1. `[NSBundle builtInPlugInsPath]` for the Calculator bundle — the shipped
+   `BasicAndSci.calcview` and `Hexadecimal.calcview`;
+2. `~/Library/Application Support/Calculator/PlugIns`;
+3. `./Library/Application Support/Calculator/PlugIns` (cwd-relative).
+
+So the engine is user-extensible: a third-party `.calcview` dropped in the
+user directory participates in mode switching exactly like the bundled ones.
+
+## P2. Plug-in contract and instantiation (`loadView:`)
+
+Decompiled `-[CalculatorController loadView:]`:
+
+```c
+NSBundle *b = [NSBundle bundleWithPath:path];
+NSString *nibName = [b objectForInfoDictionaryKey:@"NSMainNibFile"];
+if (nibName.length) {
+    Class c = NSClassFromString(nibName);        /* nib name is tried as a class first */
+    if (!c) c = [b principalClass];
+}
+if ([c conformsToProtocol:@protocol(CalculatorView)]) {
+    id plug = [[c alloc] init];
+    [NSBundle loadNibNamed:nibName owner:plug];   /* plug-in owns its nib */
+    [plug setCalcController:self];
+    [plug setSpeechController:self->_SpeechController];
+    for (NSString *name in [plug viewNames:self]) {
+        [self->_ViewControllerDict setObject:plug forKey:name];
+        [self->_OrderedControllerNames addObject:name];
+        [self->_ViewsMenu insertItemWithTitle:@"<n>"
+                                       action:@selector(menuViewSelectionDidChange:)
+                                keyEquivalent:@""];
+    }
+}
+```
+
+The contract is `@protocol(CalculatorView)`, not a base class — both plug-ins
+expose the same selector set (`addView:toWindow:atPoint:`, `keyDown:`,
+`handleDigit:`, `digit:`, `enter:`, `handleOperatorPress:`, `viewNames:`,
+`canShowTape:`, `nameForPrintMenu:` …). This answers "how NIB-defined controls
+connect to plug-in-provided views": **they do not connect across the boundary
+at all** — each plug-in loads its own nib with itself as owner and injects
+named views into the shell's dictionary; the shell never wires plug-in
+controls.
+
+## P3. Mode switching
+
+`menuViewSelectionDidChange:` is a one-line forward to
+`-[CalculatorController setCurrentView:]`, which swaps the window's
+`contentView` (with frame bookkeeping against the current content view).
+`setBackEndMode:` only stores an integer ivar `_BackEndMode`; the actual
+algebraic-vs-RPN engine choice is made inside the plug-in
+(`AlgebraicEngine` / `RPNEngine`, both subclasses of `CalculatorEngine`).
+
+Confirmed mode → plug-in map:
+
+| UI mode | Plug-in | Controller | Engine |
+|---|---|---|---|
+| Basic / Scientific | `BasicAndSci.calcview` | `BasicAdvancedController` | `AlgebraicEngine` or `RPNEngine` |
+| Programmer | `Hexadecimal.calcview` | `HexadecimalController` | `HexadecimalEngine` (light subclass) |
+
+`HexadecimalController` additionally owns the programmer-only behaviour the
+main binary cannot have: `binaryButtonPress:`, `handleBitManipulation:`,
+`hideShowBinary:`, `_advanceRadix`.
+
+## P4. Still open
+
+* `HexadecimalEngine` exposes only `LCDStringValue` in this binary — its
+  number base handling is almost certainly inherited from `CalculatorEngine`
+  in the other plug-in; the cross-bundle base class was not resolved here.
+* Runtime comparison of Basic / Scientific / Programmer windows is still
+  missing; it needs `nsinspect` captures of Calculator in each mode
+  (`setBackEndMode:` and the View menu are the levers).
+* Which menu item maps to which `viewNames:` entry is generated at runtime
+  (`"%d"` titles), so the NIB inventory alone cannot name them.
