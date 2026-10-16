@@ -78,6 +78,17 @@ These are initial application-level results. They do not mean that Finder, Dock,
 - Optimize through measurement; avoid unnecessary background work and heavyweight dependencies.
 - Do not redistribute proprietary Apple binaries, code, fonts, or artwork.
 
+## Start here
+
+- [Project direction and roadmap](docs/PROJECT_DIRECTION.md)
+- [Mavericks reference evidence](docs/UI_REFERENCE/README.md)
+- [REA toolchain](docs/UI_REFERENCE/rea-toolchain.md)
+- [Native reverse-engineering findings](docs/UI_REFERENCE/native-findings.md)
+- [REA/NIB findings](docs/UI_REFERENCE/rea-findings.md)
+- [UI Platform specifications](docs/UI_PLATFORM/README.md)
+- [Agent coordination](docs/COORDINATION.md)
+- [Current progress](docs/PROGRESS.md)
+
 ## Getting involved
 
 The most valuable contributions at this stage are reproducible reverse-engineering, evidence validation, subsystem research, behavior/state modeling, and specification work. Implementation contributions should target documented contracts rather than inventing approximate behavior.
