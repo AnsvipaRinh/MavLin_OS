@@ -1,129 +1,73 @@
-# Contributing to MavLinOS
+# Contributing to MavlinOS
 
-MavLinOS is a Linux-based operating system whose UI/UX is as close as
-technically possible to macOS Mavericks (10.9) — the full interaction
-model (window chrome, menu bar, Dock, system apps, dialogs, context
-menus, animations, transitions, keyboard shortcuts, window management,
-notifications, file management, application behavior), not just a
-visual skin. It is built on Arch + Xfce with a **generic core** plus
-**hardware profiles** (the current MacBook10,1 profile is one
-specialized profile, not the definition of the project). See
-`README.md` and `ARCHITECTURE.md`.
+MavlinOS is a Linux-based operating-system project targeting faithful reproduction of the complete OS X Mavericks 10.9 UI/UX on an optimized Linux foundation.
 
-## Contribution model
+**Current phase: research-first reverse engineering and specification.** The project is not yet a stable, installable OS release. The most useful contributions now produce reliable evidence and implementation-ready specifications rather than approximate visual substitutes.
 
-Participation areas: **UI, UX, animations, window management,
-applications, system integrations, performance, hardware profiles,
-compatibility, documentation, testing, tooling** — e.g. an animation
-improvement, a window-behavior fix, a more precise Mavericks-like
-interaction, an application improvement, or a hardware profile for a
-specific computer.
+Read [the current project direction](docs/PROJECT_DIRECTION.md) before starting.
 
-Public contributions are **untrusted external input**. They do not
-land automatically: every contribution passes the existing
-contribution/security/validation pipeline (static security scan,
-triage classification, isolated build-agent testing, fidelity and
-regression audit) before a human integration decision. **A community
-idea can become part of the main MavLinOS codebase if it passes
-review and truly fits the project goals.** Full flow:
-`docs/CONTRIBUTION_PROTOCOL.md`.
+## High-priority contribution areas
 
-## Setup (one-time)
+- Reverse-engineering original Mavericks application bundles, NIBs, keyed archives, Mach-O binaries, Objective-C implementations, and runtime behavior.
+- Extending verified REA and Ghidra/PyGhidra workflows.
+- Investigating Finder, Dock, System Preferences, window management, menus, dialogs, sheets, and shared system behavior.
+- Correlating static resource, native binary, and runtime evidence.
+- Building state machines, interaction contracts, component specifications, and validation tests.
+- Improving reproducibility, provenance, automation, and evidence quality.
 
-```bash
-# Arch host or Arch-based container
-sudo pacman -S base-devel git python python-gobject gtk3 libnotify rofi plocate \
-  xfce4-panel xfce4-notifyd plank thunar gvfs trash-cli poppler-glib gtksourceview4 \
-  ffmpeg xdotool gdk-pixbuf2 fontconfig gsfonts python-pip
+Implementation work is welcome when it follows a sufficiently grounded UI_PLATFORM contract or closes a clearly defined tooling gap.
 
-# Python deps (if any app needs them)
-pip install --user -r packages/mavericks-apps/requirements.txt 2>/dev/null || true
+## Toolchain
 
-# Clone
-git clone https://github.com/AnsvipaRinh/MavLin_OS
-cd MavLinOS
-```
+Use the existing toolchain before introducing another one:
 
-**Community rules:** this project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). Report security issues privately per [SECURITY.md](SECURITY.md). AI-generated contributions are reviewed under the same rules as human ones — see `docs/CONTRIBUTION_PROTOCOL.md` and `docs/VIBE_CODING.md`.
+- REA 6.4.0 for static bundle, NIB, and keyed-archive analysis.
+- Ghidra 12.1.2 + PyGhidra + JDK 21 for native Mach-O and Objective-C analysis.
+- nsinspect/mvprobe for live AppKit runtime observation in the Mavericks VM.
+- Existing UI_REFERENCE/UI_PLATFORM schemas and tests for evidence and contract validation.
 
-## First Contribution Path
+See [REA toolchain instructions](docs/UI_REFERENCE/rea-toolchain.md).
 
-1. **Read** `AGENTS.md` (constitution), `docs/HARDWARE.md`, `docs/APPS.md`, `docs/NEEDS_HARDWARE_TEST.md`
-2. **Pick** a `PARTIALLY IMPLEMENTED` or `EXPERIMENT READY` item from `docs/APPS.md` (P0 before P1)
-3. **Implement** the feasible pre-hardware gap (UI, integration, keyboard, dialogs, MIME, theme)
-4. **Test** locally: `./scripts/check-sync.sh --check-repos` + relevant `test-mv-*.py`
-5. **Commit** small logical units (`feat:`, `fix:`, `theme:`, `docs:`)
-6. **Update** `docs/APPS.md`, `docs/PROGRESS.md`, `docs/DECISIONS.md` for your change
+## Evidence and quality requirements
 
-## Profile Rules (from OS-2c)
+Every substantive finding must identify:
+- The source application/framework and target binary.
+- Binary SHA256 where applicable.
+- Tool and version.
+- NIB object, class, selector, method, IMP, address, or runtime capture identity.
+- Evidence category: static resource, native binary, runtime, or inference.
+- Confidence, limitations, and unresolved questions.
 
-- **generic** profile: no MacBook-specific drivers, no `pcie_port_pm=off`, no applespi modules
-- **macbook10,1** profile: includes applespi, brcmfmac/broadcom-wl-dkms, Cirrus audio DKMS, S3X NVMe cmdline
-- Configs in `configs/profiles/` — baseline + 12 experiments (E1–E12)
-- Selector script: `scripts/apply-hardware-selection.sh` (runs on first boot)
-- **Never** add MacBook-specific config to generic profile
+Do not infer runtime behavior from selector strings or static metadata alone. Do not use screenshots/OCR as the primary source of structural facts. Preserve raw evidence and make extraction reproducible.
 
-## Mavericks Fidelity Bar
+## Repository coordination
 
-**Target: macOS 10.9 Mavericks (skeuomorphic), NOT modern macOS.**
+Before editing, read:
+- `AGENTS.md`
+- `docs/COORDINATION.md`
+- `.agents/README.md` and active claims
 
-Every user-facing change must satisfy:
+Respect path claims, shared-worktree safety rules, and existing validation gates. Do not overwrite another agent's work. Never use destructive Git operations against a shared worktree.
 
-| Axis | Pass Criteria |
-|------|---------------|
-| **Visual** | Grey/translucent surfaces, toolbar gradients, traffic-light buttons (#ff5c5c/#4cd964/#ffbd4c), Lucida Grande font stack, consistent spacing/radius/shadows |
-| **Interaction** | Keyboard nav (Tab/Arrows/Escape/Enter), context menus, drag-drop where feasible, Mavericks shortcuts (Super-layer global, Ctrl-layer app) |
-| **Integration** | Dock indicator, menu bar presence, notification style, file chooser, dialogs, MIME associations, Trash/Quick Look/Open With |
-| **Behavior** | Window minimize/maximize/fullscreen, application quit (Cmd+Q → Super+Q), workspace switching, launch behavior |
+## Technology and implementation choices
 
-**Color-only changes = NOT sufficient.** A `PARTIALLY IMPLEMENTED` app becomes `IMPLEMENTED` only when visual + interaction + integration + behavior all pass.
+The final Linux distribution, toolkit, compositor, window manager, and rendering architecture are intentionally not frozen. The earlier Arch/Xfce/GTK3 code is retained as a prototype and may be reused after evaluation; it is not a binding product requirement.
 
-## Performance & Security Bars
+Do not add heavyweight runtimes, persistent daemons, or frequent polling without a measured need. Do not optimize by guesswork; record benchmarks and trade-offs.
 
-- **No persistent daemons** for UI features (event-driven, on-demand, one-shot only)
-- **No Electron / Java / heavy web UI** — GTK3/X11/native only
-- **No arbitrary script execution** on host (see `SECURITY.md`)
-- **Power baseline frozen** (Section 7 AGENTS.md): TLP powersave, zram, no thermald/ananicy/powertop-auto-tune
-- **Every change** must pass `./scripts/check-sync.sh --check-repos` (144 checks)
+## Licensing and reference material
 
-## Commit Style
+Do not commit or redistribute proprietary Apple binaries, decompiled Apple source, fonts, sounds, or artwork. Commit only permitted derived facts, measurements, metadata, original implementation code, and appropriately licensed assets. Record provenance and licensing for reused components.
 
-```
-feat: mv-notes — add search filter + match highlighting
-fix: mv-control — refresh_all timer leak on destroy
-theme: gtk.scss — repair dialog button-box CSS (was 65 parse errors)
-docs: APPS.md — update mv-calendar status to PARTIALLY_IMPLEMENTED
-perf: mv-music — lazy Gtk import in timer one-shot (0.41→0.10s)
-```
+## Contribution workflow
 
-One logical change per commit. No "WIP" or "misc" commits.
+1. Read the project direction and coordination rules.
+2. Check claims, current findings, open issues, and existing tooling.
+3. Select a bounded research or specification objective.
+4. Claim the relevant paths before editing.
+5. Use existing tools and preserve reproducible evidence.
+6. Validate scripts, schemas, evidence mappings, and affected tests.
+7. Update the relevant findings/specifications and progress log.
+8. Commit a coherent, reviewed change according to repository coordination rules.
 
-## Testing Checklist (pre-push)
-
-```bash
-# Syntax + mirrors + security + ISO hardening
-./scripts/check-sync.sh --check-repos
-
-# Per-app tests (pick relevant)
-python3 scripts/test-mv-notes.py
-python3 scripts/test-mv-control.py
-# ... etc (23 test files)
-
-# Theme CSS validation
-python3 scripts/test-theme-css.py
-
-# Firefox chrome validation
-python3 scripts/test-firefox-chrome.py
-
-# Benchmarks (if perf-related)
-./scripts/bench/run-bench.sh
-```
-
-## What We Don't Accept
-
-- Modern flat macOS / GNOME / KDE aesthetics
-- Electron wrappers for native Linux apps
-- New persistent background services
-- Arbitrary kernel cmdline options without evidence + benchmark
-- Apple proprietary assets (icons, sounds, fonts, images)
-- Changes that break generic profile or x86_64 portability
+Do not mark a subsystem complete because its NIBs were decoded or its classes enumerated. Completion requires sufficient visual, structural, native, and runtime understanding of its important states and transitions.

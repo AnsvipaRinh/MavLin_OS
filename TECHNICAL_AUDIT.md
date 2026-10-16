@@ -1,3 +1,5 @@
+> **Historical snapshot — 2026-09-25.** This audit concerns an earlier MacBook10,1 / Arch Linux / Xfce prototype and contains hardware-specific recommendations that may be stale or contradictory. It is not the current MavlinOS product architecture and must not be applied as a universal system configuration. Revalidate every kernel, power, driver, and hardware claim against the actual target machine and current Linux architecture. Current project direction: [docs/PROJECT_DIRECTION.md](docs/PROJECT_DIRECTION.md).
+
 # Technical Audit: "MavLinOS" for MacBook10,1 (2017, m3-7Y32)
 
 **Audit Date:** 2026-09-25

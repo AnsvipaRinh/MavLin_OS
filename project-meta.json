@@ -1,17 +1,33 @@
 {
-  "name": "MavLinOS",
-  "description": "MavLinOS - Linux-based OS with macOS Mavericks (10.9) UI/UX; generic core + hardware profiles",
+  "name": "MavlinOS",
+  "description": "Evidence-driven Linux OS project targeting faithful macOS Mavericks 10.9 UI/UX with an optimized Linux foundation.",
   "root": ".",
   "agent": "orchestrator",
-  "phases": [
-    "Phase 0",
-    "Phase 1",
-    "Phase 2",
-    "Phase 3",
-    "Phase 4",
-    "Phase 5"
+  "phase": "reference-reverse-engineering",
+  "currentFocus": [
+    "Reverse-engineer Mavericks system UI and shared behavior",
+    "Correlate REA NIB/keyed-archive evidence with Ghidra native analysis and nsinspect runtime captures",
+    "Complete evidence-backed UI_REFERENCE and UI_PLATFORM specifications"
   ],
+  "referenceSystem": "OS X Mavericks 10.9",
+  "targetSystem": "Linux; final distribution, toolkit, compositor, and window manager remain evidence-driven decisions",
+  "primaryTools": [
+    "REA 6.4.0",
+    "Ghidra 12.1.2",
+    "PyGhidra",
+    "nsinspect",
+    "mvprobe"
+  ],
+  "architectureStages": [
+    "reference-reverse-engineering",
+    "evidence-validation",
+    "ui-ux-specification",
+    "linux-platform-selection",
+    "implementation",
+    "optimization-and-packaging"
+  ],
+  "hardwareStrategy": "Generic Linux core with optional hardware profiles; MacBook10,1 is a reference profile, not the product definition.",
+  "implementationStatus": "Research-first; no stable installation image or production release.",
   "priority": "high",
-  "autoCommit": true,
-  "hardwareAssumption": "MacBook10,1"
+  "autoCommit": true
 }

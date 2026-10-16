@@ -1,132 +1,117 @@
-# Architecture
+# MavlinOS Architecture
 
-## Layer Diagram (Mavericks UI → Mature Backend → Kernel)
+**Status: target architecture and research pipeline.** This document supersedes the earlier Xfce/GTK3 implementation diagram as the statement of the intended product architecture. Existing prototype code remains in the repository, but it does not lock the final technology choices.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  MAVERICKS-ERA USER EXPERIENCE (skeuomorphic, 10.9 fidelity)   │
-│  ┌──────────────┬──────────────┬──────────────┬──────────────┐  │
-│  │ Finder       │ Spotlight    │ Launchpad    │ Mission Ctrl │  │
-│  │ Control Ctr  │ Notif Center │ Quick Look   │ Preview      │  │
-│  │ Settings     │ Activity Mon │ System Info  │ Disk Utility │  │
-│  │ TextEdit     │ Calculator   │ Notes        │ Reminders    │  │
-│  │ Calendar     │ Music        │ Photos       │ Voice Memos  │  │
-│  │ Console      │ Keychain     │ Font Book    │ Color Meter  │  │
-│  │ Stickies     │ Screenshot   │ Archive      │ Trash        │  │
-│  │ Menu Bar     │ Dock         │ App Menu     │ Global Dlgs  │  │
-│  │ File Chooser │ Context Menu │ Kbd Shortcuts│ Window Mgmt  │  │
-│  └──────────────┴──────────────┴──────────────┴──────────────┘  │
-├─────────────────────────────────────────────────────────────────┤
-│  MATURE LINUX BACKENDS (reused, not rewritten)                 │
-│  ┌──────────────┬──────────────┬──────────────┬──────────────┐  │
-│  │ Thunar/GVfs  │ rofi +       │ xfwm4        │ xfce4-panel  │  │
-│  │ (file mgr)   │ plocate      │ (compositor) │ + plugins    │  │
-│  ├──────────────┼──────────────┼──────────────┼──────────────┤  │
-│  │ UDisks2      │ NetworkMgr   │ BlueZ        │ PipeWire/    │  │
-│  │ (storage)    │ + wpa_sup.   │ (BT)         │ WirePlumber  │  │
-│  ├──────────────┼──────────────┼──────────────┼──────────────┤  │
-│  │ UPower       │ logind       │ GTK3/Pango/  │ poppler/     │  │
-│  │ (power)      │ (session)    │ Cairo        │ GStreamer/   │  │
-│  │              │              │ (rendering)  │ ffmpeg       │  │
-│  ├──────────────┼──────────────┼──────────────┼──────────────┤  │
-│  │ libsecret    │ libnotify/   │ xarchiver/   │ plank        │  │
-│  │ (secrets)    │ xfce4-notifyd│ libarchive   │ (dock)       │  │
-│  └──────────────┴──────────────┴──────────────┴──────────────┘  │
-├─────────────────────────────────────────────────────────────────┤
-│  LINUX USERSpace APIs                                           │
-│  D-Bus • systemd/logind • UDisks2 • NetworkManager • BlueZ     │
-│  PipeWire • UPower • GTK3 • X11 • /proc • /sys                 │
-├─────────────────────────────────────────────────────────────────┤
-│  KERNEL / HARDWARE (MacBook10,1 specific)                      │
-│  linux-zen • applespi • brcmfmac/broadcom-wl • snd-hda-codec-  │
-│  cs420x (Cirrus) • i915 (HD 615) • NVMe (Apple S3X) • USB-C    │
-└─────────────────────────────────────────────────────────────────┘
-```
+See [Project Direction](docs/PROJECT_DIRECTION.md) for the mission, phase gates, and current research status.
 
-**Principle:** Linux internals stay Linux. Only the top 2-3 interaction layers mimic Mavericks.
+## 1. Product architecture
 
----
-
-## Profiles Layout (`configs/profiles/`)
-
-The current implementation uses two explicit profiles:
+MavlinOS separates the user-facing Mavericks experience from the Linux implementation beneath it.
 
 ```
-configs/profiles/
-├── generic/
-│   ├── baseline.conf
-│   ├── 99-mavericks-network.conf
-│   ├── 99-mavericks-tlp.conf
-│   ├── 99-mavericks-zram.conf
-│   └── 99-mavericks-modprobe.conf
-├── macbook10,1/
-│   └── manifest.conf
-└── fragments/
-    ├── 99-mavericks-s3x.conf
-    └── 99-mavericks-display.conf
+┌──────────────────────────────────────────────────────────────┐
+│                  MAVERICKS-FAITHFUL UI / UX                  │
+│ Finder · Dock · menu bar · windows · dialogs · system apps   │
+│ controls · typography · states · animations · interactions  │
+├──────────────────────────────────────────────────────────────┤
+│                    MAVLINOS UI PLATFORM                      │
+│ Design system · interaction system · reusable UI contracts  │
+│ component model · state machines · application integration   │
+├──────────────────────────────────────────────────────────────┤
+│                 LINUX DESKTOP INTEGRATION                    │
+│ Windowing · rendering · input · shell · app adapters         │
+│ system services · file/network/power/media integration       │
+├──────────────────────────────────────────────────────────────┤
+│                  LINUX USERSPACE / KERNEL                    │
+│ Linux applications and APIs · system services · drivers     │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-The canonical selector is `scripts/install/mavericks-profile-select.sh`. In the installed system it is exposed as:
+The top layers reproduce the original user experience. The lower layers use Linux-native mechanisms wherever they provide a sound, efficient implementation.
+
+## 2. Evidence-to-implementation pipeline
+
+The implementation architecture is derived from the original system, not invented independently.
 
 ```
-/usr/local/bin/mavericks/mavericks-profile-select.sh
+OS X Mavericks 10.9 reference
+        |
+        v
+REA — NIBs, keyed archives, bundles, connections
+        |
+Ghidra + PyGhidra — Mach-O, Objective-C, IMPs, native methods
+        |
+nsinspect — live AppKit windows, views, controls, menus, states
+        v
+UI_REFERENCE — provenance-backed facts and measurements
+        |
+        v
+UI_PLATFORM — schemas, visual contracts, behavior models, SDK
+        |
+        v
+Linux platform evaluation -> implementation -> validation
+        |
+        v
+Optimized MavlinOS build
 ```
 
-Installed profile data lives under `/usr/local/share/mavericks/profiles`, and the selected profile is recorded in `/etc/mavericks/profile.conf`.
+### Evidence layers
 
-MacBook-specific fragments are enabled only when the selected profile is exactly `macbook10,1`. Generic hardware must not inherit MacBook kernel, display, Wi-Fi or power fragments.
+- **Static resource evidence:** NIBs, keyed archives, object graphs, connections, strings, assets metadata.
+- **Native implementation evidence:** Mach-O structure, Objective-C classes/selectors/IMPs, decompilation, call relationships.
+- **Runtime evidence:** live AppKit hierarchy, window geometry, controls, menu states, interaction outcomes.
+- **Derived specifications:** components, tokens, state machines, animation contracts, application integration requirements.
 
-The older `scripts/apply-hardware-selection.sh` design described in historical documents is no longer the canonical path and must not be used as the basis for new implementation work.
+These evidence classes remain distinct. Every derived claim records provenance, target hashes, tool versions, confidence, and unresolved limitations.
 
-**Installation contract:** the repository currently supplies an Arch live ISO plus firstboot/profile scripts. It does not yet contain a repository-controlled installer that automatically copies the target-side firstboot environment or determines the installed user's account. Therefore firstboot invocation and target-user provisioning remain explicit installation concerns until that installer architecture is implemented.
+## 3. UI platform layers
 
+### Design system
 
----
+Defines the visual language: colors, typography, dimensions, materials, gradients, shadows, control appearances, icon metrics, and visual states.
 
-## Lab Harness (`lab/`)
+### Interaction system
 
-```
-lab/
-├── agent/
-│   └── mavericks-lab-agent      # Single-file Python3 stdlib, SSH forced-command
-├── harness/
-│   ├── backends/
-│   │   ├── sim_backend.py       # Rootless, deterministic (primary CI)
-│   │   ├── qemu_backend.py      # QEMU+OVMF UEFI (ISO boot smoke)
-│   │   └── mac_backend.py       # MacBook10,1 hardware (stub)
-│   ├── scenarios/               # 25 YAML scenarios (A/B boot, 9 failure injections)
-│   ├── runner.py
-│   └── tests/test_harness.py    # 6 unit tests
-├── host/
-│   └── mavericks-lab            # Host CLI (local + SSH modes)
-└── tests/                       # 7 standalone test scripts, 158 assertions
-```
+Defines input and behavior: focus, keyboard and pointer semantics, hit regions, drag-and-drop, state transitions, timing, animation, accessibility, and persistence.
 
-**Scenarios:** 01–10 (A-side boot + B-side deploy/boot/health/commit), 11–25 (agent lifecycle, host crashes, power loss, rollback, network flaps, idempotency).
+### UI platform
 
-**Backends:** `sim` (default, 25/25 pass), `qemu` (7/25 pass — network boot works; command-channel blocked on 9p virtfs), `mac` (stub).
+Defines reusable system surfaces and application contracts: windows, controls, menus, dialogs, sheets, notifications, toolbars, sidebars, application lifecycle, and system integration.
 
-**Results DB:** SQLite (`lab/host/store.db`) — queryable by scenario/result/limit.
+The versioned data contracts and acceptance rules are in [docs/UI_PLATFORM](docs/UI_PLATFORM/README.md).
 
----
+## 4. Linux implementation strategy
 
-## Custom Packages (`packages/`)
+The final Linux implementation stack is intentionally **not frozen**.
 
-| Package | License | Purpose | In ISO |
-|---------|---------|---------|--------|
-| `mavericks-apps` | GPL-2.0+ | 23 apps (mv-*) + rofi themes + Thunar actions + hotkey layer | Yes |
-| `mavericks-theme` | GPL-3.0+ | GTK3/Xfce/Plank theme + icon theme + cursor theme (SCSS→CSS) | Yes |
-| `macbook12-audio-driver` | GPL | Cirrus CS42L83 DKMS (tanisperez fork, pinned commit) | No (manual post-install) |
-| `epiphany-mavericks-theme` | GPL-3.0+ | Epiphany browser theme | No (deferred) |
+Candidates must be evaluated against:
+- Fidelity to the recovered Mavericks behavior and visual measurements.
+- Integration with Linux-native applications and services.
+- Runtime footprint, wakeups, memory use, responsiveness, and power consumption.
+- Accessibility, input methods, multi-display support, and application compatibility.
+- Maintainability, upstream health, licensing, and reproducible packaging.
 
-All repo-local sources. `makepkg` via `scripts/build-local-pkgs.sh` → local pacman repo.
+The earlier Arch/Xfce/GTK3 implementation is a prototype and source of reusable experiments—not a mandatory final design. Avoid selecting a toolkit or desktop environment merely because it is already present in the repository.
 
----
+Keep system backends Linux-native where practical. Implement adapters or replace application frontends where required to achieve a coherent user experience.
 
-## Session / Orchestrator Note
+## 5. Hardware strategy
 
-This repository includes `.opencode/` with an **Orchestrator** agent (primary, restricted: no edit/write/bash/Task) and **Build** workers (`build` primary + `build-b`..`build-h` hidden fallbacks).
+The product is a Linux OS, not a single-device distribution. Maintain a generic core and optional hardware profiles.
 
-**External agents (OpenCode, Claude, Codex, Gemini, Cursor) use THEIR OWN setup.** Our `.opencode/` is a reference implementation of the autonomous loop (see `AGENTS.md` §14), not a requirement. You do not need OpenCode to contribute.
+MacBook10,1 remains a useful reference profile for hardware-specific validation, but it must not dictate the generic architecture. Hardware-dependent choices belong in isolated profiles and must be supported by actual measurements and validation.
 
-The Orchestrator loop: read state → select highest-priority unfinished objective → delegate to Build via Task → verify → commit → repeat. A commit is a checkpoint, not a stop condition.
+## 6. Development stages
+
+1. **Reference reconstruction:** inspect original applications, frameworks, system processes, resources, and runtime behavior.
+2. **Evidence consolidation:** validate facts and connect NIB, native, and runtime observations.
+3. **Specification:** complete reusable visual, interaction, component, and system contracts.
+4. **Platform selection:** benchmark and evaluate Linux windowing/rendering/toolkit choices.
+5. **Implementation:** build the shell, system surfaces, applications, and integration against those contracts.
+6. **Optimization and delivery:** measure, tune, package, and validate the resulting Linux system.
+
+## 7. Existing prototype code
+
+The repository retains earlier packages, configurations, scripts, and experiments, including GTK/Xfce surfaces, Mission Control, Launchpad, and MacBook-specific work. Treat these as historical implementation material. Reuse them only after checking whether they satisfy the current specification and architecture.
+
+Do not infer that an item is part of the final system merely because it exists or has previously been marked implemented.
