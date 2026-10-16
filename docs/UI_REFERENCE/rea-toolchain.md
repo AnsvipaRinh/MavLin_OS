@@ -9,9 +9,7 @@ analysis is written only for capabilities REA demonstrably does not provide.
 - Location: `/home/builder/.local/npm-global/lib/node_modules/rea-agents/`
   (`mcpName: io.github.morluto/rea`, repository `morluto/rea`).
 - CLI: `rea` on PATH via `/home/builder/.local/npm-global/bin`.
-- `rea doctor`: node healthy; **no Hopper, no Ghidra, no IDA** on this host
-  (all three report `missing_analysis_engine`). MCP skill not registered
-  (`rea setup` not run — deliberate: no blind config changes).
+- `rea doctor` was initially run before native tooling was installed: at that point Hopper/Ghidra/IDA were absent. **Ghidra 12.1.2 was subsequently installed and verified**; see the native-tier section below. REA's own native provider remains unconfigured (`provider_unavailable`). MCP skill registration was not performed as part of the initial audit.
 - Disk: REA itself is small (npm package); analysis outputs live under
   `/home/builder/vmwork/opencode/` (persistent, never `/tmp`).
 
@@ -25,7 +23,7 @@ analysis is written only for capabilities REA demonstrably does not provide.
 | `analyze` / `inspect` | apps | **blocked** (needs provider) |
 | `inspect-plist` | Info.plist | **blocked** (needs macOS native utils) |
 | `inspect-macho` | Mach-O | **blocked** (needs macOS native utils) |
-| `inspect-native-dispatch-metadata` | Mach-O ObjC | **blocked** (needs Hopper/Ghidra/IDA) |
+| `inspect-native-dispatch-metadata` | Mach-O ObjC | **REA provider unavailable**; equivalent native analysis is operational through the documented Ghidra/PyGhidra workflow |
 | `decompile`, `function`, `trace-*` (native), `xrefs` | binaries | **blocked** (needs provider) |
 | `inspect-binary-layout` | Mach-O | **blocked** (wants pwntools-ELF; ELF-only anyway) |
 | `observe-native-*` (LLDB) | processes | **blocked** (needs macOS) |
@@ -88,8 +86,7 @@ above 2 GiB overflow Java ints (use the address-space factory, not `toAddr`);
 `program.getBytes` does not exist (use `memory.getByte`); and 10.9 binaries use
 **absolute 24-byte** `method_t` entries, not the later 32-bit relative form.
 
-Next tier (not done): wire Ghidra into REA's provider config so REA itself can
-serve disassembly, and repeat the workflow for Calculator and AppKit.
+**Verified update — 2026-10-16:** the native tier is operational. TextEdit and Calculator main/plugin binaries have been analyzed with the reusable PyGhidra scripts. Calculator coverage includes the main binary (217/217 methods), BasicAndSci (153/153), and Hexadecimal (77/77). REA's own native provider still reports `provider_unavailable`; do not describe Ghidra as an active REA provider. The direct headless Ghidra workflow is the supported native path. Remaining work: AppKit/framework analysis, Calculator runtime comparison across modes, and optional investigation of whether REA's provider interface can be connected to Ghidra without duplicating the working pipeline.
 
 ## Tool audit (custom tools vs REA)
 
