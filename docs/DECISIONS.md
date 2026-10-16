@@ -2052,3 +2052,24 @@ while still allowing deterministic automation.
 and part of the probe fix disappeared from the shared worktree during this
 session and had to be restored; the affected files are committed again and their
 tests re-run. Claims are mandatory in this checkout.
+
+## 2026-10-16 — Adopted upstream doc corrections on overlap with the uiref claim (R9)
+
+Push of the system-UI expansion was rejected because `origin/main` had moved
+ahead by 4 commits (`56d98d7b`, `50b03eae`, `8bf109a0`, `3a129fbd`). Two of the
+upstream files overlap the `20261013-opencode-ui-runtime-guest` claim paths:
+
+* `docs/UI_REFERENCE/rea-toolchain.md` — upstream rewrote the
+  `rea doctor` status line, replacing this agent's now-stale
+  "no Hopper, no Ghidra, no IDA" statement with the fact that Ghidra 12.1.2 is
+  installed and verified, while keeping "REA's own native provider remains
+  `provider_unavailable`". **Adopted**: it corrects an inaccuracy introduced
+  by this agent, and the narrower claim is strictly more accurate.
+* `docs/PROGRESS.md` — upstream prepended a current-status header; this agent
+  appended a session entry at the end of the same file. **Adopted**: additive,
+  no overlap, and the upstream summary matches the verified findings.
+
+`docs/UI_REFERENCE/native-findings.md` and `tools/uiref/ghidra/` were not
+touched upstream, so no Finder/Calculator evidence was at risk.
+
+Merged with `--no-ff`; nothing was reverted or overwritten.
