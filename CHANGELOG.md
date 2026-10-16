@@ -1,5 +1,29 @@
 # Changelog
 
+This changelog contains both historical prototype work and the current reverse-engineering phase. Earlier prototype milestones are not stable MavlinOS OS releases.
+
+## 2026-10-16 — Research-first project direction and native reverse-engineering milestone
+
+### Added
+- REA 6.4.0 adopted as the primary agent-facing static reverse-engineering tool for bundles, NIBs, and keyed archives.
+- Ghidra 12.1.2 + PyGhidra + JDK 21 operational for headless Mach-O and Objective-C analysis.
+- Reusable Objective-C metadata extraction and decompilation scripts under `tools/uiref/ghidra/`.
+- Evidence-backed TextEdit findings, including the actual NSTextView ruler/inspector-bar implementation and correction of the earlier `toggleRuler:` assumption.
+- Calculator main-binary and plug-in analysis, including BasicAndSci and Hexadecimal mode/plugin architecture.
+- Updated project direction and research-first architecture documentation.
+
+### Changed
+- Project strategy now explicitly prioritizes reconstruction of the original Mavericks system before broad Linux UI implementation.
+- The earlier GTK/Xfce/MacBook-specific implementation is classified as historical prototype material, not the final architecture.
+- REA, Ghidra/PyGhidra, and nsinspect now have distinct, documented responsibilities.
+
+### Current limitations
+- System-wide reference reconstruction is incomplete.
+- Finder, Dock, System Preferences, shared window management, menus, dialogs, and system behavior remain research targets.
+- No stable installation image or production OS release exists.
+
+---
+
 All notable changes to MavLinOS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
