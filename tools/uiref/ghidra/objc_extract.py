@@ -119,6 +119,22 @@ def printable(p):
     return True
 
 
+def classname_ok(p):
+    """A class name pointer must land in __objc_classname and be readable."""
+    if not (CLASSPTR[0] <= p < CLASSPTR[1]):
+        return False
+    try:
+        for i in range(4):
+            b = int(mem.getByte(A(p + i))) & 0xFF
+            if b == 0:
+                return True
+            if not (0x20 <= b < 0x7F):
+                return False
+    except Exception:
+        return False
+    return True
+
+
 def resolve_ref(field_addr, raw, table):
     """Absolute pointer, else pointer relative to the field's own address."""
     if table(raw):
@@ -203,8 +219,18 @@ if cl:
     for a in range(cl[0], cl[1], 8):
         cp = rd64(a)
         ro = rd64(cp + 32)
+        # Prefer the documented offset, but fall back to scanning class_ro_t for
+        # the first pointer into __objc_classname: Finder and other large
+        # binaries do not always keep the 64-bit field order we assumed, and a
+        # wrong guess yields a readable method table but garbage class names.
         name_ptr = rd64(ro + 24)
         methlist = rd64(ro + 32)
+        if not classname_ok(name_ptr):
+            for off in range(0, 256, 8):
+                cand = rd64(ro + off)
+                if classname_ok(cand):
+                    name_ptr = cand
+                    break
         cname = cstr(name_ptr)
         # superclass name, if resolvable
         sup = rd64(cp + 8)
@@ -212,7 +238,14 @@ if cl:
         if sup:
             sro = rd64(sup + 32)
             if sro:
-                sname = cstr(rd64(sro + 24))
+                sp = rd64(sro + 24)
+                if not classname_ok(sp):
+                    for off in range(0, 256, 8):
+                        cand = rd64(sro + off)
+                        if classname_ok(cand):
+                            sp = cand
+                            break
+                sname = cstr(sp)
         inst = parse_methods(methlist, cname or hex(cp), "instance")
         # class methods: pointer stored after baseMethodList (objc_class has no direct
         # class method list in the ro; the metaclass holds it) -> read metaclass ro

@@ -1,0 +1,51 @@
+{
+ "provenance": {
+  "binary": "Finder.app/Contents/MacOS/Finder",
+  "sha256": "(see ghidra project finder; PIE x86-64 Mach-O)",
+  "extractor": "tools/uiref/ghidra/objc_extract.py",
+  "ghidra": "12.1.2",
+  "rea": "6.4.0",
+  "limitation": "class names UNRESOLVED for this binary (class_ro_t field order differs); selectors, IMPs and Ghidra functions are valid"
+ },
+ "counts": {
+  "classes": 663,
+  "categories": 24,
+  "methods_total": 9337,
+  "methods_with_selector": 9286,
+  "methods_with_known_imp": 9286,
+  "methods_matched_to_ghidra_function": 1333
+ },
+ "binary_view_related_selectors": [],
+ "nib_view_related_selectors": [
+  "cmdAddToSidebar:",
+  "cmdCloseAllWindows:",
+  "cmdCloseTab:",
+  "cmdCycleWindows:",
+  "cmdMergeAllWindows:",
+  "cmdMoveTabToNewWindow:",
+  "cmdNewFileViewer:",
+  "cmdNewTab:",
+  "cmdSelectNextTab:",
+  "cmdSelectPreviousTab:",
+  "cmdShowInspector:",
+  "cmdToggleSidebar:",
+  "cmdToggleTabView:",
+  "cmdToggleToolbar:",
+  "cmdToggleViewOptions:",
+  "cmdViewAsColumns:",
+  "cmdViewAsFlow:",
+  "cmdViewAsIcons:",
+  "cmdViewAsList:",
+  "newFinderWindows:",
+  "runToolbarCustomizationPalette:",
+  "sidebar:",
+  "sidebarItemToggle:",
+  "singleClickTableRow:",
+  "spawnTabs:"
+ ],
+ "nib_documents": 64,
+ "nib_graph": {
+  "nodes": 7313,
+  "edges": 2398
+ }
+}

@@ -1472,3 +1472,17 @@ Decompiled chain: `digit:` → `handleDigit:` (highlight button, `[engine userEn
 `Hexadecimal.calcview` imported (2 classes, 77/77 methods). Plug-in loader decompiled: `pathsToPlugins` = builtInPlugInsPath + `~/Library/Application Support/Calculator/PlugIns` + cwd-relative (user-extensible); `loadView:` establishes **`@protocol(CalculatorView)`** as the contract (not a base class) — plug-in instantiates principal class, loads its own nib as owner, receives `setCalcController:`/`setSpeechController:`, and injects named views into `_ViewControllerDict`/`_OrderedControllerNames`/`_ViewsMenu`. Mode switch = `menuViewSelectionDidChange:` → `setCurrentView:` (contentView swap); `setBackEndMode:` stores only an int. Mode map confirmed: Basic/Scientific → BasicAndSci (`BasicAdvancedController`, `AlgebraicEngine`|`RPNEngine`); Programmer → Hexadecimal (`HexadecimalController`, plus `binaryButtonPress:`, `handleBitManipulation:`, `hideShowBinary:`, `_advanceRadix`).
 
 **Open:** `HexadecimalEngine` base class across bundles; runtime capture of the three modes; generated View-menu titles prevent naming entries from the NIB inventory alone.
+
+## Session 2026-10-16 — system-UI expansion: Calculator plug-ins closed, Finder first pass (opencode-ui-runtime-guest)
+
+**Zone:** `docs/UI_REFERENCE/native-findings.md`, `docs/UI_REFERENCE/runtime/raw/native/`, `tools/uiref/ghidra/objc_extract.py`.
+
+**Calculator closed:** `Hexadecimal.calcview` imported (2 classes, 77/77 methods). Plug-in loader decompiled — `pathsToPlugins` = builtInPlugInsPath + `~/Library/Application Support/Calculator/PlugIns` + cwd-relative (user-extensible); `loadView:` proves the contract is **`@protocol(CalculatorView)`**, not a base class, and that **NIB controls do not connect across the plug-in boundary** (each side loads its own nib; the plug-in injects named views into `_ViewControllerDict`/`_OrderedControllerNames`/`_ViewsMenu`). Switch path `menuViewSelectionDidChange:` → `setCurrentView:` (contentView swap); `setBackEndMode:` stores only an int. Mode map: Basic/Scientific → BasicAndSci; Programmer → Hexadecimal.
+
+**Finder started:** bundle extracted from the guest (54 MB, md5 `6569a3b1…`), REA decoded 64 NIBs (7313 nodes, 200 selectors — view modes `cmdViewAsIcons:`/`cmdViewAsList:`/`cmdViewAsColumns:`/`cmdViewAsFlow:`, sidebar `cmdToggleSidebar:`, toolbar `cmdToggleToolbar:`, tabs, inspector), Ghidra recovered 663 class entries / 24 categories / 9286 methods with selector+IMP.
+
+**Defect reported, not hidden:** Finder class names unresolved — its `class_ro_t` field order differs (no pointer in the first 256 bytes reaches `__objc_classname`; `baseMethodList` reads before the structure). Selector/NIB findings stand, class-level findings withheld, next experiment recorded.
+
+**Inventory:** fully investigated — Calculator (incl. plug-ins). Partially — Finder. Not started — Dock, System Preferences, AppKit/WindowServer split, system dialogs. Extracted but unanalysed: `dock.tar` (path corrected to `/System/Library/CoreServices/Dock.app`), `syspref.tar` (289 MB).
+
+**Verification:** native/REA suites green, lint 0 errors.

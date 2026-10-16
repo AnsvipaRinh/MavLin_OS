@@ -375,3 +375,75 @@ main binary cannot have: `binaryButtonPress:`, `handleBitManipulation:`,
   (`setBackEndMode:` and the View menu are the levers).
 * Which menu item maps to which `viewNames:` entry is generated at runtime
   (`"%d"` titles), so the NIB inventory alone cannot name them.
+
+---
+
+# Finder 10.9 — first pass, with one unresolved defect
+
+Binary: `/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder`,
+Mach-O x86-64 **PIE** (`NOUNDEFS|DYLDLINK|TWOLEVEL|BINDS_TO_WEAK|PIE|HAS_TLV_DESCRIPTORS`),
+extracted from the running guest (tar `finder.tar`, md5 `6569a3b188c7da4b29038da36ab85247`).
+
+Evidence: `runtime/raw/native/finder-objc-summary.json`,
+`finder-nib-graph-rea.json`, `finder-nib-selectors-rea.json`.
+
+## F0. What was obtained, and what is broken
+
+* REA decoded **64 Finder NIBs** (the tool's 64-document cap), 7313 graph
+  nodes, 2398 edges, 200 selectors **[NIB]**.
+* Ghidra analysed the binary; the ObjC extractor recovered **663 class entries,
+  24 categories, 9337 methods, 9286 with a selector and an IMP**, 1333 of them
+  mapped onto Ghidra functions **[BIN]**.
+
+**Defect — class names are unresolved.** For TextEdit and Calculator the
+`class_ro_t` layout (`name` at +24, `baseMethodList` at +32) read correctly;
+for Finder it does not: no pointer in the first 256 bytes of `class_ro_t`
+lands in `__objc_classname`, and `baseMethodList` reads to an address *before*
+the `class_ro_t` itself. Method selectors and IMPs remain correct because they
+are recovered through `method_list_t`, not through `class_ro_t`.
+
+This is stated as a defect, not worked around: no class list is reported for
+Finder until the real field order is established. **Next experiment:** dump
+the bytes at one known `class_ro_t` address (e.g. `0x1004ccc48`) and read the
+pointer triple in memory order to determine whether Finder carries
+`class_rw_t` at that address or a reordered `class_ro_t`.
+
+Until then Finder class-level results are unusable, and only selector-level
+and NIB-level statements below are treated as findings.
+
+## F1. View-mode commands are Finder's own, and are NIB-driven
+
+The recovered NIB selectors **[NIB]** give the command surface:
+
+| Area | Selectors |
+|---|---|
+| View modes | `cmdViewAsIcons:`, `cmdViewAsList:`, `cmdViewAsColumns:`, `cmdViewAsFlow:`, `cmdToggleViewOptions:` |
+| Sidebar | `cmdToggleSidebar:`, `cmdAddToSidebar:`, `sidebar:`, `sidebarItemToggle:` |
+| Toolbar | `cmdToggleToolbar:`, `runToolbarCustomizationPalette:` |
+| Tabs | `cmdNewTab:`, `cmdCloseTab:`, `cmdSelectNextTab:`, `cmdSelectPreviousTab:`, `cmdToggleTabView:`, `cmdMoveTabToNewWindow:`, `spawnTabs:` |
+| Windows | `cmdCloseAllWindows:`, `cmdMergeAllWindows:`, `cmdCycleWindows:`, `newFinderWindows:` |
+| Inspector | `cmdShowInspector:` |
+| Files | `cmdNewFileViewer:`, `singleClickTableRow:` |
+
+`IconView.nib` is present in the bundle **[NIB]**, matching `cmdViewAsIcons:`.
+
+## F2. State: what is and is not investigated
+
+| Area | Status |
+|---|---|
+| Finder NIB surface (commands, controls) | partially — REA 64-document cap hit; 76 English NIBs exist |
+| Finder ObjC methods | partially — selectors+IMPs recovered, **class attribution broken** |
+| Finder window construction / views / sidebar internals | **not started** (blocked on F0) |
+| Dock | **not started** (binary extracted as `dock.tar`, path corrected to `/System/Library/CoreServices/Dock.app`) |
+| System Preferences | binary extracted (`syspref.tar`, 289 MB), **not started** |
+| AppKit / WindowServer split of responsibilities | **not started** |
+
+## F3. Planned next steps (dependency order)
+
+1. Fix the `class_ro_t` field order for Finder (unblocks all Finder
+   class-level work).
+2. Decode the remaining Finder NIBs past the 64-document cap, per file with
+   `inspect-keyed-archive`.
+3. Dock: import, extract metadata, decompile the icon/magnification/animation
+   paths — the Dock owns behaviour that must *not* be attributed to AppKit.
+4. AppKit vs WindowServer vs application split, evidenced rather than assumed.
