@@ -159,6 +159,38 @@ Stop and ask the owner ONLY for: physical hardware, a missing secret, a destruct
 
 GIT STASH BAN (owner directive 2026-10-06): never use `git stash` in any form. To set work aside, commit it to a branch or leave it untouched and report. Stash operates on the shared worktree and silently overwrites other agents' uncommitted changes.
 
+## 8.1 Storage awareness (mandatory, WSL)
+
+MavlinOS is developed inside Arch Linux under **WSL2**. Two numbers matter and they are not the same thing:
+
+* free space **inside** the WSL virtual disk (ext4, 1 TiB max), and
+* free space on the **Windows volume** that stores that virtual disk.
+
+The virtual disk grows by writing into the Windows volume, so **the Windows volume is the real ceiling**. Reporting only the Linux figure is how a machine that looks empty runs out of room on Windows. Measure with `scripts/storage-audit.py`; never quote `df /` alone as "free space".
+
+```sh
+python3 scripts/storage-audit.py inventory --save    # full inventory, refresh baseline
+python3 scripts/storage-audit.py diff                # growth since the last baseline
+python3 scripts/storage-audit.py preflight --need 20 # gate an operation, exit 0..3
+```
+
+**Before** any storage-intensive operation — extracting large application bundles, creating a Ghidra project, large-scale decompilation, extensive REA output, downloading or unpacking archives, copying VM images, starting new reverse-engineering subsystems — run `preflight --need <GiB estimate>`. The estimate must be a real measurement or an explicit upper bound, never a guess.
+
+**After** such an operation, run `inventory --save`, then `diff`, and report any growth above 100 MiB in `docs/PROGRESS.md`.
+
+Thresholds (configurable in `config/storage-policy.json`, applied per filesystem; Windows volumes take priority when both are present):
+
+| Severity | Condition | Required agent behaviour |
+|---|---|---|
+| NORMAL | >20% free and >30 GB | continue; keep the inventory current |
+| WARNING | <20% free or <30 GB | notify the owner, name the largest consumers, estimate the planned operation |
+| CRITICAL | <10% free or <15 GB | do not start a large operation without evaluating capacity and archival |
+| EMERGENCY | <5% free or <5 GB | stop nonessential storage-intensive work, preserve research state, report exact paths |
+
+Deleting files never raises severity without a real reclaim, and it is never an automatic response to a threshold: **do not delete research data to make room.** Cleanup requires classification first, verification of reproducibility and of archival in `AnsvipaRinh/MavlinOS`, preserved provenance, and a stated expected recovery. QEMU disks, VM backups, installation media, saved states and irreplaceable raw evidence are protected (`sa.cleanup_guard` refuses them); ask the owner when a cleanup decision is ambiguous or destructive.
+
+Artifact states must be named precisely when reporting storage: committed to Git, stored via Git LFS, stored in another verified archive, or **local only**. A summary or hash in GitHub does not mean the artifact itself is archived.
+
 ## 9. No fake completion, statuses, app-surface audit
 
 Do not declare IMPLEMENTED because a `.desktop` exists, a window was renamed, an icon was added, the app launches or a backend exists. Thunar + icon is not Finder; rofi + search is not Spotlight; rofi window mode is not Mission Control; galculator + `.desktop` is not Mavericks Calculator; a stock GTK dialog is not a Mavericks dialog. Judge user-facing behaviour.

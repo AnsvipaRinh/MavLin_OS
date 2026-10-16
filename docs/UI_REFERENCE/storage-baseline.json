@@ -1,0 +1,90 @@
+{
+ "generated": "2026-10-16T16:53:28+0200",
+ "wsl": true,
+ "filesystems": [
+  {
+   "source": "/dev/sde",
+   "fstype": "ext4",
+   "size": 1081101176832,
+   "used": 421752270848,
+   "avail": 604356550656,
+   "use_pct": 42,
+   "mount": "/",
+   "is_windows_volume": false,
+   "severity": "NORMAL"
+  },
+  {
+   "source": "drivers",
+   "fstype": "9p",
+   "size": 510975049728,
+   "used": 495038537728,
+   "avail": 15936512000,
+   "use_pct": 97,
+   "mount": "/usr/lib/wsl/drivers",
+   "is_windows_volume": true,
+   "severity": "EMERGENCY"
+  },
+  {
+   "source": "C:\\",
+   "fstype": "9p",
+   "size": 510975049728,
+   "used": 495038537728,
+   "avail": 15936512000,
+   "use_pct": 97,
+   "mount": "/mnt/c",
+   "is_windows_volume": true,
+   "severity": "EMERGENCY"
+  }
+ ],
+ "worst_severity": "EMERGENCY",
+ "research_roots": [
+  "/home/builder/vmwork",
+  "/home/builder/ghidra_proj"
+ ],
+ "totals": {
+  "apparent": 637545724092,
+  "allocated": 373603676160,
+  "files": 251587
+ },
+ "subsystems": [
+  {
+   "name": "vmwork",
+   "path": "/home/builder/vmwork",
+   "category": "unclassified",
+   "apparent": 637332901832,
+   "allocated": 373372329984,
+   "files": 244794,
+   "sparse_files": 70
+  },
+  {
+   "name": "MavLinOS",
+   "path": "/home/builder/projects/MavLinOS",
+   "category": "project-repository",
+   "apparent": 143363227,
+   "allocated": 161779712,
+   "files": 6730,
+   "sparse_files": 0
+  },
+  {
+   "name": "ghidra_proj",
+   "path": "/home/builder/ghidra_proj",
+   "category": "active-research-ghidra",
+   "apparent": 69459033,
+   "allocated": 69566464,
+   "files": 63,
+   "sparse_files": 7
+  }
+ ],
+ "skipped_nested": [],
+ "protected": [
+  "/home/builder/vmwork/mavericks-hdd.raw",
+  "/home/builder/vmwork/mavericks-hdd.raw.backup-2026-10-15",
+  "/home/builder/vmwork/mavericks-install.raw",
+  "/home/builder/vmwork/installer.raw",
+  "/home/builder/vmwork/payload.img",
+  "/home/builder/vmwork/payload.sqfs",
+  "/home/builder/vmwork/dl",
+  "/home/builder/vmwork/shareSYS.img",
+  "/mnt/c"
+ ]
+}

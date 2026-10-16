@@ -19,6 +19,8 @@ permission:
     "python3 scripts/failure-triage.py*": allow
     "scripts/task-watchdog.py*": allow
     "python3 scripts/task-watchdog.py*": allow
+    "scripts/storage-audit.py*": allow
+    "python3 scripts/storage-audit.py*": allow
     "scripts/contrib/discovery-status.sh*": allow
     "scripts/contrib/backlog.sh*": allow
   task:

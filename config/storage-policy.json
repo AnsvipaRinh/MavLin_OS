@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "description": "Storage policy for MavlinOS agents inside Arch Linux under WSL2. Free space inside the WSL virtual disk is not the ceiling; the Windows volume that stores the virtual disk is. Thresholds are applied to whichever filesystem holds the data, and Windows volumes take priority when both are present.",
+  "thresholds": {
+    "default": {
+      "WARNING":   {"free_pct_below": 20, "free_gb_below": 30},
+      "CRITICAL":  {"free_pct_below": 10, "free_gb_below": 15},
+      "EMERGENCY": {"free_pct_below": 5,  "free_gb_below": 5}
+    },
+    "per_filesystem": {}
+  },
+  "response": {
+    "NORMAL":   "Continue normally and refresh the inventory.",
+    "WARNING":  "Notify the owner, name the largest consumers, and estimate the cost of the planned operation before starting it.",
+    "CRITICAL": "Do not start a large operation without first evaluating capacity and possible archival or cleanup.",
+    "EMERGENCY": "Stop nonessential storage-intensive work, preserve current research state, and report the exact filesystem and paths responsible. Never delete research data to make room."
+  },
+  "subsystems": [
+    {"path": "/home/builder/vmwork/mavericks-hdd.raw", "category": "protected-guest-disk"},
+    {"path": "/home/builder/vmwork/mavericks-hdd.raw.backup-2026-10-15", "category": "protected-backup"},
+    {"path": "/home/builder/vmwork/mavericks-install.raw", "category": "protected-installation-media"},
+    {"path": "/home/builder/vmwork/installer.raw", "category": "protected-installation-media"},
+    {"path": "/home/builder/vmwork/payload.img", "category": "protected-installation-media"},
+    {"path": "/home/builder/vmwork/payload.sqfs", "category": "protected-installation-media"},
+    {"path": "/home/builder/vmwork/dl", "category": "protected-installation-media"},
+    {"path": "/home/builder/vmwork/iso", "category": "generated-build"},
+    {"path": "/home/builder/vmwork/sys", "category": "reproducible-extraction"},
+    {"path": "/home/builder/vmwork/opencode/sys_panes", "category": "active-research-systempreferences"},
+    {"path": "/home/builder/vmwork/opencode/sys_syspref", "category": "active-research-systempreferences"},
+    {"path": "/home/builder/vmwork/opencode/sys_dock", "category": "active-research-dock"},
+    {"path": "/home/builder/vmwork/opencode/sys_apps", "category": "active-research-finder"},
+    {"path": "/home/builder/vmwork/opencode/slices", "category": "active-research-macho"},
+    {"path": "/home/builder/vmwork/opencode/rea_apps", "category": "active-research-rea"},
+    {"path": "/home/builder/vmwork/opencode/gh_scripts", "category": "active-research-scripts"},
+    {"path": "/home/builder/ghidra_proj", "category": "active-research-ghidra"},
+    {"path": "/home/builder/projects/MavLinOS", "category": "project-repository"}
+  ],
+  "protected": [
+    "/home/builder/vmwork/mavericks-hdd.raw",
+    "/home/builder/vmwork/mavericks-hdd.raw.backup-2026-10-15",
+    "/home/builder/vmwork/mavericks-install.raw",
+    "/home/builder/vmwork/installer.raw",
+    "/home/builder/vmwork/payload.img",
+    "/home/builder/vmwork/payload.sqfs",
+    "/home/builder/vmwork/dl",
+    "/home/builder/vmwork/shareSYS.img",
+    "/mnt/c"
+  ],
+  "retention": {
+    "active": "Research inputs and outputs of the current objective stay local.",
+    "archive": "Verified completed research is committed to the private repository AnsvipaRinh/MavlinOS before local removal.",
+    "reproducible": "Intermediate data may be removed once inputs, scripts and reproduction commands are preserved.",
+    "never": "Irreplaceable raw evidence, QEMU disks, VM backups, installation media and saved states are never deleted automatically."
+  }
+}

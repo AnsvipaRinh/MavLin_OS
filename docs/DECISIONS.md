@@ -2112,3 +2112,27 @@ Consequence recorded for the owner: the reverse-engineering evidence (including
 currently present in the **public** `MavLin_OS` repository, because that is where
 the history lives. It cannot be removed from there without rewriting published
 history, which is forbidden, so this is flagged rather than acted upon.
+
+## 2026-10-16 — Storage awareness is mandatory, and the Windows volume is the ceiling
+
+The storage audit compared two numbers that disagreed by two orders of
+magnitude: `df /` inside WSL reported 561 GB free while the Windows `C:` volume
+held under 9 GB free. Both were true; they measure different filesystems. The
+WSL ext4 virtual disk is a file on the Windows volume, so every byte written
+inside Linux is charged to `C:`. Reporting only the Linux figure produced a
+misleading "plenty of room" conclusion on a host that could not accept another
+gigabyte.
+
+Decision: storage measurement becomes part of the normal agent workflow rather
+than an ad-hoc maintenance task. `scripts/storage-audit.py` measures on demand
+(no daemon, no polling), always reports the WSL filesystem *and* any mounted
+Windows volume, and gates storage-intensive operations through
+`preflight --need <GiB>` before they start. Thresholds live in
+`config/storage-policy.json`, and Windows volumes take priority when both are
+present.
+
+Deliberately excluded: automatic compaction or shrinking of the VHD, and any
+automatic deletion in response to a threshold. A crossed threshold must trigger
+classification and a decision, never silent data loss. Reclaiming Windows space
+requires compaction, which needs WSL shutdown, so it is reported rather than
+performed.
