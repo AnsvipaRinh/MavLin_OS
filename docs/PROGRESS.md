@@ -1,4 +1,29 @@
-# MavLinOS Development Progress
+# MavlinOS Development Progress
+
+**Current project status — 2026-10-16:** research-first reverse engineering and specification. The project is not yet a stable, installable OS release. The historical session log below records earlier prototype work; the latest authoritative reference state is in `docs/UI_REFERENCE/`.
+
+## Current verified milestones (2026-10-16)
+
+- **Static analysis:** REA 6.4.0 is the primary agent-facing tool for real Mavericks bundles, NIBs, keyed archives, object graphs, and connections.
+- **Native analysis:** Ghidra 12.1.2 + PyGhidra + JDK 21 are operational. Reusable headless scripts extract Objective-C classes, selectors, IMPs, Ghidra function mappings, decompilations, and relevant call relationships.
+- **Runtime analysis:** nsinspect/mvprobe capture real AppKit windows, view hierarchies, controls, menus, and runtime states in the OS X 10.9 QEMU guest.
+- **TextEdit:** 8 NIBs decoded; 15 classes, 1 category, and 253/253 methods mapped. The ruler is controlled through `DocumentWindowController.showRuler:` and NSTextView, not a TextEdit `toggleRuler:` implementation or a separate NSRulerView.
+- **Calculator:** main binary 217/217 methods; BasicAndSci plug-in 153/153; Hexadecimal plug-in 77/77. Plugin discovery, the CalculatorView protocol, view injection, and mode switching have been investigated.
+- **Evidence architecture:** REA/NIB, native binary, and runtime observations are cross-referenced while retaining separate provenance and confidence. REA and native evidence tests and lint were reported green in the latest completed iteration.
+
+## Current focus
+
+Expand reference reconstruction to system-wide Mavericks surfaces and shared behavior: Finder, Dock, System Preferences, window management, menu bar, dialogs, sheets, and application/system integration. Continue validating runtime states and convert findings into UI_REFERENCE data and UI_PLATFORM contracts before broad implementation.
+
+See:
+- `docs/PROJECT_DIRECTION.md`
+- `docs/UI_REFERENCE/README.md`
+- `docs/UI_REFERENCE/rea-toolchain.md`
+- `docs/UI_REFERENCE/native-findings.md`
+- `docs/UI_REFERENCE/rea-findings.md`
+- `docs/UI_PLATFORM/README.md`
+
+---
 
 **Last Updated**: 2026-10-07 (P1 DoD audit + pre-hardware gaps: mv-stickies/mv-calculator/mv-dictionary — oid `OS-qwen-p1scd`: fixed stickies pack-arity ×3 + get_title, calculator show_tape native-toolbar rework + OSError guards, dictionary orphan-toolbar GC destroy bug (dead bookmark/history handlers + 8 packed criticals) + StackSwitcher now packed + OSError guards; suites 75/145/88 = 308 checks, 0 failed; GUI smoke on pinned Xvfb :97, host-display guard 0 attempts; check-sync.sh: 34 FAIL vs origin/main baseline 38 FAIL — 0 new, 4 fixed; RESUME-FIRST rule appended to DECISIONS.md)
 ---

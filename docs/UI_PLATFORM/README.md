@@ -1,94 +1,84 @@
-# UI Platform — Mavericks extraction architecture, data contract & SDK
+# UI Platform — evidence-backed Mavericks UI/UX implementation contracts
 
-This directory is the **engineering specification** that turns the Mavericks
-ground-truth extraction (`docs/UI_REFERENCE/`) into a reusable, production-grade
-Linux desktop interface platform.
+The UI Platform is the specification layer that turns the reference facts in [UI_REFERENCE](../UI_REFERENCE/README.md) into a reusable Linux desktop interface architecture.
 
-It is written for two readers:
+**Current status:** the contracts, schemas, examples, validation tools, and initial architecture are established. The reference reconstruction is still in progress. This is an implementation blueprint under development, not evidence that the complete Linux UI has already been built.
 
-1. **the extraction agent** (`docs/UI_REFERENCE/`, claim
-   `20261011-1140-opencode-os-ui-reference-capture`) — what its output must
-   contain so it can be consumed without a second reverse-engineering pass;
-2. **the implementer** — how to draw, drive, animate and integrate every
-   Mavericks surface using nothing but this repository.
+## Purpose
+
+The platform must represent both halves of the Mavericks experience:
+
+1. **Visual identity:** palette, typography, geometry, materials, gradients, shadows, control rendering, and visual states.
+2. **Interaction mechanics:** focus, input semantics, keyboard/pointer behavior, state machines, transitions, animations, persistence, and system integration.
+
+The resulting contracts should let implementation agents reproduce a subsystem without repeating the reverse-engineering work or filling missing behavior with guesses.
+
+## Evidence-to-platform flow
 
 ```
-                       REVERSE ENGINEERING          COMPILATION            DELIVERY
-   ┌──────────────────┐   ┌──────────────┐   ┌──────────────┐   ┌────────────────────┐
-   │ real OS X 10.9   │   │ UI_REFERENCE │   │ UI_PLATFORM  │   │ renderers + apps   │
-   │ (nibs, AppKit,   │──▶│ data/*.json  │──▶│ tokens,      │──▶│ GTK3 theme, mv-*   │
-   │  guest captures) │   │ catalog/*.md │   │ components,  │   │ apps, window mgmt, │
-   └──────────────────┘   └──────────────┘   │ animations,  │   │ D-Bus services     │
-        facts (what is)                      │ behaviors    │   └────────────────────┘
-                                             └──────────────┘        (how it runs)
-                                                decisions
+Real OS X Mavericks 10.9
+        |
+        v
+REA + Ghidra/PyGhidra + nsinspect
+        |
+        v
+UI_REFERENCE — static, native, and runtime evidence
+        |
+        v
+UI_PLATFORM — versioned contracts, schemas, examples, acceptance rules
+        |
+        v
+Linux architecture evaluation and implementation
+        |
+        v
+Optimized MavlinOS system
 ```
 
-| Directory | Meaning |
+The final renderer, toolkit, compositor, window manager, and Linux distribution are not locked by this specification. Existing GTK/Xfce prototypes are reusable material, not a binding technology decision.
+
+## Three specification layers
+
+- **Design System:** tokens and rules for colors, typography, spacing, surfaces, controls, assets, and visual states.
+- **Interaction System:** event semantics, focus, keyboard/pointer input, state transitions, animation, timing, accessibility, and persistence.
+- **UI Platform:** reusable windows, controls, menus, dialogs, sheets, notifications, application-facing APIs, and system integration.
+
+The platform is organized into architecture, data contract, component/animation specification, SDK, integration, acceptance, examples, gap analysis, and roadmap documents.
+
+## Directory structure
+
+| Directory | Purpose |
 |---|---|
-| `docs/UI_REFERENCE/` | **Facts.** Data-first catalog extracted from the real 10.9 system. Owned by the extraction agent. Read-only for everyone else. |
-| `docs/UI_PLATFORM/` | **This specification.** Architecture, data contract, schemas, examples, acceptance criteria, gap analysis, roadmap. |
-| `schemas/` | Versioned JSON Schemas for every platform record (`mavlinos.*`). |
-| `examples/` | Reference records, hand-checked against the schemas and the semantic rules. |
-| `design/` (repo root) | **Compiled platform output**: `tokens/design-tokens.json` + `manifest.json`. Generated, never hand-edited. |
+| `schemas/` | Versioned JSON Schemas for platform records |
+| `examples/` | Reference records validated against schemas and semantic rules |
+| `../UI_REFERENCE/` | Source evidence; facts and provenance, not implementation guesses |
+| `../../design/` | Compiled platform output, generated from validated source data |
+| `../../tools/uiplatform/` | Validation, conformance, token generation, and reference rendering |
+| `../../tests/uiplatform/` | Contract, token, and rendering validation |
 
-## Documents
-
-| # | Document | Content |
-|---|---|---|
-| A | [`01-ARCHITECTURE.md`](01-ARCHITECTURE.md) | Three layers (design system / interaction system / UI platform), four platform planes, technology evaluation, data flow |
-| B | [`02-DATA-CONTRACT.md`](02-DATA-CONTRACT.md) | The exact structure, naming, versioning, provenance and evidence rules of every record |
-| C | [`03-COMPONENT-ANIMATION-SPEC.md`](03-COMPONENT-ANIMATION-SPEC.md) | Component, state, animation and state-machine representation, merge and rendering semantics |
-| D | [`04-SDK-SPEC.md`](04-SDK-SPEC.md) | Application-facing interfaces: tokens, widgets, windows, menus, dialogs, notifications, animation, a11y, integration |
-| E | [`05-INTEGRATION.md`](05-INTEGRATION.md) | Strategies A/B/C for making native Linux apps MavLinOS-native, and where frontend replacement is required |
-| F | [`06-ACCEPTANCE.md`](06-ACCEPTANCE.md) | Extraction quality and platform acceptance checklist; conformance levels L0–L3 |
-| G | [`07-EXAMPLES.md`](07-EXAMPLES.md) | Annotated walkthrough of `examples/*.json` and of a consumer using the SDK |
-| H | [`08-GAP-ANALYSIS.md`](08-GAP-ANALYSIS.md) | Current extraction output vs. contract: gaps, incompatibilities, migration plan |
-| I | [`09-ROADMAP.md`](09-ROADMAP.md) | Sequenced implementation plan with entry/exit criteria |
-
-## Tooling
+## Reproducible tooling
 
 ```bash
-# validate the reference examples (and any new record) against the schemas
 python3 tools/uiplatform/validate.py validate [path ...]
-
-# read-only conformance audit of the extraction output
 python3 tools/uiplatform/validate.py conformance [--data DIR] [--json]
-
-# compile the Layer A token file + manifest from the extracted palette
-python3 tools/uiplatform/tokens.py            # -> design/tokens/design-tokens.json
-python3 tools/uiplatform/tokens.py --check    # also fails on extraction drift
-
-# executable reference: does a record actually DRAW from the tokens alone?
-python3 tools/uiplatform/validate.py check-deps                     # R-TOKENDEP
+python3 tools/uiplatform/tokens.py
+python3 tools/uiplatform/tokens.py --check
+python3 tools/uiplatform/validate.py check-deps
 python3 tools/uiplatform/render_ref.py --component <record>.json \
-                                        --out build/render/out.png --state pressed
-
-# self-tests: does the contract still catch defects?
-python3 tests/uiplatform/test_contract.py     # 34 checks
-python3 tests/uiplatform/test_tokens.py       # 38 checks
+  --out build/render/out.png --state pressed
+python3 tests/uiplatform/test_contract.py
+python3 tests/uiplatform/test_tokens.py
 ```
 
-All of these run on every commit through `scripts/check-sync.sh` (section "ui data
-contract"); the conformance report itself never turns the gate red on its own —
-gaps are findings, not failures, while the extraction is in flight.
+## Non-negotiable rules
 
-`tools/uiplatform/validate.py` is stdlib-only (the build container has no
-`jsonschema` package). It implements the JSON-Schema subset our schemas use,
-plus the semantic rules that cannot be expressed as a schema (evidence
-requirements, state lists, transition targets, reproduction recipes).
+1. Every factual value must point to evidence and provenance.
+2. Keep static NIB, native binary, runtime, and inferred evidence distinguishable.
+3. Missing evidence must remain an explicit gap; never silently approximate.
+4. Behavior is represented as data and state transitions, not hidden in one application's implementation.
+5. One coherent visual and interaction language must span the system.
+6. No proprietary Apple binaries, code, fonts, or artwork are to be redistributed.
+7. Do not start broad implementation of a subsystem until its specification is sufficiently grounded and its acceptance criteria are testable.
 
-## Rules that are not negotiable
+## Current research-to-implementation gate
 
-1. **No Apple bytes in git.** Only derived numbers, our own drawings, our own
-   JSON (UI_REFERENCE rule C5, unchanged).
-2. **Every number names its evidence.** `src:`, `capture:` or `lit:`. Raw file
-   names, screenshots and memory are not evidence.
-3. **Nothing is silently approximated.** `kind: inferred` and
-   `confidence: unverified` exist precisely so a guess never has to masquerade
-   as a measurement. Records with gaps are allowed; records that hide gaps are
-   not.
-4. **Behaviour is data.** Animations, interactions and window rules live in
-   records, not inside one application's code.
-5. **One visual language.** Any surface that a Mavericks user would compare
-   against the original is judged on the same checklist (§F).
+The next priority is to expand the reference beyond TextEdit and Calculator to Finder, Dock, System Preferences, shared window management, menus, dialogs, sheets, and system-level behavior. The UI Platform should evolve as those facts become available. Technology selection and full implementation follow the evidence, not the other way around.
