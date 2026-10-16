@@ -1,0 +1,171 @@
+{
+ "program": "Calculator",
+ "ghidra": "12.1.2",
+ "functions": [
+  {
+   "selector": "digit:",
+   "owner": null,
+   "kind": null,
+   "imp": null,
+   "ghidra_function": null,
+   "types": null,
+   "status": "not-found",
+   "callers": [],
+   "callees": [],
+   "decompiled": null
+  },
+  {
+   "selector": "enter:",
+   "owner": null,
+   "kind": null,
+   "imp": null,
+   "ghidra_function": null,
+   "types": null,
+   "status": "not-found",
+   "callers": [],
+   "callees": [],
+   "decompiled": null
+  },
+  {
+   "selector": "clear:",
+   "owner": null,
+   "kind": null,
+   "imp": null,
+   "ghidra_function": null,
+   "types": null,
+   "status": "not-found",
+   "callers": [],
+   "callees": [],
+   "decompiled": null
+  },
+  {
+   "selector": "toggleRPNMode:",
+   "owner": "CalculatorController",
+   "kind": "instance",
+   "imp": "0x10000972b",
+   "ghidra_function": "toggleRPNMode:",
+   "types": "v24@0:8@16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100025d00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "boolForKey:",
+     "entry": "0x100024b05",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "setBool:forKey:",
+     "entry": "0x100024b06",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "standardUserDefaults",
+     "entry": "0x100024b01",
+     "selector": null,
+     "owner": null
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid CalculatorController::toggleRPNMode_(ID param_1,SEL param_2,ID param_3)\n\n{\n  undefined *puVar1;\n  long lVar2;\n  char cVar3;\n  char cVar4;\n  int iVar5;\n  undefined8 uVar6;\n  ID self;\n  long lVar7;\n  ID IVar8;\n  undefined8 uVar9;\n  long lVar10;\n  \n  puVar1 = PTR__objc_msgSend_100014090;\n  iVar5 = (*(code *)PTR__objc_msgSend_100014090)(param_3,PTR_s_state_100018228);\n  lVar7 = __CurrentView;\n  cVar3 = (*(code *)puVar1)(*(undefined8 *)(param_1 + __CurrentView),PTR_s_supportsRPN_100018248);\n  lVar10 = mRPNMenuItem;\n  if (iVar5 == 1) {\n    (*(code *)puVar1)(*(undefined8 *)(param_1 + mRPNMenuItem),PTR_s_setState__1000181d8,0);\n    (*(code *)puVar1)(*(undefined8 *)(param_1 + mRPNContextualMenuItem),PTR_s_setState__1000181d8,0)\n    ;\n    *(undefined1 *)(param_1 + g_RPN) = 0;\n    (*(code *)puVar1)(*(undefined8 *)(param_1 + mLCD),PTR_s_setRPNState__100018250,0);\n    if (cVar3 == '\\0') goto LAB_10000986b;\n    uVar9 = *(undefined8 *)(param_1 + lVar7);\n    uVar6 = 0;\n  }\n  else {\n    (*(code *)puVar1)(*(undefined8 *)(param_1 + mRPNMenuItem),PTR_s_setState__1000181d8,1);\n    (*(code *)puVar1)(*(undefined8 *)(param_1 + mRPNContextualMenuItem),PTR_s_setState__1000181d8,1)\n    ;\n    *(undefined1 *)(param_1 + g_RPN) = 1;\n    lVar2 = mLCD;\n    uVar9 = *(undefined8 *)(param_1 + mLCD);\n    cVar4 = (*(code *)puVar1)(*(undefined8 *)(param_1 + lVar7),PTR_s_rpnViewIsWide_100018260);\n    (*(code *)puVar1)(uVar9,PTR_s_setRPNIsWide__100018268,(int)cVar4);\n    lVar10 = mRPNMenuItem;\n    (*(code *)puVar1)(*(undefined8 *)(param_1 + lVar2),PTR_s_setRPNState__100018250,1);\n    if (cVar3 == '\\0') goto LAB_10000986b;\n    uVar9 = *(undefined8 *)(param_1 + lVar7);\n    uVar6 = 1;\n  }\n  (*(code *)PTR__objc_msgSend_100014090)(uVar9,PTR_s_setRPNMode__100018258,uVar6);\nLAB_10000986b:\n  uVar9 = *(undefined8 *)(param_1 + mLCD);\n  uVar6 = (*(code *)puVar1)(*(undefined8 *)(param_1 + lVar7),PTR_s_rpnStack_100018270);\n  (*(code *)puVar1)(uVar9,PTR_s_setRPNStack__100018278,uVar6);\n  self = NSUserDefaults::standardUserDefaults\n                   ((ID)PTR__OBJC_CLASS___NSUserDefaults_100018c18,\n                    PTR_s_standardUserDefaults_1000181e0);\n  lVar7 = (*(code *)puVar1)(*(undefined8 *)(param_1 + lVar10),PTR_s_state_100018228);\n  IVar8 = NSUserDefaults::boolForKey_\n                    (self,PTR_s_boolForKey__100018238,PTR_cf_RPNDefaultsKey_10001a628);\n  if (lVar7 == (char)IVar8) {\n    return;\n  }\n  cVar3 = (*(code *)puVar1)(*(undefined8 *)(param_1 + lVar10),PTR_s_state_100018228);\n  NSUserDefaults::setBool_forKey_\n            (self,PTR_s_setBool_forKey__100018240,(ulong)(uint)(int)cVar3,\n             PTR_cf_RPNDefaultsKey_10001a628);\n  return;\n}\n\n"
+  },
+  {
+   "selector": "handleOperatorPress:",
+   "owner": null,
+   "kind": null,
+   "imp": null,
+   "ghidra_function": null,
+   "types": null,
+   "status": "not-found",
+   "callers": [],
+   "callees": [],
+   "decompiled": null
+  },
+  {
+   "selector": "clearTape:",
+   "owner": "PaperTapeController",
+   "kind": "instance",
+   "imp": "0x1000054e6",
+   "ghidra_function": "clearTape:",
+   "types": "v24@0:8@16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100025d00",
+     "selector": null,
+     "owner": null
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid PaperTapeController::clearTape_(ID param_1,SEL param_2,ID param_3)\n\n{\n  (*(code *)PTR__objc_msgSend_100014090)\n            (*(undefined8 *)(param_1 + o_TextView),PTR_s_setString__100017e78,&cf___);\n  return;\n}\n\n"
+  },
+  {
+   "selector": "toggleTape:",
+   "owner": "PaperTapeController",
+   "kind": "instance",
+   "imp": "0x10000bc53",
+   "ghidra_function": "toggleTape:",
+   "types": "v24@0:8@16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x100025d00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x100025e00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "bundleForClass:",
+     "entry": "0x100022301",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "localizedStringForKey:value:table:",
+     "entry": "0x100022302",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "standardUserDefaults",
+     "entry": "0x100024b01",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "stringForKey:",
+     "entry": "0x100024b08",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "hideTape:",
+     "entry": "0x10000ba7b",
+     "selector": "hideTape:",
+     "owner": "PaperTapeController"
+    },
+    {
+     "function": "showTape:",
+     "entry": "0x10000bafb",
+     "selector": "showTape:",
+     "owner": "PaperTapeController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid PaperTapeController::toggleTape_(ID param_1,SEL param_2,ID param_3)\n\n{\n  undefined *puVar1;\n  undefined *puVar2;\n  long lVar3;\n  char cVar4;\n  undefined8 uVar5;\n  undefined8 uVar6;\n  ID IVar7;\n  \n  puVar1 = PTR__objc_msgSend_100014090;\n  uVar5 = (*(code *)PTR__objc_msgSend_100014090)(param_1,PTR_s_window_100017fd8);\n  cVar4 = (*(code *)puVar1)(uVar5,PTR_s_isVisible_100018098);\n  if (cVar4 != '\\0') {\n    hideTape_(param_1,PTR_s_hideTape__100018780,param_3);\n    puVar2 = PTR__OBJC_CLASS___NSBundle_100018b78;\n    uVar5 = *(undefined8 *)(param_1 + o_ShowHideTapeMenuItem);\n    uVar6 = (*class_message_ref.imp)(param_1,&class_message_ref);\n    IVar7 = NSBundle::bundleForClass_((ID)puVar2,PTR_s_bundleForClass__100017cd8,uVar6);\n    IVar7 = NSBundle::localizedStringForKey_value_table_\n                      (IVar7,PTR_s_localizedStringForKey_value_tabl_100017e18,&cf_ShowTape,&cf___,0)\n    ;\n    (*(code *)puVar1)(uVar5,PTR_s_setTitle__100018788,IVar7);\n    return;\n  }\n  showTape_(param_1,PTR_s_showTape__100018790,param_3);\n  puVar2 = PTR__OBJC_CLASS___NSBundle_100018b78;\n  uVar5 = *(undefined8 *)(param_1 + o_ShowHideTapeMenuItem);\n  uVar6 = (*class_message_ref.imp)(param_1,&class_message_ref);\n  IVar7 = NSBundle::bundleForClass_((ID)puVar2,PTR_s_bundleForClass__100017cd8,uVar6);\n  IVar7 = NSBundle::localizedStringForKey_value_table_\n                    (IVar7,PTR_s_localizedStringForKey_value_tabl_100017e18,&cf_HideTape,&cf___,0);\n  (*(code *)puVar1)(uVar5,PTR_s_setTitle__100018788,IVar7);\n  if (DAT_10001a908 != 0) {\n    IVar7 = NSUserDefaults::standardUserDefaults\n                      ((ID)PTR__OBJC_CLASS___NSUserDefaults_100018c18,\n                       PTR_s_standardUserDefaults_1000181e0);\n    IVar7 = NSUserDefaults::stringForKey_\n                      (IVar7,PTR_s_stringForKey__100018408,PTR_cf_PaperTapeRestorableValue_10001a750\n                      );\n    lVar3 = o_TextView;\n    if (IVar7 != 0) {\n      (*(code *)puVar1)(*(undefined8 *)(param_1 + o_TextView),PTR_s_setString__100017e78,IVar7);\n      (*(code *)puVar1)(*(undefined8 *)(param_1 + lVar3),PTR_s_moveToEndOfDocument__100018798,\n                        param_1);\n    }\n    lVar3 = DAT_10001a908;\n    uVar5 = (*(code *)PTR__objc_msgSend_100014090)(param_1,PTR_s_window_100017fd8);\n    (**(code **)(lVar3 + 0x10))(lVar3,uVar5,0);\n    (*release_message_ref.imp)(DAT_10001a908,&release_message_ref);\n    return;\n  }\n  return;\n}\n\n"
+  }
+ ]
+}

@@ -206,3 +206,84 @@ DEC_ADDRS="0x100011fee" /opt/ghidra/support/pyghidraRun --headless \
 
 Large projects and raw exports stay in `/home/builder/ghidra_proj` and
 `/home/builder/vmwork/opencode/`; only compact evidence is committed.
+---
+
+# Calculator 10.9 — the button engine lives in a plug-in
+
+Same toolchain, same workflow. Two binaries were analysed:
+
+| Binary | SHA256 | Result |
+|---|---|---|
+| `Calculator.app/Contents/MacOS/Calculator` | `c2ff9f04f3188f802bd2b03bfc809b4a7175f0d240d8f13bf3cc262c0ea18445` | 11 classes, 2 categories, 217/217 methods |
+| `PlugIns/BasicAndSci.calcview/…/BasicAndSci` | see `runtime/raw/native/calcplug-*` | 8 classes, 1 category, 153/153 methods |
+
+Evidence: `runtime/raw/native/calculator-objc-metadata.json`,
+`calculator-decompilations.json`, `calcplug-basicandsci-objc-metadata.json`,
+`calcplug-basicandsci-decompilations.json`.
+
+## C1. The main binary is a shell; the engine is a loadable plug-in
+
+`digit:`, `enter:`, `clear:`, `handleOperatorPress:` **are not implemented in
+the Calculator main binary** — the same situation as `toggleRuler:` in
+TextEdit. They belong to `BasicAndSci.calcview`.
+
+`CalculatorController` (44 methods) is a shell that manages plug-ins
+(`pathsToPlugins`, `setBackEndMode:`, `setCurrentView:`, `previousView:`,
+`sendDataToCalcEngine:`), conversion (`convert:`, `populateConvertMenu`,
+`handleConversion:`) and the application menu. `LCDController` (70) owns
+display formatting and RPN display modes; `PaperTapeController` (32) owns the
+tape. The 1×1 `CustomWindow` seen in the runtime capture **[RT]** is the
+`CustomWindow` class recovered here, which overrides `canBecomeKeyWindow`,
+`keyDown:` and `mouseDown:` — that is the calculator's own key window.
+
+This is the static explanation for the runtime finding that only 7 distinct
+actions (`clear:`, the `rpn*` family, `_doScroller:`) were visible in the
+primary content tree **[RT]**: the digit/operator buttons belong to a view the
+plug-in installs, not to the shell's nib.
+
+## C2. Plug-in architecture (MVC, decompiled)
+
+`BasicAndSci.calcview` classes: `BasicAdvancedController` (59 methods, the UI),
+`CalculatorEngine` (27, abstract), `AlgebraicEngine` (11), `RPNEngine` (10),
+and the data model `Stack`, `Token`, `Function`, `EngineNumber`.
+
+Decompiled `-[BasicAdvancedController handleDigit:]`:
+
+```c
+NSButton *b = [self->_DigitButtons objectAtIndex:idx];
+[self momentarilyHighlightButton:b];
+if (![self->_Engine userEnteredDigit:idx])
+    NSBeep();
+```
+
+So the verified chain is:
+
+```
+button action digit: ─▶ handleDigit: ─▶ [engine userEnteredDigit:]
+                                              │
+                     CalculatorEngine (abstract) ─┬─ AlgebraicEngine
+                                                └─ RPNEngine   ─▶ Stack / Token / EngineNumber
+                                                                        (Function for operators)
+```
+
+`AlgebraicEngine` vs `RPNEngine` is exactly the Basic/Scientific vs RPN
+switching seen in the NIB inventory **[NIB]** (`BasicAdvanced.nib`,
+`Hexadecimal.nib`), and `setBackEndMode:` in the shell is what swaps them.
+
+`CalculatorEngine.userEnteredDigit:` returns `char` — the BOOL that decides
+whether the engine consumed the digit, hence the `NSBeep()` on rejection.
+
+## C3. Confidence
+
+| Claim | Confidence |
+|---|---|
+| digit/operator engine is in `BasicAndSci.calcview` | **high** — full method tables of both binaries |
+| `handleDigit:` → `userEnteredDigit:` → beep | **high** — decompiled |
+| plug-in swaps algebraic/RPN engines | **high** — `setBackEndMode:`, two engine subclasses |
+| `CustomWindow` is the calculator key window | medium-high — class overrides `canBecomeKeyWindow`/`keyDown:` |
+| which plug-in loads for which mode | **open** — needs the plug-in loader paths |
+
+Not established: the `Hexadecimal.calcview` engine (not yet imported), the
+`Function` dictionary contents that back `performOperationWithParameters:`, and
+the menu→action bindings that REA saw in the NIBs but that are not visible in
+either binary's method table.

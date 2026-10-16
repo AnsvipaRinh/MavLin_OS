@@ -1,0 +1,167 @@
+{
+ "program": "BasicAndSci",
+ "ghidra": "12.1.2",
+ "functions": [
+  {
+   "selector": "digit:",
+   "owner": "BasicAdvancedController",
+   "kind": "instance",
+   "imp": "0x2c51",
+   "ghidra_function": "digit:",
+   "types": "v24@0:8@16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x20a00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "handleDigit:",
+     "entry": "0x2c96",
+     "selector": "handleDigit:",
+     "owner": "BasicAdvancedController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid BasicAdvancedController::digit_(ID param_1,SEL param_2,ID param_3)\n\n{\n  undefined *puVar1;\n  undefined8 uVar2;\n  long_long lVar3;\n  \n  puVar1 = PTR__objc_msgSend_00011078;\n  uVar2 = (*(code *)PTR__objc_msgSend_00011078)(param_3,PTR_s_title_00013e08);\n  lVar3 = (*(code *)puVar1)(uVar2,PTR_s_integerValue_00013f98);\n  handleDigit_(param_1,PTR_s_handleDigit__00013ed0,lVar3);\n  return;\n}\n\n"
+  },
+  {
+   "selector": "handleDigit:",
+   "owner": "BasicAdvancedController",
+   "kind": "instance",
+   "imp": "0x2c96",
+   "ghidra_function": "handleDigit:",
+   "types": "v24@0:8q16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_NSBeep",
+     "entry": "0xdd6a",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x20a00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x20b00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "momentarilyHighlightButton:",
+     "entry": "0x28d7",
+     "selector": "momentarilyHighlightButton:",
+     "owner": "BasicAdvancedController"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid BasicAdvancedController::handleDigit_(ID param_1,SEL param_2,long_long param_3)\n\n{\n  undefined *puVar1;\n  char cVar2;\n  ID IVar3;\n  \n  IVar3 = (*objectAtIndex__message_ref.imp)\n                    (*(undefined8 *)(param_1 + __DigitButtons),&objectAtIndex__message_ref);\n  puVar1 = PTR__objc_msgSend_00011078;\n  momentarilyHighlightButton_(param_1,PTR_s_momentarilyHighlightButton__00013ea8,IVar3);\n  cVar2 = (*(code *)puVar1)(*(undefined8 *)(param_1 + __Engine),PTR_s_userEnteredDigit__00013fa0,\n                            param_3);\n  if (cVar2 != '\\0') {\n    return;\n  }\n  _NSBeep();\n  return;\n}\n\n"
+  },
+  {
+   "selector": "userEnteredDigit:",
+   "owner": "CalculatorEngine",
+   "kind": "instance",
+   "imp": "0xa324",
+   "ghidra_function": "userEnteredDigit:",
+   "types": "c24@0:8q16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x20a00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSend_fixup",
+     "entry": "0x20b00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "alloc",
+     "entry": "0x1f806",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "init",
+     "entry": "0x1f807",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "numberWithInteger:",
+     "entry": "0x1f901",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "stringWithFormat:",
+     "entry": "0x20004",
+     "selector": null,
+     "owner": null
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nchar CalculatorEngine::userEnteredDigit_(ID param_1,SEL param_2,long_long param_3)\n\n{\n  undefined8 uVar1;\n  undefined *puVar2;\n  undefined *self;\n  int iVar3;\n  ID IVar4;\n  long lVar5;\n  ID IVar6;\n  long lVar7;\n  \n  IVar4 = NSString::stringWithFormat_\n                    ((ID)PTR__OBJC_CLASS___NSString_000144e0,PTR_s_stringWithFormat__00014130,\n                     &cf__ld,param_3);\n  lVar7 = _exponentString;\n  lVar5 = _inputString;\n  if (*(long *)(param_1 + _exponentString) == 0) {\n    lVar7 = *(long *)(param_1 + _inputString);\n    if (lVar7 == 0) {\n      IVar6 = NSMutableString::alloc\n                        ((ID)PTR__OBJC_CLASS___NSMutableString_00014510,(SEL)&alloc_message_ref);\n      IVar6 = NSMutableString::init(IVar6,PTR_s_init_00013d70);\n      *(ID *)(param_1 + lVar5) = IVar6;\n      lVar7 = *(long *)(param_1 + _inputString);\n    }\n    puVar2 = PTR__objc_msgSend_00011078;\n    (*(code *)PTR__objc_msgSend_00011078)(lVar7,PTR_s_appendString__00013f58,IVar4);\n    (*(code *)puVar2)(*(undefined8 *)(param_1 + _frontEnd),PTR_s_setLCDStringValue_input__00014278,\n                      *(undefined8 *)(param_1 + lVar5),1);\n  }\n  else {\n    lVar5 = (*length_message_ref.imp)(*(long *)(param_1 + _exponentString),&length_message_ref);\n    puVar2 = PTR__objc_msgSend_00011078;\n    if (lVar5 == 3) {\n      return '\\0';\n    }\n    (*(code *)PTR__objc_msgSend_00011078)\n              (*(undefined8 *)(param_1 + lVar7),PTR_s_appendString__00013f58,IVar4);\n    self = PTR__OBJC_CLASS___NSNumber_000144b0;\n    uVar1 = *(undefined8 *)(param_1 + _frontEnd);\n    iVar3 = (*(code *)puVar2)(*(undefined8 *)(param_1 + lVar7),PTR_s_intValue_00014270);\n    IVar6 = NSNumber::numberWithInteger_((ID)self,PTR_s_numberWithInteger__00013fc0,(long)iVar3);\n    (*(code *)puVar2)(uVar1,PTR_s_setExponent__000140c0,IVar6);\n  }\n  (*(code *)PTR__objc_msgSend_00011078)\n            (*(undefined8 *)(param_1 + _speechController),PTR_s_speakButton__00014020,IVar4);\n  return '\\x01';\n}\n\n"
+  },
+  {
+   "selector": "userEnteredDigit:",
+   "owner": "RPNEngine",
+   "kind": "instance",
+   "imp": "0xcf00",
+   "ghidra_function": "userEnteredDigit:",
+   "types": "c24@0:8q16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x20a00",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "_objc_msgSendSuper2",
+     "entry": "0xdcce",
+     "selector": null,
+     "owner": null
+    },
+    {
+     "function": "userEnteredDigit:",
+     "entry": "0xa324",
+     "selector": "userEnteredDigit:",
+     "owner": "CalculatorEngine"
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nchar RPNEngine::userEnteredDigit_(ID param_1,SEL param_2,long_long param_3)\n\n{\n  char cVar1;\n  ID local_28;\n  undefined *local_20;\n  \n  if (*(char *)(param_1 + mLastNumberIsOperationResult) != '\\0') {\n    if (*(long *)(param_1 + CalculatorEngine::_lastNumber) != 0) {\n      (*(code *)PTR__objc_msgSend_00011078)\n                (*(undefined8 *)(param_1 + mStack),PTR_s_insertObject_atIndex__00014148,\n                 *(long *)(param_1 + CalculatorEngine::_lastNumber),0);\n    }\n    *(undefined1 *)(param_1 + mLastNumberIsOperationResult) = 0;\n  }\n  local_20 = PTR_RPNEngine_000145a8;\n  local_28 = param_1;\n  cVar1 = CalculatorEngine::userEnteredDigit_\n                    ((ID)&local_28,PTR_s_userEnteredDigit__00013fa0,param_3);\n  return cVar1;\n}\n\n"
+  },
+  {
+   "selector": "handleOperatorPress:",
+   "owner": "BasicAdvancedController",
+   "kind": "instance",
+   "imp": "0x2d57",
+   "ghidra_function": "handleOperatorPress:",
+   "types": "v24@0:8@16",
+   "status": "ok",
+   "callers": [],
+   "callees": [
+    {
+     "function": "_objc_msgSend",
+     "entry": "0x20a00",
+     "selector": null,
+     "owner": null
+    }
+   ],
+   "decompiled": "\n/* Function Stack Size: 0x18 bytes */\n\nvoid BasicAdvancedController::handleOperatorPress_(ID param_1,SEL param_2,ID param_3)\n\n{\n  undefined8 uVar1;\n  undefined *puVar2;\n  undefined4 uVar3;\n  \n  puVar2 = PTR__objc_msgSend_00011078;\n  (*(code *)PTR__objc_msgSend_00011078)(*(undefined8 *)(param_1 + __LCD),PTR_s_blink_00013ec0);\n  uVar1 = *(undefined8 *)(param_1 + __Engine);\n  uVar3 = (*(code *)puVar2)(param_3,PTR_s_tag_00013fb8);\n  (*(code *)puVar2)(uVar1,PTR_s_userEnteredOperator__00013e60,uVar3);\n  return;\n}\n\n"
+  }
+ ]
+}

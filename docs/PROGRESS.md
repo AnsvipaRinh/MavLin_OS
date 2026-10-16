@@ -1450,3 +1450,17 @@ and has a working compiler as its first consumer. Next: curated
 **Corrected:** `rea-findings.md` F2 mapping `Show Ruler`→`toggleRuler:` is annotated REFUTED with binary evidence.
 
 **Verification:** `test_native_evidence.py` 29 checks pass (extraction completeness, provenance, IMP/selector truth, decompilation content, doc-binary consistency, refutation annotation); `test_rea_evidence.py` 24 pass; `test_nsinspect.py` OK; `lint-tests.py` 0 errors (164 files).
+
+## Session 2026-10-16 — Calculator native analysis: engine proven to be a plug-in (opencode-ui-runtime-guest)
+
+**Zone:** `docs/UI_REFERENCE/native-findings.md`, `docs/UI_REFERENCE/runtime/raw/native/`.
+
+Same Ghidra/PyGhidra workflow applied to Calculator. Main binary: 11 classes, 2 categories, **217/217 methods** resolved. Plug-in `BasicAndSci.calcview`: 8 classes, **153/153 methods**.
+
+`digit:`, `enter:`, `clear:`, `handleOperatorPress:` are **not implemented in the Calculator main binary** — they live in the plug-in (same class of finding as `toggleRuler:` in TextEdit). `CalculatorController` is a shell managing plug-ins (`pathsToPlugins`, `setBackEndMode:`, `setCurrentView:`, `sendDataToCalcEngine:`), `LCDController` owns display, `PaperTapeController` owns the tape; the runtime 1×1 `CustomWindow` is the recovered `CustomWindow` class (`canBecomeKeyWindow`, `keyDown:`, `mouseDown:`). This is the static explanation for the runtime capture showing only 7 distinct actions.
+
+Decompiled chain: `digit:` → `handleDigit:` (highlight button, `[engine userEnteredDigit:]`, `NSBeep()` on rejection) → `CalculatorEngine` (abstract) over `AlgebraicEngine`/`RPNEngine` → `Stack`/`Token`/`Function`/`EngineNumber`. The algebraic/RPN split is the Basic-vs-Scientific/RPN switching seen in the NIB inventory.
+
+**Open:** `Hexadecimal.calcview` not yet imported; which plug-in loads per mode; NIB menu→action bindings not visible in either binary.
+
+**Verification:** native/REA/nsinspect suites and lint unchanged and green.
