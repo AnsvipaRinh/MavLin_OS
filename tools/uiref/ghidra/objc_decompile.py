@@ -72,10 +72,21 @@ def callee_names_by_selector(func):
 
 report = {"program": str(prog.getName()), "ghidra": "12.1.2", "functions": []}
 
-for key in ("showRuler:", "showRulerDelayed:", "toggleRich:",
-            "updateForRichTextAndRulerState:", "toggleRichWithNewFileType:",
-            "toggleRichWillLoseInformation", "isRichText",
-            "convertTextForRichTextState:removeAttachments:"):
+# Target list comes from the caller so the same script serves every binary.
+# Format: comma-separated selector list in OBJC_DECOMPILE_TARGETS.
+TARGETS = [
+    t.strip()
+    for t in os.environ.get(
+        "OBJC_DECOMPILE_TARGETS",
+        "showRuler:,showRulerDelayed:,toggleRich:,"
+        "updateForRichTextAndRulerState:,toggleRichWithNewFileType:,"
+        "toggleRichWillLoseInformation,isRichText,"
+        "convertTextForRichTextState:removeAttachments:",
+    ).split(",")
+    if t.strip()
+]
+
+for key in TARGETS:
     entries = INDEX.get("selectors", {}).get(key)
     if not entries:
         report["functions"].append({"selector": key, "status": "not-found"})
