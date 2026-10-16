@@ -1,124 +1,89 @@
-# MavLinOS
+# MavlinOS
 
-MavLinOS — macOS Mavericks-style desktop experience on Linux (Xfce/Ubuntu).
+**A research-driven Linux operating-system project targeting the visual identity and complete user experience of OS X Mavericks 10.9.**
 
-## Quick Start
+MavlinOS aims to reproduce Mavericks as a coherent desktop system—not merely apply a macOS-like theme—while retaining a capable, maintainable, and highly optimized Linux foundation.
 
-**First time? Start here:** [`docs/QUICKSTART.md`](docs/QUICKSTART.md)
+> **Project status · 16 October 2026:** active reference reconstruction and reverse engineering. This repository is not yet a stable, installable OS release.
 
-```bash
-# Install all dependencies and Mission Control
-make install-mission-control
+## What we are building
 
-# Try Mission Control
-mv-mc-gui
+The target is the complete everyday Mavericks experience:
 
-# Or use keyboard shortcut
-# Press F3
-```
+- Window chrome, focus, stacking, resizing, minimizing, zooming, and desktop/window management.
+- Menu bar, application menus, Dock, application switching, and system-wide interaction patterns.
+- Finder-like file management, navigation, sidebars, toolbars, dialogs, sheets, and context menus.
+- System applications, preference panes, notifications, Quick Look, and other shared desktop surfaces.
+- Accurate visual language, typography, geometry, control states, transitions, and animations.
+- Linux-native system services and application compatibility beneath a consistent Mavericks-faithful UI.
 
-## Features
+The project is not defined by one Linux distribution, desktop environment, toolkit, or target laptop. Those implementation choices must be evaluated against the recovered reference, performance, maintainability, and compatibility requirements.
 
-- 🎯 **Mission Control** — Full window overview with thumbnails across Spaces
-- 🖥️ **Spaces** — Dynamic workspace management (1-16 Spaces)
-- 🎨 **Mavericks Theme** — Authentic GTK theme matching OS X 10.9
-- ⌨️ **Keyboard Shortcuts** — Complete Mavericks-style key bindings
-- 🚀 **Launchpad** — App grid launcher
-- 🔍 **Spotlight** — Fast app/file search
-- 📱 **Handoff-like** — Cross-device continuity features
+## Current phase: reverse-engineer first
 
-## Documentation
-
-- [`docs/QUICKSTART.md`](docs/QUICKSTART.md) — **First-time user guide** ⭐
-- [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — **Developer guide** 🛠️
-- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — **Community guidelines** 🤝
-- [`SECURITY.md`](SECURITY.md) — **Security policy** 🔒
-- [`CHANGELOG.md`](CHANGELOG.md) — **Project history** 📜
-- [`docs/KEYBOARD.md`](docs/KEYBOARD.md) — Complete keyboard reference
-- [`docs/MISSION_CONTROL.md`](docs/MISSION_CONTROL.md) — Mission Control implementation guide
-- [`docs/INSTALL.md`](docs/INSTALL.md) — Installation instructions
-- [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — Common issues and fixes
-
-## Testing
-
-```bash
-# Run all Mission Control tests
-make test-mission-control
-
-# Or individual components
-python3 packages/mavericks-apps/src/mavericks-apps/tests/test_mission_control_gui.py
-python3 tests/test_f3_mission_control_binding.py
-```
-
-## Architecture
+We are reconstructing the original OS X Mavericks 10.9 implementation before committing to a final Linux UI architecture.
 
 ```
-MavLinOS/
-├── packages/
-│   ├── mavericks-theme/     # GTK theme, icons, cursors
-│   └── mavericks-apps/      # Mission Control, Launchpad, etc.
-├── configs/
-│   └── desktop/xfce/        # Xfce configuration
-├── docs/                    # Documentation
-├── tests/                   # Integration tests
-└── ci/                      # CI gates
+Mavericks 10.9 reference
+  -> REA: application bundles, NIBs, keyed archives, connections
+  -> Ghidra/PyGhidra: Mach-O, Objective-C metadata, native implementations
+  -> nsinspect: live AppKit hierarchy and runtime behavior
+  -> UI_REFERENCE: provenance-backed findings and measurements
+  -> UI_PLATFORM: reusable component, state, behavior, and SDK contracts
+  -> Linux architecture, implementation, optimization, packaging
 ```
 
-## Mission Control Stack
+This research-first sequence prevents a superficial visual imitation from being mistaken for a faithful UI/UX implementation.
 
-```
-mv-mc-gui (GTK3 overlay)
-    ↓
-mv-mc-window-spaces (JSON window list)
-mv-mc-thumbnail (PNG thumbnails)
-mv-mc-grid (layout calculation)
-mv-mc-activate-window (focus by ID)
-mv-workspace-count (Space management)
-```
+## Verified foundation
 
-## Requirements
+As of 2026-10-16:
 
-- Ubuntu 22.04+ or Xubuntu 22.04+
-- Xfce 4.16+
-- Python 3.8+
-- GTK3
-- ImageMagick or scrot
-- wmctrl, xdotool
+| Area | Verified result |
+|---|---|
+| Static UI analysis | REA 6.4.0 successfully decodes real Mavericks NIBs and keyed archives; it is the primary static reverse-engineering tool. |
+| Native analysis | Ghidra 12.1.2 + PyGhidra + JDK 21 successfully analyze real Mavericks Mach-O binaries and recover Objective-C methods and implementations. |
+| Runtime inspection | nsinspect/mvprobe capture live AppKit windows, views, controls, menus, and runtime states in a macOS 10.9 QEMU guest. |
+| TextEdit | 8 NIBs decoded; 15 classes, 1 category, and 253/253 native methods mapped. Ruler/inspector-bar implementation traced to NSTextView behavior. |
+| Calculator | Main binary: 217/217 methods; BasicAndSci plug-in: 153/153; Hexadecimal plug-in: 77/77. Plug-in loading and view-switching contract investigated. |
+| Evidence model | Static NIB, native binary, and runtime findings are cross-referenced without treating one evidence class as another. |
 
-## License
+These are initial application-level results. They do not mean that Finder, Dock, WindowServer behavior, System Preferences, or the complete Mavericks desktop have already been reconstructed.
 
-GPL-3.0-or-later
+## Development roadmap
 
-## Contributing
+1. Complete and validate the current TextEdit/Calculator investigations.
+2. Reverse-engineer Finder, Dock, System Preferences, window management, menus, dialogs, sheets, and shared system behavior.
+3. Build a connected map of applications, frameworks, classes, methods, controls, states, transitions, and dependencies.
+4. Complete evidence-backed UI_REFERENCE records and UI_PLATFORM implementation contracts.
+5. Evaluate the Linux desktop architecture against those contracts.
+6. Implement the system, integrate Linux applications and services, optimize resource use, and produce reproducible builds.
 
-See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for the developer guide.
+## Repository map
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `make test-mission-control`
-5. Submit a pull request
+- `docs/PROJECT_DIRECTION.md` — authoritative project mission, current phase, architecture, and roadmap.
+- `docs/UI_REFERENCE/` — extracted reference data, provenance, REA results, runtime captures, and native findings.
+- `docs/UI_PLATFORM/` — schemas and specifications for turning reference evidence into a reusable Linux UI platform.
+- `tools/uiref/` — REA workflows, Ghidra/PyGhidra scripts, runtime instrumentation, and evidence extraction.
+- `tools/uiplatform/` — UI platform validation and generation tools.
+- `packages/`, `configs/`, `scripts/` — earlier Linux prototypes, experiments, and reusable implementation material.
 
-## Security
+## Engineering principles
 
-See [`SECURITY.md`](SECURITY.md) for reporting security vulnerabilities.
+- Evidence before implementation; no guessing from screenshots as the primary method.
+- REA first for static NIB/archive analysis; Ghidra for native code; nsinspect for live AppKit.
+- Preserve provenance, binary hashes, tool versions, confidence, and limitations.
+- Keep visual design, interaction behavior, and platform integration as explicit, testable contracts.
+- Do not lock the final Linux toolkit or desktop stack prematurely.
+- Optimize through measurement; avoid unnecessary background work and heavyweight dependencies.
+- Do not redistribute proprietary Apple binaries, code, fonts, or artwork.
 
-## Acknowledgments
+## Getting involved
 
-- Poppy OS X Revieve by kayover — Visual reference and inspiration
-- Xfce team — Lightweight desktop foundation
-- Ubuntu team — Base distribution
+The most valuable contributions at this stage are reproducible reverse-engineering, evidence validation, subsystem research, behavior/state modeling, and specification work. Implementation contributions should target documented contracts rather than inventing approximate behavior.
 
-## Status
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/COORDINATION.md](docs/COORDINATION.md).
 
-✅ Mission Control (full implementation)
-✅ Spaces management (1-16)
-✅ Mavericks theme
-✅ Keyboard shortcuts
-✅ Documentation (QUICKSTART, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, CHANGELOG, KEYBOARD, MISSION_CONTROL)
-✅ Test coverage
-✅ CI gates
-✅ Easy installation (`make install-mission-control`)
-✅ Security policy
+---
 
-🚧 In progress: Animations, multi-monitor, touchpad gestures
+**MavlinOS is intended to feel like Mavericks in everyday use while remaining Linux underneath.**

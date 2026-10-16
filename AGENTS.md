@@ -1,3 +1,49 @@
+# CURRENT PROJECT DIRECTIVE — 2026-10-16 (AUTHORITATIVE)
+
+This section supersedes conflicting assumptions in older sections of this file and in historical prototype documentation.
+
+## Current mission and phase
+
+MavlinOS is a Linux-based operating-system project targeting faithful reproduction of the complete macOS Mavericks 10.9 UI/UX, backed by a maintainable and highly optimized Linux foundation. It is not merely an Xfce theme, a MacBook-specific distro, or a collection of Mavericks-styled applications.
+
+**Current phase: research-first reverse engineering and specification.** Do not resume broad UI implementation based on assumptions from the earlier GTK/Xfce prototype. First reconstruct the original system's structure and behavior, produce evidence-backed UI_REFERENCE findings and UI_PLATFORM contracts, then select and implement the Linux architecture.
+
+The earlier Arch/Xfce/GTK3/MacBook10,1 work remains in this repository as historical prototype code and potentially reusable material. It is not a binding final architecture. The final distribution, toolkit, compositor, window manager, rendering stack, and hardware strategy must be evaluated against verified fidelity, performance, maintainability, and Linux compatibility.
+
+## Required reverse-engineering workflow
+
+- **REA 6.4.0**: primary agent-facing instrument for application bundles, NIBs, keyed archives, UI object graphs, connections, and selectors.
+- **Ghidra 12.1.2 + PyGhidra + JDK 21**: native Mach-O and Objective-C metadata analysis, IMP mapping, decompilation, and call investigation. Use the reproducible scripts in `tools/uiref/ghidra/`.
+- **nsinspect / mvprobe**: live AppKit window/view/menu/control inspection in the macOS 10.9 reference VM.
+- Correlate NIB, native-binary, and runtime evidence. Keep their provenance and confidence separate. Never claim that a static selector or NIB connection proves runtime behavior.
+- Do not build custom static parsers when REA or Ghidra already provides the capability. Retain custom tools only for demonstrated gaps such as live AppKit inspection.
+- Screenshots/OCR are not the primary reverse-engineering method. Use structural, native, and runtime evidence; images may supplement a specific visual measurement or behavior that cannot be established otherwise.
+
+## Current verified baseline
+
+- TextEdit 1.9: REA NIB inventory and runtime captures; Ghidra extraction mapped 15 classes, 1 category, and 253/253 methods. The ruler is implemented through `DocumentWindowController.showRuler:` and NSTextView; the earlier `toggleRuler:` mapping was refuted.
+- Calculator: main binary and BasicAndSci/Hexadecimal plug-ins investigated; 217/217, 153/153, and 77/77 methods respectively mapped. Plugin loading and the `CalculatorView` protocol contract are documented.
+- Full details and exact provenance are in `docs/UI_REFERENCE/rea-toolchain.md`, `rea-findings.md`, and `native-findings.md`.
+
+## Implementation gate
+
+A subsystem is not ready for broad implementation merely because its NIBs, symbols, or classes were enumerated. First document its important visual structure, object ownership, states, user actions, transitions, native implementation mechanisms, persistence, and runtime-confirmed behavior. The next research targets include Finder, Dock, System Preferences, shared window management, menu bar, dialogs, and sheets.
+
+The intended long-term sequence is:
+
+1. Reverse-engineer original Mavericks.
+2. Validate and connect the evidence.
+3. Produce implementation-ready UI/UX contracts.
+4. Evaluate and select the Linux architecture.
+5. Implement and integrate the complete desktop.
+6. Optimize and package the Linux system.
+
+Keep the generic Linux core separate from optional hardware profiles. MacBook10,1 is a possible reference profile, not the definition of the product.
+
+Full direction: `docs/PROJECT_DIRECTION.md`.
+
+---
+
 # AGENTS.md — MavLinOS (a Mavericks-like desktop for MacBook10,1)
 
 > Instructions for ALL agents working in this repository. Source of truth together with the repo, git history and `docs/*`.
