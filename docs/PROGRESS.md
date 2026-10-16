@@ -1588,3 +1588,40 @@ Tests after cleanup: `test_native_evidence`, `test_rea_evidence`,
 Also in this commit: `objc_decompile.py` now honours `OBJC_DECOMPILE_TARGETS`
 instead of a hardcoded TextEdit selector list (it silently decompiled 0 functions
 for every other binary).
+
+### 2026-10-16 — Storage awareness made permanent (WSL)
+
+**Discrepancy explained.** `df /` inside WSL reported 561 GB free (ext4 virtual
+disk, 1 TiB max, 42% used) while the owner's ~8.5 GB is the **Windows `C:` volume**
+— 476 GB total, 468 GB used, 99% full, mounted as 9p at `/mnt/c`. Both numbers
+were correct. The WSL virtual disk is a file on `C:`, so all 393 GB written inside
+Linux is charged to the Windows volume; quoting only the Linux figure made a host
+with under 9 GB left look idle.
+
+**Implemented.** `scripts/storage-audit.py` (no daemon, on-demand) reports the
+WSL filesystem and any Windows volume together, classifies subsystems, and gates
+operations via `preflight --need <GiB>` (exit 0 NORMAL … 3 EMERGENCY).
+`config/storage-policy.json` holds thresholds and retention categories; baseline
+in `docs/UI_REFERENCE/storage-baseline.json`; procedure in
+`docs/UI_REFERENCE/storage.md`; AGENTS.md §8.1 makes preflight mandatory before
+storage-intensive work and a diff mandatory after.
+
+**Accounting.** Allocated size (`st_blocks * 512`) is reported next to apparent
+size, because the macOS images are sparse: the tree measures 347.9 GiB allocated
+against 593.6 GiB apparent. Hard links counted once, nested roots collapsed and
+reported as skipped, symlinks not followed, filesystems not crossed.
+
+**Current state.** Windows volume is the binding constraint (was EMERGENCY at
+14.8 GiB free / 97% during the audit). Protected data — guest disk 9.4 GiB,
+backup 8.3 GiB, installation media 315 GiB — untouched. The single largest
+reclaimable item is `mavericks-install.raw` (282 GiB, allocated inside the virtual
+disk); reclaiming Windows space additionally requires VHD compaction, which
+needs WSL shutdown, so it is reported for an owner decision rather than done.
+
+**Tests.** `tests/storage/test_storage_audit.py` added: sparse accounting, nested
+roots without double counting, WSL and Windows-volume detection both directions,
+missing/unreadable paths, config-driven threshold transitions, protected-path
+cleanup guard, human formatting, and an end-to-end CLI run. Full sweep passes:
+storage, objc_classnames, native_evidence, rea_evidence, nsinspect; `lint-tests.py`
+0 errors; `lint-agent-permissions.py` clean after extending the orchestrator
+allow-list with the read-only audit.
