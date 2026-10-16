@@ -41,6 +41,7 @@ typedef struct { CGFloat x, y, w, h; } ns_rect;
 extern void *dlopen(const char *path, int mode);
 extern void *dlsym(void *handle, const char *sym);
 extern char *getenv(const char *name);
+extern unsigned int sleep(unsigned int seconds);
 
 /* Build identity, injected by build-nsinspect.sh as -DNSINSPECT_BUILD_ID.
  * It is compiled into the image, printed on load and emitted in the capture
@@ -927,7 +928,15 @@ static int full_capture(const char *path) {
 
     if (!g_stage_win) { fmark("stage:windows-skipped", "", ""); }
     /* Pass 1: collect windows, remembering which is primary. */
-    id wlist[256];
+    /* Zero-initialised on purpose: an earlier build left this array as stack
+       garbage, and with an empty window list the primary index fell through
+       to slot 0.  The next message (-contentView) then went to whatever bytes
+       happened to sit there.  A real crash report proves it: EXC_BAD_ACCESS
+       in objc_msgSend, selector "contentView", receiver 0x636570736e69736e,
+       which is the ASCII for "nsinspect" - our own string literal reached as
+       an object.  An empty window list must therefore be a normal, emitted
+       state (null views), never an uninitialised dereference. */
+    id wlist[256] = {0};
     int nw = n < 256 ? n : 256;
     for (int i = 0; i < nw; i++) {
         id (*at)(id, SEL, ns_uint) = (id (*)(id, SEL, ns_uint))fn_msgSend;
@@ -1016,7 +1025,9 @@ static int full_capture(const char *path) {
     else { fmark("stage:menu-skipped", "", ""); emit("null"); }
     emit(",\n");
 
-    id content = send_id(wlist[primary], "contentView");
+    int have_primary = (nw > 0 && primary >= 0 && primary < nw && wlist[primary] != 0);
+    if (!have_primary) fmark("stage:no-primary-window", "", "");
+    id content = have_primary ? send_id(wlist[primary], "contentView") : 0;
     emit("  \"primary_content_view\": ");
     if (g_stage_view && content) { fmark("stage:content-walk-begin", "", ""); walk_view(content, 0); fmark("stage:content-walk-end", "", ""); }
     else if (!g_stage_view) { fmark("stage:content-skipped", "", ""); emit("null"); }
@@ -1320,6 +1331,31 @@ extern id objc_msgSend(id self, SEL op, ...);
 /* Second stage: main thread, invoked from inside the run loop with the app
    fully launched and its windows created.  No NSTimer: the extra hop was the
    only step in the chain that did not fire reliably. */
+/* Delayed capture worker.  Runs on a thread detached AFTER the runtime is
+   fully live (never in the constructor, where thread creation deadlocked).
+   It touches no AppKit state itself: it sleeps, then asks the main thread
+   to run the already-published capture entry point and exits. */
+static void nsinspect_delayThread(id obj, SEL _cmd, id num) {
+    (void)obj; (void)_cmd;
+    int secs = 5;
+    if (num && fn_msgSend) {
+        int (*iv)(id, SEL) = (int (*)(id, SEL))fn_msgSend;
+        secs = iv(num, S("intValue"));
+    }
+    if (secs < 1) secs = 1;
+    if (secs > 300) secs = 300;
+    sleep((unsigned int)secs);
+    fmark("delay-thread: elapsed, posting capture", "", "");
+    Class NSApp = fn_objc_getClass("NSApplication");
+    id app = NSApp ? send_id(NSApp, "sharedApplication") : 0;
+    if (app && fn_msgSend) {
+        void (*post)(id, SEL, SEL, id, signed char) =
+            (void (*)(id, SEL, SEL, id, signed char))fn_msgSend;
+        post(app, S("performSelectorOnMainThread:withObject:waitUntilDone:"),
+             S("nsinspect_captureOnMainThread:"), 0, 0);
+    }
+}
+
 static void nsinspect_capture_on_main(id obj, SEL _cmd, id arg) {
     (void)obj; (void)_cmd; (void)arg;
     nsinspect_banner(NSINSPECT_BUILD_ID);
@@ -1338,12 +1374,53 @@ static void nsinspect_capture_on_main(id obj, SEL _cmd, id arg) {
 static void *g_orig_mkor;
 static int g_capture_done;
 
-static void nsinspect_window_hook(id self, SEL _cmd, int flag) {
-    void (*orig)(id, SEL, int) = (void (*)(id, SEL, int))g_orig_mkor;
-    if (orig) orig(self, _cmd, flag);
+/* Capture on the Nth main run-loop turn.  The run-hook fires before the
+   application has created its document windows, so "capture immediately"
+   can only ever see an empty list or a launch alert.  Counting
+   -nextEventMatchingMask: turns runs entirely on the main thread inside the
+   live loop: when turn N arrives the document window exists (or the alert
+   does, which is itself a fact worth capturing).  NSINSPECT_TURNS=0 keeps
+   the old immediate behaviour. */
+static void *g_orig_nextEvent;
+static int g_event_turns = 0;
+static int g_event_count = 0;
+
+static id nsinspect_nextEvent_hook(id self, SEL _cmd, ns_uint mask, id date, id mode, signed char dq) {
+    id (*orig)(id, SEL, ns_uint, id, id, signed char) =
+        (id (*)(id, SEL, ns_uint, id, id, signed char))g_orig_nextEvent;
+    id ev = orig ? orig(self, _cmd, mask, date, mode, dq) : 0;
+    if (!g_capture_done && g_event_turns > 0) {
+        g_event_count++;
+        if (g_event_count <= 3) fmarku("hook:nextEvent-turn", (unsigned long)g_event_count);
+        if (g_event_count >= g_event_turns) {
+            g_capture_done = 1;
+            nsinspect_banner("event-turn capture point");
+            void (*post)(id, SEL, SEL, id, signed char) =
+                (void (*)(id, SEL, SEL, id, signed char))objc_msgSend;
+            post(self, sel_registerName("performSelectorOnMainThread:withObject:waitUntilDone:"),
+                 sel_registerName("nsinspect_captureOnMainThread:"), 0, 0);
+            fmarku("capture:event-turn", (unsigned long)g_event_count);
+        }
+    }
+    return ev;
+}
+
+static int g_whook_calls = 0;
+static void nsinspect_window_hook(id self, SEL _cmd, id sender) {
+    void (*orig)(id, SEL, id) = (void (*)(id, SEL, id))g_orig_mkor;
+    if (orig) orig(self, _cmd, sender);
+    if (g_whook_calls < 8) {
+        g_whook_calls++;
+        fmark("window-hook-fired", "", "");
+    }
+    /* Post-only: every AppKit query used to live here, and the process died
+       silently inside this hook every time.  Enumerating windows from inside
+       -orderFront: (deep in AppKit layout, possibly re-entrant) is evidently
+       unsafe, while the identical queries from the run-loop entry point work
+       reliably.  So the hook only forwards to the main thread, and the
+       capture itself runs later in the same safe context as always. */
     if (g_capture_done) return;
-    ns_rect fr;
-    if (send_rect_inv(self, "frame", &fr) && fr.w > 1 && fr.h > 1) {
+    {
         g_capture_done = 1;
         nsinspect_banner("window capture point");
         void (*post)(id, SEL, SEL, id, signed char) =
@@ -1362,18 +1439,24 @@ static void nsinspect_run_hook(id self, SEL _cmd) {
         ((void (*)(id, SEL))g_orig_run)(self, _cmd);
         return;
     }
+    if (g_event_turns > 0) {
+        /* The event-turn hook below performs the capture; posting one here
+           as well would capture the pre-window state and mark it done. */
+        nsinspect_banner("run hook: turns mode");
+        ((void (*)(id, SEL))g_orig_run)(self, _cmd);
+        return;
+    }
     /* NSINSPECT_DELAY defers the capture to a later run-loop turn.  The first
        run-loop turn is very early: an application launched with a document can
        still have only an alert in its window list, so "capture later" is a
        real alternative to "capture the wrong window". */
-    int delay = parse_int(getenv("NSINSPECT_DELAY"), 0);
-    if (delay > 0) {
-        void (*after)(id, SEL, SEL, id, double) =
-            (void (*)(id, SEL, SEL, id, double))objc_msgSend;
-        after(self, sel_registerName("performSelector:withObject:afterDelay:"),
-              sel_registerName("nsinspect_captureOnMainThread:"), 0, (double)delay);
-        fmarku("capture:deferred-by-seconds", (unsigned long)delay);
-    } else {
+    /* NSINSPECT_DELAY was removed: both the afterDelay: timer (never fires
+       under a modal alert loop) and the detached-thread replacement (thread
+       creation deadlocks in this environment, constructor or not) were
+       proven unusable.  Late capture now goes through the window-show hooks
+       (NSINSPECT_CAPTURE_POINT=window), which fire exactly when a real
+       window appears and need no timing guess. */
+    {
         void (*post)(id, SEL, SEL, id, signed char) =
             (void (*)(id, SEL, SEL, id, signed char))objc_msgSend;
         post(self, sel_registerName("performSelectorOnMainThread:withObject:waitUntilDone:"),
@@ -1395,18 +1478,41 @@ __attribute__((constructor)) static void nsinspect_init(void) {
     if (NSObject) {
         class_addMethod(NSObject, sel_registerName("nsinspect_captureOnMainThread:"),
                         (void *)nsinspect_capture_on_main, "v@:@");
+        class_addMethod(NSObject, sel_registerName("nsinspect_delayThread:"),
+                        (void *)nsinspect_delayThread, "v@:@");
         nsinspect_banner("callbacks published on NSObject");
     }
+    g_event_turns = parse_int(getenv("NSINSPECT_TURNS"), 0);
+    fmarku("init:turns", (unsigned long)(g_event_turns < 0 ? 0 : g_event_turns));
+    if (g_event_turns > 0) {
+        void *nm = class_getInstanceMethod(NSApp,
+            sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:"));
+        if (nm) {
+            g_orig_nextEvent = method_getImplementation(nm);
+            method_setImplementation(nm, (void *)nsinspect_nextEvent_hook);
+            nsinspect_banner("nextEventMatchingMask: swizzled");
+        } else {
+            nsinspect_banner("no nextEventMatchingMask:");
+        }
+    }
+
     const char *cp = getenv("NSINSPECT_CAPTURE_POINT");
     if (cp && cp[0] == 'w' && cp[1] == 'i') {
+        /* A document window can appear through -orderFront: without ever
+           passing through -makeKeyAndOrderFront:, so both are hooked with
+           the same entry point.  Each takes a single object argument. */
         Class NSWindow = objc_getClass("NSWindow");
-        void *wm = NSWindow ? class_getInstanceMethod(NSWindow, sel_registerName("makeKeyAndOrderFront:")) : 0;
-        if (NSWindow && wm) {
-            g_orig_mkor = method_getImplementation(wm);
-            method_setImplementation(wm, (void *)nsinspect_window_hook);
-            nsinspect_banner("makeKeyAndOrderFront: swizzled");
-        } else {
-            nsinspect_banner("no makeKeyAndOrderFront:");
+        const char *sels[5] = {"orderFront:", "makeKeyAndOrderFront:",
+                               "orderFrontRegardless", "makeKeyWindow", "makeMainWindow"};
+        for (int k = 0; k < 5; k++) {
+            void *wm = NSWindow ? class_getInstanceMethod(NSWindow, sel_registerName(sels[k])) : 0;
+            if (NSWindow && wm) {
+                if (!g_orig_mkor) g_orig_mkor = method_getImplementation(wm);
+                method_setImplementation(wm, (void *)nsinspect_window_hook);
+                nsinspect_banner(sels[k]);
+            } else {
+                fmark("no window-show selector", sels[k], "");
+            }
         }
     }
 

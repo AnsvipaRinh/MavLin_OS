@@ -1,0 +1,2730 @@
+{
+ "schema": "mavlinos.nsinspect/1",
+ "build_id": "8a904458",
+ "kind": "runtime-observed",
+ "mode": "full-capture",
+ "extractor": "nsinspect.c",
+ "source": "live Objective-C objects in the host process",
+ "pid": 347,
+ "depth_max": 32,
+ "view_cap": 4000,
+ "stages": {
+  "win": true,
+  "view": true,
+  "menu": true,
+  "menu_maxdepth": 12
+ },
+ "window_count": 2,
+ "windows": [
+  {
+   "index": 0,
+   "object": "0x7fadf3c0db90",
+   "class": "NSWindow",
+   "superclasses": [
+    "NSResponder",
+    "NSObject"
+   ],
+   "title": "Untitled",
+   "visible": true,
+   "key": false,
+   "main": false,
+   "can_be_key": true,
+   "can_be_main": true,
+   "level": 0,
+   "frame": [
+    133,
+    208,
+    550,
+    468
+   ],
+   "frame_source": "NSInvocation",
+   "is_primary": true
+  },
+  {
+   "index": 1,
+   "object": "0x7fadf3d8cc80",
+   "class": "NSComboBoxWindow",
+   "superclasses": [
+    "NSWindow",
+    "NSResponder",
+    "NSObject"
+   ],
+   "title": "",
+   "visible": false,
+   "key": true,
+   "main": false,
+   "can_be_key": false,
+   "can_be_main": false,
+   "level": 0,
+   "frame": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "frame_source": "NSInvocation",
+   "is_primary": false
+  }
+ ],
+ "primary_window_index": 0,
+ "main_menu": {
+  "object": "0x7fadf3c49ea0",
+  "class": "NSMenu",
+  "title": null,
+  "item_count": 7,
+  "items": [
+   {
+    "object": "0x7fadf3c49cc0",
+    "class": "NSMenuItem",
+    "title": "TextEdit",
+    "enabled": true,
+    "state": 0,
+    "item_count": 11,
+    "items": [
+     {
+      "object": "0x7fadf3d26710",
+      "class": "NSMenuItem",
+      "title": "About TextEdit",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3d26970",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3d26ac0",
+      "class": "NSMenuItem",
+      "title": "Preferences\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3d21810",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3d262f0",
+      "class": "NSMenuItem",
+      "title": "Services",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c06be0",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c06c40",
+      "class": "NSMenuItem",
+      "title": "Hide TextEdit",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c413e0",
+      "class": "NSMenuItem",
+      "title": "Hide Others",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c41440",
+      "class": "NSMenuItem",
+      "title": "Show All",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c414c0",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c41520",
+      "class": "NSMenuItem",
+      "title": "Quit TextEdit",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     }
+    ]
+   },
+   {
+    "object": "0x7fadf3c4a900",
+    "class": "NSMenuItem",
+    "title": "File",
+    "enabled": true,
+    "state": 0,
+    "item_count": 21,
+    "items": [
+     {
+      "object": "0x7fadf3c46920",
+      "class": "NSMenuItem",
+      "title": "New",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c467f0",
+      "class": "NSMenuItem",
+      "title": "Open\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c46ac0",
+      "class": "NSMenuItem",
+      "title": "Open Recent",
+      "enabled": true,
+      "state": 0,
+      "item_count": 1,
+      "items": [
+       {
+        "object": "0x7fadf3c46bb0",
+        "class": "NSMenuItem",
+        "title": "Clear Menu",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       }
+      ]
+     },
+     {
+      "object": "0x7fadf3c46e90",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c46ef0",
+      "class": "NSMenuItem",
+      "title": "Close",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c52140",
+      "class": "NSMenuItem",
+      "title": "Close All",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47070",
+      "class": "NSMenuItem",
+      "title": "Save",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47120",
+      "class": "NSMenuItem",
+      "title": "Save As\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c63950",
+      "class": "NSMenuItem",
+      "title": "Duplicate",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3d3b980",
+      "class": "NSMenuItem",
+      "title": "Rename\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3d3bc20",
+      "class": "NSMenuItem",
+      "title": "Move To\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c471e0",
+      "class": "NSMenuItem",
+      "title": "Save All",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47290",
+      "class": "NSMenuItem",
+      "title": "Revert to Saved",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3d3be60",
+      "class": "NSMenuItem",
+      "title": "Revert To",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47350",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c473b0",
+      "class": "NSMenuItem",
+      "title": "Export as PDF\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47410",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47c90",
+      "class": "NSMenuItem",
+      "title": "Show Properties",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47db0",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47e10",
+      "class": "NSMenuItem",
+      "title": "Page Setup\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47ee0",
+      "class": "NSMenuItem",
+      "title": "Print\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     }
+    ]
+   },
+   {
+    "object": "0x7fadf3c4b270",
+    "class": "NSMenuItem",
+    "title": "Edit",
+    "enabled": true,
+    "state": 0,
+    "item_count": 23,
+    "items": [
+     {
+      "object": "0x7fadf3c41ab0",
+      "class": "NSMenuItem",
+      "title": "Undo",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c41c00",
+      "class": "NSMenuItem",
+      "title": "Redo",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c41c60",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c41ce0",
+      "class": "NSMenuItem",
+      "title": "Cut",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c41dd0",
+      "class": "NSMenuItem",
+      "title": "Copy",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c41e70",
+      "class": "NSMenuItem",
+      "title": "Paste",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c41f10",
+      "class": "NSMenuItem",
+      "title": "Paste and Match Style",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c077c0",
+      "class": "NSMenuItem",
+      "title": "Delete",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c07820",
+      "class": "NSMenuItem",
+      "title": "Complete",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c41940",
+      "class": "NSMenuItem",
+      "title": "Select All",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c110e0",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c11140",
+      "class": "NSMenuItem",
+      "title": "Insert",
+      "enabled": true,
+      "state": 0,
+      "item_count": 3,
+      "items": [
+       {
+        "object": "0x7fadf3c42000",
+        "class": "NSMenuItem",
+        "title": "Line Break",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c42120",
+        "class": "NSMenuItem",
+        "title": "Paragraph Break",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c421f0",
+        "class": "NSMenuItem",
+        "title": "Page Break",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       }
+      ]
+     },
+     {
+      "object": "0x7fadf3c425f0",
+      "class": "NSMenuItem",
+      "title": "Attach Files\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c06eb0",
+      "class": "NSMenuItem",
+      "title": "Link\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c06f40",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c11c90",
+      "class": "NSMenuItem",
+      "title": "Find",
+      "enabled": true,
+      "state": 0,
+      "item_count": 7,
+      "items": [
+       {
+        "object": "0x7fadf3c42740",
+        "class": "NSMenuItem",
+        "title": "Find\u2026",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c42870",
+        "class": "NSMenuItem",
+        "title": "Find and Replace\u2026",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c42980",
+        "class": "NSMenuItem",
+        "title": "Find Next",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c42a00",
+        "class": "NSMenuItem",
+        "title": "Find Previous",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c42a80",
+        "class": "NSMenuItem",
+        "title": "Use Selection for Find",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c42b30",
+        "class": "NSMenuItem",
+        "title": "Jump to Selection",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c42be0",
+        "class": "NSMenuItem",
+        "title": "Select Line...",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       }
+      ]
+     },
+     {
+      "object": "0x7fadf3c430f0",
+      "class": "NSMenuItem",
+      "title": "Spelling and Grammar",
+      "enabled": true,
+      "state": 0,
+      "item_count": 6,
+      "items": [
+       {
+        "object": "0x7fadf3c431e0",
+        "class": "NSMenuItem",
+        "title": "Show Spelling and Grammar",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c43310",
+        "class": "NSMenuItem",
+        "title": "Check Document Now",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c0e6f0",
+        "class": "NSMenuItem",
+        "title": "",
+        "enabled": false,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c0e750",
+        "class": "NSMenuItem",
+        "title": "Check Spelling While Typing",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c43400",
+        "class": "NSMenuItem",
+        "title": "Check Grammar With Spelling",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c434a0",
+        "class": "NSMenuItem",
+        "title": "Correct Spelling Automatically",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       }
+      ]
+     },
+     {
+      "object": "0x7fadf3c438a0",
+      "class": "NSMenuItem",
+      "title": "Substitutions",
+      "enabled": true,
+      "state": 0,
+      "item_count": 8,
+      "items": [
+       {
+        "object": "0x7fadf3c439d0",
+        "class": "NSMenuItem",
+        "title": "Show Substitutions",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c43b00",
+        "class": "NSMenuItem",
+        "title": "",
+        "enabled": false,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c43b60",
+        "class": "NSMenuItem",
+        "title": "Smart Copy/Paste",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c081e0",
+        "class": "NSMenuItem",
+        "title": "Smart Quotes",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c08240",
+        "class": "NSMenuItem",
+        "title": "Smart Dashes",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c43bf0",
+        "class": "NSMenuItem",
+        "title": "Smart Links",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c43d00",
+        "class": "NSMenuItem",
+        "title": "Data Detectors",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c43da0",
+        "class": "NSMenuItem",
+        "title": "Text Replacement",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       }
+      ]
+     },
+     {
+      "object": "0x7fadf3c43e60",
+      "class": "NSMenuItem",
+      "title": "Transformations",
+      "enabled": true,
+      "state": 0,
+      "item_count": 3,
+      "items": [
+       {
+        "object": "0x7fadf3c443c0",
+        "class": "NSMenuItem",
+        "title": "Make Upper Case",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c444f0",
+        "class": "NSMenuItem",
+        "title": "Make Lower Case",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c445c0",
+        "class": "NSMenuItem",
+        "title": "Capitalize",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       }
+      ]
+     },
+     {
+      "object": "0x7fadf3c447a0",
+      "class": "NSMenuItem",
+      "title": "Speech",
+      "enabled": true,
+      "state": 0,
+      "item_count": 2,
+      "items": [
+       {
+        "object": "0x7fadf3c448f0",
+        "class": "NSMenuItem",
+        "title": "Start Speaking",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c44a10",
+        "class": "NSMenuItem",
+        "title": "Stop Speaking",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       }
+      ]
+     },
+     {
+      "object": "0x7fadf3d3c650",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3d3c440",
+      "class": "NSMenuItem",
+      "title": "Start Dictation\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3d3c9f0",
+      "class": "NSMenuItem",
+      "title": "Special Characters\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     }
+    ]
+   },
+   {
+    "object": "0x7fadf3c4bb10",
+    "class": "NSMenuItem",
+    "title": "Format",
+    "enabled": true,
+    "state": 0,
+    "item_count": 11,
+    "items": [
+     {
+      "object": "0x7fadf3c46070",
+      "class": "NSMenuItem",
+      "title": "Font",
+      "enabled": true,
+      "state": 0,
+      "item_count": 19,
+      "items": [
+       {
+        "object": "0x7fadf3c42550",
+        "class": "NSMenuItem",
+        "title": "Show Fonts",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c44700",
+        "class": "NSMenuItem",
+        "title": "Bold",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c44a90",
+        "class": "NSMenuItem",
+        "title": "Italic",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c44af0",
+        "class": "NSMenuItem",
+        "title": "Underline",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c44b50",
+        "class": "NSMenuItem",
+        "title": "Outline",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c44bb0",
+        "class": "NSMenuItem",
+        "title": "Styles...",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c435f0",
+        "class": "NSMenuItem",
+        "title": "",
+        "enabled": false,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c43650",
+        "class": "NSMenuItem",
+        "title": "Bigger",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c43700",
+        "class": "NSMenuItem",
+        "title": "Smaller",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c437b0",
+        "class": "NSMenuItem",
+        "title": "",
+        "enabled": false,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c42ca0",
+        "class": "NSMenuItem",
+        "title": "Kern",
+        "enabled": true,
+        "state": 0,
+        "item_count": 4,
+        "items": [
+         {
+          "object": "0x7fadf3c42dd0",
+          "class": "NSMenuItem",
+          "title": "Use Default",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c42e80",
+          "class": "NSMenuItem",
+          "title": "Use None",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c42f30",
+          "class": "NSMenuItem",
+          "title": "Tighten",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3d269e0",
+          "class": "NSMenuItem",
+          "title": "Loosen",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         }
+        ]
+       },
+       {
+        "object": "0x7fadf3d26c60",
+        "class": "NSMenuItem",
+        "title": "Ligatures",
+        "enabled": true,
+        "state": 0,
+        "item_count": 3,
+        "items": [
+         {
+          "object": "0x7fadf3d26d80",
+          "class": "NSMenuItem",
+          "title": "Use Default",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3d26e00",
+          "class": "NSMenuItem",
+          "title": "Use None",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3d26e80",
+          "class": "NSMenuItem",
+          "title": "Use All",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         }
+        ]
+       },
+       {
+        "object": "0x7fadf3d28980",
+        "class": "NSMenuItem",
+        "title": "Baseline",
+        "enabled": true,
+        "state": 0,
+        "item_count": 5,
+        "items": [
+         {
+          "object": "0x7fadf3d28b20",
+          "class": "NSMenuItem",
+          "title": "Use Default",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c43f10",
+          "class": "NSMenuItem",
+          "title": "Superscript",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c43fc0",
+          "class": "NSMenuItem",
+          "title": "Subscript",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c44070",
+          "class": "NSMenuItem",
+          "title": "Raise",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c44120",
+          "class": "NSMenuItem",
+          "title": "Lower",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         }
+        ]
+       },
+       {
+        "object": "0x7fadf3c44ea0",
+        "class": "NSMenuItem",
+        "title": "Character Shape",
+        "enabled": true,
+        "state": 0,
+        "item_count": 1,
+        "items": [
+         {
+          "object": "0x7fadf3c45000",
+          "class": "NSMenuItem",
+          "title": "Traditional Form",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         }
+        ]
+       },
+       {
+        "object": "0x7fadf3c45170",
+        "class": "NSMenuItem",
+        "title": "",
+        "enabled": false,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c451d0",
+        "class": "NSMenuItem",
+        "title": "Show Colors",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c45300",
+        "class": "NSMenuItem",
+        "title": "",
+        "enabled": false,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c45360",
+        "class": "NSMenuItem",
+        "title": "Copy Style",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c43030",
+        "class": "NSMenuItem",
+        "title": "Paste Style",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       }
+      ]
+     },
+     {
+      "object": "0x7fadf3c46fa0",
+      "class": "NSMenuItem",
+      "title": "Text",
+      "enabled": true,
+      "state": 0,
+      "item_count": 12,
+      "items": [
+       {
+        "object": "0x7fadf3c44dc0",
+        "class": "NSMenuItem",
+        "title": "Align Left",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c44620",
+        "class": "NSMenuItem",
+        "title": "Center",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c45640",
+        "class": "NSMenuItem",
+        "title": "Justify",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c456e0",
+        "class": "NSMenuItem",
+        "title": "Align Right",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c45780",
+        "class": "NSMenuItem",
+        "title": "",
+        "enabled": false,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c457e0",
+        "class": "NSMenuItem",
+        "title": "Writing Direction",
+        "enabled": true,
+        "state": 0,
+        "item_count": 9,
+        "items": [
+         {
+          "object": "0x7fadf3c45870",
+          "class": "NSMenuItem",
+          "title": "Paragraph",
+          "enabled": false,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c459b0",
+          "class": "NSMenuItem",
+          "title": "\tDefault",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c45a70",
+          "class": "NSMenuItem",
+          "title": "\tLeft to Right",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c45b10",
+          "class": "NSMenuItem",
+          "title": "\tRight to Left",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c45bb0",
+          "class": "NSMenuItem",
+          "title": "",
+          "enabled": false,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c45c10",
+          "class": "NSMenuItem",
+          "title": "Selection",
+          "enabled": false,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c45cb0",
+          "class": "NSMenuItem",
+          "title": "\tDefault",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c45d30",
+          "class": "NSMenuItem",
+          "title": "\tLeft to Right",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         },
+         {
+          "object": "0x7fadf3c45d90",
+          "class": "NSMenuItem",
+          "title": "\tRight to Left",
+          "enabled": true,
+          "state": 0,
+          "item_count": 0,
+          "items": []
+         }
+        ]
+       },
+       {
+        "object": "0x7fadf3c45e30",
+        "class": "NSMenuItem",
+        "title": "",
+        "enabled": false,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c46320",
+        "class": "NSMenuItem",
+        "title": "Show Ruler",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c46450",
+        "class": "NSMenuItem",
+        "title": "Copy Ruler",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c46510",
+        "class": "NSMenuItem",
+        "title": "Paste Ruler",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c465b0",
+        "class": "NSMenuItem",
+        "title": "",
+        "enabled": false,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       },
+       {
+        "object": "0x7fadf3c46610",
+        "class": "NSMenuItem",
+        "title": "Spacing...",
+        "enabled": true,
+        "state": 0,
+        "item_count": 0,
+        "items": []
+       }
+      ]
+     },
+     {
+      "object": "0x7fadf3c47610",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c45ee0",
+      "class": "NSMenuItem",
+      "title": "Make Rich Text",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47670",
+      "class": "NSMenuItem",
+      "title": "Prevent Editing",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47790",
+      "class": "NSMenuItem",
+      "title": "Wrap to Page",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47850",
+      "class": "NSMenuItem",
+      "title": "Allow Hyphenation",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47900",
+      "class": "NSMenuItem",
+      "title": "Make Vertical Layout",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c479a0",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47a00",
+      "class": "NSMenuItem",
+      "title": "List\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c47ad0",
+      "class": "NSMenuItem",
+      "title": "Table\u2026",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     }
+    ]
+   },
+   {
+    "object": "0x7fadf3c4bf60",
+    "class": "NSMenuItem",
+    "title": "View",
+    "enabled": true,
+    "state": 0,
+    "item_count": 3,
+    "items": [
+     {
+      "object": "0x7fadf3c49a80",
+      "class": "NSMenuItem",
+      "title": "Actual Size",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c49be0",
+      "class": "NSMenuItem",
+      "title": "Zoom In",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c49d30",
+      "class": "NSMenuItem",
+      "title": "Zoom Out",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     }
+    ]
+   },
+   {
+    "object": "0x7fadf3c4c590",
+    "class": "NSMenuItem",
+    "title": "Window",
+    "enabled": true,
+    "state": 0,
+    "item_count": 6,
+    "items": [
+     {
+      "object": "0x7fadf3c48620",
+      "class": "NSMenuItem",
+      "title": "Minimize",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c48770",
+      "class": "NSMenuItem",
+      "title": "Zoom",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c487d0",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3c484f0",
+      "class": "NSMenuItem",
+      "title": "Bring All to Front",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3cb5eb0",
+      "class": "NSMenuItem",
+      "title": "",
+      "enabled": false,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     },
+     {
+      "object": "0x7fadf3cb5160",
+      "class": "NSMenuItem",
+      "title": "Untitled",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     }
+    ]
+   },
+   {
+    "object": "0x7fadf3c4c820",
+    "class": "NSMenuItem",
+    "title": "Help",
+    "enabled": true,
+    "state": 0,
+    "item_count": 1,
+    "items": [
+     {
+      "object": "0x7fadf3c48ce0",
+      "class": "NSMenuItem",
+      "title": "TextEdit Help",
+      "enabled": true,
+      "state": 0,
+      "item_count": 0,
+      "items": []
+     }
+    ]
+   }
+  ]
+ },
+ "primary_content_view": {
+  "object": "0x7fadf3c7d020",
+  "class": "NSView",
+  "superclasses": [
+   "NSResponder",
+   "NSObject"
+  ],
+  "depth": 0,
+  "frame": [
+   0,
+   0,
+   550,
+   420
+  ],
+  "frame_source": "NSInvocation",
+  "bounds": [
+   0,
+   0,
+   550,
+   420
+  ],
+  "hidden": false,
+  "alpha": 1,
+  "autoresizing": 0,
+  "tag": 18446744073709551615,
+  "superview": "0x7fadf3d28310",
+  "subview_count": 1,
+  "subviews": [
+   {
+    "object": "0x7fadf3c7d810",
+    "class": "NSKVONotifying_ScalingScrollView",
+    "superclasses": [
+     "ScalingScrollView",
+     "NSScrollView",
+     "NSView",
+     "NSResponder",
+     "NSObject"
+    ],
+    "depth": 1,
+    "frame": [
+     0,
+     0,
+     550,
+     420
+    ],
+    "frame_source": "NSInvocation",
+    "bounds": [
+     0,
+     0,
+     550,
+     420
+    ],
+    "hidden": false,
+    "alpha": 1,
+    "autoresizing": 18,
+    "tag": 18446744073709551615,
+    "superview": "0x7fadf3c7d020",
+    "subview_count": 3,
+    "subviews": [
+     {
+      "object": "0x7fadf3c7e720",
+      "class": "NSClipView",
+      "superclasses": [
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       0,
+       0,
+       550,
+       420
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       550,
+       420
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 0,
+      "tag": 18446744073709551615,
+      "superview": "0x7fadf3c7d810",
+      "subview_count": 3,
+      "subviews": [
+       {
+        "object": "0x7fadf3d64a80",
+        "class": "_NSClipViewOverhangView",
+        "superclasses": [
+         "NSView",
+         "NSResponder",
+         "NSObject"
+        ],
+        "depth": 3,
+        "frame": [
+         0,
+         420,
+         550,
+         256
+        ],
+        "frame_source": "NSInvocation",
+        "bounds": [
+         0,
+         0,
+         550,
+         256
+        ],
+        "hidden": false,
+        "alpha": 1,
+        "autoresizing": 0,
+        "tag": 18446744073709551615,
+        "superview": "0x7fadf3c7e720",
+        "subview_count": 0,
+        "subviews": []
+       },
+       {
+        "object": "0x7fadf3d50990",
+        "class": "_NSClipViewOverhangView",
+        "superclasses": [
+         "NSView",
+         "NSResponder",
+         "NSObject"
+        ],
+        "depth": 3,
+        "frame": [
+         0,
+         -256,
+         550,
+         256
+        ],
+        "frame_source": "NSInvocation",
+        "bounds": [
+         0,
+         0,
+         550,
+         256
+        ],
+        "hidden": false,
+        "alpha": 1,
+        "autoresizing": 0,
+        "tag": 18446744073709551615,
+        "superview": "0x7fadf3c7e720",
+        "subview_count": 0,
+        "subviews": []
+       },
+       {
+        "object": "0x7fadf3c861a0",
+        "class": "NSKVONotifying_NSTextView",
+        "superclasses": [
+         "NSTextView",
+         "NSText",
+         "NSView",
+         "NSResponder",
+         "NSObject"
+        ],
+        "depth": 3,
+        "frame": [
+         0,
+         0,
+         550,
+         420
+        ],
+        "frame_source": "NSInvocation",
+        "bounds": [
+         0,
+         0,
+         550,
+         420
+        ],
+        "hidden": false,
+        "alpha": 1,
+        "autoresizing": 2,
+        "tag": 18446744073709551615,
+        "superview": "0x7fadf3c7e720",
+        "subview_count": 0,
+        "text_value": "",
+        "text_truncated": false,
+        "subviews": []
+       }
+      ]
+     },
+     {
+      "object": "0x7fadf3c7f310",
+      "class": "NSKVONotifying_NSScroller",
+      "superclasses": [
+       "NSScroller",
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       534,
+       0,
+       16,
+       420
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       16,
+       420
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 0,
+      "tag": 0,
+      "superview": "0x7fadf3c7d810",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": false,
+      "cell": null,
+      "target": "NSKVONotifying_ScalingScrollView",
+      "action": "_doScroller:",
+      "subviews": []
+     },
+     {
+      "object": "0x7fadf3c84100",
+      "class": "NSScroller",
+      "superclasses": [
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       0,
+       404,
+       550,
+       16
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       550,
+       16
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 0,
+      "tag": 0,
+      "superview": "0x7fadf3c7d810",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": false,
+      "cell": null,
+      "target": "NSKVONotifying_ScalingScrollView",
+      "action": "_doScroller:",
+      "subviews": []
+     }
+    ]
+   }
+  ]
+ },
+ "views_visited": 8,
+ "controls_found": 2,
+ "primary_frame_view": {
+  "object": "0x7fadf3d28310",
+  "class": "NSThemeFrame",
+  "superclasses": [
+   "NSTitledFrame",
+   "NSFrameView",
+   "NSView",
+   "NSResponder",
+   "NSObject"
+  ],
+  "depth": 0,
+  "frame": [
+   0,
+   0,
+   550,
+   468
+  ],
+  "frame_source": "NSInvocation",
+  "bounds": [
+   0,
+   0,
+   550,
+   468
+  ],
+  "hidden": false,
+  "alpha": 1,
+  "autoresizing": 0,
+  "tag": 18446744073709551615,
+  "superview": "0x0",
+  "subview_count": 6,
+  "subviews": [
+   {
+    "object": "0x7fadf3d012a0",
+    "class": "_NSThemeCloseWidget",
+    "superclasses": [
+     "_NSThemeWidget",
+     "NSButton",
+     "NSControl",
+     "NSView",
+     "NSResponder",
+     "NSObject"
+    ],
+    "depth": 1,
+    "frame": [
+     7,
+     449,
+     14,
+     16
+    ],
+    "frame_source": "NSInvocation",
+    "bounds": [
+     0,
+     0,
+     14,
+     16
+    ],
+    "hidden": false,
+    "alpha": 1,
+    "autoresizing": 0,
+    "tag": 0,
+    "superview": "0x7fadf3d28310",
+    "subview_count": 0,
+    "kind": "NSControl",
+    "enabled": true,
+    "cell": "0x7fadf3d4c940",
+    "cell_class": "_NSThemeCloseWidgetCell",
+    "cell_control_size": 0,
+    "target": "NSWindow",
+    "action": "_close:",
+    "subviews": []
+   },
+   {
+    "object": "0x7fadf3c7f580",
+    "class": "_NSThemeWidget",
+    "superclasses": [
+     "NSButton",
+     "NSControl",
+     "NSView",
+     "NSResponder",
+     "NSObject"
+    ],
+    "depth": 1,
+    "frame": [
+     47,
+     449,
+     14,
+     16
+    ],
+    "frame_source": "NSInvocation",
+    "bounds": [
+     0,
+     0,
+     14,
+     16
+    ],
+    "hidden": false,
+    "alpha": 1,
+    "autoresizing": 0,
+    "tag": 2,
+    "superview": "0x7fadf3d28310",
+    "subview_count": 0,
+    "kind": "NSControl",
+    "enabled": true,
+    "cell": "0x7fadf3c83690",
+    "cell_class": "_NSThemeWidgetCell",
+    "cell_control_size": 0,
+    "target": "NSWindow",
+    "action": "_setNeedsZoom:",
+    "subviews": []
+   },
+   {
+    "object": "0x7fadf3c86d20",
+    "class": "_NSThemeWidget",
+    "superclasses": [
+     "NSButton",
+     "NSControl",
+     "NSView",
+     "NSResponder",
+     "NSObject"
+    ],
+    "depth": 1,
+    "frame": [
+     27,
+     449,
+     14,
+     16
+    ],
+    "frame_source": "NSInvocation",
+    "bounds": [
+     0,
+     0,
+     14,
+     16
+    ],
+    "hidden": false,
+    "alpha": 1,
+    "autoresizing": 0,
+    "tag": 1,
+    "superview": "0x7fadf3d28310",
+    "subview_count": 0,
+    "kind": "NSControl",
+    "enabled": true,
+    "cell": "0x7fadf3c83720",
+    "cell_class": "_NSThemeWidgetCell",
+    "cell_control_size": 0,
+    "target": "NSWindow",
+    "action": "miniaturize:",
+    "subviews": []
+   },
+   {
+    "object": "0x7fadf3c7d020",
+    "class": "NSView",
+    "superclasses": [
+     "NSResponder",
+     "NSObject"
+    ],
+    "depth": 1,
+    "frame": [
+     0,
+     0,
+     550,
+     420
+    ],
+    "frame_source": "NSInvocation",
+    "bounds": [
+     0,
+     0,
+     550,
+     420
+    ],
+    "hidden": false,
+    "alpha": 1,
+    "autoresizing": 0,
+    "tag": 18446744073709551615,
+    "superview": "0x7fadf3d28310",
+    "subview_count": 1,
+    "subviews": [
+     {
+      "object": "0x7fadf3c7d810",
+      "class": "NSKVONotifying_ScalingScrollView",
+      "superclasses": [
+       "ScalingScrollView",
+       "NSScrollView",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       0,
+       0,
+       550,
+       420
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       550,
+       420
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 18,
+      "tag": 18446744073709551615,
+      "superview": "0x7fadf3c7d020",
+      "subview_count": 3,
+      "subviews": [
+       {
+        "object": "0x7fadf3c7e720",
+        "class": "NSClipView",
+        "superclasses": [
+         "NSView",
+         "NSResponder",
+         "NSObject"
+        ],
+        "depth": 3,
+        "frame": [
+         0,
+         0,
+         550,
+         420
+        ],
+        "frame_source": "NSInvocation",
+        "bounds": [
+         0,
+         0,
+         550,
+         420
+        ],
+        "hidden": false,
+        "alpha": 1,
+        "autoresizing": 0,
+        "tag": 18446744073709551615,
+        "superview": "0x7fadf3c7d810",
+        "subview_count": 3,
+        "subviews": [
+         {
+          "object": "0x7fadf3d64a80",
+          "class": "_NSClipViewOverhangView",
+          "superclasses": [
+           "NSView",
+           "NSResponder",
+           "NSObject"
+          ],
+          "depth": 4,
+          "frame": [
+           0,
+           420,
+           550,
+           256
+          ],
+          "frame_source": "NSInvocation",
+          "bounds": [
+           0,
+           0,
+           550,
+           256
+          ],
+          "hidden": false,
+          "alpha": 1,
+          "autoresizing": 0,
+          "tag": 18446744073709551615,
+          "superview": "0x7fadf3c7e720",
+          "subview_count": 0,
+          "subviews": []
+         },
+         {
+          "object": "0x7fadf3d50990",
+          "class": "_NSClipViewOverhangView",
+          "superclasses": [
+           "NSView",
+           "NSResponder",
+           "NSObject"
+          ],
+          "depth": 4,
+          "frame": [
+           0,
+           -256,
+           550,
+           256
+          ],
+          "frame_source": "NSInvocation",
+          "bounds": [
+           0,
+           0,
+           550,
+           256
+          ],
+          "hidden": false,
+          "alpha": 1,
+          "autoresizing": 0,
+          "tag": 18446744073709551615,
+          "superview": "0x7fadf3c7e720",
+          "subview_count": 0,
+          "subviews": []
+         },
+         {
+          "object": "0x7fadf3c861a0",
+          "class": "NSKVONotifying_NSTextView",
+          "superclasses": [
+           "NSTextView",
+           "NSText",
+           "NSView",
+           "NSResponder",
+           "NSObject"
+          ],
+          "depth": 4,
+          "frame": [
+           0,
+           0,
+           550,
+           420
+          ],
+          "frame_source": "NSInvocation",
+          "bounds": [
+           0,
+           0,
+           550,
+           420
+          ],
+          "hidden": false,
+          "alpha": 1,
+          "autoresizing": 2,
+          "tag": 18446744073709551615,
+          "superview": "0x7fadf3c7e720",
+          "subview_count": 0,
+          "text_value": "",
+          "text_truncated": false,
+          "subviews": []
+         }
+        ]
+       },
+       {
+        "object": "0x7fadf3c7f310",
+        "class": "NSKVONotifying_NSScroller",
+        "superclasses": [
+         "NSScroller",
+         "NSControl",
+         "NSView",
+         "NSResponder",
+         "NSObject"
+        ],
+        "depth": 3,
+        "frame": [
+         534,
+         0,
+         16,
+         420
+        ],
+        "frame_source": "NSInvocation",
+        "bounds": [
+         0,
+         0,
+         16,
+         420
+        ],
+        "hidden": false,
+        "alpha": 1,
+        "autoresizing": 0,
+        "tag": 0,
+        "superview": "0x7fadf3c7d810",
+        "subview_count": 0,
+        "kind": "NSControl",
+        "enabled": false,
+        "cell": null,
+        "target": "NSKVONotifying_ScalingScrollView",
+        "action": "_doScroller:",
+        "subviews": []
+       },
+       {
+        "object": "0x7fadf3c84100",
+        "class": "NSScroller",
+        "superclasses": [
+         "NSControl",
+         "NSView",
+         "NSResponder",
+         "NSObject"
+        ],
+        "depth": 3,
+        "frame": [
+         0,
+         404,
+         550,
+         16
+        ],
+        "frame_source": "NSInvocation",
+        "bounds": [
+         0,
+         0,
+         550,
+         16
+        ],
+        "hidden": false,
+        "alpha": 1,
+        "autoresizing": 0,
+        "tag": 0,
+        "superview": "0x7fadf3c7d810",
+        "subview_count": 0,
+        "kind": "NSControl",
+        "enabled": false,
+        "cell": null,
+        "target": "NSKVONotifying_ScalingScrollView",
+        "action": "_doScroller:",
+        "subviews": []
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "object": "0x7fadf3d506b0",
+    "class": "NSKVONotifying_NSThemeAutosaveButton",
+    "superclasses": [
+     "NSThemeAutosaveButton",
+     "NSButton",
+     "NSControl",
+     "NSView",
+     "NSResponder",
+     "NSObject"
+    ],
+    "depth": 1,
+    "frame": [
+     302,
+     449,
+     9,
+     17
+    ],
+    "frame_source": "NSInvocation",
+    "bounds": [
+     0,
+     0,
+     9,
+     17
+    ],
+    "hidden": false,
+    "alpha": 1,
+    "autoresizing": 0,
+    "tag": 6,
+    "superview": "0x7fadf3d28310",
+    "subview_count": 0,
+    "kind": "NSControl",
+    "enabled": true,
+    "cell": "0x7fadf3d1ce80",
+    "cell_class": "NSThemeAutosaveButtonCell",
+    "cell_control_size": 0,
+    "target": "NSWindow",
+    "action": null,
+    "subviews": []
+   },
+   {
+    "object": "0x7fadf3c93d70",
+    "class": "__NSInspectorBarView",
+    "superclasses": [
+     "NSView",
+     "NSResponder",
+     "NSObject"
+    ],
+    "depth": 1,
+    "frame": [
+     0,
+     420,
+     550,
+     26
+    ],
+    "frame_source": "NSInvocation",
+    "bounds": [
+     0,
+     0,
+     550,
+     26
+    ],
+    "hidden": false,
+    "alpha": 1,
+    "autoresizing": 10,
+    "tag": 18446744073709551615,
+    "superview": "0x7fadf3d28310",
+    "subview_count": 10,
+    "subviews": [
+     {
+      "object": "0x7fadf3c95f70",
+      "class": "NSPopUpButton",
+      "superclasses": [
+       "NSButton",
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       4,
+       1,
+       26,
+       25
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       26,
+       25
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 12,
+      "tag": 43,
+      "superview": "0x7fadf3c93d70",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": true,
+      "cell": "0x7fadf3c966e0",
+      "cell_class": "__NSTexturedPopUpButtonCell",
+      "cell_control_size": 2,
+      "target": "__NSInspectorBarItemController",
+      "action": "_stylePopupAction:",
+      "subviews": []
+     },
+     {
+      "object": "0x7fadf3c93e10",
+      "class": "NSPopUpButton",
+      "superclasses": [
+       "NSButton",
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       36,
+       1,
+       99,
+       25
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       99,
+       25
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 12,
+      "tag": 43,
+      "superview": "0x7fadf3c93d70",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": true,
+      "cell": "0x7fadf3c95ac0",
+      "cell_class": "__NSTexturedPopUpButtonCell",
+      "cell_control_size": 2,
+      "target": "__NSInspectorBarItemController",
+      "action": "_fontPopupAction:",
+      "subviews": []
+     },
+     {
+      "object": "0x7fadf3c86840",
+      "class": "NSPopUpButton",
+      "superclasses": [
+       "NSButton",
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       137,
+       1,
+       79,
+       25
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       79,
+       25
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 12,
+      "tag": 43,
+      "superview": "0x7fadf3c93d70",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": true,
+      "cell": "0x7fadf3c94280",
+      "cell_class": "__NSTexturedPopUpButtonCell",
+      "cell_control_size": 2,
+      "target": "__NSInspectorBarItemController",
+      "action": "_fontPopupAction:",
+      "subviews": []
+     },
+     {
+      "object": "0x7fadf3d89190",
+      "class": "NSTexturedComboBox",
+      "superclasses": [
+       "NSComboBox",
+       "NSTextField",
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       218,
+       3,
+       45,
+       19
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       45,
+       19
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 12,
+      "tag": 0,
+      "superview": "0x7fadf3c93d70",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": true,
+      "cell": "0x7fadf3d89c10",
+      "cell_class": "NSTexturedComboBoxCell",
+      "cell_control_size": 2,
+      "target": "__NSInspectorBarItemController",
+      "action": "_fontSizeAction:",
+      "text_value": "12",
+      "text_truncated": false,
+      "subviews": []
+     },
+     {
+      "object": "0x7fadf3d86710",
+      "class": "NSPopoverColorWell",
+      "superclasses": [
+       "NSColorWell",
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       269,
+       5,
+       23,
+       16
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       23,
+       16
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 12,
+      "tag": 0,
+      "superview": "0x7fadf3c93d70",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": true,
+      "cell": null,
+      "target": "__NSInspectorBarItemController",
+      "action": "_colorAction:",
+      "subviews": []
+     },
+     {
+      "object": "0x7fadf3d85710",
+      "class": "NSPopoverColorWell",
+      "superclasses": [
+       "NSColorWell",
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       294,
+       5,
+       23,
+       16
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       23,
+       16
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 12,
+      "tag": 0,
+      "superview": "0x7fadf3c93d70",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": true,
+      "cell": null,
+      "target": "__NSInspectorBarItemController",
+      "action": "_colorAction:",
+      "subviews": []
+     },
+     {
+      "object": "0x7fadf3d85ea0",
+      "class": "NSSegmentedControl",
+      "superclasses": [
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       323,
+       5,
+       58,
+       17
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       58,
+       17
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 12,
+      "tag": 0,
+      "superview": "0x7fadf3c93d70",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": true,
+      "cell": "0x7fadf3d7b130",
+      "cell_class": "NSSegmentedCell",
+      "cell_control_size": 2,
+      "target": "__NSInspectorBarItemController",
+      "action": "_fontStyleAction:",
+      "subviews": []
+     },
+     {
+      "object": "0x7fadf3d78dd0",
+      "class": "NSSegmentedControl",
+      "superclasses": [
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       387,
+       5,
+       77,
+       17
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       77,
+       17
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 12,
+      "tag": 0,
+      "superview": "0x7fadf3c93d70",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": true,
+      "cell": "0x7fadf3c97100",
+      "cell_class": "NSSegmentedCell",
+      "cell_control_size": 2,
+      "target": "__NSInspectorBarItemController",
+      "action": "_alignmentAction:",
+      "subviews": []
+     },
+     {
+      "object": "0x7fadf3d86a00",
+      "class": "NSPopUpButton",
+      "superclasses": [
+       "NSButton",
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       470,
+       1,
+       38,
+       25
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       38,
+       25
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 0,
+      "tag": 44,
+      "superview": "0x7fadf3c93d70",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": true,
+      "cell": "0x7fadf3d886e0",
+      "cell_class": "__NSTexturedPopUpButtonCell",
+      "cell_control_size": 2,
+      "target": "__NSInspectorBarItemController",
+      "action": "_lineSpacingAction:",
+      "subviews": []
+     },
+     {
+      "object": "0x7fadf3d86cd0",
+      "class": "NSPopUpButton",
+      "superclasses": [
+       "NSButton",
+       "NSControl",
+       "NSView",
+       "NSResponder",
+       "NSObject"
+      ],
+      "depth": 2,
+      "frame": [
+       510,
+       1,
+       36,
+       25
+      ],
+      "frame_source": "NSInvocation",
+      "bounds": [
+       0,
+       0,
+       36,
+       25
+      ],
+      "hidden": false,
+      "alpha": 1,
+      "autoresizing": 0,
+      "tag": 45,
+      "superview": "0x7fadf3c93d70",
+      "subview_count": 0,
+      "kind": "NSControl",
+      "enabled": true,
+      "cell": "0x7fadf3d870b0",
+      "cell_class": "__NSTexturedPopUpButtonCell",
+      "cell_control_size": 2,
+      "target": "__NSInspectorBarItemController",
+      "action": "_listAction:",
+      "subviews": []
+     }
+    ]
+   }
+  ]
+ },
+ "frame_view_views": 24,
+ "frame_view_controls": 16,
+ "frame_view_total_views": 32,
+ "status": "ok"
+}

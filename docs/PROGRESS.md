@@ -1412,3 +1412,15 @@ and has a working compiler as its first consumer. Next: curated
   auto-login setup and finally `mvprobe-tool` over SSH inside the Aqua session.
 - Until that works, every runtime-only measurement stays a gap in
   `docs/NEEDS_HARDWARE_TEST.md`; no static value is promoted to "measured".
+
+## Session 2026-10-16 — TextEdit document-window runtime extraction (opencode-ui-runtime-guest)
+
+**Zone:** `tools/uiref/nsinspect.c`, `tools/uiref/build-nsinspect.sh`, `tools/uiref/vm-share.sh`, `tests/uiref/test_nsinspect.py`, `docs/UI_REFERENCE/runtime/raw/textedit-doc/`, `docs/UI_REFERENCE/runtime/raw/matrix/`, `.agents/claims/20261013-opencode-ui-runtime-guest.md`. Guest: OS X 10.9 (13A603), TextEdit 1.9, Calculator — all runtime-observed, no X11 here.
+
+**Delivered:** TextEdit document window captured in 3 required states with build `8a904458` (content-sha-derived build id, guest-verified per run): blank `Untitled` `[133,208,550,468]` (8 content views), disposable `te.txt` `[133,264,640,412]` (NSTextView carries the sample text), blank repeat byte-identical in structure to blank. Frame tree holds `NSThemeFrame` + traffic lights + autosave button + `__NSInspectorBarView` toolbar (popups, size combo reading `12`, 2 color wells, 2 segmented controls); text-doc frame adds `NSThemeDocumentButton` and correctly has no inspector bar (plain-text mode). Calculator regression passes (`status=ok`, 4 windows, content+frame+menu, alive). Evidence: `docs/UI_REFERENCE/runtime/raw/textedit-doc/` (3 JSON+log pairs, calc regression, result tables, raw segfault crash log, REPORT.md).
+
+**Root-caused and fixed:** segfault on empty window list — crash log proves `-[garbage contentView]` with receiver = our own `"nsinspect"` string from uninitialised `wlist[256]` (now zero-initialised + guarded; 0 crashes in 5 runs since). In-hook AppKit enumeration kills the process silently — hooks are post-only forwarders now. Dead mechanisms documented, not claimed: `afterDelay:` timers, detached-thread delays, `nextEvent`-turn counting, `makeKeyAndOrderFront:`-only hook. SIGTERM re-poisons the restoration alert — runners quit via AppleScript (verified clean). Sandboxed CLI file args read as "no permission" — doc lives in the app container (test input, not prefs). `fopen` NULL under injection stands — stderr mirror is the evidence channel. Ruler (`NSRulerView`) runtime hierarchy still unmeasured (not enabled in captured state).
+
+**Recovery:** host reboot hit mid-milestone (QEMU down, /tmp wiped). Relaunched via `run-installed.sh` (single instance verified), harness rebuilt on persistent paths only (`vmwork/mvvm.py`, `mvclick.py`, `vmwork/opencode/qmp.py` — no /tmp dependencies). Calibrated `mvclick.py` fixed chronic ±30px click misses; QEMU HMP accepts no Command modifier (`invalid parameter`), so keyboard app-switching is impossible here. Backup `mavericks-hdd.raw.backup-2026-10-15` intact throughout; no TCC/prefs/saved-state/VM-config changes.
+
+**Verification:** `tests/uiref/test_nsinspect.py` OK; `tools/lint-tests.py` 0 errors; `bash -n` on both shell tools OK.

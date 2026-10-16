@@ -1,0 +1,6 @@
+RUN build=8a904458
+DEPLOY-OK build=8a904458
+i1_blank doc= quit=cleanquit alive=dead idhits=3 begin=1 end=1 log=   48107
+i2_text doc=/Users/builder/Library/Containers/com.apple.TextEdit/Data/Documents/te.txt quit=cleanquit alive=dead idhits=3 begin=1 end=1 log=   42574
+i3_blank_rep doc= quit=cleanquit alive=dead idhits=3 begin=1 end=1 log=   48107
+RUN-DONE
