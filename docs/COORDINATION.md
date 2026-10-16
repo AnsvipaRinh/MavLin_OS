@@ -61,3 +61,19 @@
 - на PR оставляет один обновляемый комментарий, в остальных случаях пишет в Step Summary.
 
 Это сигнал, а не запрет: ветку `main` он не защищает. Для жёсткой защиты владельцу нужно включить Branch protection (Settings → Branches).
+
+## 6. REA — штатный инструмент статического реверса (2026-10-16)
+
+Перед написанием своего парсера/анализатора native-бинарников сначала
+используй REA (`rea` в PATH, установка в
+`/home/builder/.local/npm-global/lib/node_modules/rea-agents/`).
+Полная инструкция: `docs/UI_REFERENCE/rea-toolchain.md`.
+
+- NIB/архивы/бандлы: `rea decode-interface-builder`, `inspect-keyed-archive`,
+  `inspect-artifact` — работают без дизассемблера, с provenance.
+- Mach-O/дизассемблирование/диспетчер ObjC/trace native: требуют
+  Hopper/Ghidra/IDA — их нет; используй `tools/uiref/machobjc.py` и
+  `nsinspect`, не пиши свой дизассемблер.
+- Живой AppKit (окна/вью/меню): только `nsinspect` — у REA нет эквивалента.
+- Каждую находку фиксируй с SHA256 бинарника, версией REA, провайдером и
+  связью с runtime/NIB-наблюдением; статику в runtime-факты не повышать.

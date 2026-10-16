@@ -1424,3 +1424,15 @@ and has a working compiler as its first consumer. Next: curated
 **Recovery:** host reboot hit mid-milestone (QEMU down, /tmp wiped). Relaunched via `run-installed.sh` (single instance verified), harness rebuilt on persistent paths only (`vmwork/mvvm.py`, `mvclick.py`, `vmwork/opencode/qmp.py` — no /tmp dependencies). Calibrated `mvclick.py` fixed chronic ±30px click misses; QEMU HMP accepts no Command modifier (`invalid parameter`), so keyboard app-switching is impossible here. Backup `mavericks-hdd.raw.backup-2026-10-15` intact throughout; no TCC/prefs/saved-state/VM-config changes.
 
 **Verification:** `tests/uiref/test_nsinspect.py` OK; `tools/lint-tests.py` 0 errors; `bash -n` on both shell tools OK.
+
+## Session 2026-10-16 — REA as primary RE toolchain + TextEdit/Calculator findings (opencode-ui-runtime-guest)
+
+**Zone:** `docs/UI_REFERENCE/rea-toolchain.md`, `docs/UI_REFERENCE/rea-findings.md`, `docs/UI_REFERENCE/runtime/raw/rea/`, `tests/uiref/test_rea_evidence.py`, `docs/COORDINATION.md` (§6). REA `rea-agents@6.4.0` (morluto/rea, MIT) at `/home/builder/.local/npm-global/`.
+
+**Adopted:** REA is the default first instrument for static RE. Verified by execution: `decode-interface-builder` decoded TextEdit (8 NIBs, 108 selectors) and Calculator (4+ main NIBs, 52 selectors) with full provenance — no provider needed. Blocked with exact reasons: native decompile/dispatch/xrefs/trace need Hopper/Ghidra/IDA (none installed); `inspect-macho`/`inspect-plist` need macOS utils; `inspect-binary-layout` wants pwntools-ELF; `--max-documents` server-capped at 64 (minimal-bundle workaround documented). Ghidra path specified (12.1.x + compatible JDK 17–21; only JDK 27 present — not attempted).
+
+**Findings (NIB[REA] × runtime[nsinspect], neither side promoted):** TextEdit toolbar/ruler are code-constructed — absent from all NIBs, so `nsinspect` is the only observation path (machine-checked in tests). Menu→selector joins: `Show Ruler`→`toggleRuler:`, `Make Rich Text`→`toggleRich:`, ruler clipboard, font/writing-direction/spelling/panel families. Calculator NIB inventory (52 selectors incl. `digit:`, `enter:`, `handleOperatorPress:` family; 163 NSButtons, 636 target_action edges) exceeds the 7 runtime-visible actions — behaviour-space definition for future mode coverage. Blank vs text-doc diff is Window-menu entries only. Calculator unnamed NSPanel: no NIB definition, alert-slot geometry, transient-system verdict, no further effort.
+
+**Tool audit:** retain `nsinspect`, `mvprobe`, `machobjc.py`/`objc_index.py` (no REA equivalent here); NIB-decoding stages of `extract_nibs.py`/`nib_geometry.py` superseded by REA; no new custom static parsers until REA+existing tools prove insufficient.
+
+**Verification:** `tests/uiref/test_rea_evidence.py` 24 checks pass (provenance, sha256, selector joins, NIB-absence of code-built classes); `tools/lint-tests.py` 0 errors (163 files); existing suites untouched.
