@@ -2088,3 +2088,27 @@ evidence; a wrong class name is worse than an explicit gap, because downstream
 mapping work would silently inherit it. The unresolved list is therefore a
 first-class output of the extractor (`name_source`), covered by
 `tests/uiref/test_objc_classnames.py` so the regression cannot come back.
+
+## 2026-10-16 — Private repo is not the archival target yet; archive by non-destructive branch
+
+Storage audit established the repository topology:
+
+| Remote | URL | Visibility | State |
+|---|---|---|---|
+| `origin` | `AnsvipaRinh/MavLin_OS` | **PUBLIC** | 1468 commits, all real research |
+| `private` | `AnsvipaRinh/MavlinOS` | **PRIVATE** | 1 commit `29894ce9` "Add initial MavlinOS project overview" |
+
+The two histories are unrelated (`MavlinOS/main` is not an ancestor of local
+`main`, and local `main` is 1468 commits ahead of it). The owner directive names
+`AnsvipaRinh/MavlinOS` as the archival destination, so the full local history was
+pushed there as branch `import/history-from-mavlin_os` (`c7408d5d`), which is
+additive and rewrites nothing. `MavlinOS/main` was deliberately **not** force-
+pushed or fast-forwarded: deciding whether the stub overview commit should be
+merged into the research history, or replaced by it, changes the canonical
+repository layout and is an owner decision.
+
+Consequence recorded for the owner: the reverse-engineering evidence (including
+`docs/UI_REFERENCE/runtime/raw/native/*.json` and the REA NIB graphs) is
+currently present in the **public** `MavLin_OS` repository, because that is where
+the history lives. It cannot be removed from there without rewriting published
+history, which is forbidden, so this is flagged rather than acted upon.

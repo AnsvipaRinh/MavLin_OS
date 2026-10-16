@@ -1558,3 +1558,33 @@ the naming gap is per-binary, not a 10.9-wide or tool-wide problem.
 System Preferences structure visible already: host app owns toolbar + flipped
 container, each pane is an `NSPrefPaneGroup` in a draggable outline, 34
 `.prefPane` bundles system-wide.
+
+### 2026-10-16 — Storage audit, archival to the private repository, safe cleanup
+
+Audit premise corrected: the host has **563 GB free of 1007 GB** (42% used), not
+8.5 GB. `vmwork` is 351 GB, but only **591 MB** of it is research data; the bulk
+is the installation chain (`mavericks-install.raw` 282 GB, `installer.raw` 18 GB,
+`payload.img` 6.9 GB, `payload.sqfs` 3.2 GB, `dl/MavericksDVD.dmg` 5.3 GB) plus
+the protected guest disk (9.4 GB) and its backup (8.3 GB). No space pressure
+exists, so no protected data was touched.
+
+Archival: full local history pushed to the **private** `AnsvipaRinh/MavlinOS` as
+branch `import/history-from-mavlin_os` at `c7408d5d`, matching local `HEAD`
+exactly. The private `main` is an unrelated single-commit stub; making the
+research history canonical there is left as an owner decision (see DECISIONS.md).
+
+Cleanup (quarantine first, verified, then removed): `hfstest-gpt.img` 2.1 GB
+failed mount experiment, and `finder_v2.json` + `objc_meta_finder.json` 52 MB
+superseded duplicates — the latter confirmed byte-identical to the committed
+`finder-objc-metadata.json` (sha256 prefix `2c98658648892374`) before deletion.
+
+Retained: all Ghidra projects, all extracted bundles, the 34 `.prefPane`
+extraction, Mach-O slices and REA outputs needed by the active System
+Preferences / Dock work; all installation media and disk images as protected.
+
+Tests after cleanup: `test_native_evidence`, `test_rea_evidence`,
+`test_objc_classnames`, `test_nsinspect` all PASS; `lint-tests.py` 0 errors.
+
+Also in this commit: `objc_decompile.py` now honours `OBJC_DECOMPILE_TARGETS`
+instead of a hardcoded TextEdit selector list (it silently decompiled 0 functions
+for every other binary).
