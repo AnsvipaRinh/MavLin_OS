@@ -389,6 +389,13 @@ Evidence: `runtime/raw/native/finder-objc-summary.json`,
 
 ## F0. Finder ABI diagnosis: the layout was never wrong, the class names are absent
 
+> **Superseded in part by F8 (2026-10-18).** The Finder binary's `__text`,
+> `__cstring` and `__objc_methname` sections are high-entropy and contain no
+> valid code or strings, so the "class names are absent" conclusion below was an
+> artefact of unreadable sections, not a property of the binary. The ABI layout
+> analysis in this section is still correct; the claim that Apple does not store
+> class names is withdrawn. See F8 for the measurement and remediation.
+
 Binary SHA256 `98d3fc27136a6a30e33472be994fb397ea3a4c5ddb731e83e6cddad60b550eab`.
 Evidence: `runtime/raw/native/finder-abi-layout.json`,
 `runtime/raw/native/finder-objc-metadata.json`.
@@ -801,3 +808,110 @@ above was produced that way.
   runtime-confirmed behaviour.
 - `NSPrefPaneRemoteViewClass` panes (remote-view service) were not investigated
   further; the XPC service binaries were not extracted.
+
+## F8. Correction: Finder and Dock native metadata is unreadable, not "absent"
+
+This supersedes the interpretation in F0 and F2 for Finder, and invalidates the
+Dock native selector extraction.
+
+### F8.1 Measured fact
+
+For each binary the `__text` section was checked for x86-64 function prologues
+(`55 48 89 e5`, `48 83 ec`, `48 8b 05`):
+
+| Binary | Size | Prologues | `__text` state |
+|---|---:|---:|---|
+| TextEdit | 166,576 | 357 | valid code |
+| Calculator | 127,424 | 228 | valid code |
+| System Preferences | 209,536 | 381 | valid code |
+| **Finder** | **6,209,552** | **0** | high-entropy, not code |
+| **Dock** | **3,259,200** | **0** | high-entropy, not code |
+
+`__cstring` and `__objc_methname` are high-entropy in the same two binaries, and
+known selectors (`mouseDown:`, `drawRect:`, `addTile:`) are absent. `__LINKEDIT`
+(symbol table) **is** readable: `@_CARenderImageSetShouldTile`,
+`_CGSSetDockRectWithReason`, `com.apple.dock` are present. File sizes match the
+Mach-O layout exactly, so the files are complete, not truncated.
+
+### F8.2 Consequence
+
+- The Finder extraction's 9286 "selectors" were not real selectors; F2's claim
+  that "selectors+IMPs recovered and correct" is **withdrawn**. The IMP addresses
+  were plausible, but the selector strings were not.
+- The Dock extraction's 4838 "selectors" (all 2875 keys are binary junk, 0
+  real-looking) are **invalid**. The Dock has 4838 method IMPs and 656 Ghidra
+  function mappings, but no usable selector names.
+- F0's conclusion "Finder stores no class names" was an artefact of the same
+  unreadable sections, not an Apple design choice. The two extractor defects
+  fixed in F0 remain real defects, but the root cause of the garbage is this
+  readability problem.
+
+### F8.3 What still holds
+
+- Finder **NIB** analysis (F1) is unaffected: it came from REA decoding of the
+  `.nib` files, which are small and stored uncompressed.
+- System Preferences native analysis (F5) is **valid** — its binary is small and
+  readable, and its class names and selectors are genuine.
+- The pane inventory (F7) is unaffected.
+
+### F8.4 Open question and remediation
+
+The cause is not established. It is not whole-file compression (file size equals
+the Mach-O layout, and `__LINKEDIT` is readable). The pattern — small binaries
+readable, large ones not — is consistent with HFS+ per-file compression
+(`decmpfs`) that the extraction tool does not reverse, or with per-file
+encryption. **Remediation: obtain the Finder and Dock binaries through the guest
+macOS filesystem (boot the guest and copy them out), which applies the
+transformation transparently.** Until then, no Finder/Dock native selector or
+class claim should be treated as evidence.
+
+## F9. Dock subsystem map from imported symbols (2026-10-18)
+
+Because the Dock binary's own metadata is unreadable (F8), this map is built
+from the **imported symbol table** in `__LINKEDIT`, which is readable. It is
+therefore a map of what the Dock *depends on*, not of its internal classes.
+Evidence: 2796 symbol-like strings extracted from `slices/Dock-x86_64`
+`__LINKEDIT` (`0x2f4000`–`0x31bb40`).
+
+| Subsystem | Evidence (symbol families) | Approx. count |
+|---|---|---:|
+| WindowServer / CoreGraphics | `_CGS*` (`_CGSGetWorkspaceWindowGroup`, `_CGSAddWindowsToSpaces`, `_CGSSetDockRectWithReason`, `_CGSAddSurface`, `_CGSAddTrackingRect`) | 420 |
+| XPC | `_xpc_*`, `__xpc_type_*`, `__xpc_error_*` | 108 |
+| Running applications / LaunchServices | `__LS*`, `__kLS*`, `_kCSBackupdKeyIsRunning` | 68 |
+| Menus (Carbon) | `_AppendMenuItemTextWithCFString`, `_CalcMenuSize`, `_CreateNewMenu`, `_CountMenuItems` | 78 |
+| Drag and drop | `_CoreDrag*`, `_gDockDragCallback`, `_gDockDragWindowCallback` | 56 |
+| Minimise / window management | `_CoreDragGetDragWindow`, `_CGSAddWindowFilter`, window-group symbols | 146 |
+| Preferences | `NSUserDefaults`, `_kCFPreferences*` | 54 |
+| Process / signals | `__LSPIDKey`, `_dispatch_source_type_signal`, `_vproc_transaction_count_for_pid` | 46 |
+| Timers / refresh | `_dispatch_source_set_timer`, `_kMDQuery*Notification`, `_CAViewUpdate` | 26 |
+| Sound | `_AudioServicesPlaySystemSound`, `_AudioServicesPlayAlertSound` | 4 |
+| Trash | `_CoreDragCopyTrashLabel`, `_CoreDragIsTrashLabelSet`, `_CoreDragSetTrashLabel` | 6 |
+| Dock-specific | `_gDockDragCallback`, `_gDockDragWindowCallback`, `_CGSSetDockRectWithReason`, `_kCUIWidgetDockBadge` | 8 |
+
+### F9.1 What this establishes
+
+- The Dock is a **client of WindowServer** above all: the largest dependency
+  family is `CGS` (CoreGraphics Services) — window grouping, spaces, surfaces,
+  tracking rects and the dock rectangle itself. This is the architectural fact
+  MavLinOS must respect: the Dock is not a standalone view, it is a WindowServer
+  client.
+- **Running-state** comes from LaunchServices (`__LS*`) and
+  `_kCSBackupdKeyIsRunning`; **drag and drop** from CoreDrag; **menus** from
+  Carbon; **inter-process** from XPC.
+- The Dock-specific globals (`_gDockDragCallback`, `_gDockDragWindowCallback`,
+  `_CGSSetDockRectWithReason`, `_kCUIWidgetDockBadge`) are the Dock's own
+  contribution to those subsystems.
+
+### F9.2 Correlation with the NIB analysis (F6.3)
+
+The NIBs supply only standard application menus for the XPC services; the symbol
+table shows the real work is WindowServer/LaunchServices/CoreDrag. Together they
+support the F6.3 inference that the Dock bar is drawn in code, not from a NIB.
+
+### F9.3 Limits
+
+- Imported symbols show dependencies, not internal structure; no Dock class
+  names or method selectors are recoverable (F8).
+- The map is incomplete: symbols inlined or resolved at runtime are absent.
+- No Dock method was decompiled, so no behaviour is runtime- or
+  decompilation-confirmed.
