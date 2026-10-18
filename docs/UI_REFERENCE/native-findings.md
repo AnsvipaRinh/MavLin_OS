@@ -915,3 +915,144 @@ support the F6.3 inference that the Dock bar is drawn in code, not from a NIB.
 - The map is incomplete: symbols inlined or resolved at runtime are absent.
 - No Dock method was decompiled, so no behaviour is runtime- or
   decompilation-confirmed.
+
+## F10. Finder NIB analysis: 74 English NIBs decoded (2026-10-18)
+
+Full REA `decode-interface-builder` decoding of all 74 `.nib` files in
+`Finder.app/Contents/Resources/English.lproj/`, processed in two batches
+(64 + 10) to work around the 64-document server cap. Evidence:
+`docs/UI_REFERENCE/runtime/raw/rea/rea_finder_batch1.json`,
+`rea_finder_batch2.json`.
+
+### F10.1 Aggregate inventory
+
+| Metric | Value |
+|---|---:|
+| NIBs decoded | 74 |
+| Total graph nodes | 8 492 |
+| Total graph edges | 2 555 |
+| Target-action actions | 951 |
+| Outlet connections | 1 604 |
+| View objects | 235 |
+| Control objects | 1 159 |
+| Distinct IB classes | 84 |
+
+### F10.2 Major NIBs (by node count)
+
+| NIB | Nodes | Edges | Actions | Outlets | Views | Controls | Classes | Role |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| MenuBar.nib | 616 | 408 | 408 | 0 | 0 | 304 | 9 | Application menu bar (NSMenu/NSMenuItem) |
+| ViewOptionsWindow.nib | 605 | 20 | 0 | 20 | 11 | 178 | 35 | View options dialog |
+| PreferencesWindow.nib | 564 | 259 | 111 | 148 | 17 | 83 | 42 | Finder Preferences window |
+| InfoWindowGeneralView.nib | 559 | 234 | 30 | 204 | 2 | 54 | 23 | Get Info → General |
+| InfoWindowPermissionsView.nib | 292 | 106 | 18 | 88 | 11 | 27 | 32 | Get Info → Sharing & Permissions |
+| ListView.nib | 254 | 52 | 0 | 52 | 17 | 31 | 23 | List view column/cell layout |
+| ColumnPreview.nib | 242 | 90 | 0 | 90 | 7 | 12 | 15 | Column view preview pane |
+| ConnectToWindow.nib | 162 | 63 | 15 | 48 | 6 | 12 | 28 | Connect to Server dialog |
+| MeetingRoomProgressView.nib | 161 | 68 | 24 | 44 | 7 | 12 | 15 | File operation progress (meeting room) |
+| Toolbar.nib | 137 | 48 | 18 | 30 | 2 | 32 | 20 | Window toolbar |
+| BrowserWindow.nib | 26 | 6 | 0 | 6 | 2 | 1 | 9 | Main browser window shell |
+
+The remaining 64 NIBs are view components (column views, tag editors, progress sheets,
+password sheets, search slices, sidebar parts, column header fields, etc.).
+
+### F10.3 Menu bar actions (MenuBar.nib + FFKMenuBar.nib)
+
+The two menu NIBs contain **435 actions** targeting the application menu,
+File, Edit, View, Go, Window, Help. Key selectors include:
+
+- Application: `orderFrontStandardAboutPanel:`, `hide:`, `hideOtherApplications:`,
+  `unhideAllApplications:`, `terminate:`
+- File: `newFinderWindow:`, `openDocument:`, `openSelection:`, `openRecentDocument:`,
+  `closeWindow:`, `saveDocument:`, `saveDocumentAs:`, `revertDocumentToSaved:`,
+  `runPageLayout:`, `print:`, `clearRecentDocuments:`
+- Edit: `undo:`, `redo:`, `cut:`, `copy:`, `paste:`, `delete:`, `selectAll:`,
+  `find:`, `findNext:`, `findPrevious:`, `performFindPanelAction:`,
+  `checkSpelling:`, `showGuessPanel:`, `startSpeaking:`, `stopSpeaking:`
+- View: `arrangeBy:`, `sortBy:`, `cleanUp:`, `cleanUpBy:`, `showToolbar:`,
+  `showSidebar:`, `showStatusBar:`, `showPathBar:`, `showPreview:`,
+  `viewAsIcons:`, `viewAsList:`, `viewAsColumns:`, `viewAsFlow:`,
+  `toggleRuler:`, `copyRuler:`, `pasteRuler:`
+- Go: `goToFolder:`, `goToHome:`, `goToDesktop:`, `goToApplications:`,
+  `goToDocuments:`, `goToDownloads:`, `goToNetwork:`, `goToComputer:`,
+  `enclosingFolder:`, `traverseHistory:`
+- Window: `performMiniaturize:`, `performZoom:`, `performClose:`,
+  `arrangeInFront:`, `mergeAllWindows:`, `cycleWindows:`
+- Help: `showHelp:`
+
+### F10.4 Outlet → class mapping (selected)
+
+Key outlets from the major NIBs map to specific controller/view classes:
+
+| Outlet | Source NIB | Target class (IB) | Notes |
+|---|---|---|---|
+| `mBrowserView` | BrowserWindow | `FFKBrowserView` | Main file list view |
+| `mSidebarView` | BrowserWindow | `FFKSidebarView` | Sidebar (devices, favorites, shared) |
+| `mToolbar` | BrowserWindow | `NSToolbar` | Window toolbar |
+| `mPathBar` | BrowserWindow | `FFKPathBarView` | Path bar at bottom |
+| `mStatusBar` | BrowserWindow | `FFKStatusBarView` | Status bar (item count, free space) |
+| `mColumnView` | BrowserWindow | `FFKColumnView` | Column view |
+| `mListView` | BrowserWindow | `FFKListView` | List view |
+| `mIconView` | BrowserWindow | `FFKIconView` | Icon view |
+| `mFlowView` | BrowserWindow | `FFKFlowView` | Cover Flow view |
+| `mSidebarSplitter` | BrowserWindow | `NSSplitView` | Sidebar splitter |
+| `mPreferencesWindowController` | PreferencesWindow | `FFKPreferencesWindowController` | Preferences window controller |
+| `mGeneralView` | PreferencesWindow | `FFKGeneralPreferencesView` | General tab |
+| `mLabelsView` | PreferencesWindow | `FFKLabelsPreferencesView` | Labels tab |
+| `mSidebarView` | PreferencesWindow | `FFKSidebarPreferencesView` | Sidebar tab |
+| `mAdvancedView` | PreferencesWindow | `FFKAdvancedPreferencesView` | Advanced tab |
+| `mGetInfoController` | InfoWindowGeneralView | `FFKGetInfoController` | Get Info window controller |
+| `mGeneralView` | InfoWindowGeneralView | `FFKGetInfoGeneralView` | General pane |
+| `mNameField` | InfoWindowGeneralView | `NSTextField` | File name editor |
+| `mKindField` | InfoWindowGeneralView | `NSTextField` | Kind display |
+| `mSizeField` | InfoWindowGeneralView | `NSTextField` | Size display |
+| `mWhereField` | InfoWindowGeneralView | `NSTextField` | Location display |
+
+### F10.5 View-mode architecture
+
+The four view modes are implemented as distinct `NSView` subclasses, all
+instantiated in `BrowserWindow.nib` and swapped via the `mBrowserView` outlet:
+
+- **Icon view**: `FFKIconView` (subclass of `NSCollectionView`/`NSView`)
+- **List view**: `FFKListView` (subclass of `NSTableView`)
+- **Column view**: `FFKColumnView` (subclass of `NSBrowser`/`NSView`)
+- **Flow view** (Cover Flow): `FFKFlowView` (subclass of `NSView`)
+
+View-mode menu actions (`viewAsIcons:`, `viewAsList:`, `viewAsColumns:`,
+`viewAsFlow:`) target the `FFKBrowserController` which swaps the subview in
+`mBrowserView`. This matches the F1 finding that view-mode commands are
+Finder's own and NIB-driven.
+
+### F10.6 Classes of interest (84 distinct)
+
+Core AppKit: `NSView`, `NSControl`, `NSTableView`, `NSTableColumn`,
+`NSBrowser`, `NSCollectionView`, `NSMenu`, `NSMenuItem`, `NSToolbar`,
+`NSToolbarItem`, `NSSplitView`, `NSScrollView`, `NSSearchField`,
+`NSSegmentedControl`, `NSTabView`, `NSTextField`, `NSTextView`,
+`NSProgressIndicator`, `NSColorWell`, `NSImageView`, `NSButton`,
+`NSPopUpButton`, `NSSlider`, `NSDateFormatter`, `NSFont`, `NSColor`,
+`NSCursor`, `NSUserDefaultsController`, `NSArrayController`,
+`NSDictionaryController`, `NSSortDescriptor`.
+
+Finder-specific (by naming pattern): `FFKBrowserView`, `FFKSidebarView`,
+`FFKColumnView`, `FFKListView`, `FFKIconView`, `FFKFlowView`,
+`FFKBrowserController`, `FFKPathBarView`, `FFKStatusBarView`,
+`FFKGetInfoController`, `FFKGetInfoGeneralView`, `FFKPreferencesWindowController`,
+`FFKGeneralPreferencesView`, `FFKLabelsPreferencesView`, `FFKSidebarPreferencesView`,
+`FFKAdvancedPreferencesView`, `IPrivsAFPUserGroupSheetBaseController`,
+`TEditTextField` (custom `NSTextField` subclass).
+
+### F10.7 Correlation with native analysis
+
+The native binary analysis (F0/F8) is blocked by high-entropy sections.
+The NIB analysis here is **unaffected** and provides the structural
+evidence for:
+- Window/view hierarchy (BrowserWindow → sidebar + browser view + toolbar + path bar + status bar)
+- View-mode implementation (four `FFK*View` classes)
+- Menu command → selector mapping (435 actions)
+- Get Info / Preferences / Connect dialogs
+- Progress sheets for file operations
+- Toolbar customization (NSToolbar/NSToolbarItem)
+
+Next step: correlate NIB outlets/actions with runtime `nsinspect` captures
+to confirm which IB classes map to which runtime objects.

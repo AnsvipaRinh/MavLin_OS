@@ -1680,3 +1680,43 @@ Carbon menus).
 **Phase E.** Added `tests/uiref/test_pane_inventory.py` (41 entries, 34+7 split,
 provenance fields, host contract selectors, no fabricated names). Full uiref
 suite passes; `lint-tests.py` 0 errors.
+
+## Session 2026-10-18 — System Preferences + Dock reverse engineering (Phases A–E)
+
+**Zone:** `docs/UI_REFERENCE/native-findings.md`, `docs/UI_REFERENCE/runtime/raw/native/pane-inventory.json`, `tests/uiref/test_pane_inventory.py`. OID: `20261018-opencode-syspref-dock-re`.
+
+**Objective:** Document System Preferences host architecture, NIB analysis, 41-pane inventory, Dock subsystem map from imported symbols, and correct the Finder/Dock native metadata finding (high-entropy binaries).
+
+**Phase A — System Preferences host architecture (commit c7c35f17):**
+- 18 named classes / 301 methods mapped (obj_sysprefs.json)
+- Decompiled lifecycle: `switchToPane:`, `_canLoadPrefPane:`, `finishUpPlacingPrefView:`, `prefPaneAvailable:`/`prefPaneUnavailable:`, `_ppDidCrashNotification:`, `window:willEncodeRestorableState:`, `orderedPrefPaneBundles`, `asynchronousOpenPrefPane:`, `_showPreferencePaneErrorAlertFor:`
+- `PreferencePanesCenter` cache contract; persistence key `selected_preference_pane_bundleID`
+- Added as finding F5 in `native-findings.md`
+
+**Phase B — NIB analysis (commit 29ea9382):**
+- REA `decode-interface-builder` on minimal English-only `.app` copies
+- SysPref MainMenu.nib: 162 objects / 46 connections / 26 actions / 20 outlets
+- Action→native-class mapping: `showAllMenuAction:`/`searchMenuAction:`/`organizeFavorites:` → `NSPrefPanesManager`; `install:`/`cancel:` → `NSPrefInstallAssistant`; etc.
+- Dock NIBs: menus only (ecti.xpc 311/89/83, extra.xpc 12/0/0) → Dock bar is code-drawn
+- Added as finding F6
+
+**Phase C — 41-pane inventory (commit 202f5f0f):**
+- 34 top-level panes + 7 nested (DateAndTime: ClockPref/DateTime/TimeZone; DesktopScreenEffects: DesktopPictures/ScreenEffects; Keyboard: IntlKeyboard/IntlTexts)
+- `NSPreferencePane` contract selectors recovered: `mainViewDidLoad` (39), `didSelect`/`willSelect` (26), `revealElementForKey:` (23), `willUnselect`/`didUnselect` (20/16), `handleOpenParameter:` (15)
+- Info.plist keys documented
+- Committed to `docs/UI_REFERENCE/runtime/raw/native/pane-inventory.json`
+- Added as finding F7
+
+**Phase D — Correction + Dock subsystem map (commit 477d4a88):**
+- Finder (6.2 MB) and Dock (3.3 MB) binaries have high-entropy `__text`/`__cstring`/`__objc_methname` sections (0 x86-64 prologues) while TextEdit/Calculator/SysPref (<210 KB) are valid
+- F0's "class names absent" and F2's "selectors+IMPs recovered" were artefacts of unreadable sections, not binary properties
+- Added F8 (correction + remediation: obtain binaries via guest macOS filesystem)
+- Dock subsystem map from readable `__LINKEDIT` (2796 symbols): WindowServer/CGS (420), LaunchServices (68), CoreDrag (56), Carbon Menus (78), XPC (108), Minimize/Window (146), Preferences (54), Process (46), Timers (26), Sound (4), Trash (6), Dock-specific globals (8)
+- Added as finding F9
+
+**Phase E — Regression tests (commit 112c7e1f):**
+- `tests/uiref/test_pane_inventory.py`: 41 entries, 34+7 split, provenance fields, host contract selectors, no fabricated names
+- Full uiref suite passes (5/5); `lint-tests.py`: 0 errors, 40 warnings
+- PROGRESS.md updated with session summary
+
+**Next:** Complete Finder NIB analysis (71 English NIBs, 64-doc REA cap) → cross-cutting: shared window management / menu bar / dialogs & sheets.
