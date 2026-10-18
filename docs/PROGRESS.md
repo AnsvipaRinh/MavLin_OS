@@ -1645,3 +1645,38 @@ unresolved) is recorded in F4 and unchanged.
 
 No NIB analysis, pane inventory or Dock subsystem map was performed in this pass;
 those are the remaining phases.
+
+### 2026-10-18 — System Preferences and Dock reverse engineering completed (Phases A–E)
+
+**Phase A.** Documented the System Preferences host architecture that existed
+only as local artifacts: 18 named classes / 301 methods, the decompiled lifecycle
+(`switchToPane:`, `_canLoadPrefPane:`, `finishUpPlacingPrefView`,
+`prefPaneAvailable:`/`prefPaneUnavailable:`, `_ppDidCrashNotification:`,
+`window:willEncodeRestorableState:`), the `PreferencePanesCenter` cache contract
+and the persistence keys (`selected_preference_pane_bundleID`). Added as F5.
+
+**Phase B.** REA-decoded the English NIBs. The "33 / 35 NIBs" are mostly
+localized duplicates; the distinct documents are 3. The System Preferences menu
+NIB's action selectors and outlets map directly onto the native classes
+(`showAllMenuAction:`/`searchMenuAction:`/`organizeFavorites:` →
+`NSPrefPanesManager`; `install:`/`cancel:` → `NSPrefInstallAssistant`). Dock's
+NIBs are menus only, so the Dock bar is code-drawn. Added as F6.
+
+**Phase C.** Built the 41-pane inventory: 34 top-level panes plus 7 nested child
+panes (DateAndTime, DesktopScreenEffects, Keyboard). Recovered the host-facing
+`NSPreferencePane` contract (`mainViewDidLoad`, `didSelect`/`willSelect`/
+`didUnselect`/`willUnselect`/`shouldUnselect`, `revealElementForKey:`,
+`handleOpenParameter:`) and the Info.plist metadata keys. Added as F7.
+
+**Phase D — correction.** Found that the Finder and Dock binaries' `__text`,
+`__cstring` and `__objc_methname` sections are high-entropy with **zero** x86-64
+prologues, while TextEdit, Calculator and System Preferences are valid. The
+previous Finder "9286 selectors" and Dock "4838 selectors" were not real, and
+F0's "class names are absent" conclusion was an artefact of unreadable sections.
+Added F8 (correction + remediation) and F9 (Dock subsystem map from the readable
+`__LINKEDIT` symbol table: WindowServer/CGS, LaunchServices, CoreDrag, XPC,
+Carbon menus).
+
+**Phase E.** Added `tests/uiref/test_pane_inventory.py` (41 entries, 34+7 split,
+provenance fields, host contract selectors, no fabricated names). Full uiref
+suite passes; `lint-tests.py` 0 errors.

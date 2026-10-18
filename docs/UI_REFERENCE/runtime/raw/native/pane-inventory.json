@@ -2,7 +2,7 @@
  {
   "path": "Accounts.prefPane",
   "level": "top-level",
-  "name": "Accounts.",
+  "name": "Accounts",
   "bundle_id": "com.apple.preferences.users",
   "display": "Users & Groups",
   "executable": "Accounts",
@@ -77,7 +77,7 @@
  {
   "path": "AppStore.prefPane",
   "level": "top-level",
-  "name": "AppStore.",
+  "name": "AppStore",
   "bundle_id": "com.apple.preferences.appstore",
   "display": null,
   "executable": "AppStore",
@@ -139,7 +139,7 @@
  {
   "path": "Appearance.prefPane",
   "level": "top-level",
-  "name": "Appearance.",
+  "name": "Appearance",
   "bundle_id": "com.apple.preference.general",
   "display": "General",
   "executable": "Appearance",
@@ -184,7 +184,7 @@
  {
   "path": "Bluetooth.prefPane",
   "level": "top-level",
-  "name": "Bluetooth.",
+  "name": "Bluetooth",
   "bundle_id": "com.apple.preferences.Bluetooth",
   "display": "Bluetooth",
   "executable": "Bluetooth",
@@ -253,7 +253,7 @@
  {
   "path": "DateAndTime.prefPane",
   "level": "top-level",
-  "name": "DateAndTime.",
+  "name": "DateAndTime",
   "bundle_id": "com.apple.preference.datetime",
   "display": null,
   "executable": "DateAndTime",
@@ -288,7 +288,7 @@
  {
   "path": "DateAndTime.prefPane/Contents/Resources/ClockPref.prefPane",
   "level": "nested",
-  "name": "ClockPref.",
+  "name": "ClockPref",
   "bundle_id": "com.apple.preference.datetime.clock",
   "display": null,
   "executable": "ClockPref",
@@ -323,7 +323,7 @@
  {
   "path": "DateAndTime.prefPane/Contents/Resources/DateTime.prefPane",
   "level": "nested",
-  "name": "DateTime.",
+  "name": "DateTime",
   "bundle_id": "com.apple.preference.datetime.datetime",
   "display": null,
   "executable": "DateTime",
@@ -377,7 +377,7 @@
  {
   "path": "DateAndTime.prefPane/Contents/Resources/TimeZone.prefPane",
   "level": "nested",
-  "name": "TimeZone.",
+  "name": "TimeZone",
   "bundle_id": "com.apple.preference.datetime.timezone",
   "display": null,
   "executable": "TimeZone",
@@ -469,7 +469,7 @@
  {
   "path": "DesktopScreenEffectsPref.prefPane",
   "level": "top-level",
-  "name": "DesktopScreenEffectsPref.",
+  "name": "DesktopScreenEffectsPref",
   "bundle_id": "com.apple.preference.desktopscreeneffect",
   "display": "Desktop & Screen Saver",
   "executable": "DesktopScreenEffectsPref",
@@ -499,7 +499,7 @@
  {
   "path": "DesktopScreenEffectsPref.prefPane/Contents/Resources/DesktopPictures.prefPane",
   "level": "nested",
-  "name": "DesktopPictures.",
+  "name": "DesktopPictures",
   "bundle_id": "com.apple.preference.desktopscreeneffect.desktop",
   "display": "Desktop",
   "executable": "DesktopPictures",
@@ -527,7 +527,7 @@
  {
   "path": "DesktopScreenEffectsPref.prefPane/Contents/Resources/ScreenEffects.prefPane",
   "level": "nested",
-  "name": "ScreenEffects.",
+  "name": "ScreenEffects",
   "bundle_id": "com.apple.preference.desktopscreeneffect.screeneffects",
   "display": "Screen Saver",
   "executable": "ScreenEffects",
@@ -634,7 +634,7 @@
  {
   "path": "DigiHubDiscs.prefPane",
   "level": "top-level",
-  "name": "DigiHubDiscs.",
+  "name": "DigiHubDiscs",
   "bundle_id": "com.apple.preference.digihub.discs",
   "display": "CDs & DVDs",
   "executable": "DigiHubDiscs",
@@ -662,7 +662,7 @@
  {
   "path": "Displays.prefPane",
   "level": "top-level",
-  "name": "Displays.",
+  "name": "Displays",
   "bundle_id": "com.apple.preference.displays",
   "display": "Displays",
   "executable": "Displays",
@@ -707,7 +707,7 @@
  {
   "path": "Dock.prefPane",
   "level": "top-level",
-  "name": "Dock.",
+  "name": "Dock",
   "bundle_id": "com.apple.preference.dock",
   "display": "Dock",
   "executable": "Dock",
@@ -748,7 +748,7 @@
  {
   "path": "EnergySaver.prefPane",
   "level": "top-level",
-  "name": "EnergySaver.",
+  "name": "EnergySaver",
   "bundle_id": "com.apple.preference.energysaver",
   "display": "Energy Saver",
   "executable": "EnergySaver",
@@ -802,7 +802,7 @@
  {
   "path": "Expose.prefPane",
   "level": "top-level",
-  "name": "Expose.",
+  "name": "Expose",
   "bundle_id": "com.apple.preference.expose",
   "display": "Mission Control",
   "executable": "Expose",
@@ -855,7 +855,7 @@
  {
   "path": "FibreChannel.prefPane",
   "level": "top-level",
-  "name": "FibreChannel.",
+  "name": "FibreChannel",
   "bundle_id": "com.apple.prefpanel.fibrechannel",
   "display": "Fibre Channel",
   "executable": "FibreChannel",
@@ -912,7 +912,7 @@
  {
   "path": "Ink.prefPane",
   "level": "top-level",
-  "name": "Ink.",
+  "name": "Ink",
   "bundle_id": "com.apple.preference.ink",
   "display": "Ink",
   "executable": "Ink",
@@ -961,7 +961,7 @@
  {
   "path": "InternetAccounts.prefPane",
   "level": "top-level",
-  "name": "InternetAccounts.",
+  "name": "InternetAccounts",
   "bundle_id": "com.apple.preferences.internetaccounts",
   "display": "Internet Accounts",
   "executable": "InternetAccounts",
@@ -1100,7 +1100,7 @@
  {
   "path": "Keyboard.prefPane",
   "level": "top-level",
-  "name": "Keyboard.",
+  "name": "Keyboard",
   "bundle_id": "com.apple.preference.keyboard",
   "display": "Keyboard",
   "executable": "Keyboard",
@@ -1148,7 +1148,7 @@
  {
   "path": "Keyboard.prefPane/Contents/Resources/IntlKeyboard.prefPane",
   "level": "nested",
-  "name": "IntlKeyboard.",
+  "name": "IntlKeyboard",
   "bundle_id": "com.apple.IntlKeyboard",
   "display": "Input Sources",
   "executable": "IntlKeyboard",
@@ -1230,7 +1230,7 @@
  {
   "path": "Keyboard.prefPane/Contents/Resources/IntlTexts.prefPane",
   "level": "nested",
-  "name": "IntlTexts.",
+  "name": "IntlTexts",
   "bundle_id": "com.apple.IntlTexts",
   "display": "Text",
   "executable": "IntlTexts",
@@ -1282,7 +1282,7 @@
  {
   "path": "Localization.prefPane",
   "level": "top-level",
-  "name": "Localization.",
+  "name": "Localization",
   "bundle_id": "com.apple.Localization",
   "display": "Language & Region",
   "executable": "Localization",
@@ -1397,7 +1397,7 @@
  {
   "path": "Mouse.prefPane",
   "level": "top-level",
-  "name": "Mouse.",
+  "name": "Mouse",
   "bundle_id": "com.apple.preference.mouse",
   "display": "Mouse",
   "executable": "Mouse",
@@ -1440,7 +1440,7 @@
  {
   "path": "Network.prefPane",
   "level": "top-level",
-  "name": "Network.",
+  "name": "Network",
   "bundle_id": "com.apple.preference.network",
   "display": "Network",
   "executable": "Network",
@@ -1551,7 +1551,7 @@
  {
   "path": "Notifications.prefPane",
   "level": "top-level",
-  "name": "Notifications.",
+  "name": "Notifications",
   "bundle_id": "com.apple.preference.notifications",
   "display": "Notifications",
   "executable": "Notifications",
@@ -1608,7 +1608,7 @@
  {
   "path": "ParentalControls.prefPane",
   "level": "top-level",
-  "name": "ParentalControls.",
+  "name": "ParentalControls",
   "bundle_id": "com.apple.preferences.parentalcontrols",
   "display": "Parental Controls",
   "executable": "ParentalControls",
@@ -1694,7 +1694,7 @@
  {
   "path": "PrintAndFax.prefPane",
   "level": "top-level",
-  "name": "PrintAndFax.",
+  "name": "PrintAndFax",
   "bundle_id": "com.apple.preference.printfax",
   "display": "Printers & Scanners",
   "executable": "PrintAndScan",
@@ -1783,7 +1783,7 @@
  {
   "path": "PrintAndScan.prefPane",
   "level": "top-level",
-  "name": "PrintAndScan.",
+  "name": "PrintAndScan",
   "bundle_id": "com.apple.preference.printfax",
   "display": "Printers & Scanners",
   "executable": "PrintAndScan",
@@ -1872,7 +1872,7 @@
  {
   "path": "Profiles.prefPane",
   "level": "top-level",
-  "name": "Profiles.",
+  "name": "Profiles",
   "bundle_id": "com.apple.preferences.configurationprofiles",
   "display": "Profiles",
   "executable": "Profiles",
@@ -1910,7 +1910,7 @@
  {
   "path": "Security.prefPane",
   "level": "top-level",
-  "name": "Security.",
+  "name": "Security",
   "bundle_id": "com.apple.preference.security",
   "display": null,
   "executable": "Security",
@@ -2025,7 +2025,7 @@
  {
   "path": "SharingPref.prefPane",
   "level": "top-level",
-  "name": "SharingPref.",
+  "name": "SharingPref",
   "bundle_id": "com.apple.preferences.sharing",
   "display": "Sharing",
   "executable": "SharingPref",
@@ -2091,7 +2091,7 @@
  {
   "path": "Sound.prefPane",
   "level": "top-level",
-  "name": "Sound.",
+  "name": "Sound",
   "bundle_id": "com.apple.preference.sound",
   "display": "Sound",
   "executable": "Sound",
@@ -2167,7 +2167,7 @@
  {
   "path": "Speech.prefPane",
   "level": "top-level",
-  "name": "Speech.",
+  "name": "Speech",
   "bundle_id": "com.apple.preference.speech",
   "display": "Dictation & Speech",
   "executable": "Speech",
@@ -2199,7 +2199,7 @@
  {
   "path": "Spotlight.prefPane",
   "level": "top-level",
-  "name": "Spotlight.",
+  "name": "Spotlight",
   "bundle_id": "com.apple.preference.spotlight",
   "display": "Spotlight",
   "executable": "Spotlight",
@@ -2274,7 +2274,7 @@
  {
   "path": "StartupDisk.prefPane",
   "level": "top-level",
-  "name": "StartupDisk.",
+  "name": "StartupDisk",
   "bundle_id": "com.apple.preference.startupdisk",
   "display": "Startup Disk",
   "executable": "StartupDisk",
@@ -2329,7 +2329,7 @@
  {
   "path": "TimeMachine.prefPane",
   "level": "top-level",
-  "name": "TimeMachine.",
+  "name": "TimeMachine",
   "bundle_id": "com.apple.prefs.backup",
   "display": null,
   "executable": "TimeMachine",
@@ -2421,7 +2421,7 @@
  {
   "path": "Trackpad.prefPane",
   "level": "top-level",
-  "name": "Trackpad.",
+  "name": "Trackpad",
   "bundle_id": "com.apple.preference.trackpad",
   "display": "Trackpad",
   "executable": "Trackpad",
@@ -2467,7 +2467,7 @@
  {
   "path": "UniversalAccessPref.prefPane",
   "level": "top-level",
-  "name": "UniversalAccessPref.",
+  "name": "UniversalAccessPref",
   "bundle_id": "com.apple.preference.universalaccess",
   "display": "Accessibility",
   "executable": "UniversalAccessPref",
@@ -2524,7 +2524,7 @@
  {
   "path": "Xsan.prefPane",
   "level": "top-level",
-  "name": "Xsan.",
+  "name": "Xsan",
   "bundle_id": "com.apple.preference.xsan",
   "display": "Xsan",
   "executable": "Xsan",
@@ -2571,7 +2571,7 @@
  {
   "path": "iCloudPref.prefPane",
   "level": "top-level",
-  "name": "iCloudPref.",
+  "name": "iCloudPref",
   "bundle_id": "com.apple.preferences.icloud",
   "display": "iCloud",
   "executable": "iCloudPref",
