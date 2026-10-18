@@ -1056,3 +1056,144 @@ evidence for:
 
 Next step: correlate NIB outlets/actions with runtime `nsinspect` captures
 to confirm which IB classes map to which runtime objects.
+
+## F11. Shared window management (CGS/WindowServer) — synthesis from Dock symbols and Finder NIBs
+
+Evidence: Dock imported symbols (F9: 420 CGS symbols); Finder BrowserWindow.nib, Toolbar.nib, status bar NIBs (F10); System Preferences window NIB (F6).
+
+### F11.1 Architecture
+
+The WindowServer (CoreGraphics Services, CGS) is the central authority for:
+- Window surfaces and backing stores (`_CGSAddSurface`, `_CGSRemoveWindowsFromSpaces`)
+- Spaces/workspaces (`_CGSAddWindowsToSpaces`, `_CGSGetWorkspaceWindowGroup`)
+- Window grouping and layering (`_CGSAddWindowFilter`)
+- Mouse tracking rects (`_CGSAddTrackingRect`)
+- Dock integration (`_CGSSetDockRectWithReason`)
+
+All applications are CGS clients. The Dock is a privileged CGS client that sets its own rect.
+
+### F11.2 Window lifecycle (observed)
+
+| State | Style mask (NSWindow) | CGS role |
+|---|---|---|
+| Standard document | titled, closable, miniaturizable, resizable | regular surface in workspace |
+| Unified toolbar | + unifiedTitleAndToolbar | toolbar draws in title bar area |
+| Panel (NSPanel) | utilityWindow, nonactivating | floats above; excluded from Window menu |
+| Sheet (docModalWindow) | docModalWindow | attached to parent; parent dimmed |
+| Alert (app-modal) | closable, nonactivating | blocks all app windows |
+
+### F11.3 Key interactions (evidence-backed)
+
+- **Drag by titlebar**: 1:1 pointer tracking (no lag); Space during drag moves window to next space (CGS spaces API); Meta-drag moves occluded window.
+- **Minimize**: genie effect toward Dock tile (CGS surface warp); Dock tile highlight.
+- **Zoom**: fills screen minus Dock/menu bar; double-click titlebar or green traffic light.
+- **Proxy icon**: 16x16 document icon in title bar; Cmd-drag = drag document; shows path on hover.
+
+### F11.4 Linux implementation gaps
+
+| Mavericks behaviour | Linux baseline (xfwm4/GTK) | Compromise |
+|---|---|---|
+| Genie minimize warp | xfwm4: cross-fade only | Cross-fade + scale toward Dock tile; `animation.window.minimize.bindings.fallback = "crossfade-scale"` |
+| Live window drag shadow | X11 shadow is compositor-drawn | Widget-drawn shadow inside frame; disable compositor shadow for MVWindow |
+| Space-aware drag | No native spaces on X11 | Virtual desktop tracking in plane-3 `mv.windows` service |
+| Proxy icon | No standard equivalent | Custom title bar widget with icon + path tooltip |
+
+## F12. Menu bar and menu system — synthesis from SysPref/Finder/Dock NIBs
+
+Evidence: System Preferences MainMenu.nib (F6); Finder MenuBar.nib + FFKMenuBar.nib (F10: 435 actions); Dock XPC menu NIBs (F6); Carbon menu symbols in Dock (F9: 78 symbols).
+
+### F12.1 Structure
+
+```
+[● App]  [File] [Edit] [View] [App-specific...] [Window] [Help]  [Status items...]
+```
+
+- **Application menu** (far left): frontmost app name (bold); About, Preferences (Cmd-), Services, Hide (Cmd-H), Hide Others (Cmd-Opt-H), Show All, Quit (Cmd-Q).
+- **Standard menus**: File, Edit, View, Window, Help — present in every app.
+- **App-specific menus**: Finder adds Go; TextEdit adds Format; etc.
+- **Status items** (right side, NSStatusItem): WiFi, Bluetooth, Sound, Battery, Clock, User, Spotlight, Notification Center.
+
+### F12.2 Menu tracking cycle (AppKit)
+
+1. Click menu bar → enter tracking mode
+2. Pull-down menu opens → type-ahead search active
+3. Hover/arrow keys navigate → submenus open on right/→
+4. Click/Return/Space on item → action sent to target via first responder chain
+5. Click outside/Escape → dismiss without action
+
+### F12.3 Validation protocol
+
+`validateMenuItem:` / `validateUserInterfaceItem:` called during tracking before display; target or first responder returns YES/NO to enable/disable.
+
+### F12.4 Key equivalents (reserved)
+
+System: Cmd-H, Cmd-Opt-H, Cmd-Q, Cmd-,, Cmd-W, Cmd-Opt-W, Cmd-M, Cmd-Opt-M, Cmd-`, Cmd-~, Cmd-1..9, Ctrl-F2.
+Finder: Cmd-N, Cmd-Opt-N, Cmd-Shift-N, Cmd-O, Cmd-Down, Cmd-Up, Cmd-[, Cmd-], Cmd-1/2/3/4, Cmd-J, Cmd-/.
+
+### F12.5 Linux implementation gaps
+
+| Mavericks behaviour | Linux baseline | Compromise |
+|---|---|---|
+| Global menu bar | Xfce: in-window menus only | Plane-3 `mv.menubar` service + app registration via `libmavui`; fallback to in-window |
+| Menu bar translucency | X11: opaque | Semi-transparent dark via compositor (opt-in) or solid fallback |
+| NSStatusItem ordering | No public API | Fixed order: system items rightmost; third-party left; config file for order |
+
+## F13. Dialogs and sheets — synthesis from Finder/System Preferences NIBs
+
+Evidence: Finder Get Info (InfoWindow*.nib), Preferences (PreferencesWindow.nib), Connect (ConnectToWindow.nib), Progress sheets (10+ NIBs) (F10); System Preferences panes (F5/F7).
+
+### F13.1 Dialog/sheet types
+
+| Type | Class | Modality | Animation | Dismissal |
+|---|---|---|---|---|
+| Alert | NSAlert | App-modal | Fade-in/out | Escape / button |
+| Save/Open panel | NSSavePanel/NSOpenPanel | App-modal | Fade-in/out | Escape / button |
+| Sheet | NSWindow (docModalWindow) | Document-modal | Slide-down/up | Escape / button |
+| Panel | NSPanel | Modeless | Fade-in/out | Close button / Escape |
+| Progress sheet | Custom NSPanel | Document-modal | Slide-down/up | Cancel / complete |
+
+### F13.2 Standard dialog layouts
+
+- **Alert**: 32px icon (left) + bold message + informative text + right-aligned buttons [Default (blue), Cancel, Third].
+- **Save panel**: Collapsed (name + tags + where + format) / Expanded (file browser); accessory view for app-specific options.
+- **Open panel**: Same as save; multi-select, can choose dirs, packages as dirs.
+- **Get Info (Finder)**: Single window, tabbed panes (General, More Info, Name, Open With, Preview, Permissions); live updates on selection change.
+- **Preferences (SysPref)**: Toolbar with category icons + content view; pane persisted via PreferencePanesCenter.
+- **Progress sheets**: Determinate/indeterminate bar + cancel + action buttons (Skip/Stop/Replace/Keep Both); details disclosure.
+
+### F13.3 Visual rules (measured)
+
+- Dialog min/max width: 320–600 pt
+- Sheet width: matches parent (min 400)
+- Button bar: 40pt height, 12pt spacing, right-to-left order
+- Default button: blue, pulsed animation
+- Message font: system 13 bold/regular
+- Dimming overlay: white 50%, animated
+
+### F13.4 Linux implementation gaps
+
+| Mavericks behaviour | Linux baseline | Compromise |
+|---|---|---|
+| Sheet attachment animation | GTK: no native sheet | Custom MVWindow with embedded sheet container; slide animation |
+| App-modal vs doc-modal | X11: no distinction | Implement in widget layer: modal = gtk_window_set_modal; doc-modal = transient-for + custom dimming |
+| Live progress updates | Same on Linux | Background thread + idle_add to main loop |
+| Suppression checkbox | NSUserDefaults | dconf/GSettings key per dialog |
+
+## F14. Cross-cutting interaction vocabulary (platform event ids)
+
+Derived from F11–F13. All platform components (widgets, shell services, apps) use these event ids.
+
+```
+mv.event.pointer.down | mv.event.pointer.up | mv.event.pointer.move | mv.event.pointer.drag
+mv.event.key.down     | mv.event.key.up     | mv.event.wheel
+mv.event.window.activate | mv.event.window.deactivate | mv.event.window.move | mv.event.window.resize
+mv.event.window.minimize.requested | mv.event.window.zoom.requested
+mv.event.window.fullscreen.enter | mv.event.window.fullscreen.exit
+mv.event.app.launch | mv.event.app.terminate | mv.event.app.activate
+mv.event.menu.open | mv.event.menu.close | mv.event.menu.item.activated
+mv.event.dialog.present | mv.event.dialog.dismiss | mv.event.sheet.present | mv.event.sheet.dismiss
+mv.event.dnd.enter | mv.event.dnd.drop | mv.event.dnd.exit
+mv.event.shell.spotlight | mv.event.shell.launchpad | mv.event.shell.missioncontrol
+```
+
+Renderer backends (X11/GDK) translate native events → these ids. Behaviour records never mention X11/GDK.

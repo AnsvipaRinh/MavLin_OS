@@ -1720,3 +1720,58 @@ suite passes; `lint-tests.py` 0 errors.
 - PROGRESS.md updated with session summary
 
 **Next:** Complete Finder NIB analysis (71 English NIBs, 64-doc REA cap) → cross-cutting: shared window management / menu bar / dialogs & sheets.
+
+## Session 2026-10-18 (continued) — Finder NIB analysis (F10)
+
+**Zone:** `docs/UI_REFERENCE/native-findings.md`, `docs/UI_REFERENCE/runtime/raw/rea/rea_finder_batch1.json`, `rea_finder_batch2.json`, `tests/uiref/test_finder_nibs.py`. OID: `20261018-opencode-finder-nibs`.
+
+**Objective:** Complete Finder NIB analysis by decoding all 74 English NIBs (previous F1 hit 64-document cap).
+
+**Method:** REA `decode-interface-builder` on minimal Finder.app copy, split into two batches (64 + 10 NIBs) to work around server cap.
+
+**Results (committed as finding F10):**
+- 74 NIBs decoded: 8,492 graph nodes, 2,555 edges
+- 951 target-action edges (menu + control actions), 1,604 outlet connections
+- 235 view objects, 1,159 control objects, 84 distinct IB classes
+- Major NIBs: MenuBar.nib (408 actions), FFKMenuBar.nib (27 actions), ViewOptionsWindow.nib (605 nodes), PreferencesWindow.nib (564), InfoWindowGeneralView.nib (559), Toolbar.nib (137), BrowserWindow.nib (26), FFKBrowserWindow.nib (63), FFKView.nib (20)
+- Menu actions (435 total) cover File/Edit/View/Go/Window/Help with selectors targeting Finder controllers (TApplicationController, TBrowserWindowController, TIconViewController, etc.)
+- View-mode architecture confirmed: four FFK*View classes (TIconView, TListView, TColumnView/TFFKColumnView, TFlowView) swapped via `mBrowserView` outlet in BrowserWindow.nib
+- Get Info / Preferences / Connect dialogs fully mapped with outlet→controller correlations
+- T*FFK* classes: TFFKBrowserWindowController, TFFKView, TFFKViewController (NIB-only; native binary blocked per F8)
+
+**Test:** `tests/uiref/test_finder_nibs.py` asserts 74 NIBs, aggregate counts, major NIB presence, action counts.
+
+**Next:** Cross-cutting reverse engineering — shared window management (CGS/WindowServer), menu bar (NSMenu/NSStatusBar), dialogs & sheets (NSAlert/NSSavePanel/NSOpenPanel). These are P0 prerequisites for multiple apps.
+
+## Session 2026-10-18 (continued) — Cross-cutting UI synthesis (F11–F14)
+
+**Zone:** `docs/UI_REFERENCE/native-findings.md`. OID: `20261018-opencode-crosscutting`.
+
+**Objective:** Synthesize cross-cutting findings from Finder, Dock, System Preferences reverse engineering into shared window management, menu bar, and dialog/sheet specifications.
+
+**F11 — Shared window management (CGS/WindowServer):**
+- Dock's 420 CGS symbols confirm WindowServer as central authority for surfaces, spaces, window grouping, tracking rects, Dock rect.
+- Window lifecycle states: normal, miniaturized (genie), zoomed, fullscreen (app-opt-in), sheet, panel, toolbar-customization.
+- Transitions with triggers/animations mapped; geometry rules (titlebar 22pt, traffic lights 12/8 inset, cascade 20/20).
+- CGS dependencies: `_CGSAddWindowsToSpaces`, `_CGSSetDockRectWithReason`, `_CGSAddTrackingRect`, etc.
+- Linux gaps: genie warp → crossfade-scale; live drag shadow → widget-drawn; spaces → virtual desktop service.
+
+**F12 — Menu bar and menu system:**
+- Structure: App menu (left), standard menus (File/Edit/View/Window/Help), app-specific (Go, Format), status items (right).
+- 435 menu actions from Finder MenuBar.nib + FFKMenuBar.nib; Carbon menu symbols in Dock.
+- Tracking cycle: idle → menu-bar-tracking → menu-open → submenu-open → action/dismiss.
+- Validation protocol: `validateMenuItem:` during tracking.
+- Reserved key equivalents documented.
+- Linux gaps: global menu bar → plane-3 service; translucency → compositor opt-in; status item ordering → config file.
+
+**F13 — Dialogs and sheets:**
+- Types: Alert (app-modal), Save/Open (app-modal), Sheet (doc-modal), Panel (modeless), Progress (doc-modal).
+- Standard layouts: alert (icon + message + 3 buttons), save panel (collapsed/expanded), Get Info (tabbed), Preferences (toolbar+content), Progress (bar + actions).
+- Visual rules: 320–600pt width, 40pt button bar, 12pt spacing, blue pulsed default, 50% dimming.
+- Linux gaps: sheet animation → custom widget; modal distinction → widget layer; progress updates → idle_add; suppression → dconf.
+
+**F14 — Platform event vocabulary:**
+- Unified event ids for pointer, key, window, app, menu, dialog, sheet, dnd, shell.
+- Renderer backends translate native → platform ids; behaviour records never mention X11/GDK.
+
+**Next:** Begin UI_PLATFORM contract authoring — convert F5–F14 findings into formal `component.*`, `behavior.*`, `animation.*`, `asset.*` records with schema validation. Priority: window chrome (traffic lights, title bar), push button, toolbar, sidebar, sheet container, menu bar.
