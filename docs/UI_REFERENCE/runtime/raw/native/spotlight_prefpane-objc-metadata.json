@@ -1,0 +1,817 @@
+{
+ "binary": "/home/builder/vmwork/opencode/slices/Spotlight_prefpane-x86_64",
+ "class_count": 6,
+ "classes": {
+  "SpotlightItem": {
+   "ivars": [
+    {
+     "name": "\b",
+     "type": null
+    },
+    {
+     "name": "\u0010",
+     "type": null
+    }
+   ],
+   "methods": [
+    {
+     "imp": "0x820d",
+     "selector": "enabled",
+     "types": "c16@0:8"
+    },
+    {
+     "imp": "0x821e",
+     "selector": "setEnabled:",
+     "types": "v20@0:8c16"
+    },
+    {
+     "imp": "0x822e",
+     "selector": "icon",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x823f",
+     "selector": "setIcon:",
+     "types": "v24@0:8@16"
+    }
+   ],
+   "name": "SpotlightItem",
+   "super": null
+  },
+  "SpotlightPref": {
+   "ivars": [
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\b\u0001",
+     "type": null
+    },
+    {
+     "name": "\u0010\u0001",
+     "type": null
+    },
+    {
+     "name": "\u0018\u0001",
+     "type": null
+    },
+    {
+     "name": " \u0001",
+     "type": null
+    },
+    {
+     "name": "(\u0001",
+     "type": null
+    },
+    {
+     "name": "0\u0001",
+     "type": null
+    },
+    {
+     "name": "8\u0001",
+     "type": null
+    },
+    {
+     "name": "@\u0001",
+     "type": null
+    },
+    {
+     "name": "H\u0001",
+     "type": null
+    },
+    {
+     "name": "P\u0001",
+     "type": null
+    },
+    {
+     "name": "R\u0001",
+     "type": null
+    },
+    {
+     "name": "T\u0001",
+     "type": null
+    },
+    {
+     "name": "V\u0001",
+     "type": null
+    },
+    {
+     "name": "X\u0001",
+     "type": null
+    },
+    {
+     "name": "\\\u0001",
+     "type": null
+    },
+    {
+     "name": "`\u0001",
+     "type": null
+    },
+    {
+     "name": "a\u0001",
+     "type": null
+    },
+    {
+     "name": "h\u0001",
+     "type": null
+    }
+   ],
+   "methods": [
+    {
+     "imp": "0x11c0",
+     "selector": "mainViewDidLoad",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x6239",
+     "selector": "dealloc",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x31e3",
+     "selector": "reflectUI",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x62df",
+     "selector": "_xcodePath",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x63c6",
+     "selector": "_hasDeveloperToolsInstalled",
+     "types": "c16@0:8"
+    },
+    {
+     "imp": "0x1484",
+     "selector": "_setupComboBox",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x1386",
+     "selector": "_setupConflictUI",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x186b",
+     "selector": "_getStoredSpotlightItems",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x6428",
+     "selector": "_defaultSpotlightItems",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x1ead",
+     "selector": "_getSpotlightItemIconsAndDisplayNames",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x669e",
+     "selector": "_getCategoryImages",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x311b",
+     "selector": "_getRealSpotlightHotKey",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x5b5b",
+     "selector": "_sendImmediatePrefChangeNotification",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x4bed",
+     "selector": "_sendCumulativePrefChangeNotification",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x59d7",
+     "selector": "_filteredArrayWithArray:",
+     "types": "@24@0:8@16"
+    },
+    {
+     "imp": "0x5934",
+     "selector": "_syncSpotlightItems",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x60e8",
+     "selector": "_syncUserAssignableKeys",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x3d03",
+     "selector": "_refreshConflicts",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x3de6",
+     "selector": "_findConflictingSymbolicHotKeyFor:",
+     "types": "I20@0:8I16"
+    },
+    {
+     "imp": "0x3c1c",
+     "selector": "_getSymbolicHotKeys",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x6d72",
+     "selector": "_xmlStringFromDictionary:",
+     "types": "@24@0:8@16"
+    },
+    {
+     "imp": "0x6e24",
+     "selector": "_removeOldIconCache",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x55d9",
+     "selector": "window",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x557b",
+     "selector": "undo",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x6e98",
+     "selector": "revealElementForKey:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x6f1b",
+     "selector": "prefIcon",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x6ffe",
+     "selector": "comboBox:objectValueForItemAtIndex:",
+     "types": "@32@0:8@16q24"
+    },
+    {
+     "imp": "0x1823",
+     "selector": "numberOfItemsInComboBox:",
+     "types": "q24@0:8@16"
+    },
+    {
+     "imp": "0x704e",
+     "selector": "comboBoxSelectionIsChanging:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x710d",
+     "selector": "comboBoxSelectionDidChange:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x7774",
+     "selector": "comboBox:indexOfItemWithStringValue:",
+     "types": "Q32@0:8@16@24"
+    },
+    {
+     "imp": "0x36e4",
+     "selector": "numberOfRowsInTableView:",
+     "types": "q24@0:8@16"
+    },
+    {
+     "imp": "0x5b99",
+     "selector": "tableViewSelectionDidChange:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x5816",
+     "selector": "tableView:setObjectValue:forTableColumn:row:",
+     "types": "v48@0:8@16@24@32q40"
+    },
+    {
+     "imp": "0x3716",
+     "selector": "tableView:objectValueForTableColumn:row:",
+     "types": "@40@0:8@16@24q32"
+    },
+    {
+     "imp": "0x7880",
+     "selector": "tableView:writeRowsWithIndexes:toPasteboard:",
+     "types": "c40@0:8@16@24@32"
+    },
+    {
+     "imp": "0x7941",
+     "selector": "tableView:validateDrop:proposedRow:proposedDropOperation:",
+     "types": "Q48@0:8@16@24q32Q40"
+    },
+    {
+     "imp": "0x7a31",
+     "selector": "tableView:acceptDrop:row:dropOperation:",
+     "types": "c48@0:8@16@24q32Q40"
+    },
+    {
+     "imp": "0x6092",
+     "selector": "willResignActive",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x3bbc",
+     "selector": "didSelect",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x41f7",
+     "selector": "tabView:willSelectTabViewItem:",
+     "types": "v32@0:8@16@24"
+    },
+    {
+     "imp": "0x4bdb",
+     "selector": "tabView:didSelectTabViewItem:",
+     "types": "v32@0:8@16@24"
+    },
+    {
+     "imp": "0x3a35",
+     "selector": "windowWillReturnFieldEditor:toObject:",
+     "types": "@32@0:8@16@24"
+    },
+    {
+     "imp": "0x7ba0",
+     "selector": "controlTextDidCancelEditing:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x7bdf",
+     "selector": "keyEditorFinished:forTextView:virtualKey:modifiers:",
+     "types": "v44@0:8@16@24@32I40"
+    },
+    {
+     "imp": "0x7faf",
+     "selector": "toggleSpotlightMenuHotKey:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x8046",
+     "selector": "toggleSpotlightWindowHotKey:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x80dd",
+     "selector": "gotoKbdPref:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x81b6",
+     "selector": "help:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x81fc",
+     "selector": "spotlightItems",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x1e55",
+     "selector": "setSpotlightItems:",
+     "types": "v24@0:8@16"
+    }
+   ],
+   "name": "SpotlightPref",
+   "super": null
+  },
+  "SpotlightPrefConfigKeyEditor": {
+   "ivars": [
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    },
+    {
+     "name": "\ufffd",
+     "type": null
+    }
+   ],
+   "methods": [
+    {
+     "imp": "0x5c29",
+     "selector": "_disableHotKeyOperationMode",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x6058",
+     "selector": "_restoreHotKeyOperationMode",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x4f73",
+     "selector": "_windowDidBecomeKeyNotification:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x4ee1",
+     "selector": "_windowDidResignKeyNotification:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x4030",
+     "selector": "initConfigKeyEditorWithMaster:",
+     "types": "@24@0:8@16"
+    },
+    {
+     "imp": "0x84f4",
+     "selector": "dealloc",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x5bae",
+     "selector": "becomeFirstResponder",
+     "types": "c16@0:8"
+    },
+    {
+     "imp": "0x6009",
+     "selector": "resignFirstResponder",
+     "types": "c16@0:8"
+    },
+    {
+     "imp": "0x5cb3",
+     "selector": "mouseDown:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x5d3f",
+     "selector": "keyDown:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x853e",
+     "selector": "validateMenuItem:",
+     "types": "c24@0:8@16"
+    },
+    {
+     "imp": "0x5cff",
+     "selector": "performKeyEquivalent:",
+     "types": "c24@0:8@16"
+    },
+    {
+     "imp": "0x8546",
+     "selector": "key",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x8557",
+     "selector": "modifier",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x857b",
+     "selector": "textField",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x40fa",
+     "selector": "setTextField:",
+     "types": "v24@0:8@16"
+    }
+   ],
+   "name": "SpotlightPrefConfigKeyEditor",
+   "super": null
+  },
+  "SpotlightPrefItemTable": {
+   "ivars": [
+    {
+     "name": "\ufffd\u0001",
+     "type": null
+    }
+   ],
+   "methods": [
+    {
+     "imp": "0x57a4",
+     "selector": "_highlightColorForCell:",
+     "types": "@24@0:8@16"
+    },
+    {
+     "imp": "0x8294",
+     "selector": "dragImageForRowsWithIndexes:tableColumns:event:offset:",
+     "types": "@48@0:8@16@24@32^{CGPoint=dd}40"
+    },
+    {
+     "imp": "0x38b4",
+     "selector": "drawGridInClipRect:",
+     "types": "v48@0:8{CGRect={CGPoint=dd}{CGSize=dd}}16"
+    },
+    {
+     "imp": "0x4117",
+     "selector": "resetCursorRects",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x5607",
+     "selector": "mouseDown:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x1374",
+     "selector": "setProposedDropRow:",
+     "types": "v20@0:8i16"
+    },
+    {
+     "imp": "0x83cf",
+     "selector": "accessibilityAttributeValue:",
+     "types": "@24@0:8@16"
+    }
+   ],
+   "name": "SpotlightPrefItemTable",
+   "super": null
+  },
+  "SpotlightPrefPrivacyController": {
+   "ivars": [
+    {
+     "name": "\b",
+     "type": null
+    },
+    {
+     "name": "\u0010",
+     "type": null
+    },
+    {
+     "name": "\u0018",
+     "type": null
+    },
+    {
+     "name": " ",
+     "type": null
+    },
+    {
+     "name": "(",
+     "type": null
+    },
+    {
+     "name": "0",
+     "type": null
+    },
+    {
+     "name": "8",
+     "type": null
+    }
+   ],
+   "methods": [
+    {
+     "imp": "0x4350",
+     "selector": "init",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x43ba",
+     "selector": "awakeFromNib",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x46dd",
+     "selector": "_getPrivateItems",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x85b1",
+     "selector": "_reloadExclusions:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x5469",
+     "selector": "_itemIsDuplicate:",
+     "types": "c24@0:8@16"
+    },
+    {
+     "imp": "0x4ab7",
+     "selector": "_addKeyEquivalentsToDeleteButton",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x85f3",
+     "selector": "_handlePrivacyError:forPath:",
+     "types": "c28@0:8i16@20"
+    },
+    {
+     "imp": "0x5184",
+     "selector": "_setPathsThatCouldBreakApps",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x5347",
+     "selector": "_checkPathsThatCouldBreakApps:",
+     "types": "c24@0:8@16"
+    },
+    {
+     "imp": "0x4fd3",
+     "selector": "_pathCouldBreakAppsAndUserCanceled:",
+     "types": "c24@0:8@16"
+    },
+    {
+     "imp": "0x4bd2",
+     "selector": "willSelect",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x61d8",
+     "selector": "willResignActive",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x4a7e",
+     "selector": "numberOfRowsInTableView:",
+     "types": "q24@0:8@16"
+    },
+    {
+     "imp": "0x898f",
+     "selector": "tableViewSelectionDidChange:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x4c38",
+     "selector": "tableView:objectValueForTableColumn:row:",
+     "types": "@40@0:8@16@24q32"
+    },
+    {
+     "imp": "0x8a02",
+     "selector": "tableView:validateDrop:proposedRow:proposedDropOperation:",
+     "types": "Q48@0:8@16@24q32Q40"
+    },
+    {
+     "imp": "0x8b18",
+     "selector": "tableView:acceptDrop:row:dropOperation:",
+     "types": "c48@0:8@16@24q32Q40"
+    },
+    {
+     "imp": "0x8dc6",
+     "selector": "tableView:toolTipForCell:rect:tableColumn:row:mouseLocation:",
+     "types": "@72@0:8@16@24^{CGRect={CGPoint=dd}{CGSize=dd}}32@40q48{CGPoint=dd}56"
+    },
+    {
+     "imp": "0x8df7",
+     "selector": "_tableDoubleClick:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x4d51",
+     "selector": "addItem:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x8f1b",
+     "selector": "openPanelFinished:returnCode:",
+     "types": "v28@0:8@16i24"
+    },
+    {
+     "imp": "0x9230",
+     "selector": "deleteItem:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x94f3",
+     "selector": "undoAddDelete:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x4b9c",
+     "selector": "privacyView",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x4bad",
+     "selector": "setParent:",
+     "types": "v24@0:8@16"
+    }
+   ],
+   "name": "SpotlightPrefPrivacyController",
+   "super": null
+  },
+  "SpotlightPrefPrivateItem": {
+   "ivars": [
+    {
+     "name": "\b",
+     "type": null
+    },
+    {
+     "name": "\u0010",
+     "type": null
+    },
+    {
+     "name": "\u0018",
+     "type": null
+    }
+   ],
+   "methods": [
+    {
+     "imp": "0x4861",
+     "selector": "initWithPath:",
+     "types": "@24@0:8@16"
+    },
+    {
+     "imp": "0x96cc",
+     "selector": "getIcon",
+     "types": "v16@0:8"
+    },
+    {
+     "imp": "0x5528",
+     "selector": "nameCompare:",
+     "types": "q24@0:8@16"
+    },
+    {
+     "imp": "0x9771",
+     "selector": "initWithCoder:",
+     "types": "@24@0:8@16"
+    },
+    {
+     "imp": "0x9862",
+     "selector": "encodeWithCoder:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x4d33",
+     "selector": "name",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x49ca",
+     "selector": "setName:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x5517",
+     "selector": "path",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x4975",
+     "selector": "setPath:",
+     "types": "v24@0:8@16"
+    },
+    {
+     "imp": "0x4d22",
+     "selector": "icon",
+     "types": "@16@0:8"
+    },
+    {
+     "imp": "0x4a1f",
+     "selector": "setIcon:",
+     "types": "v24@0:8@16"
+    }
+   ],
+   "name": "SpotlightPrefPrivateItem",
+   "super": null
+  }
+ },
+ "schema": "mavlinos.objc-model/1"
+}

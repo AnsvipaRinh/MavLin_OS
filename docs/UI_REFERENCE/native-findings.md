@@ -1197,3 +1197,136 @@ mv.event.shell.spotlight | mv.event.shell.launchpad | mv.event.shell.missioncont
 ```
 
 Renderer backends (X11/GDK) translate native events → these ids. Behaviour records never mention X11/GDK.
+
+## F15. Spotlight reverse engineering — partial (preference pane only, main search UI inaccessible) (2026-10-18)
+
+### F15.1 Scope and blocker
+
+**What was targeted:** The user-visible Spotlight search interface (the window invoked by ⌘Space, with search field, live results, preview pane, category filtering).
+
+**What was actually accessible:** Only the **Spotlight preference pane** (`/System/Library/PreferencePanes/Spotlight.prefPane`, 197 KB universal binary). The main Spotlight search UI bundle (`/System/Library/CoreServices/Spotlight.app` or equivalent) was **not found** in any extracted artifacts, and the Mavericks guest VM could not be booted to extract it.
+
+**Blockers:**
+- The guest disk image (`mavericks-hdd.raw`) contains the installed system but UEFI boot fails on QEMU (standard pc-q35/pc-i440fx machine types, with or without Apple SMC emulation) — the HFS+ partition is not recognized as a bootable Mac OS X volume.
+- The WSL2 kernel (6.18.54.1-microsoft-standard-WSL2) lacks the `hfsplus` module; the HFS+ partition cannot be mounted on the host.
+- The Mavericks installer DVD (`MavericksDVD.dmg`) contains an HFS+ payload that 7z can identify but not extract files from; `qemu-img` cannot convert the DMG.
+- No pre-extracted `spotlight.tar` exists in the artifact set (unlike `finder.tar`, `dock.tar`, `syspref.tar`, `calc.tar`, `textedit.tar`).
+
+**Consequence:** The main Spotlight search UI — its NIBs, native binary, runtime behavior, preview integration, and keyboard invocation — **cannot be reverse-engineered at this time**. Only the preference pane is documented here.
+
+### F15.2 Spotlight preference pane — NIB analysis (REA)
+
+**Artifact:** `Spotlight.prefPane/Contents/Resources/Base.lproj/SpotlightPref.nib` (decoded via REA `decode-interface-builder`).
+
+| Metric | Value |
+|---|---:|
+| Objects | 214 |
+| Connections | 19 |
+| Actions | 4 (all targeting `SpotlightPref` controller, object 2) |
+| Outlets | 19 |
+| Distinct IB classes | 4 |
+
+**Actions (target → selector):**
+| Source object | Selector | Purpose |
+|---|---|---|
+| 89 (checkbox) | `toggleSpotlightMenuHotKey:` | Enable/disable menu bar Spotlight hotkey |
+| 129 (checkbox) | `toggleSpotlightWindowHotKey:` | Enable/disable ⌘Space window hotkey |
+| 103, 141 (buttons) | `gotoKbdPref:` | Open Keyboard preferences (hotkey conflicts) |
+| 274 (button) | `help:` | Help button |
+
+**Outlets (19 total) from `SpotlightPref` (object 2):** Connected to table views, combo boxes, checkboxes, tab view, and text fields for the Search Results, Privacy, and Keyboard Shortcuts tabs.
+
+**IB Classes:** `NSApplication`, `NSImage`, `SpotlightPref`, `SpotlightPrefItemTable` (custom `NSTableView` subclass with drag highlight).
+
+### F15.3 Spotlight preference pane — Native architecture (machobjc)
+
+**Binary:** `Spotlight.prefPane/Contents/MacOS/Spotlight` (197 KB, universal x86_64 + i386, MH_BUNDLE). Readable — no high-entropy sections.
+
+**Classes (6):**
+
+| Class | Role | Key methods (selected) |
+|---|---|---|
+| `SpotlightPref` | Principal controller (`NSPreferencePane` subclass) | `mainViewDidLoad`, `didSelect`, `revealElementForKey:`, `willResignActive`, `reflectUI`, `_setupComboBox`, `_setupConflictUI`, `_getStoredSpotlightItems`, `_defaultSpotlightItems`, `_getSpotlightItemIconsAndDisplayNames`, `_getCategoryImages`, `_getRealSpotlightHotKey`, `_sendImmediatePrefChangeNotification`, `_sendCumulativePrefChangeNotification`, `_syncSpotlightItems`, `_syncUserAssignableKeys`, `_refreshConflicts`, `_findConflictingSymbolicHotKeyFor:`, `_getSymbolicHotKeys`, `toggleSpotlightMenuHotKey:`, `toggleSpotlightWindowHotKey:`, `gotoKbdPref:`, `help:`, `spotlightItems`, `setSpotlightItems:`, combo box & table view data source/delegate methods, tab view delegate |
+| `SpotlightPrefConfigKeyEditor` | Custom key-equivalent editor for hotkeys | `initConfigKeyEditorWithMaster:`, `becomeFirstResponder`, `resignFirstResponder`, `mouseDown:`, `keyDown:`, `validateMenuItem:`, `performKeyEquivalent:`, `key`, `modifier`, `textField`, `setTextField:`, `_disableHotKeyOperationMode`, `_restoreHotKeyOperationMode` |
+| `SpotlightPrefItemTable` | Custom `NSTableView` for category list | `_highlightColorForCell:`, `dragImageForRowsWithIndexes:tableColumns:event:offset:`, `drawGridInClipRect:`, `resetCursorRects`, `mouseDown:`, `setProposedDropRow:`, `accessibilityAttributeValue:` |
+| `SpotlightPrefPrivacyController` | Privacy tab controller (excluded locations) | `init`, `awakeFromNib`, `_getPrivateItems`, `_reloadExclusions:`, `_itemIsDuplicate:`, `_addKeyEquivalentsToDeleteButton`, `willSelect`, `willResignActive`, table view data source/delegate, drag/drop for privacy list, `_tableDoubleClick:`, `addItem:`, `openPanelFinished:returnCode:`, `deleteItem:`, `undoAddDelete:`, `privacyView`, `setParent:` |
+| `SpotlightPrefPrivateItem` | Model for privacy list items | `initWithPath:`, `getIcon`, `nameCompare:`, `initWithCoder:`, `encodeWithCoder:`, `name`, `setName:`, `path`, `setPath:`, `icon`, `setIcon:` |
+| `SpotlightItem` | Model for search category items | `enabled`, `setEnabled:`, `icon`, `setIcon:` |
+
+**NSPreferencePane protocol implementation (observed):**
+- `mainViewDidLoad` (IMP 0x11c0)
+- `didSelect` (IMP 0x3bbc)
+- `revealElementForKey:` (IMP 0x6e98)
+- `willResignActive` (IMP 0x6092)
+- `willSelect` / `didSelect` via tab view delegate (`tabView:willSelectTabViewItem:`, `tabView:didSelectTabViewItem:`)
+
+**Key architectural observations:**
+1. **Hotkey management** — `_getRealSpotlightHotKey`, `_getSymbolicHotKeys`, `_findConflictingSymbolicHotKeyFor:` read Carbon symbolic hotkeys (SymbolicHotKeys plist); `toggleSpotlightMenuHotKey:` / `toggleSpotlightWindowHotKey:` flip the enabled state.
+2. **Category list** — `_defaultSpotlightItems`, `_getStoredSpotlightItems`, `_getSpotlightItemIconsAndDisplayNames`, `_syncSpotlightItems` manage the ordered list of search categories (Applications, Documents, Folders, etc.) with per-category enable/disable and icons.
+3. **Privacy (exclusions)** — `SpotlightPrefPrivacyController` manages the Privacy tab: `_getPrivateItems`, `_reloadExclusions:`, drag/drop to add paths, duplicate detection (`_itemIsDuplicate:`), "paths that could break apps" warning (`_checkPathsThatCouldBreakApps:`), open panel integration (`openPanelFinished:returnCode:`).
+4. **Conflict detection** — `_refreshConflicts`, `_findConflictingSymbolicHotKeyFor:` detect hotkey conflicts with other apps and offer `gotoKbdPref:` to resolve.
+5. **Persistence** — `_sendImmediatePrefChangeNotification` / `_sendCumulativePrefChangeNotification` broadcast changes; `SpotlightPrefPrivateItem` implements `NSCoding` for privacy list archival.
+6. **Custom UI** — `SpotlightPrefConfigKeyEditor` is a custom `NSView` for capturing key equivalents (mouse/keyboard event handling, first responder management); `SpotlightPrefItemTable` customizes table row highlighting and drag image.
+
+### F15.4 Main Spotlight search UI — absent
+
+**Expected location (per Mavericks 10.9 documentation):** `/System/Library/CoreServices/Spotlight.app` or a dedicated bundle launched by `launchd` / `SystemUIServer`.
+
+**Evidence of absence:**
+- Not in `sys_apps/System/Library/CoreServices/` (only `Finder.app` extracted).
+- Not in any `*.tar` artifact (`finder.tar`, `dock.tar`, `syspref.tar`, `calc.tar`, `textedit.tar`).
+- Not in `sys_dock/`, `sys_syspref/`, `sys_panes/`, `sys_apps/` extracted trees.
+- Guest VM unbootable; runtime capture (`nsinspect`) impossible.
+- No Ghidra project for Spotlight search binary.
+
+**Inferred architecture (from preference pane + Finder/Dock evidence):**
+- The main search UI is a separate process (likely `Spotlight.app` or a `SystemUIServer` plugin) that:
+  - Registers the ⌘Space global hotkey via Carbon `RegisterEventHotKey` / symbolic hotkeys.
+  - Communicates with `mds`/`mdworker` (metadata server) for query results.
+  - Delegates preview to Quick Look (`QLPreviewPanel` / `QLPreviewView`).
+  - Presents results in a custom window with search field, result list, preview pane, category filtering.
+  - Is invoked by `SystemUIServer` menu extra click (Dock symbols show Carbon menu usage).
+- The preference pane (`SpotlightPref`) configures this separate UI indirectly via:
+  - Symbolic hotkey registry (read by both pref pane and search UI).
+  - Category enable/disable state (synced via `_syncSpotlightItems` / notifications).
+  - Privacy exclusions (written to `mds` index via `openPanelFinished:returnCode:` → `mdutil` / `mdimport`).
+- **No direct NIB, native binary, or runtime evidence** for the search UI itself.
+
+### F15.5 Linux implementation implications
+
+| Mavericks component | Linux equivalent | Gap |
+|---|---|---|
+| Spotlight search UI (window) | **Missing** — no RE evidence | Must be designed from HIG + inference; cannot be evidence-backed |
+| Global hotkey (⌘Space) | `mv_hotkeys_core` + XGrabKey daemon | Architectural limit: X11 has no global menu/hotkey focus (DECISIONS.md) |
+| Live results / mds index | `plocate` / custom indexer / `tracker-miners` | No evidence for result ranking, update latency, or category model |
+| Preview delegation | Quick Look (`mv-quicklook`) | Integration point unknown without search UI RE |
+| Category enable/disable | Configurable in Settings | Pref pane RE complete; sync mechanism to indexer unspecified |
+| Privacy exclusions | Configurable in Settings | Pref pane RE complete; `mds` exclusion API unknown |
+| Hotkey conflict resolution | `gotoKbdPref:` → Keyboard Settings | Cross-app conflict detection not evidence-backed |
+
+**Recommendation:** The Spotlight search UI cannot be implemented faithfully without the main binary. Options:
+1. **Defer** until guest VM boot is resolved (requires proper Mac QEMU emulation: `qemu-system-x86_64 -M mac99` / KVM + OSK + SMC, or host-side HFS+ access).
+2. **Design from inference** using F12 (menu bar), F13 (dialogs/sheets), F11 (window management) + HIG, but mark all behavior as `confidence: inferred`.
+3. **Substitute** with a simpler launcher (like `mv-launchpad` / `rofi` backend) and document as a known fidelity gap.
+
+### F15.6 Artifacts produced
+
+| Artifact | Path |
+|---|---|
+| Spotlight prefPane REA NIB decode | `docs/UI_REFERENCE/runtime/raw/rea/rea_spotlight_prefpane.json` |
+| Spotlight prefPane ObjC metadata | `docs/UI_REFERENCE/runtime/raw/native/spotlight_prefpane-objc-metadata.json` |
+| Spotlight prefPane binary slice | `/home/builder/vmwork/opencode/slices/Spotlight_prefpane-x86_64` |
+| NIB source | `/home/builder/vmwork/opencode/rea_min/spotlight_prefpane.app` |
+
+### F15.7 Remaining work (blocked)
+
+| Work | Blocker |
+|---|---|
+| Main Spotlight search UI NIB inventory | Binary inaccessible |
+| Main search UI native class/method inventory | Binary inaccessible |
+| Search session behavior (query → results → selection → preview) | Runtime capture impossible |
+| Preview pane integration (QLPreviewPanel) | Runtime capture impossible |
+| Keyboard navigation (arrows, Return, Escape, ⌘Space dismiss) | Runtime capture impossible |
+| Animation timings (fade-in, result stagger, preview slide) | Runtime capture impossible |
+| `mds`/`mdworker` indexer communication | Separate daemon, no RE started |
+

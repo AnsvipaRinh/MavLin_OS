@@ -1775,3 +1775,45 @@ suite passes; `lint-tests.py` 0 errors.
 - Renderer backends translate native → platform ids; behaviour records never mention X11/GDK.
 
 **Next:** Begin UI_PLATFORM contract authoring — convert F5–F14 findings into formal `component.*`, `behavior.*`, `animation.*`, `asset.*` records with schema validation. Priority: window chrome (traffic lights, title bar), push button, toolbar, sidebar, sheet container, menu bar.
+
+## Session 2026-10-18 (continued) — Spotlight reverse engineering (F15)
+
+**Zone:** `docs/UI_REFERENCE/native-findings.md`, `docs/UI_REFERENCE/runtime/raw/rea/rea_spotlight_prefpane.json`, `docs/UI_REFERENCE/runtime/raw/native/spotlight_prefpane-objc-metadata.json`, `tests/uiref/test_spotlight_prefpane.py`. OID: `20261018-opencode-spotlight-re`.
+
+**Objective:** Begin Spotlight reverse engineering (P0 #2). Verify actual architecture and evidence before making assumptions.
+
+**What was discovered:**
+
+The main Spotlight search UI (window invoked by ⌘Space) is **inaccessible**:
+- Not in any pre-extracted bundle (`finder.tar`, `dock.tar`, `syspref.tar`, `calc.tar`, `textedit.tar`)
+- Guest VM (`mavericks-hdd.raw`) cannot boot on QEMU (UEFI fails to recognize HFS+ partition as bootable; tried pc-q35, pc-i440fx, with/without Apple SMC emulation)
+- Host WSL2 kernel lacks `hfsplus` module; HFS+ partition cannot be mounted
+- MavericksDVD.dmg contains HFS+ payload but 7z/qemu-img cannot extract files from it
+- No `spotlight.tar` exists in artifact set
+
+**What was successfully analyzed (Spotlight preference pane only):**
+
+1. **NIB analysis (REA)** — `SpotlightPref.nib` (Base.lproj): 214 objects, 19 connections, 4 actions, 19 outlets, 37 IB classes.
+   - Actions: `toggleSpotlightMenuHotKey:`, `toggleSpotlightWindowHotKey:`, `gotoKbdPref:`, `help:` — all targeting `SpotlightPref` controller.
+   - 19 outlets to table views, combo boxes, checkboxes, tab view, text fields.
+   - Custom classes: `SpotlightPref`, `SpotlightPrefItemTable` (custom `NSTableView`).
+
+2. **Native binary analysis (machobjc)** — 197 KB universal binary (readable, no high-entropy sections): 6 classes, ~120 methods.
+   - `SpotlightPref` (principal `NSPreferencePane`): Implements `mainViewDidLoad`, `didSelect`, `revealElementForKey:`, `willResignActive`, hotkey toggles, category management (`_getStoredSpotlightItems`, `_defaultSpotlightItems`, `_syncSpotlightItems`), conflict detection (`_getRealSpotlightHotKey`, `_findConflictingSymbolicHotKeyFor:`), privacy sync (`_sendImmediatePrefChangeNotification`).
+   - `SpotlightPrefConfigKeyEditor`: Custom key-equivalent editor for hotkeys (event handling, first responder, validation).
+   - `SpotlightPrefItemTable`: Custom `NSTableView` with drag highlight.
+   - `SpotlightPrefPrivacyController`: Privacy tab — exclusion list management, drag/drop, duplicate detection, "paths that could break apps" warnings, open panel integration.
+   - `SpotlightPrefPrivateItem` / `SpotlightItem`: Model classes with `NSCoding` support.
+
+3. **Main Spotlight search UI** — completely absent. No NIB, no native binary, no runtime capture. Architecture inferred from preference pane + Finder/Dock evidence only.
+
+**Artifacts produced:**
+- `docs/UI_REFERENCE/runtime/raw/rea/rea_spotlight_prefpane.json`
+- `docs/UI_REFERENCE/runtime/raw/native/spotlight_prefpane-objc-metadata.json`
+- Binary slice: `/home/builder/vmwork/opencode/slices/Spotlight_prefpane-x86_64`
+
+**Test:** `tests/uiref/test_spotlight_prefpane.py` asserts REA coverage (214 objects, 19 connections, 37 classes), 4 action selectors targeting controller object 2, 6 native classes with required NSPreferencePane/hotkey/privacy methods.
+
+**Blocker:** Main Spotlight search UI binary inaccessible until guest VM boot is resolved (requires proper Mac QEMU emulation: `qemu-system-x86_64 -M mac99` with OSK/SMC, or host-side HFS+ access via kernel module/FUSE).
+
+**Next:** Resolve guest VM boot (Mac99 machine type, OSK, SMC) OR defer Spotlight search UI and proceed to Launchpad / Mission Control / Notification Center which may have accessible binaries.
