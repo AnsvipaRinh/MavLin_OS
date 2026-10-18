@@ -733,3 +733,71 @@ view controllers.
   record the custom class of the owner, so the owner class is inferred from the
   outlet/selector names, not read from the archive.
 - The `Widget Installer.app` document under `Resources/` was not decoded.
+
+## F7. Preference-pane inventory (2026-10-18)
+
+Source: `/System/Library/PreferencePanes` in the Mavericks guest, extracted
+read-only. Inventory: `runtime/raw/native/pane-inventory.json` (41 entries).
+
+### F7.1 The 41 count is 34 top-level + 7 nested sub-panes
+
+`find -name '*.prefPane'` returns 41 directories, but only **34** sit directly in
+`/System/Library/PreferencePanes`. The other **7** are child panes bundled inside
+their parents' `Contents/Resources`:
+
+| Parent | Nested sub-panes |
+|---|---|
+| `DateAndTime.prefPane` | `ClockPref`, `DateTime`, `TimeZone` |
+| `DesktopScreenEffectsPref.prefPane` | `DesktopPictures`, `ScreenEffects` |
+| `Keyboard.prefPane` | `IntlKeyboard`, `IntlTexts` |
+
+So the "41 panes" is a directory count, not 41 user-visible top-level settings
+categories. The inventory records each entry's `level` so the two groups are not
+conflated. Both earlier numbers were incomplete: 34 missed the children, and a
+raw `find` over-counts categories.
+
+### F7.2 Host-facing contract recovered
+
+Across the 41 principal classes, the recurring selectors are the
+`NSPreferencePane` protocol:
+
+| Selector | Panes implementing |
+|---|---:|
+| `mainViewDidLoad` | 39 |
+| `didSelect` / `willSelect` | 26 / 26 |
+| `revealElementForKey:` | 23 |
+| `willUnselect` / `didUnselect` | 20 / 16 |
+| `handleOpenParameter:` | 15 |
+| `runSelfTest:duration:` | 12 |
+| `reflectEditableState` / `shouldUnselect` | 9 / 9 |
+| `initWithBundle:` / `finalize` | 9 / 9 |
+| `authorizationString` / `authorizationRights` | 7 / 5 |
+
+The pane `Info.plist` carries the host-facing metadata keys
+`NSPrincipalClass`, `NSMainNibFile`, `NSPrefPaneIconFile`,
+`NSPrefPaneSearchParameters`, `NSPrefPaneRemoteViewClass`,
+`NSPrefPaneIOServiceToMatch`. The last two matter for loading: a pane may expose
+a **remote view class** (`AccountsPrefRemoteViewService`) instead of a local
+view, which is what the host's `_canLoadPrefPane:` checks via
+`remoteViewClass` (F5.2). This connects the pane side to the host side.
+
+### F7.3 Native class footprint
+
+Every pane binary is x86_64 and carries one principal class plus at most one
+helper (e.g. `DateAndTime` has 2 classes; most have 1). The principal class name
+matches `NSPrincipalClass` in the bundle.
+
+### F7.4 Tooling note
+
+`tools/uiref/machobjc.py` writes at most 4000 characters to stdout when no
+`--out` is supplied (`print(text[:4000])`), which silently truncates the JSON for
+any binary with more than a handful of classes. Use `--out FILE`; the inventory
+above was produced that way.
+
+### F7.5 Unresolved
+
+- The panes' NIBs were not decoded; only their `NSMainNibFile` names are recorded.
+- No pane was run, so the protocol selectors are static evidence, not
+  runtime-confirmed behaviour.
+- `NSPrefPaneRemoteViewClass` panes (remote-view service) were not investigated
+  further; the XPC service binaries were not extracted.
