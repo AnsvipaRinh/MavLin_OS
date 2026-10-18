@@ -660,3 +660,76 @@ missing-name condition is per-binary, not an OS-wide or tool-wide problem.
   class-method listing, so it is likely a category method; the two categories were
   not resolved.
 - Runtime confirmation of the load/switch sequence (nsinspect) was not performed.
+
+## F6. System Preferences and Dock NIB analysis (2026-10-18, REA)
+
+REA 6.4.0, `decode-interface-builder` on **minimal `.app` copies** (English NIBs
+only) per `docs/UI_REFERENCE/rea-toolchain.md`. Raw output:
+`/home/builder/vmwork/opencode/rea_syspref.json` (evidence_id
+`ev_f08945496695b5359d7c505f2bd3613f2c5082ef18bdd3922d8387f27f2db27e`),
+`/home/builder/vmwork/opencode/rea_dock.json` (evidence_id
+`ev_2ff1a8205e4826ddf2f03bc0c66ec7e6843dc145516cab1b05a31e673739fa64`).
+Compact summary: `/home/builder/vmwork/opencode/rea_summary.json`.
+
+### F6.1 The "33 / 35 NIBs" are mostly localized duplicates
+
+`find -name '*.nib'` counts 33 for System Preferences and 35 for Dock, but almost
+all of them are the same document repeated per `.lproj`. The distinct English
+documents are:
+
+| Bundle | English document | Objects | Connections | Actions | Outlets |
+|---|---|---:|---:|---:|---:|
+| System Preferences | `English.lproj/MainMenu.nib` | 162 | 46 | 26 | 20 |
+| Dock `com.apple.dock.ecti.xpc` | `Contents/Resources/MainMenu.nib` | 311 | 89 | 83 | 6 |
+| Dock `com.apple.dock.extra.xpc` | `Contents/Resources/MainMenu.nib` | 12 | 0 | 0 | 0 |
+
+Analyzing the localized copies would multiply identical work by ~30 with no new
+architecture, so only the English documents were decoded. This is the documented
+minimal-copy procedure, not a filtering shortcut.
+
+### F6.2 System Preferences menu NIB ↔ native correlation **[NIB]+[DEC]**
+
+The NIB action selectors match the decompiled native methods of F5 exactly:
+
+| NIB action | Destination object | Native owner |
+|---|---|---|
+| `showAllMenuAction:`, `showAllInCategoriesMenuAction:`, `showAllAlphabeticallyMenuAction:`, `searchMenuAction:`, `organizeFavorites:` | `NSCustomObject` (archiveUID 9) | `NSPrefPanesManager` |
+| `install:`, `cancel:`, `installLocationDidChange:` | `NSCustomObject` (archiveUID 34) | `NSPrefInstallAssistant` |
+| `traverseHistory:` | `NSCustomObject` (archiveUID 67) | history manager |
+| `orderFrontStandardAboutPanel:` | `NSCustomObject` (archiveUID 2) | `PreferencesApp` |
+
+The outlet names are the native instance-variable names, which ties the NIB
+objects to the classes recovered in F5.1:
+
+`mPrefPanesManager`, `mPPToolbarManager`, `_ppHistoryManager`, `_installAssistant`,
+`_paneMenu`, `_showAllMenu`, `_showAllMenuItem`, `_helpParentMenu`,
+`mAssistantWindow`, `mCaptionText`, `mInstallLocationMatrix`, `mNoteText`,
+`mOptionsView`, `mShowAllSegment`, `mToolbarHistoryControl`, `mBackMenuItem`,
+`mForwardMenuItem`, `mHistoryControl`.
+
+This confirms the F5 architecture from the interface side: the host owns one
+manager object plus a toolbar manager, a history manager and an install
+assistant, and the menu items are wired to them by selector.
+
+### F6.3 Dock NIBs describe menus, not the Dock UI
+
+The Dock's two decoded documents are standard application menus
+(`arrangeInFront:`, `openDocument:`, `print:`, `saveDocument:`, spelling and
+editing items) plus one `NSTextField` with `fieldEditor`/`delegate` outlets. The
+`com.apple.dock.extra.xpc` document has 12 objects and **zero** connections and
+actions.
+
+**Inference, not a NIB fact:** the Dock bar itself (icons, magnification,
+indicators) is therefore **not** NIB-driven; it is constructed in code. The NIBs
+only supply the XPC services' menus. This is consistent with F4, where the Dock
+binary's class surface is dominated by drawing and tile classes rather than
+view controllers.
+
+### F6.4 Unresolved for NIBs
+
+- `hierarchy_complete` is `false` for every document (`archive_hierarchy_not_decoded`);
+  object containment is only partially recoverable from the decoded graph.
+- The destination objects are `NSCustomObject` placeholders; the NIB does not
+  record the custom class of the owner, so the owner class is inferred from the
+  outlet/selector names, not read from the archive.
+- The `Widget Installer.app` document under `Resources/` was not decoded.
