@@ -567,3 +567,96 @@ dominant structural fact to reconstruct next.
 for System Preferences and unresolved names for Dock, exactly as it does for
 Finder. That difference is now a documented, testable expectation rather than an
 open defect.
+
+## F5. System Preferences host architecture (2026-10-16, decompilation pass)
+
+Binary: `/Applications/System Preferences.app/Contents/MacOS/System Preferences`
+(universal; x86_64 slice SHA256
+`ce3efe53ddbee8c01aa39b30d2e348906c8c769355ef149fbf4af464f8275222`, 209536 bytes
+extracted to `slices/SystemPreferences-x86_64`). Ghidra project `sysprefs`.
+Raw evidence: `/home/builder/vmwork/opencode/objc_sysprefs.json`,
+`syspref_decomp.json`, `sysprefs_*.c`.
+
+Counts **[BIN]**: 18 named classes, 301 methods, 301 mapped to Ghidra functions.
+Class names resolve normally, which made this binary the control for F4: the
+missing-name condition is per-binary, not an OS-wide or tool-wide problem.
+
+### F5.1 Class inventory and responsibilities
+
+| Class | Methods | Role (from selector surface) |
+|---|---:|---|
+| `PreferencesApp` | 11 | application delegate: `currentPanel`, `preferencesWindow`, `showAll`, `relaunchInMode:` |
+| `NSPrefPanesManager` | 100 | core manager: discovery, loading, switching, search, history, crash handling |
+| `PreferencePanesCenter` | 10 | pane registry/cache: `sharedCenter`, `orderedPrefPanes`, `indexOfPrefPaneWithBundlePath:`, `prefPaneBundleAtIndex:`, `prefPaneBundleWithIdentifier:`, `removePrefPaneFromCache:`, `updateCacheFileWithPrefPane:` |
+| `NSPrefWindow` | 14 | host window; `crossFadeView`, `sendEvent:`, arrow-key navigation (`moveUp:`/`moveDown:`/`moveLeft:`/`moveRight:`) |
+| `NSPPToolbarManager` | 16 | toolbar items and customization |
+| `NSSystemPrefsToolbar` | 1 | toolbar subclass |
+| `NSPrefPaneGroup` | 6 | one row in the pane outline (`initWithIdentifier:`, `dealloc`) |
+| `NSDraggableButton` / `NSDraggableButtonCell` | 14 / 1 | draggable outline cell used for the pane list |
+| `NSFlippedView` | 17 | flipped container for the sidebar/content split |
+| `NPPrefLayoutManager` | 11 | sidebar/content layout |
+| `NSPrefSearchManager` / `NSPrefSearchField` / `SpotlightView` / `NSSearchResultTableCell` | 17 / 6 / 17 / 1 | Spotlight-style search over panes |
+| `NSPrefHistoryManager` | 12 | back/forward history (`addToHistory:`, `removeFromHistory:`) |
+| `NSPrefInstallAssistant` | 14 | install/uninstall of third-party panes (`install:shared:`, `_installPathForExtension:shared:`, `beginForWindow:path:completionHandler:`) |
+| `SelfTestController` | 31 | internal self-test harness |
+
+### F5.2 Verified lifecycle (Ghidra decompilation **[DEC]**)
+
+1. **Discovery.** `orderedPrefPaneBundles` → `PreferencePanesCenter sharedCenter`
+   → `orderedPrefPanes`. The host never scans the filesystem itself; the
+   `PreferencePanesCenter` cache is authoritative.
+2. **Selection.** `switchToPane:` reads the identifier off the pane object, then
+   `PreferencePanesCenter sharedCenter` → `pathOfPreferenceWithIdentifier:` →
+   `indexOfPrefPaneWithBundlePath:`, falling back to
+   `indexOfPrefPaneWithIdentifier:`. If both return `NSNotFound`
+   (`0x7fffffffffffffff`) it logs
+   `"Could not find preference with identifier: %@"` and returns — a verified
+   early-exit error path. Otherwise `prefPaneBundleAtIndex:` and the work is
+   deferred with `dispatch_after(dispatch_get_main_queue(), …)`.
+3. **Instantiation.** `asynchronousOpenPrefPane:` also defers through
+   `dispatch_after(…, main_q, …)`, i.e. pane creation is asynchronous by design.
+4. **Validation.** `_canLoadPrefPane:` first asks the pane for
+   `remoteViewClass`; if absent it builds `NSURL fileURLWithPath:` from the pane
+   `path` and calls `CFBundleCopyExecutableArchitecturesForURL`, enumerating and
+   calling `unsignedIntegerValue`. A separate log string
+   `"dlopen preflight failed with %@"` shows the check is a `dlopen_preflight`
+   gate. **[DEC]**
+5. **Insertion.** `finishUpPlacingPrefView` reads `[prefPanesWindow contentView]`
+   and the `frame` of the content view and of `_currentPrefView`, then continues
+   into history/focus handling. **[DEC]**
+6. **Teardown / availability.** `prefPaneUnavailable:` reads `[note userInfo]`,
+   looks up `bundle_id`, resolves `prefPaneBundleWithIdentifier:`, and if the
+   bundle is visible calls `setVisible:NO`, `_populatePrefPaneMenu`,
+   `constructShowAllViews`, and — when the removed pane is the current one —
+   `showAll:`. **[DEC]**
+7. **Crash handling.** `_ppDidCrashNotification:` reads `bundleIdentifier` from
+   the notification `userInfo`, compares it with the current pane identifier, and
+   on match builds a localized message via `NSBundle mainBundle`
+   `localizedStringForKey:value:table:` (`Crash_description`) before removing the
+   pane and switching with `setCurrentPreferenceWithoutPrejudice:`. **[DEC]**
+8. **Persistence.** `window:willEncodeRestorableState:` encodes
+   `[currentPrefPane identifier]` under the key
+   **`selected_preference_pane_bundleID`**, then, if
+   `_currentPrefPaneInstance respondsToSelector:@selector(encodeRestorableState:)`,
+   forwards `encodeRestorableState:` to it. Selection therefore survives relaunch
+   by bundle identifier. **[DEC]**
+
+### F5.3 Notification and persistence contract
+
+| Surface | Value |
+|---|---|
+| Availability notification key | `bundle_id` |
+| Crash notification key | `bundleIdentifier` |
+| Restorable state key | `selected_preference_pane_bundleID` |
+| Deferral primitive | `dispatch_after(0, dispatch_get_main_queue(), block)` |
+
+### F5.4 Unresolved for System Preferences
+
+- The pane side of the contract is only partly covered: `remoteViewClass`,
+  `path`, and `identifier` are consumed by the host, but the `prefPaneBundle*`
+  methods on `PreferencePanesCenter` and the pane principal-class protocol were
+  not decompiled in this pass.
+- `pathOfPreferenceWithIdentifier:` is called by `switchToPane:` but is not in the
+  class-method listing, so it is likely a category method; the two categories were
+  not resolved.
+- Runtime confirmation of the load/switch sequence (nsinspect) was not performed.

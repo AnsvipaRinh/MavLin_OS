@@ -1625,3 +1625,23 @@ cleanup guard, human formatting, and an end-to-end CLI run. Full sweep passes:
 storage, objc_classnames, native_evidence, rea_evidence, nsinspect; `lint-tests.py`
 0 errors; `lint-agent-permissions.py` clean after extending the orchestrator
 allow-list with the read-only audit.
+
+### 2026-10-18 — System Preferences host architecture documented (Phase A)
+
+Preserved and documented the System Preferences host analysis that existed only as
+local artifacts: class inventory (18 named classes / 301 methods, all resolved and
+mapped), the decompiled lifecycle (`orderedPrefPaneBundles`, `switchToPane:`,
+`asynchronousOpenPrefPane:`, `_canLoadPrefPane:`, `finishUpPlacingPrefView`,
+`prefPaneUnavailable:`, `_ppDidCrashNotification:`,
+`window:willEncodeRestorableState:`), the `PreferencePanesCenter` cache contract,
+and the notification/persistence keys (`bundle_id`, `bundleIdentifier`,
+`selected_preference_pane_bundleID`). Added as finding F5 in
+`docs/UI_REFERENCE/native-findings.md` with provenance, binary SHA256, addresses
+and an explicit unresolved list. The raw artifacts stay in
+`/home/builder/vmwork/opencode` and are referenced, not copied.
+
+Dock baseline (283 classes / 4854 methods / 656 Ghidra functions; class names
+unresolved) is recorded in F4 and unchanged.
+
+No NIB analysis, pane inventory or Dock subsystem map was performed in this pass;
+those are the remaining phases.
