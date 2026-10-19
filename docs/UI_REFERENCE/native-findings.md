@@ -1318,15 +1318,87 @@ Renderer backends (X11/GDK) translate native events → these ids. Behaviour rec
 | Spotlight prefPane binary slice | `/home/builder/vmwork/opencode/slices/Spotlight_prefpane-x86_64` |
 | NIB source | `/home/builder/vmwork/opencode/rea_min/spotlight_prefpane.app` |
 
-### F15.7 Remaining work (blocked)
+### F15.7 Spotlight prefPane implementation-ready analysis
+
+The Spotlight preference pane (`Spotlight.prefPane`) was successfully extracted via
+REA. Binary: `/home/builder/vmwork/opencode/slices/Spotlight_prefpane-x86_64`.
+ObjC metadata: 6 classes, 108 methods total.
+
+**Class inventory:**
+
+| Class | Role | Methods |
+|---|---|---|
+| `SpotlightItem` | Model: enabled flag + icon per search category | 4 |
+| `SpotlightPref` | Main prefpane view controller | 51 |
+| `SpotlightPrefConfigKeyEditor` | Custom NSControl for capturing hotkey combinations | 16 |
+| `SpotlightPrefItemTable` | NSTableView subclass for category list with DnD reordering | 7 |
+| `SpotlightPrefPrivacyController` | Privacy tab: path exclusion list management | 25 |
+| `SpotlightPrefPrivateItem` | Model: excluded path with name/icon | 11 |
+
+**Key selectors for implementation:**
+
+- `mainViewDidLoad` → loads stored items, sets up combo box + table, loads category icons
+- `reflectUI` → pushes model state into controls
+- `_getStoredSpotlightItems` → reads `NSUserDefaults` key for category enabled state
+- `_defaultSpotlightItems` → returns hardcoded default category list
+- `_getSpotlightItemIconsAndDisplayNames` → maps category IDs to (icon, label)
+- `_getCategoryImages` → returns array of category icon images
+- `_getRealSpotlightHotKey` → reads current hotkey from symbolic hotkey system
+- `_sendImmediatePrefChangeNotification` → posts `NSUserDefaults` change notification
+- `_sendCumulativePrefChangeNotification` → batched change notification
+- `_syncSpotlightItems` / `_syncUserAssignableKeys` → writes model → defaults
+- `_refreshConflicts` / `_findConflictingSymbolicHotKeyFor:` → cross-app hotkey conflict detection
+- `_getSymbolicHotKeys` → reads all registered symbolic hotkeys
+- `toggleSpotlightMenuHotKey:` / `toggleSpotlightWindowHotKey:` → enable/disable hotkeys
+- `gotoKbdPref:` → opens Keyboard preferences
+- `comboBox:objectValueForItemAtIndex:` / `numberOfItemsInComboBox:` → combo box data source
+- `comboBoxSelectionIsChanging:` / `comboBoxSelectionDidChange:` → combo box delegate
+- `numberOfRowsInTableView:` / `tableView:objectValueForTableColumn:row:` → table data source
+- `TableView:writeRowsWithIndexes:toPasteboard:` / `acceptDrop:row:dropOperation:` → drag-and-drop reordering
+- `_addKeyEquivalentsToDeleteButton` → adds key equivalents to delete button in privacy list
+- `_handlePrivacyError:forPath:` → error handling for privacy path addition
+- `_setPathsThatCouldBreakApps` / `_checkPathsThatCouldBreakApps:` → warns about breaking app paths
+- `openPanelFinished:returnCode:` → handles NSOpenPanel result for adding exclusion path
+
+**prefPane UI structure (from selectors + NIB):**
+
+1. **Search Categories tab**: combo box (category groups) + table view (individual categories with enable checkboxes + icons)
+2. **Privacy tab**: table view (excluded paths) + Add/Remove buttons + path validation
+3. **Hotkey tab**: two `SpotlightPrefConfigKeyEditor` controls (menu hotkey + window hotkey) + conflict detection
+
+**Implementation plan for MavLinOS Spotlight prefPane:**
+
+1. Create `SpotlightItem` model class with `enabled` and `icon` properties
+2. Create `SpotlightPref` controller that loads/stores category state via `dconf`
+3. Use `GtkTreeView` for category list with checkbox + icon columns
+4. Use `GtkComboBoxText` for category group selection
+5. Implement hotkey capture via `mv.hotkey` layer (record key combo on focus)
+6. Implement privacy path list with `GtkTreeView` + Add/Remove + path validation
+7. Implement conflict detection by querying `mv.hotkey` registry
+
+### F15.8 Remaining work (blocked)
 
 | Work | Blocker |
 |---|---|
-| Main Spotlight search UI NIB inventory | Binary inaccessible |
+| Main Spotlight search UI NIB inventory | Binary inaccessible (decmpfs compressed, resource fork unreadable without booted macOS) |
 | Main search UI native class/method inventory | Binary inaccessible |
 | Search session behavior (query → results → selection → preview) | Runtime capture impossible |
 | Preview pane integration (QLPreviewPanel) | Runtime capture impossible |
 | Keyboard navigation (arrows, Return, Escape, ⌘Space dismiss) | Runtime capture impossible |
 | Animation timings (fade-in, result stagger, preview slide) | Runtime capture impossible |
 | `mds`/`mdworker` indexer communication | Separate daemon, no RE started |
+
+**Note on decmpfs extraction attempts:**
+
+All extraction approaches for the main Spotlight binary have been exhausted:
+
+| Approach | Result |
+|---|---|
+| libguestfs `getxattr` | Reads decmpfs header only (type=4, size=18240); resource fork data unreadable |
+| VM boot (OpenCore 0.9.0 + QEMU TCG) | OpenCore loads config but macOS kernel does not boot (reboots after entry selection) |
+| Manual HFS+ B-tree parser | B-tree traversal produces incorrect record offsets; CNID 244251 confirmed present by libguestfs but not found in traversal |
+| Brute-force disk scan for decmpfs magic | No valid header found (all matches had comp_type=10, logical_size=562945658454016 = false positives) |
+| `hfsprogs` installation | No root access in build container |
+
+**To unblock:** Either (a) boot the Mavericks VM successfully (requires working QEMU+OVMF+OpenCore chain with proper CPU emulation and macOS kernel loading), or (b) obtain a user-space HFS+ resource fork reader (e.g., `hfsexplorer` or custom Python parser with correct B-tree traversal).
 

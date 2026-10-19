@@ -2,14 +2,18 @@
 
 **Current project status — 2026-10-16:** research-first reverse engineering and specification. The project is not yet a stable, installable OS release. The historical session log below records earlier prototype work; the latest authoritative reference state is in `docs/UI_REFERENCE/`.
 
-## Current verified milestones (2026-10-16)
+## Current verified milestones (2026-10-19)
 
 - **Static analysis:** REA 6.4.0 is the primary agent-facing tool for real Mavericks bundles, NIBs, keyed archives, object graphs, and connections.
 - **Native analysis:** Ghidra 12.1.2 + PyGhidra + JDK 21 are operational. Reusable headless scripts extract Objective-C classes, selectors, IMPs, Ghidra function mappings, decompilations, and relevant call relationships.
 - **Runtime analysis:** nsinspect/mvprobe capture real AppKit windows, view hierarchies, controls, menus, and runtime states in the OS X 10.9 QEMU guest.
 - **TextEdit:** 8 NIBs decoded; 15 classes, 1 category, and 253/253 methods mapped. The ruler is controlled through `DocumentWindowController.showRuler:` and NSTextView, not a TextEdit `toggleRuler:` implementation or a separate NSRulerView.
 - **Calculator:** main binary 217/217 methods; BasicAndSci plug-in 153/153; Hexadecimal plug-in 77/77. Plugin discovery, the CalculatorView protocol, view injection, and mode switching have been investigated.
-- **Evidence architecture:** REA/NIB, native binary, and runtime observations are cross-referenced while retaining separate provenance and confidence. REA and native evidence tests and lint were reported green in the latest completed iteration.
+- **System Preferences:** 18 classes/301 methods mapped; 41 panes inventoried (34 top-level + 7 nested); NSPreferencePane contract lifecycle documented.
+- **Dock:** 420 WindowServer/CGS symbols, 68 LaunchServices, 56 CoreDrag mapped from __LINKEDIT; Dock is code-drawn (NIBs contain XPC menus only).
+- **Finder:** 74 NIBs decoded, 8492 nodes, 2555 edges, 951 actions, 1604 outlets; major NIBs documented (MenuBar.nib 408 actions, FFKMenuBar.nib 27, ViewOptionsWindow.nib, PreferencesWindow.nib).
+- **Spotlight prefpane:** 6 classes/114 methods mapped (SpotlightItem, SpotlightPref, SpotlightPrefConfigKeyEditor, SpotlightPrefItemTable, SpotlightPrefPrivacyController, SpotlightPrefPrivateItem); implementation-ready analysis complete.
+- **Evidence architecture:** REA/NIB, native binary, and runtime observations are cross-referenced while retaining separate provenance and confidence. REA and native evidence tests and lint green.
 
 ## Current focus
 

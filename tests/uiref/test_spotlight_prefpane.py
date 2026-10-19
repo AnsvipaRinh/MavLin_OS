@@ -105,6 +105,23 @@ pp_required = {"init", "awakeFromNib", "_getPrivateItems", "_reloadExclusions:",
 pp_missing = pp_required - pp_methods
 check(not pp_missing, f"SpotlightPrefPrivacyController missing methods: {pp_missing}")
 
+# Verify total method count
+total_methods = sum(len(c.get("methods", [])) for c in objc.get("classes", {}).values())
+check(total_methods == 114, f"total methods {total_methods} != 114")
+
+# SpotlightItem must have enabled/icon properties
+si_methods = {m["selector"] for m in objc["classes"]["SpotlightItem"]["methods"]}
+si_required = {"enabled", "setEnabled:", "icon", "setIcon:"}
+si_missing = si_required - si_methods
+check(not si_missing, f"SpotlightItem missing methods: {si_missing}")
+
+# SpotlightPrefPrivateItem must have path/name/icon properties
+sppi_methods = {m["selector"] for m in objc["classes"]["SpotlightPrefPrivateItem"]["methods"]}
+sppi_required = {"initWithPath:", "name", "setName:", "path", "setPath:", "icon", "setIcon:",
+                 "initWithCoder:", "encodeWithCoder:"}
+sppi_missing = sppi_required - sppi_methods
+check(not sppi_missing, f"SpotlightPrefPrivateItem missing methods: {sppi_missing}")
+
 # Evidence files exist
 check(REA_FILE.exists(), "REA evidence file missing")
 check(OBJC_FILE.exists(), "ObjC metadata file missing")
