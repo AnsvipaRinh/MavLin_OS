@@ -13,6 +13,10 @@
 - **Dock:** 420 WindowServer/CGS symbols, 68 LaunchServices, 56 CoreDrag mapped from __LINKEDIT; Dock is code-drawn (NIBs contain XPC menus only).
 - **Finder:** 74 NIBs decoded, 8492 nodes, 2555 edges, 951 actions, 1604 outlets; major NIBs documented (MenuBar.nib 408 actions, FFKMenuBar.nib 27, ViewOptionsWindow.nib, PreferencesWindow.nib).
 - **Spotlight prefpane:** 6 classes/114 methods mapped (SpotlightItem, SpotlightPref, SpotlightPrefConfigKeyEditor, SpotlightPrefItemTable, SpotlightPrefPrivacyController, SpotlightPrefPrivateItem); implementation-ready analysis complete.
+- **Framework reconstruction (new, 2026-10-19):** installed Mavericks frameworks extracted read-only from the guest HFS+ volume (AppKit, Foundation, CoreGraphics, CoreFoundation, QuartzCore, Carbon/HIToolbox, libobjc) and indexed with a new `tools/uiref/framework_index.py` Mach-O/ObjC pipeline. AppKit: 1179 classes / 94 categories / 63080 defined syms; Foundation: 584/137; CoreGraphics: 15290 defined syms incl. 1616 `_CGS*`, of which AppKit imports 287 (the WindowServer client boundary). CoreGraphics is pure C (no `WindowServer.framework` dependency — the WindowServer boundary is the `_CGS*` C API). Responder-chain hierarchy confirmed (`NSResponder`→`NSApplication`/`NSWindow`/`NSView`→`NSControl`→`NSButton`; `NSPanel`→`NSWindow`). Ghidra 12.1.2 decompiled 8 AppKit call paths with concrete confirmed callees: `nextEventMatchingMask:`→`__DPSNextEvent`; `setLevel:`→`_CGSSetWindowLevelForGroup`+`_CGSWindowAnimationChangeLevel`; `setNeedsDisplay:`→`__HICocoaViewSetNeedsDisplay`+`__NSWindowsTrackDirtyRegions`; `sendEvent:`→`_GetEventDispatcherTarget`+`_NSAccessibilityPostNotification`; window creation installs Carbon event handlers (`_GetApplicationEventTarget`/`_InstallEventHandler` — HIToolbox bridge).
+- **Finder/Dock metadata anomaly (re-validated):** Finder/Dock are valid complete Mach-Os but `__text`/`__objc_methname`/`__objc_classname` are entropy 8.00 (scrambled at rest); packed size ≈ size (not decmpfs), no `LC_ENCRYPTION_INFO`. Runtime structure (class/method ownership by address) is recoverable; names are not. Documented gap, non-blocking.
+
+**Center of investigation:** moved off SystemUIServer extraction — the framework/CGS boundary and application-to-screen execution paths are now reconstructed from the installed binaries; docs consolidated in `docs/UI_REFERENCE/architecture/` and `docs/FRAMEWORK_ARCHITECTURE_FINAL_REPORT.md`.
 - **Evidence architecture:** REA/NIB, native binary, and runtime observations are cross-referenced while retaining separate provenance and confidence. REA and native evidence tests and lint green.
 
 ## Current focus
@@ -1821,3 +1825,66 @@ The main Spotlight search UI (window invoked by ⌘Space) is **inaccessible**:
 **Blocker:** Main Spotlight search UI binary inaccessible until guest VM boot is resolved (requires proper Mac QEMU emulation: `qemu-system-x86_64 -M mac99` with OSK/SMC, or host-side HFS+ access via kernel module/FUSE).
 
 **Next:** Resolve guest VM boot (Mac99 machine type, OSK, SMC) OR defer Spotlight search UI and proceed to Launchpad / Mission Control / Notification Center which may have accessible binaries.
+
+---
+
+## Session 2026-10-19 — Native Mavericks framework reconstruction (framework/CGS boundary)
+
+**Zone:** `tools/uiref/framework_index.py` (new), `tools/uiref/slice_fat.py` (new),
+`tests/uiref/test_framework_index.py` (new),
+`docs/UI_REFERENCE/architecture/{platform-model,cgs-windowserver,execution-paths}.md` (new),
+`docs/FRAMEWORK_ARCHITECTURE_FINAL_REPORT.md` (new), `docs/PROGRESS.md`.
+
+**Objective:** Change the center of investigation off SystemUIServer extraction.
+Reconstruct the installed Mavericks framework implementation (AppKit, Foundation,
+CoreGraphics, CoreFoundation, QuartzCore, Carbon/HIToolbox, libobjc), the
+application-to-screen execution paths, and the CGS/WindowServer boundary;
+independently validate the Finder/Dock metadata anomaly; cross-validate against
+Finder, Dock, TextEdit, Calculator, System Preferences.
+
+**Host-side filesystem access:** verified read-only access to the Mavericks HFS+
+volume via 7z on a loop device (`/dev/loop3` at offset 411648*512 of
+`vmwork/mavericks-hdd.raw`); frameworks extracted as thin x86_64 slices.
+
+**Pipeline:** `framework_index.py` parses Mach-O load commands (dependencies),
+symbol table (defined/undefined), ObjC runtime metadata (classes, categories,
+methods with selector/types/IMP, ivars) with correct segment-aware
+vmaddr→fileoff (fixes the vmaddr==fileoff assumption in the legacy
+`machobjc.py`). Produces one JSON index per framework.
+
+**Key results:**
+- AppKit 1179 classes/94 cats/63080 defined syms; Foundation 584/137;
+  CoreGraphics 15290 defined syms (1616 `_CGS*`); CoreFoundation 112/3;
+  QuartzCore 81/31; HIToolbox 22/1; libobjc 4/0.
+- AppKit imports 287 `_CGS*` (windows, surfaces, spaces, ordering groups,
+  tracking rects, events, displays, dock rect, shadows, animation) — the
+  WindowServer client boundary; no `WindowServer.framework` dependency.
+- Responder-chain hierarchy confirmed. `NSTextView.setRulerVisible:` /
+  `setUsesInspectorBar:`/`setUsesRuler:` confirmed as real 10.9 API (resolves
+  earlier open question).
+- Ghidra 12.1.2 decompiled 8 AppKit call paths with concrete callees:
+  `nextEventMatchingMask:`→`__DPSNextEvent`; `setLevel:`→`_CGSSetWindowLevelForGroup`
+  + `_CGSWindowAnimationChangeLevel`; `setNeedsDisplay:`→`__HICocoaViewSetNeedsDisplay`
+  + `__NSWindowsTrackDirtyRegions`; `sendEvent:`→`_GetEventDispatcherTarget`;
+  window creation installs Carbon event handlers (`_GetApplicationEventTarget`/
+  `_InstallEventHandler` — HIToolbox bridge).
+
+**Finder/Dock anomaly (independently re-validated):** valid complete Mach-Os but
+`__text`/`__objc_methname`/`__objc_classname` entropy 8.00 (scrambled at rest);
+packed size ≈ size (not decmpfs); no `LC_ENCRYPTION_INFO`. Structure recoverable
+by address; names not. Requires booted guest or decryption oracle — documented
+gap, non-blocking.
+
+**Tests:** `tests/uiref/test_framework_index.py` — 63/63 pass. `lint-tests.py`:
+0 errors on the new test. `py_compile`/`bash -n`/`ast` clean on all new files.
+
+**Docs:** architecture reference (`platform-model.md`, `cgs-windowserver.md`,
+`execution-paths.md`) + final technical report
+(`docs/FRAMEWORK_ARCHITECTURE_FINAL_REPORT.md`). PROVENANCE preserved:
+NIB/[BIN]/[RT]/[INFERRED] convention kept; native `mv.*` abstractions explicitly
+labeled as project abstractions, never Apple APIs.
+
+**Next:** (a) runtime-validation loop via booted guest / `nsinspect` captures;
+(b) map recovered contracts to Linux (`mv.window`, `mv.application`,
+responder-chain forwarding, `mv.menubar`); (c) continue through remaining
+P0/P1 surfaces per section 10.

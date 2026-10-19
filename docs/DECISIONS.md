@@ -2136,3 +2136,22 @@ automatic deletion in response to a threshold. A crossed threshold must trigger
 classification and a decision, never silent data loss. Reclaiming Windows space
 requires compaction, which needs WSL shutdown, so it is reported rather than
 performed.
+
+---
+
+## 2026-10-19 — Framework/CGS boundary replaces SystemUIServer as the investigation center
+
+**Context:** The prior assignment centered on SystemUIServer extraction and repeated F8–F16 findings without new architectural call paths or a resource-fork reader. The mission redirects the investigation to the installed Mavericks framework implementation (AppKit, Foundation, CoreGraphics, CoreFoundation, QuartzCore, Carbon/HIToolbox, libobjc), the application-to-screen execution paths, and the CGS/WindowServer boundary.
+
+**Decisions:**
+- Stop making SystemUIServer extraction the critical path. The framework/CGS boundary and application-to-screen paths are reconstructed from the installed binaries (read-only HFS+ access via 7z on a loop device), not from SystemUIServer.
+- Adopt a systematic framework investigation pipeline: new `tools/uiref/framework_index.py` (Mach-O load commands, symbol table, ObjC runtime metadata with correct segment-aware vmaddr→fileoff, fixing the vmaddr==fileoff assumption in the legacy `machobjc.py`) + thin x86_64 slices via `tools/uiref/slice_fat.py`.
+- Treat the Finder/Dock metadata anomaly as a documented, non-blocking parallel workstream: independently re-validated as valid complete Mach-Os whose `__text`/`__objc_methname`/`__objc_classname` are entropy 8.00 (scrambled at rest); packed size ≈ size (not decmpfs); no `LC_ENCRYPTION_INFO`; runtime structure recoverable by address, names not. Requires a booted guest or decryption oracle.
+- Preserve provenance: NIB/[BIN]/[RT]/[INFERRED] convention kept; native macOS contracts quoted as selector/API names; project `mv.*` abstractions explicitly labeled and never presented as Apple APIs.
+
+**Evidence:**
+- AppKit 1179 classes/94 cats/63080 defined syms; Foundation 584/137; CoreGraphics 15290 defined syms (1616 `_CGS*`, 287 imported by AppKit); CoreFoundation 112/3; QuartzCore 81/31; HIToolbox 22/1; libobjc 4/0.
+- Confirmed decompiled callees: `nextEventMatchingMask:`→`__DPSNextEvent`; `setLevel:`→`_CGSSetWindowLevelForGroup`+`_CGSWindowAnimationChangeLevel`; `setNeedsDisplay:`→`__HICocoaViewSetNeedsDisplay`+`__NSWindowsTrackDirtyRegions`; `sendEvent:`→`_GetEventDispatcherTarget`; window creation installs Carbon event handlers (`_GetApplicationEventTarget`/`_InstallEventHandler`).
+- `tests/uiref/test_framework_index.py`: 63/63 pass; lint-tests 0 errors on new test.
+
+**Verification:** `py_compile`/`bash -n`/`ast` clean on all new files; `lint-tests.py` reports 0 errors repo-wide (39 pre-existing warnings in unrelated files).
